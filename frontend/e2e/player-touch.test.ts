@@ -35,9 +35,9 @@ it(`${viewport.width}×${viewport.height} 触摸：控制条、横滑预览、�
     assert.equal(await page.evaluate('fixture.pauses()'), 0);
     await touch('touchStart', viewport.width * .1); await touch('touchMove', viewport.width * .6);
     assert.equal(await page.evaluate('fixture.video.currentTime'), 1200);
-    assert.match(await page.locator('.vjs-peach-gesture').innerText(), /25:00/);
-    await touch('touchEnd'); assert.ok(Math.abs(Number(await page.evaluate('fixture.video.currentTime')) - 1500) < .01);
-    await tap(right); await tap(right); assert.ok(Math.abs(Number(await page.evaluate('fixture.video.currentTime')) - 1510) < .01);
+    assert.match(await page.locator('.vjs-peach-gesture').innerText(), /30:00/);
+    await touch('touchEnd'); assert.ok(Math.abs(Number(await page.evaluate('fixture.video.currentTime')) - 1800) < .01);
+    await tap(right); await tap(right); assert.ok(Math.abs(Number(await page.evaluate('fixture.video.currentTime')) - 1810) < .01);
     await touch('touchStart'); await page.waitForTimeout(550);
     assert.equal(await page.evaluate('fixture.video.playbackRate'), 2);
     await touch('touchEnd'); assert.equal(await page.evaluate('fixture.video.playbackRate'), 1);

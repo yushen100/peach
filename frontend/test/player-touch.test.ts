@@ -49,12 +49,12 @@ describe('播放器按实际输入区分触摸和鼠标', () => {
     pointer('pointerdown', 10, 10, 'touch', 2, button); pointer('pointerup', 10, 10, 'touch', 2, button);
     button.click(); expect(action).toHaveBeenCalledOnce(); abort.abort();
   });
-  it('横滑一屏跳十分钟，预览期间不定位，松手提交，前后均限制在片内', () => {
+  it('横滑一屏跳二十分钟，预览期间不定位，松手提交，前后均限制在片内', () => {
     const { video, pointer, feedback, abort } = fixture(true);
     pointer('pointerdown', 100); pointer('pointermove', 600);
-    expect(video.currentTime).toBe(1200); expect(feedback().textContent).toContain('25:00');
-    expect(feedback().textContent).toContain('05:00'); pointer('pointerup', 600);
-    expect(video.currentTime).toBe(1500); expect(video.paused).toBe(true);
+    expect(video.currentTime).toBe(1200); expect(feedback().textContent).toContain('30:00');
+    expect(feedback().textContent).toContain('10:00'); pointer('pointerup', 600);
+    expect(video.currentTime).toBe(1800); expect(video.paused).toBe(true);
     pointer('pointerdown', 900); pointer('pointermove', -10000); pointer('pointerup', -10000);
     expect(video.currentTime).toBe(0);
     pointer('pointerdown', 100); pointer('pointermove', 20000); pointer('pointerup', 20000);

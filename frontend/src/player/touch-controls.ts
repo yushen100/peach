@@ -98,7 +98,7 @@ export function wirePlayerInteractions(root: HTMLElement, video: HTMLVideoElemen
         : full && current.x - root.getBoundingClientRect().left > current.width / 2 ? 'volume' : 'scroll';
     }
     if (current.axis === 'seek') {
-      event.preventDefault(); current.to = clamp(current.from + dx / current.width * 600) ?? undefined;
+      event.preventDefault(); current.to = clamp(current.from + dx / current.width * 1200) ?? undefined;
       if (current.to === undefined) { tell('时长尚未取得，暂时无法跳转', true); return }
       const delta = current.to - current.from;
       tell(`${delta >= 0 ? '快进' : '快退'} ${clock(Math.abs(delta))}　${clock(current.to)} / ${clock(duration())} · 松手跳转`, true);
