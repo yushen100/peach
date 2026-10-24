@@ -18,6 +18,17 @@
 .video-js>video-player>media-container{display:block;width:100%;height:100%;position:absolute;inset:0}
 .video-js :is(hlsjs-video,dash-video){display:contents}
 .video-js .vjs-tech{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.video-js .vjs-tech{touch-action:pan-y pinch-zoom}
+.video-js:is(.vjs-fullscreen,.vjs-full-window,[data-peach-fullscreen]) .vjs-tech,.video-js :fullscreen .vjs-tech,body.vjs-full-window .video-js .vjs-tech{touch-action:none}
+.video-js .vjs-peach-gesture{position:absolute;z-index:5;inset:35% auto auto 50%;transform:translateX(-50%);max-width:90%;width:max-content;padding:12px 16px;border-radius:var(--control-radius);background:rgba(0,0,0,.72);color:#fff;font-size:16px;line-height:1.5;text-align:center;pointer-events:none;font-variant-numeric:tabular-nums}
+.video-js .vjs-peach-gesture[hidden]{display:none}
+.video-js[data-player-input="touch"] .vjs-button{min-width:44px;min-height:44px}
+.video-js[data-player-input="touch"] .vjs-peach-gesture{user-select:none}
+[data-stage-media] .video-js[data-player-input="touch"] .vjs-control-bar{height:63px}
+[data-stage-media] .video-js[data-player-input="touch"] .vjs-control-bar>.vjs-play-control{flex-basis:44px;width:44px;height:44px}
+[data-stage-media] .video-js[data-player-input="touch"] :is(.vjs-peach-right-controls,.vjs-peach-right-controls>.vjs-control){height:44px!important}
+[data-stage-media] .video-js[data-player-input="touch"] .vjs-progress-control{top:-22px;height:28px}
+[data-stage-media] .video-js[data-player-input="touch"] .vjs-progress-control .vjs-progress-holder{height:28px}
 .video-js .vjs-control-bar{display:flex;position:absolute;bottom:0;left:0;width:100%;height:3em;z-index:2}
 .video-js .vjs-picture-in-picture-control[data-peach-pip-supported][hidden]{display:block!important}
 .video-js .vjs-picture-in-picture-control[aria-disabled="true"]{color:rgba(255,255,255,.45);cursor:not-allowed}
