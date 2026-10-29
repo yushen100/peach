@@ -192,6 +192,34 @@ class WindowsBackendTests(unittest.TestCase):
         self.assertEqual(attempts[1].before_input, ())
         self.assertEqual([attempt.name for attempt in HardwareEncoder("amf", "1").attempts("vc1")], ["amf"])
 
+    def test_qsv_keeps_frames_on_the_intel_gpu_when_the_session_allows(self):
+        hardware = HardwareTranscoder()
+        with patch("peach.hardware_transcode.subprocess.run", side_effect=self._machine(("h264_qsv",))):
+            self.assertEqual(hardware.encoders(Path("ffmpeg")), (HardwareEncoder("qsv", gpu_frames=True),))
+        attempts = HardwareEncoder("qsv", gpu_frames=True).attempts("hevc")
+        self.assertEqual([attempt.name for attempt in attempts], ["qsv-full", "d3d11va-qsv", "qsv"])
+        full = " ".join(attempts[0].before_input + attempts[0].output)
+        self.assertIn("d3d11va=peach_d3d11:,vendor=0x8086", full)
+        self.assertIn("-hwaccel_output_format d3d11", full)
+        self.assertIn("hwmap=derive_device=qsv,vpp_qsv=format=nv12", full)
+        self.assertNotIn("-pix_fmt", attempts[0].output)
+        self.assertEqual(attempts[1].before_input, ("-hwaccel", "d3d11va"))
+        self.assertEqual(attempts[2].before_input, ())
+        self.assertEqual([attempt.name for attempt in HardwareEncoder("qsv", gpu_frames=True).attempts("vc1")],
+                         ["qsv"])
+
+    def test_qsv_without_a_derived_session_decodes_to_memory_first(self):
+        hardware = HardwareTranscoder()
+        machine = self._machine(("h264_qsv",))
+
+        def session_zero(command, **kwargs):
+            if "qsv=peach_qsv@peach_d3d11" in command:
+                return subprocess.CompletedProcess(command, 1, stderr=b"Error creating a MFX session: -9.")
+            return machine(command, **kwargs)
+        with patch("peach.hardware_transcode.subprocess.run", side_effect=session_zero):
+            self.assertEqual(hardware.encoders(Path("ffmpeg")), (HardwareEncoder("qsv"),))
+        self.assertEqual([attempt.name for attempt in HardwareEncoder("qsv").attempts("hevc")], ["d3d11va-qsv", "qsv"])
+
     def test_d3d11_decode_feeds_libx264_when_no_encoder_works(self):
         with tempfile.TemporaryDirectory() as directory, \
                 patch("peach.hardware_transcode.subprocess.run",

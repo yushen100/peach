@@ -65,6 +65,17 @@ def _capped_windows_output(backend: str, max_height: int) -> tuple[str, ...]:
         "-c:v", "h264_qsv", "-preset", "veryfast")
     return ("-vf", f"scale={scale_size(max_height)}", *encoder, *rate, "-b:v", target, "-maxrate", peak,
             "-pix_fmt", "nv12")
+#: 帧全程留在 Intel 显卡：D3D11VA 解码后映射成 QSV 帧，`vpp_qsv` 转 NV12（含 10 位）再编码。
+#: 按厂商号选卡，混合显卡机器不用试序号；解码池默认定长，AV1 不加余量会报 surface pool 用尽。
+_QSV_FULL_DEVICES = (
+    "-init_hw_device", "d3d11va=peach_d3d11:,vendor=0x8086",
+    "-init_hw_device", "qsv=peach_qsv@peach_d3d11", "-filter_hw_device", "peach_qsv",
+)
+_QSV_FULL_DECODE = (
+    *_QSV_FULL_DEVICES, "-hwaccel", "d3d11va", "-hwaccel_device", "peach_d3d11", "-hwaccel_output_format", "d3d11",
+    "-extra_hw_frames", "16",
+)
+_QSV_FULL_OUTPUT = ("-vf", "hwmap=derive_device=qsv,vpp_qsv=format=nv12", *_WINDOWS_ENCODER_OUTPUT["qsv"][:-2])
 
 
 def videotoolbox_decode_options(codec: str) -> tuple[str, ...]:
@@ -177,6 +188,8 @@ class HardwareAttempt:
 class HardwareEncoder:
     backend: str
     device: str = ""
+    #: QSV 整链探测通过：解码、缩放与编码都在 Intel 显卡上。
+    gpu_frames: bool = False
 
     def attempts(self, codec: str, max_height: int = 0) -> tuple[HardwareAttempt, ...]:
         """依次尝试的命令片段；最后一项总是软件解码，探测靠它喂合成画面。
@@ -196,6 +209,13 @@ class HardwareEncoder:
             output = (_capped_windows_output(self.backend, max_height) if capped
                       else _WINDOWS_ENCODER_OUTPUT[self.backend])
             software_decode = HardwareAttempt(self.backend, (), output)
+            if self.backend == "qsv":
+                if codec not in D3D11_DECODE_CODECS:
+                    return (software_decode,)
+                fallback = (HardwareAttempt("d3d11va-qsv", d3d11va_decode_options(codec), output), software_decode)
+                if not self.gpu_frames:
+                    return fallback
+                return (HardwareAttempt("qsv-full", _QSV_FULL_DECODE, _QSV_FULL_OUTPUT), *fallback)
             decode = d3d11va_decode_options(codec, self.device) if self.device else ()
             if not decode:
                 return (software_decode,)
@@ -301,6 +321,8 @@ class HardwareTranscoder:
                     if self._probe(ffmpeg, encoder):
                         if encoder.backend == "amf":
                             encoder = self._amf_adapter(ffmpeg, encoder)
+                        elif encoder.backend == "qsv" and self._qsv_gpu_frames(ffmpeg):
+                            encoder = HardwareEncoder("qsv", gpu_frames=True)
                         available.append(encoder)
                         # 一个可用 VAAPI 节点足以服务这条链，避免重复尝试同类设备。
                         if encoder.backend == "vaapi":
@@ -333,6 +355,15 @@ class HardwareTranscoder:
                     *_SYNTHETIC_FRAME, "-vf", "format=nv12,hwupload", *output)):
                 return HardwareEncoder("amf", str(index))
         return encoder
+
+    @staticmethod
+    def _qsv_gpu_frames(ffmpeg: Path) -> bool:
+        """在 Intel 显卡上建得出 D3D11 派生的 QSV 设备。
+
+        Windows 服务与 SSH 所在的 Session 0 里会报 `MFX session: -9`，只剩解码回内存的写法可用。
+        """
+        return _run_probe(ffmpeg, "qsv d3d11va", (
+            *_QSV_FULL_DEVICES, *_SYNTHETIC_FRAME, *_WINDOWS_ENCODER_OUTPUT["qsv"]))
 
     @staticmethod
     def _probe(ffmpeg: Path, encoder: HardwareEncoder) -> bool:
