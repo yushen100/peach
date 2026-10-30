@@ -55,6 +55,7 @@ from .web_entity import (
     q_suggest,
     suggest_kinds,
     w_entity_alias,
+    w_entity_merge,
     w_entity_name,
 )
 from .web_downloads import (q_downloads, w_download_cancel, w_download_postprocess,
@@ -522,6 +523,7 @@ POST_HANDLERS = {
     "/api/performer/delete": w_performer_delete,
     "/api/entity-batch": w_entity_batch,
     "/api/entity-alias": w_entity_alias,
+    "/api/entity-merge": w_entity_merge,
     "/api/face-models": _post_face_models,
 }
 

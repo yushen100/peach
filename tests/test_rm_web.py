@@ -1828,7 +1828,7 @@ class WebDataTests(unittest.TestCase):
             "/api/follow/author-alias", "/api/follow/creator", "/api/follow/schedule",
             "/api/follow/schedule/run", "/api/feeds/schedule", "/api/feeds/schedule/run",
             "/api/taste/refresh", "/api/taste/source", "/api/settings",
-            "/api/entity-name", "/api/entity-alias",
+            "/api/entity-name", "/api/entity-alias", "/api/entity-merge",
             "/api/organize/preview", "/api/organize/apply", "/api/organize/rollback",
             "/api/feeds/check", "/api/feeds/source", "/api/feeds/discovery",
             "/api/wants", "/api/face-models",
@@ -3000,18 +3000,152 @@ class WebDataTests(unittest.TestCase):
                 "kind": "performer", "name": "飯岡かなこ", "alias": "森泽佳奈", "remove": True})
         self.assertIn("森泽佳奈", self._names_of()[1])
 
-    def test_a_name_that_already_belongs_to_another_entity_is_refused(self):
-        """撞上另一条实体的统称时只报冲突：那是该合并还是同名不同人，得人来判。"""
+    def test_a_name_that_already_belongs_to_another_entity_is_reported_for_merge(self):
+        """撞上另一条实体的统称时不写别名，但把两边身份交给界面发起成对合并。"""
         self._performer_with_two_names()
         con = sqlite3.connect(self.db_path)
         con.execute(
             "INSERT INTO entity(id,kind,canonical_name,normalized_name,created_at,updated_at)"
             " VALUES(23,'performer','三上悠亜','三上悠亜','2026-01-01','2026-01-01')")
         con.commit(); con.close()
-        with self.assertRaises(ValueError):
-            rm_web.w_entity_alias(self.contract, {
-                "kind": "performer", "name": "飯岡かなこ", "alias": "三上悠亜"})
+        result = rm_web.w_entity_alias(self.contract, {
+            "kind": "performer", "name": "飯岡かなこ", "alias": "三上悠亜"})
+        self.assertFalse(result["added"])
+        self.assertEqual(
+            (result["conflict"]["current"]["id"], result["conflict"]["other"]["id"]),
+            (20, 23))
+        self.assertEqual(
+            (result["conflict"]["current"]["works"], result["conflict"]["other"]["works"]),
+            (1, 0))
         self.assertEqual(sorted(self._names_of()[1]), ["森泽佳奈"])
+
+    def test_alias_conflicts_outside_the_two_merge_kinds_stay_refused(self):
+        with self.contract.write_transaction() as connection:
+            connection.execute(
+                "INSERT INTO entity(id,kind,canonical_name,normalized_name,created_at,updated_at)"
+                " VALUES(24,'creator','Another Creator','another creator','2026-01-01','2026-01-01')")
+        with self.assertRaisesRegex(ValueError, "another creator is already named"):
+            rm_web.w_entity_alias(self.contract, {
+                "kind": "creator", "name": "Canonical Creator", "alias": "Another Creator"})
+
+    def _two_entities_for_merge(self, kind: str, left: tuple[int, str],
+                                right: tuple[int, str]) -> None:
+        with self.contract.write_transaction() as connection:
+            connection.executemany(
+                "INSERT INTO entity(id,kind,canonical_name,normalized_name,created_at,updated_at)"
+                " VALUES(?,?,?,?,'2026-01-01','2026-01-01')",
+                [(left[0], kind, left[1], rm_web.normalize_entity_name(left[1])),
+                 (right[0], kind, right[1], rm_web.normalize_entity_name(right[1]))],
+            )
+            connection.execute(
+                "INSERT INTO asset_entity(asset_id,entity_id,role,source,confidence)"
+                " VALUES(1,?,?,'test',1.0)", (left[0], kind))
+            connection.execute(
+                "INSERT INTO asset_entity(asset_id,entity_id,role,source,confidence)"
+                " VALUES(2,?,?,'test',1.0)", (right[0], kind))
+
+    def test_merging_a_colliding_performer_keeps_old_names_and_redirects_old_ids(self):
+        self._two_entities_for_merge(
+            "performer", (30, "有岡みう"), (31, "有冈みう"))
+        with self.contract.write_transaction() as connection:
+            connection.executemany(
+                "INSERT INTO asset_tag(asset_id,tag,source) VALUES(?,?,'performer')",
+                [(1, "演员:有岡みう"), (2, "演员:有冈みう")],
+            )
+        conflict = rm_web.w_entity_alias(self.contract, {
+            "kind": "performer", "name": "有岡みう", "alias": "有冈みう"})
+        self.assertEqual(conflict["conflict"]["other"]["canonical_name"], "有冈みう")
+
+        merged = rm_web.w_entity_merge(self.contract, {
+            "kind": "performer", "target_id": 30, "source_id": 31})
+        self.assertEqual(merged["target"]["canonical_name"], "有岡みう")
+        self.assertEqual(merged["source"]["canonical_name"], "有冈みう")
+        self.assertTrue((Path(self.db_path).parent / merged["backup"]).is_file())
+        with closing(sqlite3.connect(self.db_path)) as connection:
+            self.assertEqual(
+                connection.execute(
+                    "SELECT count(DISTINCT asset_id) FROM asset_entity WHERE entity_id=30"
+                ).fetchone()[0], 2)
+            self.assertEqual(
+                connection.execute(
+                    "SELECT target_id FROM entity_redirect WHERE old_id=31").fetchone()[0],
+                30)
+            self.assertEqual(
+                connection.execute(
+                    "SELECT alias FROM entity_alias WHERE entity_id=30"
+                    " AND source='user:identity-merge:performer'").fetchone()[0],
+                "有冈みう")
+            self.assertEqual(
+                connection.execute(
+                    "SELECT DISTINCT tag FROM asset_tag WHERE asset_id IN (1,2)"
+                    " AND tag IN ('演员:有岡みう','演员:有冈みう')"
+                ).fetchall(),
+                [("演员:有岡みう",)])
+            self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
+        self.assertEqual(
+            rm_web.q_entity(self.contract, {
+                "kind": "performer", "name": "有冈みう"})["id"], 30)
+
+    def test_merging_a_colliding_studio_rewrites_the_flat_studio_field(self):
+        self._two_entities_for_merge(
+            "studio", (32, "Prestige"), (33, "プレステージ"))
+        with self.contract.write_transaction() as connection:
+            connection.execute("UPDATE asset SET studio='Prestige' WHERE id=1")
+            connection.execute("UPDATE asset SET studio='プレステージ' WHERE id=2")
+        conflict = rm_web.w_entity_alias(self.contract, {
+            "kind": "studio", "name": "Prestige", "alias": "プレステージ"})
+        self.assertEqual(conflict["conflict"]["other"]["id"], 33)
+
+        merged = rm_web.w_entity_merge(self.contract, {
+            "kind": "studio", "target_id": 32, "source_id": 33})
+        self.assertEqual(merged["flat_rewritten"], 1)
+        with closing(sqlite3.connect(self.db_path)) as connection:
+            self.assertEqual(
+                connection.execute(
+                    "SELECT DISTINCT studio FROM asset WHERE id IN (1,2)").fetchall(),
+                [("Prestige",)])
+            self.assertEqual(
+                connection.execute(
+                    "SELECT json_extract(field_owners,'$.studio') FROM asset WHERE id=2"
+                ).fetchone()[0],
+                "user:entity-merge")
+            self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
+
+    def test_entity_merge_refuses_cross_kind_and_third_party_name_ambiguity(self):
+        with self.contract.write_transaction() as connection:
+            connection.executemany(
+                "INSERT INTO entity(id,kind,canonical_name,normalized_name,created_at,updated_at)"
+                " VALUES(?,?,?,?,'2026-01-01','2026-01-01')",
+                [(34, "performer", "甲", rm_web.normalize_entity_name("甲")),
+                 (35, "studio", "乙", rm_web.normalize_entity_name("乙")),
+                 (36, "performer", "丙", rm_web.normalize_entity_name("丙")),
+                 (37, "performer", "旧名", rm_web.normalize_entity_name("旧名")),
+                 (38, "performer", "丁", rm_web.normalize_entity_name("丁"))],
+            )
+            connection.execute(
+                "INSERT INTO entity_alias VALUES(38,'旧名','旧名','test',1.0)")
+        with self.assertRaisesRegex(ValueError, "同一类"):
+            rm_web.w_entity_merge(self.contract, {
+                "kind": "performer", "target_id": 34, "source_id": 35})
+        with self.assertRaisesRegex(ValueError, "第三条"):
+            rm_web.w_entity_merge(self.contract, {
+                "kind": "performer", "target_id": 36, "source_id": 37})
+        self.assertEqual(list(Path(self.db_path).parent.glob("ledger.pre-entity-merge-*.db")), [])
+
+    def test_entity_merge_backup_failure_leaves_both_entities_untouched(self):
+        self._two_entities_for_merge(
+            "performer", (40, "有岡みう"), (41, "有冈みう"))
+        with mock.patch("peach.web_entity.sqlite_backup", side_effect=OSError("disk full")):
+            with self.assertRaisesRegex(OSError, "disk full"):
+                rm_web.w_entity_merge(self.contract, {
+                    "kind": "performer", "target_id": 40, "source_id": 41})
+        with closing(sqlite3.connect(self.db_path)) as connection:
+            self.assertEqual(
+                connection.execute(
+                    "SELECT count(*) FROM entity WHERE id IN (40,41)").fetchone()[0], 2)
+            self.assertEqual(
+                connection.execute(
+                    "SELECT count(*) FROM entity_redirect WHERE old_id=41").fetchone()[0], 0)
 
     def test_an_empty_alias_is_refused(self):
         self._performer_with_two_names()

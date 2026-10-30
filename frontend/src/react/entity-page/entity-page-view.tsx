@@ -34,7 +34,8 @@ import { queryClient } from '../query';
 import { pageNavigationReady, rememberPageState } from '../../history/page-navigation';
 import {
   EMPTY_MEDIA, codeSetsOf, entityKey, entityOptions, entityPhotosKey, fetchItems, itemsOptions,
-  photosOptions, tagList, tagPressed, type EntityPageData, type EntityPageProps, type PhotoPage,
+  photosOptions, tagList, tagPressed, type EntityAliasWriteResult, type EntityMergeResult,
+  type EntityPageData, type EntityPageProps, type PhotoPage,
 } from './entity-page';
 import { useEntityOnline } from './use-entity-online';
 import { PENDING_REFETCH_MS, usePendingWorkRefetch } from '../components/pending-work';
@@ -233,7 +234,12 @@ function EntityLoaded(props: EntityPageProps & { entity: EntityPageData }) {
   }, [kind, name]);
   const alias = useMutation({
     mutationFn: (payload: { alias: string; remove?: boolean }) => api('/api/entity-alias',
-      { method: 'POST', body: JSON.stringify({ kind, name: entity.canonical_name, ...payload }) }) as Promise<{ added?: boolean; alias?: string }>,
+      { method: 'POST', body: JSON.stringify({ kind, name: entity.canonical_name, ...payload }) }) as Promise<EntityAliasWriteResult>,
+    onSuccess: () => refreshEntity(),
+  });
+  const merge = useMutation({
+    mutationFn: ({ target_id, source_id }: { target_id: number; source_id: number }) => api('/api/entity-merge',
+      { method: 'POST', body: JSON.stringify({ kind, target_id, source_id }) }) as Promise<EntityMergeResult>,
     onSuccess: () => refreshEntity(),
   });
   const rename = useMutation({
@@ -276,7 +282,35 @@ function EntityLoaded(props: EntityPageProps & { entity: EntityPageData }) {
         actions.openEntity(kind, done.canonical_name || '');
       });
     },
-    addAlias: () => { void helpers.aliasForm(entity.user_aliases || [], (payload) => alias.mutateAsync(payload)) },
+    addAlias: () => {
+      void (async () => {
+        const outcome = await helpers.aliasForm(
+          entity.user_aliases || [], (payload) => alias.mutateAsync(payload));
+        const conflict = outcome?.conflict;
+        if (!conflict) return;
+        /* 名字已经属于另一条同类档案。保留作品多的一侧；作品数相同则保留当前页，
+           这样一次点击不会先替用户决定旧 ID 该指向哪边。 */
+        const keepCurrent = conflict.current.works >= conflict.other.works;
+        const keep = keepCurrent ? conflict.current : conflict.other;
+        const absorb = keepCurrent ? conflict.other : conflict.current;
+        const label = kind === 'studio' ? '厂牌' : '女优';
+        const kept = keepCurrent ? '当前档案' : '作品更多的那条档案';
+        void confirmModal({
+          title: '合并重复实体',
+          body: `「${conflict.alias}」已经是另一条${label}档案。合并后保留${kept}「${keep.canonical_name}」`
+            + `（${keep.works} 部作品），把「${absorb.canonical_name}」（${absorb.works} 部作品）的作品、别名和关系迁入。`
+            + '旧名称和旧地址会继续指向保留档案；合并无法在界面撤销，操作前会备份整个账本。',
+          confirmLabel: '合并重复实体',
+          danger: true,
+          onConfirm: () => merge.mutateAsync({ target_id: keep.id, source_id: absorb.id }),
+        }).then(({ confirmed, result }) => {
+          const done = result as EntityMergeResult | undefined;
+          if (!confirmed || !done) return;
+          helpers.receipt(`已把「${done.source.canonical_name}」合并到「${done.target.canonical_name}」`);
+          actions.openEntity(kind, done.target.canonical_name, true);
+        });
+      })();
+    },
     follow: async (on) => {
       try {
         await follow.mutateAsync(on);
@@ -324,7 +358,7 @@ function EntityLoaded(props: EntityPageProps & { entity: EntityPageData }) {
       helpers.receipt(t('catalog:entityPage.followedCreatorLinked', { author, name: entity.canonical_name }));
       await refreshEntity();
     },
-  }), [actions, alias, bindFollow, entity, entityId, filters, follow, followKey, helpers, kind, name, refreshEntity, rename]);
+  }), [actions, alias, bindFollow, entity, entityId, filters, follow, followKey, helpers, kind, merge, name, refreshEntity, rename]);
   const heroHelpers = useMemo<EntityHeroHelpers>(() => ({
     portraitImg: () => helpers.portraitImg(kind, entity),
     wireScroller: helpers.wireDrag,

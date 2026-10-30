@@ -83,6 +83,12 @@ function serve(plan: Plan = {}) {
       if (url.pathname === '/api/entity-name') {
         return reply({ changed: true, canonical_name: body.canonical, previous_name: body.name });
       }
+      if (url.pathname === '/api/entity-merge') {
+        return reply({
+          target: { id: body.target_id, canonical_name: '有冈みう' },
+          source: { id: body.source_id, canonical_name: NAME },
+        });
+      }
       return reply({ ok: true });
     }
     if (url.pathname === '/api/avatar-choices') {
@@ -148,7 +154,7 @@ function shellProps(patch: Partial<EntityPageProps> = {}): EntityPageProps {
     helpers: {
       portraitImg: () => '', wireDrag: vi.fn(), wireScroller: vi.fn(), wireFeedRow: vi.fn(),
       feedRowHtml: (data) => `<div class="feednewrow">${(data?.items || []).map((one) => `<div data-feed-id="${one.id}"></div>`).join('')}</div>`,
-      receipt: vi.fn(), failure: vi.fn(), aliasForm: vi.fn(async () => {}),
+      receipt: vi.fn(), failure: vi.fn(), aliasForm: vi.fn(async () => undefined),
       sourceToolsHtml: () => '', wireSourceTools: vi.fn(), comboItems: () => [],
       sortKeys: vi.fn((sort: string) => [{ key: 'new', label: '入库时间', pressed: sort === 'new', dir: '' as const, ariaLabel: '' }]),
     },
@@ -513,6 +519,65 @@ describe('写操作', () => {
     expect(page.writes).toEqual([{ url: '/api/entity-alias', body: { kind: 'performer', name: NAME, alias: 'しのだゆう' } }]);
     expect(page.calls('/api/entity')).toHaveLength(entityBefore + 1);
     expect(page.calls('/api/items')).toHaveLength(itemsBefore + 1);
+  });
+
+  it('撞名后合并作品更多的一侧，并把页面直接换到保留档案', async () => {
+    const page = await open();
+    vi.mocked(page.props.helpers.aliasForm).mockResolvedValue({
+      added: false,
+      alias: '有冈みう',
+      conflict: {
+        kind: 'performer', alias: '有冈みう',
+        current: { id: 7001, canonical_name: NAME, works: 2 },
+        other: { id: 7002, canonical_name: '有冈みう', works: 5 },
+      },
+    });
+    vi.spyOn(legacyUi, 'confirmModal').mockImplementation((async (options: {
+      onConfirm: () => Promise<unknown>;
+    }) => ({ confirmed: true, result: await options.onConfirm() })) as unknown as typeof legacyUi.confirmModal);
+
+    await click(page.host.querySelector('[data-namepick-toggle]'));
+    await click(document.querySelector('[data-namepick-alias]'));
+    await settle();
+
+    expect(legacyUi.confirmModal).toHaveBeenCalledWith(expect.objectContaining({
+      title: '合并重复实体',
+      confirmLabel: '合并重复实体',
+      body: expect.stringContaining('保留作品更多的那条档案「有冈みう」（5 部作品）'),
+    }));
+    expect(page.writes).toEqual([{
+      url: '/api/entity-merge',
+      body: { kind: 'performer', target_id: 7002, source_id: 7001 },
+    }]);
+    expect(page.props.helpers.receipt).toHaveBeenCalledWith(
+      `已把「${NAME}」合并到「有冈みう」`);
+    expect(page.props.actions.openEntity).toHaveBeenLastCalledWith('performer', '有冈みう', true);
+  });
+
+  it('撞名时作品数相同，保留当前页并从另一条档案迁入关系', async () => {
+    const page = await open();
+    vi.mocked(page.props.helpers.aliasForm).mockResolvedValue({
+      added: false,
+      alias: '有冈みう',
+      conflict: {
+        kind: 'performer', alias: '有冈みう',
+        current: { id: 7001, canonical_name: NAME, works: 4 },
+        other: { id: 7002, canonical_name: '有冈みう', works: 4 },
+      },
+    });
+    vi.spyOn(legacyUi, 'confirmModal').mockImplementation((async (options: {
+      onConfirm: () => Promise<unknown>;
+    }) => ({ confirmed: true, result: await options.onConfirm() })) as unknown as typeof legacyUi.confirmModal);
+
+    await click(page.host.querySelector('[data-namepick-toggle]'));
+    await click(document.querySelector('[data-namepick-alias]'));
+    await settle();
+
+    expect(page.writes).toEqual([{
+      url: '/api/entity-merge',
+      body: { kind: 'performer', target_id: 7001, source_id: 7002 },
+    }]);
+    expect(page.props.actions.openEntity).toHaveBeenLastCalledWith('performer', '有冈みう', true);
   });
 
   it('换完头像：资料卡与作品网格都按重取回来的数据重建，图地址换成新版本', async () => {

@@ -151,10 +151,12 @@ export async function entityAliasForm(mine,write){
     receiptsState.actionReceipt(t('shell:entityAlias.removed', { alias: gone }),{undo:async()=>{await write({alias:gone})}});
   }));
   const {confirmed,result}=await form.done;
-  if(!confirmed)return;
+  if(!confirmed)return undefined;
+  if(result?.conflict)return result;
   if(result?.added)receiptsState.actionReceipt(t('shell:entityAlias.added', { alias: result.alias }),{undo:async()=>{
     await write({alias:result.alias,remove:true})}});
   else receiptsState.actionReceipt(t('shell:entityAlias.exists', { alias: result?.alias }));
+  return result;
 }
 
 export function showEntityLoading(kind,name){

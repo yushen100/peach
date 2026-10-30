@@ -12,14 +12,26 @@ import json
 import re
 import sqlite3
 
+from datetime import datetime, timezone
 from urllib.parse import urlsplit
+from uuid import uuid4
 
 from . import (company_profiles, entry_links, feeds, interface_text, link_status, performer_header, web_feeds,
                web_follow)
 from .catalog_rules import (LENGTH_TAGS, dir_expr, photo_set_title, solo_performer_clause, tag_cat)
 from .coded_text import Said, coded
-from .entities import (USER_ALIAS_SOURCE, normalize_entity_name, prefer_entity_name, resolve_entity,
-                       resolve_entity_id)
+from .entities import (
+    USER_ALIAS_SOURCE,
+    is_identity_alias,
+    merge_entity,
+    normalize_entity_name,
+    prefer_entity_name,
+    resolve_entity,
+    resolve_entity_id,
+    rewrite_flat_projection,
+)
+from .field_owners import write_owned_fields
+from .migrations import sqlite_backup
 from .social_links import ARCHIVE_HOSTS, is_archive
 from .media_sources import cost_for
 from .web_catalog import (
@@ -1325,6 +1337,65 @@ def q_suggest(contract: WebContract, q: str, limit: int = SUGGEST_GROUP_LIMIT,
     ]}
 
 
+#: 这里只开放 issue #207 明确要的两类同名实体。跨角色合并另有身份关系与来源证明，
+#: 不能从这个撞名入口顺手做掉。
+MERGE_KINDS = {"performer", "studio"}
+MERGE_ALIAS_SOURCE = "user:identity-merge"
+MERGE_FLAT_OWNER = "user:entity-merge"
+
+
+def _direct_work_count(connection, entity_id: int) -> int:
+    """合并会搬走的直接作品关系数；用于冲突弹层说明两边各有多少作品。"""
+    return int(connection.execute(
+        "SELECT count(DISTINCT ae.asset_id) FROM asset_entity ae"
+        " JOIN asset a ON a.id=ae.asset_id"
+        " WHERE ae.entity_id=? AND " + COUNTED_VIDEO,
+        (entity_id,),
+    ).fetchone()[0])
+
+
+def _entity_identity_names(connection, entity_id: int) -> list[str]:
+    row = connection.execute(
+        "SELECT kind,canonical_name FROM entity WHERE id=?", (entity_id,)).fetchone()
+    if row is None:
+        return []
+    kind, canonical = str(row["kind"]), str(row["canonical_name"])
+    names = [canonical]
+    names.extend(str(alias[0]) for alias in connection.execute(
+        "SELECT alias FROM entity_alias WHERE entity_id=? ORDER BY alias", (entity_id,)))
+    unique: list[str] = []
+    seen: set[str] = set()
+    for name in names:
+        normalized = normalize_entity_name(name)
+        if not normalized or normalized in seen or not is_identity_alias(kind, name):
+            continue
+        seen.add(normalized)
+        unique.append(name)
+    return unique
+
+
+def _third_party_names(connection, kind: str, target_id: int, source_id: int,
+                       names: list[str]) -> list[str]:
+    """合并后会变成目标别名的写法是否已经属于第三条实体。
+
+    两条实体合并后，旧名必须是唯一可解析的别名。若第三条实体也登记了同一写法，
+    合并只会把一个有歧义的地址换成另一个，旧页面仍然打不开。
+    """
+    found: list[str] = []
+    for name in names:
+        normalized = normalize_entity_name(name)
+        row = connection.execute(
+            "SELECT canonical_name FROM entity e WHERE e.kind=?"
+            " AND e.id NOT IN (?,?) AND (e.normalized_name=?"
+            " OR EXISTS(SELECT 1 FROM entity_alias a WHERE a.entity_id=e.id"
+            " AND a.normalized_alias=?)) LIMIT 1",
+            (kind, target_id, source_id, normalized, normalized),
+        ).fetchone()
+        if row and str(row[0]) not in found:
+            found.append(str(row[0]))
+    return found
+
+
 def w_entity_alias(contract: WebContract, body):
     """给这条实体添一个别名，或撤掉一个自己添过的。
 
@@ -1367,10 +1438,31 @@ def w_entity_alias(contract: WebContract, body):
             # 统称本来就是这个写法，添进别名表只会让下拉里并排出现两个一样的名字。
             return {"ok": True, "alias": canonical, "added": False}
         taken = c.execute(
-            "SELECT canonical_name FROM entity WHERE kind=? AND normalized_name=? AND id<>?",
+            "SELECT id,canonical_name FROM entity"
+            " WHERE kind=? AND normalized_name=? AND id<>?",
             (kind, alias_key, entity_id)).fetchone()
         if taken:
-            raise ValueError(f"another {kind} is already named {taken[0]}")
+            if kind not in MERGE_KINDS:
+                raise ValueError(f"another {kind} is already named {taken['canonical_name']}")
+            return {
+                "ok": True,
+                "alias": alias,
+                "added": False,
+                "conflict": {
+                    "kind": kind,
+                    "alias": alias,
+                    "current": {
+                        "id": entity_id,
+                        "canonical_name": canonical,
+                        "works": _direct_work_count(c, entity_id),
+                    },
+                    "other": {
+                        "id": int(taken["id"]),
+                        "canonical_name": str(taken["canonical_name"]),
+                        "works": _direct_work_count(c, int(taken["id"])),
+                    },
+                },
+            }
         existing = c.execute(
             "SELECT alias FROM entity_alias WHERE entity_id=? AND normalized_alias=?",
             (entity_id, alias_key)).fetchone()
@@ -1381,6 +1473,92 @@ def w_entity_alias(contract: WebContract, body):
             " VALUES(?,?,?,?,1.0)",
             (entity_id, alias, alias_key, USER_ALIAS_SOURCE))
         return {"ok": True, "alias": alias, "added": True}
+
+
+def w_entity_merge(contract: WebContract, body):
+    """把撞名的另一条女优或厂牌档案并入指定档案。
+
+    这是 issue #207 里「添加别名时发现名字已被占」之后的下一步，不是通用合并中心：
+    只收 `performer`／`studio`、只做一对、双方必须同类。调用方显式给保留侧，界面按
+    作品多的一侧、作品数相同则当前页优先来选。合并沿用 `merge_entity` 的全部关系迁移
+    与旧 ID 墓碑；本入口额外同步扁平投影、执行外键差集校验，并在写入前备份整库。
+    """
+    kind = str(body.get("kind", "")).strip()
+    if kind not in MERGE_KINDS:
+        raise ValueError("kind must be performer or studio")
+    try:
+        target_id = int(body.get("target_id"))
+        source_id = int(body.get("source_id"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("target_id and source_id are required") from exc
+    if target_id <= 0 or source_id <= 0:
+        raise ValueError("target_id and source_id are required")
+    if source_id == target_id:
+        raise ValueError("不能合并到同一份档案")
+
+    with contract.write_transaction() as connection:
+        # 备份与合并共用同一把数据库写锁；备份看到的是这次合并前的确定状态。
+        connection.execute("BEGIN IMMEDIATE")
+        rows = {
+            int(row["id"]): row for row in connection.execute(
+                "SELECT id,kind,canonical_name FROM entity WHERE id IN (?,?)",
+                (target_id, source_id),
+            )
+        }
+        target, source = rows.get(target_id), rows.get(source_id)
+        if target is None or source is None:
+            raise ValueError("待合并的档案不存在")
+        if str(target["kind"]) != kind or str(source["kind"]) != kind:
+            raise ValueError("只能合并同一类实体")
+        source_names = _entity_identity_names(connection, source_id)
+        third_party = _third_party_names(
+            connection, kind, target_id, source_id, source_names)
+        if third_party:
+            names = "、".join(third_party[:3])
+            raise ValueError(f"这些名字还属于第三条档案：{names}；请先处理该档案")
+
+        before_foreign_keys = {tuple(row) for row in connection.execute(
+            "PRAGMA foreign_key_check")}
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        backup = contract.db_path.with_name(
+            f"ledger.pre-entity-merge-{stamp}-{source_id}-{uuid4().hex[:8]}.db")
+        sqlite_backup(contract.db_path, backup)
+
+        target_name = str(target["canonical_name"])
+        source_name = str(source["canonical_name"])
+        moved = merge_entity(
+            connection,
+            target_id=target_id,
+            source_id=source_id,
+            source_name=source_name,
+            alias_source=f"{MERGE_ALIAS_SOURCE}:{kind}",
+        )
+        if kind == "studio":
+            asset_ids = [int(row[0]) for row in connection.execute(
+                "SELECT id FROM asset WHERE studio=?", (source_name,))]
+            flat = write_owned_fields(
+                connection, asset_ids, {"studio": target_name}, MERGE_FLAT_OWNER)
+            flat_rewritten = len(asset_ids) if "studio" in flat.written else 0
+        else:
+            flat_rewritten = rewrite_flat_projection(
+                connection, kind, target_id, source_name, target_name)
+
+        broken = [row for row in connection.execute("PRAGMA foreign_key_check")
+                  if tuple(row) not in before_foreign_keys]
+        if broken:
+            raise RuntimeError(
+                f"合并实体 {source_id} 进 {target_id} 后外键校验多出 {len(broken)} 条违规")
+
+    contract.cache_bust()
+    return {
+        "ok": True,
+        "kind": kind,
+        "target": {"id": target_id, "canonical_name": target_name},
+        "source": {"id": source_id, "canonical_name": source_name},
+        "moved": moved,
+        "flat_rewritten": flat_rewritten,
+        "backup": backup.name,
+    }
 
 
 def w_entity_name(contract: WebContract, body):
