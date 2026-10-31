@@ -479,3 +479,8 @@ video.video-js{vertical-align:top;font-size:10px;line-height:1;font-family:Arial
 [data-player-menu]>span{overflow:hidden;text-overflow:ellipsis}
 [data-player-menu]>[data-player-menu-check]{grid-column:3;justify-self:center;margin:0;width:18px;height:18px;visibility:hidden}
 [data-player-menu][aria-checked="true"]>[data-player-menu-check]{visibility:visible}
+
+/* 临时倍速提示不参与点击，也不改变控制条布局。 */
+.vjs-peach-hold-speed{position:absolute;top:20px;left:50%;transform:translateX(-50%);
+  z-index:10;pointer-events:none;white-space:nowrap;padding:8px 16px;border-radius:var(--pill-radius);
+  background:rgba(0,0,0,.72);color:#fff;font-size:var(--fs-sm);font-weight:600;line-height:1.4}
