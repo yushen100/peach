@@ -121,5 +121,6 @@ def reprobe(contract, config, asset_id: int, *, checkpoint, expected_generation=
         connection.execute('UPDATE asset SET width=?,height=?,ctx_orient=?,ctx_quality=? WHERE id=?',
                            (measured[1], measured[2], measured[7], measured[8], asset_id))
         upsert_items(connection, [{'rule': ITEM_RULE, 'asset_id': asset_id, 'generation': current_generation,
-                                   'state': 'done', 'run_id': run_id, 'result': result}], mode='finish')
+                                   'state': 'done', 'run_id': run_id, 'result': {**result, 'deferred': None}}],
+                     mode='finish')
     return result

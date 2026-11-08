@@ -159,6 +159,37 @@ class UpgradeRepairTests(unittest.TestCase):
                          if item['id'] == 'display-cloud')
         self.assertEqual((cloud['state'], cloud['pending'], 'total' in cloud), ('waiting', 4, False))
 
+    def test_display_size_item_says_what_unfinished_films_are_waiting_for(self):
+        """没做完的只剩延后就报延后并按原因分开数，只剩等重试的失败就报失败；还有在排或退避中的才算进行中。"""
+        from peach import repair_center
+        rule = display_dimensions_repair.ITEM_RULE
+
+        def local(rows):
+            with self.database.write_transaction() as connection:
+                connection.execute('DELETE FROM ledger_upgrade_item')
+                connection.executemany(
+                    "INSERT INTO ledger_upgrade_item(rule,asset_id,state,retry_at,result_json,updated_at) "
+                    "VALUES(?,?,?,?,?,'now')",
+                    [(rule, key, state, retry, json.dumps(result)) for key, (state, retry, result) in enumerate(rows, 1)])
+            with self.database.read_connection() as connection:
+                items = repair_center.snapshot(connection, {}, cloud_pending=0)['items']
+            item = next(item for item in items if item['id'] == 'display-local')
+            return {key: item.get(key) for key in ('state', 'done', 'total', 'deferred', 'failed')}
+
+        mount, cooling, legacy = ({'deferred': 'mount'}, {'deferred': 'cooldown'}, {})
+        self.assertEqual(local([('done', None, {}), ('deferred', 9, mount), ('deferred', 9, mount),
+                                ('deferred', 9, cooling), ('deferred', 9, legacy)]),
+                         {'state': 'deferred', 'done': 1, 'total': 5, 'deferred': {'mount': 2, 'cooldown': 1, '': 1},
+                          'failed': None})
+        self.assertEqual(local([('deferred', 9, mount), ('queued', None, {})])['state'], 'running')
+        # 延后到期重派出去、还没回话的照旧算延后，整盘掉线时页面不在两种状态间来回跳。
+        self.assertEqual(local([('deferred', 9, mount), ('queued', None, mount)]),
+                         {'state': 'deferred', 'done': 0, 'total': 2, 'deferred': {'mount': 2}, 'failed': None})
+        # 退避中的失败到时间自己重派，算进行中；连败到上限、只等用户点重试的才单列。
+        self.assertEqual(local([('deferred', 9, mount), ('failed', 9, {})])['state'], 'running')
+        self.assertEqual(local([('done', None, {}), ('failed', None, {})]),
+                         {'state': 'failed', 'done': 1, 'total': 2, 'deferred': None, 'failed': 1})
+
     def test_repair_history_shows_each_run_and_whether_its_backup_is_still_kept(self):
         """历史与「账本备份」联动：修复前的备份还在就能去恢复，按保留规则清退了照实写。"""
         from peach import repair_center
@@ -682,8 +713,24 @@ class UpgradeRepairTests(unittest.TestCase):
             self.assertEqual(tuple(connection.execute('SELECT width,height FROM asset').fetchone()), (720, 1280))
         self.assertEqual(self.tick_quietly()['queued'], {})
         self.assertEqual(self.service.snapshot()['items'][1]['deferred'], 1)
+        self.assertEqual(self.service.snapshot()['state'], 'deferred')
+        # 原因记在这一行上，「修复与迁移」照它写明在等什么，全部延后时不报进行中。
+        self.assertEqual(row['result']['deferred'], 'mount')
+        self.assertEqual(self.repair_item('display-local'),
+                         {**self.repair_item('display-local'), 'state': 'deferred', 'deferred': {'mount': 1}})
         self.make_due()
         self.assertEqual(list(self.tick_quietly()['queued']), [self.display_key()])
+        self.assertEqual(self.run_queued_display().status, 'succeeded')
+        row = self.display_items()['1']
+        self.assertEqual(row['state'], 'done')
+        self.assertNotIn('deferred', row['result'])
+        self.assertEqual(self.repair_item('display-local')['state'], 'done')
+
+    def repair_item(self, item_id):
+        from peach import repair_center
+        with self.database.read_connection() as connection:
+            center = repair_center.snapshot(connection, upgrade_repairs._read(self.service.receipt), cloud_pending=0)
+        return next(item for item in center['items'] if item['id'] == item_id)
 
     def test_dispatch_sleeps_until_the_next_retry_and_wakes_when_its_followups_finish(self):
         """不再每分钟醒来全表扫：没活时排到最早的 `retry_at`，派出的后继跑完由回调叫醒。"""
@@ -746,8 +793,10 @@ class UpgradeRepairTests(unittest.TestCase):
             result = upgrade_repairs._media_run(self.contract, key, Mock(run_id=None))
         self.assertIn('来源', told(result)['outcome'])
         with self.database.read_connection() as connection:
-            row = connection.execute("SELECT state,retry_at FROM ledger_upgrade_item WHERE rule='media:processing-v2'").fetchone()
+            row = connection.execute("SELECT state,retry_at,result_json FROM ledger_upgrade_item "
+                                     "WHERE rule='media:processing-v2'").fetchone()
         self.assertEqual(row['state'], 'deferred')
+        self.assertEqual(json.loads(row['result_json'])['deferred'], 'cooldown')
         self.assertGreater(row['retry_at'], time.time() + 600)
 
     def test_capacity_denial_returns_the_run_to_the_queue_until_explicit_retry(self):

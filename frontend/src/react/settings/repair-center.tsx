@@ -4,7 +4,8 @@
  *  首屏数据随路由预取（`repair-center-data.ts`），等待时画路由骨架；有项在跑或还在统计时每 2 秒重读，做完就停。
  *  等确认的项还没开始，只写待处理的量和「开始」；开始之后才有进度条，「开始」换成状态标签。
  *  各项按改动落在哪类数据上分组（服务端 `repair_center.GROUPS`），组内先列等确认、在跑与要重试的。
- *  一组里有两项以上等确认时标题旁给「开始这一组」，跨两组以上时页顶给「全部开始」；都先在一个弹层里逐项列出。 */
+ *  一组里有两项以上等确认时标题旁给「开始这一组」，跨两组以上时页顶给「全部开始」；都先在一个弹层里逐项列出。
+ *  补测有片子延后或失败时，说明下面另起一行写明延后几部、在等什么；没做完的只剩延后就标「已延后」，不报进行中。 */
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { RiArrowRightLine } from '@remixicon/react';
@@ -25,11 +26,12 @@ import {
   fetchRepairs, localizeRepairs, REPAIRS_KEY, type RepairCenterData, type RepairHistory, type RepairItem,
 } from './repair-center-data';
 import { useAction } from './use-action';
-import { interfaceLanguage, t } from '../../i18n';
+import { interfaceLanguage, quoted, t } from '../../i18n';
 
 const STATES: Record<string, [string, StatusTone]> = {
   done: [t('settings:shared.completed'), 'success'], succeeded: [t('settings:shared.completed'), 'success'], complete: [t('settings:shared.completed'), 'success'],
   running: [t('settings:shared.inProgress'), 'progress'], pending: [t('settings:repairCenter.queued'), 'neutral'], waiting: [t('settings:repairCenter.awaitingConfirmation'), 'warning'],
+  deferred: [t('settings:repairCenter.deferred'), 'neutral'],
   failed: [t('settings:repairCenter.needsRetry'), 'error'], none: [t('settings:repairCenter.nothingToDo'), 'neutral'],
 };
 const GROUPS: Record<string, string> = {
@@ -55,6 +57,28 @@ const progressing = (item: RepairItem) => item.state === 'running' && !!item.tot
 const inFlight = (item: RepairItem) => !!item.estimating || item.state === 'running';
 /** 有修复在估算或在跑时每 2 秒读一次，都停了就停；读失败按连续失败次数退避。 */
 export const repairsInterval = withBackoff<RepairCenterData>((data) => (data?.items.some(inFlight) ? 2000 : false));
+
+/** 延后原因码（mount / cooldown / cost）对应的说法；旧版延后时没记原因（空串），到时间会自己重派。 */
+const DEFER_REASONS = new Set(['mount', 'cooldown', 'cost']);
+const deferReason = (code: string) => t(`settings:repairCenter.deferReasons.${DEFER_REASONS.has(code) ? code : 'retry'}`);
+
+/** 补测里延后与失败的片子：延后几部、各在等什么，以及等你重试的失败。都没有就不写。 */
+function waitingNote(item: RepairItem) {
+  const reasons = Object.entries(item.deferred || {}).filter(([, count]) => count > 0);
+  const deferred = reasons.reduce((sum, [, count]) => sum + count, 0);
+  const parts: string[] = [];
+  if (deferred) {
+    const reason = reasons.length === 1 ? deferReason(reasons[0][0])
+      : reasons.map(([code, count]) => t('settings:repairCenter.deferReasonCount', { reason: deferReason(code), count }))
+        .join(t('shell:format.clauseSeparator'));
+    parts.push(t('settings:repairCenter.deferredNote', { count: deferred, reason }));
+  }
+  if (item.failed) {
+    parts.push(t('settings:repairCenter.failedNote', { count: item.failed, place: quoted(t('settings:upgradeRepairs.title')) }));
+  }
+  return parts.length
+    ? <span className="text-caption-1-regular text-text-secondary">{parts.join(t('shell:format.semicolonSeparator'))}</span> : null;
+}
 
 function reading(item: RepairItem) {
   if (item.estimating) return t('settings:repairCenter.estimating');
@@ -90,6 +114,13 @@ function ItemProgress({ item }: { item: RepairItem }) {
     <span className="shrink-0 text-caption-1-regular text-text-secondary tabular-nums">
       {number(item.done)} / {number(item.total)}</span>
   </div>;
+}
+
+/** 说明下面那一块：在跑的画进度条，延后或失败的片子另起一行写明；两样都没有是 null，行里不留空白。 */
+function detail(item: RepairItem) {
+  const note = waitingNote(item);
+  if (!progressing(item)) return note;
+  return note ? <div className="flex flex-col gap-1.5"><ItemProgress item={item} />{note}</div> : <ItemProgress item={item} />;
 }
 
 export function RepairCenterPage() {
@@ -168,7 +199,7 @@ export function RepairCenterPage() {
               const text = reading(item);
               return (
                 <Row key={item.id} title={item.title} description={item.summary}
-                  progress={progressing(item) ? <ItemProgress item={item} /> : null}>
+                  progress={detail(item)}>
                   {text ? <span className="text-body-2-regular text-text-secondary">{text}</span> : null}
                   {item.mode === 'confirm' && item.state === 'waiting'
                     ? <Button size="small" disabled={!data.available || !!action.busy || item.estimating}

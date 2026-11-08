@@ -18,7 +18,7 @@ export interface ClientUpdates {
   userscript: { version: string; minimum_version: string; install_url: string };
   repairs: { state: string; available?: boolean; message?: string; items: {
     id: string; label: string; state: string; changed?: Record<string, number>;
-    pending?: number; failed?: number; queued?: number; review_count?: number;
+    pending?: number; failed?: number; deferred?: number; queued?: number; review_count?: number;
   }[] };
   /** 服务启动时的账本迁移：`running` 期间需要账本的请求回 503；旧服务没有这一项。
    *  进行中的 `stage`：`backup` 整份备份账本，`progress` 是备份的百分比；`apply` 执行迁移脚本，没有百分比。旧服务两项都没有。 */

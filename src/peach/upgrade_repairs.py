@@ -57,10 +57,19 @@ def retry_at(attempts: int, now: float) -> float | None:
     return now + min(RETRY_BASE_SECONDS * 2 ** max(attempts - 1, 0), RETRY_CAP_SECONDS)
 
 
+#: 延后原因码，记进状态表那一行的 `result_json.deferred`，「修复与迁移」按它写明在等什么。
+DEFER_MOUNT, DEFER_COOLDOWN, DEFER_COST = 'mount', 'cooldown', 'cost'
+#: 结论码（`RepairDeferred.code`）对应的延后原因码。
+DEFER_REASONS = {'deferMountMedia': DEFER_MOUNT, 'deferMountDimensions': DEFER_MOUNT,
+                 'deferCooling': DEFER_COOLDOWN, 'deferBilling': DEFER_COST}
+#: 有了结论的行摘掉上次的延后原因（`json_patch` 里 null 即删键）。
+_NOT_DEFERRED = {'deferred': None}
+
+
 class RepairDeferred(Exception):
     """这部片这会儿补不了（挂载不可达、计费来源未确认、来源冷却），过 `retry_after` 秒再派。
 
-    `code` 是结论里那一段原因（`task_outcomes`），异常文字按它渲染。"""
+    `code` 是结论里那一段原因（`task_outcomes`），异常文字按它渲染；延后原因码见 `DEFER_REASONS`。"""
 
     def __init__(self, code: str, retry_after: float):
         self.code = code
@@ -1018,8 +1027,9 @@ class UpgradeRepairs:
         waiting = settled_counts.get('deferred', 0)
         review = int(local.get('review_count', 0)) + len(receipt.get('deferred', []))
         paused = receipt.get('media_paused', {})
+        # 只剩延后（挂载读不到、来源冷却、退避中）的报「已延后」：没有东西在跑，也不挡用户点重试。
         state = 'failed' if self.error or paused else 'running' if active else 'failed' if failed else (
-            'running' if waiting else 'review' if review else
+            'deferred' if waiting else 'review' if review else
             'complete' if receipt.get('dispatch_complete') and local else 'pending')
         items = [{'id': REVISION, **_coded('labels.upgradeRepairs.item.existing', key='label'), 'state': local.get('state', 'pending'),
                   'changed': local.get('changed', {}), 'review_count': review},
@@ -2576,11 +2586,12 @@ def _settle_batch(contract, handle, rule: str, asset_ids, offline, cooling) -> d
     done = [asset_id for asset_id in asset_ids if asset_id not in offline and asset_id not in cooling]
     now = time.time()
     item_rule = f'media:{rule}'
-    rows = [{'rule': item_rule, 'asset_id': asset_id, 'state': 'done', 'run_id': _run_id(handle)} for asset_id in done]
+    rows = [{'rule': item_rule, 'asset_id': asset_id, 'state': 'done', 'run_id': _run_id(handle),
+             'result': _NOT_DEFERRED} for asset_id in done]
     rows += [{'rule': item_rule, 'asset_id': asset_id, 'state': 'deferred', 'run_id': _run_id(handle),
-              'retry_at': now + MOUNT_RETRY_SECONDS} for asset_id in offline]
+              'retry_at': now + MOUNT_RETRY_SECONDS, 'result': {'deferred': DEFER_MOUNT}} for asset_id in offline]
     rows += [{'rule': item_rule, 'asset_id': asset_id, 'state': 'deferred', 'run_id': _run_id(handle),
-              'retry_at': now + COOLDOWN_RETRY_SECONDS} for asset_id in cooling]
+              'retry_at': now + COOLDOWN_RETRY_SECONDS, 'result': {'deferred': DEFER_COOLDOWN}} for asset_id in cooling]
     with contract.database.write_transaction(notify=False) as connection:
         upsert_items(connection, rows, mode='finish')
     _discard_settled(Path(contract.follow_state_root) / 'upgrade-repairs', item_rule, done)
@@ -2640,7 +2651,8 @@ def _defer(contract, key: str, handle, asset_ids, error: RepairDeferred) -> dict
     until = time.time() + error.retry_after
     with contract.database.write_transaction(notify=False) as connection:
         upsert_items(connection, [{'rule': rule, 'asset_id': asset_id, 'generation': generation, 'state': 'deferred',
-                                   'run_id': _run_id(handle), 'retry_at': until} for asset_id in asset_ids],
+                                   'run_id': _run_id(handle), 'retry_at': until,
+                                   'result': {'deferred': DEFER_REASONS.get(error.code)}} for asset_id in asset_ids],
                      mode='finish')
     return {**said(part('deferredBy', reason=[part(error.code)])), 'deferred': len(asset_ids), 'retry_at': until}
 

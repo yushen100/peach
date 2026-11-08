@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "3a2eabfb-d0d0-4c9d-b6e9-e04fb8bfedfe", e._sentryDebugIdIdentifier = "sentry-dbid-3a2eabfb-d0d0-4c9d-b6e9-e04fb8bfedfe");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "0fb87027-9628-488c-99c4-faf2f74773ed", e._sentryDebugIdIdentifier = "sentry-dbid-0fb87027-9628-488c-99c4-faf2f74773ed");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -6739,11 +6739,23 @@ var He = "peach.settings.v1", Ue = {
 		backupCleaned: "Pre-repair backup removed",
 		changedCount_one: "{{count, number}} change",
 		changedCount_other: "{{count, number}} changes",
+		deferReasonCount: "{{reason}} ({{count, number}})",
+		deferReasons: {
+			mount: "directory unreadable",
+			cooldown: "metadata source cooling down",
+			cost: "metered source not confirmed",
+			retry: "waiting to retry automatically"
+		},
+		deferred: "Deferred",
+		deferredNote_one: "{{count, number}} video deferred: {{reason}}",
+		deferredNote_other: "{{count, number}} videos deferred: {{reason}}",
 		deleteBody: "This deletes {{amount}} and can't be undone. The 3 most recent snapshots of each followed source and any snapshots still referenced by items are kept.",
 		deleteSnapshots: "Delete snapshots",
 		deleteTitle: "Delete {{title}}",
 		empty: "Nothing to repair or migrate.",
 		estimating: "Calculating",
+		failedNote_one: "{{count, number}} video failed; retry it in {{place}}",
+		failedNote_other: "{{count, number}} videos failed; retry them in {{place}}",
 		filesAndSize_one: "{{count, number}} file · {{size}}",
 		filesAndSize_other: "{{count, number}} files · {{size}}",
 		groups: {
@@ -7061,6 +7073,8 @@ var He = "peach.settings.v1", Ue = {
 		title: "Uninstall Peach"
 	},
 	upgradeRepairs: {
+		deferred: "Deferred",
+		deferredHelp: "The rest waits for the mount to come back or the source to reopen, and continues automatically.",
 		downloadReviewLog: "Download review log",
 		itemCount_one: "{{value}} item",
 		itemCount_other: "{{value}} items",
@@ -13916,11 +13930,21 @@ var He = "peach.settings.v1", Ue = {
 		awaitingConfirmation: "等你确认",
 		backupCleaned: "修复前的备份已清理",
 		changedCount: "改动 {{count, number}} 项",
+		deferReasonCount: "{{reason}} {{count, number}} 部",
+		deferReasons: {
+			mount: "所在目录读不到",
+			cooldown: "资料来源冷却中",
+			cost: "计费来源未确认",
+			retry: "等待自动重试"
+		},
+		deferred: "已延后",
+		deferredNote: "延后 {{count, number}} 部：{{reason}}",
 		deleteBody: "将删除 {{amount}}，删除后不能恢复。每个关注来源最近 3 份快照和条目引用的快照会保留。",
 		deleteSnapshots: "删除快照",
 		deleteTitle: "删除{{title}}",
 		empty: "没有要修复或迁移的内容。",
 		estimating: "正在统计",
+		failedNote: "失败 {{count, number}} 部，可在{{place}}重试",
 		filesAndSize: "{{count, number}} 个文件 · {{size}}",
 		groups: {
 			files: "馆藏文件",
@@ -14230,6 +14254,8 @@ var He = "peach.settings.v1", Ue = {
 		title: "卸载 Peach"
 	},
 	upgradeRepairs: {
+		deferred: "延后",
+		deferredHelp: "剩下的要等挂载恢复或来源放开，到时间自动继续。",
 		downloadReviewLog: "下载复核记录",
 		itemCount: "{{value}} 项",
 		needsReview: "需要复核",
@@ -39449,4 +39475,4 @@ jt();
 var Kb = document.getElementById("peach-page"), qb = Kb ? Gb[Kb.dataset.page ?? ""] : void 0;
 Kb && qb && (0, Bt.createRoot)(Kb).render(/* @__PURE__ */ (0, V.jsx)(Wb, { children: /* @__PURE__ */ (0, V.jsx)(qb, { data: { ...Kb.dataset } }) }));
 
-//# debugId=3a2eabfb-d0d0-4c9d-b6e9-e04fb8bfedfe
+//# debugId=0fb87027-9628-488c-99c4-faf2f74773ed
