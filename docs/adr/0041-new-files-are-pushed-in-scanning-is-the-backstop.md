@@ -2,6 +2,7 @@
 
 - 状态：Accepted
 - 日期：2026-09-22
+- 关系：第七条已被 [ADR-0155](0155-push-discovery-backstop-is-manual-sync.md) 取代：应用从未有定期全量扫描，漏掉的文件由「同步新增文件」补齐
 
 ## 背景
 
