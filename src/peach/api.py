@@ -84,7 +84,7 @@ from .routes_auth import FIRST_ACCESS_DENIED_CODE, AssetLoginRequired, PageLogin
 # tests/test_follow_web.py 按 `api.MEDIA_CACHE_SECONDS` 断言两者的关系。
 from .routes_media import AVATAR_CACHE_SECONDS, MEDIA_CACHE_SECONDS  # noqa: F401
 from .segments import HlsSegmentService
-from .streaming import StreamSessionRegistry
+from .streaming import StreamSessionRegistry, shutdown_stream_executor
 from .sync import LedgerSync
 from .transcodes import TranscodeService
 from .user_messages import UserFacingError, error_fields, message_fields, nested_message, response_status
@@ -849,6 +849,7 @@ def create_app(
             http_transport.close()
             follow_media_resolver.close()
             hls_plan_executor.shutdown(wait=False, cancel_futures=True)
+            shutdown_stream_executor()
 
     app = FastAPI(
         title="Peach API",
