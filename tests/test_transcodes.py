@@ -281,6 +281,30 @@ class TranscodeServiceTests(unittest.TestCase):
                     service.media_duration(source)
                 self.assertEqual(len(calls), 2, "冷却过了再探一次")
 
+    def test_conversion_reuses_the_remembered_failed_probe(self):
+        """转码槽里那次探测也认失败记忆：探不动的片子再转一次不再多等一次 ffprobe。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "movie.avi"
+            source.write_bytes(b"avi")
+            service = TranscodeService(_Resolver(root / "ffmpeg.exe", root / "ffprobe.exe"),
+                                       root / "cache", prefer_hardware=False)
+
+            class Process:
+                returncode = 1
+
+                def __init__(self, command, **_kwargs):
+                    self.command = command
+
+                def communicate(self, timeout=None):
+                    return b"", b"Invalid data found when processing input"
+
+            with patch.object(service, "_probe", return_value=None) as probe,                     patch("peach.transcodes.subprocess.Popen", side_effect=Process):
+                for _ in range(2):
+                    with self.assertRaises(TranscodeUnavailable):
+                        service.browser_path(9, source)
+            self.assertEqual(probe.call_count, 1)
+
     def test_avi_is_transcoded_once_and_cached(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

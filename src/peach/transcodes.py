@@ -300,7 +300,8 @@ class TranscodeService:
                 with self._slots:
                     self._raise_if_cancelled(session, registry)
                     if profile is None:
-                        profile = self._probe(source, session, registry, deadline)
+                        # 和起播前那几处共用画像缓存：探不动的片子冷却期内不再在转码槽里等满一次 ffprobe。
+                        profile = self._profile_for(source, session, registry, stat)
                     for attempt in self._attempts(
                         choice.path, source, temporary, profile, max_height,
                         decode if copy else frozenset(),
