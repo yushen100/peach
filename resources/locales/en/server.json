@@ -775,6 +775,7 @@
     "videoUpgraded": "Video metadata upgrade complete",
     "videosUpgraded": "Upgraded metadata for {{count}} videos",
     "videosDeferred": "{{count}} postponed: directory unreadable or source cooling down",
+    "videosMalformed": "{{count}} failed: unrecognized path",
     "dimensionsMeasured": "Display dimensions re-measured",
     "deferredBy": "Postponed: {{reason}}",
     "deferMountMedia": "The video's directory is unreadable, will retry when the mount is back",
@@ -1810,7 +1811,9 @@
       "mediaRepairIncomplete": "The video upgrade fill-in didn't finish. Check Tasks, then try again",
       "resumeAfterRestart": "Continues after the service restarts",
       "displayBackupNoSpace": "Not enough space for the backup before re-measuring display sizes, so this batch of media is paused",
-      "mediaPaused": "{{message}}"
+      "mediaPaused": "{{message}}",
+      "malformedPath": "Unrecognized video path: {{path}}",
+      "malformedPathReason": "Unrecognized video path ({{reason}}): {{path}}"
     },
     "tunnel": {
       "standalonePortInvalid": "The standalone package's Tunnel HTTP port is invalid: {{port}}",

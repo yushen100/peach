@@ -21,6 +21,8 @@ from support.outcomes import told
 #: 0.51.0 之前采集桥按 GBK 输出、按 UTF-8 宽松读回的人物名（#478）。
 BAD = chr(0xFFFD)
 GARBLED = BAD * 2 + 'ľ' + BAD * 2
+#: 路径写法不对时状态表那一行记下的原因：code 加参数，按界面语言渲染。
+BAD_PATH = {'code': 'errors.upgradeRepairs.malformedPath', 'params': {'path': 'bad'}}
 
 
 class UpgradeRepairTests(unittest.TestCase):
@@ -675,7 +677,7 @@ class UpgradeRepairTests(unittest.TestCase):
         probe.assert_not_called()
 
     def run_queued_display(self, measured=(60, 1440, 1280, None, 0, 0, None, 'landscape', '1080P', 1), *, unreachable=False):
-        """派出显示尺寸补测再在当前线程跑完，返回这一轮的任务行。"""
+        """派出显示尺寸补测再在当前线程跑完，返回这一轮的任务行。`unreachable` 给异常就由挂载判断抛出。"""
         from peach.followups import FollowupRunner
         self.contract.upgrade_repairs = self.service
         with patch('peach.library_processing._people_allowed', return_value=False), \
@@ -684,7 +686,9 @@ class UpgradeRepairTests(unittest.TestCase):
             self.service.tick()
         run_id = upgrade_repairs._read(self.service.receipt)['queued'][self.display_key()]
         with patch('peach.library_processing._ffprobe_path', return_value='ffprobe'), \
-                patch.object(upgrade_repairs, 'mount_unreachable', return_value=unreachable), \
+                patch.object(upgrade_repairs, 'mount_unreachable',
+                             **({'side_effect': unreachable} if isinstance(unreachable, Exception)
+                                else {'return_value': unreachable})), \
                 patch('peach.media_probe.measure', return_value=measured):
             FollowupRunner(self.contract).drain()
         return self.store.get(run_id)
@@ -759,6 +763,61 @@ class UpgradeRepairTests(unittest.TestCase):
                 patch('peach.media_probe.measure', return_value=(60, 1440, 1280, None, 0, 0, None, 'landscape', '1080P', 1)):
             runner.drain()
         self.assertTrue(self.service._wake.is_set(), '自己派的补测跑完就叫醒派发线程')
+
+    def test_a_malformed_path_is_not_mistaken_for_an_offline_mount(self):
+        """路径写法本身不对不是挂载掉线：抛 `MalformedPath`；本机没挂载的来源照旧算读不到。"""
+        import os
+        from peach.platform import UNMAPPED_ROOT
+        malformed = ['R:' + chr(92) + 'media' + chr(0) + '.mp4']
+        if os.name == 'nt':
+            malformed.append('R:' + chr(92) + 'me<dia' + chr(92) + 'a.mp4')
+        for text in malformed:
+            with self.subTest(text=text), self.assertRaises(upgrade_repairs.MalformedPath):
+                upgrade_repairs.mount_unreachable(text)
+        with patch('peach.platform.translate_ledger_path', side_effect=ValueError('SMB 地址或端口无效')), \
+                self.assertRaises(upgrade_repairs.MalformedPath):
+            upgrade_repairs.mount_unreachable('smb://bad')
+        with patch('peach.platform.translate_ledger_path', return_value=UNMAPPED_ROOT / 'R' / 'a.mp4'):
+            self.assertTrue(upgrade_repairs.mount_unreachable('R:' + chr(92) + 'a.mp4'))
+        self.assertFalse(upgrade_repairs.mount_unreachable(str(self.root / 'a.mp4')))
+
+    def test_a_malformed_path_fails_the_measurement_with_its_reason_instead_of_deferring_forever(self):
+        """路径翻译不了的片子按失败结算、写明原因，不排自动重派，出现在失败计数里；用户点重试才再派。"""
+        self.display_sample()
+        broken = upgrade_repairs.MalformedPath('errors.upgradeRepairs.malformedPath', {'path': 'bad'})
+        with self.assertLogs('peach.followups', level='WARNING'):
+            run = self.run_queued_display(unreachable=broken)
+        self.assertEqual(run.status, 'failed')
+        row = self.display_items()['1']
+        self.assertEqual((row['state'], row['retry_at'], row['result']['error']),
+                         ('failed', None, BAD_PATH))
+        self.make_due()
+        self.assertEqual(self.tick_quietly()['queued'], {})
+        self.assertEqual(self.display_items()['1']['state'], 'failed')
+        self.assertEqual(self.service.snapshot()['items'][1]['failed'], 1)
+        self.assertEqual(self.repair_item('display-local')['failed'], 1)
+
+    def test_a_malformed_path_in_a_batch_fails_only_that_film(self):
+        """一批里路径写法不对的那部按失败结算并写明原因，不拖累同批其他片子，也不让整批重跑。"""
+        from peach.settings_file import load_config
+        self.contract.upgrade_config = load_config(environ={'PEACH_DATA_ROOT': str(self.root)})
+        for key in (1, 2):
+            self.asset(key, duration=10)
+
+        def unreachable(path):
+            if path == "2.mp4":
+                raise upgrade_repairs.MalformedPath('errors.upgradeRepairs.malformedPath', {'path': 'bad'})
+            return False
+        with patch('peach.library_processing.process_library', return_value={'status': 'complete'}) as process, \
+                patch.object(upgrade_repairs, 'mount_unreachable', side_effect=unreachable):
+            result = upgrade_repairs._media_run(self.contract, 'upgrade-library:batch:processing-v2:1,2',
+                                                Mock(run_id=None))
+        self.assertEqual(process.call_args.kwargs['asset_ids'], [1])
+        self.assertEqual((result['done'], result['failed']), (1, 1))
+        with self.database.read_connection() as connection:
+            rows = {row['asset_id']: (row['state'], row['retry_at'], json.loads(row['result_json']).get('error'))
+                    for row in connection.execute("SELECT * FROM ledger_upgrade_item WHERE rule='media:processing-v2'")}
+        self.assertEqual(rows, {1: ('done', None, None), 2: ('failed', None, BAD_PATH)})
 
     def test_new_failures_are_dispatched_again_with_backoff_until_the_attempt_limit(self):
         """本版派出的失败按退避自动重派；连败到上限后只等用户点重试。"""

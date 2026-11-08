@@ -77,12 +77,36 @@ class RepairDeferred(Exception):
         self.retry_after = retry_after
 
 
+class MalformedPath(UserValueError):
+    """账本里的影片路径写法本身不对：翻译不出、含空字符或本机不认的字符。
+
+    这不是挂载掉线，延后多少次也读不到，补修按失败结算并写明原因，等用户修好路径或重新扫描。"""
+
+
+#: Windows 路径里盘符之后不能出现的字符。
+_WINDOWS_ILLEGAL = frozenset('<>"|?*:')
+
+
 def mount_unreachable(ledger_path: str) -> bool:
-    """影片所在目录现在读不到：网盘或 NAS 掉线时补修延后，不按这部片失败结算。"""
-    from .platform import root_status, translate_ledger_path
+    """影片所在目录现在读不到：网盘或 NAS 掉线时补修延后，不按这部片失败结算。
+
+    本机没挂载的来源（翻译到未映射根）照旧算读不到；路径写法本身不对时抛 `MalformedPath`。"""
+    import os
+    from .platform import is_unmapped, root_status, translate_ledger_path
+    text = os.fspath(ledger_path or '')
+    if chr(0) in text:
+        raise MalformedPath('errors.upgradeRepairs.malformedPath', {'path': text.replace(chr(0), '?')})
     try:
-        folder = getattr(translate_ledger_path(ledger_path), 'parent', None)
-        return folder is not None and root_status(folder) != 'ok'
+        translated = translate_ledger_path(text)
+    except ValueError as error:
+        raise MalformedPath('errors.upgradeRepairs.malformedPathReason',
+                            {'path': text, 'reason': nested_message(error)}) from None
+    if is_unmapped(translated):
+        return True
+    if os.name == 'nt' and any(_WINDOWS_ILLEGAL & set(segment) for segment in translated.parts[1:]):
+        raise MalformedPath('errors.upgradeRepairs.malformedPath', {'path': text})
+    try:
+        return root_status(translated.parent) != 'ok'
     except (OSError, ValueError):
         return True
 
@@ -2479,7 +2503,11 @@ def _media_run(contract, key: str, handle) -> dict:
             paused = _read(service.receipt).get('media_paused')
             if paused:
                 raise DiskSpaceDenied('errors.upgradeRepairs.mediaPaused', {'message': _paused_phrase(paused)})
-        if found is not None and mount_unreachable(found['path']):
+        try:
+            offline = found is not None and mount_unreachable(found['path'])
+        except MalformedPath as error:
+            _fail(contract, key, handle, [asset_id], error)
+        if offline:
             return _defer(contract, key, handle, [asset_id],
                           RepairDeferred('deferMountMedia', MOUNT_RETRY_SECONDS))
         guard = CapacityGuard(config)
@@ -2530,8 +2558,15 @@ def _batch_run(contract, key: str, handle) -> dict:
     with contract.database.read_connection() as connection:
         found = {row['id']: row for row in connection.execute(
             'SELECT id,path FROM asset WHERE id IN (SELECT value FROM json_each(?))', (json.dumps(asset_ids),))}
-    offline = [asset_id for asset_id in asset_ids if asset_id in found and mount_unreachable(found[asset_id]['path'])]
-    targets = [asset_id for asset_id in asset_ids if asset_id in found and asset_id not in offline]
+    offline, broken = [], {}
+    for asset_id in asset_ids:
+        try:
+            if asset_id in found and mount_unreachable(found[asset_id]['path']):
+                offline.append(asset_id)
+        except MalformedPath as error:
+            broken[asset_id] = nested_message(error)
+    targets = [asset_id for asset_id in asset_ids if asset_id in found and asset_id not in offline
+               and asset_id not in broken]
 
     def active():
         return service is None or not service.stopping.is_set()
@@ -2562,7 +2597,7 @@ def _batch_run(contract, key: str, handle) -> dict:
             raise RuntimeError(result['error'])
         raise UserRuntimeError('errors.upgradeRepairs.mediaRepairIncomplete')
     cooling = [asset_id for asset_id in targets if asset_id in set(result.get('paused_asset_ids', ()))]
-    settled = _settle_batch(contract, handle, rule, asset_ids, offline, cooling)
+    settled = _settle_batch(contract, handle, rule, asset_ids, offline, cooling, broken)
     discard_checkpoint(state_file)
     return settled
 
@@ -2581,9 +2616,12 @@ def _batch_checkpoint(contract, key: str) -> tuple[str, Path, dict]:
     return job_id, state_file, previous
 
 
-def _settle_batch(contract, handle, rule: str, asset_ids, offline, cooling) -> dict:
-    """一批里每部片的结论写进状态表：目录读不到、来源冷却的延后，其余完成。"""
-    done = [asset_id for asset_id in asset_ids if asset_id not in offline and asset_id not in cooling]
+def _settle_batch(contract, handle, rule: str, asset_ids, offline, cooling, broken=None) -> dict:
+    """一批里每部片的结论写进状态表：目录读不到、来源冷却的延后，路径写法不对的（`broken`，影片到原因）
+    按失败结算、不自动重派，其余完成。"""
+    broken = broken or {}
+    done = [asset_id for asset_id in asset_ids
+            if asset_id not in offline and asset_id not in cooling and asset_id not in broken]
     now = time.time()
     item_rule = f'media:{rule}'
     rows = [{'rule': item_rule, 'asset_id': asset_id, 'state': 'done', 'run_id': _run_id(handle),
@@ -2592,13 +2630,17 @@ def _settle_batch(contract, handle, rule: str, asset_ids, offline, cooling) -> d
               'retry_at': now + MOUNT_RETRY_SECONDS, 'result': {'deferred': DEFER_MOUNT}} for asset_id in offline]
     rows += [{'rule': item_rule, 'asset_id': asset_id, 'state': 'deferred', 'run_id': _run_id(handle),
               'retry_at': now + COOLDOWN_RETRY_SECONDS, 'result': {'deferred': DEFER_COOLDOWN}} for asset_id in cooling]
+    rows += [{'rule': item_rule, 'asset_id': asset_id, 'state': 'failed', 'run_id': _run_id(handle),
+              'result': {'deferred': None, 'error': error}} for asset_id, error in broken.items()]
     with contract.database.write_transaction(notify=False) as connection:
         upsert_items(connection, rows, mode='finish')
     _discard_settled(Path(contract.follow_state_root) / 'upgrade-repairs', item_rule, done)
     deferred = len(offline) + len(cooling)
     outcome = joined([part('videosUpgraded', count=len(done)),
-                      part('videosDeferred', count=deferred) if deferred else []])
-    return {**said(outcome), 'asset_ids': asset_ids, 'done': len(done), 'deferred': deferred}
+                      part('videosDeferred', count=deferred) if deferred else [],
+                      part('videosMalformed', count=len(broken)) if broken else []])
+    return {**said(outcome), 'asset_ids': asset_ids, 'done': len(done), 'deferred': deferred,
+            **({'failed': len(broken)} if broken else {})}
 
 
 def _display_run(contract, key: str, handle) -> dict:
@@ -2630,6 +2672,8 @@ def _display_run(contract, key: str, handle) -> dict:
                                                    run_id=_run_id(handle))
     except RepairDeferred as error:
         return _defer(contract, key, handle, [asset_id], error)
+    except MalformedPath as error:
+        _fail(contract, key, handle, [asset_id], error)
     except DiskSpaceDenied as error:
         _pause_for_capacity(service, handle, error)
     except InterruptedError:
@@ -2655,6 +2699,18 @@ def _defer(contract, key: str, handle, asset_ids, error: RepairDeferred) -> dict
                                    'result': {'deferred': DEFER_REASONS.get(error.code)}} for asset_id in asset_ids],
                      mode='finish')
     return {**said(part('deferredBy', reason=[part(error.code)])), 'deferred': len(asset_ids), 'retry_at': until}
+
+
+def _fail(contract, key: str, handle, asset_ids, error: MalformedPath):
+    """这几部片补不了、重派也没用（路径写法不对）：状态表按失败结算并写明原因（`{code, params}`），
+    不排自动重派，只等用户在「自动修复」点重试；再把原因抛给任务中心，这一轮照样显示失败。"""
+    rule, _, generation = item_of(key) or ('', 0, '')
+    with contract.database.write_transaction(notify=False) as connection:
+        upsert_items(connection, [{'rule': rule, 'asset_id': asset_id, 'generation': generation, 'state': 'failed',
+                                   'run_id': _run_id(handle),
+                                   'result': {'deferred': None, 'error': nested_message(error)}}
+                                  for asset_id in asset_ids], mode='finish')
+    raise error
 
 
 def _pause_for_capacity(service, handle, error):
