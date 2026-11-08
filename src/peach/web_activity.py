@@ -4,7 +4,8 @@ from __future__ import annotations
 import time
 from typing import Protocol
 
-from .personal_records import VANISHED
+from .personal_records import VANISHED, being_purged
+from .user_messages import UserValueError
 
 DEFAULT_PROFILE_ID = "local-default"
 
@@ -77,6 +78,8 @@ def w_feedback(contract: ActivityContract, body):
             # 已消失的行文件不在盘上：切进回收站再切出来就成了在库（ADR-0087），整行不动。
             if current == VANISHED:
                 raise ValueError("vanished assets cannot be moved to the recycle bin")
+            if current == "trash" and being_purged([aid]):
+                raise UserValueError("errors.webBatch.purgingCannotRestore")
             connection.execute(
                 "UPDATE asset SET disposal=?, disposal_reason=?, feedback_at=? WHERE id=?",
                 (None if current == "trash" else "trash", None if current == "trash" else "manual", time.time(), aid),

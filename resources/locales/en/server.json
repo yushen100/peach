@@ -2776,7 +2776,8 @@
     "webBatch": {
       "changedDuringQuarantine": "The file changed while it was being backed up",
       "pathUnmapped": "The media path is not mapped to an accessible mount directory",
-      "storageOffline": "The storage is not mounted or cannot be read"
+      "storageOffline": "The storage is not mounted or cannot be read",
+      "purgingCannotRestore": "Items being permanently deleted can't be restored"
     },
     "webFeeds": {
       "checkStopped": "Subscription check stopped"

@@ -2776,7 +2776,8 @@
     "webBatch": {
       "changedDuringQuarantine": "文件在隔离备份期间发生变化",
       "pathUnmapped": "媒体路径未映射到可访问的挂载目录",
-      "storageOffline": "媒体来源未挂载或不可读取"
+      "storageOffline": "媒体来源未挂载或不可读取",
+      "purgingCannotRestore": "正在永久删除的条目不能还原"
     },
     "webFeeds": {
       "checkStopped": "订阅检查已停止"
