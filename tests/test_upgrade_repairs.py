@@ -132,6 +132,27 @@ class UpgradeRepairTests(unittest.TestCase):
         self.assertEqual(self.service.cloud_display_videos(), 0)
         self.assertEqual((cloud_item()['state'], cloud_item()['pending']), ('running', 0))
 
+    def test_cloud_pending_count_is_reused_until_the_library_or_the_list_changes(self):
+        """「修复与迁移」每次打开、补测在跑时每 2 秒都问网盘待补测几部：两张表不变就不再全扫一遍。"""
+        from peach.web_state import WebContract
+        with self.database.write_transaction() as connection:
+            connection.execute(
+                "INSERT INTO asset(id,location,path,name,medium,code,field_owners,duration,width,height) "
+                "VALUES(2,'115','2.mp4','ABC-002.mp4','video','ABC-002','{}',60,720,1280)")
+        self.display_sample()
+        web = WebContract(self.db, database=self.database)
+        self.contract.cached_until_changed = web.cached_until_changed
+        with patch.object(display_dimensions_repair, 'collect', wraps=display_dimensions_repair.collect) as collect:
+            self.assertEqual(self.service.cloud_display_videos(), 1)
+            self.assertEqual(self.service.cloud_display_videos(), 1)
+            self.assertEqual(collect.call_count, 1)
+            with self.database.write_transaction() as connection:
+                connection.execute(
+                    "INSERT INTO asset(id,location,path,name,medium,code,field_owners,duration,width,height) "
+                    "VALUES(3,'115','3.mp4','ABC-003.mp4','video','ABC-003','{}',60,720,1280)")
+            self.assertEqual(self.service.cloud_display_videos(), 2)
+            self.assertEqual(collect.call_count, 2)
+
     def test_display_size_progress_is_split_between_local_and_cloud_items(self):
         """网盘补测确认后并进同一份名单；两项各自只数自己来源的片子，页面才画得出各自的进度条。"""
         from peach import repair_center

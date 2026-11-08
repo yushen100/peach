@@ -2349,9 +2349,16 @@ class UpgradeRepairs:
             return 0
         if display is None or display.get('cloud_included_at'):
             return 0
-        with self.contract.database.read_connection() as connection:
-            known = self._display_targets_known(connection)
-            return sum(asset_id not in known for asset_id in repair.collect(connection, cloud=True))
+
+        def count() -> int:
+            with self.contract.database.read_connection() as connection:
+                known = self._display_targets_known(connection)
+                return sum(asset_id not in known for asset_id in repair.collect(connection, cloud=True))
+        # 「修复与迁移」每次打开、补测在跑时每 2 秒都要问；全部网盘视频与补测名单各扫一遍，
+        # 生产冷时 0.46 秒。两张表不变就用上一次的数。
+        cached = getattr(self.contract, 'cached_until_changed', None)
+        return cached('upgrade-cloud-display-pending', count, tables=('asset', 'ledger_upgrade_item')) \
+            if callable(cached) else count()
 
     def include_cloud_display_dimensions(self) -> dict:
         """用户在「自动修复」里点了「补测网盘视频」：把网盘来源的旧视频加进显示尺寸补测。

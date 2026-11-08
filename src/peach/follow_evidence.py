@@ -128,7 +128,8 @@ def directories(root: Path):
 class Reclaim:
     """「修复与迁移」里的存量清退。
 
-    估算要列全部来源目录，冷缓存时十几秒，所以只在页面第一次问起时放到后台算一次；
+    估算要列全部来源目录（生产 121 个目录、17.8 万个文件实测 0.7 秒，冷缓存时更久），服务启动后
+    在后台先算一次（`prime`），页面第一次打开就有读数，不再每次重启后先显示「正在统计」；
     删除在 Windows 上被杀毒软件拖到每秒几百个文件，十几万个要十来分钟，也在后台做，
     页面按 `done`/`total` 显示进度。删的时候逐个目录重新列、重新判，不用估算时的名单。
     """
@@ -144,14 +145,25 @@ class Reclaim:
         #: 最近一次起的后台线程（估算或删除）。
         self.worker: threading.Thread | None = None
 
-    def status(self) -> dict:
-        """当前读数；还没估算过就在后台开始估算。`phase`：idle / estimating / ready / running / failed。"""
+    def prime(self) -> None:
+        """服务启动后调：在后台先估算一次，不挡启动。已在算、算过或正在删的不动。"""
         with self._lock:
-            if self._state['phase'] == 'idle' and self.root.is_dir():
-                self._state = {'phase': 'estimating'}
-                self.worker = threading.Thread(target=self._estimate, name='follow-evidence-estimate', daemon=True)
-                self.worker.start()
+            self._begin_estimate()
+
+    def status(self) -> dict:
+        """当前读数；还没估算过（启动时目录还不在）就在后台开始估算。
+
+        `phase`：idle / estimating / ready / running / failed。"""
+        with self._lock:
+            self._begin_estimate()
             return dict(self._state)
+
+    def _begin_estimate(self) -> None:
+        """还没估算过就起后台估算。调用方持 `_lock`。"""
+        if self._state['phase'] == 'idle' and self.root.is_dir():
+            self._state = {'phase': 'estimating'}
+            self.worker = threading.Thread(target=self._estimate, name='follow-evidence-estimate', daemon=True)
+            self.worker.start()
 
     def start(self) -> dict:
         with self._lock:

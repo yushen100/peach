@@ -552,6 +552,11 @@ class _LedgerActivation:
                 self.automatic_started = True
             if ready:
                 self.sharing.start()
+                # 「修复与迁移」里关注旧快照能删多少：启动后就在后台估算，页面第一次打开直接读结果。
+                reclaim = getattr(self.app.state, 'follow_evidence', None)
+                repairs = getattr(self.app.state, 'upgrade_repairs', None)
+                if reclaim is not None and getattr(repairs, 'available', False):
+                    reclaim.prime()
             return ready
 
     async def _wait_for_installation(self):

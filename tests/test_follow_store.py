@@ -1776,6 +1776,35 @@ class EvidenceRetentionTests(_StoreCase):
         wait_for(lambda: reclaim.status()["phase"] == "ready")
         self.assertEqual(reclaim.status()["files"], 4, "剩下的重新等确认")
 
+    def test_snapshot_estimate_is_ready_on_the_first_request_after_a_restart(self):
+        """服务启动后就在后台估算：重启后第一次打开「修复与迁移」直接拿到读数，不先显示「正在统计」。"""
+        import asyncio
+        from types import SimpleNamespace
+        from unittest import mock
+        from peach import api
+        from peach.follow_evidence import Reclaim
+        from peach.repository import LedgerDatabase
+        directory = self.root / "sources" / "follow" / "rule34video" / "legacy"
+        for index in range(5):
+            _old_snapshot(directory, index, size=100)
+        database = LedgerDatabase(self.root / "ledger.db")
+
+        def restart(available=True):
+            reclaim = Reclaim(self.root / "sources" / "follow", database)
+            state = SimpleNamespace(follow_evidence=reclaim, upgrade_repairs=SimpleNamespace(available=available),
+                                    ledger_background_ready=False)
+            activation = api._LedgerActivation(SimpleNamespace(state=state), SimpleNamespace(), None, (),
+                                               mock.Mock(), mock.Mock())
+            with mock.patch.object(api, "_start_ledger_services", return_value=True):
+                asyncio.run(activation.resume())
+            return reclaim
+
+        reclaim = restart()
+        self.assertIsNotNone(reclaim.worker, "账本服务一就绪就起估算")
+        reclaim.worker.join(10)
+        self.assertEqual(reclaim.status(), {"phase": "ready", "files": 4, "bytes": 2 * 102})
+        self.assertIsNone(restart(available=False).worker, "只读端不估算")
+
     def test_a_library_without_follow_snapshots_does_not_list_the_item(self):
         from peach import repair_center
         from peach.follow_evidence import Reclaim
