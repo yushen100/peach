@@ -267,6 +267,27 @@ class UpgradeRepairTests(unittest.TestCase):
         self.assertEqual(list(after['queued']), [self.display_key()])
         self.assertFalse(after['dispatch_complete'])
 
+    def test_a_due_film_the_planner_skips_does_not_reopen_planning_every_tick(self):
+        """到期的补测碰上同片被取消的影片补全：规划器整片跳过，派发判断也不再每分钟重开一轮空规划。"""
+        self.display_sample()
+        with self.database.write_transaction() as connection:
+            connection.execute("UPDATE ledger_upgrade_item SET state='deferred',retry_at=1 WHERE rule=?",
+                               (display_dimensions_repair.ITEM_RULE,))
+            upgrade_repairs.upsert_items(connection, [{'rule': 'media:processing-v2', 'asset_id': 1,
+                                                       'state': 'cancelled'}], mode='settle')
+        receipt = upgrade_repairs._read(self.service.receipt)
+        receipt.update(dispatch_complete=True, queued={})
+        self.service._save_receipt(receipt)
+        with patch.object(self.service, '_plan', wraps=self.service._plan) as plan:
+            for _ in range(2):
+                self.tick_quietly()
+        plan.assert_not_called()
+        self.assertTrue(upgrade_repairs._read(self.service.receipt)['dispatch_complete'])
+        # 取消的那行不在了，这部片就真会被派出去：照常重开规划。
+        with self.database.write_transaction() as connection:
+            connection.execute("DELETE FROM ledger_upgrade_item WHERE rule='media:processing-v2'")
+        self.assertEqual(list(self.tick_quietly()['queued']), [self.display_key()])
+
     def test_old_receipts_without_asset_generation_are_preserved_and_probed_once_under_the_new_rule(self):
         self.display_sample()
         for key in (2, 3):

@@ -273,6 +273,13 @@ def _batched(planned) -> list:
     return rows
 
 
+#: 「这部片没有被别的影片补全占着」：同片有排着或被用户取消的非显示尺寸补全行时，规划器整片跳过
+#: （`UpgradeRepairs._inherited_media`），派发判断也要跳过，否则这种片子每轮都触发一次空规划。
+#: 参数是显示尺寸的规则名。子查询不关联外层，只算一次（主键以 rule 打头，按 asset_id 关联会逐行扫表）。
+_NOT_HELD = ("item.asset_id NOT IN (SELECT asset_id FROM ledger_upgrade_item "
+             "WHERE rule<>? AND state IN ('queued','cancelled'))")
+
+
 def settled(row, generation: str | None, now: float) -> bool:
     """状态表里这一行说这部片这会儿不用派：做完了、用户取消了、在跑，或者还没到重派时间。
 
@@ -2268,12 +2275,16 @@ class UpgradeRepairs:
         return rows
 
     def _retry_due(self) -> bool:
-        """有延后或退避中的补修到了重派时间。"""
+        """有延后或退避中的补修到了重派时间，而且规划器这一轮真会派它。
+
+        同片还有排着或被取消的影片补全时，规划器整片跳过（`_inherited_media`）；那种片子不算，
+        否则它一直到期、一直派不出，每分钟都要白白重开一轮规划。"""
+        from .display_dimensions_repair import ITEM_RULE
         with self.contract.database.read_connection() as connection:
             return connection.execute(
                 "SELECT 1 FROM ledger_upgrade_item item JOIN asset ON asset.id=item.asset_id "
                 "WHERE item.state IN ('failed','deferred') AND item.retry_at IS NOT NULL AND item.retry_at<=? "
-                'AND asset.disposal IS NULL LIMIT 1', (time.time(),)).fetchone() is not None
+                f'AND asset.disposal IS NULL AND {_NOT_HELD} LIMIT 1', (time.time(), ITEM_RULE)).fetchone() is not None
 
     def _display_due(self, receipt):
         from .display_dimensions_repair import IDENTITY_COLUMNS, ITEM_RULE, generation, task_key
@@ -2283,7 +2294,8 @@ class UpgradeRepairs:
             rows = connection.execute(
                 f'SELECT {columns},item.generation AS item_generation,item.state,item.retry_at '
                 'FROM ledger_upgrade_item item JOIN asset ON asset.id=item.asset_id '
-                "WHERE item.rule=? AND asset.medium='video' AND asset.disposal IS NULL", (ITEM_RULE,)).fetchall()
+                f"WHERE item.rule=? AND asset.medium='video' AND asset.disposal IS NULL AND {_NOT_HELD}",
+                (ITEM_RULE, ITEM_RULE)).fetchall()
         queued = receipt.get('queued', {})
         return any(not settled({'generation': row['item_generation'], 'state': row['state'], 'retry_at': row['retry_at']},
                                generation(row), now) and task_key(row) not in queued for row in rows)
