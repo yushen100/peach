@@ -42,6 +42,28 @@ class HardwareDetectionTests(unittest.TestCase):
         self.assertTrue(all("format=nv12,hwupload" in command for command in commands))
         self.assertTrue(all(command[-2:] == ("null", "-") for command in commands))
 
+    def test_playback_diagnostics_do_not_wait_for_a_running_probe(self):
+        """起播计划要记硬件诊断；首次探测还在跑时报「探测中」，不陪它等。"""
+        import threading
+        started, release = threading.Event(), threading.Event()
+
+        def run(command, **kwargs):
+            started.set()
+            release.wait(5)
+            return subprocess.CompletedProcess(command, 1, stderr=b"no device")
+
+        hardware = HardwareTranscoder()
+        with patch("peach.hardware_transcode.sys.platform", "linux"),                 patch.object(Path, "exists", return_value=False),                 patch.object(Path, "glob", return_value=[Path("/dev/dri/renderD128")]),                 patch("peach.hardware_transcode.subprocess.run", side_effect=run):
+            probe = threading.Thread(target=hardware.encoders, args=(Path("ffmpeg"),))
+            probe.start()
+            self.assertTrue(started.wait(5))
+            try:
+                self.assertEqual(hardware.diagnostic_snapshot()["probe_status"], "probing")
+            finally:
+                release.set()
+                probe.join(5)
+        self.assertEqual(hardware.diagnostic_snapshot()["probe_status"], "cached")
+
     def test_explicit_device_and_backend_are_probed_without_gpu_listing(self):
         with patch.dict(os.environ, {"PEACH_TRANSCODE_BACKEND": "vaapi", "PEACH_VAAPI_DEVICE": "/dev/dri/renderD130"}):
             hardware = HardwareTranscoder()
