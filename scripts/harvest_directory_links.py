@@ -57,6 +57,7 @@ from peach.interface_text import dev as t   # noqa: E402
 from peach.jobs import job_main   # noqa: E402
 from peach.page_cache import HttpStatusError, Site   # noqa: E402
 from peach.review_csv import write_rows   # noqa: E402
+from peach.scripting import SharedSlot, shared_slot_path   # noqa: E402
 from peach.social_links import (   # noqa: E402
     canonical_url, classify, handle, load_performers, name_key, platform, under,
     x_profile_state,
@@ -86,6 +87,10 @@ SOURCES = ("laoshi", "bstar", "jae", "javdb")
 #: 能一点点试探的余量；这里取封之前那个峰值速率的四分之一（每分钟 12 页）。
 #: 剩下 476 位女优就这么慢慢跑：重跑时缓存命中不花请求，`--limit` 调大即续，无需断点。
 SOURCE_INTERVAL = {"javdb": 5.0}
+#: 和服务进程共用节拍的来源与主机：服务里的资料处理、女优页与预告也取 javdb，各自限速时合起来
+#: 会超过每分钟 20 页。两边都到数据根 `state/source-slots/` 下同一个文件排队（`SharedSlot`），
+#: 每页至少比上一页（不论哪个进程发的）晚自己的间隔。主机名与 `library_processing.SHARED_SOURCE_HOSTS` 一致。
+SHARED_HOSTS = {"javdb": "javdb.com"}
 #: 判成限速的状态码。javdb 封 IP 时回的是 403（不是 401，也不带任何说明头），
 #: 429 与 503 是常规写法。碰上就整个来源收工，不接着翻下一位：`Site.request()` 对状态码
 #: 不重试，每位女优的每个名字写法都会立刻再撞一次 403，那一轮实测就是几分钟只产出空行。
@@ -882,7 +887,9 @@ def run(args) -> int:
     sources = SOURCES if args.source == "all" else (args.source,)
     for source in sources:
         interval = max(args.interval, SOURCE_INTERVAL.get(source, 0.0))
-        site = Site(args.cache_dir / source, interval, args.timeout, refresh=args.refresh)
+        shared = (SharedSlot(shared_slot_path(STATE_DIR, SHARED_HOSTS[source]))
+                  if source in SHARED_HOSTS else None)
+        site = Site(args.cache_dir / source, interval, args.timeout, refresh=args.refresh, shared=shared)
         collector = COLLECTORS.get(source)
         try:
             site_links, pages = (collector(site, args.limit) if collector

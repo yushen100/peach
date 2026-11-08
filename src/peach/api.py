@@ -801,6 +801,9 @@ def create_app(
         ledger_ready = await activation.start()
         if settings.configured:
             mount_reachability.start()
+            # javdb 的节拍和独立采集脚本共用数据根里的同一个文件，两边同时跑也不超过它的速率上限。
+            from .library_processing import share_source_limits
+            share_source_limits(settings.follow_state_root)
         warmup = asyncio.create_task(warm_startup_entries())
         aggregate_stop = asyncio.Event()
         aggregate_warmup = asyncio.create_task(_warm_ledger_aggregates(ledger_ready, contract, aggregate_stop))

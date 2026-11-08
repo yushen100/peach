@@ -110,6 +110,16 @@ SOURCE_INTERVALS = {'javdb.com': 3.0, 'jdbstatic.com': 3.0}
 #: 各起各的 provider，间隔若各算各的，几条同时跑时问同一主机的请求就叠在一起，配额照样按
 #: 出口 IP 一份算。补女优资料的 javdb 女优页、详情页视频预告与订阅源取页也等这一份。
 SOURCE_LIMITER = HostLimiter(SOURCE_INTERVALS, default_interval=2.0)
+#: 跨进程共用节拍的主机：独立采集脚本（`scripts/harvest_directory_links.py`）也取 javdb，
+#: 服务启动时让 `SOURCE_LIMITER` 和它共用数据根里的同一个节拍文件（`scripting.SharedSlot`）。
+SHARED_SOURCE_HOSTS = ('javdb.com',)
+
+
+def share_source_limits(state_root) -> None:
+    """服务启动时调：`SHARED_SOURCE_HOSTS` 改按数据根 `state/source-slots/` 下的文件跨进程限速。"""
+    from .scripting import shared_slot_path
+    for host in SHARED_SOURCE_HOSTS:
+        SOURCE_LIMITER.share(host, shared_slot_path(state_root, host))
 #: 认人 Wiki 的取页层自己不再等主机间隔：它的传输就是 provider 的 `transport`，那里已经按
 #: `SOURCE_LIMITER` 等过一次，再等一遍每页就要 4 秒。
 _NO_WAIT = HostLimiter({}, default_interval=0.0)
