@@ -74,6 +74,7 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Library**: Video enhancement model tags such as `_prob4` no longer become part of creator names, aliases or search terms (#681). / **馆藏**：视频增强软件的模型代号（如 `_prob4`）不再算进创作者名，也不再登记成别名和搜索词（#681）。
 - **Sourcing**: Codes left with only a cover image after the video is deleted can be added to Wants, and an early cover no longer marks a want as acquired (#681). / **采集**：视频删掉后只剩封面图的番号能加入「想要」，先到的封面图也不再把想要标成已到手（#681）。
 - **Sourcing**: Mark all as read in the userscript's other tasks no longer hides failed or not-found items; those are dismissed one by one (#686). / **采集**：用户脚本「其他任务」的全部标为已读不再收起失败和未找到资源的项，这类要逐条确认（#686）。
+- **Desktop**: Peach starts again when the browser adding queue file is unreadable; bad rows are dropped and the original file is kept beside it (#548). / **桌面**：浏览器添加队列文件读不懂时 Peach 照常启动，无效行丢弃，原文件留在旁边（#548）。
 
 ## [0.58.0] - 2026-11-14
 
