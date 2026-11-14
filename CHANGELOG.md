@@ -16,10 +16,12 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Added / 新增
 
+- **Updates**: When an update is available, Check for updates lists each newer release's notes from GitHub in the interface language (#680). / **更新**：检查到新版本时，「检查更新」里按界面语言列出之后每一版在 GitHub 上的更新说明（#680）。
 - **Sourcing**: Wants checks for sources on a schedule; cards with no result show the check date, and found links are listed on the card (#650). / **采集**：「想要」清单定时给待找作品查资源，没查到的卡片注明日期，查到的链接直接列在卡片上（#650）。
 
 ### Changed / 变更
 
+- **Updates**: The changelog and release pages put English first; Chinese notes and downloads are folded by language (#680). / **更新**：更新日志与发布页改为英文在前，中文说明和下载说明按语言折叠（#680）。
 - **Sourcing**: Bundled userscript 0.7.13 scrolls codes and performer names that don't fit back and forth within the panel row (peach-mitao/peach-userscript#34). / **采集**：随附用户脚本更新至 0.7.13，浮卡里放不下的番号、女优名改为在行内来回滚动（peach-mitao/peach-userscript#34）。
 
 ### Fixed / 修复
