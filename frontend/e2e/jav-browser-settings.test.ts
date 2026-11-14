@@ -22,7 +22,7 @@ describe('浏览器添加 JAV 设置', () => {
         const posted: Record<string, unknown>[] = [];
         await page.route('**/api/configuration/jav-browser', async route => {
           const request = route.request();
-          const state = { enabled, provider: '115', available: true, userscript: USERSCRIPT, sites: SITES, want_on_no_match: true, providers: [
+          const state = { enabled, provider: '115', available: true, userscript: USERSCRIPT, sites: SITES, want_on_no_match: true, record_browsing: false, providers: [
             { key: '115', label: '115', configured: true, target: '/115/Movies' },
             { key: 'pikpak', label: 'PikPak', configured: true, target: '/Movies' },
           ] };
@@ -130,7 +130,7 @@ describe('浏览器添加 JAV 设置', () => {
     const { page } = opened;
     try {
       await page.route('**/api/configuration/jav-browser', route => route.fulfill({ json: {
-        enabled: true, provider: '115', available: true, userscript: USERSCRIPT, want_on_no_match: true,
+        enabled: true, provider: '115', available: true, userscript: USERSCRIPT, want_on_no_match: true, record_browsing: false,
         providers: [{ key: '115', label: '115', configured: true, target: '/Movies' }],
       } }));
       const posted: unknown[] = [];

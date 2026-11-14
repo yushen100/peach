@@ -182,7 +182,8 @@ export function javBrowserSkeleton(): string {
     + `<div class="flex flex-wrap items-center gap-2">${button(t('settings:userscriptStatus.checkAgain'), 'secondary')}</div></div>`;
   return section(t('settings:javBrowser.title'), stack(`<div class="flex min-w-0 flex-col gap-4">${status}${selectField(t('settings:browserAdd.channel'))}`
     + `${on(shape?.ready) ? '' : help(t('settings:browserAdd.needsCloudDrive'))}`
-    + `<div>${row(t('settings:browserAdd.wantOnNoMatch'), t('settings:browserAdd.wantOnNoMatchHelp'))}</div>${inputField(t('settings:browserAdd.peachUrl'))}</div>`),
+    + `<div>${row(t('settings:browserAdd.wantOnNoMatch'), t('settings:browserAdd.wantOnNoMatchHelp'))}</div>`
+    + `<div>${row(t('settings:browserAdd.recordBrowsing'), t('settings:browserAdd.recordBrowsingHelp'))}</div>${inputField(t('settings:browserAdd.peachUrl'))}</div>`),
   (enabled ? button(t('settings:javBrowser.disable'), 'secondary') : '') + button(enabled ? t('settings:javBrowser.updateChannelToken') : t('settings:javBrowser.enable')));
 }
 

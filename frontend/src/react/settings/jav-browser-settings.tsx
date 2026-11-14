@@ -1,4 +1,4 @@
-/* JAV 用户脚本的默认下载渠道、专用令牌与没搜到资源时是否加入想要。 */
+/* JAV 用户脚本的默认下载渠道、专用令牌、没搜到资源时是否加入想要，以及是否记录浏览。 */
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { SettingsRow } from '@/components/application/settings/settings-rows';
@@ -17,7 +17,7 @@ import { t } from '../../i18n';
 const URL = '/api/configuration/jav-browser';
 interface State {
   enabled: boolean; provider: string; available: boolean; token?: string;
-  active_provider?: string; problems?: string[]; want_on_no_match: boolean;
+  active_provider?: string; problems?: string[]; want_on_no_match: boolean; record_browsing: boolean;
   userscript: { version: string; minimum_version: string; install_url: string };
   providers: { key: string; label: string; configured: boolean; target: string }[];
 }
@@ -53,12 +53,12 @@ function BrowserForm({ initial, receipt }: { initial: State; receipt(message: st
     });
   };
   /* 开关跟着账本走，切换即保存；失败时退回原值，报错写在本节底部。 */
-  const saveWant = (enabled: boolean) => {
+  const saveSwitch = (field: 'want_on_no_match' | 'record_browsing', setting: string, enabled: boolean) => {
     if (action.busy) return;
-    setState(current => ({ ...current, want_on_no_match: enabled }));
-    void action.run('want', signal => apiSend('/api/settings', { javBrowserWantOnNoMatch: enabled }, 'POST', signal),
+    setState(current => ({ ...current, [field]: enabled }));
+    void action.run(field, signal => apiSend('/api/settings', { [setting]: enabled }, 'POST', signal),
       () => receipt(t('settings:shared.settingsSaved')),
-      cause => { setState(current => ({ ...current, want_on_no_match: !enabled })); action.setError(errorMessage(cause)); });
+      cause => { setState(current => ({ ...current, [field]: !enabled })); action.setError(errorMessage(cause)); });
   };
   const ready = state.providers.some(item => item.key === provider && item.configured && item.target);
   return <Section guide="browser" title={t('settings:javBrowser.title')}>
@@ -79,7 +79,11 @@ function BrowserForm({ initial, receipt }: { initial: State; receipt(message: st
         ? <Help>{t('settings:browserAdd.channelUnavailable')}</Help> : null}
       <div><SettingsRow label={t('settings:browserAdd.wantOnNoMatch')} description={t('settings:browserAdd.wantOnNoMatchHelp')}>
         <Switch aria-label={t('settings:browserAdd.wantOnNoMatch')} isSelected={state.want_on_no_match}
-          isDisabled={Boolean(action.busy)} onChange={saveWant} />
+          isDisabled={Boolean(action.busy)} onChange={enabled => saveSwitch('want_on_no_match', 'javBrowserWantOnNoMatch', enabled)} />
+      </SettingsRow></div>
+      <div><SettingsRow label={t('settings:browserAdd.recordBrowsing')} description={t('settings:browserAdd.recordBrowsingHelp')}>
+        <Switch aria-label={t('settings:browserAdd.recordBrowsing')} isSelected={state.record_browsing}
+          isDisabled={Boolean(action.busy)} onChange={enabled => saveSwitch('record_browsing', 'javBrowserRecordBrowsing', enabled)} />
       </SettingsRow></div>
       <Input label={t('settings:browserAdd.peachUrl')} value={window.location.origin} isReadOnly autoComplete="off" />
       {token ? <>
