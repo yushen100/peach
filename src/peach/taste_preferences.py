@@ -17,15 +17,17 @@ REASON_CODE = "taste.reason.line"
 _PROFILES = {}
 _POLICY_FINGERPRINT = None
 PROFILE_TABLES = ('asset', 'asset_entity', 'asset_preference', 'entity', 'entity_alias',
-                  'entity_link', 'entity_classification', 'follow_source', 'genre_decision')
+                  'entity_link', 'entity_classification', 'follow_source', 'genre_decision', 'download_submission')
 
 
 def _policy_fingerprint():
     global _POLICY_FINGERPRINT
     if _POLICY_FINGERPRINT is None:
-        from . import __version__, taste_history, taste_sites, taste_evidence, genre_taxonomy, entities, follow_sources
+        from . import (__version__, taste_browsing, taste_history, taste_sites, taste_evidence, genre_taxonomy, entities,
+                       follow_sources)
         digest = hashlib.sha256(__version__.encode())
-        for path in (__file__, taste_history.__file__, taste_sites.__file__, taste_evidence.__file__, genre_taxonomy.__file__, entities.__file__, follow_sources.__file__):
+        for path in (__file__, taste_history.__file__, taste_sites.__file__, taste_evidence.__file__, taste_browsing.__file__,
+                     genre_taxonomy.__file__, entities.__file__, follow_sources.__file__):
             try:
                 digest.update(Path(path).read_bytes())
             except OSError:
@@ -38,6 +40,7 @@ def preference_profile(connection, store, *, cache=True):
     if not cache:
         return preference_evidence(connection, store, cache=False)
     from .taste_history import store_version
+    from .taste_browsing import browsing_version
     from .fsutil import atomic_write_text
     database = next((row[2] for row in connection.execute("PRAGMA database_list") if row[1] == "main"), "")
     key = None
@@ -45,7 +48,8 @@ def preference_profile(connection, store, *, cache=True):
         revision_table = connection.execute("SELECT 1 FROM sqlite_master WHERE name='ledger_revision'").fetchone()
         revision = connection.execute("SELECT sum(n) FROM ledger_revision WHERE tbl IN ("
                                       + ','.join('?' for _ in PROFILE_TABLES) + ')', PROFILE_TABLES).fetchone()[0] if revision_table else None
-        key = database, revision if revision_table else store_version(Path(database)), store_version(store), _policy_fingerprint()
+        key = (database, revision if revision_table else store_version(Path(database)), store_version(store),
+               browsing_version(store), _policy_fingerprint())
         if key in _PROFILES:
             return _PROFILES[key]
         cache_path = store.parent / "preference-cache.json"

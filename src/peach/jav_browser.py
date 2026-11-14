@@ -347,6 +347,9 @@ class JavBrowser:
         self._swept_at = float("-inf")
         from .jav_browser_diagnostics import BrowserDiagnostics
         self.diagnostics = BrowserDiagnostics()
+        from .taste_browsing import BrowsingRecorder
+        #: 用户脚本在作品页、女优页的查询带 `record=1` 时记一笔浏览（ADR-0163）。
+        self.browsing = BrowsingRecorder(contract)
         self.rows = self._load()
         self.ended = self._load_ended()
 

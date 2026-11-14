@@ -455,6 +455,59 @@ class BrowserTests(unittest.TestCase):
         self.assertEqual(self.service.rows["ABP-616"]["state"], "no_match")
         self.assertEqual(self.wants(), [("ABC-123", "code", "wanted")])
 
+    def browsing_rows(self):
+        import sqlite3
+        from contextlib import closing
+        path = self.service.browsing.path
+        if not path.is_file():
+            return []
+        with closing(sqlite3.connect(path)) as db:
+            return [(kind, subject, site, json.loads(names)) for kind, subject, site, names in
+                    db.execute("SELECT kind,subject,site,names FROM browse_visit ORDER BY id")]
+
+    def test_userscript_browsing_is_recorded_only_when_the_script_asks(self):
+        from datetime import UTC, datetime, timedelta
+        from peach.entities import upsert_asset_entity
+        self.service.contract.taste_history_store = self.root / "taste" / "history.sqlite"
+        with self.service.contract.database.write_transaction() as connection:
+            asset_id = connection.execute('INSERT INTO asset(path,name,location,medium,code) VALUES(?,?,?,?,?)',
+                                          ('R:\\Media\\ABC-123.mp4', 'ABC-123.mp4', 'local', 'video', 'ABC-123')).lastrowid
+            person = upsert_asset_entity(connection, asset_id=asset_id, kind='performer', name='测试演员',
+                                         role='performer', source='user:test')
+        now = [datetime(2026, 11, 15, 1, 0, tzinfo=UTC)]
+        self.service.browsing.clock = lambda: now[0]
+        query = lambda code, **extra: self.client.get("/api/jav-browser", params={"code": code, **extra},
+                                                      headers=self.script_headers)
+        # 列表面板与旧版用户脚本不带 record，回答照旧，什么也不记。
+        self.assertEqual(query("ABC-123").status_code, 200)
+        self.assertEqual(self.browsing_rows(), [])
+        # 刷新与追踪进度的轮询在 30 分钟里只算一次；名字取自本机认得的出演者。
+        self.assertEqual(query("ABC-123", record=1).json()["code"], "ABC-123")
+        query("ABC-123", record=1)
+        self.assertEqual(self.browsing_rows(), [("work", "ABC-123", "", ["测试演员"])])
+        now[0] += timedelta(minutes=31)
+        query("ABC-123", record=1)
+        self.assertEqual(len(self.browsing_rows()), 2)
+        query("SSIS-001", record=1)
+        self.assertEqual(self.browsing_rows()[-1], ("work", "SSIS-001", "", []))
+        identified = self.client.get("/api/jav-browser/identify", headers=self.script_headers,
+                                     params={"source_url": "https://video.dmm.co.jp/av/content/?id=abp00001", "record": 1})
+        self.assertEqual(identified.status_code, 200, identified.text)
+        self.assertEqual(self.browsing_rows()[-1][:3], ("work", "ABP-001", "video.dmm.co.jp"))
+        page = "https://javdb.com/actors/AbCd1"
+        response = self.client.get("/api/jav-browser/performer", headers=self.script_headers,
+                                   params={"source_url": page, "names": ["测试演员"], "record": 1})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(self.browsing_rows()[-1], ("performer", page, "javdb.com", ["测试演员"]))
+        # 只读汇总：按番号、按女优各档由弱到强。
+        signals = self.client.get("/api/taste/signals", params={"code": "abc-123"}, headers=self.headers).json()
+        self.assertEqual([level["level"] for level in signals["levels"]], ["browse", "download", "want", "follow", "watch"])
+        self.assertEqual(signals["levels"][0]["count"], 2)
+        self.assertEqual(signals["levels"][4]["assets"], 1)
+        browse = self.client.get("/api/taste/signals", params={"performer": person}, headers=self.headers).json()["levels"][0]
+        self.assertEqual((browse["count"], browse["works"], browse["pages"]), (3, 1, 1))
+        self.assertEqual(self.client.get("/api/taste/signals", params={"performer": "x"}, headers=self.headers).status_code, 400)
+
     def test_a_failed_search_is_not_added_to_wants(self):
         self.service.search.return_value = {"state": "unavailable", "items": [], "error": "需要配置索引器"}
         self.add()
