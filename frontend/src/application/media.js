@@ -13,7 +13,8 @@ import { apiGet } from '../api';
 import { javDisplayName, javTitleHtml } from '../core/jav-title';
 import { tagLabel } from '../core/tags';
 import { pageSkeletonHtml } from './../management-placeholder';
-import { buildBars, catalogGridLayout, catalogState, commitContextFilter, goHome, loadCatalog, mixRelated } from './catalog.js';
+import { buildBars, catalogGridLayout, catalogState, commitContextFilter, goHome, loadCatalog, mixRelated, pagePlaybackFilters } from './catalog.js';
+import { pagePlaybackParams } from '../react/video-wall/wall-route';
 import { wireDragReorder } from '../ui-kit';
 import { currentBarsContext, entityState, openEntity, revealForIsland, syncForIsland } from './entity.js';
 import { openAddToPlaylist, rereadPlaylists, saveMixAsPlaylist } from './playlists.js';
@@ -21,7 +22,7 @@ import { releaseHoverPreviews } from './../card-art/hover';
 import { applicationEffects } from './effects';
 import { loadingState } from './loading.js';
 import { t } from '../i18n';
-export const mediaState = { total: undefined, facets: undefined, stageHost: undefined, stageOpen: undefined, itemDetailHelpers: undefined, itemDetailActions: undefined, immerseHost: undefined, immerseOpen: undefined, requestedImmerseId: undefined };
+export const mediaState = { total: undefined, facets: undefined, stageHost: undefined, stageOpen: undefined, itemDetailHelpers: undefined, itemDetailActions: undefined, immerseHost: undefined, immerseOpen: undefined, requestedImmerseId: undefined, immerseScope: null, immerseReturn: null };
 
 export function urlResume(){
   const seconds=Number(new URLSearchParams(location.search).get('t'));
@@ -167,8 +168,16 @@ export async function openJavMovie(code,push=true){
   scheduleStickySurfaces();
 }
 
+/** 进沉浸：从哪一页点进来就按哪一页的范围抽片（同播放墙，`pagePlaybackParams`），关掉回到那一页。
+ *  每划一条都会用 `?id=` 改写地址，范围记在这里而不放进地址；直接打开 `/immerse` 时照旧用目录筛选。 */
 export async function openTok(startId=null,push=true){
-  if(push){mediaState.requestedImmerseId=startId;navigationState.route('/immerse');return}
+  if(push){
+    if(location.pathname!=='/immerse'){
+      mediaState.immerseScope=Object.fromEntries(pagePlaybackParams(undefined,pagePlaybackFilters()));
+      mediaState.immerseReturn=location.pathname+location.search;
+    }
+    mediaState.requestedImmerseId=startId;navigationState.route('/immerse');return;
+  }
   stageApi()?.closeMiniplayer();
   await (await loadImmerse(mediaState.immerseHost)).open(startId);
 }
@@ -269,13 +278,17 @@ mediaState.itemDetailActions = {
   failure:(action,error)=>receiptsState.actionFailure(action,error),
 };
 mediaState.immerseHost = {
-  filters:()=>state,
+  filters:()=>mediaState.immerseScope??state,
   seekSeconds:()=>preferencesState.appSettings.seekSeconds,
   sourceOffline:key=>preferencesState.sourceOffline(key),
   displayName:it=>javDisplayName(it),
   /* 每换一条用 replace 写地址：每划一下都往历史里塞一条，后退键就废了。 */
   route:id=>navigationState.route('/immerse?id='+id,true),
-  closed:()=>goHome(),
+  closed:()=>{
+    const back=mediaState.immerseReturn;
+    mediaState.immerseScope=null;mediaState.immerseReturn=null;
+    if(back)navigationState.navigatePath(back);else goHome();
+  },
   openItem:id=>void openItem(id),
   openEntity:(kind,name)=>openEntity(kind,name),
   openUnowned:()=>goHome({owner:'none'}),
