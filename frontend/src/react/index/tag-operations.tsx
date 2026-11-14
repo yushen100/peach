@@ -38,7 +38,9 @@ export function useTagStatusCounts(scope: TagScope, enabled = true) {
   });
   const hidden = useQuery({ ...count('hidden'), enabled });
   const blocked = useQuery({ ...count('blocked'), enabled: enabled && scope === 'online' });
-  return { hiddenCount: hidden.data, blockedCount: scope === 'online' ? blocked.data : undefined };
+  // 还在取是 `null`（药丸上摆骨架），本地范围没有屏蔽这一档是 `undefined`。
+  return { hiddenCount: hidden.data ?? (enabled ? null : undefined),
+    blockedCount: scope === 'online' ? blocked.data ?? (enabled ? null : undefined) : undefined };
 }
 
 export const previewTagOperation = (command: Command, signal?: AbortSignal) =>

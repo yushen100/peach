@@ -300,7 +300,8 @@ export function IndexPage(props: IndexProps) {
         </div>
       ) : null}
       {kind === 'tags' ? (
-        <TagFilters categories={categories} category={category} online={onlineTags} readout={readout}
+        <TagFilters categories={categories} category={category} online={onlineTags}
+          readout={result.isPending ? undefined : readout}
           status={{ hidden: false, blocked: false, ...tagCounts, onChange: (hidden) => { if (hidden) openManager('hidden') },
             ...(onlineTags ? { onBlocked: () => openManager('blocked') } : {}) }}
           letters={groups.map(([letter]) => letter)} view={view}

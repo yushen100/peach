@@ -10,6 +10,7 @@ import type { ReactNode } from 'react';
 import { Button } from '@/components/base/buttons/button';
 import { Checkbox } from '@/components/base/checkbox/checkbox';
 
+import { AsyncText } from '../components/async-text';
 import { TabCount } from '../components/board-tabs';
 import { cardClass } from '../components/card';
 import { FilterGlassRows, FilterPill } from '../components/filter-glass';
@@ -111,20 +112,29 @@ const VIEWS: readonly (readonly [TagView, string, string])[] = [
   ['cloud', t('catalog:peopleIndex.tagCloud'), 'tags'], ['alphabet', t('catalog:peopleIndex.alphabetical'), 'text-aa'],
 ];
 
+/** 状态药丸上的字：不带数量就是名字；数量在取时名字后面跟一小块骨架，取到了换成带数量的那句。 */
+function statusLabel(name: string, count: number | null | undefined, counted: (count: number) => string): ReactNode {
+  if (count === undefined) return name;
+  if (count === null) return <>{name}<span aria-hidden className="skeleton-sheen ml-1.5 inline-block h-3.5 w-4 rounded-md align-middle" /></>;
+  return counted(count);
+}
+
 /** 筛选浮层：上排类型药丸，下排读数、按首字跳转与视图切换。只摆数得到的那几类。 */
 export function TagFilters(
   { categories, category, online, readout, letters, view, onCategory, onJump, onView, status, actions }: {
     categories: readonly (readonly [string, string])[];
     category: string;
     online: boolean;
-    readout: string;
+    /** 还没取到时是 `undefined`，原位摆骨架；取失败是空串。 */
+    readout: string | undefined;
     letters: string[];
     view: TagView;
     onCategory(key: string): void;
     onJump(at: number): void;
     onView(view: TagView): void;
-    /** 使用中、已隐藏、已屏蔽内容三档；带上数量时药丸上写出来（标签页平时那一排就靠它让人看见挡掉了几个）。 */
-    status?: { hidden: boolean; blocked?: boolean; hiddenCount?: number; blockedCount?: number;
+    /** 使用中、已隐藏、已屏蔽内容三档；带上数量时药丸上写出来（标签页平时那一排就靠它让人看见挡掉了几个），
+     *  `null` 是数量还在取，原位摆骨架。 */
+    status?: { hidden: boolean; blocked?: boolean; hiddenCount?: number | null; blockedCount?: number | null;
       onChange(hidden: boolean): void; onBlocked?(): void };
     actions?: ReactNode;
   },
@@ -134,12 +144,12 @@ export function TagFilters(
     <FilterGlassRows label={t('catalog:tagFilters.label')} topLabel={t('catalog:tagFilters.tagType')}
       top={<>
         {status ? <div role="group" aria-label={t('catalog:tagFilters.tagStatus')} className="flex flex-none items-center gap-1.75 border-r border-(--glass-low) pr-3">
-          {[[false, t('catalog:tagFilters.inUse')], [true, status.hiddenCount === undefined ? t('catalog:tagFilters.hidden')
-            : t('catalog:tagFilters.hiddenCount', { count: status.hiddenCount })]].map(([hidden, label]) => <FilterPill key={String(hidden)}
+          {([[false, t('catalog:tagFilters.inUse')], [true, statusLabel(t('catalog:tagFilters.hidden'), status.hiddenCount,
+            (count) => t('catalog:tagFilters.hiddenCount', { count }))]] as const).map(([hidden, label]) => <FilterPill key={String(hidden)}
             data-tag-pill="" data-tag-cat="all" pressed={!status.blocked && status.hidden === hidden} onPress={() => status.onChange(Boolean(hidden))}>{label}</FilterPill>)}
           {status.onBlocked ? <FilterPill data-tag-pill="" data-tag-cat="all" pressed={!!status.blocked}
-            onPress={status.onBlocked}>{status.blockedCount === undefined ? t('catalog:tagFilters.blockedContent')
-              : t('catalog:tagFilters.blockedCount', { count: status.blockedCount })}</FilterPill> : null}
+            onPress={status.onBlocked}>{statusLabel(t('catalog:tagFilters.blockedContent'), status.blockedCount,
+              (count) => t('catalog:tagFilters.blockedCount', { count }))}</FilterPill> : null}
         </div> : null}
         {categories.map(([key, label]) => (
         <FilterPill key={key} data-tag-pill="" data-tag-cat={key === 'all' ? 'all' : tagColorKey(online, key)}
@@ -149,7 +159,8 @@ export function TagFilters(
       ))}</>}
       bottom={<>
         <span data-index-readout="" className="flex-none text-caption-1-regular leading-5 whitespace-nowrap text-text-secondary tabular-nums">
-          {readout}
+          <AsyncText text={readout} busy={readout === undefined}
+            placeholder={<span aria-hidden className="skeleton-sheen inline-block h-3.5 w-20 rounded-md" />} />
         </span>
         {actions}
         {letters.length > 1 ? (

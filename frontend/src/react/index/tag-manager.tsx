@@ -71,7 +71,7 @@ export function TagManager({ search, category = 'all', view = 'cloud', onCategor
 
   return <section ref={root} aria-label={t('catalog:tagManager.label')} data-tag-manager="" className="flex min-w-0 flex-col">
     {search === undefined ? <div className="mb-4 flex"><IndexSearch label={t('catalog:tagManager.filterTags')} value={localSearch} onQuery={setLocalSearch} /></div> : null}
-    <TagFilters categories={categories} category={activeCategory} online={online} readout={inventory.data ? t('catalog:peopleIndex.tagCount', { count: inventory.data.total }) : ''}
+    <TagFilters categories={categories} category={activeCategory} online={online} readout={inventory.data ? t('catalog:peopleIndex.tagCount', { count: inventory.data.total }) : inventory.isError ? '' : undefined}
       letters={groups.map(([letter]) => letter)} view={activeView} onCategory={next => { setLocalCategory(next); onCategory?.(next) }}
       onView={next => { setLocalView(next); onView?.(next) }} onJump={at => onJump ? onJump(at) : root.current?.querySelector(`[data-alpha-group="${at}"]`)?.scrollIntoView({ block:'start', behavior:'smooth' })} status={{ hidden, blocked, ...counts,
         onChange: value => { setHidden(value); setBlocked(false) },
@@ -80,7 +80,8 @@ export function TagManager({ search, category = 'all', view = 'cloud', onCategor
         {/* 按名称屏蔽在线范围三档都在：还没抓到过的标签不在任何一档里，得有个地方直接填名字。 */}
         {online ? <GlassPill onPress={() => setEditing('block')}>{t('catalog:tagManager.blockByName')}</GlassPill> : null}
         {inventory.data?.duplicate_groups.length ? <GlassPill busy={action.busy === 'repair'} onPress={() => run({ operation: 'repair', ids: [] })}>{t('catalog:tagManager.mergeDuplicates')}</GlassPill> : null}
-        {visible.length ? <GlassPill onPress={() => setPicked(current => new Map([...current, ...visible.map(row => [row.k, row] as const)]))}>{t('catalog:tagManager.selectPage')}</GlassPill> : null}
+        {/* 标签还没到时也摆着（按不动），取到以后这一排不再长出一颗键把旁边的挤开。 */}
+        {inventory.isPending || visible.length ? <GlassPill busy={!visible.length} onPress={() => setPicked(current => new Map([...current, ...visible.map(row => [row.k, row] as const)]))}>{t('catalog:tagManager.selectPage')}</GlassPill> : null}
         {picked.size ? <GlassPill onPress={exitPageSelection}>{t('catalog:tagManager.clearSelection')}</GlassPill> : null}
       </>} />
     {inventory.isPending ? <div dangerouslySetInnerHTML={{ __html:tagSkeletonHtml({ mode:activeView, pageSize:pagination.pageSize }) }} />
