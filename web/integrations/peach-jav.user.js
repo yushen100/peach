@@ -10,7 +10,7 @@
 // @supportURL   https://github.com/peach-mitao/peach-userscript/issues
 // @homepageURL  https://github.com/peach-mitao/peach-userscript
 // @license      AGPL-3.0-or-later
-// @version      0.7.12
+// @version      0.7.13
 // @description  Detect video codes on web pages, select titles, and send them to Peach for download and library import.
 // @description:zh-CN 识别网页中的番号，选择影片并交给 Peach 下载入库。
 // @description:zh-TW 識別網頁中的番號，選擇影片並交給 Peach 下載入庫。
@@ -295,7 +295,7 @@
   const STORAGE_APPEARANCE = 'peach.jav.appearance';
   const STORAGE_BATCH_ORDER = 'peach.jav.batch-order';
   const ROOT_ID = 'peach-jav-action';
-  const SCRIPT_VERSION = "0.7.12";
+  const SCRIPT_VERSION = "0.7.13";
   // 0.6.3 起默认名改为英文；发布页切换前仍返回原名。
   const PUBLISHED_NAMES = ['Peach Userscript', 'Peach · JAV 入库'];
   const PEACH_LOGO = "data:image/png;base64,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";
@@ -550,7 +550,7 @@
     .bar strong{font-weight:500;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
     .copy-code{cursor:copy;border-radius:4px}.copy-code[data-code=""]{cursor:auto}.copy-code:focus-visible{outline:2px solid var(--tungsten);outline-offset:2px}
     .bar-title{position:relative}.copy-feedback{position:absolute;top:calc(100% + 4px);z-index:2;padding:2px 8px;border-radius:6px;font:var(--board-caption);color:var(--ground);background:var(--ink);white-space:nowrap;pointer-events:none}.copy-feedback[data-variant=error]{background:var(--drop)}
-    .bar-heading{display:grid;min-width:0;gap:2px}.bar-title{display:flex;align-items:center;gap:8px;min-width:0}.bar-summary{font:var(--board-caption);color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .bar-heading{display:grid;min-width:0;gap:2px}.bar-title{display:flex;align-items:center;gap:8px;min-width:0}.bar-summary{font:var(--board-caption);color:var(--ink-2)}
     .bar-actions{display:flex;gap:4px;flex:none}
     .bar-actions [data-collapse-chevron]{transition:transform .2s ease-in-out}
     .bar-actions [aria-expanded="false"] [data-collapse-chevron]{transform:rotate(180deg)}
@@ -566,26 +566,34 @@
     .shared-action[data-action=retry-failed]{margin-right:auto;color:var(--color-status-rose-text)}.shared-action[data-action=retry-failed]:hover{color:var(--color-status-rose-text);opacity:.8}
     .shared-action-icon{width:14px;height:14px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
     .performer-follow{display:grid;gap:8px;min-width:0}.performer-head{display:flex;align-items:center;gap:8px;min-width:0}
-    .performer-head strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:var(--board-body-medium)}
+    .performer-head strong{font:var(--board-body-medium)}
     .shared-tasks{min-width:0}.shared-heading,.shared-action{display:flex;align-items:center;gap:4px;width:fit-content;margin:0;padding:0;border:0;background:transparent;
       font:var(--board-caption-semibold);color:var(--muted);cursor:pointer}.shared-heading:hover,.shared-action:hover{color:var(--ink)}.shared-action:disabled{opacity:.5;cursor:default}
     .shared-heading:focus-visible,.shared-action:focus-visible{outline:2px solid var(--tungsten);outline-offset:2px;border-radius:4px}
     .shared-fold{width:14px;height:14px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .15s ease}
     .shared-heading[aria-expanded=false] .shared-fold{transform:rotate(-90deg)}
     .shared-heading[data-tone=failed],.shared-heading[data-tone=failed]:hover{color:var(--color-status-rose-text)}
+    /* 单行放不下的文字（marquee）：不截省略号，在原位自动来回横滚，滚动条不画、两端按滚动位置渐隐（同 Peach 横向滚动层）。 */
+    .marquee{min-width:0;overflow-x:auto;overflow-y:hidden;white-space:nowrap;text-overflow:clip;scrollbar-width:none;overscroll-behavior-x:contain;
+      --fade-l:0px;--fade-r:0px;mask-image:linear-gradient(90deg,transparent,#000 var(--fade-l),#000 calc(100% - var(--fade-r)),transparent)}
+    .marquee::-webkit-scrollbar{display:none}.marquee[data-overflow-left]{--fade-l:16px}.marquee[data-overflow-right]{--fade-r:16px}
+    /* 「其他任务」标题始终一行：标题与箭头固定，计数放不下时在中间横滚。 */
+    .shared-heading{max-width:100%}.shared-title{flex:none;white-space:nowrap}
     /* 折叠沿用 Peach Collapse（frontend/src/ui-kit/collapse.css）：过渡时裁边，展开停稳后摘掉，行的悬停底色才不被切。 */
     .shared-body{position:relative;display:flow-root;overflow:hidden;transition:height .2s ease-in-out}.shared-body.fold-settled{overflow:visible}
-    .shared-list{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:4px;max-height:172px;overflow:auto;overscroll-behavior:contain;scrollbar-width:none}
+    /* 列表本身是滚动容器，会裁掉伸出去的子元素：行的悬停底色左右各外扩 8px 由列表的负边距给，行内容仍与标题左对齐。 */
+    .shared-list{list-style:none;margin:8px -8px 0;padding:0;display:grid;gap:4px;max-height:172px;overflow:auto;overscroll-behavior:contain;scrollbar-width:none}
     /* 滚动条用 Peach 的悬浮轨道（overlayScrollbar）；能滚动时右侧留出轨道位置，不压住行尾的关闭键。 */
     .shared-list::-webkit-scrollbar{display:none}.shared-list[data-overflowing]{padding-right:12px}
-    .shared-list li{min-width:0}.shared-row{display:flex;align-items:center;gap:8px;width:calc(100% + 16px);min-width:0;min-height:32px;margin:0 -8px;padding:4px 8px;border:0;border-radius:6px;
-      background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;transition:background-color .15s ease}.shared-row:hover{background:var(--surface)}
+    /* 悬停底色只画在行上，行尾的「标为已读」留在底色外；头像描边跟着换成悬停底色，不露出一圈页面底色。 */
+    .shared-item{display:flex;align-items:center;gap:4px;min-width:0}
+    .shared-row{display:flex;flex:1;align-items:center;gap:8px;min-width:0;min-height:32px;margin:0;padding:4px 8px;border:0;border-radius:6px;
+      background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;transition:background-color .15s ease}
+    .shared-row:hover{--row-bg:var(--surface);background:var(--surface)}
     .shared-row:focus-visible{outline:2px solid var(--tungsten);outline-offset:-2px}
-    .shared-item{display:flex;align-items:center;gap:4px}.shared-item .shared-row{flex:1;width:auto;margin-right:0}
     .shared-item .geist-button.icon{width:28px;height:28px;color:var(--muted)}.shared-item .geist-button.icon:hover{color:var(--ink)}
-    .shared-code{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:var(--board-body-medium)}
+    .shared-code{flex:1;font:var(--board-body-medium)}
     .shared-chevron{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;color:var(--muted)}
-    .task-page .bar strong{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .panel.draggable{cursor:grab}:host([data-dragging]) .panel{cursor:grabbing;user-select:none}
     .body{padding:0 20px 20px;display:grid;gap:16px;min-width:0}.footer{display:flex;align-items:center;justify-content:flex-end;gap:8px;min-height:var(--fieldset-bar-h);padding:8px 16px;border-top:1px solid var(--line);background:var(--surface)}
     .geist-button{height:var(--control-h);padding:8px 12px;border:1px solid var(--color-border-button-default);border-radius:var(--control-radius);background:var(--color-background-primary-default);color:var(--ink);display:inline-flex;
@@ -662,7 +670,12 @@
     .batch-people>.batch-person:hover+.batch-person+.batch-person{--lift-y:-.5px;--lift-x:12px}
     .batch-people>.batch-person:hover+.batch-person+.batch-person+.batch-person{--lift-x:18px}
     .batch-people>.batch-person:hover+.batch-person+.batch-person+.batch-person+.batch-person{--lift-x:24px}
-    @container identity (max-width:179px){.batch-people>.batch-person:nth-child(n+3){display:none}.batch-row-code{--cap:2}}
+    /* 头像多了也限宽：最多叠三枚；番号所在一栏不到 180px 只留两枚，不到 120px 只留一枚，让出位置给番号。
+       标题栏与进度页标题和表格的番号格一样按自身宽度判断，所以标题区占满剩余宽度。 */
+    .bar-heading{flex:1}.subpage-bar>.bar-title{flex:1}.bar-title{container:identity/inline-size}
+    .batch-people>.batch-person:nth-child(n+4){display:none}:is(.batch-row-code,.bar-title>strong){--cap:3}
+    @container identity (max-width:179px){.batch-people>.batch-person:nth-child(n+3){display:none}:is(.batch-row-code,.bar-title>strong){--cap:2}}
+    @container identity (max-width:119px){.batch-people>.batch-person:nth-child(n+2){display:none}:is(.batch-row-code,.bar-title>strong){--cap:1}}
     /* 头像右侧紧跟番号：展开时番号随最后一枚头像同步右移，距离为 6px ×（显示枚数 − 指到的序号）。 */
     :is(.batch-row-code,.bar-title>strong){transition:transform calc(var(--spring-press-ms) * 1ms) var(--spring-press)}
     :is(.batch-row-main,.bar-title):has(.batch-person:hover) :is(.batch-row-code,.bar-title>strong){transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.3s;transform:translateX(calc(6px * (min(var(--count,1),var(--cap,5)) - var(--hovered,1))))}
@@ -676,7 +689,7 @@
     :is(.batch-row-main,.bar-title):has(>.batch-people>.batch-person:nth-child(4):hover) :is(.batch-row-code,.bar-title>strong){--hovered:4}
     :is(.batch-row-main,.bar-title):has(>.batch-people>.batch-person:nth-child(5):hover) :is(.batch-row-code,.bar-title>strong){--hovered:5}
     .batch-row{--row-bg:var(--color-background-primary-default)}.batch-row[data-board-selected]{--row-bg:var(--surface)}
-    @media(hover:hover) and (pointer:fine){.batch-row:not([aria-disabled=true]):hover{--row-bg:var(--color-background-primary-hover)}}.batch-row-code{font:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}.batch-row-status{min-width:0}
+    @media(hover:hover) and (pointer:fine){.batch-row:not([aria-disabled=true]):hover{--row-bg:var(--color-background-primary-hover)}}.batch-row-code{font:inherit}.batch-row-status{min-width:0}
     .batch-footer{flex-wrap:nowrap;gap:8px}.batch-footer .geist-button.icon{padding:0;border:1px solid var(--color-border-button-default);background:var(--color-background-primary-default);box-shadow:var(--elevation-xs)}
     .batch-footer [data-spinning] svg{animation:peach-jav-spin .7s linear infinite}@keyframes peach-jav-spin{to{transform:rotate(1turn)}}
     .batch-footer .geist-button.primary:disabled{border:1px solid var(--color-border-button-default);background:var(--color-background-primary-default)}
@@ -1026,24 +1039,32 @@
   // 只收原文带连字符的厂牌与素人番号，用户名、导航、域名里的「字母+数字」不补分隔符。
   // 评论署名也会写成带连字符的形状（mgstage 的「qwert-02さんのレビュー」），后面紧跟敬称的不算番号。
   function candidates(value, maxLength = 800, separated = false) {
-    const found = new Set();
+    return new Set(placedCandidates(value, maxLength, separated).map(([, code]) => code));
+  }
+
+  // 一段身份字段只按最先出现的番号定身份，与 Peach `feeds.scan_code` 一致：
+  // MISSAV 标题「JMTY-039 Tadaman File05 …」后段的 File05 不另算一部作品。
+  function leadingCandidate(value) {
+    const placed = placedCandidates(value);
+    return placed.length ? placed.reduce((first, item) => item[0] < first[0] ? item : first)[1] : '';
+  }
+
+  // 认出的番号连同它在原文中的位置；已认出的片段换成等长空白，后面的位置不偏移。
+  function placedCandidates(value, maxLength = 800, separated = false) {
+    const found = [];
+    const take = (whole, offset, code) => { found.push([offset, code]); return ' '.repeat(whole.length); };
     const bounded = String(value || '').slice(0, maxLength).toUpperCase();
-    let rest = bounded.replace(/\bFC2(?:[-_ ]?PPV)?[-_ ]?(\d{4,9})\b/g, (_, digits) => {
-      found.add(`FC2-PPV-${digits}`);
-      return ' ';
-    });
-    rest = rest.replace(/\b([NK])(\d{4})\b/g, (_, prefix, digits) => {
-      found.add(prefix.toLowerCase() + digits);
-      return ' ';
-    });
-    rest = rest.replace(/\b(MKB?D)-S(\d{2,4})(?=$|[^A-Z0-9])/g, (_, prefix, digits) => {
-      found.add(`${prefix}-S${digits}`);
-      return ' ';
-    });
+    let rest = bounded.replace(/\bFC2(?:[-_ ]?PPV)?[-_ ]?(\d{4,9})\b/g,
+      (whole, digits, offset) => take(whole, offset, `FC2-PPV-${digits}`));
+    rest = rest.replace(/\b([NK])(\d{4})\b/g,
+      (whole, prefix, digits, offset) => take(whole, offset, prefix.toLowerCase() + digits));
+    rest = rest.replace(/\b(MKB?D)-S(\d{2,4})(?=$|[^A-Z0-9])/g,
+      (whole, prefix, digits, offset) => take(whole, offset, `${prefix}-S${digits}`));
+    // 无码日期番号先认：MISSAV 写成 `PONDO-103126_001`、`CARIBBEANCOM-111326-001`，厂牌前缀不和日期拼成另一个番号。
+    rest = rest.replace(/\b\d{6}[-_]\d{2,4}\b/g, (whole, offset) => take(whole, offset, whole));
     const shape = separated ? /\b((?:\d{3})?[A-Z]{2,8})-(\d{2,5})([A-Z]{0,2})(?=$|[^A-Z0-9])(?!\s*(?:さん|さま|様|氏|くん|君|ちゃん))/g
       : /\b((?:\d{1,5})?[A-Z]{2,12})[-_]?(\d{1,8})([A-Z]{0,2})(?=$|[^A-Z0-9])/g;
-    for (const match of rest.matchAll(shape)) found.add(`${match[1]}-${match[2]}${match[3]}`);
-    for (const match of rest.matchAll(/\b\d{6}[-_]\d{2,4}\b/g)) found.add(match[0]);
+    for (const match of rest.matchAll(shape)) found.push([match.index, `${match[1]}-${match[2]}${match[3]}`]);
     return found;
   }
 
@@ -1098,6 +1119,61 @@
       to(event); event.preventDefault();
     });
     return sync;
+  }
+
+  // 横滚层两端的渐隐标记：左边还有内容、右边还有内容各一个。
+  function edgeFade(scroller) {
+    const max = scroller.scrollWidth - scroller.clientWidth;
+    scroller.toggleAttribute('data-overflow-left', max > 1 && scroller.scrollLeft > 1);
+    scroller.toggleAttribute('data-overflow-right', max > 1 && scroller.scrollLeft < max - 1);
+  }
+
+  // 单行放不下的文字一律用 marquee：不截省略号，在原位自动来回横滚，同 Peach `ui-kit/scroll.ts` 的 wireAutoScroll——
+  // 每秒 24px，到头停 2 秒再折返；指针或焦点在 host 上时停，离开 3 秒后从停下的位置接着走。
+  // 放得下、被收起（尺寸为 0）时循环停住，尺寸或文字变了再叫醒；后台标签页里动画帧本来就不跑。
+  // 系统要求减少动态效果时不自动滚，只留两端渐隐。整份列表每次重画都会换掉这些元素，
+  // 所以尺寸观察共用一个、元素离开文档就解除，监听都挂在元素自己身上，随元素一起回收。
+  const marqueeChanges = new WeakMap();
+  const marqueeSizes = new ResizeObserver(entries => {
+    for (const { target } of entries) {
+      if (target.isConnected) marqueeChanges.get(target)?.(); else marqueeSizes.unobserve(target);
+    }
+  });
+  function marquee(scroller, host = scroller) {
+    scroller.classList.add('marquee');
+    scroller.addEventListener('scroll', () => edgeFade(scroller), { passive: true });
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let pos = 0, dir = 1, last = 0, frame = 0, max = -1, hovered = false, focused = false, resync = false, fits = true, holdUntil = 0;
+    const running = () => !still && scroller.isConnected && !hovered && !focused;
+    const tick = now => {
+      frame = 0;
+      if (!running()) return;
+      if (max < 0) {
+        max = scroller.scrollWidth - scroller.clientWidth;
+        // 刚变得放不下（头像加载完、文字变长、从收起展开）时先停在开头 2 秒，再开始滚。
+        if (max > 1 && fits) { pos = 0; dir = 1; scroller.scrollLeft = 0; holdUntil = now + 2000; }
+        fits = max <= 1;
+      }
+      if (max <= 1) { pos = 0; dir = 1; return; }
+      frame = requestAnimationFrame(tick);
+      const dt = last ? Math.min(now - last, 64) : 0; last = now;
+      if (now < holdUntil) return;
+      if (resync) { resync = false; pos = scroller.scrollLeft; }
+      // 位置自己记一份小数：一帧只走零点几个像素，scrollLeft 读回来是取整后的值。
+      pos = Math.min(max, Math.max(0, pos + dir * 24 * dt / 1000));
+      scroller.scrollLeft = pos;
+      if (pos >= max || pos <= 0) { dir = pos >= max ? -1 : 1; holdUntil = now + 2000; }
+    };
+    const wake = () => { if (!frame && running()) { last = 0; frame = requestAnimationFrame(tick); } };
+    const resume = () => { resync = true; holdUntil = performance.now() + 3000; wake(); };
+    const changed = () => { max = -1; edgeFade(scroller); wake(); };
+    host.addEventListener('pointerenter', () => { hovered = true; });
+    host.addEventListener('pointerleave', () => { hovered = false; resume(); });
+    host.addEventListener('focusin', () => { focused = true; });
+    host.addEventListener('focusout', () => { focused = false; resume(); });
+    marqueeChanges.set(scroller, changed); marqueeSizes.observe(scroller);
+    new MutationObserver(changed).observe(scroller, { childList: true, characterData: true, subtree: true });
+    return scroller;
   }
 
   function comparisonKey(code) {
@@ -1216,8 +1292,14 @@
       }
     }
     let foundField = false;
-    for (const field of fields) for (const code of candidates(field)) {
+    for (const field of fields) {
+      const code = leadingCandidate(field);
+      if (!code) continue;
       foundField = true;
+      // 地址里写不出下划线：Jable 把 `020121_429-paco` 写成 `/videos/020121-429-paco/`，以字段里的下划线写法为准。
+      // 反过来地址写下划线、字段写连字符时，两种写法分属不同厂牌，仍算冲突。
+      const dashed = /^\d{6}_\d{2,4}$/.test(code) ? code.replace('_', '-') : '';
+      if (dashed && pathCodes.has(dashed)) codes.delete(comparisonKey(dashed));
       if (!codes.has(comparisonKey(code))) codes.set(comparisonKey(code), code);
     }
     if (!foundField) return null;
@@ -1469,7 +1551,7 @@
     const node = element('section', 'performer-follow');
     node.setAttribute('aria-label', '女优新作订阅');
     node.hidden = true;
-    const head = element('div', 'performer-head'), people = element('span', 'batch-people'), label = element('strong');
+    const head = element('div', 'performer-head'), people = element('span', 'batch-people'), label = marquee(element('strong'));
     people.append(defaultPersonAvatar());
     head.append(people, label);
     const note = element('p', 'geist-note');
@@ -1767,7 +1849,7 @@
       const status = element('span', 'batch-row-status chip');
       status.dataset.chip='plain';status.textContent='查询中';status.title='正在查询 Peach 状态';
       const result=element('td');result.append(status);
-      const codeLabel=element('span','batch-row-code',code);codeLabel.title=code;
+      const codeLabel=marquee(element('span','batch-row-code',code),row);codeLabel.title=code;
       main.append(people,codeLabel);identity.append(main);row.append(selection,identity,result);
       input.addEventListener('change', view.paint);
       row.addEventListener('click',event=>{if(input.disabled||event.target.closest('label,input,button,a'))return;input.checked=!input.checked;view.paint();});
@@ -2893,9 +2975,15 @@
     const open = node.foldChoice ? node.foldChoice.open : !auto;
     const running = items.filter(tracking), ended = items.filter(body => !tracking(body));
     if (!node.parts) {
-      const heading = element('button', 'shared-heading'), label = element('span');
+      // 「其他任务」与箭头固定，只有中间的计数横滚。
+      const heading = element('button', 'shared-heading'), counts = element('span', 'shared-counts');
       heading.type = 'button';
-      heading.append(label, chevronIcon('shared-fold', 'm6 9 6 6 6-6'));
+      // 竖向滚轮转成横滚；放得下时不拦，滚轮照常滚面板。
+      heading.addEventListener('wheel', event => {
+        if (counts.scrollWidth - counts.clientWidth <= 1 || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+        event.preventDefault(); counts.scrollLeft += event.deltaY;
+      }, { passive: false });
+      heading.append(element('span', 'shared-title', '其他任务'), marquee(counts, heading), chevronIcon('shared-fold', 'm6 9 6 6 6-6'));
       heading.addEventListener('click', () => {
         node.foldChoice = { auto: node.parts.auto, open: !node.parts.open };
         paintSharedList(node);
@@ -2923,17 +3011,18 @@
       group.append(heading, note, body);
       node.replaceChildren(paused, group);
       overlayScrollbar(list, { square: true });
-      node.parts = { heading, label, retryAll, clear, note, paused, group, body, list, open };
+      node.parts = { heading, counts, retryAll, clear, note, paused, group, body, list, open };
     }
-    const { heading, label, retryAll, clear, paused, group, body: fold, list } = node.parts;
+    const { heading, counts, retryAll, clear, paused, group, body: fold, list } = node.parts;
     paused.replaceChildren(...notices);
     paused.hidden = !notices.length;
     group.hidden = !items.length;
     if (!items.length) return;
     // 失败（含未找到资源与整理失败）从已结束里单独计数，有失败项时整行标题变红。
     const failed = ended.filter(retryableTask), done = ended.length - failed.length;
-    label.textContent = ['其他任务', running.length ? `进行中 ${running.length} 项` : '', done ? `已完成 ${done} 项` : '',
-      failed.length ? `失败 ${failed.length} 项` : ''].filter(Boolean).join(' · ');
+    // 计数段以「 · 」开头，整行文字仍是「其他任务 · 进行中 N 项 …」；行首空白不显示，间距由标题行的 gap 给。
+    counts.textContent = ['', running.length ? `进行中 ${running.length} 项` : '', done ? `已完成 ${done} 项` : '',
+      failed.length ? `失败 ${failed.length} 项` : ''].filter((part, index) => index === 0 || part).join(' · ');
     if (failed.length) heading.dataset.tone = 'failed'; else delete heading.dataset.tone;
     clear.hidden = !ended.some(awaitingAck);
     retryAll.hidden = !ended.some(retryableTask);
@@ -2945,7 +3034,7 @@
     for (const body of [...failed, ...running, ...ended.filter(body => !retryableTask(body))]) {
       const row = element('button', 'shared-row'), status = element('span', 'chip');
       row.type = 'button'; row.dataset.code = body.code;
-      row.append(sharedAvatars(body), element('span', 'shared-code', body.code), status, chevronIcon('shared-chevron', 'm9 6 6 6-6 6'));
+      row.append(sharedAvatars(body), marquee(element('span', 'shared-code', body.code), row), status, chevronIcon('shared-chevron', 'm9 6 6 6-6 6'));
       setRowState({ row, status }, ...rowState(body));
       row.setAttribute('aria-label', `${body.code}，${status.textContent}，查看进度`);
       row.addEventListener('click', () => openTaskPage(node.closest('.panel'), body.code));
@@ -3060,7 +3149,7 @@
     const back = control('返回 Peach 主页', { icon: 'back' });
     const title = element('div', 'bar-title'), people = element('span', 'batch-people');
     people.append(defaultPersonAvatar());
-    title.append(people, copyableCode(element('strong', '', code), () => code));
+    title.append(people, marquee(copyableCode(element('strong', '', code), () => code)));
     // 右上角与主页同一组：设置、折叠、隐藏，点了交给主页标题栏上的那一枚。
     const actions = element('div', 'bar-actions');
     for (const [label, icon] of [['Peach 设置', 'settings'], ['折叠 Peach 详情', 'collapse'], ['隐藏 Peach 面板', 'close']]) {
@@ -3419,8 +3508,8 @@
     const label = element('strong', '', item.conflict ? '番号待核对' : item.code || '作品番号');
     // 只有确定的番号可复制；冲突待核对、商品号待 Peach 解析时不响应，解析出番号后由 query 补上。
     label.dataset.code = !item.conflict && !item.resolve ? item.code || '' : '';
-    copyableCode(label, () => label.dataset.code);
-    const summary = element('span', 'bar-summary');
+    marquee(copyableCode(label, () => label.dataset.code));
+    const summary = marquee(element('span', 'bar-summary'));
     summary.hidden = true;
     const heading = element('div', 'bar-heading');
     const title = element('div', 'bar-title');
