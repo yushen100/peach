@@ -69,6 +69,7 @@ from .web_feeds import (
     q_feeds,
     w_feed_check,
     w_feed_discovery,
+    w_feed_schedule,
     w_feed_schedule_run,
     w_feed_source,
 )
@@ -463,6 +464,7 @@ POST_HANDLERS = {
     "/api/feeds/check": w_feed_check,
     "/api/feeds/source": w_feed_source,
     "/api/feeds/discovery": w_feed_discovery,
+    "/api/feeds/schedule": w_feed_schedule,
     "/api/feeds/schedule/run": w_feed_schedule_run,
     "/api/follow/check": w_follow_check,
     "/api/follow/schedule": w_follow_schedule,

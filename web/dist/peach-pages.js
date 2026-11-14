@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "0722b237-33ad-4f42-a3b8-2a5f61397b21", e._sentryDebugIdIdentifier = "sentry-dbid-0722b237-33ad-4f42-a3b8-2a5f61397b21");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "102bb4e9-c72b-420b-b6c1-5175e09f92af", e._sentryDebugIdIdentifier = "sentry-dbid-102bb4e9-c72b-420b-b6c1-5175e09f92af");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -6028,18 +6028,14 @@ var He = {
 		checking: "Checking sources for updates",
 		consecutiveFailures_one: "Failed {{count, number}} time in a row",
 		consecutiveFailures_other: "Failed {{count, number}} times in a row",
-		everyHours_one: "Every hour",
-		everyHours_other: "Every {{count, number}} hours",
-		everyMinutes_one: "Every minute",
-		everyMinutes_other: "Every {{count, number}} minutes",
 		faviconRefresh: "Yearly",
-		feedOff: "Off",
+		feedScheduleHelp: "Each subscription is fetched at this interval; Wants are searched for in the same run.",
+		feedScheduleInterval: "Subscription fetch interval",
 		fetchingFeeds: "Fetching subscriptions",
 		initialRangeSaved: "Initial fetch range saved",
 		invalidInterval: "Enter a whole number from 15 to 10080 (minutes).",
 		lastCheckFailed: "Last auto-check failed",
 		lastFetchFailed: "Last auto-fetch failed",
-		loadingFeedInterval: "Loading subscription interval",
 		nextRun: "Next run {{time}}",
 		primaryOnly: "Primary computer only",
 		retryFailed: "Couldn't retry: {{error}}"
@@ -12869,16 +12865,14 @@ var He = {
 		avatarRefresh: "每 3 个月",
 		checking: "正在检查来源更新",
 		consecutiveFailures: "已连续失败 {{count, number}} 次",
-		everyHours: "每 {{count, number}} 小时",
-		everyMinutes: "每 {{count, number}} 分钟",
 		faviconRefresh: "每年",
-		feedOff: "已关闭",
+		feedScheduleHelp: "每个订阅源按这个间隔拉取新作，「想要」也在这一轮里查资源",
+		feedScheduleInterval: "订阅源拉取间隔",
 		fetchingFeeds: "正在拉取订阅源",
 		initialRangeSaved: "已保存首次采集范围",
 		invalidInterval: "请输入 15–10080 的整数（分钟）。",
 		lastCheckFailed: "上次自动检查失败",
 		lastFetchFailed: "上次自动拉取失败",
-		loadingFeedInterval: "正在读取订阅源拉取间隔",
 		nextRun: "下一轮 {{time}}",
 		primaryOnly: "只在写入端可用",
 		retryFailed: "没有重试：{{error}}"
@@ -38681,4 +38675,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=0722b237-33ad-4f42-a3b8-2a5f61397b21
+//# debugId=102bb4e9-c72b-420b-b6c1-5175e09f92af

@@ -102,11 +102,19 @@ export function useSaveSettings(scope?: string) {
   }, queryClient);
 }
 
-export function useSaveFollowSchedule() {
+/** 关注与订阅源两份定时的读写：同一套调度实现，只换地址、缓存键和关掉时留着的默认间隔。 */
+export const SCHEDULES = {
+  follow: { url: FOLLOW_SCHEDULE_URL, key: FOLLOW_SCHEDULE_KEY, fetch: fetchFollowSchedule, fallback: 60 },
+  feed: { url: FEED_SCHEDULE_URL, key: FEED_SCHEDULE_KEY, fetch: fetchFeedSchedule, fallback: 360 },
+} as const;
+
+/** 存一份定时：传 0 是关掉，其余是间隔分钟数。 */
+export function useSaveSchedule(kind: keyof typeof SCHEDULES) {
+  const { url, key, fallback } = SCHEDULES[kind];
   return useMutation({
-    mutationFn: (minutes: number) => apiSend<FollowScheduleStatus>(FOLLOW_SCHEDULE_URL,
-      { enabled: minutes > 0, interval_minutes: minutes || 60 }),
-    onSuccess: (status) => queryClient.setQueryData(FOLLOW_SCHEDULE_KEY, status),
+    mutationFn: (minutes: number) => apiSend<FollowScheduleStatus>(url,
+      { enabled: minutes > 0, interval_minutes: minutes || fallback }),
+    onSuccess: (status) => queryClient.setQueryData(key, status),
   });
 }
 

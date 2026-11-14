@@ -447,6 +447,17 @@ def q_feed_schedule(contract, _args) -> dict:
     return scheduler.status()
 
 
+def w_feed_schedule(contract, body) -> dict:
+    """订阅源定时拉取的开关与每个源的间隔，校验与关注那一份同一套（15 分钟到一周）。"""
+    scheduler = contract.feed_scheduler
+    if scheduler is None:
+        raise UserValueError("api.feeds.scheduleDisabled")
+    return scheduler.update(
+        enabled=body.get("enabled", True),
+        interval_minutes=body.get("interval_minutes", feeds.DEFAULT_INTERVAL_MINUTES),
+    )
+
+
 def w_feed_schedule_run(contract, _body) -> dict:
     """让订阅源定时拉取立刻跑一轮，结果照常记进调度状态。"""
     scheduler = contract.feed_scheduler

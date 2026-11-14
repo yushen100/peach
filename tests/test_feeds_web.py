@@ -250,6 +250,21 @@ class FeedWebTest(FeedWebFixture):
                          (True, True, feeds.DEFAULT_INTERVAL_MINUTES))
         self.assertEqual((status["last_error"], status["consecutive_failures"]), ("1 个来源检查失败", 2))
 
+    def test_schedule_route_saves_switch_and_interval(self):
+        from peach.follow_scheduler import FEED_JOB_ID, FollowScheduleConfig, FollowUpdateScheduler
+        root = Path(self.temporary.name) / "schedule"
+        self.contract.feed_scheduler = FollowUpdateScheduler(
+            root, lambda: {"ok": True}, available=True, job_id=FEED_JOB_ID, filename="feed-schedule.json",
+            default=FollowScheduleConfig(enabled=True, interval_minutes=feeds.DEFAULT_INTERVAL_MINUTES))
+        saved = dispatch_api_post(self.contract, "/api/feeds/schedule", {"enabled": True, "interval_minutes": 720})
+        self.assertEqual((saved["enabled"], saved["interval_minutes"]), (True, 720))
+        off = dispatch_api_post(self.contract, "/api/feeds/schedule", {"enabled": False, "interval_minutes": 720})
+        self.assertFalse(off["enabled"])
+        self.assertEqual(json.loads((root / "feed-schedule.json").read_text(encoding="utf-8")),
+                         {"enabled": False, "interval_minutes": 720})
+        with self.assertRaises(ValueError):
+            dispatch_api_post(self.contract, "/api/feeds/schedule", {"enabled": True, "interval_minutes": 5})
+
     def test_recovery_keeps_source_selection_progress_and_discovered_codes(self):
         from peach import job_recovery
         first = self._add()
