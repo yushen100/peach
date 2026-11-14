@@ -182,7 +182,7 @@ export function TagDock(
   { count: number; match: 'any' | 'all'; onMatch(match: 'any' | 'all'): void; onClear(): void; onApply(): void },
 ) {
   return (
-    <SelectionDock visible={count > 0} label={t('catalog:tagFilters.selectionActions')} count={t('catalog:tagFilters.selectedCount', { count: count })}>
+    <SelectionDock visible={count > 0} label={t('catalog:tagFilters.selectionActions')} count={t('catalog:tagFilters.selectedCount', { count: count })} actions={[]}>
       <Checkbox isSelected={match === 'any'} onChange={(on) => onMatch(on ? 'any' : 'all')}>
         <span className="flex flex-col">
           <span className="text-body-medium">{t('catalog:tagFilters.matchAny')}</span>

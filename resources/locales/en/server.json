@@ -592,7 +592,10 @@
     "keep-duplicates": "Keep all in duplicate groups",
     "reconsider-duplicates": "List duplicate groups again",
     "region": "Bulk set region",
-    "performer-delete": "Delete actresses' videos permanently"
+    "performer-delete": "Delete actresses' videos permanently",
+    "revert-like": "Undo bulk like",
+    "revert-seen": "Undo bulk mark watched",
+    "revert-later": "Undo bulk watch later"
   },
   "outcome": {
     "semicolon": ". ",

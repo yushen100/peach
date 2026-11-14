@@ -618,6 +618,64 @@ def _batch_disposal_reason(body):
     return reason
 
 
+#: 批量「喜欢」「看过」「稍后看」的撤回：按那一批写入前交回的原值写回去。
+REVERTS = frozenset({"revert-like", "revert-seen", "revert-later"})
+
+
+def _batch_previous(body, ids) -> dict[int, object]:
+    """撤回时带回来的原值，键是资产 id；只认这一批里的 id。"""
+    raw = body.get("previous")
+    if not isinstance(raw, dict):
+        raise TypeError("previous must map asset ids to their earlier values")
+    wanted = set(ids)
+    previous = {int(key): value for key, value in raw.items()}
+    if set(previous) - wanted:
+        raise ValueError("previous lists assets outside this batch")
+    return previous
+
+
+def _snapshot_marks(connection, operation, ids) -> dict:
+    """写入前记下原值，回执交给前端，撤销时原样带回来。"""
+    marks = ",".join("?" * len(ids))
+    if operation == "like":
+        rows = dict(connection.execute(
+            f"SELECT asset_id,liked FROM asset_preference WHERE profile_id=? AND asset_id IN ({marks})",
+            [DEFAULT_PROFILE_ID, *ids]).fetchall())
+        return {"previous": {str(i): rows.get(i) for i in ids}}
+    if operation == "seen":
+        rows = dict(connection.execute(
+            f"SELECT id,feedback FROM asset WHERE id IN ({marks})", ids).fetchall())
+        return {"previous": {str(i): rows.get(i) for i in ids}}
+    if operation == "later":
+        queued = {row[0] for row in connection.execute(
+            f"SELECT asset_id FROM watch_queue WHERE profile_id=? AND asset_id IN ({marks})",
+            [DEFAULT_PROFILE_ID, *ids])}
+        return {"previous": {str(i): i in queued for i in ids}}
+    return {}
+
+
+def _write_revert(connection, operation, previous: dict[int, object]) -> None:
+    """把「喜欢」「看过」「稍后看」写回那一批之前的样子。"""
+    if operation == "revert-like":
+        for asset_id, liked in previous.items():
+            if liked is None:
+                connection.execute("DELETE FROM asset_preference WHERE profile_id=? AND asset_id=?",
+                                   (DEFAULT_PROFILE_ID, asset_id))
+            else:
+                connection.execute(
+                    "UPDATE asset_preference SET liked=?,updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now') "
+                    "WHERE profile_id=? AND asset_id=?", (1 if liked else 0, DEFAULT_PROFILE_ID, asset_id))
+    elif operation == "revert-seen":
+        for asset_id, feedback in previous.items():
+            if feedback not in (None, "seen", "dislike"):
+                raise ValueError("unsupported feedback value")
+            connection.execute("UPDATE asset SET feedback=? WHERE id=?", (feedback, asset_id))
+    else:
+        dropped = [asset_id for asset_id, queued in previous.items() if not queued]
+        connection.executemany("DELETE FROM watch_queue WHERE profile_id=? AND asset_id=?",
+                               [(DEFAULT_PROFILE_ID, asset_id) for asset_id in dropped])
+
+
 #: 只在 `review_decision` 里记一笔或撤一笔、不碰 asset 行的几种批量操作。
 REVIEW_MARKS = frozenset({"dismiss-junk", "reconsider-junk", "keep-duplicates", "reconsider-duplicates"})
 
@@ -669,9 +727,10 @@ def w_batch(contract: WebContract, body):
         raise ValueError("batch requires 1 to 200 assets")
     operation = body.get("operation")
     if operation not in {
-        "like", "seen", "later", "dispose", "restore", "delete", "region", *REVIEW_MARKS,
+        "like", "seen", "later", "dispose", "restore", "delete", "region", *REVIEW_MARKS, *REVERTS,
     }:
         raise ValueError("unsupported batch operation")
+    previous = _batch_previous(body, ids) if operation in REVERTS else None
     # 产地的取值在这里就要认出来，别等到写库那一步才发现拼错了。
     region_value = _batch_region_value(body) if operation == "region" else None
     disposal_reason = _batch_disposal_reason(body)
@@ -701,8 +760,11 @@ def w_batch(contract: WebContract, body):
                             raise ValueError("assets not found")
                         _reject_ineligible_targets(operation, found)
                         now = time.time()
-                        if operation in {"restore", "seen", "dispose"}:
-                            state_receipt = _write_batch_state(connection, found, operation, now, disposal_reason)
+                        state_receipt = _snapshot_marks(connection, operation, valid_ids)
+                        if operation in REVERTS:
+                            _write_revert(connection, operation, previous)
+                        elif operation in {"restore", "seen", "dispose"}:
+                            state_receipt.update(_write_batch_state(connection, found, operation, now, disposal_reason))
                         elif operation in REVIEW_MARKS:
                             _write_review_mark(connection, operation, valid_ids, now)
                         elif operation == "region":

@@ -598,7 +598,17 @@
     "selectGroup": "Select group",
     "sourceChosen": "Selected {{source}}. Click Approve selected to apply it.",
     "switchCategoryHint": "Switch categories to see other pending metadata.",
-    "viewOtherCategories": "View other categories"
+    "viewOtherCategories": "View other categories",
+    "confirm": {
+      "approved_one": "Approves the {{count, number}} selected item and writes the chosen source's details.",
+      "approved_other": "Approves the {{count, number}} selected items and writes the chosen sources' details.",
+      "rejected_one": "Ignores the {{count, number}} selected item and moves it to Ignored.",
+      "rejected_other": "Ignores the {{count, number}} selected items and moves them to Ignored.",
+      "restore_one": "Moves the {{count, number}} selected item back to Pending.",
+      "restore_other": "Moves the {{count, number}} selected items back to Pending.",
+      "skipped_one": "Moves the {{count, number}} selected item to Later.",
+      "skipped_other": "Moves the {{count, number}} selected items to Later."
+    }
   },
   "reviewQueue": {
     "approved": "Approved",

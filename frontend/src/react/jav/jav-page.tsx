@@ -30,13 +30,14 @@ import { activityKind } from '../../activity-kinds';
 import { DISCOVERY_SORTS, discoveryScore, recommendationScore, type DiscoverySort } from './discovery-sorts';
 import { jobText, serverLabelList } from '../../core/server-text';
 import { t } from '../../i18n';
+import type { Receipt } from '../components/bulk-action';
 
 const MetadataStopGlyph = spriteGlyph('x');
 const MetadataRefreshGlyph = spriteGlyph('refresh-cw');
 const SEARCH_LABELS: Record<string, string> = { releases: t('catalog:javSearch.filterReleases'), discover: t('catalog:javSearch.filterRecommended'), wants: t('catalog:javSearch.filterWants') };
 
 export function JavPage({ tab, readOnly, navigate, receipt }: {
-  tab: string; readOnly: boolean; navigate(path: string): void; receipt(message: string): void;
+  tab: string; readOnly: boolean; navigate(path: string): void; receipt: Receipt;
 }) {
   const [download, setDownload] = useState<DownloadPrefill | null>(null);
   const [text, changeText] = useState(() => new URLSearchParams(location.search).get('q') || '');

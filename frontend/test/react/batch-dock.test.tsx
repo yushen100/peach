@@ -8,6 +8,7 @@ import { createRoot } from 'react-dom/client';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { batchActions, type BatchDockApi, type BatchDockHost, type BatchDockProps } from '../../src/react/batch-dock/batch-dock-api';
+import { assertBulkAction } from '../../src/react/components/bulk-action';
 import type { ShellActions } from '../../src/react/router/shell-actions';
 import { click } from './render';
 
@@ -117,6 +118,20 @@ describe('每种语境的键', () => {
     expect(shape('junk')).toEqual(['不是垃圾', '移入回收站!', '取消']);
     expect(shape('junk', true)).toEqual(['重新判断', '移入回收站!', '取消']);
     expect(shape('follow')).toEqual(['保存到数据库', '标记已看', '忽略', '取消']);
+  });
+
+  it('每颗写数据的键都声明了确认文案与撤销方式，撤不回的只有彻底删除、保存到数据库与判定产地', () => {
+    const contexts = [['catalog'], ['trash'], ['junk'], ['junk', true], ['follow']] as const;
+    const writes = contexts.flatMap(([context, dismissed]) => batchActions(context, dismissed).filter((action) => action.group !== 'clear'));
+    for (const action of writes) {
+      expect(() => assertBulkAction({ key: action.operation, confirm: action.confirm ? () => action.confirm : undefined,
+        reversal: action.reversal } as Parameters<typeof assertBulkAction>[0]), action.operation).not.toThrow();
+      expect(action.confirm!.body(3), action.operation).toMatch(/3/);
+    }
+    expect(writes.filter((action) => action.reversal === 'irreversible').map((action) => action.operation).sort())
+      .toEqual(['delete', 'region', 'save']);
+    expect(() => assertBulkAction({ key: 'missing', confirm: () => ({ title: '', body: '' }) })).toThrow(/how to undo/);
+    expect(() => assertBulkAction({ key: 'missing', reversal: 'undo' })).toThrow(/confirmation/);
   });
 
   it('「忽略」用划掉的眼睛，不借「取消」那枚叉', () => {

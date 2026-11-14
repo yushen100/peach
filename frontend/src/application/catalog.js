@@ -38,6 +38,7 @@ import { junkRoute } from './../junk-queue';
 import { wallAddress } from '../react/video-wall/wall-route';
 import { restoringPage } from '../history/page-navigation';
 import { joinList, t as tr } from '../i18n';
+import { confirmBody } from '../react/components/bulk-action';
 export const catalogState = { homeHasFeed: undefined, barsRequestSeq: undefined, barsPendingSeq: undefined, barsRendered: undefined, catalogFilterProps: undefined, catalogFilterMounting: undefined, catalogTagRows: undefined, catalogTopsPages: undefined, initialParams: undefined, resolveSort: undefined, initialCatalogUrl: undefined, initialParam: undefined, HOME_QUERY_KEYS: undefined, searchValueSnapshot: undefined, cancelSearchDissolve: undefined, rememberSearchValue: undefined, clearSearchField: undefined, mixRelatedCache: undefined, reduceMotion: undefined, tagList: undefined, tagPressed: undefined, withTagToggled: undefined, gridHelpers: undefined, gridActions: undefined, topsQueryParams: undefined, facetCountsSeq: undefined, VIEW_PILLS: undefined, catalogViews: undefined, TAGS_FIRST: undefined, catalogOnScreen: undefined, COMBO_LABELS: undefined, hideCatalogCombo: undefined, junkQueueHelpers: undefined, junkQueueActions: undefined };
 
 export function dropOfflineFromDefaultLoc(){
@@ -367,7 +368,8 @@ export function paintCatalogCount(nextTotal,n){
 }
 
 export function emptyTrash(){
-  return confirmModal({title:tr('shell:trash.empty'),body:tr('shell:trash.emptyConfirm'),confirmLabel:tr('shell:trash.empty'),danger:true,onConfirm:async()=>{
+  const count=selectionState.trashCount?.total??0;
+  return confirmModal({title:tr('shell:trash.empty'),body:confirmBody(tr('shell:trash.emptyConfirm',{count}),'irreversible'),confirmLabel:tr('shell:trash.empty'),danger:true,onConfirm:async()=>{
     try{
       const r=await api('/api/trash/empty',{method:'POST'});
       /* 删不掉的文件（占用中、网盘离线）会连同数据库行一起留在回收站，必须说出来，

@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableColumn, TableHeader, TableRow } from 
 import { ChevronSortDown } from '@/components/foundations/icons/chevrons';
 import { DataTableFrame } from './data-table-frame';
 import { DataTableFooter, DataTableSort } from './table-controls';
-import { SelectionDock } from './selection-dock';
+import { SelectionDock, type DockAction } from './selection-dock';
 import { cardClass } from './card';
 import { useTableSelection } from './use-table-selection';
 import { useTablePreferences } from './table-column-preferences';
@@ -42,7 +42,10 @@ interface DataTableProps<T> {
   rowLabel(item: T): string;
   selected: string[];
   onSelected(ids: string[]): void;
-  actions(items: T[], clear: () => void): ReactNode;
+  /** 所选行上会写数据的键：每颗都声明确认文案与撤销方式（`bulk-action.ts`）。 */
+  actions(items: T[], clear: () => void): readonly DockAction[];
+  /** 所选行上不写数据的键（复制、重新检查）。 */
+  controls?(items: T[], clear: () => void): ReactNode;
   title?: string;
   titleId?: string;
   description?: ReactNode;
@@ -53,7 +56,7 @@ interface DataTableProps<T> {
 }
 
 /** 数据表共用排序、跨页选择与分页；业务动作只接收仍在清单里的所选行。 */
-export function DataTable<T extends RowData>({ label, items, columns, rowId, rowLabel, selected, onSelected, actions,
+export function DataTable<T extends RowData>({ label, items, columns, rowId, rowLabel, selected, onSelected, actions, controls,
   title = label, titleId, description, footerActions, toolbarActions, panel = true, unit = t('shell:dataTable.recordUnit') }: DataTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const preferenceColumns = useMemo(() => [
@@ -119,8 +122,9 @@ export function DataTable<T extends RowData>({ label, items, columns, rowId, row
         </div>
       </div>
       {description ? <p className="text-body-2-regular text-text-secondary">{description}</p> : null}
-      <SelectionDock label={t('shell:dataTable.bulkActions', { label })} visible={chosen.length > 0} count={t('shell:dataTable.selectedCount', { count: chosen.length, unit })}>
-        {actions(chosen, () => onSelected([]))}
+      <SelectionDock label={t('shell:dataTable.bulkActions', { label })} visible={chosen.length > 0} count={t('shell:dataTable.selectedCount', { count: chosen.length, unit })}
+        actions={actions(chosen, () => onSelected([]))}>
+        {controls?.(chosen, () => onSelected([]))}
         <Button variant="ghost" size="small" onClick={() => onSelected([])}>{t('shell:dataTable.clearSelection')}</Button>
       </SelectionDock>
       <DataTableFrame follow preferences={preferences} onRowClick={(id) => table.getRow(id)?.toggleSelected()}>

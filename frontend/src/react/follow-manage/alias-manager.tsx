@@ -24,6 +24,7 @@ import { DataTableFrame } from '../components/data-table-frame';
 import { useTablePreferences } from '../components/table-column-preferences';
 import { TableColumnControls, TableColumnResizer } from '../components/table-column-controls';
 import { DataTableFooter, DataTableSort } from '../components/table-controls';
+import { runBulkAction, type BulkAction, type Receipt } from '../components/bulk-action';
 import { SelectionDock } from '../components/selection-dock';
 import { useTableSelection } from '../components/use-table-selection';
 import { ChevronSortDown } from '@/components/foundations/icons/chevrons';
@@ -55,7 +56,7 @@ export interface AliasManagerProps {
   suggestions: AliasSuggestion[];
   sources?: FollowSource[];
   readOnly: boolean;
-  toast(message: string): void;
+  toast: Receipt;
 }
 
 /** 一条待合并的身份：一个别名只可能归进一个规范名，所以用别名本身当键。 */
@@ -115,11 +116,10 @@ export function AliasManager({ groups, suggestions, sources = [], readOnly, toas
       }
       return { done, items };
     },
-    onSuccess: (result) => {
+    onSuccess: () => {
       setProblem('');
       setRowSelection({});
       void reloadFollowManage();
-      toast(t('follow:creatorAliases.merged', { count: result.done }));
     },
     onError: (cause) => setProblem(errorMessage(cause)),
   });
@@ -146,19 +146,48 @@ export function AliasManager({ groups, suggestions, sources = [], readOnly, toas
         throw new Error(t('follow:creatorAliases.removePartialError', { error: errorMessage(cause), removed: done, count: pending.length - done }));
       } finally { void reloadFollowManage(); }
     },
-    onSuccess: () => { setProblem(''); setSavedSelection({}); toast(t('follow:creatorAliases.removed')) },
+    onSuccess: (_result, names) => { setProblem(''); setSavedSelection({}); if (typeof names === 'string') toast(t('follow:creatorAliases.removed')) },
     onError: (cause) => setProblem(errorMessage(cause)),
   });
 
-  const mergeSome = (items: AliasSuggestion[], all: boolean) => {
-    if (!items.length) return;
-    void confirmModal({
+  const host = { receipt: toast, failure: (cause: unknown) => setProblem(errorMessage(cause)) };
+  /* 合并的撤销把这一批合上的别名逐条拆开，来源回到各自独立的创作者组。 */
+  const mergeAction = (all: boolean, count: number): BulkAction<AliasSuggestion> => ({
+    key: all ? 'merge-all' : 'merge', reversal: 'undo',
+    label: all ? t('follow:creatorAliases.mergeAllCount', { count }) : t('follow:creatorAliases.mergeSelectedCount', { count }),
+    confirm: (items) => ({
       title: all ? t('follow:creatorAliases.mergeAllTitle') : t('follow:creatorAliases.mergeSelectedTitle'),
       body: t('follow:creatorAliases.mergeBody', { count: items.length, pairs: joinList(items.map(
         (item) => t('follow:creatorAliases.mergePair', { alias: quoted(item.alias), canonical: quoted(item.canonical) }))) }),
       confirmLabel: all ? t('follow:creatorAliases.mergeAllConfirm') : t('follow:creatorAliases.mergeSelectedConfirm'),
-      onConfirm: () => merge.mutateAsync(items),
-    });
+    }),
+    run: async (items) => {
+      const { done } = await merge.mutateAsync([...items]);
+      return async () => {
+        for (const item of items.slice(0, done)) await removeAlias(item.alias);
+        await reloadFollowManage();
+      };
+    },
+    receipt: (items) => t('follow:creatorAliases.merged', { count: items.length }),
+  });
+  const mergeSome = (items: AliasSuggestion[], all: boolean) => {
+    if (!items.length) return;
+    void runBulkAction(mergeAction(all, items.length), items, host).catch(host.failure);
+  };
+  /* 移除的撤销按原来的显示名把别名逐条加回去。 */
+  const dropSaved: BulkAction<{ name: string; canonical: string }> = {
+    key: 'remove', reversal: 'undo', label: t('follow:creatorAliases.removeSelectedCount', { count: 0 }),
+    confirm: (items) => ({ title: t('follow:creatorAliases.removeSelectedTitle'),
+      body: t('follow:creatorAliases.removeSelectedBody', { count: items.length }), items: items.map((item) => item.name),
+      confirmLabel: t('follow:creatorAliases.removeSelectedConfirm') }),
+    run: async (items) => {
+      await drop.mutateAsync(items.map((item) => item.name));
+      return async () => {
+        for (const item of items) await addAlias(item.canonical, item.name);
+        await reloadFollowManage();
+      };
+    },
+    receipt: () => t('follow:creatorAliases.removed'),
   };
 
   const removeSome = (name: string) => void confirmModal({
@@ -268,7 +297,8 @@ export function AliasManager({ groups, suggestions, sources = [], readOnly, toas
     onPaginationChange: setSavedPagination,
   });
   const chosen = suggestionTable.getSelectedRowModel().rows.map((row) => row.original);
-  const savedNames = savedTable.getSelectedRowModel().rows.flatMap((row) => row.original.aliases.map((item) => item.name));
+  const savedPicked = savedTable.getSelectedRowModel().rows.flatMap((row) => row.original.aliases.map((item) => ({
+    name: item.name, canonical: row.original.canonical_name })));
   const busy = busyProps(merge.isPending);
 
   return (
@@ -310,9 +340,8 @@ export function AliasManager({ groups, suggestions, sources = [], readOnly, toas
             <TableColumnControls preferences={suggestionView} label={t('follow:creatorAliases.pendingTable')} />
             </div>
           </div>
-          <SelectionDock label={t('follow:creatorAliases.pendingBulkActions')} visible={chosen.length > 0} count={t('follow:creatorAliases.groupsSelected', { count: chosen.length })}>
-            <Button variant="secondary" size="small" disabled={readOnly} {...busy}
-              onClick={() => mergeSome(chosen, false)}>{t('follow:creatorAliases.mergeSelectedCount', { count: chosen.length })}</Button>
+          <SelectionDock label={t('follow:creatorAliases.pendingBulkActions')} visible={chosen.length > 0} count={t('follow:creatorAliases.groupsSelected', { count: chosen.length })}
+            actions={[{ action: mergeAction(false, chosen.length), items: chosen, host, disabled: readOnly || merge.isPending }]}>
             <Button variant="ghost" size="small" onClick={() => setRowSelection({})}>{t('follow:shared.clearSelection')}</Button>
           </SelectionDock>
           <DataTableFrame follow preferences={suggestionView} onRowClick={id => suggestionTable.getRow(id)?.toggleSelected()}>
@@ -359,14 +388,9 @@ export function AliasManager({ groups, suggestions, sources = [], readOnly, toas
           <TableColumnControls preferences={savedView} label={t('follow:creatorAliases.saved')} />
           </div>
         </div>
-        <SelectionDock label={t('follow:creatorAliases.savedBulkActions')} visible={savedNames.length > 0} count={t('follow:creatorAliases.aliasesSelected', { count: savedNames.length })}>
-          <Button variant="secondary" size="small" disabled={readOnly} {...busyProps(drop.isPending)}
-            onClick={() => void confirmModal({ title: t('follow:creatorAliases.removeSelectedTitle'),
-              body: t('follow:creatorAliases.removeSelectedBody', { count: savedNames.length }),
-              items: savedNames,
-              confirmLabel: t('follow:creatorAliases.removeSelectedConfirm'), onConfirm: () => drop.mutateAsync(savedNames) })}>
-            {t('follow:creatorAliases.removeSelectedCount', { count: savedNames.length })}
-          </Button>
+        <SelectionDock label={t('follow:creatorAliases.savedBulkActions')} visible={savedPicked.length > 0} count={t('follow:creatorAliases.aliasesSelected', { count: savedPicked.length })}
+          actions={[{ action: { ...dropSaved, label: t('follow:creatorAliases.removeSelectedCount', { count: savedPicked.length }) },
+            items: savedPicked, host, disabled: readOnly || drop.isPending }]}>
           <Button variant="ghost" size="small" onClick={() => setSavedSelection({})}>{t('follow:shared.clearSelection')}</Button>
         </SelectionDock>
         {groups.length ? (

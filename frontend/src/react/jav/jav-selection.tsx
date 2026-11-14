@@ -4,8 +4,8 @@ import { JAV_SELECTION_EVENT } from '../../jav-controls';
 import { selectRange, selectionSummary } from '../../selection';
 import { errorMessage } from '../../api';
 import { SelectionDock } from '../components/selection-dock';
-import { addWant, invalidateWants } from '../wants/wants';
-import { busyProps, useAction } from '../settings/use-action';
+import { addWant, invalidateWants, removeWants } from '../wants/wants';
+import type { BulkAction, Receipt } from '../components/bulk-action';
 import { JavBatchResources } from './jav-batch-resources';
 import type { Discovery } from './jav';
 import { t } from '../../i18n';
@@ -34,7 +34,7 @@ export function useVisibleJavWorks(items: Discovery[]) {
 }
 
 export function JavSelectionProvider({ children, readOnly, receipt }: {
-  children: ReactNode; readOnly: boolean; receipt(message: string): void;
+  children: ReactNode; readOnly: boolean; receipt: Receipt;
 }) {
   const dense = useSyncExternalStore(subscribeDensity, denseDensity, () => false);
   const [mode, setMode] = useState(false);
@@ -42,7 +42,6 @@ export function JavSelectionProvider({ children, readOnly, receipt }: {
   const [page, setPage] = useState<Discovery[]>([]);
   const [resources, setResources] = useState<Discovery[] | null>(null);
   const anchor = useRef<string | null>(null);
-  const action = useAction();
   const selected = new Set(picked.keys());
   const summary = selectionSummary(selected, page.map(item => item.code));
   const visible = useCallback((items: Discovery[]) => {
@@ -52,8 +51,8 @@ export function JavSelectionProvider({ children, readOnly, receipt }: {
       return changed.length ? new Map([...current, ...changed.map(item => [item.code, item] as const)]) : current;
     });
   }, []);
-  const cancel = action.cancel;
-  const close = useCallback(() => { cancel(); setMode(false); setPicked(new Map()); anchor.current = null }, [cancel]);
+
+  const close = useCallback(() => { setMode(false); setPicked(new Map()); anchor.current = null }, []);
   const selectPage = () => setPicked(current => {
     const next = new Map(current);
     page.forEach(item => summary.all ? next.delete(item.code) : next.set(item.code, item));
@@ -94,30 +93,37 @@ export function JavSelectionProvider({ children, readOnly, receipt }: {
     });
   };
   const eligible = [...picked.values()].filter(item => !item.wanted && !item.asset_id);
-  const want = () => { void action.run('want', async signal => {
-    let completed = 0;
-    try {
-      for (const item of eligible) {
-        signal.throwIfAborted();
-        try { await addWant({ code: item.code }, signal) }
-        catch (error) { throw Error(t('catalog:javSelection.wantPartialFailed', { count: completed, code: item.code, error: errorMessage(error) })) }
-        signal.throwIfAborted();
-        completed++;
-        setPicked(current => { const next = new Map(current); next.delete(item.code); return next });
-      }
-      return completed;
-    } finally { void invalidateWants() }
-  }, count => receipt(t('catalog:javSelection.wantAdded', { count }))) };
+  /* 加入想要：逐条加，回执的撤销把这一批新加的那几条移出想要（原本就在想要里的不动）。 */
+  const want: BulkAction<Discovery> = {
+    key: 'want', label: t('catalog:javSelection.addToWants'), reversal: 'undo',
+    confirm: (items) => ({ title: t('catalog:javSelection.addToWants'), body: t('catalog:javSelection.wantConfirm', { count: items.length }) }),
+    run: async (items) => {
+      const created: number[] = [];
+      let completed = 0;
+      try {
+        for (const item of items) {
+          try {
+            const result = await addWant({ code: item.code });
+            if (result.created) created.push(result.want.id);
+          } catch (error) { throw Error(t('catalog:javSelection.wantPartialFailed', { count: completed, code: item.code, error: errorMessage(error) })) }
+          completed++;
+        }
+      } finally { void invalidateWants() }
+      return async () => { if (created.length) await removeWants(created); await invalidateWants() };
+    },
+    receipt: (items) => t('catalog:javSelection.wantAdded', { count: items.length }),
+  };
+  const host = { receipt };
   return <Context.Provider value={{ dense, mode, selected, toggle, visible, selectPage, all: summary.all, mixed: summary.mixed }}>
     <div data-jav-selection="" data-select-mode={mode ? '' : undefined} className="flex min-w-0 flex-col gap-4">
       {children}
     </div>
-    <SelectionDock visible={mode} count={t('catalog:javSelection.selectedCount', { count: picked.size })} label={t('catalog:javSelection.dockLabel')}>
-      {action.error ? <p role="alert" className="w-full px-2 text-caption-1-regular text-text-error-primary">{action.error}</p> : null}
-      <Button size="small" variant="secondary" disabled={!page.length || !!action.busy} onClick={selectPage}>
+    <SelectionDock visible={mode} count={t('catalog:javSelection.selectedCount', { count: picked.size })} label={t('catalog:javSelection.dockLabel')}
+      actions={[{ action: want, items: eligible, host, disabled: readOnly,
+        done: () => setPicked(current => new Map([...current].filter(([, item]) => !eligible.includes(item)))) }]}>
+      <Button size="small" variant="secondary" disabled={!page.length} onClick={selectPage}>
         <span data-copy-key={`jav.selection.page.${summary.all ? 'clear' : 'all'}`}>{summary.all ? t('catalog:javSelection.deselectPage') : t('catalog:javSelection.selectPage')}</span></Button>
-      <Button size="small" variant="secondary" disabled={readOnly || !eligible.length} {...busyProps(action.busy === 'want')} onClick={want}>{t('catalog:javSelection.addToWants')}</Button>
-      <Button size="small" variant="secondary" disabled={!picked.size || !!action.busy} onClick={() => setResources([...picked.values()])}>{t('catalog:shared.searchTorrents')}</Button>
+      <Button size="small" variant="secondary" disabled={!picked.size} onClick={() => setResources([...picked.values()])}>{t('catalog:shared.searchTorrents')}</Button>
       <Button size="small" variant="ghost" onClick={close}>{t('catalog:javSelection.exit')}</Button>
     </SelectionDock>
     <JavBatchResources items={resources} close={() => setResources(null)} readOnly={readOnly} receipt={receipt} />

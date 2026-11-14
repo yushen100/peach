@@ -2405,6 +2405,24 @@ class WebDataTests(unittest.TestCase):
         self.assertEqual(result["changed"], 2)
         self.assertEqual(rm_web.q_item(self.contract, 1)["like_reason"], "保留原文")
 
+    def test_batch_like_seen_and_later_revert_to_what_they_were(self):
+        rm_web.w_preference(self.contract, {"id": 1, "liked": False, "reason": "保留原文"})
+        rm_web.w_feedback(self.contract, {"id": 1, "kind": "dislike"})
+        rm_web.w_watch_later(self.contract, {"id": 1})
+        for operation in ("like", "seen", "later"):
+            receipt = rm_web.w_batch(self.contract, {"ids": [1, 2], "operation": operation})
+            rm_web.w_batch(self.contract, {"ids": [1, 2], "operation": f"revert-{operation}",
+                                           "previous": receipt["previous"]})
+        self.assertFalse(rm_web.q_item(self.contract, 1)["liked"])
+        self.assertEqual(rm_web.q_item(self.contract, 1)["like_reason"], "保留原文")
+        self.assertEqual((self.row(1)["feedback"], self.row(2)["feedback"]), ("dislike", None))
+        with sqlite3.connect(self.db_path) as con:
+            self.assertEqual([row[0] for row in con.execute("SELECT asset_id FROM watch_queue")], [1],
+                             "原本就在稍后看里的那条留下")
+            self.assertIsNone(con.execute("SELECT 1 FROM asset_preference WHERE asset_id=2").fetchone())
+        with self.assertRaises(ValueError):
+            rm_web.w_batch(self.contract, {"ids": [1], "operation": "revert-seen", "previous": {"2": None}})
+
     def test_better_version_goal_is_independent_and_reversible(self):
         saved = rm_web.w_quality_goal(self.contract, {
             "id": 1, "wanted": True, "reason": "有水印，寻找高清无水印版",

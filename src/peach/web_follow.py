@@ -2126,16 +2126,30 @@ def w_follow_tag(contract, body) -> dict:
 
 
 def w_follow_status(contract, body) -> dict:
+    """改条目状态，回执带上每一条原来的状态（`previous`），撤销时原样带回来写回去。"""
     item_ids = _write_item_ids(body)
+    restore = body.get("previous")
     status = str(body.get("to") or "")
+    marks = ",".join("?" * len(item_ids))
     with contract.database.write_transaction() as connection:
         store = _store(contract, connection)
+        before = {str(row[0]): row[1] for row in connection.execute(
+            f"SELECT id,status FROM follow_item WHERE id IN ({marks})", item_ids)}
+        if restore is not None:
+            # 撤销：只写回这一批交回来的原状态，`saved` 也照原样，不经 `save_asset`。
+            if not isinstance(restore, dict) or {int(key) for key in restore} - set(item_ids):
+                raise ValueError("previous must map this batch's items to their earlier status")
+            for key, value in restore.items():
+                if value not in ("new", "seen", "saved", "ignored"):
+                    raise ValueError(f"unknown follow status: {value}")
+                connection.execute("UPDATE follow_item SET status=? WHERE id=?", (value, int(key)))
+            return {"ok": True, "items": item_ids, "previous": before}
         for item_id in item_ids:
             store.set_status(item_id, status)
         if status == "ignored":
             # 忽略与「想要」互斥：忽略了的条目撤掉还没入库的想要。
             wants.drop_follow_items(connection, item_ids)
-    result = {"ok": True, "items": item_ids, "status": status}
+    result = {"ok": True, "items": item_ids, "status": status, "previous": before}
     if len(item_ids) == 1:
         result["item"] = item_ids[0]
     return result

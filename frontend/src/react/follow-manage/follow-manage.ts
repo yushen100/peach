@@ -519,8 +519,9 @@ export const fetchPending = () =>
 
 /** 把未看条目全部标成 `to`：取一页待处理、按 `MARK_BATCH` 条一批写，写完再从第一页取，直到取不到为止。
  *  标过的离开 `status=new`，所以不按偏移翻页；写失败的那批不再重取，免得一直撞同一个错。 */
-export async function markAllPending(to: string): Promise<{ total: number; failed: number; error?: unknown }> {
+export async function markAllPending(to: string): Promise<{ total: number; failed: number; error?: unknown; marked: number[] }> {
   const tried = new Set<number>();
+  const marked: number[] = [];
   let failed = 0;
   let error: unknown;
   for (let round = 0; round < MARK_ROUNDS; round += 1) {
@@ -534,6 +535,7 @@ export async function markAllPending(to: string): Promise<{ total: number; faile
       for (const id of batch) tried.add(id);
       try {
         await markItems(batch, to);
+        marked.push(...batch);
       } catch (cause) {
         failed += batch.length;
         error ??= cause;
@@ -541,7 +543,12 @@ export async function markAllPending(to: string): Promise<{ total: number; faile
     }
     if (!pending.has_more) break;
   }
-  return { total: tried.size, failed, error };
+  return { total: tried.size, failed, error, marked };
+}
+
+/** 把这一批条目改回未看：「全部标记」的撤销，按批量接口的上限分批发。 */
+export async function unmarkItems(ids: readonly number[]): Promise<void> {
+  for (let start = 0; start < ids.length; start += MARK_BATCH) await markItems(ids.slice(start, start + MARK_BATCH), 'new');
 }
 
 /** 一条订阅源。字段以 `feeds.sources`（`src/peach/feeds.py`）为准。 */

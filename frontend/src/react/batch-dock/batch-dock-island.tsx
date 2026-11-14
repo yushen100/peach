@@ -57,7 +57,7 @@ function BatchDock({ host: at, props: view }: { host: BatchDockHost; props: Batc
   useLayoutEffect(() => () => { document.body.removeAttribute('data-batch-dock-open') }, []);
   return (
     <div className="peach-react" data-batch-scope="" data-context={view.context}>
-      <SelectionDock label={t('manage:batchDock.label')} visible={view.count > 0} count={t('manage:batchDock.selected', { count: view.count })}>
+      <SelectionDock label={t('manage:batchDock.label')} visible={view.count > 0} count={t('manage:batchDock.selected', { count: view.count })} actions={[]}>
         {batchActions(view.context, view.junkDismissed).map((action) => (
           <button key={`${action.group}:${action.operation}`} type="button" data-batch-group={action.group}
             data-batch-action={action.operation} data-danger={action.danger ? '' : undefined}

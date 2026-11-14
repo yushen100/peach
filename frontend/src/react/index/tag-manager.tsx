@@ -10,10 +10,10 @@ import { useTagPageBounds, useTagPagination } from './tag-pagination';
 import { GlassPill } from '../components/filter-glass';
 import { Note } from '../components/note';
 import { SelectionDock } from '../components/selection-dock';
-import { busyProps, useAction } from '../settings/use-action';
+import { useAction } from '../settings/use-action';
 import { ONLINE_TAG_CATEGORIES, TAG_CATEGORIES, tagGroups, type TagView } from './index-data';
 import { TagAlphabet, TagCloud, TagFilters } from './index-tags';
-import { TagEditor, confirmTagOperation, managedTagId, previewTagOperation, type Command, type ManagedTag, type TagScope } from './tag-operations';
+import { TagEditor, confirmTagOperation, managedTagId, previewTagOperation, tagHost, tagOperation, type Command, type ManagedTag, type TagScope } from './tag-operations';
 import { t } from '../../i18n';
 
 export type { ManagedTag } from './tag-operations';
@@ -80,13 +80,15 @@ export function TagManager({ search, category = 'all', view = 'cloud', onCategor
     {inventory.data ? <div className="mt-5"><DataTableFooter label={t('catalog:tagManager.label')} total={inventory.data.total} pagination={pagination}
       onChange={changePage} unit={t('catalog:peopleIndex.footerUnit')} pageUnit={t('catalog:peopleIndex.footerPageUnit')} pageSizes={TAG_PAGE_SIZES} /></div> : null}
     {action.error ? <Note tone="error">{action.error}</Note> : null}
-    <SelectionDock label={t('catalog:tagManager.actions')} count={t('catalog:tagFilters.selectedCount', { count: picked.size })} visible={picked.size > 0}>
+    <SelectionDock label={t('catalog:tagManager.actions')} count={t('catalog:tagFilters.selectedCount', { count: picked.size })} visible={picked.size > 0}
+      actions={[
+        { action: tagOperation({ operation: hidden ? 'restore' : 'hide', ...(online ? { scope } : {}) },
+          hidden ? t('catalog:tagManager.unhide') : t('catalog:tagManager.hide')), items: ids, host: tagHost, done: () => setPicked(new Map()) },
+        ...(online ? [{ action: tagOperation({ operation: blocked ? 'unblock' : 'block', scope },
+          blocked ? t('catalog:tagManager.unblockContent') : t('catalog:tagManager.blockContent')), items: ids, host: tagHost, done: () => setPicked(new Map()) }] : []),
+      ]}>
       <Button variant="secondary" size="small" disabled={selected.length !== 1} onClick={() => setEditing('rename')}>{t('catalog:shared.rename')}</Button>
       <Button variant="secondary" size="small" disabled={selected.length < 2 || (online && new Set(selected.map(row => row.cat)).size > 1)} onClick={() => setEditing('merge')}>{t('catalog:shared.merge')}</Button>
-      <Button variant="secondary" size="small" {...busyProps(Boolean(action.busy))}
-        onClick={() => run({ operation: hidden ? 'restore' : 'hide', ids })}>{hidden ? t('catalog:tagManager.unhide') : t('catalog:tagManager.hide')}</Button>
-      {online ? <Button variant="secondary" size="small" {...busyProps(Boolean(action.busy))}
-        onClick={() => run({ operation: blocked ? 'unblock' : 'block', ids })}>{blocked ? t('catalog:tagManager.unblockContent') : t('catalog:tagManager.blockContent')}</Button> : null}
     </SelectionDock>
     {editing ? <TagEditor key={editing} operation={editing} selected={selected} scope={scope}
       close={() => setEditing(null)} done={() => setPicked(new Map())} /> : null}

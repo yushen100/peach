@@ -506,6 +506,7 @@
     "selectPage": "全选本页",
     "selectedCount": "已选 {{count, number}} 部",
     "wantAdded": "已加入想要 {{count, number}} 部",
+    "wantConfirm": "将选中的 {{count, number}} 部加入想要。",
     "wantPartialFailed": "已加入 {{count, number}} 部；{{code}} 未完成：{{error}}"
   },
   "javSort": {
@@ -946,7 +947,7 @@
     "unhide": "恢复"
   },
   "tagOperations": {
-    "blockConfirm": "屏蔽带有{{names}}任一标签的内容及其其它版本，涉及 {{count, number}} 个资源。可在「已屏蔽内容」中恢复。",
+    "blockConfirm": "屏蔽带有{{names}}任一标签的内容及其其它版本，涉及 {{count, number}} 个资源。",
     "doneBlock": "已屏蔽内容",
     "doneHide": "已隐藏标签",
     "doneMerge": "已合并标签",
@@ -954,10 +955,10 @@
     "doneRepair": "已整理重复标签",
     "doneUnblock": "已恢复内容",
     "doneUnhide": "已恢复标签",
-    "hideConfirm": "隐藏 {{count, number}} 个标签，涉及 {{assets, number}} 个资源。可在“已隐藏”中恢复。",
+    "hideConfirm": "隐藏 {{count, number}} 个标签，涉及 {{assets, number}} 个资源。",
     "hideTags": "隐藏标签",
     "keep": "保留",
-    "mergeConfirm": "合并 {{count, number}} 个标签，涉及 {{assets, number}} 个资源（重叠关联 {{overlap, number}} 个）。旧名称保留为别名，无法直接撤销。",
+    "mergeConfirm": "合并 {{count, number}} 个标签，涉及 {{assets, number}} 个资源（重叠关联 {{overlap, number}} 个），旧名称保留为别名。",
     "mergeTags": "合并标签",
     "previewImpact": "预览影响范围",
     "renameConfirm": "{{names}}将更名为{{newName}}，涉及 {{count, number}} 个资源。旧名称保留为别名。",

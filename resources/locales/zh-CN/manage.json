@@ -538,7 +538,13 @@
     "selectGroup": "全选本组",
     "sourceChosen": "已选择 {{source}}，点击通过所选采用。",
     "switchCategoryHint": "可切换分类查看其他待确认资料。",
-    "viewOtherCategories": "查看其他分类"
+    "viewOtherCategories": "查看其他分类",
+    "confirm": {
+      "approved": "将通过选中的 {{count, number}} 项，按所选来源写入资料。",
+      "rejected": "将忽略选中的 {{count, number}} 项，移到「已忽略」。",
+      "restore": "将选中的 {{count, number}} 项放回待处理。",
+      "skipped": "将选中的 {{count, number}} 项移到稍后处理。"
+    }
   },
   "reviewQueue": {
     "approved": "已通过",

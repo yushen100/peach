@@ -1234,6 +1234,9 @@ class FollowContractTests(unittest.TestCase):
         self.assertEqual(result["items"], items)
         self.assertEqual(self._get(status="seen")["counts"]["seen"], 2)
 
+        self._post("/api/follow/status", {"items": items, "previous": result["previous"]})
+        self.assertEqual(self._get(status="seen")["counts"]["seen"], 0, "撤销按回执里的原状态写回")
+
     def test_direct_online_play_counts_without_saving_an_asset(self):
         self._seed()
         item = self._get()["groups"][0]["primary"]["id"]

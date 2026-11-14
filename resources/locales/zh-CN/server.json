@@ -592,7 +592,10 @@
     "keep-duplicates": "重复组标记都保留",
     "reconsider-duplicates": "重复组重新列出",
     "region": "批量判定产地",
-    "performer-delete": "按女优永久删除影片"
+    "performer-delete": "按女优永久删除影片",
+    "revert-like": "撤销批量喜欢",
+    "revert-seen": "撤销批量看过",
+    "revert-later": "撤销批量稍后看"
   },
   "outcome": {
     "semicolon": "；",

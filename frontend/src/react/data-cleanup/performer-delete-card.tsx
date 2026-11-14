@@ -1,26 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { entityFaceImg } from '@peach/card-art';
 import { entityPath, esc, firstGrapheme, fmtSize } from '@peach/legacy/core';
-import { confirmModal } from '@peach/legacy/ui';
 import { Button } from '@/components/base/buttons/button';
 import { cx } from '@/utils/cx';
 
 import { errorMessage } from '../../api';
 import { BATCH_DELETE_TEXT } from '../../cleanup-tool-skeletons';
 import { entityDisplayName } from '../../core/entity-names';
+import type { BulkAction } from '../components/bulk-action';
 import { DataTable, type DataColumn } from '../components/data-table';
 import { Fieldset, FieldsetTitle } from '../components/fieldset';
 import { LEGACY_AVATAR_IMG } from '../components/legacy-avatar';
 import { Note } from '../components/note';
 import { IndexSearch } from '../index/index-search';
 import { queryClient } from '../query';
-import { busyProps } from '../settings/busy-props';
 import { useEntityNames } from '../use-entity-names';
 import { TRASH_KEY } from './data-cleanup';
 import {
   deletePerformerVideos, fetchDeletePerformers, fetchDeletePlan, PERFORMER_DELETE_KEY,
-  type DeletePerformer, type PerformerDeleteResult,
+  type DeletePerformer, type PerformerDeletePlan, type PerformerDeleteResult,
 } from './performer-delete';
 import { serverLabel } from '../../core/server-text';
 import { t } from '../../i18n';
@@ -56,11 +55,9 @@ export function PerformerDeleteCard({ toast }: { toast(message: string): void })
   const query = useQuery({ queryKey: PERFORMER_DELETE_KEY, queryFn: ({ signal }) => fetchDeletePerformers(signal) });
   const [selected, setSelected] = useState<string[]>([]);
   const [search, setSearch] = useState('');
-  const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<PerformerDeleteResult | null>(null);
   const [error, setError] = useState('');
-  const request = useRef<AbortController | null>(null);
-  useEffect(() => () => request.current?.abort(), []);
+  const host = { receipt: toast, failure: (cause: unknown) => setError(errorMessage(cause)) };
 
   const columns = useMemo<DataColumn<DeletePerformer>[]>(() => [
     { id: 'name', label: t('cleanup:shared.actress'), width: 280, min: 160, value: person => person.k,
@@ -77,39 +74,33 @@ export function PerformerDeleteCard({ toast }: { toast(message: string): void })
     entityDisplayName('performer', person.k, person.entity_id), ...person.aliases,
   ].some(name => name.toLocaleLowerCase().includes(needle)));
 
-  const remove = async (chosen: DeletePerformer[], clear: () => void) => {
-    if (busy) return;
-    setBusy(true);
-    setError('');
-    const controller = new AbortController();
-    request.current = controller;
-    try {
-      const plan = await fetchDeletePlan(chosen.map(person => person.entity_id), controller.signal);
-      controller.signal.throwIfAborted();
-      if (!plan.total) { toast(t('cleanup:performerDelete.nothingToDelete')); return }
-      const names = plan.performers.map(person => entityDisplayName('performer', person.name, person.id));
-      const examples = [...new Set(plan.items.map(item => item.code || item.name || `#${item.id}`))];
-      const done = await confirmModal({
-        title: t('cleanup:performerDelete.confirmTitle'),
-        body: performerDeleteBody(names, examples, plan),
-        confirmLabel: t('cleanup:performerDelete.confirm'), danger: true,
-        onConfirm: () => deletePerformerVideos(plan),
-      });
-      if (!done.confirmed) return;
-      const outcome = done.result as PerformerDeleteResult;
-      setResult(outcome);
-      clear();
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: PERFORMER_DELETE_KEY, exact: true }),
-        queryClient.invalidateQueries({ queryKey: TRASH_KEY, exact: true }),
-      ]);
-      toast(t('cleanup:performerDelete.purged', { count: outcome.purged })
-        + (outcome.blocked.length ? t('cleanup:performerDelete.doneBlocked', { count: outcome.blocked.length }) : ''));
-    } catch (cause) {
-      if (!controller.signal.aborted) setError(errorMessage(cause));
-    } finally {
-      if (!controller.signal.aborted) setBusy(false);
-    }
+  /* 先向服务端要删除计划再弹窗：弹窗点名范围与番号。删了就撤不回，弹窗写明。 */
+  const deleteVideos = (): BulkAction<DeletePerformer> => {
+    let plan: PerformerDeletePlan | null = null;
+    let outcome: PerformerDeleteResult | null = null;
+    return {
+      key: 'performer-delete', label: t('cleanup:performerDelete.deleteSelected'), reversal: 'irreversible', danger: true,
+      confirm: async (chosen) => {
+        setError('');
+        const next = await fetchDeletePlan(chosen.map(person => person.entity_id));
+        if (!next.total) throw new Error(t('cleanup:performerDelete.nothingToDelete'));
+        plan = next;
+        const names = next.performers.map(person => entityDisplayName('performer', person.name, person.id));
+        const examples = [...new Set(next.items.map(item => item.code || item.name || `#${item.id}`))];
+        return { title: t('cleanup:performerDelete.confirmTitle'), confirmLabel: t('cleanup:performerDelete.confirm'), danger: true,
+          body: performerDeleteBody(names, examples, next) };
+      },
+      run: async () => {
+        outcome = await deletePerformerVideos(plan!);
+        setResult(outcome);
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: PERFORMER_DELETE_KEY, exact: true }),
+          queryClient.invalidateQueries({ queryKey: TRASH_KEY, exact: true }),
+        ]);
+      },
+      receipt: () => outcome ? t('cleanup:performerDelete.purged', { count: outcome.purged })
+        + (outcome.blocked.length ? t('cleanup:performerDelete.doneBlocked', { count: outcome.blocked.length }) : '') : '',
+    };
   };
 
   const failures = result ? [
@@ -128,8 +119,7 @@ export function PerformerDeleteCard({ toast }: { toast(message: string): void })
       rowId={person => String(person.entity_id)} rowLabel={person => entityDisplayName('performer', person.k, person.entity_id)}
       selected={selected} onSelected={setSelected}
       toolbarActions={<IndexSearch label={t('cleanup:performerDelete.search')} value={search} onQuery={value => { setSearch(value); setSelected([]) }} />}
-      actions={(chosen, clear) => <Button variant="danger" size="small" {...busyProps(busy)}
-        onClick={() => void remove(chosen, clear)}>{t('cleanup:performerDelete.deleteSelected')}</Button>} />}
+      actions={(chosen, clear) => [{ action: deleteVideos(), items: chosen, host, done: clear }]} />}
     {error ? <Note tone="error" title={t('cleanup:performerDelete.planFailed')}>{error}</Note> : null}
     {result ? <Note tone={failures.length ? 'warning' : 'info'} title={t('cleanup:performerDelete.purged', { count: result.purged })}
       extra={failures.length ? <div className="flex flex-col gap-2 text-body-2-regular wrap-anywhere">

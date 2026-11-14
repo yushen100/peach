@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "0722b237-33ad-4f42-a3b8-2a5f61397b21", e._sentryDebugIdIdentifier = "sentry-dbid-0722b237-33ad-4f42-a3b8-2a5f61397b21");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "e5c33adb-30f3-4b67-a9d1-0294b7befc71", e._sentryDebugIdIdentifier = "sentry-dbid-e5c33adb-30f3-4b67-a9d1-0294b7befc71");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -2003,6 +2003,8 @@ var He = {
 		selectedCount_other: "{{count, number}} selected",
 		wantAdded_one: "Added {{count, number}} video to Wants",
 		wantAdded_other: "Added {{count, number}} videos to Wants",
+		wantConfirm_one: "Adds the {{count, number}} selected video to Wants.",
+		wantConfirm_other: "Adds the {{count, number}} selected videos to Wants.",
 		wantPartialFailed_one: "Added {{count, number}} video; {{code}} failed: {{error}}",
 		wantPartialFailed_other: "Added {{count, number}} videos; {{code}} failed: {{error}}"
 	},
@@ -2458,8 +2460,8 @@ var He = {
 		unhide: "Unhide"
 	},
 	tagOperations: {
-		blockConfirm_one: "Blocks content with any of {{names}}, including its other editions — {{count, number}} item. You can unblock it under Blocked content.",
-		blockConfirm_other: "Blocks content with any of {{names}}, including its other editions — {{count, number}} items. You can unblock it under Blocked content.",
+		blockConfirm_one: "Blocks content with any of {{names}}, including its other editions — {{count, number}} item.",
+		blockConfirm_other: "Blocks content with any of {{names}}, including its other editions — {{count, number}} items.",
 		doneBlock: "Content blocked",
 		doneHide: "Tags hidden",
 		doneMerge: "Tags merged",
@@ -2467,12 +2469,12 @@ var He = {
 		doneRepair: "Duplicate tags merged",
 		doneUnblock: "Content unblocked",
 		doneUnhide: "Tags unhidden",
-		hideConfirm_one: "Hides {{count, number}} tag. Items affected: {{assets, number}}. You can unhide it under Hidden.",
-		hideConfirm_other: "Hides {{count, number}} tags. Items affected: {{assets, number}}. You can unhide them under Hidden.",
+		hideConfirm_one: "Hides {{count, number}} tag. Items affected: {{assets, number}}.",
+		hideConfirm_other: "Hides {{count, number}} tags. Items affected: {{assets, number}}.",
 		hideTags: "Hide tags",
 		keep: "Keep",
-		mergeConfirm_one: "Merges {{count, number}} tag. Items affected: {{assets, number}}; overlapping links: {{overlap, number}}. Old names are kept as aliases. This can't be undone directly.",
-		mergeConfirm_other: "Merges {{count, number}} tags. Items affected: {{assets, number}}; overlapping links: {{overlap, number}}. Old names are kept as aliases. This can't be undone directly.",
+		mergeConfirm_one: "Merges {{count, number}} tag. Items affected: {{assets, number}}; overlapping links: {{overlap, number}}. Old names are kept as aliases.",
+		mergeConfirm_other: "Merges {{count, number}} tags. Items affected: {{assets, number}}; overlapping links: {{overlap, number}}. Old names are kept as aliases.",
 		mergeTags: "Merge tags",
 		previewImpact: "Preview changes",
 		renameConfirm_one: "{{names}} will be renamed to {{newName}}, affecting {{count, number}} item. Old names are kept as aliases.",
@@ -2696,8 +2698,8 @@ var He = {
 		columnUrl: "URL",
 		dead: "Dead link",
 		deleteDead: "Delete dead links",
-		deleteDeadBody_one: "{{count, number}} dead link will be deleted. It's checked again first and can't be restored afterward.",
-		deleteDeadBody_other: "{{count, number}} dead links will be deleted. They're checked again first and can't be restored afterward.",
+		deleteDeadBody_one: "{{count, number}} dead link will be deleted. It's checked again first.",
+		deleteDeadBody_other: "{{count, number}} dead links will be deleted. They're checked again first.",
 		deleteDeadCount_one: "Delete {{count, number}} dead link",
 		deleteDeadCount_other: "Delete {{count, number}} dead links",
 		deleteSelected_one: "Delete selected ({{count, number}})",
@@ -2828,8 +2830,8 @@ var He = {
 		deleteBody: "Deletes the video record of “{{name}}”. This can't be undone.",
 		deleteBodyWithActivity: "Deletes the video record of “{{name}}” and your activity on it ({{records}}). This can't be undone.",
 		deleteRecord: "Delete record",
-		deleteSelectedBody_one: "The following {{count, number}} video record and all its activity will be deleted. This can't be undone.",
-		deleteSelectedBody_other: "The following {{count, number}} video records and all their activity will be deleted. This can't be undone.",
+		deleteSelectedBody_one: "The following {{count, number}} video record and all its activity will be deleted.",
+		deleteSelectedBody_other: "The following {{count, number}} video records and all their activity will be deleted.",
 		deleteSelectedCount_one: "Delete selected records ({{count, number}})",
 		deleteSelectedCount_other: "Delete selected records ({{count, number}})",
 		deleteSelectedTitle: "Delete selected records",
@@ -2895,7 +2897,7 @@ var He = {
 		bodyExamples: "Includes: {{examples}}.",
 		bodyScope_one: "Permanently deletes {{count, number}} video file linked to {{names}} (recorded size {{size}}).",
 		bodyScope_other: "Permanently deletes {{count, number}} video files linked to {{names}} (recorded size {{size}}).",
-		bodyWarning: "This covers all storage and the trash, regardless of the current filters, and can't be undone. Actress profiles and photos are kept.",
+		bodyWarning: "This covers all storage and the trash, regardless of the current filters. Actress profiles and photos are kept.",
 		columnSize: "Recorded size",
 		confirm: "Delete videos permanently",
 		confirmTitle: "Delete all videos of the selected actresses",
@@ -3224,6 +3226,11 @@ var He = {
 		colLastFetched: "Last fetched",
 		empty: "No subscriptions yet",
 		emptyHint: "Add an actress by name in Add follow, or follow her new releases from her page.",
+		enableMany: "Enable selected subscriptions",
+		enableManyBody_one: "Enables the {{count, number}} selected subscription. It's fetched on its own interval.",
+		enableManyBody_other: "Enables the {{count, number}} selected subscriptions. Each is fetched on its own interval.",
+		enabledMany_one: "Enabled {{count, number}} subscription",
+		enabledMany_other: "Enabled {{count, number}} subscriptions",
 		failedBody: "No new entries were fetched from these subscriptions this time.",
 		failedTitle_one: "{{count, number}} subscription failed to fetch",
 		failedTitle_other: "{{count, number}} subscriptions failed to fetch",
@@ -3239,6 +3246,11 @@ var He = {
 		loading: "Loading subscriptions.",
 		neverFetched: "Not fetched yet",
 		notChecked: "Not checked",
+		pauseMany: "Pause selected subscriptions",
+		pauseManyBody_one: "Pauses the {{count, number}} selected subscription. Releases already fetched are kept.",
+		pauseManyBody_other: "Pauses the {{count, number}} selected subscriptions. Releases already fetched are kept.",
+		pausedMany_one: "Paused {{count, number}} subscription",
+		pausedMany_other: "Paused {{count, number}} subscriptions",
 		readFailed: "Couldn't read subscriptions",
 		removeManyBody: "Stops fetching new releases from the selected subscriptions. Releases already fetched are kept.",
 		removeMany_one: "Remove {{count, number}} subscription",
@@ -3543,6 +3555,9 @@ var He = {
 		deselectGroup: "Deselect all sources for {{name}}",
 		empty: "No followed sources yet",
 		emptyHint: "Followed sources and their check status appear here.",
+		enableMany: "Enable selected sources",
+		enableManyBody_one: "Enables the {{count, number}} selected source. Update checks will include it.",
+		enableManyBody_other: "Enables the {{count, number}} selected sources. Update checks will include them.",
 		evidenceGap: "Entries were saved, but the source's raw response wasn't: {{error}}",
 		expandGroup: "Expand sources for {{name}}",
 		failedBody: "No updates were fetched from these sources this time.",
@@ -3553,10 +3568,15 @@ var He = {
 		layout: "Follow list layout",
 		markAllWatched: "Mark all watched",
 		markIgnored: "Mark as ignored",
-		markIgnoredBody: "Marks all current unwatched videos as ignored.",
+		markIgnoredBody_one: "Marks the {{count, number}} current unwatched video as ignored. If it's on your wants and not in the collection yet, it's removed from wants.",
+		markIgnoredBody_other: "Marks the {{count, number}} current unwatched videos as ignored. Any on your wants that aren't in the collection yet are removed from wants.",
 		markSummary: "{{unwatched, number}} unwatched · {{watched, number}} watched · {{saved, number}} saved · {{ignored, number}} ignored",
-		markWatchedBody: "Marks all current unwatched videos as watched.",
+		markWatchedBody_one: "Marks the {{count, number}} current unwatched video as watched.",
+		markWatchedBody_other: "Marks the {{count, number}} current unwatched videos as watched.",
 		pageEmpty: "No sources on this page",
+		pauseMany: "Pause selected sources",
+		pauseManyBody_one: "Pauses the {{count, number}} selected source. Fetched items are kept.",
+		pauseManyBody_other: "Pauses the {{count, number}} selected sources. Fetched items are kept.",
 		preparingCheck: "Preparing check",
 		providers: "Sources: {{providers}}",
 		seeUpdates: "See updates",
@@ -4186,7 +4206,17 @@ var He = {
 		selectGroup: "Select group",
 		sourceChosen: "Selected {{source}}. Click Approve selected to apply it.",
 		switchCategoryHint: "Switch categories to see other pending metadata.",
-		viewOtherCategories: "View other categories"
+		viewOtherCategories: "View other categories",
+		confirm: {
+			approved_one: "Approves the {{count, number}} selected item and writes the chosen source's details.",
+			approved_other: "Approves the {{count, number}} selected items and writes the chosen sources' details.",
+			rejected_one: "Ignores the {{count, number}} selected item and moves it to Ignored.",
+			rejected_other: "Ignores the {{count, number}} selected items and moves them to Ignored.",
+			restore_one: "Moves the {{count, number}} selected item back to Pending.",
+			restore_other: "Moves the {{count, number}} selected items back to Pending.",
+			skipped_one: "Moves the {{count, number}} selected item to Later.",
+			skipped_other: "Moves the {{count, number}} selected items to Later."
+		}
 	},
 	reviewQueue: {
 		approved: "Approved",
@@ -7460,7 +7490,10 @@ var He = {
 		"keep-duplicates": "Keep all in duplicate groups",
 		"reconsider-duplicates": "List duplicate groups again",
 		region: "Bulk set region",
-		"performer-delete": "Delete actresses' videos permanently"
+		"performer-delete": "Delete actresses' videos permanently",
+		"revert-like": "Undo bulk like",
+		"revert-seen": "Undo bulk mark watched",
+		"revert-later": "Undo bulk watch later"
 	},
 	outcome: {
 		semicolon: ". ",
@@ -7826,12 +7859,18 @@ var He = {
 	},
 	batchCatalog: {
 		addToWatchLater: "Add to watch later",
-		confirmBody_one: "This applies to the {{count, number}} selected item.",
-		confirmBody_other: "This applies to the {{count, number}} selected items.",
-		confirmDelete_one: "Files and collection records for the {{count, number}} selected item will be deleted permanently. This can't be undone.",
-		confirmDelete_other: "Files and collection records for the {{count, number}} selected items will be deleted permanently. This can't be undone.",
-		confirmDispose_one: "The {{count, number}} selected item will move to the trash, where you can restore it.",
-		confirmDispose_other: "The {{count, number}} selected items will move to the trash, where you can restore them.",
+		confirmDelete_one: "Deletes the files and collection records of the {{count, number}} selected item permanently.",
+		confirmDelete_other: "Deletes the files and collection records of the {{count, number}} selected items permanently.",
+		confirmDispose_one: "Moves the {{count, number}} selected item to the trash. The file stays where it is.",
+		confirmDispose_other: "Moves the {{count, number}} selected items to the trash. The files stay where they are.",
+		confirmLater_one: "Adds the {{count, number}} selected item to watch later.",
+		confirmLater_other: "Adds the {{count, number}} selected items to watch later.",
+		confirmLike_one: "Likes the {{count, number}} selected item. Existing like reasons are kept.",
+		confirmLike_other: "Likes the {{count, number}} selected items. Existing like reasons are kept.",
+		confirmRestore_one: "Restores the {{count, number}} selected item from the trash to the collection.",
+		confirmRestore_other: "Restores the {{count, number}} selected items from the trash to the collection.",
+		confirmSeen_one: "Marks the {{count, number}} selected item as watched.",
+		confirmSeen_other: "Marks the {{count, number}} selected items as watched.",
 		deleteSelected: "Delete selected permanently",
 		doneDelete_one: "Deleted {{count, number}} item permanently",
 		doneDelete_other: "Deleted {{count, number}} items permanently",
@@ -7850,20 +7889,29 @@ var He = {
 		restoreSelected: "Restore selected"
 	},
 	batchFollow: {
-		confirmBody_one: "This applies to the {{count, number}} selected video from Following.",
-		confirmBody_other: "This applies to the {{count, number}} selected videos from Following.",
+		confirmIgnore_one: "Ignores the {{count, number}} selected video from Following. If it's on your wants and not in the collection yet, it's removed from wants.",
+		confirmIgnore_other: "Ignores the {{count, number}} selected videos from Following. Any on your wants that aren't in the collection yet are removed from wants.",
+		confirmSave_one: "Saves the {{count, number}} selected video from Following to the database.",
+		confirmSave_other: "Saves the {{count, number}} selected videos from Following to the database.",
+		confirmSeen_one: "Marks the {{count, number}} selected video from Following as seen.",
+		confirmSeen_other: "Marks the {{count, number}} selected videos from Following as seen.",
 		doneIgnored_one: "Ignored {{count, number}} item",
 		doneIgnored_other: "Ignored {{count, number}} items",
 		doneSave_one: "Saved {{count, number}} item to the database",
 		doneSave_other: "Saved {{count, number}} items to the database",
 		doneSeen_one: "Marked {{count, number}} item as seen",
 		doneSeen_other: "Marked {{count, number}} items as seen",
+		ignoreRecovery: " You can undo this, but removed wants won't come back.",
 		ignoreSelected: "Ignore selected videos",
 		saveSelected: "Save selected videos"
 	},
 	batchJunk: {
-		confirmBody_one: "This applies to the {{count, number}} selected file.",
-		confirmBody_other: "This applies to the {{count, number}} selected files.",
+		confirmDispose_one: "Moves the {{count, number}} selected file to the trash. The file stays where it is.",
+		confirmDispose_other: "Moves the {{count, number}} selected files to the trash. The files stay where they are.",
+		confirmNotJunk_one: "Marks the {{count, number}} selected file as not junk and takes it out of the queue.",
+		confirmNotJunk_other: "Marks the {{count, number}} selected files as not junk and takes them out of the queue.",
+		confirmRecheck_one: "Sends the {{count, number}} selected file back to the junk queue.",
+		confirmRecheck_other: "Sends the {{count, number}} selected files back to the junk queue.",
 		dismissed: "Set as not junk",
 		doneDispose_one: "Moved {{count, number}} item to trash",
 		doneDispose_other: "Moved {{count, number}} items to trash",
@@ -8587,7 +8635,8 @@ var He = {
 	trash: {
 		blockedItem: "{{path}} ({{reason}})",
 		empty: "Empty trash",
-		emptyConfirm: "Files and collection records in the trash will be deleted permanently. This can't be undone.",
+		emptyConfirm_one: "The file and collection record of {{count, number}} item in the trash will be deleted permanently.",
+		emptyConfirm_other: "Files and collection records of {{count, number}} items in the trash will be deleted permanently.",
 		emptyHint: "Deleted items stay here until you empty the trash.",
 		emptyTitle: "Trash is empty",
 		movedToTrash: "Moved to trash",
@@ -8638,6 +8687,10 @@ var He = {
 		locationField: "File location on the server",
 		mediaRoot: "Media directory",
 		relativePath: "Location in the directory"
+	},
+	bulkAction: {
+		canUndo: " You can undo this from the receipt.",
+		cannotUndo: " This can't be undone."
 	}
 }, Ze = {
 	avatarPicker: {
@@ -9141,6 +9194,7 @@ var He = {
 		selectPage: "全选本页",
 		selectedCount: "已选 {{count, number}} 部",
 		wantAdded: "已加入想要 {{count, number}} 部",
+		wantConfirm: "将选中的 {{count, number}} 部加入想要。",
 		wantPartialFailed: "已加入 {{count, number}} 部；{{code}} 未完成：{{error}}"
 	},
 	javSort: {
@@ -9581,7 +9635,7 @@ var He = {
 		unhide: "恢复"
 	},
 	tagOperations: {
-		blockConfirm: "屏蔽带有{{names}}任一标签的内容及其其它版本，涉及 {{count, number}} 个资源。可在「已屏蔽内容」中恢复。",
+		blockConfirm: "屏蔽带有{{names}}任一标签的内容及其其它版本，涉及 {{count, number}} 个资源。",
 		doneBlock: "已屏蔽内容",
 		doneHide: "已隐藏标签",
 		doneMerge: "已合并标签",
@@ -9589,10 +9643,10 @@ var He = {
 		doneRepair: "已整理重复标签",
 		doneUnblock: "已恢复内容",
 		doneUnhide: "已恢复标签",
-		hideConfirm: "隐藏 {{count, number}} 个标签，涉及 {{assets, number}} 个资源。可在“已隐藏”中恢复。",
+		hideConfirm: "隐藏 {{count, number}} 个标签，涉及 {{assets, number}} 个资源。",
 		hideTags: "隐藏标签",
 		keep: "保留",
-		mergeConfirm: "合并 {{count, number}} 个标签，涉及 {{assets, number}} 个资源（重叠关联 {{overlap, number}} 个）。旧名称保留为别名，无法直接撤销。",
+		mergeConfirm: "合并 {{count, number}} 个标签，涉及 {{assets, number}} 个资源（重叠关联 {{overlap, number}} 个），旧名称保留为别名。",
 		mergeTags: "合并标签",
 		previewImpact: "预览影响范围",
 		renameConfirm: "{{names}}将更名为{{newName}}，涉及 {{count, number}} 个资源。旧名称保留为别名。",
@@ -9797,7 +9851,7 @@ var He = {
 		columnUrl: "地址",
 		dead: "地址已失效",
 		deleteDead: "删除失效链接",
-		deleteDeadBody: "将删除 {{count, number}} 条失效链接。删除前会再次检查，删除后无法恢复。",
+		deleteDeadBody: "将删除 {{count, number}} 条失效链接，删除前会再检查一次。",
 		deleteDeadCount: "删除 {{count, number}} 条失效链接",
 		deleteSelected: "删除所选（{{count, number}}）",
 		entitySpread: "分布在 {{count, number}} 个女优、厂牌与系列",
@@ -9907,7 +9961,7 @@ var He = {
 		deleteBody: "将删除「{{name}}」的作品记录。此操作不可撤销。",
 		deleteBodyWithActivity: "将删除「{{name}}」的作品记录及其个人记录（{{records}}）。此操作不可撤销。",
 		deleteRecord: "删除记录",
-		deleteSelectedBody: "将删除以下 {{count, number}} 条作品记录及其全部个人记录。此操作不可撤销。",
+		deleteSelectedBody: "将删除以下 {{count, number}} 条作品记录及其全部个人记录。",
 		deleteSelectedCount: "删除所选记录（{{count, number}}）",
 		deleteSelectedTitle: "删除所选记录",
 		description: "这些作品的文件已删除，个人记录还在。选择替代文件可把记录转过去。",
@@ -9960,7 +10014,7 @@ var He = {
 	performerDelete: {
 		bodyExamples: "涉及：{{examples}}。",
 		bodyScope: "将永久删除 {{names}} 关联的 {{count, number}} 个影片文件（登记大小 {{size}}）。",
-		bodyWarning: "范围包含全部来源和回收站，不受当前筛选影响，删除后无法恢复。女优档案和照片保留。",
+		bodyWarning: "范围包含全部来源和回收站，不受当前筛选影响。女优档案和照片保留。",
 		columnSize: "登记大小",
 		confirm: "永久删除影片",
 		confirmTitle: "删除所选女优的全部影片",
@@ -10231,6 +10285,9 @@ var He = {
 		colLastFetched: "上次拉取",
 		empty: "还没有订阅源",
 		emptyHint: "在「添加关注」按女优名添加，或在人物页点「订阅新作」。",
+		enableMany: "启用所选订阅源",
+		enableManyBody: "将启用选中的 {{count, number}} 条订阅源，按各自的间隔拉取新作。",
+		enabledMany: "已启用 {{count, number}} 条订阅源",
 		failedBody: "这些订阅源这一轮没有取到新条目。",
 		failedTitle: "{{count, number}} 条订阅源拉取失败",
 		fetchFailed: "拉取失败",
@@ -10244,6 +10301,9 @@ var He = {
 		loading: "正在读订阅源。",
 		neverFetched: "还没拉过",
 		notChecked: "未检查",
+		pauseMany: "暂停所选订阅源",
+		pauseManyBody: "将暂停选中的 {{count, number}} 条订阅源，已拉到的新作保留。",
+		pausedMany: "已暂停 {{count, number}} 条订阅源",
 		readFailed: "没有读到订阅源",
 		removeMany: "移除 {{count, number}} 条订阅源",
 		removeManyBody: "将移除所选订阅源，之后不再拉取它们的新作；已经拉到的新作保留。",
@@ -10524,6 +10584,8 @@ var He = {
 		deselectGroup: "取消全选 {{name}} 的来源",
 		empty: "还没有关注来源",
 		emptyHint: "关注来源及其检查状态会显示在这里。",
+		enableMany: "启用所选来源",
+		enableManyBody: "将启用选中的 {{count, number}} 个关注来源，之后检查更新会包含它们。",
 		evidenceGap: "条目已保存，但这次未保存来源的原始响应：{{error}}",
 		expandGroup: "展开 {{name}} 的来源",
 		failedBody: "这些来源这一轮没有取到更新。",
@@ -10533,10 +10595,12 @@ var He = {
 		layout: "关注列表版式",
 		markAllWatched: "全部标记已看",
 		markIgnored: "标记已忽略",
-		markIgnoredBody: "将把当前未看作品标记为已忽略。",
+		markIgnoredBody: "将把当前 {{count, number}} 项未看作品标为已忽略，已加入想要但未入库的会移出想要。",
 		markSummary: "未看 {{unwatched, number}} · 已看 {{watched, number}} · 已保存 {{saved, number}} · 已忽略 {{ignored, number}}",
-		markWatchedBody: "将把当前未看作品标记为已看。",
+		markWatchedBody: "将把当前 {{count, number}} 项未看作品标为已看。",
 		pageEmpty: "这一页没有来源",
+		pauseMany: "暂停所选来源",
+		pauseManyBody: "将暂停选中的 {{count, number}} 个关注来源，已抓取的条目保留。",
 		preparingCheck: "正在准备检查任务",
 		providers: "来源：{{providers}}",
 		seeUpdates: "去看更新",
@@ -11101,7 +11165,13 @@ var He = {
 		selectGroup: "全选本组",
 		sourceChosen: "已选择 {{source}}，点击通过所选采用。",
 		switchCategoryHint: "可切换分类查看其他待确认资料。",
-		viewOtherCategories: "查看其他分类"
+		viewOtherCategories: "查看其他分类",
+		confirm: {
+			approved: "将通过选中的 {{count, number}} 项，按所选来源写入资料。",
+			rejected: "将忽略选中的 {{count, number}} 项，移到「已忽略」。",
+			restore: "将选中的 {{count, number}} 项放回待处理。",
+			skipped: "将选中的 {{count, number}} 项移到稍后处理。"
+		}
 	},
 	reviewQueue: {
 		approved: "已通过",
@@ -14286,7 +14356,10 @@ var He = {
 		"keep-duplicates": "重复组标记都保留",
 		"reconsider-duplicates": "重复组重新列出",
 		region: "批量判定产地",
-		"performer-delete": "按女优永久删除影片"
+		"performer-delete": "按女优永久删除影片",
+		"revert-like": "撤销批量喜欢",
+		"revert-seen": "撤销批量看过",
+		"revert-later": "撤销批量稍后看"
 	},
 	outcome: {
 		semicolon: "；",
@@ -14652,9 +14725,12 @@ var He = {
 	},
 	batchCatalog: {
 		addToWatchLater: "加入稍后看",
-		confirmBody: "将处理选中的 {{count, number}} 项。",
-		confirmDelete: "将处理选中的 {{count, number}} 项。文件和馆藏记录会永久删除，无法恢复。",
-		confirmDispose: "将处理选中的 {{count, number}} 项。馆藏记录可在回收站还原。",
+		confirmDelete: "将永久删除选中 {{count, number}} 项的文件和馆藏记录。",
+		confirmDispose: "将选中的 {{count, number}} 项移入回收站，文件保留在原处。",
+		confirmLater: "将选中的 {{count, number}} 项加入稍后看。",
+		confirmLike: "将选中的 {{count, number}} 项标为喜欢，已写的喜欢理由保留。",
+		confirmRestore: "将选中的 {{count, number}} 项从回收站还原到馆藏。",
+		confirmSeen: "将选中的 {{count, number}} 项标为看过。",
 		deleteSelected: "永久删除所选项目",
 		doneDelete: "已彻底删除 {{count, number}} 项",
 		doneDispose: "已移入回收站 {{count, number}} 项",
@@ -14667,15 +14743,20 @@ var He = {
 		restoreSelected: "还原所选项目"
 	},
 	batchFollow: {
-		confirmBody: "将处理选中的 {{count, number}} 项关注作品。",
+		confirmIgnore: "将忽略选中的 {{count, number}} 项关注作品，已加入想要但未入库的会移出想要。",
+		confirmSave: "将选中的 {{count, number}} 项关注作品保存到数据库。",
+		confirmSeen: "将选中的 {{count, number}} 项关注作品标为已看。",
 		doneIgnored: "已忽略 {{count, number}} 项",
 		doneSave: "已保存到数据库 {{count, number}} 项",
 		doneSeen: "已标为已看 {{count, number}} 项",
+		ignoreRecovery: "完成后可撤销，移出的想要不会加回。",
 		ignoreSelected: "忽略所选作品",
 		saveSelected: "保存所选作品"
 	},
 	batchJunk: {
-		confirmBody: "将处理选中的 {{count, number}} 个文件。",
+		confirmDispose: "将选中的 {{count, number}} 个文件移入回收站，文件保留在原处。",
+		confirmNotJunk: "将选中的 {{count, number}} 个文件标为不是垃圾，移出待判断。",
+		confirmRecheck: "将选中的 {{count, number}} 个文件放回待判断。",
 		dismissed: "已标记为不是垃圾",
 		doneDispose: "已批量移入回收站：{{count, number}} 项",
 		doneNotJunk: "已批量标为不是垃圾：{{count, number}} 项",
@@ -15359,7 +15440,7 @@ var He = {
 	trash: {
 		blockedItem: "{{path}}（{{reason}}）",
 		empty: "清空回收站",
-		emptyConfirm: "回收站里的文件和馆藏记录将永久删除，无法恢复。",
+		emptyConfirm: "回收站里 {{count, number}} 项的文件和馆藏记录将永久删除。",
 		emptyHint: "删掉的内容会先放在这里，清空后才真正删除。",
 		emptyTitle: "回收站是空的",
 		movedToTrash: "已移入回收站",
@@ -15408,6 +15489,10 @@ var He = {
 		locationField: "服务端文件位置",
 		mediaRoot: "媒体目录",
 		relativePath: "目录内位置"
+	},
+	bulkAction: {
+		canUndo: "完成后可在回执里撤销。",
+		cannotUndo: "不能撤销。"
 	}
 }, ot = ["zh-CN", "en"], st = "zh-CN", ct = {
 	"zh-CN": {
@@ -38681,4 +38766,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=0722b237-33ad-4f42-a3b8-2a5f61397b21
+//# debugId=e5c33adb-30f3-4b67-a9d1-0294b7befc71

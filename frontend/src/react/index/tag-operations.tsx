@@ -1,12 +1,13 @@
 /* 编辑与确认沿用 formModal / confirmModal，表单字段复用 BoardUI。 */
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { confirmModal, formModal } from '@peach/legacy/ui';
+import { formModal } from '@peach/legacy/ui';
 import { Input } from '@/components/base/input/input';
 import { Select, SelectItem } from '../components/select';
 import { apiSend } from '../../api';
 import { queryClient } from '../query';
 import { showToast } from '../toaster';
+import { runBulkAction, type BulkAction, type BulkHost, type BulkReversal } from '../components/bulk-action';
 import { joinList, quoted, t } from '../../i18n';
 
 export type TagId = number | string;
@@ -29,22 +30,69 @@ const TAG_ACTION_DONE: Record<Operation, string> = {
 export const previewTagOperation = (command: Command, signal?: AbortSignal) =>
   apiSend<Plan>('/api/tag-management/preview', command, 'POST', signal);
 
-export async function confirmTagOperation(command: Command, plan: Plan, signal?: AbortSignal) {
-  if (signal?.aborted) return false;
+const applyTagOperation = (command: Command, plan: Plan, signal?: AbortSignal) =>
+  apiSend('/api/tag-management', { ...command, token: plan.token }, 'POST', signal);
+
+/** 隐藏与屏蔽是一对开关，撤销就是反向再做一次；改名与合并会并掉标签，撤不回。 */
+const INVERSE: Partial<Record<Operation, Operation>> = { hide: 'restore', restore: 'hide', block: 'unblock', unblock: 'block' };
+export const TAG_REVERSAL: Record<Operation, BulkReversal> = {
+  rename: 'irreversible', merge: 'irreversible', repair: 'irreversible',
+  hide: 'undo', restore: 'undo', block: 'undo', unblock: 'undo',
+};
+
+function consequence(command: Command, plan: Plan): string {
   const names = joinList(plan.tags.map(tag => quoted(tag.k)));
-  const consequence = command.operation === 'merge' || command.operation === 'repair'
+  return command.operation === 'merge' || command.operation === 'repair'
     ? t('catalog:tagOperations.mergeConfirm', { count: plan.tags.length, assets: plan.assets, overlap: plan.overlap })
     : command.operation === 'rename' ? t('catalog:tagOperations.renameConfirm', { names, newName: quoted(plan.name || command.name || ''), count: plan.assets })
       : command.operation === 'block' ? t('catalog:tagOperations.blockConfirm', { names, count: plan.assets })
         : command.operation === 'unblock' ? t('catalog:tagOperations.unblockConfirm', { names, count: plan.assets })
           : command.operation === 'hide' ? t('catalog:tagOperations.hideConfirm', { count: plan.tags.length, assets: plan.assets })
             : t('catalog:tagOperations.unhideConfirm', { count: plan.tags.length, assets: plan.assets });
-  const done = await confirmModal({ title: TAG_ACTION_LABELS[command.operation], body: consequence,
-    confirmLabel: TAG_ACTION_LABELS[command.operation], onConfirm: () => apiSend('/api/tag-management', { ...command, token: plan.token }, 'POST', signal) });
-  if (!done.confirmed || signal?.aborted) return false;
-  await queryClient.invalidateQueries();
-  showToast(`tag-management-${Date.now()}`, { html: TAG_ACTION_DONE[command.operation], alert: false, timeout: 6000, action: null });
-  return true;
+}
+
+/** 标签操作的回执走全站 Toast；带撤销时撤销结果写回同一条。 */
+export const tagHost: BulkHost = {
+  receipt: (message, options) => {
+    const id = `tag-management-${Date.now()}`;
+    const undo = options?.undo;
+    showToast(id, { html: message, alert: false, timeout: undo ? 8000 : 6000, action: undo ? { label: t('shell:shared.undo'), run: () => {
+      void undo().then(() => showToast(id, { html: t('shell:receipt.undone'), alert: false, timeout: 6000, action: null }),
+        (error: unknown) => showToast(id, { html: t('shell:receipt.undoFailed', { message: error instanceof Error ? error.message : String(error) }),
+          alert: true, timeout: 6000, action: null }));
+    } } : null });
+  },
+};
+
+/** 一次标签操作：先预览拿到影响范围与令牌再弹窗，确认后按令牌写入。`plan` 已经预览过时直接用。 */
+export function tagOperation(command: Omit<Command, 'ids'>, label = TAG_ACTION_LABELS[command.operation], prepared?: Plan): BulkAction<TagId> {
+  let plan: Plan | null = prepared ?? null;
+  const op = command.operation;
+  return {
+    key: op, label, reversal: TAG_REVERSAL[op],
+    confirm: async (ids) => {
+      plan ??= await previewTagOperation({ ...command, ids: [...ids] });
+      return { title: TAG_ACTION_LABELS[op], body: consequence({ ...command, ids: [...ids] }, plan) };
+    },
+    run: async (ids) => {
+      await applyTagOperation({ ...command, ids: [...ids] }, plan!);
+      await queryClient.invalidateQueries();
+      const inverse = INVERSE[op];
+      if (!inverse) return;
+      return async () => {
+        const back: Command = { ...command, operation: inverse, ids: [...ids] };
+        await applyTagOperation(back, await previewTagOperation(back));
+        await queryClient.invalidateQueries();
+      };
+    },
+    receipt: () => TAG_ACTION_DONE[op],
+  };
+}
+
+export async function confirmTagOperation(command: Command, plan: Plan, signal?: AbortSignal) {
+  if (signal?.aborted) return false;
+  const { ids, ...rest } = command;
+  return runBulkAction(tagOperation(rest, undefined, plan), ids, tagHost);
 }
 
 type FormDialog = ReturnType<typeof formModal>;
