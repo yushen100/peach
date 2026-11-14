@@ -18,7 +18,14 @@ RELEASES_URL = "https://github.com/peach-mitao/peach/releases"
 API_URL = "https://api.github.com/repos/peach-mitao/peach/releases?per_page=100"
 DOWNLOADS_BASE = "https://downloads.peach.video"
 DOWNLOADS_API = DOWNLOADS_BASE + "/releases.json"
-LISTING_RULE = 'source-aware-v1'
+#: 检查结果的形状；改了就让缓存的旧结果作废、后台按新规则重查一次。v2 起带更新说明 `notes`。
+LISTING_RULE = 'source-aware-v2'
+#: 有新版本时最多列出几版的更新说明，更早的看 Release 页。
+NOTES_LIMIT = 10
+#: Release 正文里中文那一段的折叠标题，与 `scripts/changelog.py` 的 `CHINESE_SUMMARY` 相同。
+CHINESE_FOLD = re.compile(r"<details>\s*<summary>简体中文</summary>(?P<body>.*?)</details>", re.S)
+#: 更新说明到这里为止：之后是下载段（新旧两种写法）或完整变更链接。
+NOTES_END = re.compile(r"^(?:<details>\s*\n<summary>Downloads|## 下载选择|\[Full Changelog|\*\*Full Changelog)", re.M)
 #: 安装方式与更新通道：响应带 `installation_code`、`channel_code`，前端按它取译文和判断；
 #: 同层的名字按 zh-CN 渲染（`server:release.installation.<id>`、`server:release.channel.<id>`）。
 INSTALLATIONS = ("docker", "standalone", "source")
@@ -106,6 +113,62 @@ def _release_candidates(rows: list, endpoint: str, system: str = "win32", machin
     return releases
 
 
+def _changelog_part(text: str) -> dict:
+    """一种语言的更新说明：开头的说明段与各分组的条目。条目拆出区域标签，链接只留显示的文字，
+    去掉加粗；反引号留给前端显示成代码。"""
+    lead, groups = [], []
+    for raw in text.splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+        if line.startswith("### "):
+            groups.append({"title": line[4:].strip(), "items": []})
+            continue
+        line = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", line)
+        if line.startswith("- ") and groups:
+            found = re.match(r"^\*\*(?P<area>[^*]+)\*\*\s*[:：]\s*(?P<text>.+)$", line[2:])
+            item = {"area": found["area"], "text": found["text"]} if found else {"area": "", "text": line[2:]}
+            item["text"] = item["text"].replace("**", "")
+            groups[-1]["items"].append(item)
+        elif not groups:
+            lead.append(line.removeprefix("> ").replace("**", ""))
+    return {"lead": lead, "groups": [group for group in groups if group["items"]]}
+
+
+def changelog_notes(body: object) -> dict | None:
+    """把 Release 正文拆成英文与中文两份更新说明（格式见 `scripts/changelog.py`）。
+
+    英文是正文，中文在「简体中文」折叠段里；0.59.0 之前只有中文的旧正文两边相同。
+    下载段与完整变更链接不算更新说明。取不出任何条目时返回 None。
+    """
+    if not isinstance(body, str) or not body.strip():
+        return None
+    body = body.replace("\r\n", "\n")
+    end = NOTES_END.search(body)
+    body = body[:end.start()] if end else body
+    folded = CHINESE_FOLD.search(body)
+    english = CHINESE_FOLD.sub("", body) if folded else body
+    chinese = folded["body"] if folded else body
+    notes = {"en": _changelog_part(english), "zh-CN": _changelog_part(chinese)}
+    return notes if any(part["groups"] or part["lead"] for part in notes.values()) else None
+
+
+def _release_notes(rows: list, current: tuple[int, ...], latest: tuple[int, ...]) -> list[dict]:
+    """本机版本之后、最新版本及之前每一版的更新说明，新的在前，最多 `NOTES_LIMIT` 版。"""
+    found = {}
+    for row in rows:
+        if not isinstance(row, dict) or row.get("draft"):
+            continue
+        version = _version(row.get("tag_name"))
+        if version is None or not current < version <= latest or version in found:
+            continue
+        notes = changelog_notes(row.get("body"))
+        if notes:
+            found[version] = {"version": row["tag_name"].removeprefix("v"),
+                              "url": f"{RELEASES_URL}/tag/{row['tag_name']}", **notes}
+    return [found[version] for version in sorted(found, reverse=True)[:NOTES_LIMIT]]
+
+
 def _listings(client):
     """两个公开发行源的发布列表，取不到的源跳过：逐个给出 `(endpoint, rows)`。"""
     for endpoint in (API_URL, DOWNLOADS_API):
@@ -164,9 +227,11 @@ def check(*, transport=None, system: str | None = None, machine: str | None = No
     try:
         releases = []
         github_releases = []
+        listed = []
         obtained = False
         for endpoint, rows in _listings(client):
             obtained = True
+            listed.extend(rows)
             try:
                 candidates = _release_candidates(rows, endpoint, system, machine)
                 releases.extend(candidates)
@@ -184,6 +249,8 @@ def check(*, transport=None, system: str | None = None, machine: str | None = No
             return dict(result, state="error", **_message("staleListing"))
         state = "available" if version > current else "ahead" if version < current else "current"
         message = _message(state)
+        if state == "available":
+            result["notes"] = _release_notes(listed, current, version)
         if distribution.docker():
             # 版本号跟着 Windows 包判；镜像在 Release 之后才推送，空窗里拉到的还是旧镜像，
             # 所以以 Docker Hub 上版本号标签与 edge 指向同一镜像为准（ADR-0140）。

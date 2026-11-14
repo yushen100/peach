@@ -334,7 +334,17 @@ export interface ReleaseState {
   steps?: { id?: string; text: string; command: string }[];
   /** Docker 镜像检查到新镜像时才有：能否经 Watchtower 一键更新（ADR-0140），不能时 `reason` 说明为什么。 */
   one_click?: { available: boolean; reason: string; reason_code?: string; reason_params?: Record<string, unknown> };
+  /** 有新版本时，本机之后每一版 GitHub Release 的更新说明，新的在前；`en` 与 `zh-CN` 两份按界面语言取。 */
+  notes?: ReleaseNotes[];
 }
+
+/** 一种语言的更新说明：开头的说明段与各分组；条目的 `text` 里反引号包住的是代码。 */
+export interface ReleaseNotesPart {
+  lead: string[];
+  groups: { title: string; items: { area: string; text: string }[] }[];
+}
+
+export interface ReleaseNotes { version: string; url: string; en: ReleaseNotesPart; 'zh-CN': ReleaseNotesPart }
 
 export interface UpdateJob {
   state: string; progress: number; message?: string; downloaded?: number; total?: number; version?: string;

@@ -11,15 +11,15 @@ import { Button, ButtonLink } from '@/components/base/buttons/button';
 import { apiGet, apiSend, errorMessage } from '../../api';
 import { checkClientUpdates, useClientUpdates } from '../client-updates';
 import { codedText, jobText, serverLabel, serverText } from '../../core/server-text';
-import type { ReleaseState, UpdateJob } from '../bundle';
+import type { ReleaseNotes, ReleaseState, UpdateJob } from '../bundle';
 import { Note } from '../components/note';
 import { Progress } from '../components/progress';
 import { StatusLabel } from '../components/status-label';
 import { DockerUpdateProgress, useDockerUpdate } from './docker-update';
 import { RELEASE_NOTICE_EVENT } from '../release-notice';
-import { CommandSteps, ErrorText, ExternalLink, Fact, FactList, Footer, Help, Section, Stack } from './section';
+import { CommandSteps, Disclosure, ErrorText, ExternalLink, Fact, FactList, Footer, Help, Section, Stack } from './section';
 import { busyProps, useAction } from './use-action';
-import { interfaceLanguage, t } from '../../i18n';
+import { interfaceLanguage, joinList, t } from '../../i18n';
 
 const ACTIVE = new Set(['downloading', 'verifying', 'extracting', 'preparing', 'restarting', 'installing']);
 const STOPS = [65, 75, 90];
@@ -27,6 +27,47 @@ const STOPS = [65, 75, 90];
 const LOST_AFTER_FAILURES = 7;
 /** 服务端没给发布页时的去处；检查到新版本后服务端给的是那一版自己的发布页。 */
 const RELEASES_URL = 'https://github.com/peach-mitao/peach/releases';
+
+/** 条目文字里反引号包住的片段显示成代码，其余原样。 */
+function InlineText({ text }: { text: string }) {
+  return <>{text.split('`').map((part, index) => index % 2 ? <code key={index}>{part}</code> : part)}</>;
+}
+
+/** 新版本的更新说明，取自 GitHub Release 正文：中文界面读折叠的简体中文段，其余语言读英文正文。默认收起。 */
+export function ReleaseChangelog({ notes }: { notes: ReleaseNotes[] }) {
+  const language = interfaceLanguage === 'zh-CN' ? 'zh-CN' : 'en';
+  return (
+    <Disclosure summary={t('settings:releaseUpdates.changelogTitle', { versions: joinList(notes.map(row => row.version)) })}>
+      <div className="flex flex-col gap-5 pt-3">
+        {notes.map(row => {
+          const part = row[language];
+          return (
+            <section key={row.version} className="flex flex-col gap-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <h3 className="text-body-1-medium text-text-primary">{row.version}</h3>
+                <ExternalLink href={row.url}>{t('settings:releaseUpdates.releasePage')}</ExternalLink>
+              </div>
+              {part.lead.map(line => <p key={line} className="text-body-2-regular text-text-secondary"><InlineText text={line} /></p>)}
+              {part.groups.map(group => (
+                <div key={group.title} className="flex flex-col gap-1.5">
+                  <h4 className="text-body-2-medium text-text-secondary">{group.title}</h4>
+                  <ul className="flex list-disc flex-col gap-1 ps-5 text-body-2-regular text-text-primary">
+                    {group.items.map((item, index) => (
+                      <li key={index}>
+                        {item.area ? <span className="text-text-secondary">{item.area} · </span> : null}
+                        <InlineText text={item.text} />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </section>
+          );
+        })}
+      </div>
+    </Disclosure>
+  );
+}
 
 export function ReleaseUpdates({ initial, initialJob }: { initial: ReleaseState; initialJob?: UpdateJob | undefined }) {
   const [data, setData] = useState(initial);
@@ -119,7 +160,10 @@ export function ReleaseUpdates({ initial, initialJob }: { initial: ReleaseState;
       {data.state === 'unchecked' && !data.checked_at && !error && job.state === 'idle' ? null : <Stack divided>
         {data.checked_at ? <Help>{t('settings:releaseUpdates.checkedAt', { time: new Date(data.checked_at * 1000).toLocaleString(interfaceLanguage) })}</Help> : null}
         {container.job.state === 'done' ? null : data.state === 'available' && !error
-          ? <Note tone="info" title={t('settings:releaseUpdates.updateAvailable')}>{message}</Note>
+          ? <>
+              <Note tone="info" title={t('settings:releaseUpdates.updateAvailable')}>{message}</Note>
+              {data.notes?.length ? <ReleaseChangelog notes={data.notes} /> : null}
+            </>
           : error || data.state === 'error'
             ? <ErrorText>{error || message}</ErrorText>
             : data.state === 'unchecked' ? null : <Help role="status">{message}</Help>}
