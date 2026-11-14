@@ -917,9 +917,11 @@
   },
   "tagFilters": {
     "blockedContent": "已屏蔽内容",
+    "blockedCount": "已屏蔽内容 {{count, number}}",
     "clearSelection": "清空",
     "editTag": "编辑标签 {{name}}",
     "hidden": "已隐藏",
+    "hiddenCount": "已隐藏 {{count, number}}",
     "inUse": "使用中",
     "jumpToLetter": "按首字跳转",
     "label": "标签筛选",

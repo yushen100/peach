@@ -123,7 +123,9 @@ export function TagFilters(
     onCategory(key: string): void;
     onJump(at: number): void;
     onView(view: TagView): void;
-    status?: { hidden: boolean; blocked?: boolean; onChange(hidden: boolean): void; onBlocked?(): void };
+    /** 使用中、已隐藏、已屏蔽内容三档；带上数量时药丸上写出来（标签页平时那一排就靠它让人看见挡掉了几个）。 */
+    status?: { hidden: boolean; blocked?: boolean; hiddenCount?: number; blockedCount?: number;
+      onChange(hidden: boolean): void; onBlocked?(): void };
     actions?: ReactNode;
   },
 ) {
@@ -132,10 +134,12 @@ export function TagFilters(
     <FilterGlassRows label={t('catalog:tagFilters.label')} topLabel={t('catalog:tagFilters.tagType')}
       top={<>
         {status ? <div role="group" aria-label={t('catalog:tagFilters.tagStatus')} className="flex flex-none items-center gap-1.75 border-r border-(--glass-low) pr-3">
-          {[[false, t('catalog:tagFilters.inUse')], [true, t('catalog:tagFilters.hidden')]].map(([hidden, label]) => <FilterPill key={String(hidden)}
+          {[[false, t('catalog:tagFilters.inUse')], [true, status.hiddenCount === undefined ? t('catalog:tagFilters.hidden')
+            : t('catalog:tagFilters.hiddenCount', { count: status.hiddenCount })]].map(([hidden, label]) => <FilterPill key={String(hidden)}
             data-tag-pill="" data-tag-cat="all" pressed={!status.blocked && status.hidden === hidden} onPress={() => status.onChange(Boolean(hidden))}>{label}</FilterPill>)}
           {status.onBlocked ? <FilterPill data-tag-pill="" data-tag-cat="all" pressed={!!status.blocked}
-            onPress={status.onBlocked}>{t('catalog:tagFilters.blockedContent')}</FilterPill> : null}
+            onPress={status.onBlocked}>{status.blockedCount === undefined ? t('catalog:tagFilters.blockedContent')
+              : t('catalog:tagFilters.blockedCount', { count: status.blockedCount })}</FilterPill> : null}
         </div> : null}
         {categories.map(([key, label]) => (
         <FilterPill key={key} data-tag-pill="" data-tag-cat={key === 'all' ? 'all' : tagColorKey(online, key)}

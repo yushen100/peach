@@ -972,9 +972,11 @@
   },
   "tagFilters": {
     "blockedContent": "Blocked content",
+    "blockedCount": "Blocked content {{count, number}}",
     "clearSelection": "Clear",
     "editTag": "Edit tag {{name}}",
     "hidden": "Hidden",
+    "hiddenCount": "Hidden {{count, number}}",
     "inUse": "In use",
     "jumpToLetter": "Jump to letter",
     "label": "Tag filters",

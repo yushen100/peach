@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "54f6bd77-722f-486f-92a9-0ccc4d2dd5b7", e._sentryDebugIdIdentifier = "sentry-dbid-54f6bd77-722f-486f-92a9-0ccc4d2dd5b7");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "2e5a267d-dc4b-4dd6-aa50-f39403e3963a", e._sentryDebugIdIdentifier = "sentry-dbid-2e5a267d-dc4b-4dd6-aa50-f39403e3963a");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -2429,9 +2429,11 @@ var He = {
 	},
 	tagFilters: {
 		blockedContent: "Blocked content",
+		blockedCount: "Blocked content {{count, number}}",
 		clearSelection: "Clear",
 		editTag: "Edit tag {{name}}",
 		hidden: "Hidden",
+		hiddenCount: "Hidden {{count, number}}",
 		inUse: "In use",
 		jumpToLetter: "Jump to letter",
 		label: "Tag filters",
@@ -9699,9 +9701,11 @@ var He = {
 	},
 	tagFilters: {
 		blockedContent: "已屏蔽内容",
+		blockedCount: "已屏蔽内容 {{count, number}}",
 		clearSelection: "清空",
 		editTag: "编辑标签 {{name}}",
 		hidden: "已隐藏",
+		hiddenCount: "已隐藏 {{count, number}}",
 		inUse: "使用中",
 		jumpToLetter: "按首字跳转",
 		label: "标签筛选",
@@ -38928,4 +38932,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=54f6bd77-722f-486f-92a9-0ccc4d2dd5b7
+//# debugId=2e5a267d-dc4b-4dd6-aa50-f39403e3963a

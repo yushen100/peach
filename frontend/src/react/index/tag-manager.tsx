@@ -14,15 +14,17 @@ import { SelectionDock } from '../components/selection-dock';
 import { useAction } from '../settings/use-action';
 import { ONLINE_TAG_CATEGORIES, TAG_CATEGORIES, tagGroups, type TagView } from './index-data';
 import { TagAlphabet, TagCloud, TagFilters } from './index-tags';
-import { TagEditor, confirmTagOperation, managedTagId, previewTagOperation, toastHost, tagOperation, type Command, type EditorOperation, type ManagedTag, type TagId, type TagScope } from './tag-operations';
+import { TagEditor, useTagStatusCounts, confirmTagOperation, managedTagId, previewTagOperation, toastHost, tagOperation, type Command, type EditorOperation, type ManagedTag, type TagId, type TagScope } from './tag-operations';
 import { contentTrashAction } from './roster-actions';
 import { t } from '../../i18n';
 
 export type { ManagedTag } from './tag-operations';
 interface TagInventory { items: ManagedTag[]; duplicate_groups: number[][]; total: number; categories: Record<string, number> }
 
-export function TagManager({ search, category = 'all', view = 'cloud', onCategory, onView, onJump, scope = 'local' }:
-  { search?: string; category?: string; view?: TagView; scope?: TagScope; onCategory?(category: string): void; onView?(view: TagView): void; onJump?(at: number): void }) {
+export function TagManager({ search, category = 'all', view = 'cloud', onCategory, onView, onJump, scope = 'local', state = 'active' }:
+  { search?: string; category?: string; view?: TagView; scope?: TagScope; onCategory?(category: string): void; onView?(view: TagView): void; onJump?(at: number): void;
+    /** 从标签页平时那排状态药丸点进来时，直接落在「已隐藏」或「已屏蔽内容」。 */
+    state?: 'active' | 'hidden' | 'blocked' }) {
   const online = scope === 'online';
   const root = useRef<HTMLElement>(null);
   const [localSearch, setLocalSearch] = useState('');
@@ -31,8 +33,9 @@ export function TagManager({ search, category = 'all', view = 'cloud', onCategor
   const activeCategory = onCategory ? category : localCategory;
   const activeView = onView ? view : localView;
   const query = search ?? localSearch;
-  const [hidden, setHidden] = useState(false);
-  const [blocked, setBlocked] = useState(false);
+  const [hidden, setHidden] = useState(state === 'hidden');
+  const [blocked, setBlocked] = useState(state === 'blocked');
+  const counts = useTagStatusCounts(scope);
   const filter = JSON.stringify([scope, query, activeCategory, activeView, hidden, blocked]);
   const { pagination, onChange: changePage } = useTagPagination(filter);
   const params = new URLSearchParams({ limit:String(pagination.pageSize), offset:String(pagination.pageIndex * pagination.pageSize),
@@ -70,11 +73,12 @@ export function TagManager({ search, category = 'all', view = 'cloud', onCategor
     {search === undefined ? <div className="mb-4 flex"><IndexSearch label={t('catalog:tagManager.filterTags')} value={localSearch} onQuery={setLocalSearch} /></div> : null}
     <TagFilters categories={categories} category={activeCategory} online={online} readout={inventory.data ? t('catalog:peopleIndex.tagCount', { count: inventory.data.total }) : ''}
       letters={groups.map(([letter]) => letter)} view={activeView} onCategory={next => { setLocalCategory(next); onCategory?.(next) }}
-      onView={next => { setLocalView(next); onView?.(next) }} onJump={at => onJump ? onJump(at) : root.current?.querySelector(`[data-alpha-group="${at}"]`)?.scrollIntoView({ block:'start', behavior:'smooth' })} status={{ hidden, blocked,
+      onView={next => { setLocalView(next); onView?.(next) }} onJump={at => onJump ? onJump(at) : root.current?.querySelector(`[data-alpha-group="${at}"]`)?.scrollIntoView({ block:'start', behavior:'smooth' })} status={{ hidden, blocked, ...counts,
         onChange: value => { setHidden(value); setBlocked(false) },
         ...(online ? { onBlocked: () => { setBlocked(true); setHidden(false) } } : {}) }}
       actions={<>
-        {online && blocked ? <GlassPill onPress={() => setEditing('block')}>{t('catalog:tagManager.blockByName')}</GlassPill> : null}
+        {/* 按名称屏蔽在线范围三档都在：还没抓到过的标签不在任何一档里，得有个地方直接填名字。 */}
+        {online ? <GlassPill onPress={() => setEditing('block')}>{t('catalog:tagManager.blockByName')}</GlassPill> : null}
         {inventory.data?.duplicate_groups.length ? <GlassPill busy={action.busy === 'repair'} onPress={() => run({ operation: 'repair', ids: [] })}>{t('catalog:tagManager.mergeDuplicates')}</GlassPill> : null}
         {visible.length ? <GlassPill onPress={() => setPicked(current => new Map([...current, ...visible.map(row => [row.k, row] as const)]))}>{t('catalog:tagManager.selectPage')}</GlassPill> : null}
         {picked.size ? <GlassPill onPress={exitPageSelection}>{t('catalog:tagManager.clearSelection')}</GlassPill> : null}

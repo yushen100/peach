@@ -4,7 +4,8 @@ import { createPortal } from 'react-dom';
 import { formModal } from '@peach/legacy/ui';
 import { Input } from '@/components/base/input/input';
 import { Select, SelectItem } from '../components/select';
-import { apiSend } from '../../api';
+import { useQuery } from '@tanstack/react-query';
+import { apiGet, apiSend } from '../../api';
 import { queryClient } from '../query';
 import { showToast } from '../toaster';
 import { runBulkAction, type BulkAction, type BulkHost, type BulkReversal } from '../components/bulk-action';
@@ -27,6 +28,18 @@ const TAG_ACTION_DONE: Record<Operation, string> = {
   repair: t('catalog:tagOperations.doneRepair'), block: t('catalog:tagOperations.doneBlock'), unblock: t('catalog:tagOperations.doneUnblock'),
   delete: t('catalog:tagOperations.doneDelete'),
 };
+
+/** 已隐藏、已屏蔽内容各有几个：标签页平时那排状态药丸与标签管理共用。写入后 `invalidateQueries()` 一并刷新。 */
+export function useTagStatusCounts(scope: TagScope, enabled = true) {
+  const count = (state: 'hidden' | 'blocked') => ({
+    queryKey: ['tag-management', scope, 'count', state],
+    queryFn: ({ signal }: { signal: AbortSignal }) => apiGet<{ total: number }>(
+      `/api/tag-management?${new URLSearchParams({ scope, state, limit: '1' })}`, signal).then((page) => page.total),
+  });
+  const hidden = useQuery({ ...count('hidden'), enabled });
+  const blocked = useQuery({ ...count('blocked'), enabled: enabled && scope === 'online' });
+  return { hiddenCount: hidden.data, blockedCount: scope === 'online' ? blocked.data : undefined };
+}
 
 export const previewTagOperation = (command: Command, signal?: AbortSignal) =>
   apiSend<Plan>('/api/tag-management/preview', command, 'POST', signal);

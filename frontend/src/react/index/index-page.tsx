@@ -43,6 +43,7 @@ import { RosterDock, useRosterSelection } from './roster-selection';
 import { OnlineTagDock } from './online-tag-dock';
 import { TagAlphabet, TagCloud, TagDock, TagFilters, type TagEntry } from './index-tags';
 import { TagManager } from './tag-manager';
+import { useTagStatusCounts } from './tag-operations';
 import { t } from '../../i18n';
 
 /* 厂牌与事务所是两种实体，不是同一份数据的两种筛选：厂牌出片，事务所出人。所以这个开关切的
@@ -94,6 +95,8 @@ type Item = IndexPerson | IndexTag | OnlineAuthor | OnlineTag;
 
 export function IndexPage(props: IndexProps) {
   const [managing, setManaging] = useState(false);
+  /* 标签页平时那排状态药丸点「已隐藏」「已屏蔽内容」：进标签管理，直接落在那一档。 */
+  const [managerState, setManagerState] = useState<'active' | 'hidden' | 'blocked'>('active');
   const [route, setRoute] = useState<IndexRoute>(() => indexRoute(
     { kind: props.kind, q: props.q, scope: props.scope, view: props.view, category: props.category },
   ));
@@ -207,6 +210,11 @@ export function IndexPage(props: IndexProps) {
           onChange={(next) => go({ kind: next })} />
         : null;
 
+  const tagCounts = useTagStatusCounts(scope, kind === 'tags' && !managing);
+  const openManager = (state: 'hidden' | 'blocked') => {
+    props.exitSelectMode(); setPicked(new Set()); setManagerState(state); setManaging(true);
+  };
+
   const pressTag = (tag: string) => {
     if (onlineTags && !props.selectMode) { props.openFollowTag(tag); return }
     if (!props.selectMode) {
@@ -261,7 +269,7 @@ export function IndexPage(props: IndexProps) {
         <LibraryShortcuts kind={kind === 'tags' ? 'tag' : kind === 'series' ? 'series' : kind === 'studios' ? 'studio' : kind === 'agencies' ? 'agency' : kind === 'creators' ? 'creator' : 'performer'} />
         {kind === 'tags' ? <Button variant={managing ? 'primary' : 'ghost'} iconOnly className="flex-none" data-tag-mode=""
           leadingIcon={spriteGlyph('pencil')} aria-label={managing ? t('catalog:peopleIndex.backToTags') : t('catalog:peopleIndex.manageTags')} title={managing ? t('catalog:peopleIndex.backToTags') : t('catalog:peopleIndex.manageTags')} aria-pressed={managing}
-          onClick={() => { props.exitSelectMode(); setPicked(new Set()); setManaging(!managing) }} /> : null}
+          onClick={() => { props.exitSelectMode(); setPicked(new Set()); setManagerState('active'); setManaging(!managing) }} /> : null}
         <IndexSearch label={t('catalog:peopleIndex.filterTitle', { title: noun })} value={q} onQuery={(next) => { if (next !== q) go({ q: next }, !!next) }} />
       </div>
       {kind === 'performers' || kind === 'creators' ? (
@@ -273,7 +281,7 @@ export function IndexPage(props: IndexProps) {
           }} />
       ) : null}
       {tabs}
-      {managing && kind === 'tags' ? <TagManager key={scope} scope={scope} search={q} category={category} view={view}
+      {managing && kind === 'tags' ? <TagManager key={`${scope}:${managerState}`} scope={scope} state={managerState} search={q} category={category} view={view}
         onCategory={next => go({ category: next })} onView={next => go({ view: next })}
         onJump={at => root.current?.querySelector(`[data-alpha-group="${at}"]`)?.scrollIntoView({ block: 'start', behavior: 'smooth' })} /> : <>
       {kind === 'performers' && scope === 'local' ? (
@@ -293,6 +301,8 @@ export function IndexPage(props: IndexProps) {
       ) : null}
       {kind === 'tags' ? (
         <TagFilters categories={categories} category={category} online={onlineTags} readout={readout}
+          status={{ hidden: false, blocked: false, ...tagCounts, onChange: (hidden) => { if (hidden) openManager('hidden') },
+            ...(onlineTags ? { onBlocked: () => openManager('blocked') } : {}) }}
           letters={groups.map(([letter]) => letter)} view={view}
           onCategory={(next) => go({ category: next })}
           onView={(next) => go({ view: next })}
