@@ -171,7 +171,6 @@ jobs:
           Copy-Item scripts/smoke_split_update.py release/smoke_split_update.py
           python scripts/changelog.py --notes '${{ steps.version.outputs.version }}' --to release/RELEASE_NOTES.md
           if ($LASTEXITCODE -ne 0) { throw 'CHANGELOG.md 缺这一版的一节，不发没有说明的版本' }
-          Add-Content -LiteralPath release/RELEASE_NOTES.md -Value (Get-Content -Raw -Encoding utf8 release/DOWNLOADS.md) -Encoding utf8
       - uses: actions/upload-artifact@v7
         with:
           name: desktop-candidate

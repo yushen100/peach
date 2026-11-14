@@ -68,7 +68,6 @@ if ($Mode -eq 'build') {
     Copy-Item -LiteralPath scripts/smoke_desktop.py, scripts/smoke_update_tasks.py, scripts/smoke_split_update.py, scripts/ci_windows.ps1 -Destination release/
     & .venv/Scripts/python.exe scripts/changelog.py --notes $Version --to release/RELEASE_NOTES.md
     Assert-Exit '缺少发布说明'
-    Add-Content -LiteralPath release/RELEASE_NOTES.md -Value (Get-Content -LiteralPath release/DOWNLOADS.md -Raw -Encoding utf8) -Encoding utf8
     $Version | Set-Content -LiteralPath release/version.txt -Encoding utf8
     exit 0
 }

@@ -5470,55 +5470,40 @@ class R2ReleaseTests(unittest.TestCase):
 
 
 class ReleaseDownloadNotesTests(unittest.TestCase):
-    def test_default_download_notes_use_the_github_version_directory(self):
-        from scripts.package_windows_release import DOCS, download_notes
-        links = {url for url in re.findall(r'https://[^\s)]+', download_notes('1.0.0', lite_installer=True))
-                 if not url.startswith(DOCS)}
-        self.assertEqual(len(links), 9)
-        self.assertTrue(all(url.startswith('https://github.com/peach-mitao/peach/releases/download/v1.0.0/')
-                            for url in links))
+    def test_default_download_sections_use_the_github_version_directory(self):
+        from scripts.package_windows_release import DOCS, download_sections
+        for section in download_sections('1.0.0', lite_installer=True):
+            links = {url for url in re.findall(r'https://[^\s)]+', section) if not url.startswith(DOCS)}
+            self.assertEqual(len(links), 9)
+            self.assertTrue(all(url.startswith('https://github.com/peach-mitao/peach/releases/download/v1.0.0/')
+                                for url in links))
 
-    def test_one_bilingual_download_table_covers_windows_macos_and_docker(self):
-        from scripts.package_windows_release import download_notes
-        notes = download_notes('1.0.0', lite_installer=True)
-        tables = [block for block in notes.split('\n\n') if block.startswith('| Platform / 平台 | Download / 下载')]
-        self.assertEqual(len(tables), 1)
-        rows = [line.split(' | ')[0].lstrip('| ') for line in tables[0].splitlines()[2:]]
-        self.assertEqual(rows, ['Windows x64'] * 3 + ['macOS Apple Silicon', 'macOS Intel', 'Docker / NAS'])
-        self.assertIn('`longmeidao/peach:1.0.0`', tables[0])
-        self.assertIn('[Installer / 安装包]', tables[0])
+    def test_each_language_has_one_table_covering_windows_macos_and_docker(self):
+        from scripts.package_windows_release import download_sections
+        english, chinese = download_sections('1.0.0', lite_installer=True)
+        for section, header in ((english, '| Platform | Download'), (chinese, '| 平台 | 下载')):
+            tables = [block for block in section.split('\n\n') if block.startswith(header)]
+            self.assertEqual(len(tables), 1)
+            rows = [line.split(' | ')[0].lstrip('| ') for line in tables[0].splitlines()[2:]]
+            self.assertEqual(rows, ['Windows x64'] * 3 + ['macOS Apple Silicon', 'macOS Intel', 'Docker / NAS'])
+            self.assertIn('`longmeidao/peach:1.0.0`', tables[0])
+        self.assertIsNone(re.search(r'[\u4e00-\u9fff]', english.replace('macos-独立测试包', '')))
 
-    def test_downloads_fold_as_one_block_with_both_languages_visible_inside(self):
-        """下载段整体折叠一次；展开后英文在前、中文紧随，不再藏进第二层折叠。"""
-        from scripts.package_windows_release import DOWNLOADS_SUMMARY, download_notes
-        notes = download_notes('1.0.0', lite_installer=True)
-        self.assertTrue(notes.lstrip('\n').startswith(DOWNLOADS_SUMMARY))
-        self.assertEqual((notes.count('<details>'), notes.count('</details>')), (1, 1))
-        self.assertTrue(notes.rstrip().endswith('</details>'))
-        for english, chinese in (('Windows installers, the portable ZIP', 'Windows 安装包、免安装包'),
-                                 ('You do not need the other files', '其余文件不用手动下载'),
-                                 ('Check the chip under About This Mac', '不确定选哪个 DMG'),
-                                 ('The `edge` tag always points', '`edge` 标签始终指向最新一版')):
-            with self.subTest(english=english):
-                self.assertLess(notes.index(english), notes.index(chinese))
-
-    def test_r2_release_notes_link_both_native_platforms_and_tagged_docs(self):
-        from scripts.package_windows_release import DOWNLOADS_SUMMARY, download_notes
+    def test_r2_release_notes_point_downloads_at_the_mirror_and_docs_at_the_tag(self):
+        from scripts.package_windows_release import download_sections
         from scripts.publish_gitlab_release import r2_release_notes
+        english, chinese = download_sections('1.0.0', lite_installer=True)
         body = ('### Added\n\n- **Updates**: Public downloads.\n\n'
-                '[Guide](https://github.com/peach-mitao/peach/blob/master/docs/OPERATIONS.md)\n'
-                + download_notes('1.0.0', lite_installer=True))
+                '[Guide](https://github.com/peach-mitao/peach/blob/master/docs/OPERATIONS.md)\n\n' + english + chinese)
         result = r2_release_notes(body, '1.0.0', 'https://downloads.peach.video',
                                   'https://gitgud.io/peach-mitao/peach')
         links = re.findall(r'https://[^\s)]+', result)
         self.assertIn('### Added\n\n- **Updates**: Public downloads.', result)
-        self.assertEqual(result.count(DOWNLOADS_SUMMARY), 1)
         self.assertEqual(links[0], 'https://gitgud.io/peach-mitao/peach/-/blob/v1.0.0/docs/OPERATIONS.md')
+        self.assertNotIn('github.com/peach-mitao/peach/releases/download', result)
         downloads = {url for url in links[1:] if '/docs/' not in url}
         self.assertEqual(len(downloads), 9)
         self.assertTrue(all(url.startswith('https://downloads.peach.video/v1.0.0/') for url in downloads))
-        self.assertIn('https://downloads.peach.video/v1.0.0/Peach-1.0.0-macos-arm64.dmg', links)
-        self.assertIn('https://downloads.peach.video/v1.0.0/Peach-1.0.0-macos-x86_64.dmg', links)
 
 
 class GitGudPackageMirrorTests(unittest.TestCase):

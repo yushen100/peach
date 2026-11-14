@@ -110,9 +110,10 @@ class ReleaseUpdateTests(unittest.TestCase):
         self.assertEqual(self.check([])["state"], "empty")
 
     BODY = ("> Lead. / ignored\n\n### Added\n\n- **Playback**: Subtitles follow the [interface](https://x/y) "
-            "language (#9).\n\n<details>\n<summary>简体中文</summary>\n\n> 导语。\n\n### 新增\n\n"
-            "- **播放**：字幕跟随界面语言（#9）。\n\n</details>\n\n[Full Changelog](https://x/compare)\n\n"
-            "<details>\n<summary>Downloads / 下载</summary>\n\n### Docker\n\n- not a change\n\n</details>\n")
+            "language (#9).\n\n<details>\n<summary>Downloads</summary>\n\n### Docker\n\n- not a change\n\n</details>\n\n"
+            "<details>\n<summary>简体中文</summary>\n\n> 导语。\n\n### 新增\n\n- **播放**：字幕跟随界面语言（#9）。\n\n"
+            "<details>\n<summary>下载</summary>\n\n### Docker\n\n- 不是条目\n\n</details>\n\n</details>\n\n"
+            "[Full Changelog](https://x/compare)\n")
 
     def test_an_available_update_carries_the_notes_of_every_newer_release_in_both_languages(self):
         """检查到新版本时带上本机之后每一版的更新说明，新的在前；英文是正文、中文取折叠段，下载段不算。"""
@@ -139,9 +140,12 @@ class ReleaseUpdateTests(unittest.TestCase):
     def test_notes_follow_the_format_the_release_script_writes(self):
         """应用拆的就是 `changelog.py --notes` 生成的正文；两边改格式要一起改。"""
         from scripts import changelog
+        from scripts.package_windows_release import download_sections
         document = (Path(changelog.ROOT) / changelog.CHANGELOG).read_text(encoding="utf-8")
         version = "0.58.0"
-        notes = release_updates.changelog_notes(changelog.notes(document, version))
+        body = changelog.notes(document, version, download_sections(version, lite_installer=True))
+        notes = release_updates.changelog_notes(body)
+        self.assertNotIn("Docker", [group["title"] for part in notes.values() for group in part["groups"]])
         english, chinese = changelog.bilingual(changelog.section_of(document, version))
         self.assertEqual(sum(len(group["items"]) for group in notes["en"]["groups"]),
                          sum(line.startswith("- ") for line in english.splitlines()))

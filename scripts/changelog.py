@@ -49,6 +49,8 @@ UNRELEASED = "Unreleased"
 SEPARATOR = " / "
 #: Release 正文里中文那一段的折叠标题；应用读正文时也认它。
 CHINESE_SUMMARY = "简体中文"
+#: 下载段的折叠标题（英文，中文）；应用读正文时按它们跳过下载段。
+DOWNLOADS_SUMMARY = ("Downloads", "下载")
 
 #: Conventional Commits 的主题形状：`type(scope)!: 描述`。
 SUBJECT = re.compile(r"^(?P<type>[a-z]+)(?:\((?P<scope>[^)]*)\))?(?P<bang>!)?:\s*(?P<text>.+)$")
@@ -338,10 +340,15 @@ def bilingual(section: str) -> tuple[str, str]:
     return "\n".join(english).strip("\n"), "\n".join(chinese).strip("\n")
 
 
-def notes(document: str, version: str) -> str:
-    """Release 页的更新说明：英文在前，中文放进折叠的「简体中文」段，末尾是到上一版的完整变更链接。
+def fold(summary: str, body: str) -> str:
+    return f"<details>\n<summary>{summary}</summary>\n\n{body.strip()}\n\n</details>"
 
-    下载与安装说明不在这里，由 `package_windows_release.download_notes()` 折叠在后面。
+
+def notes(document: str, version: str, downloads: tuple[str, str] | None = None) -> str:
+    """Release 页的正文，按语言分开：外面是英文更新说明与折叠的 Downloads，中文更新说明与折叠的
+    「下载」一起放进折叠的「简体中文」段，末尾是到上一版的完整变更链接。
+
+    `downloads` 是下载段的（英文，中文），由 `package_windows_release.download_sections()` 生成。
     使用者在 GitHub 上读到的就是这段，所以那一节或它的链接缺了不能静默发一段固定文案顶上，
     直接拒绝，让发布链停在这里。
     """
@@ -352,8 +359,10 @@ def notes(document: str, version: str) -> str:
     if link is None:
         raise version_bump.VersionError(t("changelog.noLinkForNotes", file=CHANGELOG, version=version))
     english, chinese = bilingual(section)
-    return (f"{english}\n\n<details>\n<summary>{CHINESE_SUMMARY}</summary>\n\n{chinese}\n\n</details>\n\n"
-            f"[Full Changelog]({link[1]})\n")
+    if downloads:
+        english += "\n\n" + fold(DOWNLOADS_SUMMARY[0], downloads[0])
+        chinese += "\n\n" + fold(DOWNLOADS_SUMMARY[1], downloads[1])
+    return f"{english}\n\n{fold(CHINESE_SUMMARY, chinese)}\n\n[Full Changelog]({link[1]})\n"
 
 
 def promote(document: str, version: str, *, date: str, repo: str, previous: str | None,
@@ -409,7 +418,10 @@ def main(argv=None) -> int:
     args = parser.parse_args(argv)
     try:
         if args.notes:
-            text = notes((ROOT / CHANGELOG).read_text(encoding="utf-8"), args.notes)
+            # Release 正文带下载段：发布工作流都出轻量安装包。
+            from .package_windows_release import download_sections
+            text = notes((ROOT / CHANGELOG).read_text(encoding="utf-8"), args.notes,
+                         download_sections(args.notes, lite_installer=True))
             if args.to:
                 Path(args.to).write_bytes(text.encode("utf-8"))
             else:

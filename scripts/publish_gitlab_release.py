@@ -90,11 +90,11 @@ def gitgud_package_links(root: Path, release: dict, project_url: str) -> list[di
 
 
 def r2_release_notes(body: str, version: str, base: str, project_url: str) -> str:
-    from .package_windows_release import DOWNLOADS_SUMMARY, download_notes
-    text = body.split('\n' + DOWNLOADS_SUMMARY, 1)[0].rstrip() + '\n'
-    text = text.replace('https://github.com/peach-mitao/peach/blob/master/',
+    """镜像源的 Release 正文：同一份正文，下载地址换成镜像目录，文档链接指向标签上的副本。"""
+    text = body.replace(f'https://github.com/peach-mitao/peach/releases/download/v{version}/',
+                        f'{base.rstrip("/")}/v{version}/')
+    return text.replace('https://github.com/peach-mitao/peach/blob/master/',
                         f'{project_url.rstrip("/")}/-/blob/v{version}/')
-    return text + download_notes(version, lite_installer=True, download_base=f'{base.rstrip("/")}/v{version}')
 
 
 def publish(root: Path = Path('release')) -> None:

@@ -252,6 +252,16 @@ class NotesTests(unittest.TestCase):
                          "> Fourth pre-release.\n\n<details>\n<summary>简体中文</summary>\n\n> 第四个预发布。\n\n"
                          "</details>\n\n[Full Changelog](https://github.com/owner/repo/releases/tag/v0.27.1)\n")
 
+    def test_downloads_fold_per_language_with_english_outside(self):
+        """按语言分开：外面是英文说明与折叠的 Downloads；中文说明与折叠的「下载」都在「简体中文」里。"""
+        body = changelog.notes(DOCUMENT, "0.27.1", ("English downloads.", "中文下载。"))
+        self.assertEqual(body,
+                         "> Fourth pre-release.\n\n<details>\n<summary>Downloads</summary>\n\nEnglish downloads.\n\n"
+                         "</details>\n\n<details>\n<summary>简体中文</summary>\n\n> 第四个预发布。\n\n"
+                         "<details>\n<summary>下载</summary>\n\n中文下载。\n\n</details>\n\n</details>\n\n"
+                         "[Full Changelog](https://github.com/owner/repo/releases/tag/v0.27.1)\n")
+
+
     def test_groups_and_entries_split_at_the_first_separator(self):
         """分组标题、条目、说明段都按第一个 ` / ` 拆开；中文里的全角斜杠留在中文那边。"""
         english, chinese = changelog.bilingual(
@@ -281,13 +291,13 @@ class NotesTests(unittest.TestCase):
         self.assertNotIn("变更日志未更新", out.getvalue())
 
     def test_the_release_workflow_reads_the_notes_it_does_not_inline_them(self):
-        """固定文案只活在 `changelog.py` 与 `download_notes()`；工作流在标签提交上生成文件再交给 gh。"""
+        """固定文案只活在 `changelog.py` 与 `download_sections()`；工作流在标签提交上生成文件再交给 gh。"""
         workflow = (Path(changelog.ROOT) / ".github/workflows/release.yml").read_text(encoding="utf-8")
         self.assertIn("scripts/changelog.py --notes", workflow)
         self.assertIn("--to release/RELEASE_NOTES.md", workflow)
         self.assertIn("--notes-file RELEASE_NOTES.md", workflow)
         self.assertNotIn("--notes 'Windows", workflow)
-        self.assertNotIn("DOWNLOADS.md >>", workflow)
+        self.assertNotIn("DOWNLOADS.md", workflow)
 
 
 class RecordedMergeTests(unittest.TestCase):
