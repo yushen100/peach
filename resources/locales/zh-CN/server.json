@@ -293,6 +293,7 @@
       "stale-filename-codes": "清除误认的番号",
       "studio-unbounded-misses": "厂牌查询缓存",
       "verification-settlement": "核查差异结算",
+      "performer-spacing": "带空格的演员名",
       "interface-text-codes": "任务记录的界面文字"
     },
     "items": {

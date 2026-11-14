@@ -33,6 +33,9 @@ _AGE_SEGMENT = re.compile(AGE_SEGMENT)
 #: 剪完仍带空白、分隔符或敬称的不是艺名，是企划文案（`超バドミントン部あかりちゃん`、
 #: `まゆみさん`）。剪到哪儿才对，本身就是个判断。
 _NOT_A_STAGE_NAME = re.compile(r"[\s　/／]|ちゃん$|さん$")
+#: 欧美演员的艺名本来就带空格（`Tiny Lu`、`Melody Marks`）：两到三个首字母大写的拉丁单词。
+_LATIN_STAGE_NAME = re.compile(r"[A-Z][A-Za-z'.\-]{0,11}(?: [A-Z][A-Za-z'.\-]{0,11}){1,2}")
+_SPACING = re.compile(r"[ 　]+")
 #: 描述性称呼：身高、人数、外貌、身份与宣传语，不是谁的艺名。fc2cmadb 与 javdb 的
 #: 素人条目常把标题里的称呼填进出演者栏（`145cm色白お嬢様`、`人気焼肉店の看板娘`、
 #: `美女6名`），照抄就是一个永远找不到头像的女优实体。2026-09-24 拿它扫账本全部 939
@@ -53,7 +56,9 @@ def stage_name(name: str) -> str | None:
     ages = [index for index, part in enumerate(segments) if _AGE_SEGMENT.fullmatch(part)]
     named = segments[ages[0] - 1] if ages and ages[0] > 0 else segments[0]
     trimmed = _PERFORMER_INTRO.sub("", named).strip()
-    if not trimmed or _NOT_A_STAGE_NAME.search(trimmed) or is_descriptive(trimmed):
+    if not trimmed or is_descriptive(trimmed):
+        return None
+    if _NOT_A_STAGE_NAME.search(trimmed) and not _LATIN_STAGE_NAME.fullmatch(trimmed):
         return None
     return trimmed
 
@@ -159,6 +164,10 @@ def resolve_planning_alias(connection, alias: str, *, metadata_root: Path | None
     if settled:
         return settled
     entity = resolve_entity(connection, "performer", alias)
+    if entity is None and _SPACING.search(alias.strip()):
+        # 官方页在姓与名之间留空格（Prestige 写 `釈 アリス`）。去掉空格正好是账本里登记过的
+        # 那位才算解出来；`看護師 さゆり` 这类称呼去掉空格也对不上任何人，照旧交人工。
+        entity = resolve_entity(connection, "performer", _SPACING.sub("", alias.strip()))
     if entity is None:
         return None
     canonical = str(entity["canonical_name"]).strip()

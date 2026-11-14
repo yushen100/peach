@@ -293,6 +293,7 @@
       "stale-filename-codes": "Misread codes cleared",
       "studio-unbounded-misses": "Label lookup cache",
       "verification-settlement": "Verification differences settled",
+      "performer-spacing": "Performer names with spaces",
       "interface-text-codes": "Interface text in task records"
     },
     "items": {

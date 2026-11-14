@@ -4,6 +4,7 @@ from __future__ import annotations
 import errno
 import json
 import logging
+import re
 import time
 import threading
 import sqlite3
@@ -315,6 +316,8 @@ def _manual_name(connection, entity_id: int) -> bool:
 
 #: 旧版从文件名误认的番号只清一次；清掉的行与原值记进同一条回执，可以按它整批撤回。
 STALE_CODES_KEY = 'stale-filename-codes-1'
+#: 出演者写法带空格的存量候选重判（`_settle_spaced_performers`）。
+SPACED_PERFORMERS_KEY = 'performer-spacing-1'
 
 
 #: 永久删除后悬空的资料候选（#486）在 `ledger_upgrade_repair` 里的回执键；规则版本见 `upgrade_rules`。
@@ -1451,6 +1454,49 @@ class UpgradeRepairs:
                                'VALUES(?,?,?)', (key, str(time.time()), json.dumps(result, ensure_ascii=False)))
         LOGGER.info('Verification difference settlement: %s', result)
 
+    def _settle_spaced_performers(self) -> None:
+        """出演者写法带空格的存量候选按新判据重判一次（`performer-spacing-1`）。
+
+        旧版把片商官网 `釈 アリス` 这类姓名间的空格、欧美艺名 `Tiny Lu` 都当企划文案，整行
+        扣在人工队列里，别家写法一致也没用。现在去掉空格对得上账本里的人、或是欧美艺名，就能
+        自动落库；只重判这些行，其余候选的判据没变。有要处理的行才先备份，回执记进
+        `ledger_upgrade_repair`，与核查结算一样交给后台调度，不挡服务启动。
+        """
+        try:
+            self._settle_spaced_performers_once()
+        except Exception:
+            LOGGER.exception('Spaced performer settlement failed')
+
+    def _settle_spaced_performers_once(self) -> None:
+        from .metadata_auto_apply import _parsed_candidates, auto_apply_metadata
+        from .review_csv import read_candidates
+        key = SPACED_PERFORMERS_KEY
+        contract = self.contract
+        with contract.database.read_connection() as connection:
+            if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?', (key,)).fetchone():
+                return
+        rows, _source, _skipped = read_candidates('metadata_fields', Path(contract.candidate_root))
+        rows = [row for row in rows if row.get('field') == 'performers' and any(
+            re.search(r'[ 　]', str(candidate.get('display_value') or ''))
+            for candidate in _parsed_candidates(row))]
+        result = {'rows': len(rows)}
+        if rows:
+            backup = contract.db_path.with_name(f'ledger.pre-upgrade-{time.time_ns()}.db')
+            sqlite_backup(contract.db_path, backup)
+            summary = auto_apply_metadata(
+                contract.database, Path(contract.candidate_root), candidate_rows=rows,
+                snapshot_root=Path(contract.follow_sources_root) / 'library-metadata',
+                active=lambda: not self.stopping.is_set())
+            if self.stopping.is_set():
+                return
+            result.update({name: summary[name] for name in
+                           ('applied', 'kept', 'refreshed', 'auto_rejected', 'left_to_review')},
+                          backup=str(backup))
+        with contract.database.write_transaction() as connection:
+            connection.execute('INSERT OR IGNORE INTO ledger_upgrade_repair(id,applied_at,result_json) '
+                               'VALUES(?,?,?)', (key, str(time.time()), json.dumps(result, ensure_ascii=False)))
+        LOGGER.info('Spaced performer settlement: %s', result)
+
     def _restore_receipt(self, authoritative):
         try:
             cached = _read(self.receipt)
@@ -1852,6 +1898,7 @@ class UpgradeRepairs:
             self.scheduler.add_job(self.tick, 'interval', seconds=60, max_instances=1, coalesce=True,
                                    next_run_time=datetime.now(timezone.utc))
             self.scheduler.add_job(self._settle_verification, max_instances=1)
+            self.scheduler.add_job(self._settle_spaced_performers, max_instances=1)
             self.scheduler.add_job(self._release_studio_misses, max_instances=1)
             self.scheduler.add_job(self._clear_stale_codes, max_instances=1)
             self.scheduler.add_job(self._prune_task_controls, max_instances=1)
