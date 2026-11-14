@@ -185,7 +185,7 @@ def _candidates(connection, condition: str, values: tuple, order: str):
     return connection.execute(
         "SELECT d.code,d.title,d.performers,d.studio FROM feed_discovery d"
         f" WHERE d.ignored_at IS NULL AND {condition}"
-        " AND NOT EXISTS (SELECT 1 FROM asset a WHERE a.code IS NOT NULL"
+        " AND NOT EXISTS (SELECT 1 FROM asset a WHERE a.medium='video' AND a.code IS NOT NULL"
         " AND COALESCE(a.disposal,'')<>'vanished'"
         " AND normalise_code_key(a.code)=normalise_code_key(d.code))"
         f" ORDER BY {order}COALESCE(d.release_date,d.discovered_at) DESC, d.id DESC",
