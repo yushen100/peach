@@ -322,6 +322,8 @@ SPACED_PERFORMERS_KEY = 'performer-spacing-1'
 ENHANCEMENT_NAMES_KEY = 'enhancement-suffix-names-1'
 #: 卖家归属的存量补挂（`_backfill_fc2_sellers`）。
 FC2_SELLERS_KEY = 'fc2-seller-backfill-1'
+#: 同番号副本缺演员、创作者的存量补齐（`_inherit_code_siblings`）。
+CODE_SIBLINGS_KEY = 'code-sibling-identity-1'
 
 
 def settle_enhancement_names(connection) -> dict:
@@ -1505,6 +1507,11 @@ class UpgradeRepairs:
                                'VALUES(?,?,?)', (key, str(time.time()), json.dumps(result, ensure_ascii=False)))
         LOGGER.info('Verification difference settlement: %s', result)
 
+    def _backfill_identities(self) -> None:
+        """先补挂 FC2 卖家，再让同番号副本照抄归属：副本要抄的卖家得先挂上。"""
+        self._backfill_fc2_sellers()
+        self._inherit_code_siblings()
+
     def _backfill_fc2_sellers(self) -> None:
         """来源快照写明卖家、却没挂上卖家账号的 FC2 作品整库补一次（`fc2_sellers.land`）。
 
@@ -1539,6 +1546,37 @@ class UpgradeRepairs:
             LOGGER.info('FC2 seller backfill skipped: plan no longer matches the ledger', exc_info=True)
         except Exception:
             LOGGER.exception('FC2 seller backfill failed')
+
+    def _inherit_code_siblings(self) -> None:
+        """同番号副本缺演员、创作者的存量整库补一次（`code_siblings.inherit`），排在卖家补挂之后。
+
+        有要补的才先备份；补上的关系逐条记回执，按批次可撤（`auto_landing_revert`）。
+        """
+        from . import code_siblings
+        try:
+            with self.contract.database.read_connection() as connection:
+                if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
+                                      (CODE_SIBLINGS_KEY,)).fetchone():
+                    return
+                if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
+                                      (FC2_SELLERS_KEY,)).fetchone() is None:
+                    return  # 卖家补挂还没做完，下次启动再来
+            backup = self.contract.db_path.with_name(f'ledger.pre-upgrade-{time.time_ns()}.db')
+            sqlite_backup(self.contract.db_path, backup)
+            with self.contract.database.write_transaction() as connection:
+                if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
+                                      (CODE_SIBLINGS_KEY,)).fetchone():
+                    return
+                result = code_siblings.inherit(connection)
+                result['backup'] = str(backup)
+                connection.execute('INSERT OR IGNORE INTO ledger_upgrade_repair(id,applied_at,result_json) '
+                                   'VALUES(?,?,?)', (CODE_SIBLINGS_KEY, str(time.time()),
+                                                     json.dumps(result, ensure_ascii=False)))
+            if not result['links']:
+                backup.unlink(missing_ok=True)
+            LOGGER.info('Code siblings: inherited %s links', len(result['links']))
+        except Exception:
+            LOGGER.exception('Code sibling inheritance failed')
 
     def _settle_enhancement_names(self) -> None:
         """名字里的视频增强模型代号清理一次（`settle_enhancement_names`）；有要改的才先备份。"""
@@ -2013,7 +2051,7 @@ class UpgradeRepairs:
             self.scheduler.add_job(self._settle_verification, max_instances=1)
             self.scheduler.add_job(self._settle_spaced_performers, max_instances=1)
             self.scheduler.add_job(self._settle_enhancement_names, max_instances=1)
-            self.scheduler.add_job(self._backfill_fc2_sellers, max_instances=1)
+            self.scheduler.add_job(self._backfill_identities, max_instances=1)
             self.scheduler.add_job(self._release_studio_misses, max_instances=1)
             self.scheduler.add_job(self._clear_stale_codes, max_instances=1)
             self.scheduler.add_job(self._prune_task_controls, max_instances=1)

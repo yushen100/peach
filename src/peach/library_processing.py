@@ -2103,7 +2103,23 @@ def _apply_finished_candidates(database, candidate_root, active, asset_ids=None,
                                   candidate_rows=candidate_rows)
     if active():
         _land_fc2_sellers(database, DEFAULT_METADATA_ROOT, asset_ids)
+        _inherit_code_siblings(database, asset_ids)
     return summary
+
+
+def _inherit_code_siblings(database, asset_ids) -> None:
+    """这批里仍缺演员或创作者的视频，从同番号已有归属的那一份补上（`code_siblings.inherit`）。
+
+    放在卖家挂接之后：同番号那一份刚挂上的卖家也算。没给资产就不做——整库补一次是升级补修的事。
+    """
+    if not asset_ids:
+        return
+    from . import code_siblings
+    try:
+        with database.write_transaction() as connection:
+            code_siblings.inherit(connection, asset_ids)
+    except Exception:
+        LOGGER.exception('Code sibling identity inheritance failed')
 
 
 def _land_fc2_sellers(database, metadata_root, asset_ids) -> None:

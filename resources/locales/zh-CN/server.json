@@ -296,6 +296,7 @@
       "performer-spacing": "带空格的演员名",
       "enhancement-suffix-names": "名字里的视频增强代号",
       "fc2-seller-backfill": "补挂 FC2 卖家",
+      "code-sibling-identity": "同番号副本补齐演员与创作者",
       "interface-text-codes": "任务记录的界面文字"
     },
     "items": {

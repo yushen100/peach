@@ -2144,6 +2144,27 @@ class UpgradeRepairTests(unittest.TestCase):
         self.assertEqual(len(settled), 1)
         self.assertEqual(json.loads(settled[0][0])['applied'], 1)
 
+    def test_same_code_copies_inherit_the_cast_once_after_the_seller_backfill(self):
+        """存量里后入库、缺演员的同番号副本，升级后在卖家补挂之后照抄一次，两条回执各记一次。"""
+        with self.database.write_transaction() as connection:
+            for asset_id, name in ((21, 'FC2-PPV-1666863-CD1.mp4'), (22, 'www.98T.la@FC2-1666863-CD1.mp4')):
+                connection.execute("INSERT INTO asset(id,location,path,name,medium,code) "
+                                   "VALUES(?,'local',?,?,'video','FC2-PPV-1666863')", (asset_id, name, name))
+            connection.execute("INSERT INTO entity(id,kind,canonical_name,normalized_name,created_at,updated_at)"
+                               " VALUES(910,'performer','Cast','cast','x','x')")
+            connection.execute("INSERT INTO asset_entity(asset_id,entity_id,role,source) "
+                               "VALUES(21,910,'performer','javinizer:javdb:performer')")
+        self.service._backfill_identities()
+        self.service._backfill_identities()
+        with self.database.read_connection() as connection:
+            self.assertEqual([row[0] for row in connection.execute(
+                "SELECT entity_id FROM asset_entity WHERE asset_id=22 AND role='performer'")], [910])
+            receipts = {row[0]: json.loads(row[1]) for row in connection.execute(
+                'SELECT id,result_json FROM ledger_upgrade_repair WHERE id IN (?,?)',
+                (upgrade_repairs.FC2_SELLERS_KEY, upgrade_repairs.CODE_SIBLINGS_KEY))}
+        self.assertEqual(len(receipts[upgrade_repairs.CODE_SIBLINGS_KEY]['links']), 1)
+        self.assertEqual(receipts[upgrade_repairs.FC2_SELLERS_KEY]['entity_ids'], [])
+
     def test_enhancement_model_aliases_and_search_terms_are_cleared_once_with_a_backup(self):
         """`prob4`、`chf3` 这类代号别名与搜索词删掉并记进回执，带代号的规范名不改、只补去掉代号的别名。"""
         with self.database.write_transaction() as connection:
