@@ -5,7 +5,7 @@ type NativeVideo = HTMLVideoElement & { webkitDisplayingFullscreen?: boolean; we
 // 方向锁属于整个文档。旧播放器的异步回执不能释放新播放器刚取得的锁。
 let orientationOwner: symbol | null = null;
 
-function mobileScreen(): boolean {
+export function mobileScreen(): boolean {
   return matchMedia('(pointer: coarse)').matches
     || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
     || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);

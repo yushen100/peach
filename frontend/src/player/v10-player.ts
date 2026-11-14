@@ -4,6 +4,7 @@ import type { PlayerEvents, PlayerSource, QualityLevelList, VideojsFactory, VjsP
 import { interfaceLanguage, t } from '../i18n';
 import { mountPlayerFullscreen } from './fullscreen';
 import { mountVolumeMemory } from './volume-memory';
+import { mountAutoFullscreen } from './auto-fullscreen';
 import { wirePlayerInteractions } from './touch-controls';
 
 interface HlsEngine {
@@ -93,6 +94,7 @@ export const createV10Player: VideojsFactory = (video, options) => {
   media.addEventListener('error', () => showError(media.error || video.error), { signal });
   const isFullscreen = mountPlayerFullscreen(root, video, () => emit('fullscreenchange'), signal);
   mountVolumeMemory(video, signal);
+  mountAutoFullscreen(root, video, isFullscreen, signal);
   const levels = [] as unknown as QualityLevelList;
   const boundEngines = new WeakSet<HlsEngine>();
   let enabledLevels: boolean[] = [], selectionQueued = false;
