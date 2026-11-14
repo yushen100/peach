@@ -109,6 +109,8 @@ export interface CatalogFilterProps {
   refreshing: boolean;
   /** 筛选条被收起（资料页、索引页与管理页）：浮层两排不画，只留两排头像。 */
   offscreen: boolean;
+  /** 设置里关掉了「首页显示女优与厂牌头像」：两排头像整块不画，浮层照旧。 */
+  hideTiers?: boolean;
   combo: EntityComboItem[];
   /** 交集条只在目录铺在屏幕上时有所指；索引页、资料页与管理页盖住目录时收起。 */
   comboHidden: boolean;

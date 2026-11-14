@@ -156,6 +156,8 @@ export interface CatalogGridProps {
   mix?: boolean;
   /** 每接一页插一条竖屏带。 */
   shorts?: boolean;
+  /** 竖屏带一条放几张（设置页那一项）；缺省 `SHORTS_BATCH`。 */
+  shortsLimit?: number;
   /** 每接一页报一次：总数与此刻显示的卡数（Mix 与竖屏带不算）。壳据此推筛选条的读数、重画批量条，
    *  回收站把读数写在说明行上。 */
   onCount?(total: number, shown: number): void;

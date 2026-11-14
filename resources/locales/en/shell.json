@@ -412,6 +412,7 @@
   },
   "networkBanner": {
     "checkProxy": "Check Peach proxy",
+    "dismiss": "Dismiss",
     "offline": "Peach can't reach the internet. Fetching, Following updates, and online sources are unavailable; local media still works."
   },
   "objectOrder": {

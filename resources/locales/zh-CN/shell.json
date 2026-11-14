@@ -376,6 +376,7 @@
   },
   "networkBanner": {
     "checkProxy": "检查 Peach 代理",
+    "dismiss": "关闭",
     "offline": "Peach 连不上外网，资料采集、关注更新和在线来源暂不可用；本地媒体照常使用。"
   },
   "objectOrder": {

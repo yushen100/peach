@@ -36,7 +36,7 @@ export function CatalogFilterPage(props: CatalogFilterProps) {
     <div data-catalog-root="" data-loading={loading || undefined} data-refreshing={props.refreshing || undefined}
       className="contents">
       {combo ? createPortal(<Combo items={props.combo} hidden={props.comboHidden} actions={props.actions} />, combo) : null}
-      <Tiers {...props} />
+      {props.hideTiers ? null : <Tiers {...props} />}
       {props.offscreen ? null : <Glass {...props} />}
     </div>
   );

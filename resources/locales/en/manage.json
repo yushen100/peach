@@ -116,6 +116,7 @@
     "afterCurrentTask": "They can be filled in after the current task ends.",
     "allMetered_one": "{{count, number}} video in this batch has no preview. It's in a data saver directory, so sync doesn't extract frames. {{tail}}",
     "allMetered_other": "{{count, number}} videos in this batch have no previews. They're all in data saver directories, so sync doesn't extract frames. {{tail}}",
+    "dismiss": "Don't show again",
     "done_one": "Fill-in complete: {{count, number}} cover fetched, {{previews}} previews generated.",
     "done_other": "Fill-in complete: {{count, number}} covers fetched, {{previews}} previews generated.",
     "failed": "Fill-in didn't finish",

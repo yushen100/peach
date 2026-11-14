@@ -120,6 +120,9 @@ export interface SearchProps {
   input: HTMLInputElement;
   /** 搜索记录留几条（设置页那一项）；0 就是不记也不显示。 */
   historyLimit: number;
+  /** 空搜索时显示推荐（设置页那一项，缺省是开）。关掉时聚焦空框只给搜索记录：不取推荐栏与推荐词，
+   *  占位字停在默认那一句。 */
+  recommend?: boolean;
   actions: SearchActions;
   helpers: SearchHelpers;
   expose(api: SearchApi | null): void;

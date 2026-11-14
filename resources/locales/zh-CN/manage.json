@@ -100,6 +100,7 @@
   "completionPrompt": {
     "afterCurrentTask": "当前任务结束后可单独补全。",
     "allMetered": "这批影片中有 {{count, number}} 部暂无预览，都在流量保护目录，同步时不抽帧，{{tail}}",
+    "dismiss": "不再提示",
     "done": "补全完成：取得 {{count, number}} 张封面，生成 {{previews}} 部视频预览。",
     "failed": "补全未完成",
     "fillMetered": "补全流量保护的 {{count, number}} 部",

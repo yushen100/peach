@@ -113,6 +113,7 @@ const settings = (): PanelSettings => ({
   javImage: 'cover', performerNameLanguage: 'zh-CN', interfaceLanguage: 'zh-CN', systemLanguage: null, feedAutoScroll: true, feedLimit: 12, feedHideGroupCompilations: true, feedHideSoloCompilations: false,
   feedHideExcerpts: true, hoverDelaySeconds: 5, detailAutoplay: false, miniplayer: true, seekSeconds: 10,
   relatedLimit: 24, searchHistoryLimit: 10, followInitialDays: 30, avatarRefreshDays: 90, faviconRefreshDays: 365,
+  homeFeedNew: true, homeShortsLimit: 18, homeTiers: true, completionPrompt: true, searchRecommendations: true, ingestNotices: true,
 });
 
 /** 壳 `settingsHost()` 交进来的那一份。 */
@@ -275,6 +276,8 @@ describe('设置面板与壳的接缝', () => {
     for (const [id, field, effect] of [
       ['uiSoundsSetting', 'uiSounds', 'uiSounds'], ['groupCollapseSetting', 'groupCollapse', 'groupCollapse'],
       ['miniplayerSetting', 'miniplayer', 'miniplayer'], ['feedAutoScrollSetting', 'feedAutoScroll', 'feedAutoScroll'],
+      ['homeFeedNewSetting', 'homeFeedNew', 'homeFeedNew'], ['homeTiersSetting', 'homeTiers', 'homeTiers'],
+      ['searchRecommendationsSetting', 'searchRecommendations', 'searchRecommendations'],
     ] as const) {
       current.changed.mockClear();
       current.save.mockClear();
@@ -286,6 +289,13 @@ describe('设置面板与壳的接缝', () => {
     current.changed.mockClear();
     await click(panel.querySelector('#detailAutoplaySetting'));
     expect([current.value.detailAutoplay, effects(current.changed)]).toEqual([true, []]);
+    /* 补全提示条与入库通知由各自的组件当场读这一份偏好，同样只落盘。 */
+    for (const [id, field] of [['completionPromptSetting', 'completionPrompt'], ['ingestNoticesSetting', 'ingestNotices']] as const) {
+      current.changed.mockClear();
+      current.save.mockClear();
+      await click(panel.querySelector(`#${id}`));
+      expect([current.value[field], current.save.mock.calls.length, effects(current.changed)], id).toEqual([false, 1, []]);
+    }
 
     current.changed.mockClear();
     await click(panel.querySelector('#themeSetting input[value="dark"]'));
@@ -308,6 +318,30 @@ describe('设置面板与壳的接缝', () => {
     expect([current.value.feedLimit, current.save.mock.calls.length, effects(current.changed)]).toEqual([12, 0, []]);
     await commit('30');
     expect([current.value.feedLimit, current.save.mock.calls.length, effects(current.changed)]).toEqual([30, 1, ['feedLimit']]);
+    await close(current);
+  });
+
+  it('首页竖屏带：关掉写 0、报 homeShorts，再开填回原来的张数；张数越界不提交', async () => {
+    const current = await setup();
+    const panel = await open(current, '浏览与播放');
+    expect(panel.querySelector('#homeShortsSetting')?.closest('[data-setting-group]')?.id).toBe('settings-group-1');
+    const toggle = panel.querySelector<HTMLInputElement>('#homeShortsSetting input[type=checkbox]')!;
+    const input = panel.querySelector<HTMLInputElement>('#homeShortsSetting input[type=number]')!;
+    const commit = (value: string) => act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, value);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    current.changed.mockClear();
+    await commit('5');
+    expect([current.value.homeShortsLimit, effects(current.changed)]).toEqual([18, []]);
+    await commit('24');
+    expect([current.value.homeShortsLimit, effects(current.changed)]).toEqual([24, ['homeShorts']]);
+    current.changed.mockClear();
+    await click(toggle);
+    expect([current.value.homeShortsLimit, effects(current.changed)]).toEqual([0, ['homeShorts']]);
+    await click(toggle);
+    expect(current.value.homeShortsLimit).toBe(24);
     await close(current);
   });
 
