@@ -10,7 +10,7 @@ import type { GridPage } from '../../src/react/catalog-grid/catalog-grid';
 import type { MediaItem } from '../../src/react/catalog-grid/types';
 import {
   chooseItem, detailTags, identityGroups, itemKey, mediaGate, movedOrder, nextRating, pickerSections, prefetchItemDetail,
-  nextPart, queueCopy, queueKey, ratingText, withPartLabel,
+  nextPart, queueCopy, queueKey, queueNext, ratingText, withPartLabel,
   type DetailItem, type DetailQueue, type ItemDetailActions, type ItemDetailHelpers, type ItemDetailProps, type QueueItem,
 } from '../../src/react/item-detail/item-detail';
 import { ItemDetailPage } from '../../src/react/item-detail/item-detail-page';
@@ -151,6 +151,32 @@ describe('停在队列哪一条', () => {
     const media = host.querySelector('[data-item-media]')!;
     media.dispatchEvent(new Event('ended', { bubbles: false }));
     expect(acts.openQueueItem).toHaveBeenCalledWith({ kind: 'editions', seedId: 1, autoplay: true }, 3);
+  });
+  it('播完之后：播放列表按顺序、循环或随机接，跳过已消失的；停下与单片循环不接；分卷不看这一项', () => {
+    const list = queue('playlist', [1, 2, 3], {
+      items: [row(1), row(2, { disposal: 'vanished' }), row(3)],
+    });
+    expect(queueNext(list, 1, 'next')?.id).toBe(3);
+    expect(queueNext(list, 3, 'next')).toBeNull();
+    expect(queueNext(list, 3, 'repeat-all')?.id).toBe(1);
+    expect(queueNext(list, 1, 'stop')).toBeNull();
+    expect(queueNext(list, 1, 'repeat-one')).toBeNull();
+    expect(queueNext(list, 1, 'shuffle', () => 0.99)?.id).toBe(3);
+    expect(queueNext(queue('mix', [7]), 7, 'shuffle')).toBeNull();
+    expect(queueNext(queue('mix', [7]), 7, 'repeat-all')?.id).toBe(7);
+    const parts = queue('parts', [1, 2], { items: [row(1, { part_label: '1' }), row(2, { part_label: '2' })] });
+    expect(queueNext(parts, 1, 'stop')?.id).toBe(2);
+    expect(queueNext(parts, 2, 'repeat-all')).toBeNull();
+  });
+  it('播放列表里一条播完，按设置带着列表编号自动开下一条', async () => {
+    const { appSettingsStore } = await import('@peach/appearance');
+    appSettingsStore().value.afterPlayback = 'next';
+    serve();
+    const list = queue('playlist', [1, 2], { seedId: undefined, playlistId: 5 });
+    queryClient.setQueryData(queueKey({ kind: 'playlist', playlistId: 5 }), list);
+    const { host, actions: acts } = await show(item(1), { queue: { kind: 'playlist', playlistId: 5 } });
+    host.querySelector('[data-item-media]')!.dispatchEvent(new Event('ended', { bubbles: false }));
+    expect(acts.openQueueItem).toHaveBeenCalledWith({ kind: 'playlist', playlistId: 5, autoplay: true }, 2);
   });
   it('Mix 就是点的那一条；分卷与版本点的不在组里退到第一条；播放列表退到续播位置', () => {
     expect(chooseItem(queue('mix', [1, 2]), 9)).toBe(9);

@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "0722b237-33ad-4f42-a3b8-2a5f61397b21", e._sentryDebugIdIdentifier = "sentry-dbid-0722b237-33ad-4f42-a3b8-2a5f61397b21");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "885a3d20-f223-42e5-8572-9900d505f7c0", e._sentryDebugIdIdentifier = "sentry-dbid-885a3d20-f223-42e5-8572-9900d505f7c0");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -6370,6 +6370,7 @@ var He = {
 		unitEntries: "entries",
 		unitItems: "items",
 		unitMinutes: "min",
+		unitPercent: "%",
 		unitSeconds: "sec",
 		unitVideos: "videos"
 	},
@@ -6415,6 +6416,16 @@ var He = {
 		usernamePlaceholder: "Email or phone number",
 		waiting: "Waiting for sign-in",
 		waitingBrowser: "Waiting for you to sign in to PikPak in the browser window"
+	},
+	playbackEnd: {
+		next: "Play in order",
+		repeatAll: "Repeat list",
+		repeatOne: "Repeat one",
+		restart: "Start over near the end",
+		restartHelp: "If less than this much is left, start from the beginning next time.",
+		shuffle: "Shuffle",
+		stop: "Stop",
+		title: "When a video ends"
 	},
 	playbackTranscode: {
 		saved: "Transcoding mode saved",
@@ -13207,6 +13218,7 @@ var He = {
 		unitEntries: "条",
 		unitItems: "个",
 		unitMinutes: "分钟",
+		unitPercent: "%",
 		unitSeconds: "秒",
 		unitVideos: "部"
 	},
@@ -13252,6 +13264,16 @@ var He = {
 		usernamePlaceholder: "邮箱或手机号",
 		waiting: "等待登录",
 		waitingBrowser: "等你在浏览器窗口里登录 PikPak"
+	},
+	playbackEnd: {
+		next: "顺序播放",
+		repeatAll: "列表循环",
+		repeatOne: "单片循环",
+		restart: "片尾从头播",
+		restartHelp: "离片尾不到这个比例，下次打开从头播。",
+		shuffle: "随机播放",
+		stop: "停下",
+		title: "播完之后"
 	},
 	playbackTranscode: {
 		saved: "已保存转码方式",
@@ -38681,4 +38703,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=0722b237-33ad-4f42-a3b8-2a5f61397b21
+//# debugId=885a3d20-f223-42e5-8572-9900d505f7c0

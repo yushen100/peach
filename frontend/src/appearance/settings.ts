@@ -26,6 +26,9 @@ export const FOLLOW_INITIAL_DAYS: readonly number[] = [0, 7, 30, 90];
 /* 新作那一行收不收合集由服务端按数据库里的设置筛（列表、未读数、补封面同一份），这里只是
    镜像：开关的真相在 `/api/settings`。默认收起大合集与切片、单人合集照列。 */
 export const FEED_COMPILATION_KEYS = ['feedHideGroupCompilations', 'feedHideSoloCompilations', 'feedHideExcerpts'] as const;
+/** 播完一条之后怎么接：停下、顺序、列表循环、随机、单片循环。顺序与循环、随机只在播放列表和 Mix 队列里有下一条可接。 */
+export const AFTER_PLAYBACK_CHOICES = ['stop', 'next', 'repeat-all', 'shuffle', 'repeat-one'] as const;
+export type AfterPlayback = typeof AFTER_PLAYBACK_CHOICES[number];
 
 /** 归一化之后一定在的那几项。对象上还有别的字段（壳与各岛按需写入），这里不一一列出。 */
 export interface AppSettings {
@@ -57,6 +60,9 @@ export interface AppSettings {
   theme: string;
   groupCollapse: boolean;
   detailAutoplay: boolean;
+  afterPlayback: AfterPlayback;
+  /** 离片尾不到这个百分比就当看完，下次从头播；0 表示只有播完才从头。 */
+  resumeRestartPercent: number;
   uiSounds: boolean;
   feedAutoScroll: boolean;
   feedHideGroupCompilations: boolean;
@@ -110,6 +116,8 @@ export function normalizeAppSettings(raw: unknown): { settings: AppSettings; mig
   settings.theaterMode = settings.theaterMode === true;
   settings.groupCollapse = settings.groupCollapse !== false;
   settings.detailAutoplay = settings.detailAutoplay !== false;
+  settings.afterPlayback = allowedSetting(settings.afterPlayback, AFTER_PLAYBACK_CHOICES, 'next');
+  settings.resumeRestartPercent = boundedPreference(+(settings.resumeRestartPercent as number), 0, 20, 5);
   settings.miniplayer = settings.miniplayer !== false;
   settings.uiSounds = settings.uiSounds !== false;
   settings.feedAutoScroll = settings.feedAutoScroll !== false;

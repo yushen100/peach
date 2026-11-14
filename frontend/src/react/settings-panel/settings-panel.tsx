@@ -25,6 +25,8 @@ import {
   setActionBusy, setIconSwap, wireHorizontalScroller,
 } from '@peach/legacy/ui';
 
+import { AFTER_PLAYBACK_CHOICES, allowedSetting } from '@peach/appearance';
+
 import { isInterfaceLanguageChoice, t, type InterfaceLanguageChoice } from '../../i18n';
 import { PREFERENCE_SECTIONS, sectionId } from '../../history/settings-route';
 import { normalizeJavImage } from '../../jav-artwork';
@@ -56,7 +58,12 @@ const SORT_OPTIONS: readonly Choice[] = [
   ['seed', t('settings:shared.random')], ['rating', t('settings:shared.rating')], ['o', t('settings:shared.climaxCount')], ['plays', t('settings:shared.plays')],
   ['dur', t('settings:shared.duration')], ['size', t('settings:shared.fileSize')], ['new', t('settings:shared.dateAdded')], ['played', t('settings:shared.lastWatched')],
 ];
-const DIRECTION_OPTIONS: readonly Choice[] = [['desc', t('settings:shared.descending')], ['asc', t('settings:shared.ascending')]];
+/* 「播完之后」各档的名字，键同 `AFTER_PLAYBACK_CHOICES`。 */
+const afterPlaybackOptions = (): readonly Choice[] => [
+  ['stop', t('settings:playbackEnd.stop')], ['next', t('settings:playbackEnd.next')], ['repeat-all', t('settings:playbackEnd.repeatAll')],
+  ['shuffle', t('settings:playbackEnd.shuffle')], ['repeat-one', t('settings:playbackEnd.repeatOne')],
+];
+const DIRECTION_OPTIONS: readonly Choice[] =[['desc', t('settings:shared.descending')], ['asc', t('settings:shared.ascending')]];
 const JAV_IMAGE_OPTIONS: readonly Choice[] = [['cover', t('settings:preferencesPanel.officialCover'), ''], ['thumbnail', t('settings:preferencesPanel.previewImage'), '']];
 /* 新作那一行收不收合集由服务端按数据库里的设置筛，这里的开关只是镜像：真相在 `/api/settings`。 */
 const FEED_COMPILATIONS = [
@@ -616,6 +623,16 @@ function PlaybackRows({ host: current, epoch }: Omit<GroupProps, 'tab'>) {
     <>
       <ToggleRow id="detailAutoplaySetting" title={t('settings:preferencesPanel.detailAutoplay')} checked={settings.detailAutoplay}
         onToggle={(on) => { settings.detailAutoplay = on; save() }} />
+      <Row title={t('settings:playbackEnd.title')}>
+        <SelectField id="afterPlaybackSetting" label={t('settings:playbackEnd.title')} options={afterPlaybackOptions()} value={settings.afterPlayback} epoch={epoch}
+          onPick={(value) => { settings.afterPlayback = allowedSetting(value, AFTER_PLAYBACK_CHOICES, 'next'); save() }} />
+      </Row>
+      <Row title={t('settings:playbackEnd.restart')} description={t('settings:playbackEnd.restartHelp')}>
+        <div id="resumeRestartSetting">
+          <NumberSetting key={epoch} id="resumeRestartSetting" label={t('settings:playbackEnd.restart')} value={settings.resumeRestartPercent}
+            onApply={(value) => { settings.resumeRestartPercent = boundedPreference(value, 0, 20, 5); save() }} />
+        </div>
+      </Row>
       <ToggleRow id="miniplayerSetting" title={t('settings:preferencesPanel.miniPlayer')} checked={settings.miniplayer}
         onToggle={(on) => { settings.miniplayer = on; save(); current.changed('miniplayer') }} />
       <Row title={t('settings:preferencesPanel.seekStep')}>

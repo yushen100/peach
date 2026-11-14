@@ -743,6 +743,7 @@
     "unitEntries": "条",
     "unitItems": "个",
     "unitMinutes": "分钟",
+    "unitPercent": "%",
     "unitSeconds": "秒",
     "unitVideos": "部"
   },
@@ -788,6 +789,16 @@
     "usernamePlaceholder": "邮箱或手机号",
     "waiting": "等待登录",
     "waitingBrowser": "等你在浏览器窗口里登录 PikPak"
+  },
+  "playbackEnd": {
+    "next": "顺序播放",
+    "repeatAll": "列表循环",
+    "repeatOne": "单片循环",
+    "restart": "片尾从头播",
+    "restartHelp": "离片尾不到这个比例，下次打开从头播。",
+    "shuffle": "随机播放",
+    "stop": "停下",
+    "title": "播完之后"
   },
   "playbackTranscode": {
     "saved": "已保存转码方式",

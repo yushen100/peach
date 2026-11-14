@@ -9,6 +9,7 @@
 import type { QueryKey } from '@tanstack/react-query';
 import { esc, foldName } from '@peach/legacy/core';
 import { mixLabel, type FaceRef } from '@peach/card-art';
+import type { AfterPlayback } from '@peach/appearance';
 
 import { apiGet } from '../../api';
 import type { MediaCardActions, MediaCardHelpers, MediaCardLayout, MediaItem } from '../catalog-grid/types';
@@ -191,6 +192,23 @@ export function nextPart(queue: DetailQueue | null, id: number): QueueItem | nul
   const next = queue.items[index + 1];
   if (!current?.part_label || !next?.part_label) return null;
   return queue.kind === 'parts' || (current.version_id != null && current.version_id === next.version_id) ? next : null;
+}
+
+/** 一条播完之后接哪一条，按「播完之后」那一项。分卷不看这一项，总是接同一版本的下一卷；
+ *  播放列表与 Mix 队列按顺序、列表循环或随机接，已消失的条目跳过。返回当前这一条表示从头再播一遍，
+ *  null 表示停下。单片循环由播放器自己循环，到不了这里。 */
+export function queueNext(queue: DetailQueue | null, id: number, mode: AfterPlayback,
+  random: () => number = Math.random): QueueItem | null {
+  const part = nextPart(queue, id);
+  if (part) return part;
+  if (!queue || (queue.kind !== 'playlist' && queue.kind !== 'mix') || mode === 'stop' || mode === 'repeat-one') return null;
+  const items = queue.items.filter((item) => !isVanished(item));
+  if (mode === 'shuffle') {
+    const others = items.filter((item) => item.id !== id);
+    return others.length ? others[Math.floor(random() * others.length)]! : null;
+  }
+  const next = items[items.findIndex((item) => item.id === id) + 1];
+  return next ?? (mode === 'repeat-all' ? items[0] ?? null : null);
 }
 
 /** 首屏：先定队列（这一下要不要重取由壳说），再定停在哪一条，最后取那一条。要转走的几种情形

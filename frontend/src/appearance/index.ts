@@ -2,10 +2,10 @@
  * Application 与 React 页面引用同一份源码，随 peach-app.js 发出。
  * 路由与目录的 JAV、首页判据由 application/layout.js 计算后作为参数传入。 */
 export {
-  allowedSetting, appSettingsStore, applySyncedSettings, DEFAULT_SETTINGS, FEED_COMPILATION_KEYS, FOLLOW_INITIAL_DAYS,
+  AFTER_PLAYBACK_CHOICES, allowedSetting, appSettingsStore, applySyncedSettings, DEFAULT_SETTINGS, FEED_COMPILATION_KEYS, FOLLOW_INITIAL_DAYS,
   normalizeAppSettings, postSearchHistoryLimit, readAppSettings, SETTINGS_KEY, THEME_CHOICES,
 } from './settings';
-export type { AppSettings, SyncedEffect, SyncedSettings } from './settings';
+export type { AfterPlayback, AppSettings, SyncedEffect, SyncedSettings } from './settings';
 export { applyTheme, THEME_OPTIONS, watchSystemTheme } from './theme';
 export { applyDensity, currentDensity, paintPhotoSizeButton, TILES, toggleDensity } from './density';
 export type { Density } from './density';

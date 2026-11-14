@@ -111,7 +111,7 @@ const settings = (): PanelSettings => ({
   theme: 'system', uiSounds: true, homeGlow: { ...normalizeHomeGlow(null), on: true, preset: 'ash' }, accent: 'blue',
   sidebarOrder: [''], batchSize: 60, defaultSort: 'seed', defaultSortDirection: '', groupCollapse: true,
   javImage: 'cover', performerNameLanguage: 'zh-CN', interfaceLanguage: 'zh-CN', systemLanguage: null, feedAutoScroll: true, feedLimit: 12, feedHideGroupCompilations: true, feedHideSoloCompilations: false,
-  feedHideExcerpts: true, hoverDelaySeconds: 5, detailAutoplay: false, miniplayer: true, seekSeconds: 10,
+  feedHideExcerpts: true, hoverDelaySeconds: 5, detailAutoplay: false, afterPlayback: 'next', resumeRestartPercent: 5, miniplayer: true, seekSeconds: 10,
   relatedLimit: 24, searchHistoryLimit: 10, followInitialDays: 30, avatarRefreshDays: 90, faviconRefreshDays: 365,
 });
 
@@ -290,6 +290,28 @@ describe('设置面板与壳的接缝', () => {
     current.changed.mockClear();
     await click(panel.querySelector('#themeSetting input[value="dark"]'));
     expect([current.value.theme, effects(current.changed)]).toEqual(['dark', ['theme']]);
+    await close(current);
+  });
+
+  it('播完之后与接近片尾从头播：只落盘，不报效果；关掉片尾从头播就是 0', async () => {
+    const current = await setup();
+    const panel = await open(current, '浏览与播放');
+    const field = panel.querySelector<HTMLElement & { value: string }>('#afterPlaybackSetting > div')!;
+    expect(field.value).toBe('next');
+    current.changed.mockClear();
+    current.save.mockClear();
+    await act(async () => { field.value = 'shuffle'; field.dispatchEvent(new Event('change', { bubbles: true })) });
+    expect([current.value.afterPlayback, current.save.mock.calls.length, effects(current.changed)]).toEqual(['shuffle', 1, []]);
+
+    const input = panel.querySelector<HTMLInputElement>('#resumeRestartSetting input[type=number]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(input, '10');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(current.value.resumeRestartPercent).toBe(10);
+    await click(panel.querySelector('#resumeRestartSetting input[role=switch]'));
+    expect([current.value.resumeRestartPercent, effects(current.changed)]).toEqual([0, []]);
     await close(current);
   });
 

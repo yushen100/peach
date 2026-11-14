@@ -353,7 +353,7 @@ export function mountPlayer(video: HTMLVideoElement, options: MountPlayerOptions
   const frame = options.chrome === false ? null : video.parentElement;
   if (frame) preparePlayerFrame(frame, video);
   const key = playbackKey(kind, item, media?.index ?? null);
-  let detail: DetailPlayerOptions = { guidePreview, playbackKey: key, resume: guidePreview ? null : options.resume ?? { time: playbackPosition(key, item), autoplay: false } };
+  let detail: DetailPlayerOptions = { guidePreview, playbackKey: key, resume: guidePreview ? null : options.resume ?? { time: playbackPosition(key, item, host.settings().resumeRestartPercent), autoplay: false } };
   if (kind === 'follow') {
     detail = {
       ...detail,
