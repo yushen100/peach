@@ -14,7 +14,8 @@ import { SelectionDock } from '../components/selection-dock';
 import { useAction } from '../settings/use-action';
 import { ONLINE_TAG_CATEGORIES, TAG_CATEGORIES, tagGroups, type TagView } from './index-data';
 import { TagAlphabet, TagCloud, TagFilters } from './index-tags';
-import { TagEditor, confirmTagOperation, managedTagId, previewTagOperation, tagHost, tagOperation, type Command, type ManagedTag, type TagScope } from './tag-operations';
+import { TagEditor, confirmTagOperation, managedTagId, previewTagOperation, toastHost, tagOperation, type Command, type EditorOperation, type ManagedTag, type TagId, type TagScope } from './tag-operations';
+import { contentTrashAction } from './roster-actions';
 import { t } from '../../i18n';
 
 export type { ManagedTag } from './tag-operations';
@@ -45,7 +46,7 @@ export function TagManager({ search, category = 'all', view = 'cloud', onCategor
   usePageSelection(() => setPicked(new Map()), { topbar: true });
   useEffect(() => { if (selection.size) enterPageSelection() }, [selection]);
   const picked = new Set(selection.keys());
-  const [editing, setEditing] = useState<'rename' | 'merge' | null>(null);
+  const [editing, setEditing] = useState<EditorOperation | null>(null);
   const action = useAction();
   const rows = inventory.data?.items || [];
   const visible = rows;
@@ -73,6 +74,7 @@ export function TagManager({ search, category = 'all', view = 'cloud', onCategor
         onChange: value => { setHidden(value); setBlocked(false) },
         ...(online ? { onBlocked: () => { setBlocked(true); setHidden(false) } } : {}) }}
       actions={<>
+        {online && blocked ? <GlassPill onPress={() => setEditing('block')}>{t('catalog:tagManager.blockByName')}</GlassPill> : null}
         {inventory.data?.duplicate_groups.length ? <GlassPill busy={action.busy === 'repair'} onPress={() => run({ operation: 'repair', ids: [] })}>{t('catalog:tagManager.mergeDuplicates')}</GlassPill> : null}
         {visible.length ? <GlassPill onPress={() => setPicked(current => new Map([...current, ...visible.map(row => [row.k, row] as const)]))}>{t('catalog:tagManager.selectPage')}</GlassPill> : null}
         {picked.size ? <GlassPill onPress={exitPageSelection}>{t('catalog:tagManager.clearSelection')}</GlassPill> : null}
@@ -87,9 +89,15 @@ export function TagManager({ search, category = 'all', view = 'cloud', onCategor
     <SelectionDock label={t('catalog:tagManager.actions')} count={t('catalog:tagFilters.selectedCount', { count: picked.size })} visible={picked.size > 0}
       actions={[
         { action: tagOperation({ operation: hidden ? 'restore' : 'hide', ...(online ? { scope } : {}) },
-          hidden ? t('catalog:tagManager.unhide') : t('catalog:tagManager.hide')), items: ids, host: tagHost, done: () => setPicked(new Map()) },
+          hidden ? t('catalog:tagManager.unhide') : t('catalog:tagManager.hide')), items: ids, host: toastHost, done: () => setPicked(new Map()) },
         ...(online ? [{ action: tagOperation({ operation: blocked ? 'unblock' : 'block', scope },
-          blocked ? t('catalog:tagManager.unblockContent') : t('catalog:tagManager.blockContent')), items: ids, host: tagHost, done: () => setPicked(new Map()) }] : []),
+          blocked ? t('catalog:tagManager.unblockContent') : t('catalog:tagManager.blockContent')), items: ids, host: toastHost, done: () => setPicked(new Map()) }] : []),
+        /* 本地标签的两种删除分开：删标签本身（关联去掉、作品留着，撤不回），删标签下的作品（进回收站，能撤销）。 */
+        ...(online ? [] : [
+          { action: { ...tagOperation({ operation: 'delete' }), danger: true }, items: ids, host: toastHost, done: () => setPicked(new Map()) },
+          { action: contentTrashAction<TagId>(t('catalog:tagManager.deleteContent'), Number,
+            (count, assets) => t('catalog:rosterActions.tagTrashConfirm', { count, assets })), items: ids, host: toastHost, done: () => setPicked(new Map()) },
+        ]),
       ]}>
       <Button variant="secondary" size="small" disabled={selected.length !== 1} onClick={() => setEditing('rename')}>{t('catalog:shared.rename')}</Button>
       <Button variant="secondary" size="small" disabled={selected.length < 2 || (online && new Set(selected.map(row => row.cat)).size > 1)} onClick={() => setEditing('merge')}>{t('catalog:shared.merge')}</Button>

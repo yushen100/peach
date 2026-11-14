@@ -14,17 +14,18 @@ export type TagId = number | string;
 export type TagScope = 'local' | 'online';
 export interface ManagedTag { entity_id?: number; id?: string; k: string; n: number; hidden: boolean; blocked?: boolean; aliases: string[]; cat?: string; favorite?: boolean }
 export const managedTagId = (tag: ManagedTag): TagId => tag.id ?? tag.entity_id!;
-export type Operation = 'rename' | 'merge' | 'hide' | 'restore' | 'repair' | 'block' | 'unblock';
+export type Operation = 'rename' | 'merge' | 'hide' | 'restore' | 'repair' | 'block' | 'unblock' | 'delete';
 export interface Command { operation: Operation; ids: TagId[]; name?: string; target_id?: TagId; scope?: TagScope }
-interface Plan { token: string; name?: string; assets: number; overlap: number; tags: ManagedTag[] }
+interface Plan { token: string; ids?: TagId[]; name?: string; assets: number; overlap: number; tags: ManagedTag[] }
 export const TAG_ACTION_LABELS: Record<Operation, string> = {
   rename: t('catalog:tagOperations.renameTag'), merge: t('catalog:tagOperations.mergeTags'), hide: t('catalog:tagOperations.hideTags'), restore: t('catalog:tagOperations.unhideTags'), repair: t('catalog:tagManager.mergeDuplicates'),
-  block: t('catalog:tagManager.blockContent'), unblock: t('catalog:tagManager.unblockContent'),
+  block: t('catalog:tagManager.blockContent'), unblock: t('catalog:tagManager.unblockContent'), delete: t('catalog:tagManager.deleteTag'),
 };
 /** 操作做完后的提示，每种操作一句完成态。 */
 const TAG_ACTION_DONE: Record<Operation, string> = {
   rename: t('catalog:tagOperations.doneRename'), merge: t('catalog:tagOperations.doneMerge'), hide: t('catalog:tagOperations.doneHide'), restore: t('catalog:tagOperations.doneUnhide'),
   repair: t('catalog:tagOperations.doneRepair'), block: t('catalog:tagOperations.doneBlock'), unblock: t('catalog:tagOperations.doneUnblock'),
+  delete: t('catalog:tagOperations.doneDelete'),
 };
 
 export const previewTagOperation = (command: Command, signal?: AbortSignal) =>
@@ -33,10 +34,10 @@ export const previewTagOperation = (command: Command, signal?: AbortSignal) =>
 const applyTagOperation = (command: Command, plan: Plan, signal?: AbortSignal) =>
   apiSend('/api/tag-management', { ...command, token: plan.token }, 'POST', signal);
 
-/** 隐藏与屏蔽是一对开关，撤销就是反向再做一次；改名与合并会并掉标签，撤不回。 */
+/** 隐藏与屏蔽是一对开关，撤销就是反向再做一次；改名、合并与删除会并掉或删掉标签，撤不回。 */
 const INVERSE: Partial<Record<Operation, Operation>> = { hide: 'restore', restore: 'hide', block: 'unblock', unblock: 'block' };
 export const TAG_REVERSAL: Record<Operation, BulkReversal> = {
-  rename: 'irreversible', merge: 'irreversible', repair: 'irreversible',
+  rename: 'irreversible', merge: 'irreversible', repair: 'irreversible', delete: 'irreversible',
   hide: 'undo', restore: 'undo', block: 'undo', unblock: 'undo',
 };
 
@@ -45,16 +46,18 @@ function consequence(command: Command, plan: Plan): string {
   return command.operation === 'merge' || command.operation === 'repair'
     ? t('catalog:tagOperations.mergeConfirm', { count: plan.tags.length, assets: plan.assets, overlap: plan.overlap })
     : command.operation === 'rename' ? t('catalog:tagOperations.renameConfirm', { names, newName: quoted(plan.name || command.name || ''), count: plan.assets })
+      : command.operation === 'delete' ? t('catalog:tagOperations.deleteConfirm', { count: plan.tags.length, assets: plan.assets })
+      : command.operation === 'block' && command.name ? t('catalog:tagOperations.blockNameConfirm', { names, count: plan.assets })
       : command.operation === 'block' ? t('catalog:tagOperations.blockConfirm', { names, count: plan.assets })
         : command.operation === 'unblock' ? t('catalog:tagOperations.unblockConfirm', { names, count: plan.assets })
           : command.operation === 'hide' ? t('catalog:tagOperations.hideConfirm', { count: plan.tags.length, assets: plan.assets })
             : t('catalog:tagOperations.unhideConfirm', { count: plan.tags.length, assets: plan.assets });
 }
 
-/** 标签操作的回执走全站 Toast；带撤销时撤销结果写回同一条。 */
-export const tagHost: BulkHost = {
+/** 标签与名册批量动作的回执走全站 Toast；带撤销时撤销结果写回同一条。 */
+export const toastHost: BulkHost = {
   receipt: (message, options) => {
-    const id = `tag-management-${Date.now()}`;
+    const id = `bulk-action-${Date.now()}`;
     const undo = options?.undo;
     showToast(id, { html: message, alert: false, timeout: undo ? 8000 : 6000, action: undo ? { label: t('shell:shared.undo'), run: () => {
       void undo().then(() => showToast(id, { html: t('shell:receipt.undone'), alert: false, timeout: 6000, action: null }),
@@ -68,19 +71,24 @@ export const tagHost: BulkHost = {
 export function tagOperation(command: Omit<Command, 'ids'>, label = TAG_ACTION_LABELS[command.operation], prepared?: Plan): BulkAction<TagId> {
   let plan: Plan | null = prepared ?? null;
   const op = command.operation;
+  /* 按名称屏蔽：页面没有 id（标签可能还没抓到过），写入照旧只带名字，回执与撤销用服务端认出来的那一条。 */
+  const named = op === 'block' && !!command.name;
+  const body = (ids: readonly TagId[]): Command => ({ ...command, ids: named ? [] : [...ids] });
   return {
     key: op, label, reversal: TAG_REVERSAL[op],
     confirm: async (ids) => {
-      plan ??= await previewTagOperation({ ...command, ids: [...ids] });
-      return { title: TAG_ACTION_LABELS[op], body: consequence({ ...command, ids: [...ids] }, plan) };
+      plan ??= await previewTagOperation(body(ids));
+      return { title: TAG_ACTION_LABELS[op], body: consequence(body(ids), plan) };
     },
     run: async (ids) => {
-      await applyTagOperation({ ...command, ids: [...ids] }, plan!);
+      await applyTagOperation(body(ids), plan!);
       await queryClient.invalidateQueries();
       const inverse = INVERSE[op];
       if (!inverse) return;
+      const done = [...ids];
       return async () => {
-        const back: Command = { ...command, operation: inverse, ids: [...ids] };
+        const { name: _name, ...rest } = command;
+        const back: Command = { ...rest, operation: inverse, ids: done };
         await applyTagOperation(back, await previewTagOperation(back));
         await queryClient.invalidateQueries();
       };
@@ -92,24 +100,28 @@ export function tagOperation(command: Omit<Command, 'ids'>, label = TAG_ACTION_L
 export async function confirmTagOperation(command: Command, plan: Plan, signal?: AbortSignal) {
   if (signal?.aborted) return false;
   const { ids, ...rest } = command;
-  return runBulkAction(tagOperation(rest, undefined, plan), ids, tagHost);
+  return runBulkAction(tagOperation(rest, undefined, plan), ids.length ? ids : plan.ids ?? [], toastHost);
 }
 
 type FormDialog = ReturnType<typeof formModal>;
+/** 改名、合并，以及在线标签的「按名称屏蔽」（`block`：填一个名字，还没抓到过的标签也能先屏蔽）。 */
+export type EditorOperation = 'rename' | 'merge' | 'block';
 export function TagEditor({ operation, selected, close, done, scope = 'local' }: {
-  operation: 'rename' | 'merge'; selected: ManagedTag[]; close(): void; done(): void; scope?: TagScope;
+  operation: EditorOperation; selected: ManagedTag[]; close(): void; done(): void; scope?: TagScope;
 }) {
   const initial = useRef({ operation, selected, close, done, scope });
-  const draft = useRef({ name: selected[0]?.k || '', target_id: selected[0] ? managedTagId(selected[0]) : 0 });
+  const draft = useRef({ name: operation === 'block' ? '' : selected[0]?.k || '', target_id: selected[0] ? managedTagId(selected[0]) : 0 });
   const [view, setView] = useState<{ host: Element; dialog: FormDialog } | null>(null);
   useEffect(() => {
     const controller = new AbortController();
     const given = initial.current;
-    const dialog = formModal({ title: TAG_ACTION_LABELS[given.operation], confirmLabel: t('catalog:tagOperations.previewImpact'), confirmDisabled: true,
+    const dialog = formModal({ title: given.operation === 'block' ? t('catalog:tagManager.blockByName') : TAG_ACTION_LABELS[given.operation],
+      confirmLabel: t('catalog:tagOperations.previewImpact'), confirmDisabled: true,
       body: '<div class="peach-react" data-tag-editor-fields></div>',
       onConfirm: async () => {
-        const command: Command = { operation: given.operation, ids: given.selected.map(managedTagId), ...(given.scope === 'online' ? { scope: given.scope } : {}),
-          ...(given.operation === 'rename' ? { name: draft.current.name.trim() } : { target_id: draft.current.target_id }) };
+        const command: Command = { operation: given.operation, ids: given.operation === 'block' ? [] : given.selected.map(managedTagId),
+          ...(given.scope === 'online' ? { scope: given.scope } : {}),
+          ...(given.operation === 'merge' ? { target_id: draft.current.target_id } : { name: draft.current.name.trim() }) };
         const plan = await previewTagOperation(command, controller.signal);
         return { command, plan };
       } });
@@ -129,16 +141,17 @@ export function TagEditor({ operation, selected, close, done, scope = 'local' }:
 }
 
 function TagFields({ operation, selected, dialog, update }: {
-  operation: 'rename' | 'merge'; selected: ManagedTag[]; dialog: FormDialog;
+  operation: EditorOperation; selected: ManagedTag[]; dialog: FormDialog;
   update(value: { name: string; target_id: TagId }): void;
 }) {
-  const [name, setName] = useState(selected[0]?.k || '');
+  const [name, setName] = useState(operation === 'block' ? '' : selected[0]?.k || '');
   const [target, setTarget] = useState<TagId>(selected[0] ? managedTagId(selected[0]) : 0);
   useEffect(() => {
     update({ name, target_id: target });
-    dialog.confirmButton.disabled = operation === 'rename' && (!name.trim() || name.trim() === selected[0]?.k);
+    dialog.confirmButton.disabled = operation === 'block' ? !name.trim()
+      : operation === 'rename' && (!name.trim() || name.trim() === selected[0]?.k);
   }, [name, target, dialog, operation, selected, update]);
-  return operation === 'rename' ? <Input autoFocus aria-label={t('catalog:tagOperations.tagName')} value={name} onChange={setName} maxLength={80} />
+  return operation !== 'merge' ? <Input autoFocus aria-label={t('catalog:tagOperations.tagName')} value={name} onChange={setName} maxLength={80} />
     : <Select aria-label={t('catalog:tagOperations.tagToKeep')} prefix={t('catalog:tagOperations.keep')} selectedKey={String(target)} onSelectionChange={key => {
       const row = selected.find(tag => String(managedTagId(tag)) === String(key)); if (row) setTarget(managedTagId(row));
     }}>

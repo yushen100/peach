@@ -2,7 +2,7 @@
  *
  * 两套词表共用这三块，区别在颜色和去处：本地是 ledger 里的中文标签，按 ledger 的九类着色，
  * 点开回目录按它筛选，选择模式下拼成多标签筛选；在线是关注来源上的 booru 标签，按上游
- * tag_type 着色，点开去「关注 · 这个标签」，并且不进多选——多选拼的是目录筛选，拿在线标签
+ * tag_type 着色，点开去「关注 · 这个标签」；选择模式下做隐藏与屏蔽，不拼目录筛选——拿在线标签
  * 去筛目录必然一条不中。 */
 import { Radio, RadioGroup } from 'react-aria-components';
 import type { ReactNode } from 'react';

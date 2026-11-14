@@ -8,6 +8,7 @@ import { CatalogGridPage, LoadMore } from '../catalog-grid/catalog-grid-page';
 import { SkeletonContent } from '../components/skeleton-content';
 import { PAGE_SIZE } from '../index/index-data';
 import { PeopleGrid } from '../index/index-people';
+import { RosterDock, useRosterSelection } from '../index/roster-selection';
 import { openPhotoLightbox } from '../photo-lightbox/photo-lightbox-dialog';
 import type { LightboxSlide } from '../photo-lightbox/photo-lightbox';
 import type {
@@ -27,7 +28,8 @@ export function EntityBodyPage(props: EntityBodyProps) {
 /** 名册一页摆几格，同索引页名册一页的格数。 */
 const ROSTER_PAGE = PAGE_SIZE.people;
 
-/** 名册一格点开进这个人（或这个厂牌）的资料页，取图同索引页那条回落链。
+/** 名册一格点开进这个人（或这个厂牌）的资料页，取图同索引页那条回落链；多选模式下点一格是选中，
+ *  浮条与索引页名册同一组批量键（`roster-selection.tsx`）。
  *
  *  名单随资料一次下来，大事务所有上千人；一次全画出来就是上千个头像格和上千次取图。先摆一页，
  *  余下的走作品区同一枚「载入更多」，滚到附近自己接下一页。 */
@@ -38,9 +40,11 @@ function Roster({ roster, props }: { roster: EntityRoster; props: EntityBodyProp
   const [shown, setShown] = useState<number>(ROSTER_PAGE);
   const people = useMemo(() => roster.people.slice(0, shown), [roster.people, shown]);
   const loadMore = useCallback(async () => { setShown((count) => count + ROSTER_PAGE) }, []);
+  const selection = useRosterSelection(props.selectMode, people);
   return (
     <>
-      <PeopleGrid kind={roster.kind} items={people} layout={roster.layout} props={cell} />
+      <PeopleGrid kind={roster.kind} items={people} layout={roster.layout} props={cell} picks={selection.picks} />
+      <RosterDock kind={roster.kind} hiddenView={false} selection={selection} total={people.length} visible={props.selectMode} />
       {shown < roster.people.length
         ? <LoadMore key={shown} entity load={loadMore} enabled={() => true} />
         : null}

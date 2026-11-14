@@ -394,6 +394,9 @@ export function navTo(k){
   syncNavigation();buildBars();
 }
 
+/** 本地名册五页：进了多选模式才显示勾选与批量键。 */
+const ROSTER_PATHS=new Set(['/performers','/creators','/studios','/agencies','/series']);
+
 export function syncHeaderActions(){
   const path=decodeURIComponent(location.pathname),parts=path.split('/').filter(Boolean);
   if(selectMode&&selectSurface!==selectionState.currentSelectSurface())
@@ -406,11 +409,12 @@ export function syncHeaderActions(){
   const catalog=isCatalogPath(path)||path==='/trash';
   const javCards=javCardPage(path,location.search);
   if((path==='/jav'||pageSelectPath(path))&&selectMode)setSelectMode(false,true);
-  /* 标签页的本地范围（含管理模式）有可选的标签；在线范围另由标签页自己处理。 */
-  const tagsSelectable=path==='/tags'&&query.get('scope')!=='online';
+  /* 标签页两种范围都能多选：本地拼目录筛选，在线做隐藏与屏蔽。本地名册做批量动作，艺人页的在线那档不在内。 */
+  const tagsSelectable=path==='/tags';
+  const rosterSelectable=ROSTER_PATHS.has(path)&&!(path==='/performers'&&query.get('scope')==='online');
   /* 处理队列页（重复文件、复核、高清升级、关注管理、数据管理里的表格）的选择集归页面，右上角开关同样能用。
-     实体页的视频、照片与在线视图有可选的条目；名册视图收起。 */
-  const canSelect=catalog||entityView==='videos'||entityView==='photos'||entityView==='online'||tagsSelectable||path==='/follow'
+     实体页四种视图（名册、视频、照片、在线）都有可选的条目。 */
+  const canSelect=catalog||['people','videos','photos','online'].includes(entityView)||tagsSelectable||rosterSelectable||path==='/follow'
     ||javSelectPage(path,location.search)||pageSelectPath(path);
   const canDensity=catalog||entity||path==='/follow'||javCards;
   $('#selectMode').hidden=!canSelect;$('#density').hidden=!canDensity;

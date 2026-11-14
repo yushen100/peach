@@ -934,8 +934,11 @@
   },
   "tagManager": {
     "actions": "标签管理操作",
+    "blockByName": "按名称屏蔽",
     "blockContent": "屏蔽内容",
     "clearSelection": "清空选择",
+    "deleteContent": "删除标签下的作品",
+    "deleteTag": "删除标签",
     "filterTags": "过滤标签",
     "hide": "隐藏",
     "label": "标签管理",
@@ -948,7 +951,10 @@
   },
   "tagOperations": {
     "blockConfirm": "屏蔽带有{{names}}任一标签的内容及其其它版本，涉及 {{count, number}} 个资源。",
+    "blockNameConfirm": "屏蔽带有{{names}}标签的内容，现有 {{count, number}} 个资源，以后抓到的也不显示。",
+    "deleteConfirm": "删除 {{count, number}} 个标签及其在 {{assets, number}} 部作品上的关联，作品保留。",
     "doneBlock": "已屏蔽内容",
+    "doneDelete": "已删除标签",
     "doneHide": "已隐藏标签",
     "doneMerge": "已合并标签",
     "doneRename": "已重命名标签",
@@ -1090,5 +1096,29 @@
     "selectRow": "选择 {{name}}",
     "sourcePage": "来源页",
     "tryOtherSearch": "试试其他番号、女优或标题。"
+  },
+  "rosterActions": {
+    "deselectAll": "取消全选",
+    "dockLabel": "名册批量操作",
+    "exit": "取消选择",
+    "followConfirm": "为 {{count, number}} 位订阅新作，已订阅的不变。",
+    "followDone": "已为 {{count, number}} 位订阅新作",
+    "followDonePartly": "已为 {{count, number}} 位订阅新作，{{skipped, number}} 位没有站上编号、订不了",
+    "hiddenView": "已隐藏 {{count, number}}",
+    "hide": "从名册隐藏",
+    "hideConfirm": "从名册隐藏 {{count, number}} 项，作品与资料保留。",
+    "hideDone": "已从名册隐藏 {{count, number}} 项",
+    "selectAll": "全选",
+    "selectedCount": "已选 {{count, number}} 项",
+    "tagTrashConfirm": "把 {{count, number}} 个标签下的 {{assets, number}} 部作品移入回收站，标签保留。",
+    "trash": "删除作品",
+    "trashConfirm": "把 {{count, number}} 项名下的 {{assets, number}} 部作品移入回收站，名册与资料保留。",
+    "trashDone": "已把 {{count, number}} 部作品移入回收站",
+    "trashRecovery": "完成后可在回执里撤销，也能从回收站还原。",
+    "unfollowConfirm": "取消 {{count, number}} 位的新作订阅，已发现的新作保留。",
+    "unfollowDone": "已取消 {{count, number}} 位的新作订阅",
+    "unhide": "恢复显示",
+    "unhideConfirm": "{{count, number}} 项回到名册。",
+    "unhideDone": "已恢复显示 {{count, number}} 项"
   }
 }
