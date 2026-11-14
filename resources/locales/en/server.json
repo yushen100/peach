@@ -924,6 +924,11 @@
       "planChanged": "The video list changed. Close the confirmation and review it again",
       "nothingToDelete": "No videos to delete"
     },
+    "entityBatch": {
+      "selectionInvalid": "Select valid items",
+      "selectionChanged": "The selection changed. Refresh and try again",
+      "operationInvalid": "This bulk action isn't supported"
+    },
     "media": {
       "invalidPlaybackOrigin": "Invalid playback address.",
       "localPlaybackUnavailable": "Open it on this device with the network playback address or the M3U playlist.",

@@ -268,6 +268,25 @@ class TagManagementTests(unittest.TestCase):
         self.assertEqual(len(tag_rows(self.c)), 1)
 
 
+    def test_delete_removes_the_tag_and_its_links_but_keeps_the_works(self):
+        gone = self.tag('删掉的', (1, 2))
+        kept = self.tag('留下的', (2,))
+        self.c.execute("INSERT INTO entity_alias(entity_id,alias,normalized_alias,source,confidence) VALUES(?,?,?,'user',1)",
+                       (gone, '旧名', '旧名'))
+        self.c.execute("INSERT INTO asset_tag(asset_id,tag,confidence,source) VALUES(3,'旧名',1,'web-user')")
+        self.c.execute("INSERT INTO asset_tag(asset_id,tag,confidence,source) VALUES(4,'删掉的',1,'pixiv_tag')")
+        plan = preview(self.c, {'operation': 'delete', 'ids': [gone]})
+        self.assertEqual((plan['assets'], [row['k'] for row in plan['tags']]), (2, ['删掉的']))
+        self.execute('delete', [gone])
+        self.assertEqual([row['entity_id'] for row in tag_rows(self.c)], [kept])
+        self.assertEqual(self.c.execute('SELECT count(*) FROM asset').fetchone()[0], 4)
+        self.assertEqual(list(map(tuple, self.c.execute('SELECT asset_id,tag,source FROM asset_tag ORDER BY asset_id,tag'))),
+                         [(2, '留下的', 'web-user'), (4, '删掉的', 'pixiv_tag')])
+        self.assertEqual(self.c.execute('SELECT count(*) FROM asset_entity WHERE entity_id=?', (gone,)).fetchone()[0], 0)
+        self.assertEqual(self.c.execute('SELECT count(*) FROM entity_alias WHERE entity_id=?', (gone,)).fetchone()[0], 0)
+        self.assertEqual(self.c.execute('PRAGMA foreign_key_check').fetchall(), [])
+
+
 class OnlineTagManagementTests(unittest.TestCase):
     setUp = TagManagementTests.setUp
 
@@ -461,6 +480,39 @@ class OnlineTagManagementTests(unittest.TestCase):
         self.assertTrue(row['blocked'])
         self.execute('unblock', ['landscape'])
         self.assertFalse(next(row for row in web_follow.online_tag_inventory(self.c) if row['id'] == 'landscape')['blocked'])
+
+    def test_blocking_by_name_covers_tags_not_fetched_yet_and_unblocking_leaves_no_empty_tag(self):
+        source = self.seed()
+        command = dict(scope='online', operation='block', name='Gay')
+        with self.database.read_connection() as connection:
+            plan = online_tag_management.preview(connection, command, web_follow.online_tag_inventory(connection))
+        self.assertEqual((plan['ids'], plan['assets']), (['gay'], 0))
+        w_tag_management(self.contract, dict(command, token=plan['token']))
+        blocked = next(row for row in web_follow.online_tag_inventory(self.c) if row['id'] == 'gay')
+        self.assertTrue(blocked['blocked'])
+        with self.database.write_transaction() as connection:
+            self.record(FollowStore(lambda: connection), source, 4, ['gay', 'outdoors'])
+        self.assertEqual(sorted(group['primary']['external_id'] for group in web_follow.q_follow(self.contract, {})['groups']),
+                         ['1', '2', '3'])
+        self.execute('unblock', ['gay'])
+        self.assertEqual(len(web_follow.q_follow(self.contract, {})['groups']), 4)
+        self.c.execute("DELETE FROM follow_item WHERE external_id='4'")
+        self.c.commit()
+        self.execute('block', [], name='nothing-yet')
+        self.execute('unblock', ['nothing-yet'])
+        self.assertNotIn('nothing-yet', [row['id'] for row in web_follow.online_tag_inventory(self.c)])
+
+    def test_blocking_by_name_reuses_an_existing_tag(self):
+        self.seed()
+        with self.database.read_connection() as connection:
+            plan = online_tag_management.preview(connection, dict(scope='online', operation='block', name='Outdoors'),
+                                                 web_follow.online_tag_inventory(connection))
+        self.assertEqual((plan['ids'], plan['assets']), (['outdoors'], 2))
+        for name in ['', 'a,b', 'x' * 81]:
+            with self.subTest(name=name), self.assertRaisesRegex(ValueError, '标签名'):
+                with self.database.read_connection() as connection:
+                    online_tag_management.preview(connection, dict(scope='online', operation='block', name=name),
+                                                  web_follow.online_tag_inventory(connection))
 
     def test_online_conflicts_types_and_stale_plans_are_rejected(self):
         self.seed()

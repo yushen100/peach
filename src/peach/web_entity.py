@@ -758,6 +758,16 @@ def q_photo_set(contract: WebContract, args):
         }
 
 
+#: 从名册隐藏的标记写在实体自己的 metadata 上，和标签的 `user_tag_hidden` 同一种做法；
+#: 写入在 `web_entity_batch`。
+ROSTER_HIDDEN_KEY = "$.user_roster_hidden"
+
+
+def roster_hidden(alias: str = "e") -> str:
+    """这一行实体是否从名册隐藏的 SQL 表达式，`alias` 是实体表的别名。"""
+    return f"COALESCE(json_extract({alias}.metadata_json,'{ROSTER_HIDDEN_KEY}'),0)"
+
+
 def _attach_index_following(connection, rows: list[dict]) -> None:
     """名册人物的订阅状态按已启用、绑定实体的来源汇总。"""
     following = {source[0] for source in connection.execute(
@@ -794,14 +804,16 @@ def q_index(contract: WebContract, kind, q="", limit=600, offset=0, category="")
     def read():
         return _index_rows(contract, kind, q, limit, offset, category)
     if q or kind not in {"agencies", "tags", *INDEX_ENTITY_KINDS}:
-        rows, has_more, category_counts = read()
+        rows, has_more, category_counts, hidden = read()
     else:
-        rows, has_more, category_counts = contract.cached_until_changed(
+        rows, has_more, category_counts, hidden = contract.cached_until_changed(
             repr(("index", kind, limit, offset, category)), read, *group_inputs(contract),
             tables=INDEX_TABLES)
     # 下面还要往每行补目录索引的标志，不能写进缓存里那一份。
     rows = [dict(row) for row in rows]
     result = _decorate_index(contract, kind, rows, has_more, category_counts)
+    if hidden is not None:
+        result['hidden'] = hidden
     if kind == 'tags':
         result['total'] = (category_counts.get(category, 0) if category and category != 'all'
                            else sum(category_counts.values()))
@@ -810,6 +822,8 @@ def q_index(contract: WebContract, kind, q="", limit=600, offset=0, category="")
 
 def _index_rows(contract: WebContract, kind, q, limit, offset, category):
     category_counts = None
+    # 从名册隐藏的只在「已隐藏」那一档列出，其余各档、分类计数都不算它。
+    hidden_clause = roster_hidden('e') + ('=1' if category == 'hidden' else '=0')
     with contract.read_connection() as c:
         if kind == "agencies":
             # 事务所自己不挂作品，所以它排的是人：一家有多少艺人是它的规模，作品数是
@@ -824,7 +838,7 @@ def _index_rows(contract: WebContract, kind, q, limit, offset, category):
                    " AND l.link_kind='official' AND l.hostname NOT IN ("
                    + ",".join(f"'{host}'" for host in ARCHIVE_HOSTS) + ")"
                    " ORDER BY l.id LIMIT 1) mark "
-                   "FROM entity e WHERE e.kind='agency' ")
+                   "FROM entity e WHERE e.kind='agency' AND " + hidden_clause + " ")
             par: list = []
             if q: sql += "AND e.canonical_name LIKE ? "; par.append(f"%{q}%")
             sql += "ORDER BY members DESC,n DESC,e.canonical_name LIMIT ? OFFSET ?"
@@ -846,7 +860,7 @@ def _index_rows(contract: WebContract, kind, q, limit, offset, category):
                    " WHERE " + scope + " AND a2.medium='video' AND a2.snapshot_path IS NOT NULL "
                    " ORDER BY COALESCE(a2.play_count,0) DESC,COALESCE(a2.play_seconds,0) DESC,"
                    " COALESCE(a2.width,0)*COALESCE(a2.height,0) DESC,a2.size DESC LIMIT 1) rep "
-                   "FROM entity e WHERE e.kind='studio' ")
+                   "FROM entity e WHERE e.kind='studio' AND " + hidden_clause + " ")
             par = []
             if q:
                 sql += "AND e.canonical_name LIKE ? "; par.append(f"%{q}%")
@@ -867,10 +881,11 @@ def _index_rows(contract: WebContract, kind, q, limit, offset, category):
                    " COALESCE(a2.width,0)*COALESCE(a2.height,0) DESC,a2.size DESC LIMIT 1) rep "
                    "FROM asset_entity ae JOIN entity e ON e.id=ae.entity_id "
                    "JOIN asset a ON a.id=ae.asset_id "
-                   "WHERE " + COUNTED_VIDEO + " AND " + entity_classification.index_scope(c,entity_kind) + ' ')
+                   "WHERE " + COUNTED_VIDEO + " AND " + entity_classification.index_scope(c,entity_kind)
+                   + " AND " + hidden_clause + ' ')
             par = []
             if q: sql += "AND e.canonical_name LIKE ? "; par.append(f"%{q}%")
-            clause, values = entity_classification.filter_sql(category,connection=c)
+            clause, values = entity_classification.filter_sql('' if category == 'hidden' else category,connection=c)
             sql += clause
             par.extend(values)
             sql += "GROUP BY e.id,e.canonical_name ORDER BY n DESC,e.id ASC LIMIT ? OFFSET ?"
@@ -882,7 +897,8 @@ def _index_rows(contract: WebContract, kind, q, limit, offset, category):
             for row in rows:
                 row.update(summaries[row['entity_id']])
             _attach_index_following(c, rows)
-            category_counts = entity_classification.counts(c,entity_kind,q,COUNTED_VIDEO)
+            category_counts = entity_classification.counts(c,entity_kind,q,COUNTED_VIDEO,
+                                                           roster_hidden('e') + '=0')
         else:
             sql = ("SELECT e.id entity_id,e.canonical_name k, count(DISTINCT " + video_work_key(contract, c) + ") n "
                    "FROM asset_entity ae JOIN entity e ON e.id=ae.entity_id "
@@ -902,7 +918,11 @@ def _index_rows(contract: WebContract, kind, q, limit, offset, category):
             rows = all_rows[offset:offset + limit]
             has_more = offset + limit < len(all_rows)
         _attach_index_favorites(c, rows)
-    return rows, has_more, category_counts
+        hidden = None
+        if kind in INDEX_ENTITY_KINDS:
+            scope = entity_classification.index_scope(c, INDEX_ENTITY_KINDS[kind])
+            hidden = c.execute(f"SELECT count(*) FROM entity e WHERE {scope} AND {roster_hidden('e')}=1").fetchone()[0]
+    return rows, has_more, category_counts, hidden
 
 
 def _decorate_index(contract: WebContract, kind, rows, has_more, category_counts):

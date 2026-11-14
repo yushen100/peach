@@ -924,6 +924,11 @@
       "planChanged": "影片清单已变化，请关闭确认窗口后重新查看",
       "nothingToDelete": "没有可删除的影片"
     },
+    "entityBatch": {
+      "selectionInvalid": "请选择有效的条目",
+      "selectionChanged": "所选条目已变化，请刷新后重试",
+      "operationInvalid": "不支持这项批量操作"
+    },
     "media": {
       "invalidPlaybackOrigin": "播放地址无效",
       "localPlaybackUnavailable": "请使用网络播放地址或 M3U 播放列表在此设备打开",
