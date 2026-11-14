@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "0722b237-33ad-4f42-a3b8-2a5f61397b21", e._sentryDebugIdIdentifier = "sentry-dbid-0722b237-33ad-4f42-a3b8-2a5f61397b21");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "e4412158-e462-4303-b3e7-2613e649adc4", e._sentryDebugIdIdentifier = "sentry-dbid-e4412158-e462-4303-b3e7-2613e649adc4");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -2168,6 +2168,17 @@ var He = {
 		speedDown: "Decrease speed by {{step}}",
 		speedUp: "Increase speed by {{step}}",
 		stream: "Stream {{number}}"
+	},
+	playerGestures: {
+		backward: "Back {{delta}}  {{to}} / {{total}} · release to jump",
+		deviceVolume: "Use your device's volume buttons in this browser",
+		durationUnknown: "Duration not available yet, can't seek",
+		forward: "Forward {{delta}}  {{to}} / {{total}} · release to jump",
+		holdKey: "{{rate}}× fast-forward",
+		holdTouch: "{{rate}}× speed · release to restore",
+		seekFailed: "Can't seek right now. Try again shortly.",
+		seekTo: "Jump to {{time}}",
+		volume: "Volume {{percent}}%"
 	},
 	playerShell: {
 		buffering: "Buffering",
@@ -9299,6 +9310,17 @@ var He = {
 		speedDown: "播放速度减 {{step}}",
 		speedUp: "播放速度加 {{step}}",
 		stream: "线路 {{number}}"
+	},
+	playerGestures: {
+		backward: "快退 {{delta}}　{{to}} / {{total}} · 松手跳转",
+		deviceVolume: "此浏览器请用设备音量键",
+		durationUnknown: "时长尚未取得，暂时无法跳转",
+		forward: "快进 {{delta}}　{{to}} / {{total}} · 松手跳转",
+		holdKey: "{{rate}}× 快进",
+		holdTouch: "{{rate}}× 倍速 · 松手恢复",
+		seekFailed: "暂时无法跳转，请稍后重试",
+		seekTo: "跳转到 {{time}}",
+		volume: "音量 {{percent}}%"
 	},
 	playerShell: {
 		buffering: "正在缓冲",
@@ -38681,4 +38703,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=0722b237-33ad-4f42-a3b8-2a5f61397b21
+//# debugId=e4412158-e462-4303-b3e7-2613e649adc4

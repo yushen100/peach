@@ -1,4 +1,8 @@
-/* 触摸手势使用原生媒体状态；拖动只预览，松手才定位，避免远程片源反复缓冲。 */
+/* 触摸手势使用原生媒体状态；拖动只预览，松手才定位，避免远程片源反复缓冲。
+ * 倍速、拖动比例、双击区域与跳转秒数读 `gestureSettings()`，每次手势开始时现读。 */
+import { t } from '../i18n';
+import { gestureSettings } from './gesture-settings';
+
 export function wirePlayerInteractions(root: HTMLElement, video: HTMLVideoElement, signal: AbortSignal,
   duration: () => number = () => video.duration, touchEnabled = true) {
   const feedback = document.createElement('div');
@@ -50,9 +54,9 @@ export function wirePlayerInteractions(root: HTMLElement, video: HTMLVideoElemen
   };
   const seek = (time: number) => {
     const target = clamp(time);
-    if (target === null) { tell('时长尚未取得，暂时无法跳转'); return }
-    try { video.currentTime = target } catch { tell('暂时无法跳转，请稍后重试'); return }
-    tell(`跳转到 ${clock(target)}`);
+    if (target === null) { tell(t('catalog:playerGestures.durationUnknown')); return }
+    try { video.currentTime = target } catch { tell(t('catalog:playerGestures.seekFailed')); return }
+    tell(t('catalog:playerGestures.seekTo', { time: clock(target) }));
   };
   const cancel = () => {
     clearTimeout(hold); clearTimeout(tap); lastTap = null;
@@ -63,6 +67,7 @@ export function wirePlayerInteractions(root: HTMLElement, video: HTMLVideoElemen
   };
   root.addEventListener('pointerdown', event => {
     if (!touchEnabled) return;
+    if (event.pointerType === 'touch' && !gestureSettings().touchGestures) { root.dataset.playerInput = 'touch'; active(); return }
     if (event.pointerType !== 'touch') {
       cancel(); root.dataset.playerInput = 'mouse'; ignoreClickUntil = 0; active(); return;
     }
@@ -81,7 +86,8 @@ export function wirePlayerInteractions(root: HTMLElement, video: HTMLVideoElemen
       if (!gesture || gesture.axis || video.paused || video.ended) return;
       clearTimeout(tap); lastTap = null;
       gesture.axis = 'hold'; gesture.rate = video.playbackRate;
-      video.playbackRate = Math.max(2, gesture.rate); tell(`${video.playbackRate}× 倍速 · 松手恢复`, true);
+      video.playbackRate = Math.max(gestureSettings().holdRate, gesture.rate);
+      tell(t('catalog:playerGestures.holdTouch', { rate: video.playbackRate }), true);
     }, 500);
   }, { signal, capture: true });
   root.addEventListener('pointermove', event => {
@@ -98,16 +104,18 @@ export function wirePlayerInteractions(root: HTMLElement, video: HTMLVideoElemen
         : full && current.x - root.getBoundingClientRect().left > current.width / 2 ? 'volume' : 'scroll';
     }
     if (current.axis === 'seek') {
-      event.preventDefault(); current.to = clamp(current.from + dx / current.width * 1200) ?? undefined;
-      if (current.to === undefined) { tell('时长尚未取得，暂时无法跳转', true); return }
+      event.preventDefault(); current.to = clamp(current.from + dx / current.width * gestureSettings().swipeMinutes * 60) ?? undefined;
+      if (current.to === undefined) { tell(t('catalog:playerGestures.durationUnknown'), true); return }
       const delta = current.to - current.from;
-      tell(`${delta >= 0 ? '快进' : '快退'} ${clock(Math.abs(delta))}　${clock(current.to)} / ${clock(duration())} · 松手跳转`, true);
+      tell(t(delta >= 0 ? 'catalog:playerGestures.forward' : 'catalog:playerGestures.backward',
+        { delta: clock(Math.abs(delta)), to: clock(current.to), total: clock(duration()) }), true);
     } else if (current.axis === 'volume') {
       event.preventDefault();
       const volume = Math.max(0, Math.min(1, current.volume - dy / current.height));
       try { video.volume = volume; video.muted = volume === 0 } catch { /* 部分移动浏览器仅支持系统音量键。 */ }
       current.volumeSupported = Math.abs(video.volume - volume) < .01;
-      tell(current.volumeSupported ? `音量 ${Math.round(video.volume * 100)}%` : '此浏览器请用设备音量键', true);
+      tell(current.volumeSupported ? t('catalog:playerGestures.volume', { percent: Math.round(video.volume * 100) })
+        : t('catalog:playerGestures.deviceVolume'), true);
     }
   }, { signal, passive: false });
   window.addEventListener('pointerup', event => {
@@ -125,9 +133,14 @@ export function wirePlayerInteractions(root: HTMLElement, video: HTMLVideoElemen
     } else if (!current.axis && Math.hypot(event.clientX - current.x, event.clientY - current.y) < 12) {
       if (current.menu) { active(); return }
       const position = (current.x - root.getBoundingClientRect().left) / current.width;
-      const zone = position < .35 ? -1 : position > .65 ? 1 : 0;
+      const { doubleTapPercent, seekSeconds } = gestureSettings();
+      const side = doubleTapPercent / 100;
+      const zone = position < side ? -1 : position > 1 - side ? 1 : 0;
       if (lastTap && Date.now() - lastTap.at < 300 && lastTap.zone === zone) {
-        clearTimeout(tap); lastTap = null; if (zone) seek(video.currentTime + zone * 10);
+        clearTimeout(tap); lastTap = null;
+        // 两侧快进快退；中间双击切换播放，和鼠标单击是同一个动作。
+        if (zone) seek(video.currentTime + zone * seekSeconds);
+        else if (video.paused || video.ended) void video.play().catch(() => {}); else video.pause();
       } else {
         clearTimeout(tap); lastTap = { at: Date.now(), zone };
         tap = setTimeout(() => {
@@ -142,7 +155,8 @@ export function wirePlayerInteractions(root: HTMLElement, video: HTMLVideoElemen
   root.addEventListener('pointercancel', () => { ignoreClickUntil = Date.now() + 1000; cancel() }, { signal });
   root.addEventListener('lostpointercapture', () => { if (gesture) cancel() }, { signal });
   root.addEventListener('click', event => {
-    if (!touchEnabled) return;
+    // 关掉触摸手势时，轻点画面照鼠标单击处理（切换播放），不再吞掉合成点击。
+    if (!touchEnabled || !gestureSettings().touchGestures) return;
     if (!surface(event)) { active(); return }
     if ((event as PointerEvent).pointerType === 'touch' || Date.now() < ignoreClickUntil) {
       event.preventDefault(); event.stopImmediatePropagation(); return;

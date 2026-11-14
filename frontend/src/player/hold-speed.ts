@@ -1,3 +1,6 @@
+import { t } from '../i18n';
+import { gestureSettings } from './gesture-settings';
+
 /** 右键短按跳转、长按临时倍速；不写入播放器的持久速度偏好。 */
 export function installHoldSpeed(options: {
   activeVideo: () => HTMLVideoElement | null;
@@ -40,11 +43,11 @@ export function installHoldSpeed(options: {
       original: null, boosted: null, badge: null, timer: setTimeout(() => {
         if (hold !== current || !valid(current) || video.paused || video.ended) return;
         current.original = video.playbackRate;
-        current.boosted = Math.max(2, current.original);
+        current.boosted = Math.max(gestureSettings().holdRate, current.original);
         video.playbackRate = current.boosted;
         const badge = document.createElement('span');
         badge.className = 'vjs-peach-hold-speed'; badge.setAttribute('role', 'status');
-        badge.textContent = `${current.boosted}× 快进`;
+        badge.textContent = t('catalog:playerGestures.holdKey', { rate: current.boosted });
         (video.closest('media-container') || video.closest('.video-js') || video.parentElement)?.append(badge);
         current.badge = badge;
       }, 350) };

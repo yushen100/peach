@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { wirePlayerInteractions } from '../src/player/touch-controls';
+import { DEFAULT_GESTURES, configureGestureSettings, normalizeGestures } from '../src/player/gesture-settings';
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); document.body.replaceChildren() });
 function fixture(paused = false, touchEnabled = true) {
@@ -104,5 +105,40 @@ describe('播放器按实际输入区分触摸和鼠标', () => {
     tap(); pointer('pointerdown', 500, 300, 'mouse'); click(); expect(pause).toHaveBeenCalledOnce();
     const button = document.createElement('media-fullscreen-button'), enter = vi.fn(); button.onclick = enter; root.append(button);
     video.dispatchEvent(new MouseEvent('dblclick', { bubbles: true })); expect(enter).toHaveBeenCalledOnce(); abort.abort();
+  });
+});
+
+describe('手势数值按设置', () => {
+  afterEach(() => configureGestureSettings(() => DEFAULT_GESTURES));
+  it('长按倍速、拖动比例、双击区域与跳转秒数都读设置', () => {
+    configureGestureSettings(() => ({ holdRate: 3, swipeMinutes: 10, doubleTapPercent: 20, seekSeconds: 30 }));
+    const { video, pointer, tap, abort } = fixture();
+    pointer('pointerdown', 500); vi.advanceTimersByTime(500);
+    expect(video.playbackRate).toBe(3); pointer('pointerup', 500);
+    expect(video.playbackRate).toBe(1);
+    pointer('pointerdown', 100); pointer('pointermove', 600); pointer('pointerup', 600);
+    expect(video.currentTime).toBe(1500);
+    tap(250); tap(250); expect(video.currentTime).toBe(1500);
+    tap(150); tap(150); expect(video.currentTime).toBe(1470);
+    tap(900); tap(900); expect(video.currentTime).toBe(1500);
+    abort.abort();
+  });
+  it('双击中间切换播放', () => {
+    const { video, tap, abort } = fixture();
+    const pause = vi.spyOn(video, 'pause').mockImplementation(() => {});
+    tap(500); tap(500); expect(pause).toHaveBeenCalledOnce(); abort.abort();
+  });
+  it('关掉触摸手势后拖动与长按都不接管，轻点照鼠标单击切换播放', () => {
+    configureGestureSettings(() => ({ touchGestures: false }));
+    const { video, pointer, tap, abort } = fixture();
+    const pause = vi.spyOn(video, 'pause').mockImplementation(() => {});
+    pointer('pointerdown', 100); vi.advanceTimersByTime(600); pointer('pointermove', 600); pointer('pointerup', 600);
+    expect(video.currentTime).toBe(1200); expect(video.playbackRate).toBe(1);
+    tap(500); expect(pause).toHaveBeenCalledOnce();
+    abort.abort();
+  });
+  it('坏值收回可用范围', () => {
+    expect(normalizeGestures({ holdRate: 99, swipeMinutes: -1, doubleTapPercent: Number.NaN }))
+      .toEqual({ ...DEFAULT_GESTURES, holdRate: 4, swipeMinutes: 1 });
   });
 });
