@@ -268,6 +268,15 @@ _CODE_DATE = re.compile(rf"^{_MMDDYY}[-_]\d{{2,4}}$")
 #: 没有实证的形态放进来，素材编号和文件计数都会被当成番号。
 _KIRARI_BODY = r"MKB?D-S\d{2,4}"
 _KIRARI_CODE = re.compile(rf"^{_KIRARI_BODY}$", re.I)
+#: 厂牌段是「一个字母加数字」的番号，只认登记过的厂牌。放开成任意「字母+数字」的话，
+#: 厂牌名 `S1`、`G1`，画质词 `X1080`、`VR180`，素材编号 `G2115`、`p1000` 都会被读成番号
+#: （后三种本机账本里都有）。
+#: TMA 的 `T28`、`T38`：JavBus 片商页 `studio/54` 2026-11-14 全量翻过，这两段分别 282、65 部，
+#: 序号三位，TMA 别的字母段都是纯字母；r18.dev 给 `T28-612` 的 content_id 是 `55t2800612`。
+DIGIT_LABELS = ("T28", "T38")
+DIGIT_LABEL_PATTERN = "(?:" + "|".join(DIGIT_LABELS) + ")"
+_DIGIT_LABEL_TEXT = re.compile(rf"^({DIGIT_LABEL_PATTERN})[-_. ]?(\d{{2,5}})$", re.I)
+_DIGIT_LABEL_CODE = re.compile(rf"^{DIGIT_LABEL_PATTERN}-\d{{2,5}}$")
 
 #: Tokyo-Hot 的编号没有厂牌字母段：`n1234`／`k1234` 是本编，`red-123` 是 Red Hot 支线。
 #: 规范写法取小写，不跟着别的番号大写——javbus 的作品页地址就是 `/n1234`，NeoAVDC
@@ -386,7 +395,8 @@ _CODE_BODY = re.compile(r"^(?:\d{3})?[A-Za-z]{2,8}[-_. ]?\d{2,5}$")
 _FORUM_URL_WRAPPER = re.compile(r"^\[url\](.+)\[(?:\||/)url\]$", re.I)
 _REMUX_CODE_TAIL = re.compile(r"\(([A-Za-z]{2,8}-\d{2,5})\)\[BD[ ._-]Remux\]$", re.I)
 _INLINE_STUDIO_CODE = re.compile(
-    rf"(?<![A-Za-z0-9])(?:(?:\d{{3}})?[A-Za-z]{{2,8}}-\d{{2,5}}|{_KIRARI_BODY})(?![A-Za-z0-9])", re.I)
+    rf"(?<![A-Za-z0-9])(?:(?:\d{{3}})?[A-Za-z]{{2,8}}-\d{{2,5}}|{_KIRARI_BODY}|{DIGIT_LABEL_PATTERN}-\d{{2,5}})"
+    r"(?![A-Za-z0-9])", re.I)
 
 #: DMM 自己交付的文件名：四位发行日（`0112` 是 1 月 12 日）顶在番号前面，编码写在后面。
 #: 四位是判据的关键——素人系的前缀恰好三位（`259LUXU-1007`），放宽到「若干位数字」
@@ -493,7 +503,7 @@ _QUALITY_TOKEN = re.compile(r"^(?:hd|fhd|sd|uhd|4k|2160p?|1080p?|720p?)$", re.I)
 #: （`TG-2025-01-27`）是日期。只取词元开头这一段，紧跟的版次和分卷（`-C`、`-CD1`、
 #: `_part1`）不影响番号。
 _HYPHENATED_CODE = re.compile(
-    rf"^(?:{_KIRARI_BODY}(?![0-9])|(?:\d{{3}})?[A-Z]{{2,8}}-\d{{3,5}}(?![0-9]|-\d{{2}}-\d))",
+    rf"^(?:{_KIRARI_BODY}(?![0-9])|(?:(?:\d{{3}})?[A-Z]{{2,8}}|{DIGIT_LABEL_PATTERN})-\d{{3,5}}(?![0-9]|-\d{{2}}-\d))",
     re.I,
 )
 #: 用户番号识别规则的上限。每条规则要对库里每个文件名跑一遍，条数和长度都设个顶。
@@ -624,6 +634,10 @@ def normalise_code_key(code: str | None) -> str:
     short_fc2 = _FC2_ID.match(value)
     if short_fc2:
         return f"FC2-PPV-{short_fc2.group(1)}"
+    digit_label = _DIGIT_LABEL_TEXT.fullmatch(value)
+    if digit_label:
+        label, digits = digit_label.groups()
+        return f"{label}-{code_serial(label, digits)}"
     shape = re.fullmatch(r"(\d{3})?([A-Z]+)-?(\d+)([A-Z]{0,2})", value)
     if not shape:
         return value
@@ -691,6 +705,7 @@ def is_jav_code(code: str | None) -> bool:
         or _CODE_AMATEUR.match(value)
         or _CODE_DATE.match(value)
         or _KIRARI_CODE.match(value)
+        or _DIGIT_LABEL_CODE.match(value)
         or tokyo_hot_code(value)
     )
 
@@ -784,6 +799,11 @@ def _release_identity(code: str) -> str:
         # 来源只给一串数字时分隔符无从得知，原样留着数字，别替它挑一个片商。
         # 与带分隔符那一侧的比对交给 `same_release_code`。
         return value
+    digit_label = re.fullmatch(rf"(\d{{1,4}})?({DIGIT_LABEL_PATTERN})(\d{{2,5}})", value)
+    if digit_label:
+        # DMM 的 content_id 带片商数字头（`55t2800612`），和别的番号一样留在身份里。
+        prefix, label, number = digit_label.groups()
+        return f"{prefix or ''}{label}-{code_serial(label, number)}"
     shape = _RELEASE_ID.fullmatch(value)
     if shape:
         prefix, letters, number, suffix = shape.groups()
@@ -833,6 +853,8 @@ def code_letter_stem(code: str | None) -> str:
     value = normalise_code_key(code)
     if not value or value.startswith("FC2"):
         return ""
+    if _DIGIT_LABEL_CODE.fullmatch(value):
+        return value.split("-", 1)[0].lower()
     return re.sub(r"[^A-Z]", "", value.split("-", 1)[0]).lower()
 
 
@@ -955,7 +977,8 @@ def release_code_from_text(value: str | None) -> str | None:
         return f"{date.group(1)}{date.group(2)}{date.group(3)}"
     body = VERSION_TAIL.sub("", _QUALITY_HEAD.sub("", text))
     canonical = normalise_code_key(body)
-    if not (_CODE_BODY.fullmatch(body) or _KIRARI_CODE.fullmatch(canonical)) or is_code_body_stopword(body):
+    if not (_CODE_BODY.fullmatch(body) or _KIRARI_CODE.fullmatch(canonical)
+            or _DIGIT_LABEL_TEXT.fullmatch(body)) or is_code_body_stopword(body):
         return None
     return canonical if is_jav_code(canonical) else None
 
@@ -1099,6 +1122,9 @@ def _jav_code_pattern(code: str | None) -> str:
     fc2 = re.fullmatch(r"FC2-PPV-(\d+)", canonical)
     if fc2:
         return rf"FC2(?:[-_ ]?PPV)?[-_ ]*0*{re.escape(fc2.group(1))}"
+    if _DIGIT_LABEL_CODE.fullmatch(canonical):
+        label, serial = canonical.split("-", 1)
+        return rf"{label}[-_ ]*{code_serial_pattern(label, serial)}"
     amateur = re.fullmatch(r"(\d{3})?([A-Z]+)-(\d+)([A-Z]{0,2})", canonical)
     if amateur:
         prefix, letters, digits, suffix = amateur.groups()

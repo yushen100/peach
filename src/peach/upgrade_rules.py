@@ -10,6 +10,9 @@ PROVIDER_EVIDENCE = 2
 #: 文字补修规则。4：刮削挂上的乱码人物关联自动解除并重采（#478）；已有旧回执的库只重跑文字补修。
 PROVIDER_TEXT = 4
 OFFICIAL_COVER_CATALOG_MISSES = 1
+#: 文件名番号判据放宽后（如 TMA 的 `T28-612`），账本里还没番号、按现行规则认得出的影片撤掉处理检查点重新处理。
+#: 判据又放宽时加一。
+FILENAME_CODES = 1
 #: 核查差异按确定判据结算（ADR-0139）。判据改了就加一，升级时对存量候选再结算一遍。
 VERIFICATION_SETTLEMENT = 1
 # 旧队列保持撤下状态；新规则单独记录已取得的 SAR 测量。

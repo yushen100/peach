@@ -2824,6 +2824,16 @@ def _checkpoint_key(row):
     return f"{row['id']}:{row['path']}"
 
 
+def _newly_coded_assets(database, db_path) -> set[str]:
+    """账本里没番号、按现行内置规则能从文件名认出番号的影片 id；处理时会补上番号再采资料。"""
+    from .repository import LedgerDatabase
+    ledger = database if database is not None else LedgerDatabase(db_path)
+    with ledger.read_connection() as connection:
+        rows = connection.execute(
+            "SELECT id,name FROM asset WHERE medium='video' AND COALESCE(code,'')=''").fetchall()
+    return {str(row[0]) for row in rows if release_code_from_filename(row[1] or '')}
+
+
 class _LibraryCheckpoints:
     """只有预览登记或候选落盘成功才提交影片检查点。"""
 
@@ -2850,6 +2860,12 @@ class _LibraryCheckpoints:
             self.completed['completed_metadata'] = {
                 key for key in self.completed['completed_metadata'] if key.partition(':')[0] not in missing}
         state['fc2_metadata_rule'] = upgrade_rules.FC2_METADATA
+        if (previous.get('filename_code_rule') != upgrade_rules.FILENAME_CODES
+                and self.completed['completed_metadata']):
+            newly_coded = _newly_coded_assets(database, db_path)
+            self.completed['completed_metadata'] = {
+                key for key in self.completed['completed_metadata'] if key.partition(':')[0] not in newly_coded}
+        state['filename_code_rule'] = upgrade_rules.FILENAME_CODES
         self.pending_metadata = set()
         self.entity_watermark = previous.get('entity_watermark')
         if self.entity_watermark is None:
