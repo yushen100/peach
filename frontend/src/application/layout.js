@@ -1,5 +1,6 @@
 /* layout 域控制器：本域状态与动作，启动由 Application 的生命周期统一安装。 */
 import { javCardPage, javSelectPage } from '../jav-controls';
+import { pageSelectPath } from '../react/components/page-selection';
 import { DIRECT_MANAGE_NAV, MANAGE_MENU_SECTIONS, MANAGE_SECTIONS, NAV_CATALOG, OPTIONAL_SIDEBAR_ITEMS, SIDEBAR_ITEMS, getManageMenuSections } from './navigation-items';
 import { FOLLOW_INITIAL_RANGE_OPTIONS } from './initial-follow-ranges';
 import { noteHtml, revealTexts } from '../ui-kit';
@@ -398,13 +399,21 @@ export function syncHeaderActions(){
   if(selectMode&&selectSurface!==selectionState.currentSelectSurface())
     setSelectMode(false,true);
   const entity=parts.length>1&&Object.prototype.hasOwnProperty.call(ROUTE_ENTITIES,parts[0]);
+  const query=new URLSearchParams(location.search);
+  /* 实体页此刻画的是哪一档：画过以后以页面报的为准，首屏之前按地址里的 `media` 推。 */
+  const media=query.get('media')||'';
+  const entityView=entity?(entityState.entityPageView||(media==='photos'||media==='online'?media:'videos')):'';
   const catalog=isCatalogPath(path)||path==='/trash';
   const javCards=javCardPage(path,location.search);
-  if(path==='/jav'&&selectMode)setSelectMode(false,true);
-  const canSelect=catalog||entity||path==='/tags'||path==='/follow'||javSelectPage(path,location.search);
+  if((path==='/jav'||pageSelectPath(path))&&selectMode)setSelectMode(false,true);
+  /* 标签页的本地范围（含管理模式）有可选的标签；在线范围另由标签页自己处理。 */
+  const tagsSelectable=path==='/tags'&&query.get('scope')!=='online';
+  /* 处理队列页（重复文件、复核、高清升级、关注管理、数据管理里的表格）的选择集归页面，右上角开关同样能用。
+     实体页的视频、照片与在线视图有可选的条目；名册视图收起。 */
+  const canSelect=catalog||entityView==='videos'||entityView==='photos'||entityView==='online'||tagsSelectable||path==='/follow'
+    ||javSelectPage(path,location.search)||pageSelectPath(path);
   const canDensity=catalog||entity||path==='/follow'||javCards;
-  /* 垃圾文件是处理队列：勾选框直接画在卡上，右上角的多选开关不出。 */
-  $('#selectMode').hidden=!canSelect||path==='/junk-files';$('#density').hidden=!canDensity;
+  $('#selectMode').hidden=!canSelect;$('#density').hidden=!canDensity;
   syncPhotoWalls();
   if(!canSelect&&selectMode)setSelectMode(false,true);
 }

@@ -19,6 +19,7 @@ import { errorMessage } from '../../api';
 import type { BulkAction } from '../components/bulk-action';
 import { DataTableFooter } from '../components/table-controls';
 import { queryClient } from '../query';
+import { enterPageSelection, usePageSelection } from '../components/page-selection';
 import { EmptyState } from '../components/empty-state';
 import { Note } from '../components/note';
 import { Page } from '../components/page';
@@ -65,6 +66,9 @@ export function ReviewPage(props: ReviewProps) {
   /* 勾选、选中的来源值、勾上的作品样本、失败原因，身份都是 `item_key`：翻页、换分组
      之后手里还是同一批东西。它们不进地址栏——那是这一刻手里的一批，不是这一页的身份。 */
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set<string>());
+  usePageSelection(() => setSelected(new Set<string>()));
+  // 直接勾某一项等于进入多选（右上角开关同一份状态）。
+  useEffect(() => { if (selected.size) enterPageSelection() }, [selected]);
   const [choices, setChoices] = useState<ReadonlyMap<string, RowChoice>>(new Map());
   const [errors, setErrors] = useState<ReadonlyMap<string, string>>(new Map());
   const [feedback, setFeedback] = useState('');

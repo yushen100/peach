@@ -123,6 +123,13 @@ export function IndexPage(props: IndexProps) {
 
   /* 选择键归壳：关掉时所选跟着清空，下次打开从零开始，同目录页的多选。 */
   useEffect(() => { if (!props.selectMode) setPicked(new Set()) }, [props.selectMode]);
+  /* 在线标签没有可多选的东西，顶栏多选键收起；回到本地标签再放出来（管理模式的勾选接右上角开关）。 */
+  const noTagSelect = onlineTags;
+  useEffect(() => {
+    const button = document.getElementById('selectMode');
+    if (kind !== 'tags' || !button) return;
+    button.hidden = noTagSelect;
+  }, [kind, noTagSelect]);
 
   /* 换筛选、词表或类型时保留控件，只在结果区显示等待态。 */
   const go = (patch: Partial<IndexRoute>, replace = false) => {

@@ -44,6 +44,7 @@ import { LEGACY_AVATAR_IMG } from '../components/legacy-avatar';
 import { SiteLabel } from '../components/source-label';
 import { Note } from '../components/note';
 import type { BulkAction, Receipt } from '../components/bulk-action';
+import { exitPageSelection } from '../components/page-selection';
 import { SelectionDock } from '../components/selection-dock';
 import { queryClient } from '../query';
 import { ErrorText, Help } from '../settings/section';
@@ -440,7 +441,7 @@ export function FeedSources({ readOnly, toast, onAdd, selection }: {
         <SelectionDock visible={chosen.length > 0} label={t('follow:feedSources.bulkActions')} count={t('follow:feedSources.selectedCount', { count: chosen.length })}
           actions={[toggleMany(true), toggleMany(false), removeMany].map((bulkAction) => ({
             action: bulkAction, items: chosen, host, disabled: readOnly || bulk.isPending }))}>
-          <Button variant="ghost" size="small" onClick={() => setSelected(new Set())}>{t('follow:shared.clearSelection')}</Button>
+          <Button variant="ghost" size="small" onClick={exitPageSelection}>{t('follow:shared.clearSelection')}</Button>
         </SelectionDock>
 
       {sources.length ? (

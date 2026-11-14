@@ -23,6 +23,7 @@ import { CollectionSummary } from '../components/collection-summary';
 import { EmptyState } from '../components/empty-state';
 import { FilterGlass, GlassPill } from '../components/filter-glass';
 import { Note } from '../components/note';
+import { enterPageSelection, exitPageSelection, usePageSelection } from '../components/page-selection';
 import { SelectionDock } from '../components/selection-dock';
 import { SourceLabel } from '../components/source-label';
 import { spriteGlyph } from '../components/sprite-glyph';
@@ -162,6 +163,7 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
   const sources = useQuery({ queryKey: MEDIA_SOURCES_KEY, queryFn: ({ signal }) => fetchMediaSources(signal) });
   const [pending, setPending] = useState('');
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  usePageSelection(() => setPicked(new Set()));
   const host: BulkHost = { receipt: toast, failure: (cause) => failure(t('cleanup:duplicates.bulkFailed'), cause) };
   const dispose = useMutation({
     mutationFn: (ids: readonly number[]) => batchOperate(ids, 'dispose'),
@@ -219,11 +221,14 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
   const chosen = groups.filter((group) => picked.has(groupKey(group)));
   const allPicked = groups.length > 0 && chosen.length === groups.length;
   const switchView = (next: 'pending' | 'kept') => { setPicked(new Set()); setView(next) };
-  const toggle = (group: DuplicateGroup, on: boolean) => setPicked((current) => {
-    const next = new Set(current);
-    if (on) next.add(groupKey(group)); else next.delete(groupKey(group));
-    return next;
-  });
+  const toggle = (group: DuplicateGroup, on: boolean) => {
+    if (on) enterPageSelection();
+    setPicked((current) => {
+      const next = new Set(current);
+      if (on) next.add(groupKey(group)); else next.delete(groupKey(group));
+      return next;
+    });
+  };
   const runAll = (action: BulkAction<DuplicateGroup>, key: string) => {
     if (pending) return;
     setPending(key);
@@ -250,7 +255,7 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
     keep.mutate({ group, on });
   };
   const selectPage = <Checkbox size="sm" isSelected={allPicked} isIndeterminate={chosen.length > 0 && !allPicked}
-    onChange={(on) => setPicked(on ? new Set(groups.map(groupKey)) : new Set())}>{t('cleanup:duplicates.selectPage')}</Checkbox>;
+    onChange={(on) => { if (on) enterPageSelection(); setPicked(on ? new Set(groups.map(groupKey)) : new Set()) }}>{t('cleanup:duplicates.selectPage')}</Checkbox>;
   const dockActions = keptView
     ? [unkeepAction(t('cleanup:duplicates.unkeep'))]
     : [
@@ -304,7 +309,7 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
       <SelectionDock label={t('cleanup:duplicates.dockLabel')} visible={chosen.length > 0}
         count={t('cleanup:duplicates.selectedGroups', { count: chosen.length })}
         actions={dockActions.map((action) => ({ action, items: chosen, host, done: () => setPicked(new Set()) }))}>
-        <Button variant="ghost" size="small" onClick={() => setPicked(new Set())}>{t('cleanup:duplicates.clearSelection')}</Button>
+        <Button variant="ghost" size="small" onClick={exitPageSelection}>{t('cleanup:duplicates.clearSelection')}</Button>
       </SelectionDock>
       {dispose.isError
         ? <div className="mb-5"><Note tone="error" title={t('cleanup:duplicates.trashFailed')}>{errorMessage(dispose.error)}</Note></div>

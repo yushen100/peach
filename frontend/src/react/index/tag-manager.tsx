@@ -9,6 +9,7 @@ import { IndexSearch } from './index-search';
 import { useTagPageBounds, useTagPagination } from './tag-pagination';
 import { GlassPill } from '../components/filter-glass';
 import { Note } from '../components/note';
+import { enterPageSelection, exitPageSelection, usePageSelection } from '../components/page-selection';
 import { SelectionDock } from '../components/selection-dock';
 import { useAction } from '../settings/use-action';
 import { ONLINE_TAG_CATEGORIES, TAG_CATEGORIES, tagGroups, type TagView } from './index-data';
@@ -40,6 +41,9 @@ export function TagManager({ search, category = 'all', view = 'cloud', onCategor
   useTagPageBounds(inventory.data?.total, pagination, changePage);
   const [selection, setPicked] = useState<ReadonlyMap<string, ManagedTag>>(new Map());
   useEffect(() => { setPicked(new Map()) }, [filter]);
+  /* 管理模式的勾选接右上角多选开关：勾了就进入多选，点开关退出时清空。 */
+  usePageSelection(() => setPicked(new Map()), { topbar: true });
+  useEffect(() => { if (selection.size) enterPageSelection() }, [selection]);
   const picked = new Set(selection.keys());
   const [editing, setEditing] = useState<'rename' | 'merge' | null>(null);
   const action = useAction();
@@ -71,7 +75,7 @@ export function TagManager({ search, category = 'all', view = 'cloud', onCategor
       actions={<>
         {inventory.data?.duplicate_groups.length ? <GlassPill busy={action.busy === 'repair'} onPress={() => run({ operation: 'repair', ids: [] })}>{t('catalog:tagManager.mergeDuplicates')}</GlassPill> : null}
         {visible.length ? <GlassPill onPress={() => setPicked(current => new Map([...current, ...visible.map(row => [row.k, row] as const)]))}>{t('catalog:tagManager.selectPage')}</GlassPill> : null}
-        {picked.size ? <GlassPill onPress={() => setPicked(new Map())}>{t('catalog:tagManager.clearSelection')}</GlassPill> : null}
+        {picked.size ? <GlassPill onPress={exitPageSelection}>{t('catalog:tagManager.clearSelection')}</GlassPill> : null}
       </>} />
     {inventory.isPending ? <div dangerouslySetInnerHTML={{ __html:tagSkeletonHtml({ mode:activeView, pageSize:pagination.pageSize }) }} />
       : inventory.isError ? <Note tone="error" action={<Button variant="secondary" onClick={() => void inventory.refetch()}>{t('catalog:shared.retryNow')}</Button>}>{t('catalog:tagManager.loadFailed')}</Note>

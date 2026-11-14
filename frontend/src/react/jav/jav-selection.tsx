@@ -97,36 +97,43 @@ export function JavSelectionProvider({ children, readOnly, receipt, dock = true 
     });
   };
   const eligible = [...picked.values()].filter(item => !item.wanted && !item.asset_id);
-  /* 加入想要：逐条加，回执的撤销把这一批新加的那几条移出想要（原本就在想要里的不动）。 */
-  const want: BulkAction<Discovery> = {
-    key: 'want', label: t('catalog:javSelection.addToWants'), reversal: 'undo',
-    confirm: (items) => ({ title: t('catalog:javSelection.addToWants'), body: t('catalog:javSelection.wantConfirm', { count: items.length }) }),
-    run: async (items) => {
-      const created: number[] = [];
-      let completed = 0;
-      try {
-        for (const item of items) {
-          try {
-            const result = await addWant({ code: item.code });
-            if (result.created) created.push(result.want.id);
-          } catch (error) { throw Error(t('catalog:javSelection.wantPartialFailed', { count: completed, code: item.code, error: errorMessage(error) })) }
-          completed++;
-        }
-      } finally { void invalidateWants() }
-      return async () => { if (created.length) await removeWants(created); await invalidateWants() };
-    },
-    receipt: (items) => t('catalog:javSelection.wantAdded', { count: items.length }),
+  /* 加入想要：逐条加。半路失败时弹窗留着、原因写在正文下面，加上的那几条移出选择，重试只发剩下的；
+     回执的撤销把这一批新加的那几条移出想要（原本就在想要里的不动）。 */
+  const wantAction = (): BulkAction<Discovery> => {
+    const done = new Set<string>();
+    const created: number[] = [];
+    return {
+      key: 'want', label: t('catalog:javSelection.addToWants'), reversal: 'undo',
+      confirm: (items) => ({ title: t('catalog:javSelection.addToWants'), body: t('catalog:javSelection.wantConfirm', { count: items.length }) }),
+      run: async (items) => {
+        try {
+          for (const item of items) {
+            if (done.has(item.code)) continue;
+            try {
+              const result = await addWant({ code: item.code });
+              if (result?.created) created.push(result.want.id);
+            } catch (error) {
+              throw Error(t('catalog:javSelection.wantPartialFailed', { count: done.size, code: item.code, error: errorMessage(error) }));
+            }
+            done.add(item.code);
+            setPicked(current => { const next = new Map(current); next.delete(item.code); return next });
+          }
+        } finally { void invalidateWants() }
+        return async () => { if (created.length) await removeWants(created); await invalidateWants() };
+      },
+      receipt: () => t('catalog:javSelection.wantAdded', { count: done.size }),
+    };
   };
+  const want = wantAction();
   const host = { receipt };
   return <Context.Provider value={{ dense, mode, selected, toggle, visible, selectPage, close, all: summary.all, mixed: summary.mixed }}>
     <div data-jav-selection="" data-select-mode={mode ? '' : undefined} className="flex min-w-0 flex-col gap-4">
       {children}
     </div>
     <SelectionDock visible={dock && mode} count={t('catalog:javSelection.selectedCount', { count: picked.size })} label={t('catalog:javSelection.dockLabel')}
-      actions={[{ action: want, items: eligible, host, disabled: readOnly,
-        done: () => setPicked(current => new Map([...current].filter(([, item]) => !eligible.includes(item)))) }]}>
-      <Button size="small" variant="secondary" disabled={!page.length} onClick={selectPage}>
-        <span data-copy-key={`jav.selection.page.${summary.all ? 'clear' : 'all'}`}>{summary.all ? t('catalog:javSelection.deselectPage') : t('catalog:javSelection.selectPage')}</span></Button>
+      actions={[{ action: want, items: eligible, host, disabled: readOnly }]}
+      leading={<Button size="small" variant="secondary" disabled={!page.length} onClick={selectPage}>
+        <span data-copy-key={`jav.selection.page.${summary.all ? 'clear' : 'all'}`}>{summary.all ? t('catalog:javSelection.deselectPage') : t('catalog:javSelection.selectPage')}</span></Button>}>
       <Button size="small" variant="secondary" disabled={!picked.size} onClick={() => setResources([...picked.values()])}>{t('catalog:shared.searchTorrents')}</Button>
       <Button size="small" variant="ghost" onClick={close}>{t('catalog:javSelection.exit')}</Button>
     </SelectionDock>

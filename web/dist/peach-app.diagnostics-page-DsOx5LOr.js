@@ -1,13 +1,13 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "1b72ead1-6175-4256-93d0-13cd12f7f07d", e._sentryDebugIdIdentifier = "sentry-dbid-1b72ead1-6175-4256-93d0-13cd12f7f07d");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "12e09647-16d0-4f80-a856-854eb621abb9", e._sentryDebugIdIdentifier = "sentry-dbid-12e09647-16d0-4f80-a856-854eb621abb9");
 	} catch {}
 })();
 import { ApiError as e, Button as t, ButtonLink as n, Chip as r, DIAGNOSTICS_KEY as i, Disclosure as a, EmptyState as o, Fact as s, FactList as c, Fieldset as l, FieldsetTitle as u, Input as d, ItemLibrary as f, LOC as p, LinkButton as m, Note as h, Section as g, SettingsCard as _, SettingsSectionLabel as v, Stack as y, TaskProgress as ee, __toESM as b, activityKind as x, apiGet as S, apiSend as C, busyProps as w, checkText$1 as te, codedText as T, configurationSection as ne, cx as E, diagnosticHeaders as D, diagnosticsSkeleton as O, errorMessage as k, fetchDiagnostics as A, fmtDur as re, fmtSize as ie, interfaceLanguage as ae, queryClient as oe, require_jsx_runtime as j, require_react as M, settingsPath as N, stageText as P, t as F, tl as I, useAction as L, useLibraryTints as R, useQuery as z } from "./peach-app.js";
 import { ErrorExcerpt as B } from "./peach-app.error-excerpt-Ugft6I5o.js";
 import { SiteMark as V } from "./peach-app.site-mark-D_VlIyJz.js";
-import { DataTable as H } from "./peach-app.data-table-DW-hfIwY.js";
+import { DataTable as H } from "./peach-app.data-table-DYj6ojEJ.js";
 // src/react/diagnostics/health-list.tsx
 var U = /* @__PURE__ */ b(M(), 1), W = j(), G = (e) => e.title || e.name || e.code || F("manage:healthList.videoFallback", { id: e.id }), K = (e, t) => [[
 	F("manage:shared.video"),
@@ -519,4 +519,4 @@ function fe(e) {
 }
 export { fe as DiagnosticsPage };
 
-//# debugId=1b72ead1-6175-4256-93d0-13cd12f7f07d
+//# debugId=12e09647-16d0-4f80-a856-854eb621abb9

@@ -1,7 +1,7 @@
 /* 创作者别名：同一个人在几个站上用几个名字，合并之后按一位创作者归组。
  *
  * 待合并是带依据的候选，合并永远由人点：服务端不自行升级，页面也不替他勾。 */
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { RiCloseLine, RiUserLine } from '@remixicon/react';
 import { useMutation } from '@tanstack/react-query';
 import {
@@ -25,6 +25,7 @@ import { useTablePreferences } from '../components/table-column-preferences';
 import { TableColumnControls, TableColumnResizer } from '../components/table-column-controls';
 import { DataTableFooter, DataTableSort } from '../components/table-controls';
 import { runBulkAction, type BulkAction, type Receipt } from '../components/bulk-action';
+import { enterPageSelection, exitPageSelection, usePageSelection } from '../components/page-selection';
 import { SelectionDock } from '../components/selection-dock';
 import { useTableSelection } from '../components/use-table-selection';
 import { ChevronSortDown } from '@/components/foundations/icons/chevrons';
@@ -87,6 +88,10 @@ export function AliasManager({ groups, suggestions, sources = [], readOnly, toas
   const [renaming, setRenaming] = useState<AliasGroup | null>(null);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [savedSelection, setSavedSelection] = useState<RowSelectionState>({});
+  usePageSelection(() => { setRowSelection({}); setSavedSelection({}) });
+  useEffect(() => {
+    if (Object.values(rowSelection).some(Boolean) || Object.values(savedSelection).some(Boolean)) enterPageSelection();
+  }, [rowSelection, savedSelection]);
   const activateSuggestion = useTableSelection(() => setRowSelection({}));
   const activateSaved = useTableSelection(() => setSavedSelection({}));
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -342,7 +347,7 @@ export function AliasManager({ groups, suggestions, sources = [], readOnly, toas
           </div>
           <SelectionDock label={t('follow:creatorAliases.pendingBulkActions')} visible={chosen.length > 0} count={t('follow:creatorAliases.groupsSelected', { count: chosen.length })}
             actions={[{ action: mergeAction(false, chosen.length), items: chosen, host, disabled: readOnly || merge.isPending }]}>
-            <Button variant="ghost" size="small" onClick={() => setRowSelection({})}>{t('follow:shared.clearSelection')}</Button>
+            <Button variant="ghost" size="small" onClick={exitPageSelection}>{t('follow:shared.clearSelection')}</Button>
           </SelectionDock>
           <DataTableFrame follow preferences={suggestionView} onRowClick={id => suggestionTable.getRow(id)?.toggleSelected()}>
             <Table aria-label={t('follow:creatorAliases.pendingTable')} size="sm"
@@ -391,7 +396,7 @@ export function AliasManager({ groups, suggestions, sources = [], readOnly, toas
         <SelectionDock label={t('follow:creatorAliases.savedBulkActions')} visible={savedPicked.length > 0} count={t('follow:creatorAliases.aliasesSelected', { count: savedPicked.length })}
           actions={[{ action: { ...dropSaved, label: t('follow:creatorAliases.removeSelectedCount', { count: savedPicked.length }) },
             items: savedPicked, host, disabled: readOnly || drop.isPending }]}>
-          <Button variant="ghost" size="small" onClick={() => setSavedSelection({})}>{t('follow:shared.clearSelection')}</Button>
+          <Button variant="ghost" size="small" onClick={exitPageSelection}>{t('follow:shared.clearSelection')}</Button>
         </SelectionDock>
         {groups.length ? (
           <>

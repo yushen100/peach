@@ -1,5 +1,6 @@
 import { selectionSurface, selectionDock, setSelectionMode, toggleSelection as toggleSelected } from '../react/catalog-grid/selection-controller';
 import { JAV_SELECTION_EVENT, javSelectPage } from '../jav-controls';
+import { pageSelectionActive, togglePageSelection } from '../react/components/page-selection';
 import { selectSurface } from '../shell';
 /* selection 域控制器：本域状态与动作，启动由 Application 的生命周期统一安装。 */
 import { loadCatalog, pushGridPage } from './catalog.js';
@@ -182,6 +183,7 @@ selectionState.trashCount = null;
 selectionState.currentSelectSurface = ()=>selectionSurface(location.pathname,location.search);
 applicationEffects.handler($('#selectMode'), 'onclick', ()=>{
   if(javSelectPage(location.pathname,location.search)){window.dispatchEvent(new Event(JAV_SELECTION_EVENT));return}
+  if(pageSelectionActive(location.pathname)){togglePageSelection();return}
   setSelectMode(!selectMode,!selectMode?false:true)
 });
 selectionState.REGION_CHOICES = [['jp',t('shell:region.japan')],['kr',t('shell:region.korea')],['cn',t('shell:region.china')],['west',t('shell:region.western')],

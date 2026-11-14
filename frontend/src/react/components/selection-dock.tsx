@@ -27,7 +27,9 @@ export interface DockAction {
 interface SelectionDockProps {
   /** 会写数据的键一律走这里：每项都要声明确认文案与撤销方式，缺项当场报错。 */
   actions: readonly DockAction[];
-  /** 不写数据的控件：全选本页、打开查找面板、取消选择。 */
+  /** 排在写入键前面的选择控件：全选本页。 */
+  leading?: ReactNode;
+  /** 排在写入键后面、不写数据的控件：打开查找面板、取消选择。 */
   children?: ReactNode;
   count: string;
   label: string;
@@ -61,7 +63,7 @@ const publishDockSpace = () => {
   else root.style.removeProperty('--selection-dock-space');
 };
 
-function DockSurface({ actions, children, count, label }: Omit<SelectionDockProps, 'visible'>) {
+function DockSurface({ actions, leading, children, count, label }: Omit<SelectionDockProps, 'visible'>) {
   const dock = useRef<HTMLDivElement>(null);
   const present = useIsPresent();
   const reduce = useSyncExternalStore(subscribeReduce, readReduce, () => false);
@@ -96,6 +98,7 @@ function DockSurface({ actions, children, count, label }: Omit<SelectionDockProp
       <span role="status" className="px-2 text-body-2-regular whitespace-nowrap text-text-primary">
         {count}
       </span>
+      {leading}
       {actions.map((entry) => <DockActionButton key={entry.action.key} entry={entry} />)}
       {children}
     </motion.div>

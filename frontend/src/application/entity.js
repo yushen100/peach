@@ -10,7 +10,7 @@ import { nextSortState, sortDirWord } from './../sort-preferences';
 import { barsContext, notifyShell, selectMode, selected, state, writeShell } from './../shell/index';
 import { $, ENTITY_ROUTES, api, esc, icon } from '../core';
 import { managedEntry, releaseManagedRoute, updateManagedRoute } from './../history/managed';
-import { javActive, scheduleStickySurfaces, setJavLayout, sortOptions } from './layout.js';
+import { javActive, scheduleStickySurfaces, setJavLayout, sortOptions, syncHeaderActions } from './layout.js';
 import { navigationState, openRoutedPage } from './navigation.js';
 import { releaseHoverPreviews } from './../card-art/hover';
 import { preferencesState, wireDrag } from './preferences.js';
@@ -274,7 +274,8 @@ export function connectPhotoController(){
       changeFilter:commitContextFilter,rollSeed:()=>receiptsState.rollSeed(),
       writeSeed:seed=>{state.seed=seed;notifyShell()},
       setJavLayout,javLayout,setPhotoLayout:storePhotoLayout,syncPhotoWalls,openEntity,photoViewActive,
-      recordPainted:(view,wall)=>{entityState.entityPageView=view;entityState.entityPageWall=wall},
+      /* 换到名册、照片或在线视图时顶栏的多选、播放键跟着变，画完重排一次。 */
+      recordPainted:(view,wall)=>{const changed=view!==entityState.entityPageView;entityState.entityPageView=view;entityState.entityPageWall=wall;if(changed)syncHeaderActions()},
       syncDensity:syncDensityControl,scheduleSticky:scheduleStickySurfaces,
       releasePage:()=>releaseManagedRoute($('#index')),showMissing:showEntityMissing,dropBars,
     },

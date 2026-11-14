@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "050a6fc4-5ec4-44b8-8652-e9862cf040fe", e._sentryDebugIdIdentifier = "sentry-dbid-050a6fc4-5ec4-44b8-8652-e9862cf040fe");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "65389fc1-a320-40b8-8fd5-6be50ad893ce", e._sentryDebugIdIdentifier = "sentry-dbid-65389fc1-a320-40b8-8fd5-6be50ad893ce");
 	} catch {}
 })();
 import { $76d00c5a4edb230a$export$76ccd210b9029917 as e, $76d00c5a4edb230a$export$816b5d811295e6bc as t, $76d00c5a4edb230a$export$b59bdbef9ce70de2 as n, $76d00c5a4edb230a$export$f6f0c3fe4ec306ea as r, $76d00c5a4edb230a$export$f850895b287ef28e as i, $fe21c36db05242bb$export$d7b12c4107be0d61 as a, ActivityMotion as o, ArtSlot as s, Button as c, ButtonLink as l, Bx as u, COVER_STATE_TITLE as d, CatalogViewToggle as f, Checkbox as p, ChevronSortDown as m, Chip as h, CloudDownloadDialog as g, CoverQueue as _, DISCOVERY_METADATA_KEY as v, DISCOVERY_SORTS as y, DOWNLOADS_KEY as ee, DOWNLOADS_URL as b, DataTableFooter as x, DataTableFrame as S, E3 as C, EmptyFocusButton as w, EmptyState as T, FilterGlassRows as te, FilterIconButton as E, FilterPill as D, GlassPill as ne, IndexSearch as O, Input as k, JAV_LAYOUTS as re, JAV_RECOMMENDATION_GRID as ie, JAV_SELECTION_EVENT as A, JavHeader as j, LibraryShortcuts as M, M6 as N, Note as P, PHASES as ae, RELEASE_COLUMN_VISIBILITY_KEY as oe, RELEASE_COLUMN_WIDTHS_KEY as F, RELEASE_PAGE_SIZES as I, RELEASE_SORTS as se, RELEASE_SORT_COLUMNS as L, SEGMENT as R, SEGMENTED_TRACK as z, SegmentedRadioGroup as B, Segments as ce, SelectionDock as V, Shuffle as le, SortKeys as ue, SourceAvatar as H, Table as U, TableColumnControls as de, TableColumnResizer as fe, TaskProgress as pe, WANTS_KEY as me, WantMagnets as W, Wt as G, __toESM as he, activityKind as ge, addWant as _e, apiGet as ve, appSettingsStore as ye, avatarInner as be, busyProps as K, cachedMagnetStates as xe, cardClass as Se, cardRatio as Ce, catalogListSkeletonCellHtml as we, composingKey as Te, controlDiscoveryMetadata as Ee, controlReleaseMetadata as De, coverArrived as Oe, coverFetching as ke, coverFetchingHtml as Ae, coverReason as je, coverStateAction as Me, coverUrl as Ne, discoveryArtwork as Pe, discoveryKey as Fe, discoveryScore as Ie, entityDisplayName as Le, entityFaceImg as Re, entityPath as ze, errorMessage as Be, esc as Ve, facePos as He, fetchCoverNow as Ue, fetchDiscoveries as We, fetchDiscoveryMetadata as Ge, fetchReleases as Ke, fetchWants as qe, firstGrapheme as Je, fmtDur as Ye, gridLayout as Xe, invalidateWants as q, javContentSkeleton as Ze, javLayout as Qe, javTagSkeleton as $e, jobText as et, joinList as tt, keepPreviousData as nt, lastSearchNote as rt, leadingGraphemes as it, logoUrl as at, metadataInterval as ot, pageWindow as st, qE as ct, queryClient as lt, recommendationScore as ut, relayoutCovers as dt, releaseColumns as ft, releaseFilters as pt, releaseKey as mt, removeWants as ht, require_jsx_runtime as gt, require_react as _t, resetWants as vt, restoreWants as yt, searchNote as bt, selectRange as xt, selectionSummary as St, serverLabelList as Ct, spriteGlyph as wt, storeJavLayout as Tt, suppressShiftTextSelection as Et, t as J, textLang as Dt, tierPlaceholdersHtml as Ot, useAction as kt, useCatalogView as At, useEntityNames as jt, useQuery as Y, useTablePreferences as Mt, wantName as X, wireHorizontalScroller as Nt, writeJavQuery as Z } from "./peach-app.js";
@@ -64,39 +64,44 @@ function Vt({ children: e, readOnly: t, receipt: n, dock: r = !0 }) {
 			]);
 			return new Map([...i].map((e) => [e, a.get(e)]));
 		});
-	}, b = [...s.values()].filter((e) => !e.wanted && !e.asset_id), x = {
-		key: "want",
-		label: J("catalog:javSelection.addToWants"),
-		reversal: "undo",
-		confirm: (e) => ({
-			title: J("catalog:javSelection.addToWants"),
-			body: J("catalog:javSelection.wantConfirm", { count: e.length })
-		}),
-		run: async (e) => {
-			let t = [], n = 0;
-			try {
-				for (let r of e) {
-					try {
-						let e = await _e({ code: r.code });
-						e.created && t.push(e.want.id);
-					} catch (e) {
-						throw Error(J("catalog:javSelection.wantPartialFailed", {
-							count: n,
-							code: r.code,
-							error: Be(e)
-						}));
+	}, b = [...s.values()].filter((e) => !e.wanted && !e.asset_id), x = (() => {
+		let e = /* @__PURE__ */ new Set(), t = [];
+		return {
+			key: "want",
+			label: J("catalog:javSelection.addToWants"),
+			reversal: "undo",
+			confirm: (e) => ({
+				title: J("catalog:javSelection.addToWants"),
+				body: J("catalog:javSelection.wantConfirm", { count: e.length })
+			}),
+			run: async (n) => {
+				try {
+					for (let r of n) if (!e.has(r.code)) {
+						try {
+							let e = await _e({ code: r.code });
+							e?.created && t.push(e.want.id);
+						} catch (t) {
+							throw Error(J("catalog:javSelection.wantPartialFailed", {
+								count: e.size,
+								code: r.code,
+								error: Be(t)
+							}));
+						}
+						e.add(r.code), l((e) => {
+							let t = new Map(e);
+							return t.delete(r.code), t;
+						});
 					}
-					n++;
+				} finally {
+					q();
 				}
-			} finally {
-				q();
-			}
-			return async () => {
-				t.length && await ht(t), await q();
-			};
-		},
-		receipt: (e) => J("catalog:javSelection.wantAdded", { count: e.length })
-	}, S = { receipt: n };
+				return async () => {
+					t.length && await ht(t), await q();
+				};
+			},
+			receipt: () => J("catalog:javSelection.wantAdded", { count: e.size })
+		};
+	})(), S = { receipt: n };
 	return /* @__PURE__ */ (0, $.jsxs)(Rt.Provider, {
 		value: {
 			dense: i,
@@ -124,34 +129,30 @@ function Vt({ children: e, readOnly: t, receipt: n, dock: r = !0 }) {
 					action: x,
 					items: b,
 					host: S,
-					disabled: t,
-					done: () => l((e) => new Map([...e].filter(([, e]) => !b.includes(e))))
+					disabled: t
 				}],
-				children: [
-					/* @__PURE__ */ (0, $.jsx)(c, {
-						size: "small",
-						variant: "secondary",
-						disabled: !u.length,
-						onClick: y,
-						children: /* @__PURE__ */ (0, $.jsx)("span", {
-							"data-copy-key": `jav.selection.page.${g.all ? "clear" : "all"}`,
-							children: g.all ? J("catalog:javSelection.deselectPage") : J("catalog:javSelection.selectPage")
-						})
-					}),
-					/* @__PURE__ */ (0, $.jsx)(c, {
-						size: "small",
-						variant: "secondary",
-						disabled: !s.size,
-						onClick: () => p([...s.values()]),
-						children: J("catalog:shared.searchTorrents")
-					}),
-					/* @__PURE__ */ (0, $.jsx)(c, {
-						size: "small",
-						variant: "ghost",
-						onClick: v,
-						children: J("catalog:javSelection.exit")
+				leading: /* @__PURE__ */ (0, $.jsx)(c, {
+					size: "small",
+					variant: "secondary",
+					disabled: !u.length,
+					onClick: y,
+					children: /* @__PURE__ */ (0, $.jsx)("span", {
+						"data-copy-key": `jav.selection.page.${g.all ? "clear" : "all"}`,
+						children: g.all ? J("catalog:javSelection.deselectPage") : J("catalog:javSelection.selectPage")
 					})
-				]
+				}),
+				children: [/* @__PURE__ */ (0, $.jsx)(c, {
+					size: "small",
+					variant: "secondary",
+					disabled: !s.size,
+					onClick: () => p([...s.values()]),
+					children: J("catalog:shared.searchTorrents")
+				}), /* @__PURE__ */ (0, $.jsx)(c, {
+					size: "small",
+					variant: "ghost",
+					onClick: v,
+					children: J("catalog:javSelection.exit")
+				})]
 			}),
 			/* @__PURE__ */ (0, $.jsx)(Pt, {
 				items: f,
@@ -203,7 +204,7 @@ function Kt({ want: e, readOnly: t, busy: n, onReset: r, onRemove: i, onCloudDow
 			children: [
 				d ? /* @__PURE__ */ (0, $.jsx)(p, {
 					slot: null,
-					className: "mt-1 shrink-0",
+					className: "mt-1 shrink-0 self-start",
 					"aria-label": J("catalog:wants.selectRow", { name: X(e) }),
 					isSelected: d.on,
 					onChange: d.toggle
@@ -574,33 +575,30 @@ function Jt({ readOnly: e, toast: t, query: n = "", clearQuery: r }) {
 					disabled: e,
 					done: () => S(/* @__PURE__ */ new Set())
 				}],
-				children: [
-					/* @__PURE__ */ (0, $.jsx)(c, {
-						size: "small",
-						variant: "secondary",
-						disabled: !_.length,
-						onClick: () => S(D ? /* @__PURE__ */ new Set() : new Set(_.map((e) => e.id))),
-						children: J(D ? "catalog:javSelection.deselectPage" : "catalog:wants.selectAll")
-					}),
-					/* @__PURE__ */ (0, $.jsx)(c, {
-						size: "small",
-						variant: "secondary",
-						disabled: !ie.length,
-						onClick: () => te(ie.map((e) => ({
-							id: e.id,
-							code: e.code,
-							title: e.title || "",
-							release_date: e.release_date || void 0
-						}))),
-						children: J("catalog:shared.searchTorrents")
-					}),
-					/* @__PURE__ */ (0, $.jsx)(c, {
-						size: "small",
-						variant: "ghost",
-						onClick: () => v?.close(),
-						children: J("catalog:javSelection.exit")
-					})
-				]
+				leading: /* @__PURE__ */ (0, $.jsx)(c, {
+					size: "small",
+					variant: "secondary",
+					disabled: !_.length,
+					onClick: () => S(D ? /* @__PURE__ */ new Set() : new Set(_.map((e) => e.id))),
+					children: J(D ? "catalog:javSelection.deselectPage" : "catalog:wants.selectAll")
+				}),
+				children: [/* @__PURE__ */ (0, $.jsx)(c, {
+					size: "small",
+					variant: "secondary",
+					disabled: !ie.length,
+					onClick: () => te(ie.map((e) => ({
+						id: e.id,
+						code: e.code,
+						title: e.title || "",
+						release_date: e.release_date || void 0
+					}))),
+					children: J("catalog:shared.searchTorrents")
+				}), /* @__PURE__ */ (0, $.jsx)(c, {
+					size: "small",
+					variant: "ghost",
+					onClick: () => v?.close(),
+					children: J("catalog:javSelection.exit")
+				})]
 			}),
 			/* @__PURE__ */ (0, $.jsx)(Pt, {
 				items: C,
@@ -1823,4 +1821,4 @@ function mn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clear
 }
 export { pn as JavPage };
 
-//# debugId=050a6fc4-5ec4-44b8-8652-e9862cf040fe
+//# debugId=65389fc1-a320-40b8-8fd5-6be50ad893ce

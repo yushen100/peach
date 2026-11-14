@@ -25,6 +25,7 @@ import { CollectionSummary } from '../components/collection-summary';
 import { EmptyState } from '../components/empty-state';
 import { Note } from '../components/note';
 import { Page } from '../components/page';
+import { enterPageSelection, exitPageSelection, usePageSelection } from '../components/page-selection';
 import { SelectionDock } from '../components/selection-dock';
 import { JavBatchResources } from '../jav/jav-batch-resources';
 import type { Discovery } from '../jav/jav';
@@ -41,7 +42,7 @@ function GoalCard({ item, openItem, searchResources, javTitleHtml, javDisplayNam
     <li data-goal-id={item.id} data-board-selected={picked || undefined}
       className={cardClass({ padding: 'none', className: 'flex flex-col gap-3 p-3' })}>
       <div className="flex min-w-0 gap-4">
-        {item.code ? <Checkbox slot={null} className="mt-1 shrink-0" aria-label={t('manage:hdUpgrades.selectVideo', { title: javDisplayName(item) })}
+        {item.code ? <Checkbox slot={null} className="mt-1 shrink-0 self-start" aria-label={t('manage:hdUpgrades.selectVideo', { title: javDisplayName(item) })}
           isSelected={picked} onChange={onPick} /> : null}
         {/* 居中那句占位文字用 `inline-grid`：旧样式表里 `.grid` 是海报墙那条带列宽和
             间距的规则，排在 `peach-app.css` 后面会赢。这颗按钮是 flex 子项，行内格
@@ -90,6 +91,7 @@ function GoalCard({ item, openItem, searchResources, javTitleHtml, javDisplayNam
 export function QualityGoalsPage({ toast, ...props }: QualityGoalsProps) {
   const [download, setDownload] = useState<DownloadPrefill | null>(null);
   const [picked, setPicked] = useState<ReadonlySet<number>>(new Set());
+  usePageSelection(() => setPicked(new Set()));
   const [resources, setResources] = useState<Discovery[] | null>(null);
   const goals = useQuery({ queryKey: QUALITY_GOALS_KEY, queryFn: ({ signal }) => fetchQualityGoals(signal) });
   const data = goals.data;
@@ -113,11 +115,11 @@ export function QualityGoalsPage({ toast, ...props }: QualityGoalsProps) {
   const selectable = items.filter((item) => item.code);
   const chosen = selectable.filter((item) => picked.has(item.id));
   const allPicked = selectable.length > 0 && chosen.length === selectable.length;
-  const pick = (id: number, on: boolean) => setPicked((current) => {
+  const pick = (id: number, on: boolean) => { if (on) enterPageSelection(); setPicked((current) => {
     const next = new Set(current);
     if (on) next.add(id); else next.delete(id);
     return next;
-  });
+  }) };
   return (
     <Page>
       {/* 总数取服务端的 `total` 而不是这一页的条数：`limit` 截断时两者不是一个数，
@@ -125,7 +127,7 @@ export function QualityGoalsPage({ toast, ...props }: QualityGoalsProps) {
       <CollectionSummary label={t('manage:hdUpgrades.summaryLabel')} figure={t('manage:hdUpgrades.videoCount', { count: Number(data.total || 0) })} flush />
       {selectable.length ? <div className="mb-4">
         <Checkbox size="sm" isSelected={allPicked} isIndeterminate={chosen.length > 0 && !allPicked}
-          onChange={(on) => setPicked(on ? new Set(selectable.map((item) => item.id)) : new Set())}>{t('manage:hdUpgrades.selectAll')}</Checkbox>
+          onChange={(on) => { if (on) enterPageSelection(); setPicked(on ? new Set(selectable.map((item) => item.id)) : new Set()) }}>{t('manage:hdUpgrades.selectAll')}</Checkbox>
       </div> : null}
       <ul className="card-grid-cover gap-5">
         {items.map((item) => <GoalCard key={item.id} item={item} {...props} searchResources={setDownload}
@@ -135,7 +137,7 @@ export function QualityGoalsPage({ toast, ...props }: QualityGoalsProps) {
         actions={[]}>
         <Button size="small" variant="secondary" onClick={() => setResources(chosen.map((item) => ({ id: item.id, code: item.code!,
           title: props.javDisplayName(item), release_date: undefined }) as unknown as Discovery))}>{t('manage:resourceSearch.searchTorrents')}</Button>
-        <Button size="small" variant="ghost" onClick={() => setPicked(new Set())}>{t('manage:hdUpgrades.clearSelection')}</Button>
+        <Button size="small" variant="ghost" onClick={exitPageSelection}>{t('manage:hdUpgrades.clearSelection')}</Button>
       </SelectionDock>
       <JavBatchResources items={resources} close={() => setResources(null)} readOnly={false} receipt={toast} />
       {/* 列表只取前 200 部；总数比这多时说清楚这一页不是全部。 */}

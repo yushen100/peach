@@ -48,6 +48,7 @@ import { Note } from '../components/note';
 import { TaskProgress } from '../components/task-progress';
 import { activityKind } from '../../activity-kinds';
 import { runBulkAction, type BulkAction, type Receipt } from '../components/bulk-action';
+import { exitPageSelection } from '../components/page-selection';
 import { SelectionDock } from '../components/selection-dock';
 import { busyProps } from '../settings/use-action';
 import {
@@ -641,10 +642,10 @@ export function SourceList(props: SourceListProps) {
 
         <SelectionDock label={t('follow:sourceList.bulkActions')} visible={chosen.length > 0} count={t('follow:sourceList.selectedCount', { count: chosen.length })}
           actions={[enableMany(true), enableMany(false), deleteMany].map((bulkAction) => ({
-            action: bulkAction, items: chosen, host, disabled: readOnly || bulk.isPending }))}>
-          <Button variant="secondary" size="small" disabled={readOnly}
-            {...busyProps(rowHandlers.busy)} onClick={() => startChecking(chosen)}>{t('follow:sourceList.checkSelected')}</Button>
-          <Button variant="ghost" size="small" onClick={() => onSelected(new Set())}>{t('follow:shared.clearSelection')}</Button>
+            action: bulkAction, items: chosen, host, disabled: readOnly || bulk.isPending }))}
+          leading={<Button variant="secondary" size="small" disabled={readOnly}
+            {...busyProps(rowHandlers.busy)} onClick={() => startChecking(chosen)}>{t('follow:sourceList.checkSelected')}</Button>}>
+          <Button variant="ghost" size="small" onClick={exitPageSelection}>{t('follow:shared.clearSelection')}</Button>
         </SelectionDock>
 
       {asTable ? (

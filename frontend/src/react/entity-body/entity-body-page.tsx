@@ -2,7 +2,7 @@
  *
  * 数据全由壳取好推进来，这里只挑出当前视图画。作品网格跨刷新代次保留宿主：新的作品请求
  * 将 `items` 置为 `null`，内容与骨架原位交叉淡化，数据到达时同时呈现内容并撤下骨架。 */
-import { Fragment, useCallback, useMemo, useState } from 'react';
+import { Fragment, useCallback, useMemo, useState, type MouseEvent } from 'react';
 
 import { CatalogGridPage, LoadMore } from '../catalog-grid/catalog-grid-page';
 import { SkeletonContent } from '../components/skeleton-content';
@@ -109,10 +109,15 @@ function PhotoSection({ photos, props }: { photos: EntityPhotos; props: EntityBo
   const open = useCallback((index: number) => {
     void openPhotoLightbox(index, wall.map(wallSlide), { revealSource: actions.revealSource });
   }, [actions, wall]);
+  /* 多选：本地图片是馆藏条目，和作品卡同一份选择集与批量键；样张不是条目，不能选。 */
+  const { selectMode, selected } = props;
+  const pick = useCallback((id: number, range: boolean) => actions.toggleSelection(id, range), [actions]);
   const cell = (item: EntityWallPhoto, index: number) => (
-    <PhotoCell key={index} item={item} index={index} lost={lost.has(index)} onLose={lose} onOpen={open} />
+    <PhotoCell key={index} item={item} index={index} lost={lost.has(index)} onLose={lose} onOpen={open}
+      selectMode={selectMode} selected={!isSample(item) && selected.has(item.id)} onPick={pick} />
   );
-  const wallAttrs = { 'data-photo-wall': '', 'data-size': size, 'data-layout': layout };
+  const wallAttrs = { 'data-photo-wall': '', 'data-size': size, 'data-layout': layout,
+    ...(selectMode ? { 'data-select-mode': '' } : {}) };
   let start = 0;
   const groups = photos.codeSets.map((set) => {
     const from = start;
@@ -153,16 +158,29 @@ function GroupHead({ label, title, meta }: { label: string; title?: string; meta
 }
 
 /** 一格。图还没到时是一块 `--sunk` 空底，不是一行文件名：`alt` 留给读屏，字色在样式里调成透明。 */
-function PhotoCell({ item, index, lost, onLose, onOpen }: {
+function PhotoCell({ item, index, lost, onLose, onOpen, selectMode, selected, onPick }: {
   item: EntityWallPhoto; index: number; lost: boolean; onLose(index: number): void; onOpen(index: number): void;
+  selectMode: boolean; selected: boolean; onPick(id: number, range: boolean): void;
 }) {
   const name = item.name ?? '';
+  const selectable = !isSample(item);
+  /* 多选模式或按着修饰键时点一格是切换选中；其余时候进灯箱。 */
+  const click = (event: MouseEvent<HTMLButtonElement>) => {
+    if (selectable && (selectMode || event.shiftKey || event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      onPick((item as { id: number }).id, event.shiftKey);
+      return;
+    }
+    onOpen(index);
+  };
   return (
-    <button type="button" data-photo-cell="" data-photo-index={index} title={name} onClick={() => onOpen(index)}>
+    <button type="button" data-photo-cell="" data-photo-index={index} title={name} onClick={click}
+      data-selected={selected ? '' : undefined} aria-pressed={selectMode && selectable ? selected : undefined}>
       {lost ? null : (
         <img src={thumbSrc(item)} alt={name} loading="lazy" decoding="async" fetchPriority="low"
           onError={() => onLose(index)} />
       )}
+      {selectable ? <span data-media-check="" aria-hidden><svg viewBox="0 0 24 24"><use href="#i-check" /></svg></span> : null}
     </button>
   );
 }

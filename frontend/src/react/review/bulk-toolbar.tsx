@@ -8,6 +8,7 @@ import { RiCheckDoubleLine } from '@remixicon/react';
 
 import { Button } from '@/components/base/buttons/button';
 import { Select, SelectItem } from '../components/select';
+import { exitPageSelection } from '../components/page-selection';
 import { SelectionDock, type DockAction } from '../components/selection-dock';
 import { FilterGlassRows } from '../components/filter-glass';
 import { useViewGlide } from '../components/use-view-glide';
@@ -131,17 +132,17 @@ export function BulkToolbar(props: BulkToolbarProps) {
         </> : null} />
 
         <SelectionDock label={t('manage:reviewToolbar.selectedDock')} visible={!locked && selected.size > 0} count={t('manage:reviewToolbar.selectedCount', { count: selected.size })}
-          actions={actions}>
-          {needsSource && queueView !== 'ignored' ? (
+          actions={actions}
+          leading={needsSource && queueView !== 'ignored' ? (
             <Select aria-label={t('manage:reviewToolbar.sourceForAll')} size="sm" selectedKey=""
               isDisabled={busy || !sources.length}
               onSelectionChange={(key) => { if (key !== null && key !== '') onUnifySource(String(key)) }}>
               <SelectItem id="">{sourceLabel}</SelectItem>
               {sources.map((source) => <SelectItem key={source} id={source}>{source}</SelectItem>)}
             </Select>
-          ) : null}
+          ) : null}>
           <Button variant="ghost" size="small" disabled={busy}
-            onClick={() => onSelected(new Set())}>{t('manage:reviewToolbar.deselect')}</Button>
+            onClick={exitPageSelection}>{t('manage:reviewToolbar.deselect')}</Button>
           {feedback
             ? <p role="status" className="w-full text-body-2-regular text-text-secondary">{feedback}</p>
             : null}

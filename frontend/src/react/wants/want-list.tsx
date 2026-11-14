@@ -74,7 +74,7 @@ function WantRow({ want, readOnly, busy, onReset, onRemove, onCloudDownload, dow
     <li data-want-id={want.id}
       className={cardClass({ className: 'flex flex-col gap-4 max-sm:p-4' })}>
       <div className="flex min-w-0 items-start gap-4 max-sm:gap-3">
-      {picked ? <Checkbox slot={null} className="mt-1 shrink-0" aria-label={t('catalog:wants.selectRow', { name: wantName(want) })}
+      {picked ? <Checkbox slot={null} className="mt-1 shrink-0 self-start" aria-label={t('catalog:wants.selectRow', { name: wantName(want) })}
         isSelected={picked.on} onChange={picked.toggle} /> : null}
       <Cover want={want} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -288,10 +288,10 @@ export function WantList({ readOnly, toast, query = '', clearQuery }: WantListPr
         actions={[
           { action: removeMany, items: chosen, host, disabled: readOnly, done: () => setPicked(new Set()) },
           { action: resetMany, items: chosen.filter((want) => want.phase === 'given_up'), host, disabled: readOnly, done: () => setPicked(new Set()) },
-        ]}>
-        <Button size="small" variant="secondary" disabled={!items.length}
+        ]}
+        leading={<Button size="small" variant="secondary" disabled={!items.length}
           onClick={() => setPicked(allPicked ? new Set() : new Set(items.map((want) => want.id)))}>
-          {allPicked ? t('catalog:javSelection.deselectPage') : t('catalog:wants.selectAll')}</Button>
+          {allPicked ? t('catalog:javSelection.deselectPage') : t('catalog:wants.selectAll')}</Button>}>
         <Button size="small" variant="secondary" disabled={!searchable.length}
           onClick={() => setResources(searchable.map((want) => ({ id: want.id, code: want.code!, title: want.title || '',
             release_date: want.release_date || undefined }) as Discovery))}>{t('catalog:shared.searchTorrents')}</Button>

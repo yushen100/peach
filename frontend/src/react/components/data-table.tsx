@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   createColumnHelper, createPaginatedRowModel, createSortedRowModel, flexRender,
   rowPaginationFeature, rowSelectionFeature, rowSortingFeature, columnVisibilityFeature, tableFeatures, useTable,
@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableColumn, TableHeader, TableRow } from 
 import { ChevronSortDown } from '@/components/foundations/icons/chevrons';
 import { DataTableFrame } from './data-table-frame';
 import { DataTableFooter, DataTableSort } from './table-controls';
+import { enterPageSelection, exitPageSelection, usePageSelection } from './page-selection';
 import { SelectionDock, type DockAction } from './selection-dock';
 import { cardClass } from './card';
 import { useTableSelection } from './use-table-selection';
@@ -67,6 +68,9 @@ export function DataTable<T extends RowData>({ label, items, columns, rowId, row
   const preferences = useTablePreferences(`data:${label}`, preferenceColumns);
   const [pagination, setPagination] = useState({ pageIndex: 0, pageSize: 20 });
   const activateSelection = useTableSelection(() => onSelected([]));
+  /* 处理队列页的右上角多选开关与这里的勾选是同一份状态：勾了就进入多选，退出时清空。 */
+  usePageSelection(() => onSelected([]));
+  useEffect(() => { if (selected.length) enterPageSelection() }, [selected.length]);
   const pages = Math.max(1, Math.ceil(items.length / pagination.pageSize));
   const pageIndex = Math.min(pagination.pageIndex, pages - 1);
   const rowSelection: RowSelectionState = Object.fromEntries(selected.map((id) => [id, true]));
@@ -125,7 +129,7 @@ export function DataTable<T extends RowData>({ label, items, columns, rowId, row
       <SelectionDock label={t('shell:dataTable.bulkActions', { label })} visible={chosen.length > 0} count={t('shell:dataTable.selectedCount', { count: chosen.length, unit })}
         actions={actions(chosen, () => onSelected([]))}>
         {controls?.(chosen, () => onSelected([]))}
-        <Button variant="ghost" size="small" onClick={() => onSelected([])}>{t('shell:dataTable.clearSelection')}</Button>
+        <Button variant="ghost" size="small" onClick={() => { onSelected([]); exitPageSelection() }}>{t('shell:dataTable.clearSelection')}</Button>
       </SelectionDock>
       <DataTableFrame follow preferences={preferences} onRowClick={(id) => table.getRow(id)?.toggleSelected()}>
         <Table aria-label={label} size="sm"

@@ -40,8 +40,10 @@
   .top:has(.search.open) .brand,
   .top:has(.search.open) #searchBtn,
   .top:has(.search.open) #immerseBtn,
+  .top:has(.search.open) #wallBtn,
   .top:has(.search.open) #selectMode,
-  .top:has(.search.open) #settingsBtn{display:none!important}
+  .top:has(.search.open) #settingsBtn,
+  .top:has(.search.open) #tutorialBtn{display:none!important}
   .top:has(.search.open) .searchback{display:inline-flex;position:absolute;left:8px;top:calc(50% - 18px);z-index:6}
   /* 下拉栏以搜索框为包含块（搜索框自身是 absolute），往左伸 40px 盖过返回键那一列，
      和顶栏两侧同样留 8。不用 fixed：玻璃层的 backdrop-filter 会让搜索框成为 fixed 元素的
