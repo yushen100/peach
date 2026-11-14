@@ -80,7 +80,8 @@ export function wirePlayerInteractions(root: HTMLElement, video: HTMLVideoElemen
     gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, width: Math.max(rect.width, 1),
       height: Math.max(rect.height, 1), from: video.currentTime, volume: video.volume, muted: video.muted,
       axis: '', menu: menuOpen(), visible };
-    root.setPointerCapture?.(event.pointerId);
+    // 指针在两次事件之间被系统收回时这里会抛错，手势照样往下走，不能停在半截。
+    try { root.setPointerCapture?.(event.pointerId) } catch { /* 没捕获到也能靠 window 上的抬起收尾。 */ }
     if (gesture.menu) return;
     hold = setTimeout(() => {
       if (!gesture || gesture.axis || video.paused || video.ended) return;
@@ -125,7 +126,7 @@ export function wirePlayerInteractions(root: HTMLElement, video: HTMLVideoElemen
     const current = gesture;
     if (!current || current.id !== event.pointerId) { active(); return }
     clearTimeout(hold); gesture = null; ignoreClickUntil = Date.now() + 1000;
-    root.releasePointerCapture?.(event.pointerId);
+    try { root.releasePointerCapture?.(event.pointerId) } catch { /* 已经释放过。 */ }
     if (current.rate !== undefined) video.playbackRate = current.rate;
     if (current.axis === 'seek' && current.to !== undefined) seek(current.to);
     else if (current.axis === 'hold' || current.axis === 'volume') {

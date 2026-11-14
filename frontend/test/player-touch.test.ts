@@ -142,3 +142,17 @@ describe('手势数值按设置', () => {
       .toEqual({ ...DEFAULT_GESTURES, holdRate: 4, swipeMinutes: 1 });
   });
 });
+
+describe('指针捕获失败', () => {
+  it('系统已收回指针、捕获抛错时长按与拖动照常完成', () => {
+    const { root, video, pointer, abort } = fixture();
+    const lost = () => { throw new DOMException('', 'NotFoundError') };
+    Object.assign(root, { setPointerCapture: lost, releasePointerCapture: lost });
+    pointer('pointerdown', 500); vi.advanceTimersByTime(500);
+    expect(video.playbackRate).toBe(2); pointer('pointerup', 500);
+    expect(video.playbackRate).toBe(1);
+    pointer('pointerdown', 100); pointer('pointermove', 600); pointer('pointerup', 600);
+    expect(video.currentTime).toBe(1800);
+    abort.abort();
+  });
+});
