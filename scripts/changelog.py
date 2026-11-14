@@ -315,15 +315,20 @@ def require_labeled_entries(document: str, version: str) -> None:
                 [line for line, found in matched
                  if not cited(found["english"]) or cited(found["english"]) != cited(found["chinese"])],
                 width=40, version=version)
-    long = []
-    for released in re.findall(r"^## \[(\d+\.\d+\.\d+)\]", document, re.M):
-        for line in section_of(document, released).splitlines():
-            if not line.startswith("- "):
-                continue
-            english, chinese = split(line)
-            if len(visible(chinese)) > ENTRY_LIMIT or (SEPARATOR in line and len(visible(english)) > ENGLISH_LIMIT):
-                long.append(t("changelog.longEntry", version=released, line=chinese[:40]))
-    _refuse("changelog.entriesTooLong", long, limit=ENTRY_LIMIT, english_limit=ENGLISH_LIMIT)
+    _refuse("changelog.entriesTooLong", _long_entries(document), limit=ENTRY_LIMIT, english_limit=ENGLISH_LIMIT)
+
+
+def _too_long(line: str) -> bool:
+    english, chinese = split(line)
+    return len(visible(chinese)) > ENTRY_LIMIT or (SEPARATOR in line and len(visible(english)) > ENGLISH_LIMIT)
+
+
+def _long_entries(document: str) -> list[str]:
+    """全部已发布版本里超长的条目，按读到的长度算。"""
+    return [t("changelog.longEntry", version=released, line=split(line)[1][:40])
+            for released in re.findall(r"^## \[(\d+\.\d+\.\d+)\]", document, re.M)
+            for line in section_of(document, released).splitlines()
+            if line.startswith("- ") and _too_long(line)]
 
 
 def bilingual(section: str) -> tuple[str, str]:

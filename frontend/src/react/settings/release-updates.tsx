@@ -44,7 +44,7 @@ export function ReleaseChangelog({ notes }: { notes: ReleaseNotes[] }) {
           return (
             <section key={row.version} className="flex flex-col gap-3">
               <div className="flex items-baseline justify-between gap-3">
-                <h3 className="text-body-1-medium text-text-primary">{row.version}</h3>
+                <h3 className="text-body-2-medium text-text-primary">{row.version}</h3>
                 <ExternalLink href={row.url}>{t('settings:releaseUpdates.releasePage')}</ExternalLink>
               </div>
               {part.lead.map(line => <p key={line} className="text-body-2-regular text-text-secondary"><InlineText text={line} /></p>)}
