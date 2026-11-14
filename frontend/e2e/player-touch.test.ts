@@ -12,7 +12,12 @@ it(`${viewport.width}×${viewport.height} 触摸：控制条、横滑预览、�
   const page = await context.newPage();
   try {
     const css = readFileSync(new URL('../src/player/player.css', import.meta.url), 'utf8');
-    const script = stripTypeScriptTypes(readFileSync(new URL('../src/player/touch-controls.ts', import.meta.url), 'utf8')).replace('export function', 'function');
+    // 页面里没有打包器：手势模块连同它读的默认设置一起去掉类型与 import/export 内联，界面文字用桩代替。
+    const source = (name: string) => stripTypeScriptTypes(readFileSync(new URL(`../src/player/${name}`, import.meta.url), 'utf8'))
+      .replace(/^import .*$/gm, '').replace(/^export /gm, '');
+    const script = `const t = (key, values = {}) => [key, ...Object.values(values)].join(' ');
+      ${source('gesture-settings.ts')}
+      ${source('touch-controls.ts')}`;
     await page.setContent(`<style>${css}</style><div data-stage-media><div class="video-js vjs-playing vjs-user-active vjs-fullscreen">
       <video-player><media-container><video class="vjs-tech"></video><div class="vjs-control-bar"><button class="vjs-button">播放</button></div></media-container></video-player></div></div>`);
     await page.addScriptTag({ content: `${script}

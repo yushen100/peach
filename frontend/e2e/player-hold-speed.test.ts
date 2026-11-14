@@ -34,7 +34,15 @@ describe('右方向键临时二倍速', () => {
           }
           return route.fulfill({ json: { selected: null, tracks: [], rate: 1.5 } });
         });
-        await page.route('**/stream?**', route => route.fulfill({ body: readFileSync(join(fixture, 'video.mp4')), contentType: 'video/mp4' }));
+        // 按 Range 回应：整份回给浏览器时它认为这段视频不可拖动（seekable 只有 0），短按跳转会被夹回开头。
+        await page.route('**/stream?**', route => {
+          const body = readFileSync(join(fixture, 'video.mp4'));
+          const range = /bytes=(\d+)-(\d*)/.exec(route.request().headers()['range'] ?? '');
+          if (!range) return route.fulfill({ body, contentType: 'video/mp4', headers: { 'Accept-Ranges': 'bytes' } });
+          const start = Number(range[1]), end = range[2] ? Math.min(Number(range[2]), body.length - 1) : body.length - 1;
+          return route.fulfill({ status: 206, body: body.subarray(start, end + 1), contentType: 'video/mp4',
+            headers: { 'Accept-Ranges': 'bytes', 'Content-Range': `bytes ${start}-${end}/${body.length}` } });
+        });
         await page.route('**/hold-speed-fixture/**', route => {
           const name = basename(new URL(route.request().url()).pathname);
           assert.match(name, /^(video\.m3u8|part-\d+\.ts)$/);
@@ -59,10 +67,13 @@ describe('右方向键临时二倍速', () => {
         await video.evaluate((node: HTMLVideoElement) => { node.pause(); node.currentTime = 0; node.muted = true });
         const thumb = page.locator('#stage media-time-slider media-slider-thumb');
         await thumb.focus();
+        // 按下与松开之间不插页面求值：机器忙时一次往返就可能超过短按的 350 毫秒，短按被当成长按。
+        // 进度条自己没有接到这次按键，靠落点只差一次「快进秒数」来证明。
         await page.keyboard.down('ArrowRight');
-        assert.ok(await video.evaluate((node: HTMLVideoElement) => node.currentTime < .2));
         await page.keyboard.up('ArrowRight');
         await page.waitForFunction(() => document.querySelector<HTMLVideoElement>('#stage video.vjs-tech')!.currentTime > 1);
+        const jumped = await video.evaluate((node: HTMLVideoElement) => node.currentTime);
+        assert.ok(jumped > 9 && jumped < 11, `短按应只跳一次快进秒数：${jumped}`);
         await video.evaluate((node: HTMLVideoElement) => { node.currentTime = 0; return node.play() });
         await page.waitForFunction(() => document.querySelector<HTMLVideoElement>('#stage video.vjs-tech')!.currentTime > .15);
         await thumb.focus();
