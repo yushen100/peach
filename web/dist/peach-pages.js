@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "2e5a267d-dc4b-4dd6-aa50-f39403e3963a", e._sentryDebugIdIdentifier = "sentry-dbid-2e5a267d-dc4b-4dd6-aa50-f39403e3963a");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "8fc4e33b-63d6-4afe-8424-abbee1c1d962", e._sentryDebugIdIdentifier = "sentry-dbid-8fc4e33b-63d6-4afe-8424-abbee1c1d962");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -2449,7 +2449,7 @@ var He = {
 	},
 	tagManager: {
 		actions: "Tag management actions",
-		blockByName: "Block by name",
+		blockByName: "Add blocked tag",
 		blockContent: "Block content",
 		clearSelection: "Clear selection",
 		deleteContent: "Delete tagged works",
@@ -9720,7 +9720,7 @@ var He = {
 	},
 	tagManager: {
 		actions: "标签管理操作",
-		blockByName: "按名称屏蔽",
+		blockByName: "添加屏蔽标签",
 		blockContent: "屏蔽内容",
 		clearSelection: "清空选择",
 		deleteContent: "删除标签下的作品",
@@ -38932,4 +38932,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=2e5a267d-dc4b-4dd6-aa50-f39403e3963a
+//# debugId=8fc4e33b-63d6-4afe-8424-abbee1c1d962

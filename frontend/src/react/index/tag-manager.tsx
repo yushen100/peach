@@ -77,7 +77,7 @@ export function TagManager({ search, category = 'all', view = 'cloud', onCategor
         onChange: value => { setHidden(value); setBlocked(false) },
         ...(online ? { onBlocked: () => { setBlocked(true); setHidden(false) } } : {}) }}
       actions={<>
-        {/* 按名称屏蔽在线范围三档都在：还没抓到过的标签不在任何一档里，得有个地方直接填名字。 */}
+        {/* 「添加屏蔽标签」在线范围三档都在：还没抓到过的标签不在任何一档里，得有个地方直接填名字。 */}
         {online ? <GlassPill onPress={() => setEditing('block')}>{t('catalog:tagManager.blockByName')}</GlassPill> : null}
         {inventory.data?.duplicate_groups.length ? <GlassPill busy={action.busy === 'repair'} onPress={() => run({ operation: 'repair', ids: [] })}>{t('catalog:tagManager.mergeDuplicates')}</GlassPill> : null}
         {/* 标签还没到时也摆着（按不动），取到以后这一排不再长出一颗键把旁边的挤开。 */}

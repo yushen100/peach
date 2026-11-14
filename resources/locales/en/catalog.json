@@ -992,7 +992,7 @@
   },
   "tagManager": {
     "actions": "Tag management actions",
-    "blockByName": "Block by name",
+    "blockByName": "Add blocked tag",
     "blockContent": "Block content",
     "clearSelection": "Clear selection",
     "deleteContent": "Delete tagged works",

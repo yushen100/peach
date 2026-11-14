@@ -86,7 +86,7 @@ export const toastHost: BulkHost = {
 export function tagOperation(command: Omit<Command, 'ids'>, label = TAG_ACTION_LABELS[command.operation], prepared?: Plan): BulkAction<TagId> {
   let plan: Plan | null = prepared ?? null;
   const op = command.operation;
-  /* 按名称屏蔽：页面没有 id（标签可能还没抓到过），写入照旧只带名字，回执与撤销用服务端认出来的那一条。 */
+  /* 「添加屏蔽标签」按名字写：页面没有 id（标签可能还没抓到过），写入照旧只带名字，回执与撤销用服务端认出来的那一条。 */
   const named = op === 'block' && !!command.name;
   const body = (ids: readonly TagId[]): Command => ({ ...command, ids: named ? [] : [...ids] });
   return {
@@ -119,7 +119,7 @@ export async function confirmTagOperation(command: Command, plan: Plan, signal?:
 }
 
 type FormDialog = ReturnType<typeof formModal>;
-/** 改名、合并，以及在线标签的「按名称屏蔽」（`block`：填一个名字，还没抓到过的标签也能先屏蔽）。 */
+/** 改名、合并，以及在线标签的「添加屏蔽标签」（`block`：填一个名字，还没抓到过的标签也能先屏蔽）。 */
 export type EditorOperation = 'rename' | 'merge' | 'block';
 export function TagEditor({ operation, selected, close, done, scope = 'local' }: {
   operation: EditorOperation; selected: ManagedTag[]; close(): void; done(): void; scope?: TagScope;
