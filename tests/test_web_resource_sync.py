@@ -400,9 +400,9 @@ class PurgeMissingTests(unittest.TestCase):
 
     def test_rows_under_a_removed_media_folder_stay_when_their_disk_cannot_be_read(self):
         self._add_removed_folder_row()
-        readable = web_batch.root_online
+        readable = media_io.root_online
         with self._synced(), mock.patch.object(
-                web_batch, "root_online", lambda path: path != Path(path.anchor) and readable(path)):
+                media_io, "root_online", lambda path: path != Path(path.anchor) and readable(path)):
             scan = finish_scan(self.contract)
             result = rm_sync.w_resource_sync_apply(
                 self.contract, {"confirm": True, "clean_cache": False, "scan_id": scan["scan_id"]})
@@ -965,8 +965,58 @@ class ResourceSyncCleanupTests(unittest.TestCase):
         self.assertEqual((result["dirs_removed"], result["dir_errors"]), (2, 1))
         self.assertTrue(stuck.is_dir())
         self.assertFalse((self.mount / "release").exists())
-        self.assertEqual(len(children), 2, "卡住的那个之后换一个子进程接着删")
+        listings = [child.args[-2] for child in children if "rmdirs" in child.args]
+        self.assertGreaterEqual(len(listings), 2, "卡住的那个之后换一个子进程接着删")
         self.assertTrue(all(child.poll() is not None for child in children))
+
+    def purge_asks(self, answer_for_gone):
+        """执行删行前那一次问「文件在不在」时，gone/b.mp4 按 `answer_for_gone` 答；复核那一次照实答。"""
+        present, gone = media_io.paths_present, os.path.normcase(os.fspath(self.mount / "gone" / "b.mp4"))
+        calls = []
+
+        def asking(paths):
+            calls.append(paths)
+            answers = present(paths)
+            if len(calls) == 1:
+                return answers
+            return [answer_for_gone() if os.path.normcase(os.fspath(path)) == gone else answer
+                    for path, answer in zip(paths, answers)]
+        return mock.patch.object(media_io, "paths_present", asking)
+
+    def test_apply_keeps_a_row_whose_file_check_never_answers(self):
+        """执行删行前再问一次文件在不在：网盘上没答上的这一行保留，执行照常完成。"""
+        scan = finish_scan(self.contract)
+        with self.purge_asks(lambda: None):
+            result = self.apply(scan, clean_cache=False)
+        # 回收站里的 c.mp4 照删。
+        self.assertEqual(result["purged"], 1)
+        self.assertEqual([(item["id"], item["reason_code"]) for item in result["blocked"]],
+                         [(2, "errors.mediaIo.readTimedOut")])
+        self.assertEqual(self.ids(), [1, 2, 4, 5])
+
+    def test_apply_keeps_a_row_when_its_source_drops_while_asking(self):
+        """问的途中来源掉线：那一刻答的「不在」不作数，这个来源上的这一批都保留。"""
+        scan = finish_scan(self.contract)
+        dropped = []
+        online = media_io.root_online
+        with self.purge_asks(lambda: dropped.append(True) or False), \
+                mock.patch.object(media_io, "root_online", lambda root: not dropped and online(root)):
+            result = self.apply(scan, clean_cache=False)
+        self.assertEqual([(item["id"], item["reason_code"]) for item in result["blocked"]],
+                         [(2, "errors.webBatch.storageOffline"), (3, "errors.webBatch.storageOffline")])
+        self.assertEqual(result["purged"], 0)
+        self.assertEqual(self.ids(), [1, 2, 3, 4, 5])
+
+    def test_purge_removes_empty_parents_up_to_but_not_including_the_source_root(self):
+        deep = self.mount / "creator" / "release"
+        deep.mkdir(parents=True)
+        (self.mount / "creator" / "keep.nfo").write_bytes(b"x")
+        other = self.mount / "solo" / "inner"
+        other.mkdir(parents=True)
+        removed = web_batch._remove_empty_ancestors_bounded([deep, other], [self.mount])
+        self.assertEqual(sorted(path.name for path in removed), ["inner", "release", "solo"])
+        self.assertTrue((self.mount / "creator").is_dir(), "装着别的文件的上级照旧留着")
+        self.assertTrue(self.mount.is_dir(), "来源根绝不随空目录一起删")
 
     def test_recovery_returns_while_a_resumed_scan_waits_on_a_directory(self):
         """接回一轮会卡住的检查不能拖住恢复服务：检查在后台线程里等，接回当场返回。"""
