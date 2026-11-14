@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
+import logging
 import re
 import sqlite3
 import subprocess
@@ -71,6 +72,7 @@ def translate_ledger_path(raw):
     return resolve(raw) or _local_ledger_path(raw)
 
 
+LOGGER = logging.getLogger(__name__)
 FIELDS = ('item_key', 'code', 'query', 'asset_id', 'asset_path', 'field', 'field_label', 'current_value',
           'candidates_json', 'source_count', 'source_profile', 'policy_version', 'status',
           'size_gb', 'videos', 'fetched_at')
@@ -2096,9 +2098,28 @@ def _apply_finished_candidates(database, candidate_root, active, asset_ids=None,
     from .metadata_auto_apply import auto_apply_metadata
     # 快照目录是企划名义解析的证据来源（ADR-0038）。路径只有 `DEFAULT_METADATA_ROOT`
     # 一份定义，这里传它而不是再拼一次：两处各拼一份，改 Peach 数据目录时会有一处留在原地。
-    return auto_apply_metadata(database, Path(candidate_root), active=active,
-                               snapshot_root=DEFAULT_METADATA_ROOT, asset_ids=asset_ids,
-                               candidate_rows=candidate_rows)
+    summary = auto_apply_metadata(database, Path(candidate_root), active=active,
+                                  snapshot_root=DEFAULT_METADATA_ROOT, asset_ids=asset_ids,
+                                  candidate_rows=candidate_rows)
+    if active():
+        _land_fc2_sellers(database, DEFAULT_METADATA_ROOT, asset_ids)
+    return summary
+
+
+def _land_fc2_sellers(database, metadata_root, asset_ids) -> None:
+    """刚落库的这批里，来源快照写明了卖家的 FC2 作品挂上卖家账号（`fc2_sellers.land`）。
+
+    卖家归属此前只有一次性脚本，之后入库的 FC2 作品和后来才认出番号的副本都拿不到。
+    计划与账本对不上时这一批不写，等下一轮；出错只记日志，不挡资料落库。
+    """
+    from . import fc2_sellers
+    try:
+        with database.write_transaction() as connection:
+            fc2_sellers.land(connection, Path(metadata_root), asset_ids=asset_ids)
+    except ValueError:
+        LOGGER.info('FC2 seller landing skipped: plan no longer matches the ledger', exc_info=True)
+    except Exception:
+        LOGGER.exception('FC2 seller landing failed')
 
 
 def _enrich_finished_performers(database, groups, config, candidate_root, remote, active,

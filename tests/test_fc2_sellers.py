@@ -80,6 +80,27 @@ class Fc2SellerTests(unittest.TestCase):
         self.assertEqual(self.connection.execute("SELECT count(*) FROM entity WHERE kind='creator'").fetchone()[0],0)
         self.assertEqual([tuple(row) for row in self.connection.execute('SELECT * FROM asset ORDER BY id')],before)
 
+    def test_a_copy_registered_after_the_first_landing_gets_the_seller_on_the_next_landing(self):
+        """后来入库或才认出番号的副本：自动落库那一步只补它，已挂上的不动，重复跑不改东西。"""
+        first = self.asset('FC2-PPV-1234567')
+        self.snapshot()
+        with self.connection:
+            landed = fc2_sellers.land(self.connection, self.cache, asset_ids=[first], now='t1')
+        self.assertEqual(len(landed['entity_ids']), 1)
+        copy = self.connection.execute(
+            "INSERT INTO asset(location,path,name,medium,code) VALUES('local',"
+            "'B:\\FC2\\www.98T.la@FC2-1234567.mp4','www.98T.la@FC2-1234567.mp4','video','FC2-PPV-1234567')").lastrowid
+        self.connection.commit()
+        with self.connection:
+            again = fc2_sellers.land(self.connection, self.cache, asset_ids=[copy], now='t2')
+            self.assertEqual(fc2_sellers.land(self.connection, self.cache, asset_ids=[first])['changes'], 0)
+        self.assertEqual(again['entity_ids'], landed['entity_ids'])
+        rows = self.connection.execute("SELECT asset_id,source FROM asset_entity WHERE role='creator' ORDER BY asset_id").fetchall()
+        self.assertEqual([tuple(row) for row in rows],
+                         [(first, fc2_sellers.SOURCE + '@t1'), (copy, fc2_sellers.SOURCE + '@t2')])
+        with self.connection:
+            self.assertFalse(fc2_sellers.pending(self.connection, self.cache))
+
     def test_conflicting_source_accounts_are_skipped_and_nonlibrary_records_are_ignored(self):
         self.asset('FC2-PPV-1234567')
         self.snapshot()

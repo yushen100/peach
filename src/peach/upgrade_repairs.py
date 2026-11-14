@@ -320,6 +320,8 @@ STALE_CODES_KEY = 'stale-filename-codes-1'
 SPACED_PERFORMERS_KEY = 'performer-spacing-1'
 #: 名字里视频增强模型代号的存量清理（`settle_enhancement_names`）。
 ENHANCEMENT_NAMES_KEY = 'enhancement-suffix-names-1'
+#: 卖家归属的存量补挂（`_backfill_fc2_sellers`）。
+FC2_SELLERS_KEY = 'fc2-seller-backfill-1'
 
 
 def settle_enhancement_names(connection) -> dict:
@@ -1503,6 +1505,41 @@ class UpgradeRepairs:
                                'VALUES(?,?,?)', (key, str(time.time()), json.dumps(result, ensure_ascii=False)))
         LOGGER.info('Verification difference settlement: %s', result)
 
+    def _backfill_fc2_sellers(self) -> None:
+        """来源快照写明卖家、却没挂上卖家账号的 FC2 作品整库补一次（`fc2_sellers.land`）。
+
+        卖家归属此前只有一次性脚本，脚本之后入库的作品与后来才认出番号的副本都缺。之后每轮
+        资料落库会顺手处理新的那几部；这里只补存量。有要挂的才先备份；计划与账本对不上时
+        不写回执，下次启动再试。
+        """
+        from . import fc2_sellers
+        try:
+            root = Path(self.contract.follow_sources_root) / 'library-metadata'
+            with self.contract.database.read_connection() as connection:
+                if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
+                                      (FC2_SELLERS_KEY,)).fetchone():
+                    return
+                todo = fc2_sellers.pending(connection, root)
+            backup = None
+            if todo:
+                backup = self.contract.db_path.with_name(f'ledger.pre-upgrade-{time.time_ns()}.db')
+                sqlite_backup(self.contract.db_path, backup)
+            with self.contract.database.write_transaction() as connection:
+                if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
+                                      (FC2_SELLERS_KEY,)).fetchone():
+                    return
+                result = fc2_sellers.land(connection, root) if todo else {'entity_ids': [], 'skipped': [], 'changes': 0}
+                if backup is not None:
+                    result['backup'] = str(backup)
+                connection.execute('INSERT OR IGNORE INTO ledger_upgrade_repair(id,applied_at,result_json) '
+                                   'VALUES(?,?,?)', (FC2_SELLERS_KEY, str(time.time()),
+                                                     json.dumps(result, ensure_ascii=False, default=str)))
+            LOGGER.info('FC2 sellers backfilled: %s accounts', len(result['entity_ids']))
+        except ValueError:
+            LOGGER.info('FC2 seller backfill skipped: plan no longer matches the ledger', exc_info=True)
+        except Exception:
+            LOGGER.exception('FC2 seller backfill failed')
+
     def _settle_enhancement_names(self) -> None:
         """名字里的视频增强模型代号清理一次（`settle_enhancement_names`）；有要改的才先备份。"""
         try:
@@ -1976,6 +2013,7 @@ class UpgradeRepairs:
             self.scheduler.add_job(self._settle_verification, max_instances=1)
             self.scheduler.add_job(self._settle_spaced_performers, max_instances=1)
             self.scheduler.add_job(self._settle_enhancement_names, max_instances=1)
+            self.scheduler.add_job(self._backfill_fc2_sellers, max_instances=1)
             self.scheduler.add_job(self._release_studio_misses, max_instances=1)
             self.scheduler.add_job(self._clear_stale_codes, max_instances=1)
             self.scheduler.add_job(self._prune_task_controls, max_instances=1)
