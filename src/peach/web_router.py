@@ -25,6 +25,7 @@ from .web_batch import q_ads, q_duplicates, w_batch, w_empty_trash
 from .web_performer_delete import q_performer_delete_candidates, q_performer_delete_plan, w_performer_delete
 from .web_tags import q_tag_management, w_tag_management, w_tag_preview
 from .taste_history import history_source_count
+from .taste_browsing import q_taste_signals
 from .web_catalog import (
     FACETS_TABLES,
     catalog_filter,
@@ -375,6 +376,7 @@ GET_HANDLERS = {
     "/api/jav/discoveries": q_jav_discoveries,
     "/api/jav/discoveries/metadata": q_jav_discovery_metadata,
     "/api/jav/releases": q_jav_releases,
+    "/api/taste/signals": q_taste_signals,
     "/api/library-processing": q_library_processing,
     "/api/library-processing/issues": q_library_processing_issues,
     "/api/thumbnail-jobs": q_thumbnail_jobs,

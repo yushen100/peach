@@ -65,7 +65,7 @@ SYNCED_SETTING_KEYS = frozenset({
     "sidebarOrder", "manageOrder", "navigationOrders", "libraryOrder", "followInitialDays", "postSetupTutorialDone",
     "organizeTemplates", "feedHideGroupCompilations", "feedHideSoloCompilations",
     "feedHideExcerpts", "searchHistoryLimit", "codePatterns", "performerNameLanguage", "taskSpeedMode",
-    "interfaceLanguage", "javBrowserWantOnNoMatch",
+    "interfaceLanguage", "javBrowserWantOnNoMatch", "javBrowserRecordBrowsing",
 })
 #: 三个收起开关的键与各自对应的那一类，缺省值取 `feeds.DEFAULT_HIDDEN_COMPILATIONS`。
 FEED_COMPILATION_SWITCHES = (
@@ -271,6 +271,7 @@ def q_settings(contract: SettingsContract, _args=None) -> dict:
         "systemLanguage": system_language(),
         "taskSpeedMode": payload.get("taskSpeedMode", "standard"),
         "javBrowserWantOnNoMatch": payload.get("javBrowserWantOnNoMatch") is not False,
+        "javBrowserRecordBrowsing": payload.get("javBrowserRecordBrowsing") is True,
     }
 
 
@@ -334,7 +335,7 @@ def w_settings(contract: SettingsContract, body) -> dict:
         if limit is None:
             raise UserValueError("api.settings.searchHistoryLimitInvalid", {"max": SEARCH_HISTORY_LIMIT_MAX})
         merged["searchHistoryLimit"] = limit
-    for key in [key for key, _kind in FEED_COMPILATION_SWITCHES] + ["javBrowserWantOnNoMatch"]:
+    for key in [key for key, _kind in FEED_COMPILATION_SWITCHES] + ["javBrowserWantOnNoMatch", "javBrowserRecordBrowsing"]:
         if key in body:
             if not isinstance(body[key], bool):
                 raise UserValueError("api.settings.switchNotBoolean", {"key": key})
