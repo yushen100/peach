@@ -540,7 +540,7 @@ body:not([data-surface="/trash"]) .peach-react [data-media-card]:not([data-follo
   overflow: hidden;
   border: 0;
   border-radius: 50%;
-  background: var(--sunk);
+  background: var(--media-placeholder);
   color: inherit;
   cursor: pointer;
 }

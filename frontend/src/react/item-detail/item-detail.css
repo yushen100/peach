@@ -268,20 +268,19 @@
   height: var(--id-face, 46px);
   border-radius: 50%;
   overflow: hidden;
-  background: var(--sunk);
+  background: var(--media-placeholder);
   color: var(--muted);
   display: grid;
   place-items: center;
   font-size: var(--fs-md);
 }
-/* 没有图的头像（BoardUI avatar 的首字盘）：主文字色 10% 混底、次文字色首字，不与卡片底同色。 */
+/* 没有图的头像（BoardUI avatar 的首字盘）：底照上面那块占位底，首字用次文字色。 */
 .peach-react :is([data-item-detail], [data-follow-detail]) [data-id-face]:not(:has(img)) {
-  background: color-mix(in srgb, var(--color-text-primary) 10%, var(--color-background-primary-default));
   color: var(--color-text-secondary);
 }
-/* `#fff` 与首字母只在取不到图时露出来：厂牌标识文件是自带边距的不透明方图，图片那条 cover
-   铺满整格，不再另给 logo 格加 padding 和 contain。 */
-.peach-react :is([data-item-detail], [data-follow-detail]) [data-id-cell="studio"] [data-id-face] { border-radius: var(--surface-radius); background: #fff; color: #555; }
+/* 厂牌标识文件是自带边距的不透明方图，图片那条 cover 铺满整格，不再另给 logo 格加 padding 和
+   contain；取不到图时露出来的还是同一块占位底和首字母。 */
+.peach-react :is([data-item-detail], [data-follow-detail]) [data-id-cell="studio"] [data-id-face] { border-radius: var(--surface-radius); }
 .peach-react :is([data-item-detail], [data-follow-detail]) [data-id-face] img {
   position: absolute;
   inset: 0;

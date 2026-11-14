@@ -29,7 +29,7 @@ function PerformerName({ person }: { person: DeletePerformer }) {
   const name = entityDisplayName('performer', person.k, person.entity_id);
   return <a href={entityPath('performer', person.k, person.entity_id)} title={name}
     className="flex min-w-0 items-center gap-3 text-text-primary">
-    <span aria-hidden className={cx('relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-background-quaternary-default text-caption-1-medium', LEGACY_AVATAR_IMG)}
+    <span aria-hidden className={cx('relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-media-placeholder text-caption-1-medium', LEGACY_AVATAR_IMG)}
       dangerouslySetInnerHTML={{ __html: `<span>${esc(firstGrapheme(name))}</span>` + entityFaceImg({
         kind: 'performer', id: person.entity_id, hasImage: person.has_image, version: person.image_version,
         focus: person.avatar_focus, thumb: true,

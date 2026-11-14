@@ -33,7 +33,7 @@ export function AuthorAvatar({ group, name }: { group: FollowSource[]; name: str
   if (!current) {
     return (
       <span title={t('follow:sourceView.noAvatar')}
-        className="inline-grid size-8 shrink-0 place-items-center rounded-full bg-background-tertiary-default text-caption-1-semibold text-text-secondary">
+        className="inline-grid size-8 shrink-0 place-items-center rounded-full bg-media-placeholder text-caption-1-semibold text-text-secondary">
         {authorInitial(name)}
       </span>
     );
@@ -41,7 +41,7 @@ export function AuthorAvatar({ group, name }: { group: FollowSource[]; name: str
   return (
     <img src={current} alt="" width={32} height={32} loading="lazy" referrerPolicy="no-referrer"
       onError={() => setAt(at + 1)}
-      className="size-8 shrink-0 rounded-full bg-background-tertiary-default object-cover" />
+      className="size-8 shrink-0 rounded-full bg-media-placeholder object-cover" />
   );
 }
 

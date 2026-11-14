@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "d8ecb44f-27a7-4273-b351-f57750de0cfe", e._sentryDebugIdIdentifier = "sentry-dbid-d8ecb44f-27a7-4273-b351-f57750de0cfe");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "e98451bc-af43-4d8f-9760-40646f7216c8", e._sentryDebugIdIdentifier = "sentry-dbid-e98451bc-af43-4d8f-9760-40646f7216c8");
 	} catch {}
 })();
 import { BATCH_DELETE_TEXT as e, Button as t, CLEANUP_ENTRY as n, CLEANUP_ENTRY_GRID as r, CLEANUP_HASH_REDIRECTS as i, CLEANUP_TOOLS as a, Chip as o, DIRECTORY_TEMPLATE_ERROR as s, DUPLICATES_KEY as c, Fieldset as l, FieldsetTitle as u, IDLE_REPAIR as d, IconButton as f, IndexSearch as p, Input as m, JUNK_KEY as h, LINKS_KEY as g, LINK_CHECK_KEY as _, LINK_KINDS as v, LINK_PRUNE_KEY as ee, LOC as y, LibraryLabel as b, LibraryProcessingCard as x, MEDIA_REPAIR_KEY as S, MEDIA_REPAIR_URL as C, MEDIA_SOURCES_KEY as w, MEDIA_SOURCE_ICONS as T, Note as E, ORGANIZE_KEY as te, ORGANIZE_PARAMETER_HINT as ne, ORGANIZE_SCOPE_HINT as re, ORGANIZE_TEXT as D, ORPHAN_RECORDS_KEY as O, ORPHAN_RECORDS_TEXT as k, PERFORMER_DELETE_KEY as A, PLAIN_STAT_STRIP as j, PlainStat as M, Progress as ie, QUALITY_GOALS_KEY as N, REPAIR_CARD_TEXT as ae, REPAIR_LIBRARIES_KEY as oe, RESOURCE_APPLY_KEY as P, RESOURCE_SCAN_KEY as F, RESOURCE_SYNC_TEXT as I, RESULT_PANEL as se, RESULT_SECTION as ce, REVIEW_COUNTS_KEY as L, SOURCE_LABELS as le, SectionHeading as ue, Select as de, SelectItem as fe, SourceLabel as pe, SourceMark as me, StatusLabel as he, TRASH_KEY as ge, TaskProgress as R, Wt as _e, __toESM as ve, activityKind as z, apiSend as B, applyConfirmText as ye, applyLeftovers as V, applyPlanText as be, applyText as xe, attachOrphan as Se, baseName as Ce, busyProps as H, candidateText as we, checkLine as Te, codedText as Ee, confirmModal as U, cx as De, deletePerformerVideos as Oe, entityDisplayName as ke, entityFaceImg as Ae, entityPath as je, errorMessage as W, esc as Me, fetchDeletePerformers as Ne, fetchDeletePlan as Pe, fetchDuplicates as Fe, fetchJunkSummary as Ie, fetchLinkCheck as Le, fetchLinkPrune as Re, fetchLinkStats as ze, fetchMediaRepair as Be, fetchMediaSources as Ve, fetchOrganize as He, fetchOrganizeExample as Ue, fetchOrphanRecords as We, fetchQualityGoals as Ge, fetchRepairLibraries as Ke, fetchResourceApply as qe, fetchResourceScan as Je, fetchReviewCounts as Ye, fetchTrashSummary as Xe, firstGrapheme as Ze, fmtSize as G, hasChanges as Qe, hasResourceRoots as $e, jobText as K, junkBreakdown as et, linkLabel as tt, missingToolText as nt, organizeOutcome as rt, peachHistory$1 as it, pickOrganizeFolder as at, plainStatClass as q, planSummary as ot, previewOrganize as st, pruneText as ct, purgeCount as lt, purgeOrphan as ut, queryClient as J, recordsText as dt, rememberTemplates as ft, require_jsx_runtime as pt, require_react as mt, reviewSummary as ht, scanLine as gt, serverLabel as _t, sourceMeta as vt, spriteGlyph as Y, stageText as yt, startLinkCheck as bt, startLinkPrune as xt, startOrganize as St, startResourceApply as Ct, startResourceScan as wt, statusLine as Tt, t as X, useAction as Et, useBackgroundJob as Dt, useEntityNames as Ot, useMutation as kt, useOrderedLibraries as At, useQuery as Z, withOrganizeJob as jt } from "./peach-app.js";
@@ -224,7 +224,7 @@ function Qt({ title: e, items: t, hint: n, picked: r, onPick: i, children: a, fo
 				"data-link-identity": "",
 				children: [/* @__PURE__ */ (0, $.jsx)("span", {
 					"data-link-avatar": "",
-					className: `relative flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-background-quaternary-default text-caption-1-medium text-text-primary ${It}`,
+					className: `relative flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-media-placeholder text-caption-1-medium text-text-primary ${It}`,
 					"aria-hidden": !0,
 					dangerouslySetInnerHTML: { __html: `<span>${Me(Ze(e.entity))}</span>` + Ae({
 						kind: e.entity_kind,
@@ -1035,7 +1035,7 @@ function ln({ item: e }) {
 	return /* @__PURE__ */ (0, $.jsxs)("span", {
 		className: "flex min-w-0 items-center gap-3",
 		children: [/* @__PURE__ */ (0, $.jsxs)("span", {
-			className: "relative inline-grid aspect-16/10 w-24 flex-none place-items-center max-cleanup-tight:hidden overflow-hidden rounded-lg border border-separator-border bg-background-tertiary-default text-text-tertiary",
+			className: "relative inline-grid aspect-16/10 w-24 flex-none place-items-center max-cleanup-tight:hidden overflow-hidden rounded-lg border border-separator-border bg-media-placeholder text-text-tertiary",
 			children: [/* @__PURE__ */ (0, $.jsx)(on, {
 				"aria-hidden": !0,
 				className: "size-5"
@@ -1167,7 +1167,7 @@ function dn({ person: e }) {
 		className: "flex min-w-0 items-center gap-3 text-text-primary",
 		children: [/* @__PURE__ */ (0, $.jsx)("span", {
 			"aria-hidden": !0,
-			className: De("relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-background-quaternary-default text-caption-1-medium", It),
+			className: De("relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-media-placeholder text-caption-1-medium", It),
 			dangerouslySetInnerHTML: { __html: `<span>${Me(Ze(t))}</span>` + Ae({
 				kind: "performer",
 				id: e.entity_id,
@@ -1820,4 +1820,4 @@ function Nn({ toast: e, open: t, navigate: n }) {
 }
 export { Nn as DataCleanupPage, Cn as DataCleanupToolPage };
 
-//# debugId=d8ecb44f-27a7-4273-b351-f57750de0cfe
+//# debugId=e98451bc-af43-4d8f-9760-40646f7216c8

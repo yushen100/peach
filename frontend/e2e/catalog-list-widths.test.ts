@@ -30,7 +30,7 @@ describe('馆藏表格列宽与占位图', () => {
         const a = picture.getBoundingClientRect(), b = placeholder.getBoundingClientRect();
         const title = node.querySelector<HTMLElement>('[data-list-name]')!;
         return { picture: getComputedStyle(picture).backgroundColor,
-          expected: getComputedStyle(picture).getPropertyValue('--sunk').trim(),
+          expected: getComputedStyle(picture).getPropertyValue('--media-placeholder').trim(),
           centerDelta: Math.abs(a.top + a.height / 2 - b.top - b.height / 2),
           titleWidth: title.clientWidth, titleHeight: title.clientHeight, fullHeight: title.scrollHeight,
           lineHeight: parseFloat(getComputedStyle(title).lineHeight), clamp: getComputedStyle(title).webkitLineClamp };

@@ -135,7 +135,7 @@ function SiteAvatar({ name, domain }: { name: string; domain: string }) {
 /** 实体圆标。`card-art` 的 `avatarInner` 是唯一那份回落链实现，页面不重画一遍。 */
 function EntityAvatar({ html }: { html: string }) {
   return (
-    <span className={`relative inline-grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-background-tertiary-default text-caption-1-medium text-text-secondary ${LEGACY_AVATAR_IMG}`}
+    <span className={`relative inline-grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-media-placeholder text-caption-1-medium text-text-secondary ${LEGACY_AVATAR_IMG}`}
       dangerouslySetInnerHTML={{ __html: html }} />
   );
 }

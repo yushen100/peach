@@ -64,7 +64,7 @@ function FileRow({ file, prefix, openItem }: { file: DuplicateFile; prefix: stri
     <div className="duplicate-row items-center gap-3 border-t border-separator-border px-5 py-4 max-compact:p-4">
       {/* 封面格居中用 `inline-grid`：`grid` 与旧样式表同名，不生成这个工具类。 */}
       <button type="button" onClick={open} aria-label={t('cleanup:duplicates.previewFile', { name: file.name })}
-        className="relative row-span-2 inline-grid aspect-16/10 w-full cursor-pointer place-items-center overflow-hidden rounded-2lg bg-background-tertiary-default text-text-secondary">
+        className="relative row-span-2 inline-grid aspect-16/10 w-full cursor-pointer place-items-center overflow-hidden rounded-2lg bg-media-placeholder text-text-secondary">
         <PLAY aria-hidden className="size-6" />
         <img src={`/thumb?id=${file.id}&c=4`} alt="" loading="lazy"
           onError={(event) => event.currentTarget.remove()}

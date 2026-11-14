@@ -152,7 +152,7 @@ function GroupHead({ label, title, meta }: { label: string; title?: string; meta
   );
 }
 
-/** 一格。图还没到时是一块 `--sunk` 空底，不是一行文件名：`alt` 留给读屏，字色在样式里调成透明。 */
+/** 一格。图还没到时是一块占位空底（`--media-placeholder`），不是一行文件名：`alt` 留给读屏，字色在样式里调成透明。 */
 function PhotoCell({ item, index, lost, onLose, onOpen }: {
   item: EntityWallPhoto; index: number; lost: boolean; onLose(index: number): void; onOpen(index: number): void;
 }) {

@@ -44,7 +44,7 @@ const facts = (want: Want) => [want.release_date, want.studio, want.performers, 
 
 function Cover({ want }: { want: Want }) {
   return (
-    <span className="relative inline-grid w-card-cover shrink-0 aspect-card-cover place-items-center overflow-hidden rounded-2lg bg-background-tertiary-default max-sm:w-24">
+    <span className="relative inline-grid w-card-cover shrink-0 aspect-card-cover place-items-center overflow-hidden rounded-2lg bg-media-placeholder max-sm:w-24">
       <span className="text-caption-1-regular text-text-secondary">{t('catalog:shared.noCover')}</span>
       {want.cover ? (
         <img src={want.cover} alt="" loading="lazy" referrerPolicy={want.remote_cover ? 'no-referrer' : undefined}

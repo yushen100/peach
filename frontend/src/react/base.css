@@ -180,7 +180,17 @@
   --card-hover: color-mix(in srgb, var(--color-background-secondary-default) 95%, var(--color-text-primary));
 }
 
-/* 把上面两个值接成 `bg-card-footer`、`bg-card-hover` 两个颜色工具类。必须是 `inline`：普通
+/* 封面、头像、缩略图、照片格在没有图时露出来的那块底。格子摆在哪种面上都有：primary 卡面、表格行、
+ * 悬停行、选中行、secondary 填充面。实色 token 在暗色里互相撞——tertiary 与 primary 同为
+ * neutral-800；遗留层的 `--sunk` 与 `--ground` 明暗两档都落在 secondary——放错一处，格子就和底下
+ * 那层一模一样。这里取半透明的主文字色，叠在哪层上都比那层深（浅色）或亮（暗色）一档，悬停、选中
+ * 跟着走；浅色压白约等于原来的 tertiary（neutral-200）。`:root` 那份给遗留样式表，`.peach-react`
+ * 那份读的是上面重新声明过的文字色。由 `frontend/e2e/media-frame-contrast.test.ts` 守。 */
+:where(:root, .peach-react) {
+  --media-placeholder: color-mix(in srgb, var(--color-text-primary) 8%, transparent);
+}
+
+/* 把上面几个值接成 `bg-card-footer`、`bg-card-hover`、`bg-media-placeholder` 颜色工具类。必须是 `inline`：普通
  * `@theme` 把 `--color-card-*: var(--card-*)` 声明在 `:root` 上，那里没有 `--card-*`，
  * 根上就解析成透明再往下继承，React 子树里的真值读不到。`inline` 让工具类在元素上直接写
  * `var(--card-*)`，取到的是 `.peach-react` 里那一份；子树外没有卡片，落回透明。
@@ -190,6 +200,7 @@
 @theme inline {
   --color-card-footer: var(--card-footer, transparent);
   --color-card-hover: var(--card-hover, transparent);
+  --color-media-placeholder: var(--media-placeholder);
 }
 
 /* BoardUI 这一族控件共用两档高度：Button 写着 `h-9`／`h-8`，Input 也是 36px／32px。

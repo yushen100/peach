@@ -120,7 +120,7 @@ function FeedAvatar({ source }: { source: FeedSource }) {
     : null;
   return (
     <span aria-hidden
-      className={`relative inline-grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-background-tertiary-default text-caption-1-semibold text-text-secondary ${LEGACY_AVATAR_IMG}`}
+      className={`relative inline-grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-media-placeholder text-caption-1-semibold text-text-secondary ${LEGACY_AVATAR_IMG}`}
       dangerouslySetInnerHTML={{ __html: avatarInner(feedName(source), entity, null, 'performer') }} />
   );
 }

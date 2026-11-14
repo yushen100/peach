@@ -1,8 +1,6 @@
-/* 名册格（索引页与资料页名册同一格）的配色取遗留层 token：格底 `--ground`、头像框 `--sunk`、
- * 首字与读数 `--muted`，首字用 Bahnschrift。这几个 token 在 `:root` 上解析，明暗两档都落在
- * 页面其余卡面那一套值上：暗色下格底比头像框亮一档，框的轮廓看得出来，格子也不贴着页面底色。
- * BoardUI 的卡面档（`bg-background-secondary-default`）在暗色下和头像框同色，这里压过它。
- * 悬停照同一套：主文字色掺 6% 进格底，暗色下比格底亮出十多个色阶。 */
+/* 名册格（索引页与资料页名册同一格）：格底 `--ground`，头像框取占位底 `--media-placeholder`，
+ * 首字与读数 `--muted`，首字用 Bahnschrift。头像框是半透明的一层，压在格底和悬停底上都深（浅色）
+ * 或亮（暗色）一档，没有头像时圆框照样看得出来。悬停时主文字色掺 6% 进格底。 */
 .peach-react [data-index-grid] [data-index-cell] {
   background: var(--ground);
 }
@@ -11,7 +9,7 @@
 }
 /* 字体写在头像框上、首字继承：首字那枚 span 的类名由 `card-art` 的 `avatarInner` 给，React 产物不点名旧类。 */
 .peach-react [data-index-grid] [data-person-ring] {
-  background: var(--sunk);
+  background: var(--media-placeholder);
   color: var(--muted);
   font-family: Bahnschrift, "Microsoft YaHei UI", "Microsoft YaHei", "PingFang SC", sans-serif;
 }

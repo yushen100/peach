@@ -1,11 +1,11 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "19bc3059-30db-4210-9dae-fb99f14506ff", e._sentryDebugIdIdentifier = "sentry-dbid-19bc3059-30db-4210-9dae-fb99f14506ff");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "0826d36e-ed92-4f78-972c-5585b6718cdf", e._sentryDebugIdIdentifier = "sentry-dbid-0826d36e-ed92-4f78-972c-5585b6718cdf");
 	} catch {}
 })();
 import { $2ec61d1d4f780267$export$a8a3e93435678ff9 as e, $76d00c5a4edb230a$export$76ccd210b9029917 as t, $76d00c5a4edb230a$export$816b5d811295e6bc as n, $76d00c5a4edb230a$export$b59bdbef9ce70de2 as r, $76d00c5a4edb230a$export$f6f0c3fe4ec306ea as i, $76d00c5a4edb230a$export$f850895b287ef28e as a, $fe21c36db05242bb$export$d7b12c4107be0d61 as o, ActivityMotion as s, ArtSlot as c, Button as l, ButtonLink as u, Bx as d, COVER_STATE_TITLE as f, CatalogViewToggle as p, Checkbox as m, ChevronSortDown as h, Chip as g, CloudDownloadDialog as _, CoverQueue as v, DISCOVERY_METADATA_KEY as y, DISCOVERY_SORTS as b, DOWNLOADS_KEY as x, DOWNLOADS_URL as S, DataTableFooter as C, DataTableFrame as w, E3 as T, EmptyFocusButton as E, EmptyState as ee, FilterGlassRows as te, FilterIconButton as D, FilterPill as ne, GlassPill as re, IndexSearch as O, Input as ie, JAV_LAYOUTS as ae, JAV_RECOMMENDATION_GRID as oe, JAV_SELECTION_EVENT as k, JavHeader as A, LibraryShortcuts as j, M6 as se, ModalFrame as M, Note as N, P7 as P, PHASES as F, RELEASE_COLUMN_VISIBILITY_KEY as I, RELEASE_COLUMN_WIDTHS_KEY as ce, RELEASE_PAGE_SIZES as le, RELEASE_SORTS as L, RELEASE_SORT_COLUMNS as R, SEGMENT as z, SEGMENTED_TRACK as B, SegmentedRadioGroup as V, Segments as ue, SelectionDock as de, Shuffle as fe, SortKeys as pe, SourceAvatar as me, Table as he, TableColumnControls as H, TableColumnResizer as U, TaskProgress as ge, WANTS_KEY as _e, WantMagnets as ve, Wt as ye, __toESM as be, activityKind as xe, addWant as Se, apiGet as Ce, appSettingsStore as we, avatarInner as Te, busyProps as W, cachedMagnetStates as Ee, cardClass as De, cardRatio as Oe, catalogListSkeletonCellHtml as ke, composingKey as Ae, controlDiscoveryMetadata as je, controlReleaseMetadata as Me, coverArrived as Ne, coverFetching as Pe, coverFetchingHtml as Fe, coverReason as Ie, coverStateAction as Le, coverUrl as Re, discoveryArtwork as ze, discoveryKey as Be, discoveryScore as Ve, entityDisplayName as G, entityFaceImg as He, entityPath as Ue, errorMessage as K, esc as We, facePos as Ge, fetchCoverNow as Ke, fetchDiscoveries as qe, fetchDiscoveryMetadata as Je, fetchReleases as Ye, fetchWants as Xe, firstGrapheme as Ze, fmtDur as Qe, gridLayout as $e, invalidateWants as q, javContentSkeleton as et, javLayout as tt, javTagSkeleton as nt, jobText as rt, joinList as it, keepPreviousData as at, lastSearchNote as ot, leadingGraphemes as st, logoUrl as ct, metadataInterval as lt, pageWindow as ut, qE as dt, queryClient as ft, recommendationScore as pt, relayoutCovers as mt, releaseColumns as ht, releaseFilters as gt, releaseKey as _t, removeWants as vt, require_jsx_runtime as yt, require_react as bt, resetWants as xt, searchNote as St, selectRange as Ct, selectionSummary as wt, serverLabelList as Tt, spriteGlyph as Et, storeJavLayout as Dt, suppressShiftTextSelection as Ot, t as J, textLang as kt, tierPlaceholdersHtml as At, useAction as Y, useCatalogView as jt, useEntityNames as Mt, useQuery as X, useTablePreferences as Nt, wantName as Pt, wireHorizontalScroller as Ft, writeJavQuery as Z } from "./peach-app.js";
-import { ErrorLine as It } from "./peach-app.source-view--K6uWAMi.js";
+import { ErrorLine as It } from "./peach-app.source-view-B-2OVj4g.js";
 // src/react/wants/want-list.tsx
 var Q = /* @__PURE__ */ be(bt(), 1), $ = yt(), Lt = {
 	code: J("catalog:wants.originManual"),
@@ -23,7 +23,7 @@ var Q = /* @__PURE__ */ be(bt(), 1), $ = yt(), Lt = {
 ].filter(Boolean).join(" · ");
 function Bt({ want: e }) {
 	return /* @__PURE__ */ (0, $.jsxs)("span", {
-		className: "relative inline-grid w-card-cover shrink-0 aspect-card-cover place-items-center overflow-hidden rounded-2lg bg-background-tertiary-default max-sm:w-24",
+		className: "relative inline-grid w-card-cover shrink-0 aspect-card-cover place-items-center overflow-hidden rounded-2lg bg-media-placeholder max-sm:w-24",
 		children: [/* @__PURE__ */ (0, $.jsx)("span", {
 			className: "text-caption-1-regular text-text-secondary",
 			children: J("catalog:shared.noCover")
@@ -1784,4 +1784,4 @@ function gn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clear
 }
 export { hn as JavPage };
 
-//# debugId=19bc3059-30db-4210-9dae-fb99f14506ff
+//# debugId=0826d36e-ed92-4f78-972c-5585b6718cdf

@@ -31,7 +31,7 @@ function Work({ item, openItem }: { item: AutoLandingWrite; openItem(id: number)
   return (
     <span className="flex min-w-0 items-center gap-3">
       <button type="button" disabled={!open} onClick={open}
-        className="flex aspect-card-cover w-16 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-background-tertiary-default outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring disabled:cursor-default">
+        className="flex aspect-card-cover w-16 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-media-placeholder outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring disabled:cursor-default">
         {item.preview_url
           ? <img src={item.preview_url} alt="" loading="lazy" className="size-full object-cover" />
           : <span className="text-caption-1-regular text-text-secondary">{t('manage:shared.noCover')}</span>}

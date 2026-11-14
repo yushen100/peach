@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "7231442d-76eb-45d5-b6d4-92b91f3d0ecb", e._sentryDebugIdIdentifier = "sentry-dbid-7231442d-76eb-45d5-b6d4-92b91f3d0ecb");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "169cf156-1abc-436e-9a3f-19d99a001a4d", e._sentryDebugIdIdentifier = "sentry-dbid-169cf156-1abc-436e-9a3f-19d99a001a4d");
 	} catch {}
 })();
 import { $ea3928288112382f$export$439d29a4e110a164 as e, $fe21c36db05242bb$export$a98f0dcb43a68a25 as t, $fe21c36db05242bb$export$d7b12c4107be0d61 as n, Button as r, ButtonLink as i, Checkbox as a, CheckboxGlyph as o, Chip as s, CollapseChevron as c, CollapseRegion as l, DEFAULT_CATEGORY as u, DataTableFooter as d, ENTITY_REVIEW_KINDS as f, Ea as p, EmptyState as m, ExternalLink as h, FIELDSET_FOOT as ee, FilterGlassRows as g, Gg as _, InputBase as v, LinkButton as te, Note as y, REVIEW_CATEGORIES as b, REVIEW_DECISION_LABELS as ne, REVIEW_KEY as re, REVIEW_LABELS as x, REVIEW_QUEUES as ie, REVIEW_QUEUE_LABELS as S, Select as C, SelectItem as w, SelectionActions as T, SelectionDock as ae, SortableBoardTabs as E, TextField as D, Wt as O, __toESM as k, apiGet as A, apiSend as j, avatarInner as M, busyProps as N, canApprove as oe, cardClass as P, codedText as se, commonReviewSources as F, composingKey as ce, confirmModal as I, currentReviewRow as le, cx as L, decisionPayload as ue, decisionReceipt as de, defaultChoice as fe, errorMessage as R, fetchReview as pe, filterReviewRows as me, groupReviewRows as he, isReviewCategory as ge, joinList as _e, l7 as ve, localTime as ye, m7 as be, mirrorText as xe, pendingGenres as Se, queryClient as Ce, quoted as z, recordGenre as we, reloadReview as Te, require_jsx_runtime as Ee, require_react as B, reviewGroupingOptions as De, reviewQueueData as Oe, reviewQueueOf as ke, reviewWindow as Ae, rowEvidence as V, rowFieldName as H, rowSubject as je, rowTags as Me, rowTitle as U, selectReviewRange as Ne, serverLabel as Pe, serverLabelList as W, settleReviewRows as Fe, submitDecision as Ie, t as G, useMutation as Le, useNavigationOrder as Re, useOverlayScrollbar as ze, useQuery as Be, useViewGlide as Ve } from "./peach-app.js";
@@ -62,7 +62,7 @@ function rt({ item: t, openItem: n }) {
 			type: "button",
 			disabled: !r,
 			onClick: r,
-			className: "flex aspect-card-cover w-16 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-background-tertiary-default outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring disabled:cursor-default",
+			className: "flex aspect-card-cover w-16 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-media-placeholder outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring disabled:cursor-default",
 			children: [t.preview_url ? /* @__PURE__ */ (0, Q.jsx)("img", {
 				src: t.preview_url,
 				alt: "",
@@ -1102,7 +1102,7 @@ function Gt({ asset: t, openItem: n }) {
 		children: [/* @__PURE__ */ (0, Q.jsxs)("button", {
 			type: "button",
 			onClick: () => n(t.id),
-			className: "flex aspect-card-cover w-20 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-2lg bg-background-tertiary-default outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring",
+			className: "flex aspect-card-cover w-20 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-2lg bg-media-placeholder outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring",
 			children: [t.preview_url ? /* @__PURE__ */ (0, Q.jsx)("img", {
 				src: t.preview_url,
 				alt: "",
@@ -1135,7 +1135,7 @@ function Kt({ kind: e, name: t, works: n, avatar: r, openEntity: i }) {
 			type: "button",
 			"aria-label": G("manage:reviewEvidence.openCreator", { name: t }),
 			onClick: () => i(e, t),
-			className: `relative inline-grid size-11 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-full bg-background-secondary-default text-caption-1-medium text-text-secondary outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring ${We}`,
+			className: `relative inline-grid size-11 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-full bg-media-placeholder text-caption-1-medium text-text-secondary outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring ${We}`,
 			dangerouslySetInnerHTML: { __html: r }
 		}), /* @__PURE__ */ (0, Q.jsxs)("div", {
 			className: "flex min-w-0 flex-col items-start",
@@ -1257,7 +1257,7 @@ function Jt({ assets: t, picked: n, onPicked: r, locked: i }) {
 					"aria-pressed": r,
 					title: t.name,
 					onClick: (e) => l(n, e.shiftKey),
-					className: `relative aspect-card-cover cursor-pointer overflow-hidden rounded-surface bg-background-tertiary-default outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-border-focus-ring ${r ? "opacity-100 ring-2 ring-border-button-active ring-inset" : "opacity-50"}`,
+					className: `relative aspect-card-cover cursor-pointer overflow-hidden rounded-surface bg-media-placeholder outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-border-focus-ring ${r ? "opacity-100 ring-2 ring-border-button-active ring-inset" : "opacity-50"}`,
 					children: [
 						/* @__PURE__ */ (0, Q.jsx)("img", {
 							src: `/poster?id=${t.id}&c=4`,
@@ -1861,4 +1861,4 @@ function tn(e) {
 }
 export { tn as ReviewPage };
 
-//# debugId=7231442d-76eb-45d5-b6d4-92b91f3d0ecb
+//# debugId=169cf156-1abc-436e-9a3f-19d99a001a4d

@@ -214,7 +214,7 @@ describe('设计决定：数据管理、索引页与资料页头', () => {
     }
   });
 
-  it('索引页名册格用遗留卡面那一套：格底 --ground、头像框 --sunk、首字与读数 --muted 配 Bahnschrift，悬停掺 6% 主文字色；页头过滤框与版式切换同为 36px 高，切换两枚共 66px 宽', { timeout: 60_000 }, async () => {
+  it('索引页名册格用遗留卡面那一套：格底 --ground、头像框占位底 --media-placeholder、首字与读数 --muted 配 Bahnschrift，悬停掺 6% 主文字色；页头过滤框与版式切换同为 36px 高，切换两枚共 66px 宽', { timeout: 60_000 }, async () => {
     const opened = await openIndexPage(browser, '/performers');
     try {
       const page = opened.page;
@@ -229,7 +229,7 @@ describe('设计决定：数据管理、索引页与资料页头', () => {
           font: getComputedStyle(initial).fontFamily, readout: getComputedStyle(readout).color };
       });
       assert.equal(rest, await tokenColor(page, 'html', '--ground'), '名册格底不是 --ground');
-      assert.equal(face.ring, await tokenColor(page, 'html', '--sunk'), '头像框底不是 --sunk');
+      assert.equal(face.ring, await tokenColor(page, '#index [data-index-grid]', '--media-placeholder'), '头像框底不是 --media-placeholder');
       const muted = await page.evaluate(() => {
         const probe = document.createElement('div');
         probe.style.color = 'var(--muted)';
