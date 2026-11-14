@@ -1,6 +1,7 @@
 import io
 import json
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -311,6 +312,28 @@ class FollowFaceIndexTests(unittest.TestCase):
         # 落了盘：换一个实例照样查得到，不再取第二次。
         self.assertEqual(self.index().lookup([url]), {url: _signature(_left_bright)})
         self.assertEqual(self.requests, [url])
+
+    def test_background_worker_waits_only_for_enqueue_notifications(self):
+        """后台线程只在入队时被叫醒；队列空时不带超时地等，不定时空转。"""
+        waits = []
+
+        class RecordingEvent(threading.Event):
+            def wait(self, timeout=None):
+                waits.append(timeout)
+                return super().wait(timeout)
+
+        index = FollowFaceIndex(self.root / "faces", self.transport, clock=lambda: self.now,
+                                sleeper=lambda seconds: None, background=True)
+        index._wake = RecordingEvent()
+        url = "https://img.example.com/a.png"
+        index.lookup([url])
+        for _ in range(200):
+            if index.lookup([url]) and len(waits) >= 2:
+                break
+            threading.Event().wait(0.01)
+        self.assertEqual(index.lookup([url]), {url: _signature(_left_bright)})
+        self.assertGreaterEqual(len(waits), 2, "补完一趟后应回到等待")
+        self.assertEqual(set(waits), {None})
 
     def test_failures_wait_a_day_before_the_next_try(self):
         index = self.index()

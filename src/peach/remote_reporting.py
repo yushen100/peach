@@ -11,7 +11,7 @@ import re
 import subprocess
 import threading
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -29,7 +29,13 @@ _client = None
 _client_dsn = ""
 _disabled = False
 _frequency_timer = None
+#: 定时器真正要处理的时刻（UNIX 秒）；长等待分段时中途醒来只比时间，不读写文件。
+_frequency_due = None
 _frequency_configs = {}
+#: 新计数先攒这么久再落盘；也是两次处理的最短间隔，提交失败时不会空转。
+FREQUENCY_DEBOUNCE = 60.0
+#: 长等待按墙钟复核：Windows 的等待超时不计睡眠时间，睡醒后最晚这么久补上到期的处理。
+WALL_CLOCK_RECHECK = 3600.0
 TELEMETRY_ITEMS = frozenset({"log", "sessions"})
 MEDIA_STAGES = frozenset({"frame-capture", "frame-tile", "media-probe", "preview", "library-preview"})
 LOCAL_EXCEPTION_TYPES = frozenset({
@@ -165,12 +171,12 @@ def save(body, config=None):
         except Exception:
             pass
     elif not payload['usage']:
-        global _frequency_timer
+        global _frequency_timer, _frequency_due
         with _lock:
             _frequency_configs.pop(str(config.directory('state')), None)
             if not _frequency_configs and _frequency_timer is not None:
                 _frequency_timer.cancel()
-                _frequency_timer = None
+                _frequency_timer = _frequency_due = None
     return snapshot(config)
 
 
@@ -318,27 +324,48 @@ def _submit(kind, event, config, current, target):
         return accepted
 
 
-def _schedule_frequency(config):
-    global _frequency_timer
+def _wall():
+    return datetime.now(timezone.utc).timestamp()
+
+
+def _next_day():
+    today = datetime.now(timezone.utc).date()
+    return datetime.combine(today + timedelta(days=1), datetime.min.time(), timezone.utc).timestamp()
+
+
+def _arm(due):
+    """在 `_lock` 内调用：定时器排到 `due`，长等待按墙钟分段。"""
+    global _frequency_timer, _frequency_due
+    if _frequency_timer is not None:
+        _frequency_timer.cancel()
+    _frequency_due = due
+    _frequency_timer = threading.Timer(max(0.0, min(due - _wall(), WALL_CLOCK_RECHECK)), _frequency_tick)
+    _frequency_timer.daemon = True
+    _frequency_timer.start()
+
+
+def _schedule_frequency(config, due=None):
+    """登记要定时处理的数据根并排定下次处理；不给时刻表示有新计数，防抖后落盘。只会把定时器提前。"""
     with _lock:
         _frequency_configs[str(config.directory("state"))] = config
-        if _frequency_timer is None:
-            _frequency_timer = threading.Timer(60, _frequency_tick)
-            _frequency_timer.daemon = True
-            _frequency_timer.start()
+        floor = _wall() + FREQUENCY_DEBOUNCE
+        due = floor if due is None else max(due, floor)
+        if _frequency_timer is None or _frequency_due is None or due < _frequency_due:
+            _arm(due)
 
 
 def _frequency_tick():
-    global _frequency_timer
+    global _frequency_timer, _frequency_due
     with _lock:
-        _frequency_timer = None
+        if _frequency_due is not None and _wall() < _frequency_due:
+            _arm(_frequency_due)
+            return
+        _frequency_timer = _frequency_due = None
         configs = list(_frequency_configs.values())
     for config in configs:
         # 常驻托盘与 NAS 不一定每天重启；沿用每日额度，不能只统计启动的那一天。
+        # `usage` 按日界与计数到期点重排下一次。
         usage(config)
-    with _lock:
-        if _frequency_configs and not _disabled:
-            _schedule_frequency(next(iter(_frequency_configs.values())))
 
 
 def _code_location(values):
@@ -370,20 +397,21 @@ def _count_logs(config, current, target):
 
 
 def flush_counts(config=None, *, force=False):
+    """返回计数下一次到期的时刻；没有可处理的计数时返回 None。"""
     try:
         from . import diagnostic_frequency
         config = _config(config)
         target = dsn()
         if _disabled or not target:
-            return
+            return None
         current = _instance_consent(config)
         if not current['errors']:
-            return
-        diagnostic_frequency.flush(config, current["revision"],
+            return None
+        return diagnostic_frequency.flush(config, current["revision"],
             lambda event: _submit("errors", event, config, current, target),
             _count_logs(config, current, target), force=force)
     except Exception:
-        pass
+        return None
 
 
 def send(kind, event, config=None, *, count_only=False):
@@ -428,10 +456,11 @@ def send(kind, event, config=None, *, count_only=False):
 def usage(config=None):
     send("usage", {"message": "Peach daily activity", "level": "info",
                    "tags": {"os": platform.system(), **machine_facts()}}, config)
-    flush_counts(config)
+    due = flush_counts(config)
     try:
         if not _disabled and consent(config)["errors"] and dsn():
-            _schedule_frequency(_config(config))
+            tomorrow = _next_day()
+            _schedule_frequency(_config(config), tomorrow if due is None else min(due, tomorrow))
     except Exception:
         pass
 
@@ -626,11 +655,11 @@ def disable_for_process():
 
 
 def close():
-    global _client, _client_dsn, _frequency_timer
+    global _client, _client_dsn, _frequency_timer, _frequency_due
     with _lock:
         if _frequency_timer is not None:
             _frequency_timer.cancel()
-        _frequency_timer = None
+        _frequency_timer = _frequency_due = None
         _frequency_configs.clear()
         if _client is not None:
             _client.close(timeout=0)
