@@ -100,7 +100,9 @@
 .peach-react [data-junk-card] [data-media-art] > img { object-fit: contain; }
 .peach-react [data-junk-card] [data-media-glyph] b { font-weight: 700; }
 
-.peach-react [data-junk-meta] { display: grid; gap: 6px; min-width: 0; padding: 20px; }
+.peach-react [data-junk-meta] { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 6px 10px; min-width: 0; padding: 20px; }
+.peach-react [data-junk-pick] { display: flex; padding-top: 2px; }
+.peach-react [data-junk-meta] > [data-junk-facts] { grid-column: 1 / -1; }
 .peach-react [data-junk-title] {
   display: block;
   width: 100%;

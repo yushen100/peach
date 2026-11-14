@@ -73,11 +73,14 @@ type AddTarget = { code: string } | { follow: number };
 export const addWant = (target: AddTarget, signal?: AbortSignal) =>
   apiSend<{ created: boolean; want: Want }>(WANTS_URL, { action: 'add', ...target }, 'POST', signal);
 
+/** 移除与重置的回执带上之前的整行（`previous`），撤销时交回 `restoreWants` 原样写回。 */
 export const removeWants = (ids: number[], signal?: AbortSignal) =>
-  apiSend(WANTS_URL, { action: 'remove', ids }, 'POST', signal);
+  apiSend<{ previous: object[] }>(WANTS_URL, { action: 'remove', ids }, 'POST', signal);
 
 export const resetWants = (ids: number[], signal?: AbortSignal) =>
-  apiSend(WANTS_URL, { action: 'reset', ids }, 'POST', signal);
+  apiSend<{ previous: object[] }>(WANTS_URL, { action: 'reset', ids }, 'POST', signal);
+
+export const restoreWants = (rows: object[]) => apiSend(WANTS_URL, { action: 'restore', rows });
 
 /** 写完之后：清单与各条关注详情的想要状态一起重取。 */
 export const invalidateWants = () => queryClient.invalidateQueries({ queryKey: WANTS_KEY });

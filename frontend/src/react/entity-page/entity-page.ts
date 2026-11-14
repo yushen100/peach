@@ -157,9 +157,11 @@ export interface EntityPageProps extends SharedGridProps {
   hosts: EntityPageHosts;
   /** 卡片上的助手与动作就是目录那一份；照片墙多一枚定位源文件。 */
   card: { helpers: EntityBodyHelpers; actions: Omit<EntityBodyActions, 'loadMorePhotos'> };
-  /** 在线视图里的关注卡：骨架、拖动与进度同关注页那一份；动作是资料页语境的一份，换筛选、侧栏、
-   *  多选与图片偏好都不接（这一页不画关注页的侧栏，多选认的是本地作品）。 */
+  /** 在线视图里的关注卡：骨架、拖动与进度同关注页那一份；动作是资料页语境的一份，换筛选、侧栏与
+   *  图片偏好都不接（这一页不画关注页的侧栏）。多选认关注条目，选择集是 `followSelected`。 */
   follow: { helpers: FollowFeedHelpers; actions: FollowFeedActions };
+  /** 在线视图里选中的关注条目，和作品区的 `selected` 分开。 */
+  followSelected?: ReadonlySet<number>;
   helpers: EntityPageHelpers;
   actions: EntityPageActions;
 }

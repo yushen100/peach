@@ -23,7 +23,7 @@ const answer = (items: JunkItem[], extra: Partial<JunkPage> = {}): JunkPage =>
 
 function actions(patch: Partial<JunkQueueActions> = {}): JunkQueueActions {
   return {
-    navigate: vi.fn(), toggleSelection: vi.fn(), open: vi.fn(),
+    navigate: vi.fn(), toggleSelection: vi.fn(), selectAll: vi.fn(), open: vi.fn(),
     reveal: vi.fn(async () => ''), operate: vi.fn(async () => {}), ...patch,
   };
 }

@@ -1,5 +1,5 @@
 import { selectionSurface, selectionDock, setSelectionMode, toggleSelection as toggleSelected } from '../react/catalog-grid/selection-controller';
-import { JAV_SELECTION_EVENT, javCardPage } from '../jav-controls';
+import { JAV_SELECTION_EVENT, javSelectPage } from '../jav-controls';
 import { selectSurface } from '../shell';
 /* selection 域控制器：本域状态与动作，启动由 Application 的生命周期统一安装。 */
 import { loadCatalog, pushGridPage } from './catalog.js';
@@ -19,6 +19,7 @@ import { photoSize } from './../appearance/layout';
 import { applyDensity, toggleDensity } from './../appearance/density';
 import { installCardArt, refitNativeImages, upgradeCover } from './../card-art/framing';
 import { t } from '../i18n';
+import { queryClient } from '../react/query';
 import { batchAction } from '../react/batch-dock/batch-dock-api';
 import { confirmBody } from '../react/components/bulk-action';
 export const selectionState = { batchDockProps: undefined, trashCount: undefined, currentSelectSurface: undefined, REGION_CHOICES: undefined, BATCH_RUNNERS: undefined, coverRecheck: undefined };
@@ -26,7 +27,7 @@ export const selectionState = { batchDockProps: undefined, trashCount: undefined
 export function paintSelection(){
   // 卡片网格、垃圾队列与关注页的选中态归 React：每次推一份新的集合，卡片按引用比较才看得出变了。
   pushGridPage({selected:new Set(selected),selectMode});
-  pushEntityPage({selected:new Set(selected),selectMode});
+  pushEntityPage({selected:new Set(selected),followSelected:new Set(followSelected),selectMode});
   pushFollowFeed({selected:new Set(followSelected),selectMode});
   /* 底部浮条归常驻组件 `batch-dock`（`react/batch-dock/`）：壳推计数与语境，每种语境列哪几颗键由它按语境定。 */
   selectionState.batchDockProps=selectionDockProps();
@@ -35,7 +36,7 @@ export function paintSelection(){
 }
 
 export function setSelectMode(on,clear=false) {
-    writeShell(setSelectionMode({selected,followSelected},selectionSnapshot(),selectionSurface(location.pathname),!!on,clear));
+    writeShell(setSelectionMode({selected,followSelected},selectionSnapshot(),selectionSurface(location.pathname,location.search),!!on,clear));
     document.body.classList.toggle('select-mode',selectMode);
     if(selectMode)releaseHoverPreviews();
     $('#selectMode').setAttribute('aria-pressed',String(selectMode));paintSelection();
@@ -44,7 +45,7 @@ export function setSelectMode(on,clear=false) {
 export function visibleCardIds(){return [...loadingState.gridCards()].map(card=>+card.dataset.id)}
 
 export function toggleSelection(id,range=false) {
-    writeShell(toggleSelected({selected,followSelected},selectionSnapshot(),selectionSurface(location.pathname),visibleCardIds(),id,range));
+    writeShell(toggleSelected({selected,followSelected},selectionSnapshot(),selectionSurface(location.pathname,location.search),visibleCardIds(),id,range));
     setSelectMode(true);
   }
 
@@ -130,7 +131,8 @@ export async function runFollowBatch(action,button){
   const items=[...followSelected];if(!items.length)return;
   const done={save:'shell:batchFollow.doneSave',seen:'shell:batchFollow.doneSeen',ignored:'shell:batchFollow.doneIgnored'};
   const declared=declaredAction(action);
-  const reload=()=>{if(location.pathname==='/follow')writeShell({pageOpens:pageOpens+1})};
+  /* 关注页按地址重读；资料页的在线视图读的是同一族查询（`['follow-feed']`），让它们失效重取。 */
+  const reload=()=>{if(location.pathname==='/follow')writeShell({pageOpens:pageOpens+1});else void queryClient.invalidateQueries({queryKey:['follow-feed']})};
   return confirmModal({...declaredConfirm(declared,items.length),onConfirm:async()=>{
   setActionBusy(button);
   try{
@@ -177,9 +179,9 @@ export function mountBatchDock(){
 export function installSelection11() {
 selectionState.batchDockProps = {count:0,context:'catalog',junkDismissed:false};
 selectionState.trashCount = null;
-selectionState.currentSelectSurface = ()=>selectionSurface(location.pathname);
+selectionState.currentSelectSurface = ()=>selectionSurface(location.pathname,location.search);
 applicationEffects.handler($('#selectMode'), 'onclick', ()=>{
-  if(javCardPage(location.pathname,location.search)){window.dispatchEvent(new Event(JAV_SELECTION_EVENT));return}
+  if(javSelectPage(location.pathname,location.search)){window.dispatchEvent(new Event(JAV_SELECTION_EVENT));return}
   setSelectMode(!selectMode,!selectMode?false:true)
 });
 selectionState.REGION_CHOICES = [['jp',t('shell:region.japan')],['kr',t('shell:region.korea')],['cn',t('shell:region.china')],['west',t('shell:region.western')],

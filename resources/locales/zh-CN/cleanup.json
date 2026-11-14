@@ -85,6 +85,8 @@
     "reconsider": "重新判断",
     "reveal": "查看位置",
     "revealTitle": "查看文件位置",
+    "selectAll": "全选（{{count, number}} 个）",
+    "selectFile": "选择 {{name}}",
     "truncated": "显示前 {{shown}} 条，共 {{count, number}} 条",
     "undecided": "待判断",
     "unknownSize": "大小未知",

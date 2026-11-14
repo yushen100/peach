@@ -626,6 +626,7 @@ catalogState.junkQueueActions = {
   /* 换分类、换视图：先收起多选，再改地址，由目录元素重读。 */
   navigate:path=>{if(selectMode)setSelectMode(false,true);navigationState.route(path)},
   toggleSelection:(id,range)=>toggleSelection(id,range),
+  selectAll:(ids,on)=>{ids.forEach(id=>on?selected.add(id):selected.delete(id));setSelectMode(selected.size>0)},
   open:(it,anchor)=>it.junk_kind==='image'
     ?window.open('/photo?id='+it.id,'_blank','noopener'):openItem(it.id,true,null,anchor),
   /* 定位成功由 Toast 报，卡上状态行留空；失败把原因写回状态行。 */

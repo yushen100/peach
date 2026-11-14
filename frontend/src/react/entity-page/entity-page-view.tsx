@@ -448,7 +448,8 @@ function EntityLoaded(props: EntityPageProps & { entity: EntityPageData }) {
           ? <EntityOnline view={online.view} media={online.media} result={online.result}
             data={online.data} visible={online.visible} context={online.context} photoSize={props.photoSize}
             photoLayout={props.photoLayout} imagesOnly={props.followImagesOnly} helpers={props.follow.helpers}
-            actions={props.follow.actions} canLoadMore={props.canLoadMore} clearFilters={online.clearFilters} />
+            actions={props.follow.actions} canLoadMore={props.canLoadMore} clearFilters={online.clearFilters}
+            selectMode={props.selectMode} selected={props.followSelected} />
           : view === 'videos' && items.isError
           ? <RetryNote message={errorMessage(items.error)} onRetry={() => { void items.refetch() }} />
           : view === 'photos' && (wall.isError || wallPage?.error)

@@ -21,6 +21,8 @@ interface Selection {
   toggle(item: Discovery, range?: boolean): void;
   visible(items: Discovery[]): void;
   selectPage(): void;
+  /** 退出多选：Esc、浮条上的「退出」与右上角开关都走它。 */
+  close(): void;
   all: boolean; mixed: boolean;
 }
 const Context = createContext<Selection | null>(null);
@@ -33,8 +35,10 @@ export function useVisibleJavWorks(items: Discovery[]) {
   useEffect(() => { visible?.(items) }, [items, visible]);
 }
 
-export function JavSelectionProvider({ children, readOnly, receipt }: {
+export function JavSelectionProvider({ children, readOnly, receipt, dock = true }: {
   children: ReactNode; readOnly: boolean; receipt: Receipt;
+  /** 「想要」页签自己画浮条（它的条目是想要清单，不是作品卡），这里只管多选开关。 */
+  dock?: boolean;
 }) {
   const dense = useSyncExternalStore(subscribeDensity, denseDensity, () => false);
   const [mode, setMode] = useState(false);
@@ -114,11 +118,11 @@ export function JavSelectionProvider({ children, readOnly, receipt }: {
     receipt: (items) => t('catalog:javSelection.wantAdded', { count: items.length }),
   };
   const host = { receipt };
-  return <Context.Provider value={{ dense, mode, selected, toggle, visible, selectPage, all: summary.all, mixed: summary.mixed }}>
+  return <Context.Provider value={{ dense, mode, selected, toggle, visible, selectPage, close, all: summary.all, mixed: summary.mixed }}>
     <div data-jav-selection="" data-select-mode={mode ? '' : undefined} className="flex min-w-0 flex-col gap-4">
       {children}
     </div>
-    <SelectionDock visible={mode} count={t('catalog:javSelection.selectedCount', { count: picked.size })} label={t('catalog:javSelection.dockLabel')}
+    <SelectionDock visible={dock && mode} count={t('catalog:javSelection.selectedCount', { count: picked.size })} label={t('catalog:javSelection.dockLabel')}
       actions={[{ action: want, items: eligible, host, disabled: readOnly,
         done: () => setPicked(current => new Map([...current].filter(([, item]) => !eligible.includes(item)))) }]}>
       <Button size="small" variant="secondary" disabled={!page.length} onClick={selectPage}>

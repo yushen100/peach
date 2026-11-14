@@ -307,12 +307,18 @@
     "title": "HD cover"
   },
   "hdUpgrades": {
+    "clearSelection": "Clear selection",
+    "dockLabel": "Actions for selected HD upgrades",
     "emptyBody": "All current editions already meet the criteria, or nothing has been added to tracking yet.",
     "emptyTitle": "No HD upgrade targets",
     "loadFailed": "Couldn't load HD upgrade targets",
     "noPreview": "No preview",
     "notFound": "HD upgrade targets not found. Refresh the page to try again.",
     "openVideo": "Open {{title}}",
+    "selectAll": "Select all",
+    "selectVideo": "Select {{title}}",
+    "selectedCount_one": "{{count, number}} video selected",
+    "selectedCount_other": "{{count, number}} videos selected",
     "showingFirst_one": "Showing the first {{shown}} of {{count, number}} video.",
     "showingFirst_other": "Showing the first {{shown}} of {{count, number}} videos.",
     "summaryLabel": "To upgrade",

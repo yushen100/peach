@@ -276,12 +276,17 @@
     "title": "高清封面"
   },
   "hdUpgrades": {
+    "clearSelection": "取消选择",
+    "dockLabel": "所选高清升级的操作",
     "emptyBody": "现有版本都已满足条件，或还没有加入追踪。",
     "emptyTitle": "没有标记中的高清版目标",
     "loadFailed": "高清版目标读取失败",
     "noPreview": "暂无预览",
     "notFound": "未取得高清版目标，请刷新页面重试。",
     "openVideo": "打开 {{title}}",
+    "selectAll": "全选",
+    "selectVideo": "选择 {{title}}",
+    "selectedCount": "已选 {{count, number}} 部",
     "showingFirst": "显示前 {{shown}} 部，共 {{count, number}} 部。",
     "summaryLabel": "待升级",
     "unknownSize": "大小未知",

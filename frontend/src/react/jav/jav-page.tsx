@@ -42,7 +42,7 @@ export function JavPage({ tab, readOnly, navigate, receipt }: {
   const [download, setDownload] = useState<DownloadPrefill | null>(null);
   const [text, changeText] = useState(() => new URLSearchParams(location.search).get('q') || '');
   const setText = (value: string) => { changeText(value); writeJavQuery({ q: value }) };
-  return <JavSelectionProvider key={tab} readOnly={readOnly} receipt={receipt}><div className="flex w-full flex-col gap-6">
+  return <JavSelectionProvider key={tab} readOnly={readOnly} receipt={receipt} dock={tab !== 'wants'}><div className="flex w-full flex-col gap-6">
     <JavHeader tab={tab} navigate={navigate} find={() => setDownload({})}
       search={<IndexSearch label={SEARCH_LABELS[tab] || t('catalog:javDiscover.filter')} value={text} onQuery={setText} />} />
     {tab === 'releases'

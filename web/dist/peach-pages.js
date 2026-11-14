@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "2533c2dc-2bdd-4d71-8fef-ce2b7a65c194", e._sentryDebugIdIdentifier = "sentry-dbid-2533c2dc-2bdd-4d71-8fef-ce2b7a65c194");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "c5bafea6-73e6-431e-a985-5c0fcbc7c2e2", e._sentryDebugIdIdentifier = "sentry-dbid-c5bafea6-73e6-431e-a985-5c0fcbc7c2e2");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -2568,6 +2568,7 @@ var He = {
 		backToSearching: "{{name}} moved back to Searching",
 		cloudPrimaryOnly: "Cloud download is only available on the primary computer.",
 		codePlaceholder: "Enter a code, e.g. SSIS-950",
+		dockLabel: "Actions for selected wants",
 		downloadSettingsFailed: "Couldn't load download settings",
 		empty: "No wanted videos yet",
 		emptyHint: "Enter a code to add a video you want to watch.",
@@ -2595,11 +2596,23 @@ var He = {
 		phaseSearching: "Searching",
 		phaseUnreleased: "Unreleased",
 		releaseDate: "Release date {{date}}",
+		removeMany: "Remove selected wants",
+		removeManyBody_one: "Removes the {{count, number}} selected video from Wants. Videos already in the collection aren't affected.",
+		removeManyBody_other: "Removes the {{count, number}} selected videos from Wants. Videos already in the collection aren't affected.",
 		removed: "Removed: {{name}}",
+		removedMany_one: "Removed {{count, number}} video from Wants",
+		removedMany_other: "Removed {{count, number}} videos from Wants",
 		searchAgain: "Search again",
+		searchAgainDone_one: "Put {{count, number}} want back to searching",
+		searchAgainDone_other: "Put {{count, number}} wants back to searching",
+		searchAgainMany: "Search selected again",
+		searchAgainManyBody_one: "Puts the {{count, number}} selected given-up want back to searching and resets its search count.",
+		searchAgainManyBody_other: "Puts the {{count, number}} selected given-up wants back to searching and resets their search counts.",
 		searchCount_one: "Searched {{count, number}} time",
 		searchCount_other: "Searched {{count, number}} times",
 		searchingResources: "Searching for resources for Wants.",
+		selectAll: "Select all",
+		selectRow: "Select {{name}}",
 		sourcePage: "Source page",
 		tryOtherSearch: "Try a different code, actress, or title."
 	}
@@ -2705,6 +2718,8 @@ var He = {
 		reconsider: "Reconsider",
 		reveal: "Show location",
 		revealTitle: "Show file location",
+		selectAll: "Select all ({{count, number}})",
+		selectFile: "Select {{name}}",
 		truncated_one: "Showing the first {{shown}} of {{count, number}} item.",
 		truncated_other: "Showing the first {{shown}} of {{count, number}} items.",
 		undecided: "Undecided",
@@ -3943,12 +3958,18 @@ var He = {
 		title: "HD cover"
 	},
 	hdUpgrades: {
+		clearSelection: "Clear selection",
+		dockLabel: "Actions for selected HD upgrades",
 		emptyBody: "All current editions already meet the criteria, or nothing has been added to tracking yet.",
 		emptyTitle: "No HD upgrade targets",
 		loadFailed: "Couldn't load HD upgrade targets",
 		noPreview: "No preview",
 		notFound: "HD upgrade targets not found. Refresh the page to try again.",
 		openVideo: "Open {{title}}",
+		selectAll: "Select all",
+		selectVideo: "Select {{title}}",
+		selectedCount_one: "{{count, number}} video selected",
+		selectedCount_other: "{{count, number}} videos selected",
 		showingFirst_one: "Showing the first {{shown}} of {{count, number}} video.",
 		showingFirst_other: "Showing the first {{shown}} of {{count, number}} videos.",
 		summaryLabel: "To upgrade",
@@ -9761,6 +9782,7 @@ var He = {
 		backToSearching: "{{name}} 回到待找",
 		cloudPrimaryOnly: "云下载只在写入端可用。",
 		codePlaceholder: "输入番号，例如 SSIS-950",
+		dockLabel: "所选想要的操作",
 		downloadSettingsFailed: "下载配置未取得",
 		empty: "还没有想要的作品",
 		emptyHint: "输入番号，添加想看的作品。",
@@ -9787,10 +9809,18 @@ var He = {
 		phaseSearching: "待找",
 		phaseUnreleased: "未发售",
 		releaseDate: "{{date}} 发售",
+		removeMany: "移除所选想要",
+		removeManyBody: "将从想要里移除选中的 {{count, number}} 部，已入库的作品不受影响。",
 		removed: "已移除：{{name}}",
+		removedMany: "已从想要里移除 {{count, number}} 部",
 		searchAgain: "重新查找",
+		searchAgainDone: "已放回待找 {{count, number}} 部",
+		searchAgainMany: "重新查找所选",
+		searchAgainManyBody: "将把选中的 {{count, number}} 部已放弃的想要放回待找，查找次数清零。",
 		searchCount: "查过 {{count, number}} 次",
 		searchingResources: "正在给待找的作品查资源。",
+		selectAll: "全选",
+		selectRow: "选择 {{name}}",
 		sourcePage: "来源页",
 		tryOtherSearch: "试试其他番号、女优或标题。"
 	}
@@ -9881,6 +9911,8 @@ var He = {
 		reconsider: "重新判断",
 		reveal: "查看位置",
 		revealTitle: "查看文件位置",
+		selectAll: "全选（{{count, number}} 个）",
+		selectFile: "选择 {{name}}",
 		truncated: "显示前 {{shown}} 条，共 {{count, number}} 条",
 		undecided: "待判断",
 		unknownSize: "大小未知",
@@ -10955,12 +10987,17 @@ var He = {
 		title: "高清封面"
 	},
 	hdUpgrades: {
+		clearSelection: "取消选择",
+		dockLabel: "所选高清升级的操作",
 		emptyBody: "现有版本都已满足条件，或还没有加入追踪。",
 		emptyTitle: "没有标记中的高清版目标",
 		loadFailed: "高清版目标读取失败",
 		noPreview: "暂无预览",
 		notFound: "未取得高清版目标，请刷新页面重试。",
 		openVideo: "打开 {{title}}",
+		selectAll: "全选",
+		selectVideo: "选择 {{title}}",
+		selectedCount: "已选 {{count, number}} 部",
 		showingFirst: "显示前 {{shown}} 部，共 {{count, number}} 部。",
 		summaryLabel: "待升级",
 		unknownSize: "大小未知",
@@ -38816,4 +38853,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=2533c2dc-2bdd-4d71-8fef-ce2b7a65c194
+//# debugId=c5bafea6-73e6-431e-a985-5c0fcbc7c2e2
