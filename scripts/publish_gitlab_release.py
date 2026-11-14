@@ -90,8 +90,8 @@ def gitgud_package_links(root: Path, release: dict, project_url: str) -> list[di
 
 
 def r2_release_notes(body: str, version: str, base: str, project_url: str) -> str:
-    from .package_windows_release import download_notes
-    text = body.split('\n## 下载选择\n', 1)[0].rstrip() + '\n'
+    from .package_windows_release import DOWNLOADS_SUMMARY, download_notes
+    text = body.split('\n' + DOWNLOADS_SUMMARY, 1)[0].rstrip() + '\n'
     text = text.replace('https://github.com/peach-mitao/peach/blob/master/',
                         f'{project_url.rstrip("/")}/-/blob/v{version}/')
     return text + download_notes(version, lite_installer=True, download_base=f'{base.rstrip("/")}/v{version}')

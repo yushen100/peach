@@ -338,7 +338,6 @@ jobs:
             release/*.dmg
             scripts/smoke_macos.py
             scripts/smoke_desktop.py
-            scripts/MACOS_DOWNLOADS.md
 
   macos-smoke:
     name: macOS ${{ matrix.arch }} 仅下载制品验收
@@ -432,11 +431,6 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           cd release
-          {
-            tail -n +4 ../macos-candidates/scripts/MACOS_DOWNLOADS.md
-            printf '\n'
-            tail -n +4 ../scripts/DOCKER_DOWNLOADS.md | sed "s/{version}/${GITHUB_REF_NAME#v}/g"
-          } >> RELEASE_NOTES.md
           files=(./*.zip ./*-setup.exe ./*.dmg SHA256SUMS.txt)
           if [ -f SHA256SUMS.txt.sig ]; then files+=(SHA256SUMS.txt.sig); fi
           gh release create "$GITHUB_REF_NAME" "${files[@]}" --verify-tag --prerelease --title "$GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md
@@ -546,9 +540,11 @@ jobs:
           set -euo pipefail
           gh release download "$GITHUB_REF_NAME" --dir build/mirror \
             --pattern '*.zip' --pattern '*.exe' --pattern '*.dmg' --pattern 'SHA256SUMS.txt*'
-          # 发布时间取提交时间：release.json 不可覆盖上传，重跑作业必须写出同样的字节。
+          # 发布时间取提交时间、更新说明取标签提交上的 CHANGELOG：release.json 不可覆盖上传，重跑作业必须写出同样的字节。
+          .venv/bin/python scripts/changelog.py --notes "${GITHUB_REF_NAME#v}" --to build/release-notes.md
           CI_COMMIT_TIMESTAMP="$(git show -s --format=%cI "$GITHUB_SHA")" \
-            .venv/bin/python scripts/release_r2.py --root build/mirror --version "${GITHUB_REF_NAME#v}" --apply
+            .venv/bin/python scripts/release_r2.py --root build/mirror --version "${GITHUB_REF_NAME#v}" --apply \
+            --notes build/release-notes.md
 
   # 镜像在演练中按架构各自构建和验收，标签核对相同 image ID 后发布；发布排在 GitHub Release 成功之后：
   # 桌面包任何一步没发出去，Docker Hub 的版本号、edge 与 latest 都不动（ADR-0121）。

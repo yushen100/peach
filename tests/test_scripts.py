@@ -5472,32 +5472,44 @@ class R2ReleaseTests(unittest.TestCase):
 class ReleaseDownloadNotesTests(unittest.TestCase):
     def test_default_download_notes_use_the_github_version_directory(self):
         from scripts.package_windows_release import DOCS, download_notes
-        links = [url for url in re.findall(r'https://[^\s)]+', download_notes('1.0.0', lite_installer=True))
-                 if not url.startswith(DOCS)]
+        links = {url for url in re.findall(r'https://[^\s)]+', download_notes('1.0.0', lite_installer=True))
+                 if not url.startswith(DOCS)}
         self.assertEqual(len(links), 9)
         self.assertTrue(all(url.startswith('https://github.com/peach-mitao/peach/releases/download/v1.0.0/')
                             for url in links))
 
-    def test_one_download_table_covers_windows_macos_and_docker(self):
+    def test_one_download_table_covers_windows_macos_and_docker_in_both_languages(self):
         from scripts.package_windows_release import download_notes
-        table = download_notes('1.0.0', lite_installer=True).split('\n\n')[1]
-        rows = [line.split(' | ')[0].lstrip('| ') for line in table.splitlines()[2:]]
-        self.assertEqual(rows, ['Windows x64'] * 3 + ['macOS Apple Silicon', 'macOS Intel', 'Docker / NAS'])
-        self.assertIn('`longmeidao/peach:1.0.0`', table)
+        notes = download_notes('1.0.0', lite_installer=True)
+        tables = [block for block in notes.split('\n\n') if block.startswith(('| Platform | Download', '| 平台 | 下载'))]
+        self.assertEqual(len(tables), 2)
+        for table in tables:
+            rows = [line.split(' | ')[0].lstrip('| ') for line in table.splitlines()[2:]]
+            self.assertEqual(rows, ['Windows x64'] * 3 + ['macOS Apple Silicon', 'macOS Intel', 'Docker / NAS'])
+            self.assertIn('`longmeidao/peach:1.0.0`', table)
+
+    def test_downloads_are_folded_with_english_first_and_chinese_folded_inside(self):
+        from scripts.package_windows_release import DOWNLOADS_SUMMARY, download_notes
+        notes = download_notes('1.0.0', lite_installer=True)
+        self.assertTrue(notes.lstrip('\n').startswith(DOWNLOADS_SUMMARY))
+        self.assertLess(notes.index('| Platform |'), notes.index('<summary>简体中文</summary>'))
+        self.assertLess(notes.index('<summary>简体中文</summary>'), notes.index('| 平台 |'))
+        self.assertEqual(notes.count('<details>'), notes.count('</details>'))
+        self.assertTrue(notes.rstrip().endswith('</details>\n\n</details>'))
 
     def test_r2_release_notes_link_both_native_platforms_and_tagged_docs(self):
-        from scripts.package_windows_release import download_notes
+        from scripts.package_windows_release import DOWNLOADS_SUMMARY, download_notes
         from scripts.publish_gitlab_release import r2_release_notes
-        body = ('### 新增\n\n- **更新**：支持公开下载。\n\n'
-                '[说明](https://github.com/peach-mitao/peach/blob/master/docs/OPERATIONS.md)\n'
+        body = ('### Added\n\n- **Updates**: Public downloads.\n\n'
+                '[Guide](https://github.com/peach-mitao/peach/blob/master/docs/OPERATIONS.md)\n'
                 + download_notes('1.0.0', lite_installer=True))
         result = r2_release_notes(body, '1.0.0', 'https://downloads.peach.video',
                                   'https://gitgud.io/peach-mitao/peach')
         links = re.findall(r'https://[^\s)]+', result)
-        self.assertIn('### 新增\n\n- **更新**：支持公开下载。', result)
-        self.assertEqual(result.count('## 下载选择'), 1)
+        self.assertIn('### Added\n\n- **Updates**: Public downloads.', result)
+        self.assertEqual(result.count(DOWNLOADS_SUMMARY), 1)
         self.assertEqual(links[0], 'https://gitgud.io/peach-mitao/peach/-/blob/v1.0.0/docs/OPERATIONS.md')
-        downloads = [url for url in links[1:] if '/docs/' not in url]
+        downloads = {url for url in links[1:] if '/docs/' not in url}
         self.assertEqual(len(downloads), 9)
         self.assertTrue(all(url.startswith('https://downloads.peach.video/v1.0.0/') for url in downloads))
         self.assertIn('https://downloads.peach.video/v1.0.0/Peach-1.0.0-macos-arm64.dmg', links)
@@ -5572,7 +5584,7 @@ class GitGudPackageMirrorTests(unittest.TestCase):
         response.__enter__.return_value.read.return_value = json.dumps(release).encode()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory).resolve()
-            (root / 'RELEASE_NOTES.md').write_text('### 新增\n\n- 下载。\n', encoding='utf-8')
+            (root / 'RELEASE_NOTES.md').write_text('### Added\n\n- Downloads.\n', encoding='utf-8')
             with mock.patch.dict(os.environ, {'CI_COMMIT_TAG': 'v1.2.3', 'CI_COMMIT_SHA': sha,
                     'CI_PROJECT_URL': 'https://gitgud.io/owner/repo', 'PEACH_DOWNLOAD_BACKEND': 'both',
                     'PEACH_R2_PUBLIC_BASE': 'https://downloads.example'}), \
@@ -5956,7 +5968,7 @@ class ReleaseTagTests(unittest.TestCase):
         with self._shell(), \
                 mock.patch.object(self.release, "api", return_value={"object": {"sha": "abc"}}), \
                 mock.patch.object(self.release.version_bump, "read_version", return_value="0.7.14"), \
-                mock.patch.object(Path, "read_text", return_value="# 变更日志\n\n## [未发布]\n"), \
+                mock.patch.object(Path, "read_text", return_value="# Changelog\n\n## [Unreleased]\n"), \
                 self.assertRaisesRegex(ValueError, "CHANGELOG.md 缺少 0.7.14"):
             self.release.plan("owner/repo")
 
@@ -6021,7 +6033,7 @@ class PinnedReleaseTests(unittest.TestCase):
     """标签、说明与 CI 都绑定已确认的提交，主线可以继续推进。"""
 
     SHA = "1" * 40
-    NOTES = "## [0.37.0] - 2026-10-01\n\n### 修复\n\n- **界面**：统计页布局稳定。\n"
+    NOTES = "## [0.37.0] - 2026-10-01\n\n### Fixed / 修复\n\n- **Interface**: Stats layout holds. / **界面**：统计页布局稳定。\n"
 
     @classmethod
     def setUpClass(cls):
@@ -6089,8 +6101,8 @@ class PinnedReleaseTests(unittest.TestCase):
             {("git", "branch", "--show-current"): "feature"},
             {("git", "rev-parse", f"{self.SHA}^{{commit}}"): "2" * 40},
             {("git", "show", f"{self.SHA}:src/peach/__init__.py"): ""},
-            {("git", "show", f"{self.SHA}:CHANGELOG.md"): "## [未发布]\n"},
-            {("git", "show", f"{self.SHA}:CHANGELOG.md"): self.NOTES.replace("**界面**：", "web：")},
+            {("git", "show", f"{self.SHA}:CHANGELOG.md"): "## [Unreleased]\n"},
+            {("git", "show", f"{self.SHA}:CHANGELOG.md"): self.NOTES.replace("**Interface**: Stats layout holds. / **界面**：", "web：")},
             {("git", "tag", "--list", "v0.37.0"): "v0.37.0"},
         ]
         for changes in cases:
@@ -6191,7 +6203,7 @@ class ShipTests(unittest.TestCase):
     def _version(self):
         return mock.patch.object(self.release.version_bump, "read_version", return_value="0.8.0")
 
-    def _document(self, text="## [0.8.0] - 2026-09-07\n\n### 新增\n\n- **界面**：那件事\n"):
+    def _document(self, text="## [0.8.0] - 2026-09-07\n\n### Added / 新增\n\n- **Interface**: That thing. / **界面**：那件事\n"):
         return mock.patch.object(Path, "read_text", return_value=text)
 
     @staticmethod
@@ -6262,12 +6274,12 @@ class ShipTests(unittest.TestCase):
 
     def test_a_version_without_its_changelog_section_cannot_ship(self):
         with self._shell(), self._api(), self._version(), \
-                self._document("# 变更日志\n\n## [未发布]\n"), \
+                self._document("# Changelog\n\n## [Unreleased]\n"), \
                 self.assertRaisesRegex(ValueError, "缺少 0.8.0"):
             self.release.ship("owner/repo", apply=True)
 
     def test_an_unclassified_release_note_cannot_be_committed(self):
-        raw = "## [0.8.0] - 2026-09-07\n\n### 修复\n\n- web：那件事\n"
+        raw = "## [0.8.0] - 2026-09-07\n\n### Fixed / 修复\n\n- web：那件事\n"
         with self._shell() as command, self._api(), self._version(), self._document(raw), \
                 self.assertRaisesRegex(self.release.version_bump.VersionError, "未归类.*web"):
             self.release.ship("owner/repo", apply=True)
