@@ -15,7 +15,6 @@
 """
 from __future__ import annotations
 
-import errno
 import os
 import re
 import shutil
@@ -772,26 +771,28 @@ def _recheck_vanished(contract: ResourceSyncContract, asset_ids: Sequence[int]) 
     return [row for row in confirmed if row["location"] in still_online]
 
 
-def _remove_empty_directories(paths: Sequence[Path], roots: Sequence[Path]) -> tuple[int, int]:
+def _remove_empty_directories(paths: Sequence[Path], roots: Sequence[Path],
+                              progress: Callable[[int, int], None] | None = None) -> tuple[int, int]:
     """按深度从深到浅删检查报出的空目录；来源根和根外的路径一律不碰。
 
-    `rmdir` 只删得掉空目录：检查之后又放进东西的目录照样留着，不算失败。
+    `rmdir` 只删得掉空目录：检查之后又放进东西的目录、目录链接照样留着，不算失败。删除交给
+    可终止的子进程连续做（`media_io.remove_directories`），网盘上卡住的那个只记一次失败，
+    剩下的照删；每删完一个过一次停点，取消在下一个目录前生效。
     """
-    removed = errors = 0
-    for path in sorted(paths, key=lambda item: len(item.parts), reverse=True):
-        if (path in roots or path.is_symlink()
-                or not any(within_root(path, root) for root in roots)):
-            continue
-        try:
-            path.rmdir()
-        except FileNotFoundError:
-            # CloudDrive 会在最后一个子项消失时自己收掉空的一层；删文件那一步也会顺手清空父目录。
-            continue
-        except OSError as error:
-            if error.errno not in {errno.ENOTEMPTY, errno.EEXIST}:
+    from .task_control import checkpoint
+    targets = [path for path in sorted(paths, key=lambda item: len(item.parts), reverse=True)
+               if path not in roots and any(within_root(path, root) for root in roots)]
+    removed = errors = done = 0
+    with closing(media_io.remove_directories(targets)) as results:
+        for _path, result in results:
+            done += 1
+            if result == "removed":
+                removed += 1
+            elif isinstance(result, OSError):
                 errors += 1
-            continue
-        removed += 1
+            if progress is not None:
+                progress(done, len(targets))
+            checkpoint(None)
     return removed, errors
 
 
@@ -876,11 +877,18 @@ def w_resource_sync_apply(contract: ResourceSyncContract, body, *, progress=None
         contract, state, report, checkpoint, resume_state)
     report(checked=0, total=None, **message_fields("jobMessage.webResourceSync.removingEmptyFolders"))
     dirs_removed, dir_errors = 0, 0
+    reported = 0.0
+
+    def removing(done: int, total: int) -> None:
+        nonlocal reported
+        if time.monotonic() - reported >= PROGRESS_SECONDS:
+            reported = time.monotonic()
+            report(checked=done, total=total, **message_fields("jobMessage.webResourceSync.removingEmptyFolders"))
     for location, paths in state["empty_dirs"].items():
         if location not in configured_resource_locations() or not source_is_online(location):
             continue
         removed, errors = _remove_empty_directories([Path(path) for path in paths],
-                                                    _source_roots(location))
+                                                    _source_roots(location), removing)
         dirs_removed += removed
         dir_errors += errors
     contract.cache_bust()

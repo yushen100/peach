@@ -19,7 +19,7 @@ from .os_errors import CodedOSError, CodedTimeoutError
 #: 单项读取的期限。目录枚举按「多久没有新条目」计：挂死的挂载一条也不返回，到期判失败；
 #: 网络盘上的大目录逐条返回得慢，只要还在返回就不按总时长判死。
 TIMEOUT_SECONDS = 20.0
-OPERATIONS = ('directory', 'files', 'nfo', 'art', 'online', 'resolve', 'stat', 'browse', 'present', 'directories')
+OPERATIONS = ('directory', 'files', 'nfo', 'art', 'online', 'resolve', 'stat', 'browse', 'present', 'directories', 'rmdirs')
 
 
 def _request(operation, path, *, value='', timeout=None):
@@ -194,7 +194,7 @@ def _directories_stream(stack, walk):
                     heard = True
                     message = json.loads(line)
                     if 'reading' in message:
-                        if message['reading'] != stack[-1]:
+                        if not stack or message['reading'] != stack[-1]:
                             break
                         current, items = stack.pop(), []
                     elif 'entry' in message and current is not None:
@@ -274,6 +274,100 @@ def _stream_directories(listing, walk):
             if walk:
                 stack.extend(_subdirectories(items))
         _emit({'end': count})
+    except OSError:
+        # 父进程已超时离开、管道关闭时，结果没有读取方，不算故障。
+        pass
+    return 0
+
+
+def remove_directories(paths):
+    """依次删这些空目录，逐个产出 `(目录, 结果)`：`removed` 删掉了，`gone` 已经不在，
+    `kept` 不空或是目录链接（照旧留着），删不掉或超时是 OSError。
+
+    一个子进程按给定次序连续删；某个目录超过期限没有回答，它记超时，剩下的换一个子进程接着删。
+    调用方中途不删了要关掉生成器，子进程才会被回收。
+    """
+    import tempfile
+    command = ([sys.executable, 'media-read'] if getattr(sys, 'frozen', False)
+               else [sys.executable, '-m', 'peach.media_io'])
+    pending = [os.fspath(path) for path in reversed(paths)]
+    while pending:
+        with tempfile.NamedTemporaryFile('w', encoding='utf-8', suffix='.json', delete=False) as listing:
+            json.dump(list(reversed(pending)), listing)
+        current, heard = None, False
+        try:
+            try:
+                process = subprocess.Popen([*command, 'rmdirs', listing.name],
+                    stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+            except OSError as error:
+                for directory in reversed(pending):
+                    yield directory, error
+                return
+            try:
+                for line in _paced(process.stdout, TIMEOUT_SECONDS, pending[-1]):
+                    heard = True
+                    message = json.loads(line)
+                    if 'end' in message:
+                        if not pending and current is None:
+                            return
+                        break
+                    if current is None and pending and message.get('removing') == pending[-1]:
+                        current = pending.pop()
+                    elif 'result' in message and current is not None:
+                        directory, current = current, None
+                        yield directory, message['result']
+                    elif 'error' in message and current is not None:
+                        directory, current = current, None
+                        yield directory, OSError(message['error'].get('errno'), message['error']['message'], directory)
+                    else:
+                        break
+            except TimeoutError:
+                if current is not None:
+                    yield current, CodedTimeoutError(errno.ETIMEDOUT, 'errors.mediaIo.readTimedOut', filename=current)
+                    continue
+            except (OSError, ValueError, KeyError):
+                pass
+            finally:
+                process.kill()
+                process.wait()
+                process.stdout.close()
+        finally:
+            os.unlink(listing.name)
+        if current is not None:
+            yield current, CodedOSError(errno.EIO, 'errors.mediaIo.readerFailed', filename=current)
+        elif not heard:
+            for directory in reversed(pending):
+                yield directory, CodedOSError(errno.EIO, 'errors.mediaIo.readerFailed', filename=directory)
+            return
+
+
+def remove_directory(path):
+    """删一个空目录：`removed`、`gone`（已经不在）或 `kept`（不空、是目录链接）；其他错误照常抛出。"""
+    try:
+        if os.path.islink(path):
+            return 'kept'
+        os.rmdir(path)
+    except FileNotFoundError:
+        # CloudDrive 会在最后一个子项消失时自己收掉空的一层。
+        return 'gone'
+    except OSError as error:
+        if error.errno in {errno.ENOTEMPTY, errno.EEXIST}:
+            return 'kept'
+        raise
+    return 'removed'
+
+
+def _stream_rmdirs(listing):
+    """按名单逐个删目录：每个先报 `removing`，再报 `result` 或 `error`；全部做完报 `end`。"""
+    try:
+        for path in json.loads(Path(listing).read_text(encoding='utf-8')):
+            _emit({'removing': path})
+            try:
+                _emit({'result': remove_directory(path)})
+            except OSError as error:
+                _emit({'error': dict(kind='os', errno=error.errno, message=str(error))})
+        _emit({'end': True})
     except OSError:
         # 父进程已超时离开、管道关闭时，结果没有读取方，不算故障。
         pass
@@ -507,6 +601,8 @@ def main(argv=None):
         return _stream_present(args.path)
     if args.operation == 'directories':
         return _stream_directories(args.path, args.value == 'walk')
+    if args.operation == 'rmdirs':
+        return _stream_rmdirs(args.path)
     try:
         response = {'value': _read(args.operation, args.path, args.value)}
     except (OSError, ValueError) as error:

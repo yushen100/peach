@@ -198,6 +198,36 @@ class MediaIoTests(unittest.TestCase):
         self.assertEqual(len(children), 2)
         self.assertTrue(all(child.poll() is not None for child in children))
 
+    def test_one_remover_deletes_in_order_and_a_stuck_directory_times_out_alone(self):
+        for name in ('a', 'stuck', 'z', 'full'):
+            (self.root / name).mkdir()
+        (self.root / 'full' / 'x.mp4').write_bytes(b'x')
+        stuck = os.fspath(self.root / 'stuck')
+        script = ('import os, sys, time\nimport peach.media_io as m\nrmdir = os.rmdir\n'
+                  'def slow(path):\n'
+                  f'    if path == {stuck!r}: time.sleep(60)\n'
+                  '    return rmdir(path)\n'
+                  'os.rmdir = slow\nsys.exit(m.main(sys.argv[1:]))\n')
+        children, original_popen = [], subprocess.Popen
+
+        def spawn(command, **options):
+            if command[-2] == 'rmdirs':
+                command = [sys._base_executable, '-c', script, *command[-2:]]
+            child = original_popen(command, **options)
+            children.append(child)
+            return child
+        names = ('a', 'stuck', 'z', 'full', 'gone')
+        with patch.object(media_io, 'TIMEOUT_SECONDS', 1.0), \
+                patch.object(media_io.subprocess, 'Popen', side_effect=spawn):
+            results = list(media_io.remove_directories([self.root / name for name in names]))
+        self.assertEqual([Path(path).name for path, _result in results], list(names))
+        verdicts = dict((Path(path).name, result) for path, result in results)
+        self.assertIsInstance(verdicts.pop('stuck'), TimeoutError)
+        self.assertEqual(verdicts, {'a': 'removed', 'z': 'removed', 'full': 'kept', 'gone': 'gone'})
+        self.assertTrue((self.root / 'stuck').is_dir())
+        self.assertEqual(len(children), 2)
+        self.assertTrue(all(child.poll() is not None for child in children))
+
     def test_closing_the_listing_early_reaps_the_reader(self):
         """取消在两个目录之间生效：调用方不读了，读取子进程不能留着。"""
         for name in ('a', 'b', 'c'):

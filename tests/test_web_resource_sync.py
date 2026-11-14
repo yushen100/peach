@@ -41,6 +41,18 @@ def directories_with(read):
     return lambda paths, walk=False: media_io.directories_in_process(paths, walk, read)
 
 
+#: 真的删除子进程入口；夹具把它换成本进程里的版本，专测期限的用例再换回来。
+REMOVE_DIRECTORIES = media_io.remove_directories
+
+
+def remove_here(paths):
+    for path in paths:
+        try:
+            yield os.fspath(path), media_io.remove_directory(path)
+        except OSError as error:
+            yield os.fspath(path), error
+
+
 def read_in_process(case) -> None:
     """媒体读取放回本进程，用例对 `os.scandir` 的 patch 才看得见；读取子进程的期限与回收
     由 `test_media_io` 和本文件里专测期限的用例覆盖。"""
@@ -57,7 +69,8 @@ def read_in_process(case) -> None:
         return answers
     from peach.platform import root_online
     for target, name, value in ((rm_sync, '_read_directories', directories_with(read_here)),
-                                (media_io, 'paths_present', present), (media_io, 'root_online', root_online)):
+                                (media_io, 'paths_present', present), (media_io, 'root_online', root_online),
+                                (media_io, 'remove_directories', remove_here)):
         patcher = mock.patch.object(target, name, value)
         patcher.start()
         case.addCleanup(patcher.stop)
@@ -923,6 +936,37 @@ class ResourceSyncCleanupTests(unittest.TestCase):
             state = self.wait_scan()
         self.assertEqual(state["status"], "complete")
         self.assertLess(len(paced), 100, "停点次数应与目录数同量级，不随条目数增长")
+
+    def test_apply_skips_an_empty_folder_whose_removal_never_returns(self):
+        """执行时删空目录：网盘上删一个目录一直不返回，只记它删不掉，其余照删，执行照常完成。"""
+        scan = finish_scan(self.contract)
+        stuck = self.mount / "empty" / "nested"
+        children, popen = [], subprocess.Popen
+        script = ("import os, sys, time\nimport peach.media_io as m\nrmdir = os.rmdir\n"
+                  "def slow(path):\n"
+                  f"    if path == {str(stuck)!r}: time.sleep(60)\n"
+                  "    return rmdir(path)\n"
+                  "os.rmdir = slow\nsys.exit(m.main(sys.argv[1:]))\n")
+
+        def hung_at_stuck(command, **options):
+            if command[-2] == "rmdirs":
+                command = [sys._base_executable, "-c", script, *command[-2:], ""]
+            child = popen(command, **options)
+            children.append(child)
+            return child
+        started = time.monotonic()
+        with mock.patch.object(media_io, "remove_directories", REMOVE_DIRECTORIES), \
+                mock.patch.object(media_io, "TIMEOUT_SECONDS", 1.0), \
+                mock.patch.object(media_io.subprocess, "Popen", side_effect=hung_at_stuck):
+            result = self.apply(scan, clean_cache=False)
+
+        self.assertLess(time.monotonic() - started, 50)
+        # 文宣与只装着它的 release 删掉；nested 卡住记一次失败，装着它的 empty 不空、照旧留着。
+        self.assertEqual((result["dirs_removed"], result["dir_errors"]), (2, 1))
+        self.assertTrue(stuck.is_dir())
+        self.assertFalse((self.mount / "release").exists())
+        self.assertEqual(len(children), 2, "卡住的那个之后换一个子进程接着删")
+        self.assertTrue(all(child.poll() is not None for child in children))
 
     def test_recovery_returns_while_a_resumed_scan_waits_on_a_directory(self):
         """接回一轮会卡住的检查不能拖住恢复服务：检查在后台线程里等，接回当场返回。"""
