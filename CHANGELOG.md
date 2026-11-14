@@ -31,6 +31,10 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Sourcing**: DMM titles sold in parts (such as SORA-613A) are searched and added by the full-title code, and codes with a trailing letter reach source search (#662). / **采集**：DMM 分段发售的作品（如 SORA-613A）按整片番号搜资源和添加，带尾字母的番号能进资源搜索（#662）。
 - **Updates**: For source, Docker and up-to-date installs, Check for updates no longer lists a Package it can't use, and the installer download note no longer crowds the line above (#663). / **更新**：源码运行、Docker 和已是最新时，检查更新不再列出用不上的「下载内容」，安装包的下载说明不再贴着上一行（#663）。
 - **Library**: TMA codes like `T28-612` and `T38-076` are recognized; such videos already in the library get their code and metadata on the next processing (#656). / **馆藏**：认出 TMA 的 `T28-612`、`T38-076` 这类番号，已入库的此类影片下次处理时补上番号和资料（#656）。
+- **Library**: Later copies of the same title get its cast and creators, FC2 titles get their seller after metadata lands, and existing ones are filled on upgrade (#681). / **馆藏**：同一部片后入库的副本补上演员和创作者，FC2 作品资料落库后自动挂上卖家，已入库的升级后补一次（#681）。
+- **Review**: Performers written as "family given" on studio sites, and Western stage names, land automatically instead of holding the row in Review (#681). / **复核**：片商官网写成「姓 名」的演员与欧美艺名能自动落库，不再整行留在复核队列（#681）。
+- **Library**: Video enhancement model tags such as `_prob4` no longer become part of creator names, aliases or search terms (#681). / **馆藏**：视频增强软件的模型代号（如 `_prob4`）不再算进创作者名，也不再登记成别名和搜索词（#681）。
+- **Sourcing**: Codes left with only a cover image after the video is deleted can be added to Wants, and an early cover no longer marks a want as acquired (#681). / **采集**：视频删掉后只剩封面图的番号能加入「想要」，先到的封面图也不再把想要标成已到手（#681）。
 
 ## [0.58.0] - 2026-11-14
 
