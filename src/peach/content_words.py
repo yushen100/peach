@@ -40,6 +40,11 @@ COLLECTION_SUFFIX = (
     r'|\s+v\d+(?:\s+\d+(?:\.\d+)?\s*(?:gb|g|tb))?'
     r'|\s+\d+(?:\.\d+)?\s*(?:gb|tb)'
     r'|\s*[(（]\d+[)）])$')
+#: 视频增强软件的模型代号（Topaz Video AI 的 Proteus `prob-4`、Chronos Fast `chf-3`、Iris `iris-3` 等）。
+#: 处理后的文件名与收纳目录常带着它，它从来不是人名或账号名的一部分。
+ENHANCEMENT_MODEL = (r"(?:prob|ahq|amq|alq|aaa|ghq|gcg|thd|thf|dtd|dtv|ddv|chf|chr|apo|apf|aion|iris|rhea"
+                     r"|nyx|rxl|slf|slp)-?\d{1,2}")
+ENHANCEMENT_SUFFIX = r"(?:[\s_.\-]+" + ENHANCEMENT_MODEL + r")+$"
 #: 路径里出现就说明是 Peach 没接来源的体系（国产、网红）。
 OTHER_SYSTEM_MARKS = ("国产", "國產", "网红", "網紅", "兔子先生", "麻豆")
 

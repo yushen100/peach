@@ -55,6 +55,18 @@ class CreatorAttributionTests(unittest.TestCase):
         self.assertEqual(upsert_asset_entity(self.connection,kind='creator',name='Parent Account',
             asset_id=asset_id,role='creator',source='user:manual'),entity_id)
 
+    def test_video_enhancement_model_tags_never_become_part_of_a_creator_name(self):
+        """`大叔 chf3_prob4` 是 Topaz 处理后的收纳目录：代号去掉才是账号名，不必等同名账号已经存在。"""
+        cursor = self.connection.execute(
+            "INSERT INTO asset(location,path,name,medium) VALUES('local','B:\\创作者\\大叔 chf3_prob4\\003.mp4',"
+            "'003.mp4','video')")
+        entity_id = upsert_asset_entity(self.connection, kind='creator', name='大叔 chf3_prob4',
+                                        asset_id=cursor.lastrowid, role='creator', source='scan:directory')
+        self.assertEqual(self.connection.execute('SELECT canonical_name FROM entity WHERE id=?', (entity_id,)).fetchone()[0],
+                         '大叔')
+        self.assertEqual(creator_collection_base('RiaKurumi_prob4'), 'RiaKurumi')
+        self.assertEqual(creator_collection_base('Christy'), 'Christy')
+
     def test_collection_quality_suffix_uses_the_rejected_canonical_account_decision(self):
         asset_id, _ = self.asset('Parent Account')
         self.connection.execute("INSERT INTO review_decision(category,item_key,status,updated_at) "

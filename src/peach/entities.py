@@ -707,11 +707,13 @@ def _creator_attribution_rejected(connection, names, asset_id, path) -> bool:
 
 def _creator_ingest_identity(connection, name, asset_id):
     """已有账号承接集合目录；已确认厂牌不进入发布账号关系。"""
-    from .classification import creator_collection_base, creator_release_identifier
+    from .classification import creator_collection_base, creator_release_identifier, strip_enhancement_suffix
     asset = connection.execute('SELECT path,name,code FROM asset WHERE id=?',(asset_id,)).fetchone()
     if asset and creator_release_identifier(name,path=asset[0] or '',filename=asset[1] or '',code=asset[2])[0] == 'release_identifier':
         return ''
     original = name
+    # 视频增强模型代号（`_prob4`、` chf3`）从来不属于账号名，不必等同名账号存在就去掉。
+    name = strip_enhancement_suffix(name)
     base = creator_collection_base(name)
     if base != name:
         held = connection.execute("SELECT canonical_name FROM entity WHERE kind='creator' AND normalized_name=?",

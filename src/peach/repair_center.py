@@ -27,6 +27,7 @@ ITEMS = (
 #: 前缀去掉末尾的连字符就是规则 id，名字在 `server:repairCenter.history.<id>`。
 RULES = (
     ('catalog-', None), ('verification-settlement-', ('applied',)), ('performer-spacing-', ('applied',)),
+    ('enhancement-suffix-names-', ('aliases', 'terms', 'added_aliases')),
     ('studio-unbounded-misses-', ('released',)), ('stale-filename-codes-', ('cleared',)),
     ('dangling-candidates-', ('repinned', 'withdrawn')),
     ('javdb-actor-records-', ('hidden', 'disabled_feeds')),

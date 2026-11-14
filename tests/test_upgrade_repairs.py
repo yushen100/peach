@@ -2144,6 +2144,30 @@ class UpgradeRepairTests(unittest.TestCase):
         self.assertEqual(len(settled), 1)
         self.assertEqual(json.loads(settled[0][0])['applied'], 1)
 
+    def test_enhancement_model_aliases_and_search_terms_are_cleared_once_with_a_backup(self):
+        """`prob4`、`chf3` 这类代号别名与搜索词删掉并记进回执，带代号的规范名不改、只补去掉代号的别名。"""
+        with self.database.write_transaction() as connection:
+            connection.execute("INSERT INTO entity(id,kind,canonical_name,normalized_name,created_at,updated_at)"
+                               " VALUES(7391,'creator','大叔 chf3_prob4','大叔 chf3_prob4','x','x')")
+            for alias in ('prob4', 'chf3', '大叔11'):
+                connection.execute("INSERT INTO entity_alias(entity_id,alias,normalized_alias,source,confidence)"
+                                   " VALUES(7391,?,?,'stash:performer',0.8)", (alias, alias))
+                connection.execute("INSERT INTO entity_search_term(entity_id,term,purpose,source,created_at)"
+                                   " VALUES(7391,?,'discovery','stash:performer','x')", (alias,))
+        self.service._settle_enhancement_names()
+        self.service._settle_enhancement_names()
+        with self.database.read_connection() as connection:
+            aliases = sorted(row[0] for row in connection.execute('SELECT alias FROM entity_alias WHERE entity_id=7391'))
+            terms = sorted(row[0] for row in connection.execute('SELECT term FROM entity_search_term'))
+            canonical = connection.execute('SELECT canonical_name FROM entity WHERE id=7391').fetchone()[0]
+            receipt = json.loads(connection.execute('SELECT result_json FROM ledger_upgrade_repair WHERE id=?',
+                                                    (upgrade_repairs.ENHANCEMENT_NAMES_KEY,)).fetchone()[0])
+        self.assertEqual(aliases, ['大叔', '大叔11'])
+        self.assertEqual(terms, ['大叔11'])
+        self.assertEqual(canonical, '大叔 chf3_prob4')
+        self.assertEqual((len(receipt['aliases']), len(receipt['terms']), len(receipt['added_aliases'])), (2, 2, 1))
+        self.assertTrue(Path(receipt['backup']).is_file())
+
     def test_stale_receipt_cannot_hide_a_restored_database(self):
         self.asset(1)
         self.service.root.mkdir(parents=True)

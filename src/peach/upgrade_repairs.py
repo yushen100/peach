@@ -318,6 +318,55 @@ def _manual_name(connection, entity_id: int) -> bool:
 STALE_CODES_KEY = 'stale-filename-codes-1'
 #: 出演者写法带空格的存量候选重判（`_settle_spaced_performers`）。
 SPACED_PERFORMERS_KEY = 'performer-spacing-1'
+#: 名字里视频增强模型代号的存量清理（`settle_enhancement_names`）。
+ENHANCEMENT_NAMES_KEY = 'enhancement-suffix-names-1'
+
+
+def settle_enhancement_names(connection) -> dict:
+    """视频增强模型代号（`prob4`、`chf3`）在身份数据里的存量：只有代号的别名与搜索词删掉，
+    规范名带代号后缀的补一个去掉后缀的别名。
+
+    代号别名会把文件名带同样后缀的视频认到这个人名下，代号搜索词会拿 `prob4` 去发现页搜；
+    删掉的行逐条记进回执，能原样插回。规范名不改：改规范名撤不回（`peach-ledger-write`），
+    留给用户在资料页「统一名称」里选，补上的别名就是候选之一。
+    """
+    from .classification import is_enhancement_model, strip_enhancement_suffix
+    from .entities import normalize_entity_name
+    aliases = [dict(row) for row in connection.execute(
+        'SELECT entity_id,alias,normalized_alias,source,confidence FROM entity_alias').fetchall()
+        if is_enhancement_model(row['alias'])]
+    terms = [dict(row) for row in connection.execute(
+        'SELECT entity_id,term,purpose,source,created_at FROM entity_search_term').fetchall()
+        if is_enhancement_model(row['term'])]
+    for row in aliases:
+        connection.execute('DELETE FROM entity_alias WHERE entity_id=? AND alias=?', (row['entity_id'], row['alias']))
+    for row in terms:
+        connection.execute('DELETE FROM entity_search_term WHERE entity_id=? AND term=? AND purpose=?',
+                           (row['entity_id'], row['term'], row['purpose']))
+    added = []
+    for entity_id, name in connection.execute('SELECT id,canonical_name FROM entity').fetchall():
+        stripped = strip_enhancement_suffix(name)
+        if stripped == str(name).strip():
+            continue
+        connection.execute(
+            'INSERT OR IGNORE INTO entity_alias(entity_id,alias,normalized_alias,source,confidence) VALUES(?,?,?,?,1.0)',
+            (entity_id, stripped, normalize_entity_name(stripped), ENHANCEMENT_NAMES_SOURCE))
+        if connection.execute('SELECT changes()').fetchone()[0]:
+            added.append({'entity_id': entity_id, 'name': name, 'alias': stripped})
+    return {'aliases': aliases, 'terms': terms, 'added_aliases': added}
+
+
+def enhancement_names_pending(connection) -> bool:
+    """`settle_enhancement_names` 有没有要改的，只读；有才先备份。"""
+    from .classification import is_enhancement_model, strip_enhancement_suffix
+    return (any(is_enhancement_model(row[0]) for row in connection.execute('SELECT alias FROM entity_alias'))
+            or any(is_enhancement_model(row[0]) for row in connection.execute('SELECT term FROM entity_search_term'))
+            or any(strip_enhancement_suffix(row[0]) != str(row[0]).strip()
+                   for row in connection.execute('SELECT canonical_name FROM entity')))
+
+
+#: 补上的「去掉代号后缀」别名的来源，撤回时按它认。
+ENHANCEMENT_NAMES_SOURCE = 'upgrade:enhancement-suffix'
 
 
 #: 永久删除后悬空的资料候选（#486）在 `ledger_upgrade_repair` 里的回执键；规则版本见 `upgrade_rules`。
@@ -1454,6 +1503,33 @@ class UpgradeRepairs:
                                'VALUES(?,?,?)', (key, str(time.time()), json.dumps(result, ensure_ascii=False)))
         LOGGER.info('Verification difference settlement: %s', result)
 
+    def _settle_enhancement_names(self) -> None:
+        """名字里的视频增强模型代号清理一次（`settle_enhancement_names`）；有要改的才先备份。"""
+        try:
+            with self.contract.database.read_connection() as connection:
+                if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
+                                      (ENHANCEMENT_NAMES_KEY,)).fetchone():
+                    return
+                pending = enhancement_names_pending(connection)
+            backup = None
+            if pending:
+                backup = self.contract.db_path.with_name(f'ledger.pre-upgrade-{time.time_ns()}.db')
+                sqlite_backup(self.contract.db_path, backup)
+            with self.contract.database.write_transaction() as connection:
+                if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
+                                      (ENHANCEMENT_NAMES_KEY,)).fetchone():
+                    return
+                result = settle_enhancement_names(connection)
+                if backup is not None:
+                    result['backup'] = str(backup)
+                connection.execute('INSERT OR IGNORE INTO ledger_upgrade_repair(id,applied_at,result_json) '
+                                   'VALUES(?,?,?)', (ENHANCEMENT_NAMES_KEY, str(time.time()),
+                                                     json.dumps(result, ensure_ascii=False)))
+            LOGGER.info('Enhancement model names: removed %s aliases, %s search terms, added %s aliases',
+                        len(result['aliases']), len(result['terms']), len(result['added_aliases']))
+        except Exception:
+            LOGGER.exception('Enhancement model name cleanup failed')
+
     def _settle_spaced_performers(self) -> None:
         """出演者写法带空格的存量候选按新判据重判一次（`performer-spacing-1`）。
 
@@ -1899,6 +1975,7 @@ class UpgradeRepairs:
                                    next_run_time=datetime.now(timezone.utc))
             self.scheduler.add_job(self._settle_verification, max_instances=1)
             self.scheduler.add_job(self._settle_spaced_performers, max_instances=1)
+            self.scheduler.add_job(self._settle_enhancement_names, max_instances=1)
             self.scheduler.add_job(self._release_studio_misses, max_instances=1)
             self.scheduler.add_job(self._clear_stale_codes, max_instances=1)
             self.scheduler.add_job(self._prune_task_controls, max_instances=1)

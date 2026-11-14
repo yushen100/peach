@@ -5,7 +5,8 @@ import unicodedata
 from functools import cache
 
 from . import interface_text
-from .content_words import COLLECTION_SUFFIX, DIRECTORY_COUNT_UNITS, DIRECTORY_MONTH
+from .content_words import (COLLECTION_SUFFIX, DIRECTORY_COUNT_UNITS, DIRECTORY_MONTH, ENHANCEMENT_MODEL,
+                            ENHANCEMENT_SUFFIX)
 from .settings_file import PROJECT_ROOT
 
 STRUCTURAL_WORDS_FILE = PROJECT_ROOT / "resources" / "naming" / "structural_directory_words.txt"
@@ -101,11 +102,28 @@ def is_repost_creator(name: str | None) -> bool:
 
 
 _COLLECTION_SUFFIX = re.compile(COLLECTION_SUFFIX, re.I)
+_ENHANCEMENT_SUFFIX = re.compile(ENHANCEMENT_SUFFIX, re.I)
+_ENHANCEMENT_MODEL = re.compile(ENHANCEMENT_MODEL, re.I)
+
+
+def strip_enhancement_suffix(name: str) -> str:
+    """去掉名字末尾的视频增强模型代号（`大叔 chf3_prob4` → `大叔`）；整个都是代号时原样返回。
+
+    与集合后缀不同，这一段从来不属于身份，不必先核对有没有同名账号。
+    """
+    text = str(name or "").strip()
+    stripped = _ENHANCEMENT_SUFFIX.sub("", text).strip()
+    return stripped or text
+
+
+def is_enhancement_model(text: str) -> bool:
+    """整段就是一个增强模型代号（`prob4`、`chf3`）：不能当别名或搜索词。"""
+    return bool(_ENHANCEMENT_MODEL.fullmatch(str(text or "").strip()))
 
 
 def creator_collection_base(name: str) -> str:
     """剥离集合的月份、画质、份数与合集后缀；调用方须核对已有账号身份。"""
-    base = str(name)
+    base = strip_enhancement_suffix(name)
     while True:
         stripped = _COLLECTION_SUFFIX.sub('', base).strip()
         if stripped == base or not stripped:

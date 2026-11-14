@@ -294,6 +294,7 @@
       "studio-unbounded-misses": "Label lookup cache",
       "verification-settlement": "Verification differences settled",
       "performer-spacing": "Performer names with spaces",
+      "enhancement-suffix-names": "Video enhancement tags in names",
       "interface-text-codes": "Interface text in task records"
     },
     "items": {
