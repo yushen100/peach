@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   defaultCatalogLoc, homeCatalogState, homePath, initialCatalogFilters, onlineDefaultLoc,
-  resetCatalogFilters, resolveSort,
+  resetCatalogFilters, resolveSort, verticalRouting,
 } from '../../src/react/catalog-grid/catalog-state';
 
 const preferences = { defaultSort: 'new', defaultSortDirection: 'asc' };
@@ -76,5 +76,18 @@ describe('目录地址与默认范围', () => {
     state.q = 'same-object';
     expect(patch.barsContext.filters.q).toBe('same-object');
     expect(previous.owner).toBe('none');
+  });
+});
+
+describe('首页竖屏的去向', () => {
+  const route = (shortsLimit: number, patch: Partial<Parameters<typeof verticalRouting>[0]> = {}) =>
+    verticalRouting({ homeDefault: true, javOnly: false, stripAllowed: true, shortsLimit, ...patch });
+  it('竖屏带开着时主网格排除竖屏、另插带子；关掉时不插带子，竖屏回主网格', () => {
+    expect(route(18)).toEqual({ excludeVertical: true, shorts: true, shortsLimit: 18 });
+    expect(route(0)).toEqual({ excludeVertical: false, shorts: false, shortsLimit: 0 });
+  });
+  it('搜索等非默认列表不排除竖屏；JAV 模式不管开关恒排除', () => {
+    expect(route(18, { homeDefault: false }).excludeVertical).toBe(false);
+    expect(route(0, { homeDefault: false, javOnly: true, stripAllowed: false })).toEqual({ excludeVertical: true, shorts: false, shortsLimit: 0 });
   });
 });

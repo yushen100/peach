@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 
 import { NETWORK_STATUS_KEY, NetworkBanner, networkPollInterval } from '../../src/react/network-banner';
 import { queryClient } from '../../src/react/query';
-import { mount, settle } from './render';
+import { buttonNamed, click, mount, settle } from './render';
 
 afterEach(() => queryClient.clear());
 notifyManager.setScheduler((notify) => notify());
@@ -45,6 +45,22 @@ it('恢复联网后横幅消失', async () => {
   await queryClient.refetchQueries({ queryKey: NETWORK_STATUS_KEY });
   await settle();
   expect(slot.childElementCount).toBe(0);
+});
+
+it('关掉只管这一段断网：复查仍是断网不再出现，恢复联网后再断才重新出现', async () => {
+  answer('offline');
+  const slot = await render();
+  await click(buttonNamed('关闭', slot));
+  expect(slot.childElementCount).toBe(0);
+  await queryClient.refetchQueries({ queryKey: NETWORK_STATUS_KEY });
+  await settle();
+  expect(slot.childElementCount).toBe(0);
+  for (const state of ['online', 'offline']) {
+    answer(state);
+    await queryClient.refetchQueries({ queryKey: NETWORK_STATUS_KEY });
+    await settle();
+  }
+  expect(slot.querySelector('[data-network-offline]')).not.toBeNull();
 });
 
 it('按快照时刻加服务端的复查间隔算下一次，快照过期未到时退回短间隔', () => {

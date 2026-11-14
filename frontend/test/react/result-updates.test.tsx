@@ -119,3 +119,27 @@ it('入库通知：首轮只记基线；新到的逐部弹 toast 并可打开，
   expect(shown).not.toHaveBeenCalled();
   shown.mockRestore();
 });
+
+it('设置里关掉入库通知时不弹，基线照样往前记；再打开只弹之后新到的', async () => {
+  const toaster = await import('../../src/react/toaster');
+  const shown = vi.spyOn(toaster, 'showToast').mockImplementation(() => {});
+  const { appSettingsStore } = await import('../../src/appearance/settings');
+  const settings = appSettingsStore();
+  const notice = (id: number) => ({ id, kind: 'download' as const, asset_id: 100 + id, label: `SSIS-${id}`, at: 0 });
+  const poll = (ids: number[]) => ({ result_versions: { catalog: '1' }, busy: false,
+    ingest_notices: { epoch: 'a', items: ids.map(notice) } });
+  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => poll([1]) })));
+  settings.value.ingestNotices = false;
+  try {
+    await mount(<QueryClientProvider client={queryClient}><ResultUpdates openItem={vi.fn()} /></QueryClientProvider>);
+    await settle();
+    await act(async () => { queryClient.setQueryData(RESULT_UPDATES_KEY, poll([1, 2])) });
+    expect(shown).not.toHaveBeenCalled();
+    settings.value.ingestNotices = true;
+    await act(async () => { queryClient.setQueryData(RESULT_UPDATES_KEY, poll([1, 2, 3])) });
+    expect(shown.mock.calls.map(([, request]) => request.html)).toEqual(['「SSIS-3」已入库并整理完成']);
+  } finally {
+    settings.value.ingestNotices = true;
+    shown.mockRestore();
+  }
+});

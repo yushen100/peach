@@ -9,7 +9,7 @@ import {
   PICKS, SUGGEST_DEBOUNCE, menuModel, shufflePicks, type Recommendations, type SearchApi, type SearchProps, type SuggestResponse, type SuggestGroup,
 } from '../../src/react/search/search';
 
-import { mount, pending, settle } from './render';
+import { mountRoot, pending, settle } from './render';
 
 const performer = { kind: 'performer', label: '女优', total: 1, items: [{ value: '七海ひな', n: 12 }] };
 const tag = { kind: 'tag', label: '标签', total: 1, items: [{ value: '七海の夏', n: 3 }] };
@@ -85,19 +85,22 @@ interface Stage {
   api: SearchApi | null;
   key(key: string): Promise<void>;
   typeInto(value: string): Promise<void>;
+  /** 壳推一份新的「空搜索时显示推荐」（`updateManagedRoute`）。 */
+  setRecommend(on: boolean): Promise<void>;
 }
 
 /** 壳那一侧：一个静态输入框、一块带 `data-search-menu` 的面，岛挂在面里。 */
 async function stage({ pool = ['剧情'], loadPool = async () => pool,
   recommendations = undefined as (() => Promise<SuggestGroup[] | Recommendations>) | undefined,
   pendingRecommendations = undefined as (() => SuggestGroup[]) | undefined,
-  suggest = async (q: string): Promise<SuggestResponse> => ({ q, groups: [] }) } = {}): Promise<Stage> {
+  suggest = async (q: string): Promise<SuggestResponse> => ({ q, groups: [] }),
+  history = [] as string[], recommend = true } = {}): Promise<Stage> {
   const posts: unknown[] = [];
   vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
     const path = new URL(url, 'http://peach.test');
     let body: unknown = { ok: true };
     if (path.pathname === '/api/search-history' && init?.method === 'POST') posts.push(JSON.parse(String(init.body)));
-    else if (path.pathname === '/api/search-history') body = { items: [] };
+    else if (path.pathname === '/api/search-history') body = { items: history };
     else if (path.pathname === '/api/suggest') body = await suggest(path.searchParams.get('q') || '');
     return { ok: true, status: 200, json: async () => body };
   }));
@@ -114,7 +117,7 @@ async function stage({ pool = ['剧情'], loadPool = async () => pool,
     openFollow: vi.fn<NonNullable<SearchProps['actions']['openFollow']>>(),
   };
   const out: Stage = {
-    input, menu, actions, posts, api: null,
+    input, menu, actions, posts, api: null, setRecommend: async () => {},
     key: (key) => act(async () => {
       input.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
     }),
@@ -133,9 +136,11 @@ async function stage({ pool = ['剧情'], loadPool = async () => pool,
     present: (el) => { el.hidden = false }, dismiss: (el) => { el.hidden = true },
     wireScroller: () => {}, typed: () => {}, composing: () => {}, clearField: (el) => { el.value = '' },
   };
-  const host = await mount(<SearchPage input={input} historyLimit={10} actions={actions} helpers={helpers}
-    expose={(api) => { out.api = api }} />);
-  menu.append(host);
+  const page = (on: boolean) => <SearchPage input={input} historyLimit={10} recommend={on} actions={actions} helpers={helpers}
+    expose={(api) => { out.api = api }} />;
+  const root = await mountRoot(page(recommend));
+  menu.append(root.host);
+  out.setRecommend = (on) => root.rerender(page(on));
   return out;
 }
 
@@ -245,6 +250,51 @@ describe('输入框上的时序', () => {
     const typed = s.input.placeholder;
     await act(async () => { vi.advanceTimersByTime(15000) });
     expect(s.input.placeholder).toBe(typed);
+  });
+
+  it('关掉空搜索推荐：聚焦只给搜索记录，不取推荐栏与词池、不排空闲预取，占位字停在默认那一句', async () => {
+    vi.useFakeTimers();
+    const idle: (() => void)[] = [];
+    vi.stubGlobal('requestIdleCallback', (task: () => void) => idle.push(task));
+    vi.stubGlobal('cancelIdleCallback', () => {});
+    onTestFinished(() => { vi.unstubAllGlobals() });
+    const loadPool = vi.fn(async () => ['剧情', '单体作品', '高画质']);
+    const recommendations = vi.fn(async () => ({ groups: [asset], words: ['甲作品', '乙作品'] }));
+    const s = await stage({ loadPool, recommendations, history: ['七海'], recommend: false });
+    s.input.placeholder = '搜索馆藏';
+    expect(idle).toEqual([]);
+    await act(async () => s.input.focus());
+    await settle();
+    expect(s.menu.hidden).toBe(false);
+    expect(s.menu.querySelector('[data-search-recommendations]')).toBeNull();
+    expect([...s.menu.querySelectorAll('[data-search-group] h3')].map(head => head.textContent)).toEqual(['搜索记录']);
+    expect([...s.menu.querySelectorAll('[data-search-value]')].map(row => row.getAttribute('data-search-value'))).toEqual(['七海']);
+    await act(async () => s.input.blur());
+    await act(async () => { vi.advanceTimersByTime(15000) });
+    expect([s.input.placeholder, loadPool.mock.calls.length, recommendations.mock.calls.length, idle.length])
+      .toEqual(['搜索馆藏', 0, 0, 0]);
+  });
+
+  it('开着时关掉：手上的推荐与词丢掉，占位字回默认；再打开照旧空闲时预取', async () => {
+    vi.useFakeTimers();
+    const idle: (() => void)[] = [];
+    vi.stubGlobal('requestIdleCallback', (task: () => void) => idle.push(task));
+    vi.stubGlobal('cancelIdleCallback', () => {});
+    onTestFinished(() => { vi.unstubAllGlobals() });
+    const recommendations = vi.fn(async () => ({ groups: [asset], words: ['甲作品', '乙作品'] }));
+    const s = await stage({ recommendations });
+    await act(async () => { idle.splice(0).forEach(task => task()) });
+    await settle();
+    expect(['甲作品', '乙作品']).toContain(s.input.dataset.suggestion);
+    await s.setRecommend(false);
+    await settle();
+    expect([s.input.placeholder, s.input.dataset.suggestion]).toEqual(['搜索馆藏', '']);
+    await act(async () => s.input.focus());
+    await settle();
+    expect(s.menu.querySelector('[data-search-recommendations]')).toBeNull();
+    await act(async () => s.input.blur());
+    await s.setRecommend(true);
+    expect(idle).toHaveLength(1);
   });
 
   it('每组「换一批」在自己取到的池里翻页：当场换、不发请求，翻到头接着从池首取', async () => {

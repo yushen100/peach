@@ -399,6 +399,8 @@ function SettingsPanel({ host: current, view: shown }: { host: SettingsPanelHost
             </div>
             <ToggleRow id="uiSoundsSetting" title={t('settings:preferencesPanel.interfaceSounds')} checked={settings.uiSounds}
               onToggle={(on) => { settings.uiSounds = on; save(); current.changed('uiSounds') }} />
+            <ToggleRow id="ingestNoticesSetting" title={t('settings:preferencesPanel.ingestNotices')} checked={settings.ingestNotices}
+              onToggle={(on) => { settings.ingestNotices = on; save() }} />
             <ToggleRow id="homeGlowSetting" title={t('settings:preferencesPanel.sidebarGlow')} checked={settings.homeGlow.on}
               onToggle={(on) => { settings.homeGlow.on = on; save(); current.changed('glow') }} />
             </div>
@@ -417,6 +419,9 @@ function SettingsPanel({ host: current, view: shown }: { host: SettingsPanelHost
           <JavGroup host={current} tab={shown.tab} epoch={epoch} />
           <Group index={3} tab={shown.tab}>
             <SearchHistoryRow host={current} epoch={epoch} />
+            <ToggleRow id="searchRecommendationsSetting" title={t('settings:preferencesPanel.searchRecommendations')}
+              checked={settings.searchRecommendations}
+              onToggle={(on) => { settings.searchRecommendations = on; save(); current.changed('searchRecommendations') }} />
             <Row title={t('settings:preferencesPanel.relatedLimit')}>
               <div id="relatedLimitSetting">
                 <NumberSetting key={epoch} id="relatedLimitSetting" label={t('settings:preferencesPanel.relatedLimit')} value={settings.relatedLimit}
@@ -496,6 +501,16 @@ function BrowseGroup({ host: current, tab, epoch }: GroupProps) {
             }} />
         </div>
       </Row>
+      <Row title={t('settings:preferencesPanel.homeShorts')}>
+        <div id="homeShortsSetting">
+          <NumberSetting key={epoch} id="homeShortsSetting" label={t('settings:preferencesPanel.homeShorts')} value={settings.homeShortsLimit}
+            onApply={(value) => { settings.homeShortsLimit = value; save(); current.changed('homeShorts') }} />
+        </div>
+      </Row>
+      <ToggleRow id="homeTiersSetting" title={t('settings:preferencesPanel.homeTiers')} checked={settings.homeTiers}
+        onToggle={(on) => { settings.homeTiers = on; save(); current.changed('homeTiers') }} />
+      <ToggleRow id="completionPromptSetting" title={t('settings:preferencesPanel.completionPrompt')} checked={settings.completionPrompt}
+        onToggle={(on) => { settings.completionPrompt = on; save() }} />
       <h4 data-settings-subheading="">{t('settings:preferencesPanel.playbackHeading')}</h4>
       <PlaybackRows host={current} epoch={epoch} />
     </Group>
@@ -515,6 +530,8 @@ function JavGroup({ host: current, tab, epoch }: GroupProps) {
           onChoose={(choice) => { settings.javImage = normalizeJavImage(choice); save(); current.changed('javImage') }} />
       </Row>
       <h4 data-settings-subheading="">{t('settings:preferencesPanel.newReleases')}</h4>
+      <ToggleRow id="homeFeedNewSetting" title={t('settings:preferencesPanel.homeFeedNew')} checked={settings.homeFeedNew}
+        onToggle={(on) => { settings.homeFeedNew = on; save(); current.changed('homeFeedNew') }} />
       <Row title={t('settings:preferencesPanel.feedLimit')}>
         <div id="feedLimitSetting">
           <NumberSetting key={epoch} id="feedLimitSetting" label={t('settings:preferencesPanel.feedLimitInput')} value={settings.feedLimit}

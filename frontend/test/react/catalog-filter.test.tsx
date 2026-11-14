@@ -104,6 +104,19 @@ describe('首屏等待两排头像', () => {
     expect(rows(none)).toEqual([]);
     expect(none.querySelector<HTMLElement>('[data-catalog-tiers]')?.hidden).toBe(true);
   });
+
+  it('设置里关掉首页头像：岛与壳骨架都不画两排，浮层照旧', async () => {
+    rememberTiers({ performers: true, studios: true });
+    const performer: TierPerformer = { name: '甲', ringHtml: '' };
+    const host = await mount(<CatalogFilterPage {...props({ hideTiers: true,
+      tiers: { key: 'k', performers: [performer], studios: [] } })} />);
+    expect(host.querySelector('[data-catalog-tiers]')).toBeNull();
+    expect(host.querySelector('[data-catalog-frame]')).not.toBeNull();
+    const skeleton = document.createElement('div');
+    skeleton.innerHTML = catalogFilterSkeletonHtml([{ k: '', label: '全部', href: '/' }], '', undefined, false);
+    expect(rows(skeleton)).toEqual([]);
+    expect(skeleton.querySelector('[data-catalog-frame]')).not.toBeNull();
+  });
 });
 
 describe('读数', () => {

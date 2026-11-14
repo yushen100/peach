@@ -29,6 +29,12 @@ export interface PanelSettings {
   interfaceLanguage: InterfaceLanguageChoice;
   systemLanguage: InterfaceLanguage | null;
   feedAutoScroll: boolean;
+  homeFeedNew: boolean;
+  homeShortsLimit: number;
+  homeTiers: boolean;
+  completionPrompt: boolean;
+  searchRecommendations: boolean;
+  ingestNotices: boolean;
   feedLimit: number;
   feedHideGroupCompilations: boolean;
   feedHideSoloCompilations: boolean;
@@ -55,7 +61,10 @@ export type SettingsEffect =
   | 'glow'
   | 'batchSize' | 'defaultSort' | 'sortDirection' | 'hoverDelay' | 'seekSeconds'
   | 'groupCollapse' | 'feedAutoScroll' | 'feedLimit' | 'feedCompilations' | 'miniplayer' | 'javImage'
-  | 'searchHistoryLimit' | 'performerNameLanguage';
+  | 'searchHistoryLimit' | 'performerNameLanguage'
+  /** 首页那几块的显隐：新作那一行、竖屏带（连同主网格排不排除竖屏）、两排头像。 */
+  | 'homeFeedNew' | 'homeShorts' | 'homeTiers'
+  | 'searchRecommendations';
 
 /** `[值, 显示名, 字形]`，与壳里各张选项表同形。 */
 export type Choice = readonly [value: string, label: string, icon?: string];

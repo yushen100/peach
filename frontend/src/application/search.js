@@ -110,7 +110,8 @@ searchState.searchHelpers = {
   clearField:input=>catalogState.clearSearchField({text:input.value,scrollLeft:input.scrollLeft||catalogState.searchValueSnapshot.scrollLeft}),
 };
 void openManagedRoute('search',{
-  input:$('#q'),historyLimit:preferencesState.appSettings.searchHistoryLimit,actions:searchState.searchActions,helpers:searchState.searchHelpers,
+  input:$('#q'),historyLimit:preferencesState.appSettings.searchHistoryLimit,recommend:preferencesState.appSettings.searchRecommendations,
+  actions:searchState.searchActions,helpers:searchState.searchHelpers,
   expose:control=>{searchState.searchControl=control},
 },{container:$('#searchMenu'),isCurrent:()=>true});
 applicationEffects.listen($('#q'), 'beforeinput', e=>{if(!e.isComposing)catalogState.rememberSearchValue(e.currentTarget)});

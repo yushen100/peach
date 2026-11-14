@@ -13,6 +13,7 @@ import { withBackoff } from '../polling';
 import { queryClient } from './query';
 import { showToast } from './toaster';
 import { t } from '../i18n';
+import { appSettingsStore } from '../appearance/settings';
 
 const CATALOG = ['catalog-grid', 'catalog-folders', 'item', 'item-related', 'item-queue',
   'entity', 'entity-items', 'entity-photos', 'entity-route', 'index', 'stats',
@@ -65,13 +66,14 @@ const noticeText = (item: IngestNotice) => {
   return item.kind === 'download' ? t('shell:ingestToast.downloadDone', { name }) : t('shell:ingestToast.newFile', { name });
 };
 
-/** 新到的入库通知弹成 toast，点「打开」进这部作品。首轮与服务重启后（`epoch` 变了）只记基线，不补弹。 */
+/** 新到的入库通知弹成 toast，点「打开」进这部作品。首轮与服务重启后（`epoch` 变了）只记基线，不补弹。
+ *  `show` 为假（设置里关掉了入库通知）时照样往前记基线、不弹：再打开时不把关着那段的补弹出来。 */
 export function announceIngests(seen: { epoch: string; last: number } | null,
-  notices: ActivityData['ingest_notices'], openItem: ShellActions['openItem']): { epoch: string; last: number } | null {
+  notices: ActivityData['ingest_notices'], openItem: ShellActions['openItem'], show = true): { epoch: string; last: number } | null {
   if (!notices) return seen;
   const last = notices.items.reduce((max, item) => Math.max(max, item.id), 0);
   if (!seen || seen.epoch !== notices.epoch) return { epoch: notices.epoch, last };
-  const fresh = notices.items.filter((item) => item.id > seen.last);
+  const fresh = show ? notices.items.filter((item) => item.id > seen.last) : [];
   if (fresh.length > NOTICE_BURST) {
     showToast(`ingest-${notices.epoch}-${last}`, { html: t('shell:ingestToast.burst', { count: fresh.length }), alert: false, timeout: 8000, action: null });
   } else {
@@ -100,6 +102,8 @@ export function ResultUpdates({ openItem }: Pick<ShellActions, 'openItem'>) {
     if (previous.current) void refresh(previous.current, versions);
     previous.current = versions;
   }, [versions, refresh]);
-  useEffect(() => { announced.current = announceIngests(announced.current, notices, openItem) }, [notices, openItem]);
+  useEffect(() => {
+    announced.current = announceIngests(announced.current, notices, openItem, appSettingsStore().value.ingestNotices !== false);
+  }, [notices, openItem]);
   return null;
 }

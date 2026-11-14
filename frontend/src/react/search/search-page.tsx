@@ -144,6 +144,14 @@ export function SearchPage(props: SearchProps) {
     };
   }, [op, s]);
 
+  const recommend = props.recommend !== false;
+  const recommendShown = useRef(recommend);
+  useLayoutEffect(() => {
+    if (recommendShown.current === recommend) return;
+    recommendShown.current = recommend;
+    op.setRecommend(recommend);
+  }, [op, recommend]);
+
   useLayoutEffect(() => {
     const menu = root.current?.closest<HTMLElement>('[data-search-menu]');
     if (s.rewind && menu) menu.scrollTop = 0;
@@ -232,6 +240,8 @@ function placeholders(group: MenuSection): ReactNode[] {
 function createOps(props: () => SearchProps, s: Store, menu: () => HTMLElement | null, bump: () => void) {
   const input = () => props().input;
   const focused = () => document.activeElement === input();
+  /** 设置里「空搜索时显示推荐」开着：关掉时推荐栏、推荐词、空闲预取与占位轮换全停，只剩搜索记录。 */
+  const recommending = () => props().recommend !== false;
   const readHistory = () => s.history.slice(0, props().historyLimit);
   const writeHistory = (list: string[]) => { s.history = list.slice(0, props().historyLimit) };
 
@@ -268,13 +278,14 @@ function createOps(props: () => SearchProps, s: Store, menu: () => HTMLElement |
     const field = input();
     // 聚焦过就用按当前筛选核过命中的词池；还没聚焦时用推荐栏一起带回的那份词。
     const words = s.pool.length ? s.pool : s.words;
-    if (document.hidden || focused() || field.value || words.length < 2) return;
+    if (!recommending() || document.hidden || focused() || field.value || words.length < 2) return;
     const choices = words.filter(name => name !== field.dataset.suggestion);
     suggest(choices[Math.floor(Math.random() * choices.length)]!);
   };
   const loadPool = async () => {
     const request = ++s.poolRequest;
     s.pool = [];
+    if (!recommending()) return;
     try {
       const names = await props().helpers.pool();
       if (request !== s.poolRequest) return;
@@ -290,7 +301,7 @@ function createOps(props: () => SearchProps, s: Store, menu: () => HTMLElement |
      下一次打开要换上的那份，开着的栏不动。还没有占位词时顺手用这一份带回的词。 */
   const loadRecommendations = () => {
     const helpers = props().helpers;
-    if (!helpers.recommendations || s.recommendationLoading) return;
+    if (!recommending() || !helpers.recommendations || s.recommendationLoading) return;
     s.recommendationLoading = true;
     const request = s.recommendationRequest;
     const take = ({ groups, words }: Recommendations) => {
@@ -321,7 +332,7 @@ function createOps(props: () => SearchProps, s: Store, menu: () => HTMLElement |
    *  下一份不在打开时取：那时人正要打字，推荐请求会和按字补全抢服务端。 */
   const openRecommendations = () => {
     const helpers = props().helpers;
-    if (!helpers.recommendations) return;
+    if (!recommending() || !helpers.recommendations) return;
     if (s.nextRecommendations) {
       s.recommendations = s.nextRecommendations;
       s.nextRecommendations = null;
@@ -335,6 +346,7 @@ function createOps(props: () => SearchProps, s: Store, menu: () => HTMLElement |
   /** 空闲时备好下一份：下次打开直接换上。收起往往紧跟着打开详情，不跟它抢请求。 */
   const prefetch = () => {
     s.cancelIdle();
+    if (!recommending()) return;
     s.cancelIdle = whenIdle(() => { if (!s.nextRecommendations) loadRecommendations() });
   };
   /** 挂上之后：空闲时取好推荐，占位推荐词随它一起带回。按当前筛选核过命中的词池要十几个请求，
@@ -382,7 +394,7 @@ function createOps(props: () => SearchProps, s: Store, menu: () => HTMLElement |
   const paint = () => {
     if (s.dismissed) return;
     s.query = input().value.trim();
-    s.picks = s.query ? [] : shufflePicks(s.pool, readHistory());
+    s.picks = s.query || !recommending() ? [] : shufflePicks(s.pool, readHistory());
     s.active = -1;
     const el = menu();
     if (el) {
@@ -517,7 +529,24 @@ function createOps(props: () => SearchProps, s: Store, menu: () => HTMLElement |
     void loadHistory().then(reveal);
     void loadPool().then(reveal);
   };
-  return { input: onInput, key, focus, close, pick, peek, remove, pickKind, openPath, prefetch, warm, reshuffle, rotatePlaceholder };
+  /** 设置里切了「空搜索时显示推荐」。关掉：撤掉在途与排着的取数，丢掉手上的推荐和词，占位字回默认那一句，
+   *  开着的下拉栏当场只剩搜索记录。打开：照挂上时那样空闲时预取。 */
+  const setRecommend = (on: boolean) => {
+    if (on) { prefetch(); return }
+    s.cancelIdle();
+    s.recommendationRequest++;
+    s.poolRequest++;
+    s.recommendations = [];
+    s.nextRecommendations = null;
+    s.recommendationsFilling = false;
+    s.pool = [];
+    s.words = [];
+    s.picks = [];
+    if (input().dataset.suggestion) suggest('');
+    if (isOpen()) paint();
+    else bump();
+  };
+  return { input: onInput, key, focus, close, pick, peek, remove, pickKind, openPath, prefetch, warm, reshuffle, rotatePlaceholder, setRecommend };
 }
 
 function Tabs({ tabs, kind, onPick, wire }: {
