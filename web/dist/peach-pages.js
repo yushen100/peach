@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "102bb4e9-c72b-420b-b6c1-5175e09f92af", e._sentryDebugIdIdentifier = "sentry-dbid-102bb4e9-c72b-420b-b6c1-5175e09f92af");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "6602493f-0f00-4ed2-a3ca-4381e00efd92", e._sentryDebugIdIdentifier = "sentry-dbid-6602493f-0f00-4ed2-a3ca-4381e00efd92");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -3704,6 +3704,7 @@ var He = {
 		afterCurrentTask: "They can be filled in after the current task ends.",
 		allMetered_one: "{{count, number}} video in this batch has no preview. It's in a data saver directory, so sync doesn't extract frames. {{tail}}",
 		allMetered_other: "{{count, number}} videos in this batch have no previews. They're all in data saver directories, so sync doesn't extract frames. {{tail}}",
+		dismiss: "Don't show again",
 		done_one: "Fill-in complete: {{count, number}} cover fetched, {{previews}} previews generated.",
 		done_other: "Fill-in complete: {{count, number}} covers fetched, {{previews}} previews generated.",
 		failed: "Fill-in didn't finish",
@@ -6366,6 +6367,7 @@ var He = {
 		unitEntries: "entries",
 		unitItems: "items",
 		unitMinutes: "min",
+		unitPercent: "%",
 		unitSeconds: "sec",
 		unitVideos: "videos"
 	},
@@ -6412,6 +6414,16 @@ var He = {
 		waiting: "Waiting for sign-in",
 		waitingBrowser: "Waiting for you to sign in to PikPak in the browser window"
 	},
+	playbackEnd: {
+		next: "Play in order",
+		repeatAll: "Repeat list",
+		repeatOne: "Repeat one",
+		restart: "Start over near the end",
+		restartHelp: "If less than this much is left, start from the beginning next time.",
+		shuffle: "Shuffle",
+		stop: "Stop",
+		title: "When a video ends"
+	},
 	playbackTranscode: {
 		saved: "Transcoding mode saved",
 		software: "Software codec"
@@ -6421,6 +6433,7 @@ var He = {
 		batchSize: "Videos per batch",
 		batchSizeInput: "Videos per batch",
 		close: "Close preferences",
+		completionPrompt: "Missing preview prompt",
 		defaultImage: "Default image",
 		defaultSort: "Default sort",
 		defaultSortDirection: "Default sort direction",
@@ -6428,8 +6441,12 @@ var He = {
 		feedLimit: "Number shown",
 		feedLimitInput: "Number of new releases shown",
 		groupEditions: "Group parts and editions",
+		homeFeedNew: "Show new releases on Home",
+		homeShorts: "Portrait strip on Home",
+		homeTiers: "Show actress and label avatars on Home",
 		hoverDelay: "Hover preview delay",
 		increaseContrast: "Increase contrast",
+		ingestNotices: "Import notifications",
 		interfaceSounds: "Interface sounds",
 		miniPlayer: "Mini player after leaving details",
 		navCaption: "Preferences",
@@ -6443,6 +6460,7 @@ var He = {
 		relatedLimit: "Related recommendations",
 		searchHistoryInput: "Search history",
 		searchHistoryLimit: "Search history limit",
+		searchRecommendations: "Show recommendations for empty search",
 		sectionsLabel: "Preference sections",
 		seekStep: "Skip interval",
 		seekStepInput: "Skip forward / back",
@@ -8178,6 +8196,7 @@ var He = {
 	},
 	networkBanner: {
 		checkProxy: "Check Peach proxy",
+		dismiss: "Dismiss",
 		offline: "Peach can't reach the internet. Fetching, Following updates, and online sources are unavailable; local media still works."
 	},
 	objectOrder: { save: "Save order" },
@@ -10661,6 +10680,7 @@ var He = {
 	completionPrompt: {
 		afterCurrentTask: "当前任务结束后可单独补全。",
 		allMetered: "这批影片中有 {{count, number}} 部暂无预览，都在流量保护目录，同步时不抽帧，{{tail}}",
+		dismiss: "不再提示",
 		done: "补全完成：取得 {{count, number}} 张封面，生成 {{previews}} 部视频预览。",
 		failed: "补全未完成",
 		fillMetered: "补全流量保护的 {{count, number}} 部",
@@ -13201,6 +13221,7 @@ var He = {
 		unitEntries: "条",
 		unitItems: "个",
 		unitMinutes: "分钟",
+		unitPercent: "%",
 		unitSeconds: "秒",
 		unitVideos: "部"
 	},
@@ -13247,6 +13268,16 @@ var He = {
 		waiting: "等待登录",
 		waitingBrowser: "等你在浏览器窗口里登录 PikPak"
 	},
+	playbackEnd: {
+		next: "顺序播放",
+		repeatAll: "列表循环",
+		repeatOne: "单片循环",
+		restart: "片尾从头播",
+		restartHelp: "离片尾不到这个比例，下次打开从头播。",
+		shuffle: "随机播放",
+		stop: "停下",
+		title: "播完之后"
+	},
 	playbackTranscode: {
 		saved: "已保存转码方式",
 		software: "软件编解码"
@@ -13256,6 +13287,7 @@ var He = {
 		batchSize: "每批加载作品",
 		batchSizeInput: "每批作品",
 		close: "关闭设置",
+		completionPrompt: "缺图补全提示",
 		defaultImage: "默认图片",
 		defaultSort: "默认排序",
 		defaultSortDirection: "默认排序方向",
@@ -13263,8 +13295,12 @@ var He = {
 		feedLimit: "显示数量",
 		feedLimitInput: "新作显示数量",
 		groupEditions: "合并分卷与版本",
+		homeFeedNew: "在首页显示新作",
+		homeShorts: "首页竖屏短片带",
+		homeTiers: "首页显示女优与厂牌头像",
 		hoverDelay: "悬停预览延迟",
 		increaseContrast: "增加对比度",
+		ingestNotices: "入库通知",
 		interfaceSounds: "界面音效",
 		miniPlayer: "离开详情后小窗播放",
 		navCaption: "设置",
@@ -13278,6 +13314,7 @@ var He = {
 		relatedLimit: "相关推荐数量",
 		searchHistoryInput: "搜索记录",
 		searchHistoryLimit: "搜索记录数量",
+		searchRecommendations: "空搜索时显示推荐",
 		sectionsLabel: "设置分区",
 		seekStep: "快进 / 快退步长",
 		seekStepInput: "快进 / 快退",
@@ -14966,6 +15003,7 @@ var He = {
 	},
 	networkBanner: {
 		checkProxy: "检查 Peach 代理",
+		dismiss: "关闭",
 		offline: "Peach 连不上外网，资料采集、关注更新和在线来源暂不可用；本地媒体照常使用。"
 	},
 	objectOrder: { save: "保存顺序" },
@@ -38675,4 +38713,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=102bb4e9-c72b-420b-b6c1-5175e09f92af
+//# debugId=6602493f-0f00-4ed2-a3ca-4381e00efd92
