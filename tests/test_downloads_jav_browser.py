@@ -89,6 +89,33 @@ class BrowserTests(unittest.TestCase):
         self.assertEqual(restored.status('ABC-123')['state'], 'submitted')
         self.remote.submit.assert_called_once()
 
+    def test_idle_queue_sleeps_until_the_next_retry_and_wakes_on_download_failures(self):
+        """空闲时不再每 30 秒看一次：睡到最近的重试时间，下载任务失败时由下载服务叫醒。"""
+        now = [1_800_000_000.0]
+        self.downloads.clock = lambda: now[0]
+        self.assertIsNone(self.service.idle_wait(), "空队列只等加入叫醒")
+        self.service.search.return_value = {'state': 'error', 'items': [], 'error': '请求超时', 'retry_after': 120.0}
+        self.add()
+        self.service.process_one()
+        self.assertFalse(self.service.process_one())
+        self.assertEqual(self.service.idle_wait(), 120.0)
+        now[0] += 60
+        self.assertEqual(self.service.idle_wait(), 60.0)
+        now[0] += 60
+        self.service.search.return_value = {'items': [{'name': 'ABC-123 1080p', 'uri': MAGNET}]}
+        self.assertTrue(self.service.process_one())
+        self.assertFalse(self.service.process_one())
+        self.assertIsNone(self.service.idle_wait(), "已提交的番号由下载服务负责，不定时扫")
+        task = self.downloads.store.get(self.service.rows['ABC-123']['task_id'])
+        self.service._wake.clear()
+        task.state = dl.FAILED
+        self.downloads.store.save(task)
+        self.assertTrue(self.service._wake.is_set(), "下载任务失败要叫醒入库线程")
+        self.assertEqual(self.service.idle_wait(), 60.0, "到下一次清扫")
+        now[0] += 60
+        self.assertFalse(self.service.process_one())
+        self.assertIsNone(self.service.idle_wait(), "清扫过后回到只等通知")
+
     def test_permanent_search_failure_is_not_automatically_requeued(self):
         self.service.search.return_value = {'state': 'unavailable', 'items': [], 'error': '需要配置索引器'}
         self.add()

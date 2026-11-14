@@ -246,10 +246,11 @@ class RunnerTests(LedgerTestCase):
     def test_a_followup_that_steps_aside_waits_in_the_queue_and_runs_once_the_way_is_clear(self):
         """给扫描与采集让路的后继回到队列，不判失败；路让回来以后同一条接着跑完。"""
         clear = threading.Event()
-        attempts = []
+        attempts, checks = [], []
 
         class Blocked(JobDeferred):
             def ready(self):
+                checks.append(time.monotonic())
                 return clear.is_set()
 
         def busy_until_clear(_contract, key, _handle):
@@ -259,24 +260,79 @@ class RunnerTests(LedgerTestCase):
             return {"outcome": key}
 
         parent = self.parent()
+        # 兜底复查放到一分钟：路让回来只能靠本进程的通知，不能靠定时问。
         with registered(echo_type("ledger-a", run=busy_until_clear)), \
-                mock.patch.object(followups_module, "DEFER_POLL_SECONDS", 0.01):
+                mock.patch.object(followups_module, "DEFER_RECHECK_SECONDS", 60.0):
             child = self.store.enqueue_followups(parent.id, [("ledger-a:1", "ledger-a", "甲")])["queued"][0]
             runner = FollowupRunner(self.contract())
             runner.wake()
             deadline = time.monotonic() + 10
             while not attempts and time.monotonic() < deadline:
                 time.sleep(0.01)
-            time.sleep(0.05)
+            time.sleep(0.3)
             waiting = self.store.get(child)
             self.assertEqual(waiting.status, "pending")
             self.assertEqual(waiting.progress_label, "等待扫描与采集完成后继续")
             self.assertEqual(attempts, ["ledger-a:1"])
+            self.assertEqual(len(checks), 1, "让路期间不该反复来问")
             clear.set()
+            followups_module.deferrals_changed()
             self.wait_until_settled(parent.id)
             runner.stop(timeout=10)
         self.assertEqual(self.store.get(child).status, "succeeded")
         self.assertEqual(attempts, ["ledger-a:1", "ledger-a:1"])
+
+    def test_releasing_the_library_processing_lock_wakes_a_followup_that_stepped_aside(self):
+        """全库处理锁在本进程放开时直接叫醒让路的后继，不等兜底复查。"""
+        from peach import library_processing
+        from peach.settings_file import PeachConfig
+        config = PeachConfig(self.root, self.root / "config.toml")
+        config.directory("state").mkdir(parents=True, exist_ok=True)
+        attempts = []
+        held, release = threading.Event(), threading.Event()
+
+        def hold():
+            with library_processing._processing_lock(config, background=True, active=lambda: True):
+                held.set()
+                release.wait(10)
+
+        def needs_the_lock(_contract, key, _handle):
+            attempts.append(key)
+            if not library_processing._lock_free(config):
+                raise library_processing.ProcessingBusy(config)
+            return {"outcome": key}
+
+        parent = self.parent()
+        holder = threading.Thread(target=hold)
+        holder.start()
+        self.addCleanup(holder.join, 5)
+        self.addCleanup(release.set)
+        self.assertTrue(held.wait(5))
+        with registered(echo_type("ledger-a", run=needs_the_lock)), \
+                mock.patch.object(followups_module, "DEFER_RECHECK_SECONDS", 60.0):
+            child = self.store.enqueue_followups(parent.id, [("ledger-a:1", "ledger-a", "甲")])["queued"][0]
+            runner = FollowupRunner(self.contract())
+            runner.wake()
+            deadline = time.monotonic() + 10
+            while not attempts and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.assertEqual(self.store.get(child).status, "pending")
+            release.set()
+            self.wait_until_settled(parent.id, timeout=5)
+            runner.stop(timeout=10)
+        self.assertEqual(self.store.get(child).status, "succeeded")
+
+    def test_finish_listeners_hear_every_followup_that_ran(self):
+        heard = []
+        parent = self.parent()
+        with registered(echo_type(AVATAR_TASK_KEY)):
+            queued = self.store.enqueue_followups(
+                parent.id, [("entity-avatar:performer:1", AVATAR_TASK_KEY, "甲"),
+                            ("entity-avatar:performer:2", AVATAR_TASK_KEY, "乙")])["queued"]
+            runner = FollowupRunner(self.contract())
+            runner.on_finished(lambda run: heard.append(run.id))
+            self.assertEqual(runner.drain(), 2)
+        self.assertEqual(sorted(heard), sorted(queued))
 
     def test_a_busy_task_gate_keeps_the_lane_alive_until_the_followup_is_claimed(self):
         """闸门锁被别人拿着时领取等满超时：通道不退出，锁放开后照样领到这一条。"""

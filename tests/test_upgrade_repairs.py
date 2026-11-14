@@ -685,6 +685,34 @@ class UpgradeRepairTests(unittest.TestCase):
         self.make_due()
         self.assertEqual(list(self.tick_quietly()['queued']), [self.display_key()])
 
+    def test_dispatch_sleeps_until_the_next_retry_and_wakes_when_its_followups_finish(self):
+        """不再每分钟醒来全表扫：没活时排到最早的 `retry_at`，派出的后继跑完由回调叫醒。"""
+        from types import SimpleNamespace
+        from peach.followups import FollowupRunner
+        self.display_sample()
+        self.run_queued_display(unreachable=True)
+        with patch('peach.library_processing._people_allowed', return_value=False), \
+                patch('peach.seed_followup.plan', return_value=[]), \
+                patch.object(upgrade_repairs, '_stale_previews', return_value=False):
+            delay = self.service.tick()
+            retry = self.display_items()['1']['retry_at']
+            self.assertAlmostEqual(delay, retry - time.time(), delta=5)
+            self.assertGreater(delay, upgrade_repairs.ACTIVE_GAP_SECONDS)
+            self.make_due()
+            self.assertIsNone(self.service.tick(), '派出去了就等它跑完，没有要定时的重派')
+        run_id = upgrade_repairs._read(self.service.receipt)['queued'][self.display_key()]
+        self.service._wake.clear()
+        self.service._followup_finished(SimpleNamespace(id=run_id + 1000))
+        self.assertFalse(self.service._wake.is_set(), '别人派的后继跑完不叫醒')
+        runner = FollowupRunner(self.contract)
+        runner.on_finished(self.service._followup_finished)
+        self.contract.upgrade_repairs = self.service
+        with patch('peach.library_processing._ffprobe_path', return_value='ffprobe'), \
+                patch.object(upgrade_repairs, 'mount_unreachable', return_value=False), \
+                patch('peach.media_probe.measure', return_value=(60, 1440, 1280, None, 0, 0, None, 'landscape', '1080P', 1)):
+            runner.drain()
+        self.assertTrue(self.service._wake.is_set(), '自己派的补测跑完就叫醒派发线程')
+
     def test_new_failures_are_dispatched_again_with_backoff_until_the_attempt_limit(self):
         """本版派出的失败按退避自动重派；连败到上限后只等用户点重试。"""
         self.display_sample()

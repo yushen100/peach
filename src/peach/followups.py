@@ -32,8 +32,33 @@ LOGGER = logging.getLogger(__name__)
 
 #: 写账本的后继共用的通道名。它不是任务种类，是「这条路上一次只许过一个」。
 LEDGER_LANE = "ledger"
-#: 后继让路以后，通道隔多久看一眼路让回来没有。
+#: 闸门锁被别人拿着时，通道隔多久再领。
 DEFER_POLL_SECONDS = 1.0
+#: 后继让路以后，本进程让出路时会叫醒通道（`deferrals_changed`）；路被别的进程
+#: （命令行）占着时没有通知，隔这么久看一眼。
+DEFER_RECHECK_SECONDS = 30.0
+
+_deferral = threading.Condition()
+_deferral_generation = 0
+
+
+def deferrals_changed() -> None:
+    """本进程里让路的原因可能消失了（锁放开、前台处理结束），叫醒等着重领的通道。"""
+    global _deferral_generation
+    with _deferral:
+        _deferral_generation += 1
+        _deferral.notify_all()
+
+
+def _deferral_token() -> int:
+    with _deferral:
+        return _deferral_generation
+
+
+def _wait_deferral(token: int, timeout: float) -> None:
+    """等到 `token` 之后有过通知，或超时；判 `ready()` 之前取 token，判完到等待之间的通知不会漏。"""
+    with _deferral:
+        _deferral.wait_for(lambda: _deferral_generation != token, timeout)
 
 
 @dataclass(frozen=True)
@@ -190,8 +215,17 @@ class FollowupRunner:
         self._active: dict[threading.Thread, str] = {}
         self._stopping = False
         self._paused_for_update = False
+        self._listeners: list[Callable[[object], None]] = []
 
     # -- 对外 --------------------------------------------------------------
+
+    def on_finished(self, callback: Callable[[object], None]) -> None:
+        """每条后继执行完（成功、失败、取消或让路）后调用 `callback(run)`，在通道线程里。
+
+        派活的一方靠它知道自己派的那批跑下去了，不必定时去问。
+        """
+        with self._lock:
+            self._listeners.append(callback)
 
     def resume(self) -> list[int]:
         """服务启动时调用一次：把没跑完的后继重新排队，再把通道叫醒。"""
@@ -225,6 +259,8 @@ class FollowupRunner:
             threads = list(self._threads.values())
             required = {thread for thread, key in self._active.items() if key in wait_for}
             self._threads.clear()
+        # 等着路让回来的通道也要醒来看到 `_stopping`。
+        deferrals_changed()
         for thread in threads:
             if thread.is_alive():
                 thread.join(None if thread in required else timeout)
@@ -282,14 +318,24 @@ class FollowupRunner:
                 with self._lock:
                     self._active.pop(thread, None)
             # 让路的那条已回到队列：路让回来之前再领，领到的还是它。
-            while deferred is not None and not self._stopping and not deferred.ready():
-                time.sleep(DEFER_POLL_SECONDS)
+            while deferred is not None and not self._stopping:
+                token = _deferral_token()
+                if deferred.ready():
+                    break
+                _wait_deferral(token, DEFER_RECHECK_SECONDS)
 
     def _execute(self, run):
         try:
             return self._execute_one(run)
         finally:
             self.store.prune(run.task_key, keep_errors=True)
+            with self._lock:
+                listeners = list(self._listeners)
+            for listener in listeners:
+                try:
+                    listener(run)
+                except Exception:
+                    LOGGER.exception("followup finish listener failed: %s", run.followup_key)
 
     def _execute_one(self, run):
         """跑一条后继；它给别的任务让路时返回那个 `JobDeferred`，否则返回 None。"""

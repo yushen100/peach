@@ -512,6 +512,15 @@ class DownloadStore:
 
     def __init__(self, database: LedgerDatabase):
         self.database = database
+        self._listeners: list = []
+
+    def on_save(self, callback) -> None:
+        """每次 `save` 写完后在写入线程里调用 `callback(task)`。
+
+        同进程里关心任务状态的一方（浏览器入库）靠它知道状态变了，不必定时去扫。
+        任务状态只经 `save` 改；后处理字段的写入不通知。
+        """
+        self._listeners.append(callback)
 
     def get(self, task_id: int) -> DownloadTask | None:
         with self.database.read_connection() as connection:
@@ -607,6 +616,11 @@ class DownloadStore:
                 cursor = connection.execute(
                     f"INSERT INTO download_task({','.join(names)}) VALUES({marks})", values)
                 task.id = int(cursor.lastrowid)
+        for listener in list(self._listeners):
+            try:
+                listener(task)
+            except Exception:
+                LOGGER.exception("download task listener failed: %s", task.id)
         return task
 
     def record_submission(self, *, task: DownloadTask, outcome: str, now: float,
