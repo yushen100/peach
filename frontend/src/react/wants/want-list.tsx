@@ -28,7 +28,7 @@ import { busyProps, useAction } from '../settings/use-action';
 import { composingKey } from '../components/ime';
 import {
   addWant, fetchWants, invalidateWants, lastSearchNote, PHASES, removeWants, resetWants, searchNote, wantName,
-  WANTS_KEY, type Want,
+  WANTS_KEY, wantsInterval, type Want,
 } from './wants';
 import { t } from '../../i18n';
 
@@ -152,8 +152,7 @@ export function WantList({ readOnly, toast, query = '', clearQuery }: WantListPr
   const wants = useQuery({
     queryKey: WANTS_KEY, queryFn: ({ signal }) => fetchWants(signal),
     staleTime: 30_000,
-    // 刚登记的那几条还在取资料：跑着就隔几秒再读一次，取完了就停。定时查资源一部要十来秒，隔得松一些。
-    refetchInterval: (query) => (query.state.data?.scraping ? 3000 : query.state.data?.searching ? 10_000 : false),
+    refetchInterval: wantsInterval,
   });
 
   const add = () => {

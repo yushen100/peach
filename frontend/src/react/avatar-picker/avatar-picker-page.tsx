@@ -30,7 +30,7 @@ import { CropFrame } from '../crop/crop-frame';
 import { queryClient } from '../query';
 import { busyProps } from '../settings/use-action';
 import {
-  avatarChoicesKey, baseLabel, baseVersion, choiceDetail, choiceFrame, choiceImageUrl, choiceLabel, cropNote,
+  avatarChoicesKey, baseLabel, baseVersion, choiceDetail, choicesInterval, choiceFrame, choiceImageUrl, choiceLabel, cropNote,
   fetchAvatarChoices, fetchCodeCover, frameAddress, frameChoice, frameFile, framesItself, indexNote,
   pickerNote, sendAvatarPick, sharedCast,
   type AvatarChoice, type AvatarSubmission,
@@ -111,7 +111,7 @@ function PickerBody({ kind, entityId, name, onPicked, close }: AvatarPickerProps
     // 失败或索引过期时重新读取；有效候选在反复开合时复用。
     retryOnMount: true,
     refetchOnMount: (query) => query.state.data?.index_stale ? 'always' : false,
-    refetchInterval: (query) => query.state.data?.index_refreshing && !query.state.error ? 1000 : false,
+    refetchInterval: choicesInterval,
   });
   /* 换成功之后这一份候选里「在用」是哪一格已经过期，扔掉它，下次点开重新取。要等到弹层
      真的收起来再扔：这时候还有人在读这个键，当场清掉它会立刻再取一遍，白问一趟。 */

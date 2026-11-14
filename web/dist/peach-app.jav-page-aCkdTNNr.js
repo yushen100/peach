@@ -1,27 +1,27 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "19bc3059-30db-4210-9dae-fb99f14506ff", e._sentryDebugIdIdentifier = "sentry-dbid-19bc3059-30db-4210-9dae-fb99f14506ff");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "cebbce22-7459-4c99-9890-2bdaf2483ecf", e._sentryDebugIdIdentifier = "sentry-dbid-cebbce22-7459-4c99-9890-2bdaf2483ecf");
 	} catch {}
 })();
-import { $2ec61d1d4f780267$export$a8a3e93435678ff9 as e, $76d00c5a4edb230a$export$76ccd210b9029917 as t, $76d00c5a4edb230a$export$816b5d811295e6bc as n, $76d00c5a4edb230a$export$b59bdbef9ce70de2 as r, $76d00c5a4edb230a$export$f6f0c3fe4ec306ea as i, $76d00c5a4edb230a$export$f850895b287ef28e as a, $fe21c36db05242bb$export$d7b12c4107be0d61 as o, ActivityMotion as s, ArtSlot as c, Button as l, ButtonLink as u, Bx as d, COVER_STATE_TITLE as f, CatalogViewToggle as p, Checkbox as m, ChevronSortDown as h, Chip as g, CloudDownloadDialog as _, CoverQueue as v, DISCOVERY_METADATA_KEY as y, DISCOVERY_SORTS as b, DOWNLOADS_KEY as x, DOWNLOADS_URL as S, DataTableFooter as C, DataTableFrame as w, E3 as T, EmptyFocusButton as E, EmptyState as ee, FilterGlassRows as te, FilterIconButton as D, FilterPill as ne, GlassPill as re, IndexSearch as O, Input as ie, JAV_LAYOUTS as ae, JAV_RECOMMENDATION_GRID as oe, JAV_SELECTION_EVENT as k, JavHeader as A, LibraryShortcuts as j, M6 as se, ModalFrame as M, Note as N, P7 as P, PHASES as F, RELEASE_COLUMN_VISIBILITY_KEY as I, RELEASE_COLUMN_WIDTHS_KEY as ce, RELEASE_PAGE_SIZES as le, RELEASE_SORTS as L, RELEASE_SORT_COLUMNS as R, SEGMENT as z, SEGMENTED_TRACK as B, SegmentedRadioGroup as V, Segments as ue, SelectionDock as de, Shuffle as fe, SortKeys as pe, SourceAvatar as me, Table as he, TableColumnControls as H, TableColumnResizer as U, TaskProgress as ge, WANTS_KEY as _e, WantMagnets as ve, Wt as ye, __toESM as be, activityKind as xe, addWant as Se, apiGet as Ce, appSettingsStore as we, avatarInner as Te, busyProps as W, cachedMagnetStates as Ee, cardClass as De, cardRatio as Oe, catalogListSkeletonCellHtml as ke, composingKey as Ae, controlDiscoveryMetadata as je, controlReleaseMetadata as Me, coverArrived as Ne, coverFetching as Pe, coverFetchingHtml as Fe, coverReason as Ie, coverStateAction as Le, coverUrl as Re, discoveryArtwork as ze, discoveryKey as Be, discoveryScore as Ve, entityDisplayName as G, entityFaceImg as He, entityPath as Ue, errorMessage as K, esc as We, facePos as Ge, fetchCoverNow as Ke, fetchDiscoveries as qe, fetchDiscoveryMetadata as Je, fetchReleases as Ye, fetchWants as Xe, firstGrapheme as Ze, fmtDur as Qe, gridLayout as $e, invalidateWants as q, javContentSkeleton as et, javLayout as tt, javTagSkeleton as nt, jobText as rt, joinList as it, keepPreviousData as at, lastSearchNote as ot, leadingGraphemes as st, logoUrl as ct, metadataInterval as lt, pageWindow as ut, qE as dt, queryClient as ft, recommendationScore as pt, relayoutCovers as mt, releaseColumns as ht, releaseFilters as gt, releaseKey as _t, removeWants as vt, require_jsx_runtime as yt, require_react as bt, resetWants as xt, searchNote as St, selectRange as Ct, selectionSummary as wt, serverLabelList as Tt, spriteGlyph as Et, storeJavLayout as Dt, suppressShiftTextSelection as Ot, t as J, textLang as kt, tierPlaceholdersHtml as At, useAction as Y, useCatalogView as jt, useEntityNames as Mt, useQuery as X, useTablePreferences as Nt, wantName as Pt, wireHorizontalScroller as Ft, writeJavQuery as Z } from "./peach-app.js";
-import { ErrorLine as It } from "./peach-app.source-view--K6uWAMi.js";
+import { $2ec61d1d4f780267$export$a8a3e93435678ff9 as e, $76d00c5a4edb230a$export$76ccd210b9029917 as t, $76d00c5a4edb230a$export$816b5d811295e6bc as n, $76d00c5a4edb230a$export$b59bdbef9ce70de2 as r, $76d00c5a4edb230a$export$f6f0c3fe4ec306ea as i, $76d00c5a4edb230a$export$f850895b287ef28e as a, $fe21c36db05242bb$export$d7b12c4107be0d61 as o, ActivityMotion as s, ArtSlot as c, Button as l, ButtonLink as u, Bx as d, COVER_STATE_TITLE as f, CatalogViewToggle as p, Checkbox as m, ChevronSortDown as h, Chip as g, CloudDownloadDialog as _, CoverQueue as v, DISCOVERY_METADATA_KEY as y, DISCOVERY_SORTS as b, DOWNLOADS_KEY as x, DOWNLOADS_URL as S, DataTableFooter as C, DataTableFrame as w, E3 as T, EmptyFocusButton as E, EmptyState as ee, FilterGlassRows as te, FilterIconButton as D, FilterPill as ne, GlassPill as re, IndexSearch as O, Input as ie, JAV_LAYOUTS as ae, JAV_RECOMMENDATION_GRID as oe, JAV_SELECTION_EVENT as k, JavHeader as A, LibraryShortcuts as j, M6 as se, ModalFrame as M, Note as N, P7 as P, PHASES as F, RELEASE_COLUMN_VISIBILITY_KEY as I, RELEASE_COLUMN_WIDTHS_KEY as ce, RELEASE_PAGE_SIZES as le, RELEASE_SORTS as L, RELEASE_SORT_COLUMNS as R, SEGMENT as z, SEGMENTED_TRACK as B, SegmentedRadioGroup as V, Segments as ue, SelectionDock as de, Shuffle as fe, SortKeys as pe, SourceAvatar as me, Table as he, TableColumnControls as H, TableColumnResizer as U, TaskProgress as ge, WANTS_KEY as _e, WantMagnets as ve, Wt as ye, __toESM as be, activityKind as xe, addWant as Se, apiGet as Ce, appSettingsStore as we, avatarInner as Te, busyProps as W, cachedMagnetStates as Ee, cardClass as De, cardRatio as Oe, catalogListSkeletonCellHtml as ke, composingKey as Ae, controlDiscoveryMetadata as je, controlReleaseMetadata as Me, coverArrived as Ne, coverFetching as Pe, coverFetchingHtml as Fe, coverReason as Ie, coverStateAction as Le, coverUrl as Re, discoveryArtwork as ze, discoveryKey as Be, discoveryScore as Ve, entityDisplayName as G, entityFaceImg as He, entityPath as Ue, errorMessage as K, esc as We, facePos as Ge, fetchCoverNow as Ke, fetchDiscoveries as qe, fetchDiscoveryMetadata as Je, fetchReleases as Ye, fetchWants as Xe, firstGrapheme as Ze, fmtDur as Qe, gridLayout as $e, invalidateWants as q, javContentSkeleton as et, javLayout as tt, javTagSkeleton as nt, jobText as rt, joinList as it, keepPreviousData as at, lastSearchNote as ot, leadingGraphemes as st, logoUrl as ct, metadataInterval as lt, pageWindow as ut, qE as dt, queryClient as ft, recommendationScore as pt, relayoutCovers as mt, releaseColumns as ht, releaseFilters as gt, releaseKey as _t, removeWants as vt, require_jsx_runtime as yt, require_react as bt, resetWants as xt, searchNote as St, selectRange as Ct, selectionSummary as wt, serverLabelList as Tt, spriteGlyph as Et, storeJavLayout as Dt, suppressShiftTextSelection as Ot, t as J, textLang as kt, tierPlaceholdersHtml as At, useAction as Y, useCatalogView as jt, useEntityNames as Mt, useQuery as X, useTablePreferences as Nt, wantName as Pt, wantsInterval as Ft, wireHorizontalScroller as It, writeJavQuery as Z } from "./peach-app.js";
+import { ErrorLine as Lt } from "./peach-app.source-view--K6uWAMi.js";
 // src/react/wants/want-list.tsx
-var Q = /* @__PURE__ */ be(bt(), 1), $ = yt(), Lt = {
+var Q = /* @__PURE__ */ be(bt(), 1), $ = yt(), Rt = {
 	code: J("catalog:wants.originManual"),
 	feed: J("catalog:entityHero.subscribeNewReleases"),
 	follow: J("catalog:entityHero.following")
-}, Rt = [
+}, zt = [
 	["all", J("catalog:shared.all")],
 	["available", J("catalog:wants.hasMagnet")],
 	["missing", J("catalog:wants.noMagnet")]
-], zt = (e) => [
+], Bt = (e) => [
 	e.release_date,
 	e.studio,
 	e.performers,
-	Lt[e.origin]
+	Rt[e.origin]
 ].filter(Boolean).join(" · ");
-function Bt({ want: e }) {
+function Vt({ want: e }) {
 	return /* @__PURE__ */ (0, $.jsxs)("span", {
 		className: "relative inline-grid w-card-cover shrink-0 aspect-card-cover place-items-center overflow-hidden rounded-2lg bg-background-tertiary-default max-sm:w-24",
 		children: [/* @__PURE__ */ (0, $.jsx)("span", {
@@ -37,14 +37,14 @@ function Bt({ want: e }) {
 		}) : null]
 	});
 }
-function Vt({ want: e, readOnly: t, busy: n, onReset: r, onRemove: i, onCloudDownload: a, downloads: o, provider: s, toast: c }) {
+function Ht({ want: e, readOnly: t, busy: n, onReset: r, onRemove: i, onCloudDownload: a, downloads: o, provider: s, toast: c }) {
 	let [d, f] = (0, Q.useState)(""), p = e.link || d || (e.code ? `https://javdb.com/search?q=${encodeURIComponent(e.code)}&f=all` : ""), m = e.code && e.phase === "searching" ? ot(e) : St(e);
 	return /* @__PURE__ */ (0, $.jsxs)("li", {
 		"data-want-id": e.id,
 		className: De({ className: "flex flex-col gap-4 max-sm:p-4" }),
 		children: [/* @__PURE__ */ (0, $.jsxs)("div", {
 			className: "flex min-w-0 items-start gap-4 max-sm:gap-3",
-			children: [/* @__PURE__ */ (0, $.jsx)(Bt, { want: e }), /* @__PURE__ */ (0, $.jsxs)("div", {
+			children: [/* @__PURE__ */ (0, $.jsx)(Vt, { want: e }), /* @__PURE__ */ (0, $.jsxs)("div", {
 				className: "flex min-w-0 flex-1 flex-col gap-1",
 				children: [
 					/* @__PURE__ */ (0, $.jsxs)("p", {
@@ -57,16 +57,16 @@ function Vt({ want: e, readOnly: t, busy: n, onReset: r, onRemove: i, onCloudDow
 							children: e.title
 						}) : null]
 					}),
-					zt(e) ? /* @__PURE__ */ (0, $.jsx)("p", {
+					Bt(e) ? /* @__PURE__ */ (0, $.jsx)("p", {
 						className: "text-body-2-regular text-text-secondary",
-						children: zt(e)
+						children: Bt(e)
 					}) : null,
 					m ? /* @__PURE__ */ (0, $.jsx)("p", {
 						"data-want-note": "",
 						className: "text-caption-1-regular text-text-secondary",
 						children: m
 					}) : null,
-					e.scrape_error ? /* @__PURE__ */ (0, $.jsx)(It, {
+					e.scrape_error ? /* @__PURE__ */ (0, $.jsx)(Lt, {
 						text: e.scrape_error,
 						prefix: J("catalog:wants.metadataNotFound"),
 						tone: "muted"
@@ -121,7 +121,7 @@ function Vt({ want: e, readOnly: t, busy: n, onReset: r, onRemove: i, onCloudDow
 		}) : null]
 	});
 }
-function Ht({ phase: e, label: t, rows: n, row: r }) {
+function Ut({ phase: e, label: t, rows: n, row: r }) {
 	let [i, a] = (0, Q.useState)(1), [s, c] = (0, Q.useState)(20), [u, d] = (0, Q.useState)("all"), f = Ee(n), p = (e) => e.has_magnets ?? f.get(e.code || "") ?? !1, m = n.filter(p), h = e !== "searching" || u === "all" ? n : n.filter((e) => p(e) === (u === "available")), g = ut(h.length, s, i);
 	return /* @__PURE__ */ (0, $.jsxs)("section", {
 		"aria-label": t,
@@ -145,7 +145,7 @@ function Ht({ phase: e, label: t, rows: n, row: r }) {
 					onChange: (e) => {
 						d(e), a(1);
 					},
-					children: Rt.map(([e, t]) => /* @__PURE__ */ (0, $.jsxs)(o, {
+					children: zt.map(([e, t]) => /* @__PURE__ */ (0, $.jsxs)(o, {
 						value: e,
 						"aria-label": t,
 						className: z,
@@ -191,12 +191,12 @@ function Ht({ phase: e, label: t, rows: n, row: r }) {
 		]
 	});
 }
-function Ut({ readOnly: e, toast: t, query: n = "", clearQuery: r }) {
+function Wt({ readOnly: e, toast: t, query: n = "", clearQuery: r }) {
 	let [i, a] = (0, Q.useState)(""), [o, s] = (0, Q.useState)(null), c = Y(), u = X({
 		queryKey: _e,
 		queryFn: ({ signal: e }) => Xe(e),
 		staleTime: 3e4,
-		refetchInterval: (e) => e.state.data?.scraping ? 3e3 : e.state.data?.searching ? 1e4 : !1
+		refetchInterval: Ft
 	}), d = () => {
 		let n = i.trim();
 		n && !e && c.run("add", (e) => Se({ code: n }, e), (e) => {
@@ -318,11 +318,11 @@ function Ut({ readOnly: e, toast: t, query: n = "", clearQuery: r }) {
 			}) : null,
 			F.map(([n, r]) => {
 				let i = g.filter((e) => e.phase === n);
-				return i.length ? /* @__PURE__ */ (0, $.jsx)(Ht, {
+				return i.length ? /* @__PURE__ */ (0, $.jsx)(Ut, {
 					phase: n,
 					label: r,
 					rows: i,
-					row: (n) => /* @__PURE__ */ (0, $.jsx)(Vt, {
+					row: (n) => /* @__PURE__ */ (0, $.jsx)(Ht, {
 						want: n,
 						readOnly: e,
 						busy: c.busy,
@@ -353,7 +353,7 @@ function Ut({ readOnly: e, toast: t, query: n = "", clearQuery: r }) {
 	});
 }
 // src/react/jav/jav-batch-resources.tsx
-function Wt({ items: t, close: n, readOnly: r, receipt: i }) {
+function Gt({ items: t, close: n, readOnly: r, receipt: i }) {
 	let a = X({
 		queryKey: x,
 		queryFn: ({ signal: e }) => Ce(`${S}?limit=50`, e),
@@ -422,22 +422,22 @@ function Wt({ items: t, close: n, readOnly: r, receipt: i }) {
 	});
 }
 // src/react/jav/jav-selection.tsx
-function Gt(e) {
+function Kt(e) {
 	let t = new MutationObserver(e);
 	return t.observe(document.body, {
 		attributes: !0,
 		attributeFilter: ["data-density"]
 	}), () => t.disconnect();
 }
-var Kt = () => document.body.dataset.density === "dense", qt = (0, Q.createContext)(null), Jt = () => (0, Q.useContext)(qt);
-function Yt(e) {
-	let t = Jt()?.visible;
+var qt = () => document.body.dataset.density === "dense", Jt = (0, Q.createContext)(null), Yt = () => (0, Q.useContext)(Jt);
+function Xt(e) {
+	let t = Yt()?.visible;
 	(0, Q.useEffect)(() => {
 		t?.(e);
 	}, [e, t]);
 }
-function Xt({ children: e, readOnly: t, receipt: n }) {
-	let r = (0, Q.useSyncExternalStore)(Gt, Kt, () => !1), [i, a] = (0, Q.useState)(!1), [o, s] = (0, Q.useState)(/* @__PURE__ */ new Map()), [c, u] = (0, Q.useState)([]), [d, f] = (0, Q.useState)(null), p = (0, Q.useRef)(null), m = Y(), h = new Set(o.keys()), g = wt(h, c.map((e) => e.code)), _ = (0, Q.useCallback)((e) => {
+function Zt({ children: e, readOnly: t, receipt: n }) {
+	let r = (0, Q.useSyncExternalStore)(Kt, qt, () => !1), [i, a] = (0, Q.useState)(!1), [o, s] = (0, Q.useState)(/* @__PURE__ */ new Map()), [c, u] = (0, Q.useState)([]), [d, f] = (0, Q.useState)(null), p = (0, Q.useRef)(null), m = Y(), h = new Set(o.keys()), g = wt(h, c.map((e) => e.code)), _ = (0, Q.useCallback)((e) => {
 		u((t) => t.length === e.length && t.every((t, n) => t === e[n]) ? t : e), s((t) => {
 			let n = e.filter((e) => t.has(e.code) && t.get(e.code) !== e);
 			return n.length ? new Map([...t, ...n.map((e) => [e.code, e])]) : t;
@@ -503,7 +503,7 @@ function Xt({ children: e, readOnly: t, receipt: n }) {
 			}
 		}, (e) => n(J("catalog:javSelection.wantAdded", { count: e })));
 	};
-	return /* @__PURE__ */ (0, $.jsxs)(qt.Provider, {
+	return /* @__PURE__ */ (0, $.jsxs)(Jt.Provider, {
 		value: {
 			dense: r,
 			mode: i,
@@ -564,7 +564,7 @@ function Xt({ children: e, readOnly: t, receipt: n }) {
 					})
 				]
 			}),
-			/* @__PURE__ */ (0, $.jsx)(Wt, {
+			/* @__PURE__ */ (0, $.jsx)(Gt, {
 				items: d,
 				close: () => f(null),
 				readOnly: t,
@@ -574,7 +574,7 @@ function Xt({ children: e, readOnly: t, receipt: n }) {
 	});
 }
 // src/react/jav/discovery-faces.tsx
-function Zt({ item: e }) {
+function Qt({ item: e }) {
 	Mt();
 	let t = e.performer_refs?.length ? e.performer_refs : [...new Set(e.performers.split(/[,，、;/]/).filter(Boolean))].map((e) => ({ name: e })), n = t.slice(0, 5).map((t, n) => {
 		let r = { "--media-avatar-index": n }, i = t.source_avatar && t.source_actor_id && !t.has_image ? { children: /* @__PURE__ */ (0, $.jsx)(me, {
@@ -601,12 +601,12 @@ function Zt({ item: e }) {
 	}) : n[0] || null;
 }
 // src/react/jav/discovery-card.tsx
-var Qt = (e) => ({
+var $t = (e) => ({
 	...e,
 	cover: e.has_cover ? Re(e, !0) : e.cover_url,
 	origin: `${e.asset_id ? "asset" : "feed"}:${e.id}`
-}), $t = "relative inline-grid place-items-center overflow-hidden rounded-2lg bg-background-tertiary-default";
-function en({ item: e, readOnly: t }) {
+}), en = "relative inline-grid place-items-center overflow-hidden rounded-2lg bg-background-tertiary-default";
+function tn({ item: e, readOnly: t }) {
 	let n = Y(), [r, i] = (0, Q.useState)("");
 	(0, Q.useSyncExternalStore)(Pe.subscribe, Pe.revision);
 	let a = e.cover_state;
@@ -648,8 +648,8 @@ function en({ item: e, readOnly: t }) {
 		]
 	});
 }
-function tn({ item: e, layout: t, javImage: n, readOnly: r, navigate: i, tag: a, onTag: o, wanting: s, onWant: d, onResource: f, badge: p }) {
-	let m = Jt(), h = m?.selected.has(e.code), g = !!m?.dense, _ = e.performer_refs?.length ? it(e.performer_refs.map((e) => e.name)) : e.performers, v = ze(e, t, n), y = e.asset_id ? `/assets/${e.asset_id}` : `/works/${encodeURIComponent(e.code)}`;
+function nn({ item: e, layout: t, javImage: n, readOnly: r, navigate: i, tag: a, onTag: o, wanting: s, onWant: d, onResource: f, badge: p }) {
+	let m = Yt(), h = m?.selected.has(e.code), g = !!m?.dense, _ = e.performer_refs?.length ? it(e.performer_refs.map((e) => e.name)) : e.performers, v = ze(e, t, n), y = e.asset_id ? `/assets/${e.asset_id}` : `/works/${encodeURIComponent(e.code)}`;
 	return /* @__PURE__ */ (0, $.jsxs)("article", {
 		"data-media-card": "",
 		"data-jav-card": "",
@@ -670,7 +670,7 @@ function tn({ item: e, layout: t, javImage: n, readOnly: r, navigate: i, tag: a,
 				},
 				"data-media-pic": "",
 				"data-jav-cover-box": "",
-				className: $t,
+				className: en,
 				children: /* @__PURE__ */ (0, $.jsx)(c, {
 					artwork: {
 						kind: "cover",
@@ -682,8 +682,8 @@ function tn({ item: e, layout: t, javImage: n, readOnly: r, navigate: i, tag: a,
 			}) : /* @__PURE__ */ (0, $.jsx)("div", {
 				"data-media-pic": "",
 				"data-jav-cover-box": "",
-				className: $t,
-				children: /* @__PURE__ */ (0, $.jsx)(en, {
+				className: en,
+				children: /* @__PURE__ */ (0, $.jsx)(tn, {
 					item: e,
 					readOnly: r
 				})
@@ -701,7 +701,7 @@ function tn({ item: e, layout: t, javImage: n, readOnly: r, navigate: i, tag: a,
 			}) : null,
 			/* @__PURE__ */ (0, $.jsxs)("div", {
 				"data-media-meta": "",
-				children: [/* @__PURE__ */ (0, $.jsx)(Zt, { item: e }), /* @__PURE__ */ (0, $.jsxs)("div", {
+				children: [/* @__PURE__ */ (0, $.jsx)(Qt, { item: e }), /* @__PURE__ */ (0, $.jsxs)("div", {
 					"data-media-text": "",
 					children: [
 						/* @__PURE__ */ (0, $.jsxs)("h3", {
@@ -814,11 +814,11 @@ function tn({ item: e, layout: t, javImage: n, readOnly: r, navigate: i, tag: a,
 	});
 }
 // src/react/jav/jav-release-table.tsx
-var nn = {
+var rn = {
 	widths: ce,
 	visibility: I
 };
-function rn({ studio: e }) {
+function an({ studio: e }) {
 	let [t, n] = (0, Q.useState)(!1);
 	return e?.has_logo && !t ? /* @__PURE__ */ (0, $.jsx)("img", {
 		"data-list-studio-mark": "",
@@ -835,8 +835,8 @@ function rn({ studio: e }) {
 		children: st(e?.name || "", 1)
 	});
 }
-function an({ items: e, waiting: o, filters: s, studios: u, javImage: d, readOnly: p, navigate: g, onTag: _, onSort: v, wanting: y, onWant: b, onResource: x }) {
-	let S = Jt(), C = Nt("jav-releases", ht, nn), T = ht.filter((e) => e.required || C.visibility[e.id] !== !1), E = Object.entries(R).find(([, e]) => e === s.sort)?.[0], ee = new Map(u.map((e) => [e.name, e])), te = (e) => (t) => {
+function on({ items: e, waiting: o, filters: s, studios: u, javImage: d, readOnly: p, navigate: g, onTag: _, onSort: v, wanting: y, onWant: b, onResource: x }) {
+	let S = Yt(), C = Nt("jav-releases", ht, rn), T = ht.filter((e) => e.required || C.visibility[e.id] !== !1), E = Object.entries(R).find(([, e]) => e === s.sort)?.[0], ee = new Map(u.map((e) => [e.name, e])), te = (e) => (t) => {
 		t.preventDefault(), S?.mode || t.shiftKey || t.ctrlKey || t.metaKey ? S?.toggle(e, t.shiftKey) : g(`/works/${encodeURIComponent(e.code)}`);
 	}, D = (e, t) => {
 		let n = t.performer_refs?.[0]?.name || t.performers.split(/[,，、;/]/)[0] || "";
@@ -887,7 +887,7 @@ function an({ items: e, waiting: o, filters: s, studios: u, javImage: d, readOnl
 			case "people": return n ? /* @__PURE__ */ (0, $.jsxs)("div", {
 				"data-list-people": "",
 				children: [
-					/* @__PURE__ */ (0, $.jsx)(Zt, { item: t }),
+					/* @__PURE__ */ (0, $.jsx)(Qt, { item: t }),
 					t.performer_refs?.[0]?.id ? /* @__PURE__ */ (0, $.jsx)("a", {
 						"data-media-who": "",
 						href: Ue("performer", n),
@@ -908,7 +908,7 @@ function an({ items: e, waiting: o, filters: s, studios: u, javImage: d, readOnl
 			case "studio": return t.studio ? /* @__PURE__ */ (0, $.jsxs)("span", {
 				"data-list-library": "",
 				title: t.studio,
-				children: [/* @__PURE__ */ (0, $.jsx)(rn, { studio: ee.get(t.studio) }), /* @__PURE__ */ (0, $.jsx)("span", { children: t.studio })]
+				children: [/* @__PURE__ */ (0, $.jsx)(an, { studio: ee.get(t.studio) }), /* @__PURE__ */ (0, $.jsx)("span", { children: t.studio })]
 			}) : "—";
 			case "tags": return t.tags?.length ? /* @__PURE__ */ (0, $.jsx)("div", {
 				"data-media-tags": "",
@@ -1043,7 +1043,7 @@ function an({ items: e, waiting: o, filters: s, studios: u, javImage: d, readOnl
 	});
 }
 // src/react/jav/jav-releases.tsx
-var on = `<div data-catalog-tier="performers" data-skeleton="tiers">${At("performer")}</div><div data-catalog-tier="studios">${At("studio")}</div>`, sn = (e) => `<span data-tier-initial>${We(Ze(G("performer", e.name, e.id)))}</span>${He({
+var sn = `<div data-catalog-tier="performers" data-skeleton="tiers">${At("performer")}</div><div data-catalog-tier="studios">${At("studio")}</div>`, cn = (e) => `<span data-tier-initial>${We(Ze(G("performer", e.name, e.id)))}</span>${He({
 	id: e.id,
 	hasImage: e.has_image,
 	version: e.image_version,
@@ -1051,7 +1051,7 @@ var on = `<div data-catalog-tier="performers" data-skeleton="tiers">${At("perfor
 	focus: e.avatar_focus,
 	standIn: e.avatar_stand_in
 })}`;
-function cn({ value: e }) {
+function ln({ value: e }) {
 	let t = pt(e);
 	return /* @__PURE__ */ (0, $.jsx)("span", {
 		"data-jav-taste-score": "",
@@ -1062,7 +1062,7 @@ function cn({ value: e }) {
 		})
 	});
 }
-function ln({ studio: e }) {
+function un({ studio: e }) {
 	let [t, n] = (0, Q.useState)(!1);
 	return /* @__PURE__ */ (0, $.jsx)("span", {
 		"data-tier-mark": "",
@@ -1077,8 +1077,8 @@ function ln({ studio: e }) {
 		}) : st(e.name, 2)
 	});
 }
-var un = (e) => Ke(e).then((t) => (t.has_cover && Ne(e, t), t.has_cover));
-function dn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clearText: a }) {
+var dn = (e) => Ke(e).then((t) => (t.has_cover && Ne(e, t), t.has_cover));
+function fn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clearText: a }) {
 	Mt();
 	let [o, s] = (0, Q.useState)(() => gt(location.search));
 	(0, Q.useEffect)(() => {
@@ -1151,7 +1151,7 @@ function dn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clear
 		});
 	};
 	(0, Q.useEffect)(() => {
-		let e = [...f.current?.querySelectorAll("[data-catalog-tier],[data-catalog-tags],[data-filter-row=\"bottom\"]") || []].map((e) => Ft(e, { drag: !0 }));
+		let e = [...f.current?.querySelectorAll("[data-catalog-tier],[data-catalog-tags],[data-filter-row=\"bottom\"]") || []].map((e) => It(e, { drag: !0 }));
 		return () => e.forEach((e) => e.destroy());
 	}, []);
 	let x = we();
@@ -1198,7 +1198,7 @@ function dn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clear
 			t(J("catalog:javWant.added")), q(), E.refetch();
 		});
 	}, R = E.data;
-	Yt(R?.items || []);
+	Xt(R?.items || []);
 	let z = E.isPending, B = !!(o.performer || o.studio || o.tag || o.q), V = Math.max(1, Math.ceil((R?.total || 0) / o.size));
 	return (0, Q.useEffect)(() => {
 		!R || E.isPlaceholderData || o.page <= V || (s((e) => ({
@@ -1219,7 +1219,7 @@ function dn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clear
 			z ? /* @__PURE__ */ (0, $.jsx)("div", {
 				"data-catalog-tiers": "",
 				"aria-busy": "true",
-				dangerouslySetInnerHTML: { __html: on }
+				dangerouslySetInnerHTML: { __html: sn }
 			}) : null,
 			R && (R.facets.performers.length || R.facets.studios.length) ? /* @__PURE__ */ (0, $.jsxs)("div", {
 				"data-catalog-tiers": "",
@@ -1239,7 +1239,7 @@ function dn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clear
 						onClick: () => c("performer", e.name),
 						children: [/* @__PURE__ */ (0, $.jsx)("span", {
 							"data-tier-ring": "",
-							dangerouslySetInnerHTML: { __html: sn(e) }
+							dangerouslySetInnerHTML: { __html: cn(e) }
 						}), /* @__PURE__ */ (0, $.jsx)("span", {
 							"data-tier-name": "",
 							children: G("performer", e.name, e.id)
@@ -1259,7 +1259,7 @@ function dn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clear
 						}),
 						onClick: () => c("studio", e.name),
 						children: [
-							/* @__PURE__ */ (0, $.jsx)(ln, { studio: e }),
+							/* @__PURE__ */ (0, $.jsx)(un, { studio: e }),
 							e.name,
 							/* @__PURE__ */ (0, $.jsx)("span", {
 								"data-count-badge": "",
@@ -1366,7 +1366,7 @@ function dn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clear
 			}) : null,
 			e ? null : /* @__PURE__ */ (0, $.jsx)(v, {
 				scope: J("catalog:javReleases.coverQueueScope"),
-				fetchOne: un,
+				fetchOne: dn,
 				codes: (R?.items || []).filter((e) => e.cover_state === "queued" && !e.cover_url).map((e) => e.code),
 				settled: (e, n) => {
 					t(e === n ? J("catalog:javReleases.coversFetched", { count: n }) : J("catalog:javReleases.coversPartial", {
@@ -1393,7 +1393,7 @@ function dn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clear
 				tone: "error",
 				children: I.error
 			}) : null,
-			w === "list" ? z || R?.items.length ? /* @__PURE__ */ (0, $.jsx)(an, {
+			w === "list" ? z || R?.items.length ? /* @__PURE__ */ (0, $.jsx)(on, {
 				items: R?.items || [],
 				waiting: z,
 				filters: o,
@@ -1405,12 +1405,12 @@ function dn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clear
 				onSort: _,
 				wanting: (e) => I.busy === String(e.id),
 				onWant: ce,
-				onResource: (e) => n(Qt(e))
+				onResource: (e) => n($t(e))
 			}) : null : /* @__PURE__ */ (0, $.jsx)("div", {
 				"data-media-grid": "",
 				className: oe,
 				style: { "--card-ratio": T },
-				children: (R?.items || []).map((t) => /* @__PURE__ */ (0, $.jsx)(tn, {
+				children: (R?.items || []).map((t) => /* @__PURE__ */ (0, $.jsx)(nn, {
 					item: t,
 					layout: S,
 					javImage: x.value.javImage,
@@ -1420,8 +1420,8 @@ function dn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clear
 					onTag: (e) => c("tag", e || o.tag),
 					wanting: I.busy === String(t.id),
 					onWant: () => ce(t),
-					onResource: () => n(Qt(t)),
-					badge: o.sort === "taste" ? /* @__PURE__ */ (0, $.jsx)(cn, { value: t.taste_score }) : void 0
+					onResource: () => n($t(t)),
+					badge: o.sort === "taste" ? /* @__PURE__ */ (0, $.jsx)(ln, { value: t.taste_score }) : void 0
 				}, t.id))
 			}),
 			R ? /* @__PURE__ */ (0, $.jsx)(C, {
@@ -1440,16 +1440,16 @@ function dn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clear
 	});
 }
 // src/react/jav/jav-page.tsx
-var fn = Et("x"), pn = Et("refresh-cw"), mn = {
+var pn = Et("x"), mn = Et("refresh-cw"), hn = {
 	releases: J("catalog:javSearch.filterReleases"),
 	discover: J("catalog:javSearch.filterRecommended"),
 	wants: J("catalog:javSearch.filterWants")
 };
-function hn({ tab: e, readOnly: t, navigate: n, receipt: r }) {
+function gn({ tab: e, readOnly: t, navigate: n, receipt: r }) {
 	let [i, a] = (0, Q.useState)(null), [o, s] = (0, Q.useState)(() => new URLSearchParams(location.search).get("q") || ""), c = (e) => {
 		s(e), Z({ q: e });
 	};
-	return /* @__PURE__ */ (0, $.jsx)(Xt, {
+	return /* @__PURE__ */ (0, $.jsx)(Zt, {
 		readOnly: t,
 		receipt: r,
 		children: /* @__PURE__ */ (0, $.jsxs)("div", {
@@ -1460,26 +1460,26 @@ function hn({ tab: e, readOnly: t, navigate: n, receipt: r }) {
 					navigate: n,
 					find: () => a({}),
 					search: /* @__PURE__ */ (0, $.jsx)(O, {
-						label: mn[e] || J("catalog:javDiscover.filter"),
+						label: hn[e] || J("catalog:javDiscover.filter"),
 						value: o,
 						onQuery: c
 					})
 				}),
-				e === "releases" ? /* @__PURE__ */ (0, $.jsx)(dn, {
+				e === "releases" ? /* @__PURE__ */ (0, $.jsx)(fn, {
 					readOnly: t,
 					receipt: r,
 					resource: a,
 					query: o.trim(),
 					navigate: n,
 					clearText: () => c("")
-				}) : e === "discover" ? /* @__PURE__ */ (0, $.jsx)(gn, {
+				}) : e === "discover" ? /* @__PURE__ */ (0, $.jsx)(_n, {
 					readOnly: t,
 					receipt: r,
 					resource: a,
 					query: o.trim(),
 					navigate: n,
 					clearText: () => c("")
-				}) : /* @__PURE__ */ (0, $.jsx)(Ut, {
+				}) : /* @__PURE__ */ (0, $.jsx)(Wt, {
 					readOnly: t,
 					toast: r,
 					query: o.trim(),
@@ -1494,7 +1494,7 @@ function hn({ tab: e, readOnly: t, navigate: n, receipt: r }) {
 		})
 	}, e);
 }
-function gn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clearText: a }) {
+function _n({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clearText: a }) {
 	let o = new URLSearchParams(location.search), [s, c] = (0, Q.useState)(() => o.get("scope") === "library" ? "library" : "external"), [d, f] = (0, Q.useState)(() => o.get("tag") || ""), [p, m] = (0, Q.useState)(() => b.some(([e]) => e === o.get("sort")) ? o.get("sort") : "taste"), [h, _] = (0, Q.useState)(() => o.get("dir") === "asc"), v = (e) => {
 		c(e), Z({ scope: e === "external" ? "" : e });
 	}, x = (e) => {
@@ -1505,7 +1505,7 @@ function gn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clear
 		_(e), Z({ dir: e ? "asc" : "" });
 	}, w = (0, Q.useRef)(null);
 	(0, Q.useEffect)(() => {
-		let e = [...w.current?.querySelectorAll("[data-catalog-scroll],[data-catalog-tags],[data-filter-row=\"bottom\"]") || []].map((e) => Ft(e, { drag: !0 }));
+		let e = [...w.current?.querySelectorAll("[data-catalog-scroll],[data-catalog-tags],[data-filter-row=\"bottom\"]") || []].map((e) => It(e, { drag: !0 }));
 		return () => e.forEach((e) => e.destroy());
 	}, []);
 	let E = we();
@@ -1560,7 +1560,7 @@ function gn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clear
 		...e.tags || [],
 		...(e.performer_refs || []).map((e) => e.name)
 	].join(" ").toLocaleLowerCase().includes(r.toLocaleLowerCase()))), U = A.isPending;
-	return Yt(H), /* @__PURE__ */ (0, $.jsxs)("section", {
+	return Xt(H), /* @__PURE__ */ (0, $.jsxs)("section", {
 		ref: w,
 		"aria-label": J("catalog:shared.recommendedForYou"),
 		"aria-busy": U,
@@ -1634,7 +1634,7 @@ function gn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clear
 								disabled: U,
 								"data-skeleton-action": U ? "" : void 0,
 								busy: !!z.busy,
-								icon: F?.status === "running" ? fn : pn,
+								icon: F?.status === "running" ? pn : mn,
 								onPress: () => V(F?.status === "running" ? "stop" : "update")
 							}) : null,
 							/* @__PURE__ */ (0, $.jsx)(ue, {
@@ -1747,7 +1747,7 @@ function gn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clear
 						r.source_score == null ? "" : J("catalog:javScore.siteRating", { rating: r.source_score.toFixed(1) }),
 						...Tt(r.reasons, r.reason_codes, r.reason_params)
 					].filter(Boolean).join(" · ");
-					return /* @__PURE__ */ (0, $.jsx)(tn, {
+					return /* @__PURE__ */ (0, $.jsx)(nn, {
 						item: r,
 						layout: O,
 						javImage: E.value.javImage,
@@ -1761,7 +1761,7 @@ function gn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clear
 								t(J("catalog:javWant.added")), q(), A.refetch();
 							});
 						},
-						onResource: () => n(Qt(r)),
+						onResource: () => n($t(r)),
 						badge: /* @__PURE__ */ (0, $.jsx)("button", {
 							"data-jav-taste-score": "",
 							type: "button",
@@ -1782,6 +1782,6 @@ function gn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clear
 		]
 	});
 }
-export { hn as JavPage };
+export { gn as JavPage };
 
-//# debugId=19bc3059-30db-4210-9dae-fb99f14506ff
+//# debugId=cebbce22-7459-4c99-9890-2bdaf2483ecf

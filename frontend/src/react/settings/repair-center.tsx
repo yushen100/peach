@@ -11,6 +11,7 @@ import { confirmModal } from '@peach/legacy/ui';
 import { Button } from '@/components/base/buttons/button';
 import { LinkButton } from '@/components/base/buttons/link-button';
 import { apiSend } from '../../api';
+import { withBackoff } from '../../polling';
 import { repairCenterPanelSkeleton } from '../../management-skeletons';
 import { RESULT_PANEL, RESULT_SECTION, SectionHeading } from '../components/fieldset';
 import { Note } from '../components/note';
@@ -38,6 +39,8 @@ const reclaimable = (item: RepairItem) => t('settings:repairCenter.filesAndSize'
 const progressing = (item: RepairItem) => item.state === 'running' && !!item.total;
 /** 页面开着时要跟进的后台进度：在跑的项与还在统计的删除类确认项。补测要跑几天，正因为久才要看得到进度。 */
 const inFlight = (item: RepairItem) => !!item.estimating || item.state === 'running';
+/** 有修复在估算或在跑时每 2 秒读一次，都停了就停；读失败按连续失败次数退避。 */
+export const repairsInterval = withBackoff<RepairCenterData>((data) => (data?.items.some(inFlight) ? 2000 : false));
 
 function reading(item: RepairItem) {
   if (item.estimating) return t('settings:repairCenter.estimating');
@@ -78,7 +81,7 @@ export function RepairCenterPage() {
   const query = useQuery({
     queryKey: REPAIRS_KEY,
     queryFn: ({ signal }) => fetchRepairs(signal),
-    refetchInterval: ({ state }) => (state.data?.items.some(inFlight) ? 2000 : false),
+    refetchInterval: repairsInterval,
   });
   const data = query.data;
   const action = useAction();

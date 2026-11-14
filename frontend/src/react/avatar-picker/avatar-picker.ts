@@ -4,6 +4,7 @@
  * 手填地址先交给 `/api/avatar-frame`，过了服务端的公网判据、取回来留在缓存里，才变成
  * 一个 `url:` ref；本机文件使用服务端转换后的候选预览，确认时按原字节发出去。 */
 import { ApiError, apiGet, apiSend } from '../../api';
+import { withBackoff } from '../../polling';
 import {
   centeredBox, frameWithin, isUsableSize, type CropBox, type CropSize,
 } from '../../crop-geometry';
@@ -78,6 +79,8 @@ export const baseVersion = (choice: AvatarChoice, ref: string): string =>
 
 export const fetchAvatarChoices = (kind: string, id: number, signal?: AbortSignal) =>
   apiGet<AvatarChoices>(AVATAR_CHOICES_URL + query(kind, id), signal);
+/** 候选索引在后台重建时每秒读一次，建完就停；读失败按连续失败次数退避。 */
+export const choicesInterval = withBackoff<AvatarChoices>((data) => (data?.index_refreshing ? 1000 : false));
 
 /** 按番号取一张封面来框。番号不必在馆藏里：本机没有时服务端去官方渠道取。 */
 export const fetchCodeCover = (code: string) =>

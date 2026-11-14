@@ -18,6 +18,7 @@ import { Button } from '@/components/base/buttons/button';
 import { LinkButton } from '@/components/base/buttons/link-button';
 
 import { apiGet, apiSend, errorMessage } from '../../api';
+import { withBackoff } from '../../polling';
 import { codedText } from '../../core/server-text';
 import { Note } from '../components/note';
 import { busyProps } from '../settings/use-action';
@@ -26,6 +27,8 @@ import { t } from '../../i18n';
 
 export const BACKGROUND_ISSUES_URL = '/api/background-issues';
 export const BACKGROUND_ISSUES_KEY = ['background-issues'] as const;
+/** 后台问题每 30 秒读一次；读失败按连续失败次数退避。 */
+export const backgroundIssuesInterval = withBackoff<{ issues: BackgroundIssue[] }>(() => 30_000);
 
 export interface BackgroundIssue {
   key: string;
@@ -46,7 +49,7 @@ export function BackgroundIssues() {
   const query = useQuery({
     queryKey: BACKGROUND_ISSUES_KEY,
     queryFn: ({ signal }) => apiGet<{ issues: BackgroundIssue[] }>(BACKGROUND_ISSUES_URL, signal),
-    refetchInterval: 30_000,
+    refetchInterval: backgroundIssuesInterval,
   });
   const issues = query.data?.issues || [];
   if (!issues.length) return null;

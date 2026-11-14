@@ -4,6 +4,7 @@
  * 写完把两族都作废：在详情里点了想要，回到页签时清单要已经有它；在页签里移除了，详情那颗键也要
  * 跟着弹起。 */
 import { apiGet, apiSend } from '../../api';
+import { withBackoff } from '../../polling';
 import { queryClient } from '../query';
 import { t } from '../../i18n';
 
@@ -57,6 +58,10 @@ export interface WantsData {
 }
 
 export const fetchWants = (signal?: AbortSignal) => apiGet<WantsData>(WANTS_URL, signal);
+/** 想要清单的 `refetchInterval`：刚登记的还在取资料就隔几秒再读，取完就停；定时查资源一部要十来秒，
+ *  隔得松一些。读失败按连续失败次数退避。 */
+export const wantsInterval = withBackoff<WantsData>((data) =>
+  (data?.scraping ? 3000 : data?.searching ? 10_000 : false));
 
 export function recordWantMagnets(id: number, available: boolean) {
   queryClient.setQueryData<WantsData>(WANTS_KEY, current => {
