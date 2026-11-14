@@ -11,7 +11,12 @@ export interface QualityLevelList {
   on?(events: PlayerEvents, handler: () => void): void;
 }
 
-export interface PlayerSource { src: string; type: string }
+export interface PlayerSource {
+  src: string;
+  type: string;
+  /** 起播计划报给服务端的解码能力（`decode=`）；有它说明片子是按浏览器能力直放的，解不出来要回退。 */
+  decode?: string;
+}
 
 export interface VjsPlayer {
   /** 挂载时记下的条目：右键菜单复制网址按它取 id。 */
