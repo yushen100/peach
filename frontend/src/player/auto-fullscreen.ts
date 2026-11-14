@@ -12,7 +12,7 @@ const GESTURE_MS = 1000;
 export function mountAutoFullscreen(
   root: HTMLElement, video: HTMLVideoElement, isFullscreen: () => boolean, signal: AbortSignal,
 ): void {
-  let touchedAt = 0, done = false;
+  let touchedAt = -Infinity, done = false;
   root.addEventListener('pointerup', (event) => {
     if (event.pointerType === 'touch') touchedAt = performance.now();
   }, { signal, capture: true });
