@@ -5478,24 +5478,29 @@ class ReleaseDownloadNotesTests(unittest.TestCase):
         self.assertTrue(all(url.startswith('https://github.com/peach-mitao/peach/releases/download/v1.0.0/')
                             for url in links))
 
-    def test_one_download_table_covers_windows_macos_and_docker_in_both_languages(self):
+    def test_one_bilingual_download_table_covers_windows_macos_and_docker(self):
         from scripts.package_windows_release import download_notes
         notes = download_notes('1.0.0', lite_installer=True)
-        tables = [block for block in notes.split('\n\n') if block.startswith(('| Platform | Download', '| 平台 | 下载'))]
-        self.assertEqual(len(tables), 2)
-        for table in tables:
-            rows = [line.split(' | ')[0].lstrip('| ') for line in table.splitlines()[2:]]
-            self.assertEqual(rows, ['Windows x64'] * 3 + ['macOS Apple Silicon', 'macOS Intel', 'Docker / NAS'])
-            self.assertIn('`longmeidao/peach:1.0.0`', table)
+        tables = [block for block in notes.split('\n\n') if block.startswith('| Platform / 平台 | Download / 下载')]
+        self.assertEqual(len(tables), 1)
+        rows = [line.split(' | ')[0].lstrip('| ') for line in tables[0].splitlines()[2:]]
+        self.assertEqual(rows, ['Windows x64'] * 3 + ['macOS Apple Silicon', 'macOS Intel', 'Docker / NAS'])
+        self.assertIn('`longmeidao/peach:1.0.0`', tables[0])
+        self.assertIn('[Installer / 安装包]', tables[0])
 
-    def test_downloads_are_folded_with_english_first_and_chinese_folded_inside(self):
+    def test_downloads_fold_as_one_block_with_both_languages_visible_inside(self):
+        """下载段整体折叠一次；展开后英文在前、中文紧随，不再藏进第二层折叠。"""
         from scripts.package_windows_release import DOWNLOADS_SUMMARY, download_notes
         notes = download_notes('1.0.0', lite_installer=True)
         self.assertTrue(notes.lstrip('\n').startswith(DOWNLOADS_SUMMARY))
-        self.assertLess(notes.index('| Platform |'), notes.index('<summary>简体中文</summary>'))
-        self.assertLess(notes.index('<summary>简体中文</summary>'), notes.index('| 平台 |'))
-        self.assertEqual(notes.count('<details>'), notes.count('</details>'))
-        self.assertTrue(notes.rstrip().endswith('</details>\n\n</details>'))
+        self.assertEqual((notes.count('<details>'), notes.count('</details>')), (1, 1))
+        self.assertTrue(notes.rstrip().endswith('</details>'))
+        for english, chinese in (('Windows installers, the portable ZIP', 'Windows 安装包、免安装包'),
+                                 ('You do not need the other files', '其余文件不用手动下载'),
+                                 ('Check the chip under About This Mac', '不确定选哪个 DMG'),
+                                 ('The `edge` tag always points', '`edge` 标签始终指向最新一版')):
+            with self.subTest(english=english):
+                self.assertLess(notes.index(english), notes.index(chinese))
 
     def test_r2_release_notes_link_both_native_platforms_and_tagged_docs(self):
         from scripts.package_windows_release import DOWNLOADS_SUMMARY, download_notes
