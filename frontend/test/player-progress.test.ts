@@ -62,6 +62,16 @@ describe('视频续播位置', () => {
     expect(playbackPosition(key, item)).toBe(8);
   });
 
+  it('离片尾不到设定比例的位置算看完，从头播；比例为 0 或时长未知时照原位置接', () => {
+    localStorage.setItem(`peach.playback-position.v1:${key}`, '290');
+    expect(playbackPosition(key, item, 5)).toBe(0);
+    expect(playbackPosition(key, item, 0)).toBe(290);
+    expect(playbackPosition(key, item, 2)).toBe(290);
+    expect(playbackPosition(key, { id: 12 }, 5)).toBe(290);
+    localStorage.clear();
+    expect(playbackPosition(key, { id: 12, duration: 300, leave_ratio: .97 }, 5)).toBe(0);
+  });
+
   it('未加载元数据与换源时的零位置不会覆盖已保存秒数', () => {
     trackPlaybackPosition(key, video);
     video.dispatchEvent(new Event('loadedmetadata'));

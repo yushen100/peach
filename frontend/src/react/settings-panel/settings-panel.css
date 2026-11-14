@@ -343,6 +343,8 @@ html[data-theme-snapshot] [data-settings-panel] :is([data-settings-glide],[data-
   [data-settings-panel] [data-settings-card] [data-settings-scroll] [data-setting-row]{display:flex;flex-wrap:wrap;gap:8px 12px}
   [data-settings-panel] [data-settings-card] [data-settings-scroll] [data-setting-row]>:first-child{flex:1 1 max-content;min-width:0}
   [data-settings-panel] [data-settings-card] [data-settings-scroll] [data-setting-row]:has(>span>small)>:first-child{flex-basis:0}
+  /* 说明折成几行时整块变高，控件居中会落到标题下面；对齐到顶部，和标题同一行。 */
+  [data-settings-panel] [data-settings-card] [data-settings-scroll] [data-setting-row]:has(>span>small)>:last-child{align-self:flex-start}
   [data-settings-panel] [data-settings-card] [data-settings-scroll] [data-setting-row]>:last-child{flex:0 0 auto;margin-left:auto;max-width:100%}
   [data-settings-panel] [data-settings-card] [data-settings-scroll] [data-setting-sort-controls] [class~=ui-gselect]{max-width:100%}
 }

@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { fmtDur, fmtSize, icon, requestErrorMessage } from '@peach/legacy/core';
+import { appSettingsStore } from '@peach/appearance';
 import {
   coverUrl, mixLabel, performerLabel, queueAvatarHtml, queueThumbHtml,
 } from '@peach/card-art';
@@ -45,8 +46,8 @@ import { LibraryCompletionPrompt, missingPreviewIds } from '../library-processin
 import {
   CAST_SHOWN, FEEDBACK_URL, ITEM_TAG_URL, PLAYLIST_URL, PREFERENCE_URL, QUALITY_GOAL_URL,
   RELATED_URL, WATCH_LATER_URL, chooseItem, clampRating, detailTags, feedbackReceipt, fetchItem, fetchQueue,
-  hasTag, identityGroups, isVanished, itemKey, mediaGate, movedOrder, nextPart, nextRating, editionLabel, partLabel, partLabelHtml, playlistQueue,
-  queueCopy, queueKey, ratingStars, ratingText, realWatched, relatedKey, rememberTag, sameOrder,
+  hasTag, identityGroups, isVanished, itemKey, mediaGate, movedOrder, nextRating, editionLabel, partLabel, partLabelHtml, playlistQueue,
+  queueCopy, queueKey, queueNext, ratingStars, ratingText, realWatched, relatedKey, rememberTag, sameOrder,
   withPartLabel, withTag, withoutTag,
   type DetailEntityRef, type DetailItem, type DetailQueue, type DetailTag, type ItemDetailActions,
   type ItemDetailHelpers, type ItemDetailProps, type MediaGate, type PlaylistPayload,
@@ -115,15 +116,21 @@ function Detail(props: ItemDetailProps & { item: DetailItem; queue: DetailQueue 
   }, []);
 
   const gate = isPlayerGuidePreview() ? '' : mediaGate(item, helpers.sourceOffline(String(item.root_id || item.location || '')));
-  const next = nextPart(queue, item.id);
-  const continuePart = () => {
-    if (next && queue) actions.openQueueItem({ kind: queue.kind, seedId: queue.seedId, autoplay: true }, next.id);
+  /* 播完按「播完之后」接：下一卷、队列下一条，或同一条从头再播。 */
+  const continueQueue = (video: HTMLVideoElement | null) => {
+    const next = queueNext(queue, item.id, appSettingsStore().value.afterPlayback);
+    if (!next || !queue) return;
+    if (next.id === item.id) {
+      if (video) { video.currentTime = 0; void video.play()?.catch(() => {}) }
+      return;
+    }
+    actions.openQueueItem({ kind: queue.kind, seedId: queue.seedId, playlistId: queue.playlistId, autoplay: true }, next.id);
   };
   return (
     <>
       <div data-stage-grid="" data-with-queue={queue ? '' : undefined} data-item-detail="">
         <MediaFrame item={item} gate={gate} helpers={helpers} actions={actions}
-          autoplay={props.queue?.autoplay} onEnded={continuePart} />
+          autoplay={props.queue?.autoplay} onEnded={continueQueue} />
         <Side item={item} queue={queue} write={write} helpers={helpers} actions={actions} />
       </div>
       <DetailContinuation queueCards={queue?.kind === 'parts' || queue?.kind === 'editions' ? queue.items.length : undefined}
@@ -139,7 +146,7 @@ function Detail(props: ItemDetailProps & { item: DetailItem; queue: DetailQueue 
 
 function MediaFrame({ item, gate, helpers, actions, autoplay, onEnded }: {
   item: DetailItem; gate: MediaGate; helpers: ItemDetailHelpers; actions: ItemDetailActions;
-  autoplay?: boolean; onEnded(): void;
+  autoplay?: boolean; onEnded(video: HTMLVideoElement | null): void;
 }) {
   /* 计费来源先挡一层说明，点了才拉流；没挂载与在线拦截的那两种不挂播放器。 */
   const [started, setStarted] = useState<'auto' | 'clicked' | ''>(gate ? '' : 'auto');
@@ -171,11 +178,17 @@ function MediaFrame({ item, gate, helpers, actions, autoplay, onEnded }: {
   useLayoutEffect(() => {
     const node = frameRef.current;
     if (!node || !started) return;
-    const complete = () => ended.current();
+    const complete = (event: Event) =>
+      ended.current(event.target instanceof HTMLVideoElement ? event.target : node.querySelector('video'));
+    /* 单片循环交给 `<video loop>`：播放器菜单里的「循环播放」读写的是同一个属性，两处对得上。 */
+    const loop = (event: Event) => {
+      if (event.target instanceof HTMLVideoElement && appSettingsStore().value.afterPlayback === 'repeat-one') event.target.loop = true;
+    };
     node.addEventListener('ended', complete, true);
+    node.addEventListener('loadedmetadata', loop, true);
     const unmount = actions.mountPlayer(node, mounting.current, null,
       started === 'clicked' || autoplay ? { autoplay: true } : undefined);
-    return () => { node.removeEventListener('ended', complete, true); unmount() };
+    return () => { node.removeEventListener('ended', complete, true); node.removeEventListener('loadedmetadata', loop, true); unmount() };
   }, [actions, started]);
   const badge = helpers.badgeHtml(item.location || '', item.cost || '', 'srcbig');
   return (

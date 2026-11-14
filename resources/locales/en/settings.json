@@ -752,6 +752,7 @@
     "unitEntries": "entries",
     "unitItems": "items",
     "unitMinutes": "min",
+    "unitPercent": "%",
     "unitSeconds": "sec",
     "unitVideos": "videos"
   },
@@ -797,6 +798,16 @@
     "usernamePlaceholder": "Email or phone number",
     "waiting": "Waiting for sign-in",
     "waitingBrowser": "Waiting for you to sign in to PikPak in the browser window"
+  },
+  "playbackEnd": {
+    "next": "Play in order",
+    "repeatAll": "Repeat list",
+    "repeatOne": "Repeat one",
+    "restart": "Start over near the end",
+    "restartHelp": "If less than this much is left, start from the beginning next time.",
+    "shuffle": "Shuffle",
+    "stop": "Stop",
+    "title": "When a video ends"
   },
   "playbackTranscode": {
     "saved": "Transcoding mode saved",
