@@ -1,6 +1,7 @@
 """正式测试入口的依赖准备，只在隔离工作树自动同步环境。"""
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -13,6 +14,34 @@ if str(ROOT / "src") not in sys.path:
 
 from peach.interface_text import dev as t
 from peach.runtime_prepare import Dependencies, find_uv
+
+
+def frontend_drift(root: Path) -> str | None:
+    """`frontend/node_modules` 与前端锁文件对不上时返回第一个对不上的包，对得上返回 None。
+
+    比对 npm 装完写下的 `node_modules/.package-lock.json`：装着的包版本都要与锁文件一致，
+    锁文件里的必需包都要装着；可选包（别的平台的原生绑定）没装不算。没装过前端依赖时返回
+    `node_modules`。
+    """
+    lock = root / "frontend" / "package-lock.json"
+    if not lock.is_file():
+        return None
+    try:
+        wanted = json.loads(lock.read_text(encoding="utf-8"))["packages"]
+        installed = json.loads((root / "frontend" / "node_modules" / ".package-lock.json")
+                               .read_text(encoding="utf-8"))["packages"]
+    except FileNotFoundError:
+        return "node_modules"
+    except (OSError, ValueError, KeyError, TypeError):
+        return "node_modules/.package-lock.json"
+    for name, entry in installed.items():
+        if name and wanted.get(name, {}).get("version") != entry.get("version"):
+            return name
+    for name, entry in wanted.items():
+        if name and name not in installed and not (
+                entry.get("optional") or entry.get("devOptional") or entry.get("peer")):
+            return name
+    return None
 
 
 def prepare(root: Path, main: Path, *, run=subprocess.run, which=shutil.which,
@@ -40,6 +69,12 @@ def prepare(root: Path, main: Path, *, run=subprocess.run, which=shutil.which,
                   "--project", str(root)], cwd=str(root), env=environment, check=False)
     if result.returncode:
         raise RuntimeError(t("test_environment.syncFailed", code=result.returncode))
+    # Python 依赖上面自动同步；前端依赖装一次要一两分钟，不替人装，只在开跑前拦下，
+    # 免得跑满一轮才在前端用例上整组失败。
+    drift = frontend_drift(root)
+    if drift is not None:
+        raise RuntimeError(t("test_environment.frontendDrift", package=drift,
+                             command=f'npm ci --prefix "{root / "frontend"}"'))
 
 
 def main(argv=None) -> int:
