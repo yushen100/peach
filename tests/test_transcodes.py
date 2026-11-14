@@ -323,6 +323,65 @@ class TranscodeServiceTests(unittest.TestCase):
             self.assertNotIn("h264_nvenc", transcodes[0])
             self.assertNotIn("libx264", transcodes[0])
 
+    def _hevc_path(self, decode, *, pixel_format="yuv420p", tag="hvc1", audio="aac"):
+        """按浏览器报的 `decode` 取一部 HEVC MP4 的播放路径；回 (路径, 是否产物, 编码命令)。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            source = root / "movie.mp4"
+            source.write_bytes(b"source")
+            service = TranscodeService(_Resolver(root / "ffmpeg.exe", root / "ffprobe.exe"),
+                                       root / "cache", prefer_hardware=False)
+            commands = []
+            streams = [
+                {"codec_type": "video", "codec_name": "hevc", "pix_fmt": pixel_format, "codec_tag_string": tag},
+                {"codec_type": "audio", "codec_name": audio},
+            ]
+            with patch("peach.transcodes.subprocess.Popen", side_effect=_media_process(commands, streams)):
+                path, produced = service.browser_path(31, source, decode=decode)
+                planned = service.requires_conversion(source, decode=decode)
+                remux = service.remuxes(source, decode=decode)
+            encodes = [command for command in commands if "ffprobe" not in command[0]]
+            return path.name, produced, planned, remux, encodes
+
+    def test_hevc_plays_from_the_original_only_when_the_browser_reports_it(self):
+        cases = (
+            # (decode, 像素格式, tag, 音轨, 直放, 换封装)
+            (frozenset(), "yuv420p", "hvc1", "aac", False, False),
+            (frozenset({"hevc"}), "yuv420p", "hvc1", "aac", True, False),
+            (frozenset({"hevc"}), "yuv420p10le", "hvc1", "aac", False, False),
+            (frozenset({"hevc", "hevc10"}), "yuv420p10le", "hvc1", "aac", True, False),
+            (frozenset({"hevc", "hev1"}), "yuv420p", "hev1", "aac", True, False),
+            (frozenset({"hevc"}), "yuv420p", "hev1", "aac", False, True),
+            (frozenset({"hevc"}), "yuv420p", "hvc1", "ac3", False, True),
+            (frozenset({"hevc"}), "yuv422p", "hvc1", "aac", False, False),
+            (frozenset({"hevc", "hevc10"}), "yuv420p10le", "dvh1", "aac", False, False),
+        )
+        for decode, pixel_format, tag, audio, direct, remux in cases:
+            with self.subTest(decode=sorted(decode), pixel_format=pixel_format, tag=tag, audio=audio):
+                name, produced, planned, remuxes, encodes = self._hevc_path(
+                    decode, pixel_format=pixel_format, tag=tag, audio=audio)
+                self.assertEqual(produced, not direct)
+                self.assertEqual(planned, not direct)
+                self.assertEqual(remuxes, remux)
+                if direct:
+                    self.assertEqual((name, encodes), ("movie.mp4", []))
+                    continue
+                first = encodes[0]
+                video = first[first.index("-c:v") + 1]
+                if remux:
+                    # 只换封装：视频原样复制、改写成 Safari 认的 hvc1，产物和 H.264 转码分开存。
+                    self.assertEqual(video, "copy")
+                    self.assertEqual(first[first.index("-tag:v") + 1], "hvc1")
+                    self.assertTrue(name.endswith("-copy.mp4"), name)
+                else:
+                    self.assertEqual(video, "libx264")
+                    self.assertFalse(name.endswith("-copy.mp4"), name)
+
+    def test_decode_parameter_keeps_only_known_capabilities(self):
+        from peach.transcodes import parse_decode
+        self.assertEqual(parse_decode("hevc,hevc10,av1,,HEVC"), frozenset({"hevc", "hevc10"}))
+        self.assertEqual(parse_decode(""), frozenset())
+
     def test_h264_with_incompatible_audio_copies_video_and_encodes_aac(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

@@ -63,7 +63,7 @@ from .streaming import (
     BufferedFileResponse, CancellableFileResponse, SplicedMp4Response, run_until_disconnect,
 )
 from .remote_media_cache import MEDIA_SECURITY_HEADERS
-from .transcodes import TranscodeCancelled, TranscodeNeedsSession, TranscodeUnavailable
+from .transcodes import TranscodeCancelled, TranscodeNeedsSession, TranscodeUnavailable, parse_decode
 from .user_messages import UserFacingError, UserValueError, error_detail, error_fields, message_fields
 
 router = APIRouter()
@@ -150,7 +150,8 @@ def _repaired_header(state, asset_id: int, source: Path, stat=None):
     return None if store is None else store.lookup(asset_id, source, stat=stat)
 
 
-def _needs_conversion(state, asset_id: int, source: Path, session: str) -> bool:
+def _needs_conversion(state, asset_id: int, source: Path, session: str,
+                      decode: frozenset[str] = frozenset()) -> bool:
     """起播时要不要转码。只有 `/api/stream-plan` 问这一句。
 
     缺 ctts 的片子只是时间戳错乱，重建一份头就能直接按 Range 播，不必重编码。头还没
@@ -158,13 +159,15 @@ def _needs_conversion(state, asset_id: int, source: Path, session: str) -> bool:
 
     HLS 那两个端点不问：一次播放的分片计划要在整段会话里保持同一个形状，边车中途落地
     会让固定 6 秒的计划换成按关键帧切的，剩下的分片索引全对不上。
+
+    `decode` 是浏览器报的解码能力（ADR-0163）：报了能解 HEVC，HEVC 的 MP4 就不算要转码。
     """
     if not state.transcode_service.requires_conversion(
-            source, session=session, registry=state.stream_sessions):
+            source, session=session, registry=state.stream_sessions, decode=decode):
         return False
     store = getattr(state, "header_repairs", None)
     if store is None or not state.transcode_service.decode_order_timestamps(
-            source, session=session, registry=state.stream_sessions):
+            source, session=session, registry=state.stream_sessions, decode=decode):
         return True
     if store.lookup(asset_id, source) is not None:
         return False
@@ -332,7 +335,8 @@ def external_playlist(request: Request, id: int, ticket: str, origin: str = ''):
 
 
 @router.api_route("/stream", methods=["GET", "HEAD"])
-def stream(request: Request, id: int, session: str = "", args: dict[str, str] = Depends(require_auth)):
+def stream(request: Request, id: int, session: str = "", decode: str = "",
+           args: dict[str, str] = Depends(require_auth)):
     state = request.app.state
     from .error_reporting import local_event
     local_event('playback-request', asset_id=id, method=request.method,
@@ -355,7 +359,7 @@ def stream(request: Request, id: int, session: str = "", args: dict[str, str] = 
         # 不带会话的只有卡片悬停预览：取消不了，也看不到浏览器断开，不能为它起整片转码。
         path, transcoded = state.transcode_service.browser_path(
             id, path, session=session, registry=state.stream_sessions, convert=bool(session),
-            stat=source_stat,
+            stat=source_stat, decode=parse_decode(decode),
         )
     except TranscodeCancelled:
         return Response(status_code=410, headers={"Cache-Control": "no-store"})
@@ -387,7 +391,8 @@ def stream(request: Request, id: int, session: str = "", args: dict[str, str] = 
 
 
 @router.get("/api/stream-plan")
-def stream_plan(request: Request, id: int, session: str = "", mode: str = "", args: dict[str, str] = Depends(require_auth)):
+def stream_plan(request: Request, id: int, session: str = "", mode: str = "", decode: str = "",
+                args: dict[str, str] = Depends(require_auth)):
     state = request.app.state
     if session and len(session) > 128:
         return JSONResponse({"error": "invalid session"}, status_code=400)
@@ -409,7 +414,13 @@ def stream_plan(request: Request, id: int, session: str = "", mode: str = "", ar
                 'src': f'/stream?id={id}&session={quote(session, safe="")}', 'reason': 'strm-pointer'})
     if source_path.suffix.lower() in strm.DISC_SUFFIXES:
         return JSONResponse(message_fields('api.media.discNeedsExternalPlayer', key='error'), status_code=415)
-    conversion = _needs_conversion(state, id, source_path, session)
+    capabilities = parse_decode(decode)
+    conversion = _needs_conversion(state, id, source_path, session, capabilities)
+    reason = plan.reason
+    if conversion and capabilities and state.transcode_service.remuxes(
+            source_path, session=session, registry=state.stream_sessions, decode=capabilities):
+        # 视频浏览器解得了，只差音轨或 `hev1` 标签：`/stream` 整片换封装，不重编码视频。
+        conversion, reason = False, "remux"
     resolved = (_hls_plan(state, id, session, conversion)
                 if conversion or plan.protocol == "hls" else None)
     if resolved and session:
@@ -422,25 +433,29 @@ def stream_plan(request: Request, id: int, session: str = "", mode: str = "", ar
             "segments": len(resolved[2]),
             "src": f"/stream/hls/{id}/index.m3u8?session={quote(session, safe='')}",
             "reason": plan.reason,
-        })
+        }, capabilities)
     source = f"/stream?id={id}"
     if session:
         source += f"&session={quote(session, safe='')}"
+    if capabilities:
+        source += f"&decode={','.join(sorted(capabilities))}"
     return _record_stream_plan(state, id, source_path, {
         "id": id,
         "protocol": "range",
         "mime_type": plan.mime_type,
         "duration": asset.duration,
         "src": source,
-        "reason": plan.reason,
-    })
+        "reason": reason,
+    }, capabilities)
 
 
-def _record_stream_plan(state, asset_id: int, source: Path, plan: dict) -> dict:
+def _record_stream_plan(state, asset_id: int, source: Path, plan: dict,
+                        decode: frozenset[str] = frozenset()) -> dict:
     from .error_reporting import local_event
     try:
         local_event('playback-plan', asset_id=asset_id,
                     plan={key: plan.get(key) for key in ('protocol', 'mime_type', 'duration', 'reason', 'segments')},
+                    decode=sorted(decode),
                     media_profile=state.transcode_service.diagnostic_profile(source),
                     hardware=state.transcode_service.hardware.diagnostic_snapshot())
     except Exception:

@@ -19,6 +19,10 @@ from .mp4index import composition_offsets_present
 
 BROWSER_NATIVE_SUFFIXES = frozenset({".mp4", ".m4v", ".webm", ".ogv", ".ogg"})
 DIRECT_MP4_PIXEL_FORMATS = frozenset({"yuv420p", "yuvj420p"})
+#: 浏览器在 `decode=` 里能报的解码能力：HEVC 8 位、HEVC 10 位、认不认 `hev1` 标签（Safari 只认 `hvc1`）。
+DECODE_CAPABILITIES = frozenset({"hevc", "hevc10", "hev1"})
+#: 杜比视界的 codec tag。ffprobe 报的编码仍是 hevc，浏览器直放会偏色或解不出，一律转码。
+DOLBY_VISION_TAGS = frozenset({"dvh1", "dvhe"})
 TRANSCODE_TIMEOUT_SECONDS = 3600
 PROBE_TIMEOUT_SECONDS = 20
 #: 探测失败记多久。键里有大小和修改时间，文件换了自然重探；冷却只挡同一份文件反复白等。
@@ -47,6 +51,28 @@ class _MediaProfile:
     duration: float = 0.0
     #: 有 B 帧却没有 ctts：容器声明的显示时刻其实是解码顺序，直接播会掉帧。
     decode_order_timestamps: bool = False
+    #: 视频轨的 codec tag（`hvc1`、`hev1`、`avc1`…），小写；探测不到为空。
+    codec_tag: str = ""
+
+
+def parse_decode(raw: str) -> frozenset[str]:
+    """`/api/stream-plan` 与 `/stream` 的 `decode=` 参数；不认识的项丢掉，空串就是什么都不报。"""
+    return frozenset(part for part in (raw or "").split(",") if part in DECODE_CAPABILITIES)
+
+
+def video_decodes(profile: _MediaProfile, decode: frozenset[str] = frozenset()) -> bool:
+    """浏览器能不能解这条视频轨，不看容器和音轨。
+
+    H.264 8 位所有浏览器都能解；HEVC 要浏览器在 `decode` 里报了才算，10 位另要 `hevc10`。
+    杜比视界和 4:2:2/4:4:4 一律不算。`hev1` 标签放在容器层判断（换封装就能改成 `hvc1`）。
+    """
+    if profile.video_codec == "h264":
+        return profile.pixel_format in DIRECT_MP4_PIXEL_FORMATS
+    if profile.video_codec != "hevc" or "hevc" not in decode or profile.codec_tag in DOLBY_VISION_TAGS:
+        return False
+    if profile.pixel_format in DIRECT_MP4_PIXEL_FORMATS:
+        return True
+    return profile.pixel_format == "yuv420p10le" and "hevc10" in decode
 
 
 @dataclass(frozen=True)
@@ -129,16 +155,32 @@ class TranscodeService:
         key, profile = matches[-1]
         return {'status': 'cached', 'size_bytes': key[1], 'modified_ns': key[2], **asdict(profile)}
 
-    def requires_conversion(self, source: Path, *, session: str = "", registry=None) -> bool:
-        """按容器和内部编码选择浏览器兼容路径，不生成整片缓存。"""
+    def requires_conversion(self, source: Path, *, session: str = "", registry=None,
+                            decode: frozenset[str] = frozenset()) -> bool:
+        """按容器、内部编码和浏览器报的解码能力（`decode`）选择兼容路径，不生成整片缓存。"""
         if self.needs_transcode(source):
             return True
         if self.resolver.ffprobe() is None:
             return False
         profile = self._profile_for(source, session, registry)
-        return profile is None or not self._browser_compatible(source, profile)
+        return profile is None or not self._browser_compatible(source, profile, decode)
 
-    def decode_order_timestamps(self, source: Path, *, session: str = "", registry=None) -> bool:
+    def remuxes(self, source: Path, *, session: str = "", registry=None,
+                decode: frozenset[str] = frozenset()) -> bool:
+        """MP4 里浏览器解得了的视频，只因音轨或 `hev1` 标签放不了：整片换封装就行，不用重编码。
+
+        只认浏览器报了能力的 HEVC。H.264 配不兼容音轨仍走原来的转码分片：那条路起播快，
+        H.264 重编码在任何机器上都跟得上，没理由为它改行为。
+        """
+        if source.suffix.lower() not in {".mp4", ".m4v"} or self.resolver.ffprobe() is None:
+            return False
+        profile = self._profile_for(source, session, registry)
+        return bool(profile and profile.video_codec == "hevc" and video_decodes(profile, decode)
+                    and not profile.decode_order_timestamps
+                    and not self._browser_compatible(source, profile, decode))
+
+    def decode_order_timestamps(self, source: Path, *, session: str = "", registry=None,
+                                decode: frozenset[str] = frozenset()) -> bool:
         """是不是只有时间戳错乱的那一类：有 B 帧却没有 ctts，码流本身浏览器解得出来。
 
         这类片源不必重编码，重建一份头就够了；其余不兼容的原因（编码、像素格式、容器）
@@ -148,7 +190,7 @@ class TranscodeService:
             return False
         profile = self._profile_for(source, session, registry)
         return bool(profile and profile.decode_order_timestamps
-                    and self._decodes_in_browser(source, profile))
+                    and self._decodes_in_browser(source, profile, decode))
 
     def media_duration(self, source: Path, *, session: str = "", registry=None) -> float:
         """ffprobe 报的总时长（秒）；账本没记时长的片源靠它切片。探测不到返回 0。"""
@@ -207,13 +249,15 @@ class TranscodeService:
 
     def browser_path(
         self, asset_id: int, source: Path, *, session: str = "", registry=None,
-        convert: bool = True, stat=None,
+        convert: bool = True, stat=None, decode: frozenset[str] = frozenset(),
     ) -> tuple[Path, bool]:
         """浏览器能直接放的路径，以及它是不是转码产物。
 
         `convert=False` 时只交现成的整片缓存，缺缓存就抛 `TranscodeNeedsSession`。
         没有会话的请求取消不了，浏览器断开后整片 FFmpeg 还会跑到结束。
         `stat` 是调用方刚取过的片源 stat，给了就不再问网盘。
+        `decode` 是浏览器报的解码能力：报了能解 HEVC，原片直放；只差音轨或 `hev1` 标签时
+        整片换封装（视频不重编码），产物文件名带 `-copy`，和转成 H.264 的那份分开存。
         """
         profile = None
         if not self.needs_transcode(source):
@@ -223,8 +267,10 @@ class TranscodeService:
                 profile = self._profile_for(source, session, registry, stat)
             except OSError as exc:
                 raise TranscodeUnavailable("source unavailable") from exc
-            if profile is not None and self._decodes_in_browser(source, profile):
+            if profile is not None and self._decodes_in_browser(source, profile, decode):
                 return source, False
+        # 只有起播前就知道画像的 MP4 才按能力换封装：MKV 这类要转码时才探测，文件名得先定。
+        copy = profile is not None and profile.video_codec == "hevc" and video_decodes(profile, decode)
 
         choice = self.resolver.ffmpeg()
         if choice is None:
@@ -235,7 +281,8 @@ class TranscodeService:
         except OSError as exc:
             raise TranscodeUnavailable("source unavailable") from exc
 
-        target = self.cache_root / f"{asset_id}-{stat.st_size}-{stat.st_mtime_ns}.mp4"
+        flavor = "-copy" if copy else ""
+        target = self.cache_root / f"{asset_id}-{stat.st_size}-{stat.st_mtime_ns}{flavor}.mp4"
         if target.is_file() and target.stat().st_size:
             _touch(target)
             return target, True
@@ -258,7 +305,7 @@ class TranscodeService:
                     if profile is None:
                         profile = self._probe(source, session, registry, deadline)
                     for attempt in self._attempts(
-                        choice.path, source, temporary, profile,
+                        choice.path, source, temporary, profile, decode if copy else frozenset(),
                     ):
                         temporary.unlink(missing_ok=True)
                         try:
@@ -301,10 +348,11 @@ class TranscodeService:
             return target, True
 
     @staticmethod
-    def _browser_compatible(source: Path, profile: _MediaProfile) -> bool:
+    def _browser_compatible(source: Path, profile: _MediaProfile,
+                            decode: frozenset[str] = frozenset()) -> bool:
         if source.suffix.lower() in {".mp4", ".m4v"}:
-            return (profile.video_codec == "h264"
-                    and profile.pixel_format in DIRECT_MP4_PIXEL_FORMATS
+            return (video_decodes(profile, decode)
+                    and (profile.video_codec != "hevc" or profile.codec_tag != "hev1" or "hev1" in decode)
                     and profile.audio_codec in {"", "aac", "mp3"}
                     and not profile.decode_order_timestamps)
         if source.suffix.lower() == ".webm":
@@ -321,7 +369,7 @@ class TranscodeService:
             return None
         command = (
             str(choice.path), "-v", "error", "-show_entries",
-            "stream=codec_type,codec_name,pix_fmt,has_b_frames:format=duration",
+            "stream=codec_type,codec_name,codec_tag_string,pix_fmt,has_b_frames:format=duration",
             "-of", "json", input_url(source),
         )
         try:
@@ -360,10 +408,12 @@ class TranscodeService:
             audio_codec=str(audio.get("codec_name") or "").lower(),
             duration=max(0.0, duration),
             decode_order_timestamps=self._decode_order_timestamps(source, video),
+            codec_tag=str(video.get("codec_tag_string") or "").lower(),
         )
 
     @staticmethod
-    def _decodes_in_browser(source: Path, profile: _MediaProfile) -> bool:
+    def _decodes_in_browser(source: Path, profile: _MediaProfile,
+                            decode: frozenset[str] = frozenset()) -> bool:
         """浏览器能不能解出画面。时间戳错乱不算解不出来。
 
         整片转码要占满一个编码位、写一份和原片同量级的缓存，只有编码本身不被支持才值得。
@@ -371,7 +421,7 @@ class TranscodeService:
         就够。卡片悬停预览直接打不带会话的 `/stream`，那条路只交现成缓存，见 `browser_path`。
         """
         return TranscodeService._browser_compatible(
-            source, replace(profile, decode_order_timestamps=False),
+            source, replace(profile, decode_order_timestamps=False), decode,
         )
 
     @staticmethod
@@ -401,23 +451,26 @@ class TranscodeService:
         source: Path,
         temporary: Path,
         profile: _MediaProfile | None,
+        decode: frozenset[str] = frozenset(),
     ):
+        """依次尝试的命令。浏览器解得了视频轨时先只换封装（`video-copy`）；HEVC 一律写成
+        `hvc1` 标签，Safari 不认 `hev1`。"""
         prefix = (
             str(ffmpeg), "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
         )
         mapping = ("-map", "0:v:0", "-map", "0:a:0?", "-sn", "-dn")
         finish = ("-movflags", "+faststart", str(temporary))
 
-        if (profile is not None and profile.video_codec == "h264"
-                and profile.pixel_format in DIRECT_MP4_PIXEL_FORMATS):
+        if profile is not None and video_decodes(profile, decode):
             audio = (
                 ("-c:a", "copy")
                 if profile.audio_codec in {"", "aac"}
                 else ("-c:a", "aac", "-b:a", "160k")
             )
+            tag = ("-tag:v", "hvc1") if profile.video_codec == "hevc" else ()
             yield _TranscodeAttempt(
                 "video-copy",
-                prefix + ("-i", input_url(source)) + mapping + ("-c:v", "copy") + audio + finish,
+                prefix + ("-i", input_url(source)) + mapping + ("-c:v", "copy") + tag + audio + finish,
             )
 
         fast_audio = (
