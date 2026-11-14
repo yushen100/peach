@@ -219,6 +219,28 @@ class LibraryNfoTests(unittest.TestCase):
         self.assertEqual(set(current['completed_previews']), set(keys))
         self.assertEqual(set(current['completed_metadata']), set(keys[1:]))
 
+    def test_old_completed_receipts_retry_codeless_videos_the_current_rules_now_recognise(self):
+        from peach.library_processing import _LibraryCheckpoints
+        database = LedgerDatabase(fresh_ledger(self.root))
+        names = ('T28-612 片名.mp4', '旅行记录.mp4', 'ABW-123.mp4')
+        rows = [{'id': index, 'path': f'R:\\{name}'} for index, name in enumerate(names, 1)]
+        with database.write_transaction() as connection:
+            for row, name, code in zip(rows, names, (None, None, 'ABW-123')):
+                connection.execute(
+                    "INSERT INTO asset(id,location,path,name,medium,code) VALUES(?,?,?,?,'video',?)",
+                    (row['id'], 'local', row['path'], name, code))
+        keys = [library_processing._checkpoint_key(row) for row in rows]
+        previous = dict(processing_rule=upgrade_rules.PROCESSING, fc2_metadata_rule=upgrade_rules.FC2_METADATA,
+                        completed_metadata=keys, completed_previews=keys)
+        current = {}
+        checkpoints = _LibraryCheckpoints(current, previous, database, database.db_path)
+        self.assertEqual([row['id'] for _, row in checkpoints.remaining_metadata(rows)], [1])
+        self.assertEqual(set(current['completed_metadata']), set(keys[1:]))
+        self.assertEqual(current['filename_code_rule'], upgrade_rules.FILENAME_CODES)
+        # 同一判据版本只撤一次：重新处理完成后不再反复重跑。
+        again = _LibraryCheckpoints({}, {**current, 'completed_metadata': keys}, database, database.db_path)
+        self.assertEqual(list(again.remaining_metadata(rows)), [])
+
     def test_javdb_candidate_keeps_its_verified_rule_and_source_identity(self):
         from peach.library_processing import _merge_candidates
         from peach.javdb_identity import current_candidate

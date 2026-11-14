@@ -50,6 +50,11 @@ class MetadataProviderTests(unittest.TestCase):
         self.assertEqual(validate_provider_code("092415_001"), "092415_001")
         self.assertEqual(validate_provider_code("092415-001"), "092415-001")
 
+    def test_the_gate_passes_registered_digit_labels_only(self):
+        self.assertEqual(validate_provider_code("t28-612"), "T28-612")
+        with self.assertRaises(ValueError):
+            validate_provider_code("T29-612")
+
     def test_the_gate_keeps_tokyo_hot_lowercase(self):
         # Tokyo-Hot 的规范写法是小写（`catalog_rules._TOKYO_HOT_BODY`）；跟着别的番号
         # 转大写，拿去查的就是来源不认的写法，这些片一部都查不了。
@@ -213,6 +218,11 @@ class SourceIdentityTests(unittest.TestCase):
         self.assertFalse(identifies_code("DANDY-851C", {"content_id": "1dandy00851"}))
         self.assertFalse(identifies_code("DANDY-851C", {"content_id": "1dandy00851ch"}))
         self.assertFalse(identifies_code("DANDY-851", {"content_id": "1dandy00851c"}))
+
+    def test_digit_label_matches_the_dmm_content_id_serial(self):
+        self.assertTrue(identifies_code("T28-612", {"content_id": "55t2800612"}))
+        self.assertFalse(identifies_code("T28-612", {"content_id": "55t2800611"}))
+        self.assertFalse(identifies_code("T28-612", {"content_id": "55t3800612"}))
 
     def test_prefixed_release_requires_matching_product_evidence(self):
         dvd = {"id": "JAC-040", "content_id": "118jac040",

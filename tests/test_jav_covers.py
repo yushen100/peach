@@ -772,6 +772,11 @@ class CrossProductCoverTests(unittest.TestCase):
         self.assertFalse(covers.is_cross_product_cover(
             "MGT-164",
             "https://awsimgsrc.dmm.co.jp/pics_dig/digital/video/h_1711mgt00164/h_1711mgt00164pl.jpg"))
+        # 厂牌段带数字（`T28`）时，序号从字母段之后取，`28` 不算进序号。
+        self.assertFalse(covers.is_cross_product_cover(
+            "T28-612", "https://pics.dmm.co.jp/digital/video/55t2800612/55t2800612pl.jpg"))
+        self.assertTrue(covers.is_cross_product_cover(
+            "T28-612", "https://pics.dmm.co.jp/digital/video/55t2800611/55t2800611pl.jpg"))
         # MGS、Prestige、FC2 的路径里没有 content_id，判据不适用，不能顺手拦掉。
         self.assertFalse(covers.is_cross_product_cover(
             "259LUXU-1475",

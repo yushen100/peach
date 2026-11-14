@@ -421,6 +421,34 @@ class TokyoHotShapeTests(unittest.TestCase):
                 'edition_badges': ['chinese-subtitles', 'uncensored']})
         self.assertEqual(jav_fallback_title('MKD-S118.mp4', 'MKD-S118'), '')
 
+    def test_registered_digit_labels_reach_every_code_entrypoint(self):
+        """TMA 的 `T28`、`T38` 厂牌段带数字；只认登记过的这两段。"""
+        from peach.feeds import scan_code
+        for value in ('T38-076', 't38-076', 'T38_076', 't38076', 'T38-76', 'T38-076-C', '[98t.tv]T38-076'):
+            self.assertEqual(release_code_from_text(value), 'T38-076', value)
+            self.assertEqual(release_code_from_filename(f'{value}.mp4'), 'T38-076', value)
+        self.assertEqual(release_code_from_filename('T28-612 週に3回ハメてます.mp4'), 'T28-612')
+        self.assertEqual(scan_code('T38-076 今日、家族に売られました。'), 'T38-076')
+        self.assertEqual(scan_code('T28-612 週に3回ハメてます', product=True), 'T28-612')
+        self.assertTrue(is_jav_code('T28-612'))
+        self.assertEqual(normalise_code_key('t28_612'), 'T28-612')
+        self.assertEqual(code_query_variants('T28-612'), ('T28-612',))
+        self.assertEqual(jav_display_metadata('T38-076-C 片名.mp4', 'T38-076'), {
+            'display_code': 'T38-076', 'display_title': '片名', 'edition_badges': ['chinese-subtitles']})
+        # DMM 的 content_id 带片商数字头，和别家番号一样不与裸番号算成同一身份。
+        self.assertEqual(release_identity('t2800612'), 'T28-612')
+        self.assertEqual(release_identity('55t2800612'), '55T28-612')
+        self.assertFalse(same_release_code('T28-612', 'T38-612'))
+
+    def test_unregistered_letter_digit_labels_stay_unrecognised(self):
+        """厂牌名、画质词与素材编号同样是「字母+数字」，白名单之外一律不是番号。"""
+        for value in ('S1-123', 'G1-123', 'VR180-123', 'X1080', 'G2115', 'p1000', 'T29-123',
+                      'T-28612', 'AT28-612', 'T280-612', 'T28'):
+            self.assertIsNone(release_code_from_text(value), value)
+            self.assertIsNone(release_code_from_filename(f'{value}.mp4'), value)
+        self.assertEqual(release_code_from_filename('MIAA-636-C_X1080X.mp4'), 'MIAA-636')
+        self.assertFalse(is_jav_code('T28612'))
+
     def test_uncensored_only_labels_get_the_uncensored_badge(self):
         for name, code in (('SMBD-120.mp4', 'SMBD-120'), ('SKYHD-050-C.mp4', 'SKYHD-050')):
             with self.subTest(code=code):

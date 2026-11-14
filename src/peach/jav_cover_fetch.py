@@ -593,7 +593,8 @@ def is_cross_product_cover(code: str, url: str) -> bool:
     # 字母段对上还不够：`YUJ-101` 取回的是 `yuj00011`，`CHU-201` 是 `chu00021`，
     # `435MFC-135` 是 `h_1711mfcc00027`。数字段按 `code_serial` 比，补零和厂牌前缀都不影响；
     # 只有 `SHORT_SERIAL_PREFIXES` 的短号例外：DMM 的 `mcdv00024` 是有码 `MCDV-024`，不是无码 `MCDV-24`。
-    wanted, got = _CODE_NUMBER.search(code or ""), _CID_NUMBER.search(cid)
+    # 序号从字母段之后取：`T28-612` 的 cid 是 `55t2800612`，整串末尾的数字会把厂牌段的 `28` 带进来。
+    wanted, got = _CODE_NUMBER.search(code or ""), _CID_NUMBER.search(cid[cid.index(stem) + len(stem):])
     return bool(wanted and got) and code_serial(stem, wanted.group(1)) != code_serial(stem, got.group(1))
 
 
