@@ -19,7 +19,7 @@ from .os_errors import CodedOSError, CodedTimeoutError
 #: 单项读取的期限。目录枚举按「多久没有新条目」计：挂死的挂载一条也不返回，到期判失败；
 #: 网络盘上的大目录逐条返回得慢，只要还在返回就不按总时长判死。
 TIMEOUT_SECONDS = 20.0
-OPERATIONS = ('directory', 'files', 'nfo', 'art', 'online', 'resolve', 'stat', 'browse', 'hollow', 'present')
+OPERATIONS = ('directory', 'files', 'nfo', 'art', 'online', 'resolve', 'stat', 'browse', 'present', 'directories')
 
 
 def _request(operation, path, *, value='', timeout=None):
@@ -131,6 +131,155 @@ def _directory_stream(path, value):
         process.stdout.close()
 
 
+def read_directories(paths, *, walk=False):
+    """依次列出 `paths`，`walk` 时连同各级子目录；逐个产出 `(目录, 条目列表或 OSError)`。
+
+    一个子进程连续读一串目录，不再每个目录起一个进程：网盘上几千个目录，起进程的开销会比
+    读目录本身还大。某个目录超过期限没有新条目，它产出超时错误，剩下的换一个子进程接着读。
+    报找不到的目录，错误上带 `hollow`：是不是 CloudDrive 的空目录（见 `directory_hollow`）。
+    调用方中途不读了要关掉生成器，子进程才会被回收。
+    """
+    from .smb_media import resolve
+    local = []
+    for path in paths:
+        if resolve(path) is None:
+            local.append(os.fspath(path))
+        else:
+            yield from directories_in_process([path], walk, directory_entries)
+    if local:
+        yield from _directories_stream(list(reversed(local)), walk)
+
+
+def directories_in_process(paths, walk, read):
+    """`read_directories` 的同一次序与产出，读取交给 `read`（SMB 走自己的连接与期限）。"""
+    stack = list(reversed(paths))
+    while stack:
+        directory = stack.pop()
+        try:
+            entries = read(directory)
+        except OSError as error:
+            yield directory, error
+            continue
+        yield directory, entries
+        if walk:
+            stack.extend(_subdirectories([vars(entry) for entry in entries]))
+
+
+def _subdirectories(items):
+    """walk 时接着往下读的子目录：真目录，不跟目录链接，读不出类型的不进。父子两边按它推演同一个次序。"""
+    return [item['path'] for item in items if item['directory'] and not item['symlink'] and not item['error']]
+
+
+def _directories_stream(stack, walk):
+    """父进程与子进程各持一份同样的栈：子进程每读完一个目录，父进程照同一规则推进，
+    子进程卡住或退出时，父进程手里就是还没读的那些。"""
+    import tempfile
+    command = ([sys.executable, 'media-read'] if getattr(sys, 'frozen', False)
+               else [sys.executable, '-m', 'peach.media_io'])
+    while stack:
+        with tempfile.NamedTemporaryFile('w', encoding='utf-8', suffix='.json', delete=False) as listing:
+            json.dump(stack, listing)
+        current, items, heard = None, [], False
+        try:
+            try:
+                process = subprocess.Popen([*command, 'directories', listing.name, 'walk' if walk else ''],
+                    stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+            except OSError as error:
+                for directory in reversed(stack):
+                    yield directory, error
+                return
+            try:
+                for line in _paced(process.stdout, TIMEOUT_SECONDS, stack[-1]):
+                    heard = True
+                    message = json.loads(line)
+                    if 'reading' in message:
+                        if message['reading'] != stack[-1]:
+                            break
+                        current, items = stack.pop(), []
+                    elif 'entry' in message and current is not None:
+                        items.append(message['entry'])
+                    elif message.get('done') == len(items) and current is not None:
+                        if walk:
+                            stack.extend(_subdirectories(items))
+                        directory, current = current, None
+                        yield directory, [DirectoryEntry(item) for item in items]
+                    elif 'error' in message and current is not None:
+                        error = OSError(message['error'].get('errno'), message['error']['message'], current)
+                        error.hollow = message['error'].get('hollow', False)
+                        directory, current = current, None
+                        yield directory, error
+                    elif 'end' in message:
+                        if not stack:
+                            return
+                        break
+                    else:
+                        break
+            except TimeoutError:
+                if current is not None:
+                    # 卡在这个目录上：只记它读超时，剩下的换一个子进程接着读。
+                    yield current, CodedTimeoutError(errno.ETIMEDOUT, 'errors.mediaIo.readTimedOut',
+                                                     filename=current)
+                    continue
+            except (OSError, ValueError, KeyError):
+                pass
+            finally:
+                process.kill()
+                process.wait()
+                process.stdout.close()
+        finally:
+            os.unlink(listing.name)
+        # 子进程半途退出或答非所问：读到一半的目录算读不了，剩下的换一个子进程接着读；
+        # 一句话都没答就退出的，换几次也一样，剩下的全部算读不了。
+        if current is not None:
+            yield current, CodedOSError(errno.EIO, 'errors.mediaIo.readerFailed', filename=current)
+        elif not heard:
+            for directory in reversed(stack):
+                yield directory, CodedOSError(errno.EIO, 'errors.mediaIo.readerFailed', filename=directory)
+            return
+
+
+def _stream_directories(listing, walk):
+    """按名单（一个栈，从末尾取）逐个列目录；walk 时把子目录压回栈。每个目录先报 `reading`，
+    再逐条报条目，最后报 `done` 或 `error`；全部读完报 `end`。"""
+    stack = json.loads(Path(listing).read_text(encoding='utf-8'))
+    count = 0
+    try:
+        while stack:
+            directory = stack.pop()
+            _emit({'reading': directory})
+            items = []
+            entries = _local_directory(directory, '')
+            while True:
+                try:
+                    item = next(entries)
+                except StopIteration:
+                    break
+                except OSError as error:
+                    failure = dict(kind='os', errno=error.errno, message=str(error))
+                    if isinstance(error, FileNotFoundError):
+                        try:
+                            failure['hollow'] = _hollow(Path(directory))
+                        except OSError:
+                            failure['hollow'] = False
+                    _emit({'error': failure})
+                    items = None
+                    break
+                _emit({'entry': item})
+                items.append(item)
+            if items is None:
+                continue
+            _emit({'done': len(items)})
+            count += 1
+            if walk:
+                stack.extend(_subdirectories(items))
+        _emit({'end': count})
+    except OSError:
+        # 父进程已超时离开、管道关闭时，结果没有读取方，不算故障。
+        pass
+    return 0
+
+
 def directory_files(path):
     from .smb_media import resolve
     return {name: resolve(value) or Path(value) for name, value in _request('files', path).items()}
@@ -171,16 +320,12 @@ def file_stat(path, *, timeout=None):
     return SimpleNamespace(**_request('stat', path, timeout=timeout))
 
 
-def directory_hollow(path):
+def _hollow(path):
     """CloudDrive 上的空目录：`scandir` 报找不到，`listdir` 却说目录在、里面是空的。
 
     挂载层给空目录列不出 `.` 与 `..`，`FindFirstFileW` 于是回 `ERROR_FILE_NOT_FOUND`；
     `os.listdir` 把它当成空目录。2026-09-27
     """
-    return _request('hollow', path)
-
-
-def _hollow(path):
     return path.is_dir() and not path.is_symlink() and not os.listdir(path)
 
 
@@ -347,8 +492,6 @@ def _read(operation, path, value):
     if operation == 'resolve':
         from .media import resolve_case_insensitive
         return str(resolve_case_insensitive(str(path)))
-    if operation == 'hollow':
-        return _hollow(path)
     return _attributes(path.stat())
 
 
@@ -362,6 +505,8 @@ def main(argv=None):
         return _stream_directory(args.path, args.value)
     if args.operation == 'present':
         return _stream_present(args.path)
+    if args.operation == 'directories':
+        return _stream_directories(args.path, args.value == 'walk')
     try:
         response = {'value': _read(args.operation, args.path, args.value)}
     except (OSError, ValueError) as error:

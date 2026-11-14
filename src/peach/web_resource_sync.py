@@ -22,6 +22,7 @@ import shutil
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from contextvars import copy_context
 from .task_control import controlled
 from pathlib import Path, PureWindowsPath
@@ -85,6 +86,8 @@ def source_is_online(location: str) -> bool:
 RESOURCE_SCAN_WORKERS = 8
 #: 复核候选时一个读取子进程问的条数；每批之间过一次停点。
 CONFIRM_BATCH = 200
+#: 对账本目录时一个读取子进程连续读的目录数；几个读取线程各领一批。
+SCAN_BATCH = 64
 #: 扫描进度（当前目录、已读目录数）写进任务状态的最短间隔。
 PROGRESS_SECONDS = 1.0
 
@@ -92,10 +95,13 @@ PROGRESS_SECONDS = 1.0
 Visited = Callable[[Path, int, int | None], None]
 
 
-def _read_directory(path: Path) -> list:
-    """列一个目录。走可终止的只读子进程（`media_io`）：网盘目录一直不返回条目时按期限判超时，
-    只记这一个目录读不了，不让整趟扫描挂住。"""
-    return media_io.directory_entries(path)
+def _read_directories(paths: Sequence[Path], *, walk: bool = False):
+    """依次列出这些目录（`walk` 时连同各级子目录），逐个产出 `(目录, 条目列表或 OSError)`。
+
+    一个可终止的只读子进程连续读一串目录（`media_io.read_directories`）：网盘目录一直不返回
+    条目时按期限判超时，只记这一个目录读不了，剩下的换一个子进程接着读。
+    """
+    return media_io.read_directories(paths, walk=walk)
 
 
 def _counter(visited: Visited | None, total: int | None) -> Callable[[Path], None]:
@@ -120,25 +126,16 @@ def configured_resource_locations() -> tuple[str, ...]:
                  if location in SCANNABLE_LOCATIONS and roots)
 
 
-@controlled
-def _scan_resource_directory(
-    item: tuple[Path, dict[str, list[int]]],
-) -> tuple[list[int], int]:
-    """一个目录读一次。停点放在目录边界，不逐条目过：逐条目的停点按速度档节流，
-    几万个条目就要几个小时，看上去和卡死一样（#655）。"""
-    from .task_control import checkpoint
-    checkpoint('scan')
-    parent, expected = item
-    present: set[str] = set()
-    unreadable = 0
-    try:
-        entries = _read_directory(parent)
-    except FileNotFoundError:
+def _compare_listing(expected: dict[str, list[int]], listing) -> tuple[list[int], int]:
+    """一个目录的列举结果对账本：返回已不在的行，和读不出来、只能保留的行数。"""
+    if isinstance(listing, FileNotFoundError):
         return [asset_id for ids in expected.values() for asset_id in ids], 0
-    except OSError:
+    if isinstance(listing, OSError):
         # 读不了或超时：保留账本行、记成读不了，不当成用户删掉了这个目录。
         return [], sum(len(ids) for ids in expected.values())
-    for entry in entries:
+    present: set[str] = set()
+    unreadable = 0
+    for entry in listing:
         key = entry.name.casefold()
         if key not in expected:
             continue
@@ -169,38 +166,47 @@ def _missing_resource_ids(
     case-insensitive Windows path semantics.  An unreadable directory is skipped rather than
     being mistaken for a directory that the user deleted; ``unreadable_dirs`` collects it.
     """
-    directories: dict[Path, dict[str, list[int]]] = {}
+    directories: dict[str, tuple[Path, dict[str, list[int]]]] = {}
     for row in rows:
         path = translate_ledger_path(row["path"])
-        expected = directories.setdefault(path.parent, {})
+        _parent, expected = directories.setdefault(_directory_key(path.parent), (path.parent, {}))
         expected.setdefault(path.name.casefold(), []).append(int(row["id"]))
 
-    directory_items = list(directories.items())
-    count = _counter(visited, len(directory_items))
+    items = list(directories.items())
+    batches = [items[offset:offset + SCAN_BATCH] for offset in range(0, len(items), SCAN_BATCH)]
+    count = _counter(visited, len(directories))
 
-    def scan(item: tuple[Path, dict[str, list[int]]]) -> tuple[list[int], int]:
-        result = _scan_resource_directory(item)
-        count(item[0])
-        return result
-    if len(directory_items) <= 1:
-        results = [scan(item) for item in directory_items]
+    @controlled
+    def scan(batch: list) -> list[tuple[str, list[int], int]]:
+        # 停点放在目录边界，不逐条目过：逐条目的停点按速度档节流，几万个条目就要几个小时，
+        # 看上去和卡死一样（#655）。
+        from .task_control import checkpoint
+        checkpoint('scan')
+        expected = dict(batch)
+        results = []
+        with closing(_read_directories([parent for parent, _expected in expected.values()])) as listings:
+            for directory, listing in listings:
+                key = _directory_key(directory)
+                results.append((key, *_compare_listing(expected[key][1], listing)))
+                count(Path(directory))
+                checkpoint('scan')
+        return results
+    if len(batches) <= 1:
+        results = [row for batch in batches for row in scan(batch)]
     else:
         # CloudDrive directory reads are latency-bound metadata requests.  Keep concurrency
         # deliberately small: enough to hide round trips without turning a scan into a media
         # download or overwhelming either mounted provider.
         with ThreadPoolExecutor(
-            max_workers=min(RESOURCE_SCAN_WORKERS, len(directory_items)),
+            max_workers=min(RESOURCE_SCAN_WORKERS, len(batches)),
             thread_name_prefix="PeachResourceScan",
         ) as executor:
-            futures = [executor.submit(copy_context().run, scan, item)
-                       for item in directory_items]
-            results = [future.result() for future in futures]
-    missing = [asset_id for ids, _unreadable in results for asset_id in ids]
-    unreadable = sum(count for _ids, count in results)
+            futures = [executor.submit(copy_context().run, scan, batch) for batch in batches]
+            results = [row for future in futures for row in future.result()]
+    missing = [asset_id for _key, ids, _unreadable in results for asset_id in ids]
+    unreadable = sum(count for _key, _ids, count in results)
     if unreadable_dirs is not None:
-        unreadable_dirs.update(_directory_key(parent)
-                               for (parent, _expected), (_ids, count) in zip(directory_items, results)
-                               if count)
+        unreadable_dirs.update(key for key, _ids, count in results if count)
     return missing, unreadable
 
 
@@ -269,56 +275,44 @@ def _source_roots(location: str) -> list[Path]:
     return [translate_ledger_path(root) for root in LOCATION_ROOT_DECLARATIONS.get(location, ())]
 
 
-def _hollow_directory(path: Path) -> bool:
-    """列目录报找不到的这个是不是 CloudDrive 上的空目录（`media_io.directory_hollow`）；答不上来算不是。"""
-    try:
-        return media_io.directory_hollow(path)
-    except OSError:
-        return False
-
-
 def _empty_directories(
     roots: Sequence[Path], unreadable_dirs: set[str], visited: Visited | None = None,
 ) -> list[Path]:
     """自底向上找出来源根下的空目录；删掉子目录后会变空的父目录也算，来源根本身不算。
 
-    每个目录只列一次，判空只用列出来的名字：网盘挂载上每列一次就是一次网络往返。目录读取
-    经 `_read_directory` 带期限，读不了或超时的目录记进 `unreadable_dirs`、不算空，它的上级
-    也就不算空。目录链接不跟进，也不算空。每读一个目录过一次停点，取消在下一个目录前生效。
+    每个目录只列一次，判空只用列出来的名字：网盘挂载上每列一次就是一次网络往返。整棵树由
+    一个读取子进程连续读（`_read_directories`），读不了或超时的目录记进 `unreadable_dirs`、
+    不算空，它的上级也就不算空。CloudDrive 上列目录报找不到的空目录（错误带 `hollow`）算空。
+    目录链接不跟进，也不算空。每读完一个目录过一次停点，取消在下一个目录前生效。
     """
     from .task_control import checkpoint
     found: list[Path] = []
     count = _counter(visited, None)
     for root in roots:
+        root_key = _directory_key(root)
         empty: set[str] = set()
         listed: list[tuple[Path, bool, list[Path]]] = []
-        stack = [root]
-        while stack:
-            checkpoint('scan')
-            directory = stack.pop()
-            try:
-                entries = _read_directory(directory)
-            except FileNotFoundError:
-                if directory != root and _hollow_directory(directory):
-                    empty.add(_directory_key(directory))
-                    found.append(directory)
-                else:
-                    unreadable_dirs.add(_directory_key(directory))
-                continue
-            except OSError:
-                unreadable_dirs.add(_directory_key(directory))
-                continue
-            finally:
+        with closing(_read_directories([root], walk=True)) as listings:
+            for directory, listing in listings:
+                directory = Path(directory)
+                key = _directory_key(directory)
                 count(directory)
-            subdirectories = [Path(entry.path) for entry in entries
-                              if entry.directory and not entry.symlink and not entry.error]
-            # 文件、目录链接、读不出类型的条目都让这个目录不空。
-            occupied = len(subdirectories) < len(entries)
-            stack.extend(subdirectories)
-            listed.append((directory, occupied, subdirectories))
+                if isinstance(listing, OSError):
+                    if (isinstance(listing, FileNotFoundError) and key != root_key
+                            and getattr(listing, "hollow", False)):
+                        empty.add(key)
+                        found.append(directory)
+                    else:
+                        unreadable_dirs.add(key)
+                else:
+                    subdirectories = [Path(entry.path) for entry in listing
+                                      if entry.directory and not entry.symlink and not entry.error]
+                    # 文件、目录链接、读不出类型的条目都让这个目录不空。
+                    listed.append((directory, len(subdirectories) < len(listing), subdirectories))
+                checkpoint('scan')
         # 自顶向下的次序倒过来，每个目录都排在它所有下级之后。
         for directory, occupied, subdirectories in reversed(listed):
-            if occupied or directory == root:
+            if occupied or _directory_key(directory) == root_key:
                 continue
             if all(_directory_key(path) in empty for path in subdirectories):
                 empty.add(_directory_key(directory))

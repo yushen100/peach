@@ -25,18 +25,25 @@ from peach import web_resource_sync as rm_sync
 from support.ledger import fresh_ledger
 
 
+def read_here(path):
+    """在本进程里列一个目录，与读取子进程同样地给找不到的目录标上 `hollow`。"""
+    try:
+        return [media_io.DirectoryEntry(item) for item in media_io._local_directory(path, '')]
+    except FileNotFoundError as error:
+        try:
+            error.hollow = media_io._hollow(Path(path))
+        except OSError:
+            error.hollow = False
+        raise
+
+
+def directories_with(read):
+    return lambda paths, walk=False: media_io.directories_in_process(paths, walk, read)
+
+
 def read_in_process(case) -> None:
     """媒体读取放回本进程，用例对 `os.scandir` 的 patch 才看得见；读取子进程的期限与回收
     由 `test_media_io` 和本文件里专测期限的用例覆盖。"""
-    def read(path):
-        return [media_io.DirectoryEntry(item) for item in media_io._local_directory(path, '')]
-
-    def hollow(path):
-        try:
-            return media_io._hollow(Path(path))
-        except OSError:
-            return False
-
     def present(paths):
         answers = []
         for path in paths:
@@ -49,7 +56,7 @@ def read_in_process(case) -> None:
                 answers.append(None)
         return answers
     from peach.platform import root_online
-    for target, name, value in ((rm_sync, '_read_directory', read), (rm_sync, '_hollow_directory', hollow),
+    for target, name, value in ((rm_sync, '_read_directories', directories_with(read_here)),
                                 (media_io, 'paths_present', present), (media_io, 'root_online', root_online)):
         patcher = mock.patch.object(target, name, value)
         patcher.start()
@@ -830,16 +837,15 @@ class ResourceSyncCleanupTests(unittest.TestCase):
     def blocked_at(self, directory: Path):
         """读到 `directory` 就停住，直到放行：网盘上一次不返回的目录读取。记下每次读了哪个目录。"""
         reached, release, reads = threading.Event(), threading.Event(), []
-        read = rm_sync._read_directory
 
         def reading(path):
             reads.append(os.path.normcase(os.fspath(path)))
             if os.path.normcase(os.fspath(path)) == os.path.normcase(os.fspath(directory)):
                 reached.set()
                 release.wait(30)
-            return read(path)
+            return read_here(path)
         self.addCleanup(release.set)
-        return mock.patch.object(rm_sync, "_read_directory", reading), reached, release, reads
+        return mock.patch.object(rm_sync, "_read_directories", directories_with(reading)), reached, release, reads
 
     def wait_scan(self, timeout=60.0) -> dict:
         self.contract.resource_scan.thread.join(timeout)
@@ -849,15 +855,21 @@ class ResourceSyncCleanupTests(unittest.TestCase):
     def test_a_directory_read_that_never_returns_is_skipped_as_unreadable(self):
         """#655：网盘目录读一次不返回，只记这个目录读不了，整趟照常跑完；里面的行不判失效。"""
         children, popen = [], subprocess.Popen
+        # 真的读取子进程，只是读到 keep 时一直不返回。
+        script = ("import sys, time\nimport peach.media_io as m\nread = m._local_directory\n"
+                  "def stuck(path, value):\n"
+                  f"    if path == {str(self.keep)!r}: time.sleep(60)\n"
+                  "    return read(path, value)\n"
+                  "m._local_directory = stuck\nsys.exit(m.main(sys.argv[1:]))\n")
 
         def hung_at_keep(command, **options):
-            if command[-3:-1] == ["directory", str(self.keep)]:
-                command = [sys._base_executable, "-c", "import time; time.sleep(60)"]
+            if command[-3] == "directories":
+                command = [sys._base_executable, "-c", script, *command[-3:]]
             child = popen(command, **options)
             children.append(child)
             return child
         started = time.monotonic()
-        with mock.patch.object(rm_sync, "_read_directory", media_io.directory_entries), \
+        with mock.patch.object(rm_sync, "_read_directories", media_io.read_directories), \
                 mock.patch.object(media_io, "TIMEOUT_SECONDS", 1.0), \
                 mock.patch.object(media_io.subprocess, "Popen", side_effect=hung_at_keep):
             rm_sync.w_resource_sync_scan(self.contract, {"background": True, "restart": True})
@@ -873,7 +885,7 @@ class ResourceSyncCleanupTests(unittest.TestCase):
 
     def test_scan_reports_each_directory_and_a_cancel_stops_at_the_next_one(self):
         """#655：心跳停在启动时刻、取消打断不了。每读完一个目录刷新进度，取消在下一个目录前生效。"""
-        patcher, reached, release, reads = self.blocked_at(self.keep)
+        patcher, reached, release, reads = self.blocked_at(self.unreadable)
         with patcher, mock.patch.object(rm_sync, "PROGRESS_SECONDS", 0):
             started = rm_sync.w_resource_sync_scan(self.contract, {"background": True, "restart": True})
             self.assertTrue(reached.wait(30))
@@ -881,9 +893,9 @@ class ResourceSyncCleanupTests(unittest.TestCase):
             while time.monotonic() < deadline and (self.contract.resource_scan.snapshot() or {}).get("checked", 0) < 2:
                 time.sleep(.05)
             state = self.contract.resource_scan.snapshot()
-            # 账本里三个目录（keep、gone、unreadable）并发读，keep 卡住时另两个已读完。
+            # 账本里三个目录（keep、gone、unreadable）依次读，卡在第三个时前两个已读完。
             self.assertEqual((state["checked"], state["total"]), (2, 3))
-            self.assertIn(state["current"]["label"], {"gone", "unreadable"})
+            self.assertEqual(state["current"]["label"], "gone")
             run_id = state["run_id"]
             # 任务中心的进度两秒写一次，至少已写进第一个目录，心跳随之续上。
             self.assertGreaterEqual(self.contract.task_runs.get(run_id).progress_current, 1)
