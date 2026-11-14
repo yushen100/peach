@@ -22,7 +22,9 @@ Entries are written for users to scan: one sentence each, saying where something
 ### Changed / 变更
 
 - **Updates**: The changelog and release pages put English first; Chinese notes and downloads are folded by language (#680). / **更新**：更新日志与发布页改为英文在前，中文说明和下载说明按语言折叠（#680）。
-- **Sourcing**: Bundled userscript 0.7.13 scrolls codes and performer names that don't fit back and forth within the panel row (peach-mitao/peach-userscript#34). / **采集**：随附用户脚本更新至 0.7.13，浮卡里放不下的番号、女优名改为在行内来回滚动（peach-mitao/peach-userscript#34）。
+- **Sourcing**: Bundled userscript 0.7.16 gives the main button its own row and pairs other actions with icons, two to a row (peach-mitao/peach-userscript#38). / **采集**：随附用户脚本更新至 0.7.16，浮卡主按钮单独一行，其余操作带图标两个一行（peach-mitao/peach-userscript#38）。
+- **Sourcing**: The userscript puts notices at the top of its floating cards and every button at the bottom (peach-mitao/peach-userscript#37). / **采集**：用户脚本浮卡里的提示统一排在最上方，按钮都在最下面（peach-mitao/peach-userscript#37）。
+- **Sourcing**: The userscript scrolls codes and performer names that don't fit back and forth within the panel row (peach-mitao/peach-userscript#34). / **采集**：用户脚本浮卡里放不下的番号、女优名改为在行内来回滚动（peach-mitao/peach-userscript#34）。
 
 ### Fixed / 修复
 
@@ -31,6 +33,7 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Sourcing**: DMM titles sold in parts (such as SORA-613A) are searched and added by the full-title code, and codes with a trailing letter reach source search (#662). / **采集**：DMM 分段发售的作品（如 SORA-613A）按整片番号搜资源和添加，带尾字母的番号能进资源搜索（#662）。
 - **Updates**: For source, Docker and up-to-date installs, Check for updates no longer lists a Package it can't use, and the installer download note no longer crowds the line above (#663). / **更新**：源码运行、Docker 和已是最新时，检查更新不再列出用不上的「下载内容」，安装包的下载说明不再贴着上一行（#663）。
 - **Library**: TMA codes like `T28-612` and `T38-076` are recognized; such videos already in the library get their code and metadata on the next processing (#656). / **馆藏**：认出 TMA 的 `T28-612`、`T38-076` 这类番号，已入库的此类影片下次处理时补上番号和资料（#656）。
+- **Sourcing**: The userscript recognizes codes starting with T28 and T38 on pages such as JAVtiful (peach-mitao/peach-userscript#35). / **采集**：用户脚本能认出 JAVtiful 等页面上 T28、T38 开头的番号（peach-mitao/peach-userscript#35）。
 - **Library**: Later copies of the same title get its cast and creators, FC2 titles get their seller after metadata lands, and existing ones are filled on upgrade (#681). / **馆藏**：同一部片后入库的副本补上演员和创作者，FC2 作品资料落库后自动挂上卖家，已入库的升级后补一次（#681）。
 - **Review**: Performers written as "family given" on studio sites, and Western stage names, land automatically instead of holding the row in Review (#681). / **复核**：片商官网写成「姓 名」的演员与欧美艺名能自动落库，不再整行留在复核队列（#681）。
 - **Library**: Video enhancement model tags such as `_prob4` no longer become part of creator names, aliases or search terms (#681). / **馆藏**：视频增强软件的模型代号（如 `_prob4`）不再算进创作者名，也不再登记成别名和搜索词（#681）。
