@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "e5c33adb-30f3-4b67-a9d1-0294b7befc71", e._sentryDebugIdIdentifier = "sentry-dbid-e5c33adb-30f3-4b67-a9d1-0294b7befc71");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "2533c2dc-2bdd-4d71-8fef-ce2b7a65c194", e._sentryDebugIdIdentifier = "sentry-dbid-2533c2dc-2bdd-4d71-8fef-ce2b7a65c194");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -2605,12 +2605,18 @@ var He = {
 	}
 }, Ue = {
 	duplicates: {
+		allKeepAll: "Keep all files",
 		allKeepLargest: "Keep largest",
 		allKeepLongest: "Keep longest",
 		allPreferStorage: "Prefer {{storage}}",
+		allUnkeep: "Remove all from Kept",
+		backToPending: "Back to duplicates",
+		bulkFailed: "Bulk duplicate action",
 		bulkKeep: "All groups",
 		byDuration: "By duration",
+		clearSelection: "Clear selection",
 		crossDrive: "Across drives {{drives}}",
+		dockLabel: "Actions for selected duplicate groups",
 		emptyBody: "No duplicate files found.",
 		emptyTitle: "No duplicates found",
 		groupCount_one: "{{count, number}} group",
@@ -2618,6 +2624,9 @@ var He = {
 		groupDetail_one: "{{count, number}} file · {{size}} reclaimable",
 		groupDetail_other: "{{count, number}} files · {{size}} reclaimable",
 		keepAll: "Keep all",
+		keepAllBody_one: "Keeps every file in {{count, number}} group ({{files, number}} files). Nothing is deleted, and the group won't be listed again.",
+		keepAllBody_other: "Keeps every file in {{count, number}} groups ({{files, number}} files). Nothing is deleted, and these groups won't be listed again.",
+		keepAllRecovery: " You can undo this from the receipt or under Kept.",
 		keepLargest: "Keep largest",
 		keepLongest: "Keep longest",
 		keepRule115: "115 (or largest if none)",
@@ -2627,8 +2636,13 @@ var He = {
 		keepRulePikpak: "PikPak (or largest if none)",
 		keepStorage: "Keep {{storage}}",
 		keptAll: "Keeping all files in {{code}}; it won't be listed again",
-		keptHidden_one: "{{count, number}} more group is marked Keep all and isn't listed.",
-		keptHidden_other: "{{count, number}} more groups are marked Keep all and aren't listed.",
+		keptDetail_one: "{{count, number}} file",
+		keptDetail_other: "{{count, number}} files",
+		keptEmptyBody: "Groups marked Keep all are listed here.",
+		keptEmptyTitle: "No kept groups",
+		keptGroups_one: "Marked {{count, number}} group as keep all",
+		keptGroups_other: "Marked {{count, number}} groups as keep all",
+		keptLabel: "Kept",
 		largest: "Largest",
 		lede_one: "{{count, number}} group · {{files}} files · {{size}} reclaimable",
 		lede_other: "{{count, number}} groups · {{files}} files · {{size}} reclaimable",
@@ -2639,20 +2653,34 @@ var He = {
 		moveToTrash: "Move to trash",
 		movedToTrash_one: "Moved {{count, number}} item to trash",
 		movedToTrash_other: "Moved {{count, number}} items to trash",
+		newCopy: "New",
+		newFiles_one: "{{count, number}} new copy",
+		newFiles_other: "{{count, number}} new copies",
 		previewFile: "Preview {{name}}",
 		sameCodeShorter: "Same code, shorter",
+		selectGroup: "Select {{code}}",
+		selectPage: "Select page",
+		selectedGroups_one: "{{count, number}} group selected",
+		selectedGroups_other: "{{count, number}} groups selected",
 		sha1Match: "SHA-1 match",
 		summaryDetail_one: "{{count, number}} file · {{size}} reclaimable",
 		summaryDetail_other: "{{count, number}} files · {{size}} reclaimable",
 		summaryLabel: "Duplicates",
 		topGroups_one: "Showing the {{shown}} groups with the most to reclaim (of {{count, number}}).",
 		topGroups_other: "Showing the {{shown}} groups with the most to reclaim (of {{count, number}}).",
-		trashBody_one: "Moves the record of {{count, number}} duplicate file ({{size}}) to the trash. Kept per group: {{keep}}. You can restore it from the trash.",
-		trashBody_other: "Moves the records of {{count, number}} duplicate files ({{size}}) to the trash. Kept per group: {{keep}}. You can restore them from the trash.",
+		trashBody_one: "Moves {{count, number}} duplicate file from {{groups, number}} group(s) ({{size}}) to the trash. Kept per group: {{keep}}.",
+		trashBody_other: "Moves {{count, number}} duplicate files from {{groups, number}} group(s) ({{size}}) to the trash. Kept per group: {{keep}}.",
 		trashFailed: "Couldn't move to trash",
 		trashGroup: "Trash all",
 		undoKeepAll: "Undo keep all",
-		undoTrash: "Undo move to trash"
+		undoTrash: "Undo move to trash",
+		unkeep: "Remove from Kept",
+		unkeepBody_one: "Moves {{count, number}} group back to the duplicate list. No files are changed.",
+		unkeepBody_other: "Moves {{count, number}} groups back to the duplicate list. No files are changed.",
+		unkeptGroups_one: "Removed {{count, number}} group from Kept",
+		unkeptGroups_other: "Removed {{count, number}} groups from Kept",
+		unkeptOne: "{{code}} is back in the duplicate list",
+		viewKept: "Kept ({{count, number}})"
 	},
 	junk: {
 		backToUndecided: "Back to undecided",
@@ -9768,17 +9796,25 @@ var He = {
 	}
 }, Qe = {
 	duplicates: {
+		allKeepAll: "全部都保留",
 		allKeepLargest: "全部保留最大",
 		allKeepLongest: "全部保留最长",
 		allPreferStorage: "全部优先 {{storage}}",
+		allUnkeep: "全部取消保留",
+		backToPending: "返回待处理",
+		bulkFailed: "批量处理重复文件",
 		bulkKeep: "批量保留",
 		byDuration: "时长推断",
+		clearSelection: "取消选择",
 		crossDrive: "跨盘 {{drives}}",
+		dockLabel: "所选重复组的操作",
 		emptyBody: "没有发现内容相同的文件。",
 		emptyTitle: "没有找到重复文件",
 		groupCount: "{{count, number}} 组",
 		groupDetail: "{{count, number}} 个 · 可回收 {{size}}",
 		keepAll: "都保留",
+		keepAllBody: "{{count, number}} 组（{{files, number}} 个文件）都保留，不删除任何文件，这些组不再出现在重复页。",
+		keepAllRecovery: "可在「已保留」里取消，回执里也能撤销。",
 		keepLargest: "留最大",
 		keepLongest: "留最长",
 		keepRule115: "115（没有则留最大）",
@@ -9788,7 +9824,11 @@ var He = {
 		keepRulePikpak: "PikPak（没有则留最大）",
 		keepStorage: "留 {{storage}}",
 		keptAll: "{{code}} 这组都保留，不再列出",
-		keptHidden: "另有 {{count, number}} 组标记了都保留，不再列出",
+		keptDetail: "{{count, number}} 个文件",
+		keptEmptyBody: "标过都保留的组会列在这里。",
+		keptEmptyTitle: "没有已保留的组",
+		keptGroups: "已把 {{count, number}} 组标为都保留",
+		keptLabel: "已保留",
 		largest: "最大",
 		lede: "{{count, number}} 组 · {{files}} 个文件 · 可回收 {{size}}",
 		listUnavailable: "未取得重复文件列表，请刷新页面重试。",
@@ -9797,17 +9837,27 @@ var He = {
 		markKeepAll: "标记都保留",
 		moveToTrash: "移入回收站",
 		movedToTrash: "已把 {{count, number}} 项移入回收站",
+		newCopy: "新出现",
+		newFiles: "新增 {{count, number}} 份",
 		previewFile: "预览 {{name}}",
 		sameCodeShorter: "同番号短版本",
+		selectGroup: "选择 {{code}}",
+		selectPage: "全选本页",
+		selectedGroups: "已选 {{count, number}} 组",
 		sha1Match: "sha1 一致",
 		summaryDetail: "{{count, number}} 个文件 · 可回收 {{size}}",
 		summaryLabel: "重复内容",
 		topGroups: "显示可回收最多的 {{shown}} 组（共 {{count, number}} 组）。",
-		trashBody: "将 {{count, number}} 个重复文件的记录移入回收站（共 {{size}}），每组保留{{keep}}，可从回收站还原。",
+		trashBody: "将 {{groups, number}} 组里的 {{count, number}} 个重复文件移入回收站（共 {{size}}），每组保留{{keep}}。",
 		trashFailed: "移入回收站失败",
 		trashGroup: "整组回收",
 		undoKeepAll: "撤销都保留",
-		undoTrash: "撤销移入回收站"
+		undoTrash: "撤销移入回收站",
+		unkeep: "取消保留",
+		unkeepBody: "将取消 {{count, number}} 组的都保留，这些组回到待处理，不改动任何文件。",
+		unkeptGroups: "已取消保留 {{count, number}} 组",
+		unkeptOne: "{{code}} 已回到待处理",
+		viewKept: "已保留 {{count, number}} 组"
 	},
 	junk: {
 		backToUndecided: "返回待判断",
@@ -38766,4 +38816,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=e5c33adb-30f3-4b67-a9d1-0294b7befc71
+//# debugId=2533c2dc-2bdd-4d71-8fef-ce2b7a65c194

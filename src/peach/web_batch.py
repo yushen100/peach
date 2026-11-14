@@ -71,13 +71,36 @@ JUNK_SCORE_TABLES = ("asset", "review_decision", "download_task")
 # Linux 容器可从 mountinfo 识别媒体实际所在的 FUSE 文件系统。
 MOUNTINFO_PATH = Path("/proc/self/mountinfo")
 
-#: 重复组「都保留」记在 `review_decision` 的这一类下，键是组员 id 升序连写。组里文件一增一减，
-#: 键就对不上，这组自动回到列表（做法参考 SakuraMedia `608abc0bfb`）。
+#: 重复组「都保留」记在 `review_decision` 的这一类下，键是保留那一刻组员 id 升序连写。当前组员
+#: 都在某一条记录里就算已保留：删掉或失联一份不会让它回来，只有新文件加入才重新列出（做法参考
+#: SakuraMedia `608abc0bfb`，改成按子集判）。
 DUPLICATE_KEEP_CATEGORY = "duplicate_group"
 
 
 def duplicate_group_key(ids) -> str:
     return ",".join(str(asset_id) for asset_id in sorted(int(asset_id) for asset_id in ids))
+
+
+def _kept_member_sets(keys) -> list[frozenset[int]]:
+    """把「都保留」记录的键还原成组员集合；认不出的键跳过。"""
+    sets = []
+    for key in keys:
+        try:
+            sets.append(frozenset(int(part) for part in str(key).split(",") if part))
+        except ValueError:
+            continue
+    return [members for members in sets if members]
+
+
+def _covering_keep(members: frozenset[int], kept: list[frozenset[int]]) -> frozenset[int] | None:
+    """包含当前全部组员的那条保留记录；没有时取交集最大的一条，用来标出新加入的副本。"""
+    best: frozenset[int] | None = None
+    for record in kept:
+        if members <= record:
+            return record
+        if len(members & record) >= 2 and (best is None or len(members & record) > len(members & best)):
+            best = record
+    return best
 
 
 def q_ads(contract: WebContract, limit=200, offset=0, kind="", status="pending"):
@@ -608,6 +631,24 @@ def _reject_ineligible_targets(operation: str, rows) -> None:
         raise ValueError("duplicate decisions need a whole group of active assets")
 
 
+def _batch_duplicate_groups(body) -> list[list[int]] | None:
+    """「都保留」与「取消保留」一次带几组时的 `groups`：每组至少两份，组间不重叠。"""
+    raw = body.get("groups")
+    if raw is None:
+        return None
+    if body.get("operation") not in {"keep-duplicates", "reconsider-duplicates"}:
+        raise ValueError("groups only apply to duplicate decisions")
+    if not isinstance(raw, list) or not raw or any(not isinstance(group, list) for group in raw):
+        raise TypeError("groups must be a list of id lists")
+    groups = [list(dict.fromkeys(int(item) for item in group)) for group in raw]
+    seen: set[int] = set()
+    for group in groups:
+        if len(group) < 2 or seen & set(group):
+            raise ValueError("duplicate decisions need a whole group of active assets")
+        seen.update(group)
+    return groups
+
+
 def _batch_disposal_reason(body):
     """移入回收站的原因；显式空值用于撤销未记录原因的条目。"""
     if body.get("operation") != "dispose":
@@ -680,8 +721,9 @@ def _write_revert(connection, operation, previous: dict[int, object]) -> None:
 REVIEW_MARKS = frozenset({"dismiss-junk", "reconsider-junk", "keep-duplicates", "reconsider-duplicates"})
 
 
-def _write_review_mark(connection, operation, ids, now):
-    """「不是垃圾」按文件一条；「都保留」按整组一条，键随组员走。"""
+def _write_review_mark(connection, operation, ids, now, groups=None):
+    """「不是垃圾」按文件一条；「都保留」按整组一条，键随组员走。`groups` 是一次带上的几组。"""
+    groups = groups or [ids]
     stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(now))
     upsert = ("INSERT INTO review_decision(category,item_key,status,note,updated_at) "
               "VALUES(?,?,'rejected',?,?) ON CONFLICT(category,item_key) DO UPDATE SET "
@@ -692,9 +734,18 @@ def _write_review_mark(connection, operation, ids, now):
     elif operation == "reconsider-junk":
         connection.executemany(remove, [("junk_file", str(i)) for i in ids])
     elif operation == "keep-duplicates":
-        connection.execute(upsert, (DUPLICATE_KEEP_CATEGORY, duplicate_group_key(ids), KEEP_DUPLICATES_NOTE, stamp))
+        connection.executemany(upsert, [(DUPLICATE_KEEP_CATEGORY, duplicate_group_key(group), KEEP_DUPLICATES_NOTE, stamp)
+                                        for group in groups])
     else:
-        connection.execute(remove, (DUPLICATE_KEEP_CATEGORY, duplicate_group_key(ids)))
+        # 取消保留：这组此刻是靠哪几条记录藏起来的（包含全部当前组员），就撤哪几条。
+        keys = [row[0] for row in connection.execute(
+            "SELECT item_key FROM review_decision WHERE category=?", (DUPLICATE_KEEP_CATEGORY,))]
+        doomed = {duplicate_group_key(group) for group in groups}
+        for key in keys:
+            record = _kept_member_sets([key])
+            if record and any(frozenset(group) <= record[0] for group in groups):
+                doomed.add(key)
+        connection.executemany(remove, [(DUPLICATE_KEEP_CATEGORY, key) for key in sorted(doomed)])
 
 
 def _write_batch_state(connection, rows, operation, now, disposal_reason):
@@ -719,7 +770,8 @@ def _write_batch_state(connection, rows, operation, now, disposal_reason):
 
 def w_batch(contract: WebContract, body):
     """Apply one explicit, reversible marker to a bounded selected set."""
-    raw_ids = body.get("ids")
+    groups = _batch_duplicate_groups(body)
+    raw_ids = [asset_id for group in groups for asset_id in group] if groups else body.get("ids")
     if not isinstance(raw_ids, list):
         raise TypeError("ids must be a list")
     ids = list(dict.fromkeys(int(item) for item in raw_ids))
@@ -766,7 +818,9 @@ def w_batch(contract: WebContract, body):
                         elif operation in {"restore", "seen", "dispose"}:
                             state_receipt.update(_write_batch_state(connection, found, operation, now, disposal_reason))
                         elif operation in REVIEW_MARKS:
-                            _write_review_mark(connection, operation, valid_ids, now)
+                            if groups and len(valid_ids) != len(ids):
+                                raise ValueError("duplicate decisions need a whole group of active assets")
+                            _write_review_mark(connection, operation, valid_ids, now, groups)
                         elif operation == "region":
                             # 走 `write_owned_fields` 而不是直接 UPDATE：产地是真相字段，用户这一
                             # 笔要压得住后面每一轮刮削与推断，归属列是它唯一的凭据。
@@ -884,11 +938,12 @@ DUPLICATE_TABLES = ("asset", "review_decision")
 
 
 def q_duplicates(contract: WebContract, args):
-    """按番号 + 时长找真重复，也收同番号的大体积短版本。"""
+    """按番号 + 时长找真重复，也收同番号的大体积短版本。`view=kept` 列标过「都保留」的组。"""
     limit = min(max(int(args.get("limit", "60")), 1), 300)
     offset = max(int(args.get("offset", "0")), 0)
-    groups, found = contract.cached_until_changed(
+    pending, kept = contract.cached_until_changed(
         "duplicate-groups", lambda: _duplicate_listing(contract), tables=DUPLICATE_TABLES)
+    groups = kept if args.get("view") == "kept" else pending
     window = groups[offset:offset + limit]
     return {
         "total": len(groups),
@@ -896,22 +951,25 @@ def q_duplicates(contract: WebContract, args):
         "reclaimable": sum(g["reclaimable"] for g in groups),
         "groups": window,
         "has_more": offset + limit < len(groups),
-        # 标过「都保留」、组员没变的组数；它们不进上面任何一项。
-        "kept": found - len(groups),
+        # 标过「都保留」、当前组员都在保留记录里的组数；待处理那一份的各项不含它们。
+        "kept": len(kept),
     }
 
 
-def _duplicate_listing(contract: WebContract) -> tuple[list[dict], int]:
-    """没标过「都保留」的重复组（按可腾出空间从大到小）与找到的组数，各页共用这一份。"""
+def _duplicate_listing(contract: WebContract) -> tuple[list[dict], list[dict]]:
+    """待处理与已保留两份重复组，都按可腾出空间从大到小，各页共用这一份。
+
+    当前组员都在某条保留记录里就算已保留；不在时这组回到待处理，比那条记录多出来的几份标
+    `is_new`，组上记 `new_files`。"""
     with contract.read_connection() as connection:
         rows = connection.execute(
             "SELECT id,code,location,path,name,size,duration,hash,disposal "
             "FROM asset WHERE medium='video' AND code IS NOT NULL AND code<>'' "
             "AND disposal IS NULL"
         ).fetchall()
-        kept = {row[0] for row in connection.execute(
+        kept_sets = _kept_member_sets(row[0] for row in connection.execute(
             "SELECT item_key FROM review_decision WHERE category=? AND status='rejected'",
-            (DUPLICATE_KEEP_CATEGORY,))}
+            (DUPLICATE_KEEP_CATEGORY,)))
 
     grouped: dict[str, list[dict]] = {}
     for row in rows:
@@ -922,7 +980,19 @@ def _duplicate_listing(contract: WebContract) -> tuple[list[dict], int]:
         item["drive"] = str(item.get("path") or "")[:2].upper()
         grouped.setdefault(normalise_code_key(row["code"]), []).append(item)
 
-    found = _duplicate_groups(grouped)
-    groups = [g for g in found if duplicate_group_key(f["id"] for f in g["files"]) not in kept]
-    groups.sort(key=lambda g: -g["reclaimable"])
-    return groups, len(found)
+    pending: list[dict] = []
+    kept: list[dict] = []
+    for group in _duplicate_groups(grouped):
+        members = frozenset(int(item["id"]) for item in group["files"])
+        record = _covering_keep(members, kept_sets)
+        if record is not None and members <= record:
+            kept.append(group)
+            continue
+        if record is not None:
+            for item in group["files"]:
+                item["is_new"] = int(item["id"]) not in record
+            group["new_files"] = len(members - record)
+        pending.append(group)
+    pending.sort(key=lambda g: -g["reclaimable"])
+    kept.sort(key=lambda g: -g["reclaimable"])
+    return pending, kept

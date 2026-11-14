@@ -3926,6 +3926,44 @@ class DuplicateDetectionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             rm_web.w_batch(self.contract, {"ids": other[:1], "operation": "keep-duplicates"})
 
+    def test_kept_group_stays_hidden_after_a_member_leaves(self):
+        first = self.add("SSIS-057", 7200, 5_000_000_000, drive="A")
+        second = self.add("SSIS-057", 7200, 4_000_000_000, drive="B")
+        third = self.add("SSIS-057", 7200, 3_000_000_000, drive="C")
+        rm_web.w_batch(self.contract, {"ids": [first, second, third], "operation": "keep-duplicates"})
+        rm_web.w_batch(self.contract, {"ids": [third], "operation": "dispose"})
+        result = self.groups()
+        self.assertEqual((result["total"], result["kept"]), (0, 1), "少了一份不该让保留过的组回来")
+        kept = rm_web.q_duplicates(self.contract, {"view": "kept"})
+        self.assertEqual([{f["id"] for f in g["files"]} for g in kept["groups"]], [{first, second}])
+
+        rm_web.w_batch(self.contract, {"ids": [first, second], "operation": "reconsider-duplicates"})
+        self.assertEqual((self.groups()["total"], self.groups()["kept"]), (1, 0),
+                         "取消保留要撤掉藏住这组的那条更大的记录")
+
+    def test_a_new_copy_brings_a_kept_group_back_marked_as_new(self):
+        first = self.add("SSIS-057", 7200, 5_000_000_000, drive="A")
+        second = self.add("SSIS-057", 7200, 4_000_000_000, drive="B")
+        rm_web.w_batch(self.contract, {"ids": [first, second], "operation": "keep-duplicates"})
+        newcomer = self.add("SSIS-057", 7200, 3_000_000_000, drive="C")
+        group = self.groups()["groups"][0]
+        self.assertEqual(group["new_files"], 1)
+        self.assertEqual({f["id"]: f["is_new"] for f in group["files"]},
+                         {first: False, second: False, newcomer: True})
+
+    def test_several_groups_are_kept_and_released_in_one_request(self):
+        one = [self.add("SSIS-057", 7200, 5_000_000_000), self.add("SSIS-057", 7200, 4_000_000_000)]
+        two = [self.add("ABW-232", 7200, 5_000_000_000), self.add("ABW-232", 7200, 3_000_000_000)]
+        rm_web.w_batch(self.contract, {"groups": [one, two], "operation": "keep-duplicates"})
+        self.assertEqual((self.groups()["total"], self.groups()["kept"]), (0, 2))
+        rm_web.w_batch(self.contract, {"groups": [one, two], "operation": "reconsider-duplicates"})
+        self.assertEqual((self.groups()["total"], self.groups()["kept"]), (2, 0))
+        for bad in ([one[:1]], [one, one]):
+            with self.assertRaises(ValueError):
+                rm_web.w_batch(self.contract, {"groups": bad, "operation": "keep-duplicates"})
+        with self.assertRaises(ValueError):
+            rm_web.w_batch(self.contract, {"groups": [one], "operation": "dispose"})
+
     def test_duplicate_rows_keep_the_full_path_for_review(self):
         self.add("SSIS-057", 7200, 5_000_000_000, drive="A")
         self.add("SSIS-057", 7200, 4_000_000_000, drive="B")
