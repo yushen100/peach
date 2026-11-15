@@ -318,11 +318,14 @@ def _relocate_ingested(connection, registered, location, ledger_path, here, *, d
 
 
 def _directory_stats(directory: Path) -> dict[str, tuple[int, str]]:
-    """一个目录里能 stat 到的文件名 → `(size, mtime)`，读不了的条目跳过。"""
+    """一个目录里能 stat 到的文件名 → `(size, mtime)`，读不了的条目跳过。
+
+    列目录交给可终止的读取子进程：推送发现与云下载的线程不能卡在挂死的挂载上，读超时按读不了算。
+    """
+    from . import media_io
     stats: dict[str, tuple[int, str]] = {}
     try:
-        with os.scandir(directory) as scanner:
-            entries = list(scanner)
+        entries = media_io.directory_entries(directory)
     except OSError:
         return stats
     for entry in entries:
@@ -379,8 +382,9 @@ def ingest_path(
     directory = walk_root_for(
         location, str(ledger_dir), declared_roots=declared_roots,
         mounts=mounts or {}, windows=windows)
+    from . import media_io
     try:
-        stat = (directory / name).stat()
+        stat = media_io.file_stat(directory / name)
     except OSError:
         return IngestResult(location, str(ledger_path), False)
     library_roots = tuple(chain.from_iterable(declared_roots.values()))

@@ -510,19 +510,53 @@ class LandingTests(_Deployment):
         (folder / '._movie.mp4').write_bytes(b'metadata')
         (folder / '@creator').mkdir()
         (folder / '@creator' / '.hidden.mp4').write_bytes(b'media')
-        original = os.scandir
+        from peach import media_io
+        original = media_io.directory_entries
         visited = []
 
         def scandir(path):
             visited.append(Path(path).name)
             return original(path)
 
-        with patch.object(dl, 'MAX_LANDED_FILES', 1), patch('peach.scan.os.scandir', side_effect=scandir):
+        with patch.object(dl, 'MAX_LANDED_FILES', 1), patch.object(media_io, 'directory_entries', side_effect=scandir):
             self.assertTrue(self.service.landing.ingest('115', self.ledger('云下载', 'package')))
+        self.assertIn('package', visited)
         self.assertNotIn('.AppleDouble', visited)
         with closing(sqlite3.connect(self.db)) as connection:
             self.assertEqual(connection.execute('SELECT path FROM asset').fetchall(),
                              [(self.ledger('云下载', 'package', '@creator', '.hidden.mp4'),)])
+
+    def test_a_hung_mount_does_not_hold_the_reconciliation_thread(self):
+        """网盘挂载在本进程里一碰就卡住：判类型、列目录与登记都走读取子进程，对账照常登记。"""
+        folder = self.cloud / '云下载' / 'ABC-123'
+        folder.mkdir()
+        (folder / 'ABC-123.mp4').write_bytes(b'main')
+        release = threading.Event()
+        prefix = os.path.normcase(str(self.cloud))
+
+        def hang(real):
+            def call(path, *args, **kwargs):
+                if isinstance(path, (str, os.PathLike)) and os.path.normcase(os.fspath(path)).startswith(prefix):
+                    release.wait(60)
+                return real(path, *args, **kwargs)
+            return call
+        outcome = []
+        worker = threading.Thread(target=lambda: outcome.append(
+            self.service.landing.ingest('115', self.ledger('云下载', 'ABC-123'))), daemon=True)
+        with patch.object(os, 'stat', hang(os.stat)), patch.object(os, 'scandir', hang(os.scandir)), \
+                patch.object(os.path, 'isdir', hang(os.path.isdir)), \
+                patch.object(os.path, 'isfile', hang(os.path.isfile)):
+            try:
+                worker.start()
+                worker.join(30)
+                self.assertFalse(worker.is_alive(), '云下载对账卡在了本进程的读盘上')
+            finally:
+                release.set()
+                worker.join(30)
+        self.assertEqual(outcome, [True])
+        with closing(sqlite3.connect(self.db)) as connection:
+            self.assertEqual(connection.execute('SELECT path FROM asset').fetchall(),
+                             [(self.ledger('云下载', 'ABC-123', 'ABC-123.mp4'),)])
 
     def test_a_system_directory_download_target_is_not_traversed(self):
         (self.cloud / '云下载' / '@eaDir').mkdir()

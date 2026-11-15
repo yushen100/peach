@@ -49,7 +49,7 @@ from typing import Callable
 from .fsutil import atomic_write_text
 from .repository import in_background
 from .discovery_rules import system_path
-from . import interface_text
+from . import interface_text, media_io
 from .user_messages import UserFacingError, UserValueError
 
 LOGGER = logging.getLogger(__name__)
@@ -69,6 +69,8 @@ MAX_WORKERS = 1
 #: 待办清单落盘的最短间隔。事件风暴时每来一条就重写一遍几千条的清单不值得；进程被强行结束时
 #: 最多丢这么久之内收下的。
 JOURNAL_SECONDS = 2.0
+#: 设置页保存后最多等本地监视起好这么久再回话；每个来源判在线要起一个读取子进程。
+LOCAL_START_WAIT_SECONDS = 5.0
 #: 待办清单的落点，与设置同在状态目录。
 PENDING_FILENAME = "push-discovery-pending.json"
 
@@ -379,7 +381,15 @@ class DiscoveryQueue:
             self._forget(entry)
             self.counters.timed_out += 1
             return 0
-        size = self.probe(entry.location, entry.path)
+        try:
+            size = self.probe(entry.location, entry.path)
+        except OSError:
+            # 读不了、超时：不知道文件在不在，不当成没了。隔一个静置窗口再测，
+            # 一直答不上就由 `timeout` 交回全量扫描。
+            with self._lock:
+                entry.size = None
+                entry.due = now + self.settle
+            return 0
         if size is None:
             self._forget(entry)
             self.counters.missing += 1
@@ -719,6 +729,11 @@ class PushDiscoveryService:
         self.local_channel = ChannelState()
         self._observer = None
         self._lock = threading.Lock()
+        #: 后台起本地监视那一次的线程；`_generation` 在每次 `stop` 时加一，
+        #: 起完时代数已经变了，说明这一份监视没人要了。
+        self._opening: threading.Thread | None = None
+        self._generation = 0
+        self._local_lock = threading.Lock()
 
 
     # -- 出口：两条通道最后都走这里
@@ -731,9 +746,13 @@ class PushDiscoveryService:
         return directory / PureWindowsPath(path).name
 
     def _probe(self, location: str, path: str) -> int | None:
+        """文件大小；明确不在回 None。读不了、超时照常抛 OSError，由队列过一会儿再测。
+
+        stat 放进可终止的子进程：挂死的网盘挂载只拖住这一条，队列线程到期就回来。
+        """
         try:
-            return self._local_path(location, path).stat().st_size
-        except (OSError, ValueError):
+            return media_io.file_stat(self._local_path(location, path)).st_size
+        except (FileNotFoundError, NotADirectoryError, ValueError):
             return None
 
     def _ingest(self, location: str, path: str, move_from=None, *, notify: bool = True) -> bool:
@@ -848,7 +867,12 @@ class PushDiscoveryService:
                 import ctypes
                 if ctypes.windll.kernel32.GetDriveTypeW(str(Path(directory).anchor)) == 4:
                     continue
-            if directory.is_dir():
+            try:
+                online = media_io.root_online(directory)
+            except OSError:
+                # 挂死的挂载到期没答上：这一处先不监视，其余来源照常。
+                online = False
+            if online:
                 found.append(("local", root, directory))
         return found
 
@@ -867,38 +891,67 @@ class PushDiscoveryService:
             self.secret.ensure()
 
     def _start_local(self) -> None:
+        """本地监视在后台线程里起：判来源在线、`schedule` 与 `start` 都要碰来源目录，
+        挂死的挂载不能拖住服务启动与设置页保存。"""
         if not self.config.watch_local:
             self.local_channel = ChannelState.stopped("localOff")
             return
+        with self._local_lock:
+            generation = self._generation
+        opening = threading.Thread(target=in_background(self._open_local), args=(generation,),
+                                   name="PeachPushDiscoveryWatch", daemon=True)
+        self._opening = opening
+        opening.start()
+
+    def _open_local(self, generation: int) -> None:
+        observer, state = self._watch()
+        with self._local_lock:
+            current = generation == self._generation
+            if current:
+                self._observer = observer
+                self.local_channel = state
+        if observer is not None and not current:
+            # 起到一半服务已经停了或换了设置：这一份没人要。
+            observer.stop()
+            observer.join(timeout=5)
+
+    def _watch(self):
+        """起本地监视，返回 `(observer 或 None, 通道状态)`。"""
         roots = self._local_roots()
         if not roots:
-            self.local_channel = ChannelState.stopped("noLocalRoots")
-            return
+            return None, ChannelState.stopped("noLocalRoots")
         try:
             from watchdog.observers import Observer
         except ImportError as error:  # 打包漏装时不该让整条服务起不来
-            self.local_channel = ChannelState.stopped("watchUnavailable", error=str(error))
-            return
+            return None, ChannelState.stopped("watchUnavailable", error=str(error))
         handler = _LocalEventHandler(self)
         observer = Observer()
-        for location, root, directory in roots:
-            handler.register(location, root, directory)
-            observer.schedule(handler, str(directory), recursive=True)
         try:
+            for location, root, directory in roots:
+                handler.register(location, root, directory)
+                observer.schedule(handler, str(directory), recursive=True)
             observer.start()
         except OSError as error:
-            self.local_channel = ChannelState.stopped("watchFailed", error=str(error))
-            return
-        self._observer = observer
-        self.local_channel = ChannelState(
-            True, "", tuple(root for _location, root, _ in roots))
+            return None, ChannelState.stopped("watchFailed", error=str(error))
+        return observer, ChannelState(True, "", tuple(root for _location, root, _ in roots))
+
+    def wait_local(self, timeout: float) -> bool:
+        """等本地监视那一次起完（起来了或停在某个原因上），最多 `timeout` 秒；没在起返回真。"""
+        opening = self._opening
+        if opening is None:
+            return True
+        opening.join(timeout)
+        return not opening.is_alive()
 
     def stop(self) -> None:
-        observer, self._observer = self._observer, None
+        with self._local_lock:
+            self._generation += 1
+            observer, self._observer = self._observer, None
+            self.local_channel = ChannelState()
+        self._opening = None
         if observer is not None:
             observer.stop()
             observer.join(timeout=5)
-        self.local_channel = ChannelState()
         self.queue.stop()
 
     # -- 设置
@@ -911,6 +964,8 @@ class PushDiscoveryService:
             # 密钥由 `start` 补：云端通道一打开，CloudDrive2 那一侧马上要填，页面得当场给出来。
             self.stop()
             self.start()
+        # 来源正常时本地监视一眨眼就起好，回话里直接是新状态；卡住的挂载不等，页面下次读到。
+        self.wait_local(LOCAL_START_WAIT_SECONDS)
         return self.snapshot(reveal=True)
 
     def rotate_secret(self) -> dict:

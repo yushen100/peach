@@ -99,9 +99,13 @@ def _under(path: str, creator: str) -> bool:
 
 
 def _gone(native) -> bool:
-    """只有盘上明确答「没有这个文件」才算；读不了、超时都不算。"""
+    """只有盘上明确答「没有这个文件」才算；读不了、超时都不算。
+
+    stat 交给可终止的读取子进程：馆藏处理、推送发现与云下载的线程不能卡在挂死的挂载上。
+    """
+    from . import media_io
     try:
-        native.stat()
+        media_io.file_stat(native)
     except FileNotFoundError:
         return True
     except OSError:
