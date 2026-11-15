@@ -86,11 +86,12 @@
   .peach-react [data-item-edit] [data-edit-row] { grid-template-columns: 1fr; gap: 4px; }
 }
 
-/* 封面：左边缩略图（按竖封面比例，横图居中裁），右边几种换法与状态。样张就地展开成一排小图。 */
-.peach-react [data-item-edit] [data-cover-row] { display: flex; gap: 14px; align-items: flex-start; }
+/* 封面：控件列里左边缩略图（按竖封面比例，横图居中裁），右边几种换法竖排、等宽，顶端与缩略图齐；
+   三个按钮（32px×3 加两道 6px）正好约等于缩略图高。状态在按钮下面。样张就地展开成一排小图。 */
+.peach-react [data-item-edit] [data-cover-row] { display: flex; gap: 12px; align-items: flex-start; }
 .peach-react [data-item-edit] [data-cover-preview] {
   flex: none;
-  width: 96px;
+  width: 80px;
   aspect-ratio: 3 / 4;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -102,8 +103,10 @@
 }
 .peach-react [data-item-edit] [data-cover-preview] img { width: 100%; height: 100%; object-fit: cover; object-position: right center; display: block; }
 .peach-react [data-item-edit] [data-cover-preview] svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.5; }
-.peach-react [data-item-edit] [data-cover-actions] { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
-.peach-react [data-item-edit] [data-cover-buttons] { display: flex; flex-wrap: wrap; gap: 6px; }
+.peach-react [data-item-edit] [data-cover-actions] { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+/* 封面状态挨着按钮，不按输入框文字缩进。 */
+.peach-react [data-item-edit] [data-cover-actions] [data-edit-source] { padding-inline: 0; }
+.peach-react [data-item-edit] [data-cover-buttons] { display: grid; grid-auto-rows: 32px; gap: 6px; }
 .peach-react [data-item-edit] [data-cover-failure] { font-size: var(--fs-xs); color: var(--drop); }
 /* 弹层的字段区是 grid，弹性盒与 grid 的子项最小宽度默认都是内容宽：一排十几张样张会把弹层撑宽，
    横向滚动条不起作用。从挂载点往下每一层都得能缩。 */

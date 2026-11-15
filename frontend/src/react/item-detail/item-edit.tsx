@@ -208,9 +208,9 @@ function EditFields({ item, helpers, initial, update }: {
   const regionLabel = (value: string) => t(`server:labels.regions.${value || 'none'}`);
   return (
     <div data-item-edit="">
-      <CoverSection item={item} value={draft.cover} onChange={cover => set({ cover })} />
       <section data-edit-section="">
         <h4>{t('catalog:itemEdit.sectionBasic')}</h4>
+        <CoverRow item={item} value={draft.cover} onChange={cover => set({ cover })} />
         {text('code', t('catalog:itemEdit.fieldCode'), { maxLength: 80 })}
         {text('title', t('catalog:itemEdit.fieldTitle'))}
         {text('original_title', t('catalog:itemEdit.fieldOriginalTitle'))}
@@ -254,9 +254,10 @@ function playerFrame(): Promise<Blob> {
   return new Promise((resolve, reject) => canvas.toBlob(blob => (blob ? resolve(blob) : reject(new Error(t('catalog:itemEdit.coverNoFrame')))), 'image/jpeg', 0.95));
 }
 
-/* 封面：现在这张（或选好待保存的那张）的缩略图，旁边几种换法。选好只在本地预览，点保存才写。
+/* 封面是「基本」里的第一行，与下面的字段同一套两列：缩略图（或选好待保存的那张），状态与几种换法
+   贴着缩略图底边排。选好只在本地预览，点保存才写。
    换上的封面后台不再替换；「恢复刮削封面」放回第一次替换前的那张。 */
-function CoverSection({ item, value, onChange }: { item: DetailItem; value: CoverDraft; onChange(value: CoverDraft): void }) {
+function CoverRow({ item, value, onChange }: { item: DetailItem; value: CoverDraft; onChange(value: CoverDraft): void }) {
   const file = useRef<HTMLInputElement>(null);
   const [failure, setFailure] = useState('');
   const [picking, setPicking] = useState(false);
@@ -281,37 +282,39 @@ function CoverSection({ item, value, onChange }: { item: DetailItem; value: Cove
     : value.kind === 'restore' ? t('catalog:itemEdit.coverRestorePending')
       : item.cover_user ? t('catalog:itemEdit.sourceUser') : item.has_cover ? '' : t('catalog:itemEdit.coverNone');
   return (
-    <section data-edit-section="" data-edit-cover="">
-      <h4>{t('catalog:itemEdit.sectionCover')}</h4>
-      <div data-cover-row="">
-        <span data-cover-preview="" data-empty={current ? undefined : ''} data-pending={value.kind === 'image' ? '' : undefined}>{current ? <img src={current} alt="" /> : <Glyph name="image-off" />}</span>
-        <div data-cover-actions="">
-          <div data-cover-buttons="">
-            <Button variant="secondary" size="small" data-cover-upload="" onClick={() => file.current?.click()}>{t('catalog:itemEdit.coverUpload')}</Button>
-            <Button variant="secondary" size="small" data-cover-frame="" onClick={() => {
-              playerFrame().then(blob => image(blob, 'frame'), error => setFailure(error instanceof Error ? error.message : String(error)));
-            }}>{t('catalog:itemEdit.coverFrame')}</Button>
-            {samples.length ? <Button variant="secondary" size="small" data-cover-samples="" aria-expanded={picking}
-              onClick={() => setPicking(!picking)}>{t('catalog:itemEdit.coverSample')}</Button> : null}
-            {item.cover_user && value.kind !== 'restore' ? <Button variant="ghost" size="small" data-cover-restore=""
-              onClick={() => { setFailure(''); onChange({ kind: 'restore' }) }}>{t('catalog:itemEdit.coverRestore')}</Button> : null}
-            {value.kind !== 'keep' ? <Button variant="ghost" size="small" data-cover-undo=""
-              onClick={() => { setFailure(''); onChange({ kind: 'keep' }) }}>{t('catalog:itemEdit.undoRestore')}</Button> : null}
+    <div data-edit-row="cover" data-edit-cover="">
+      <span data-edit-label="" id="item-edit-cover">{t('catalog:itemEdit.sectionCover')}</span>
+      <div data-edit-control="">
+        <div data-cover-row="">
+          <span data-cover-preview="" data-empty={current ? undefined : ''} data-pending={value.kind === 'image' ? '' : undefined}>{current ? <img src={current} alt="" /> : <Glyph name="image-off" />}</span>
+          <div data-cover-actions="">
+            <div data-cover-buttons="">
+              <Button variant="secondary" size="small" data-cover-upload="" onClick={() => file.current?.click()}>{t('catalog:itemEdit.coverUpload')}</Button>
+              <Button variant="secondary" size="small" data-cover-frame="" onClick={() => {
+                playerFrame().then(blob => image(blob, 'frame'), error => setFailure(error instanceof Error ? error.message : String(error)));
+              }}>{t('catalog:itemEdit.coverFrame')}</Button>
+              {samples.length ? <Button variant="secondary" size="small" data-cover-samples="" aria-expanded={picking}
+                onClick={() => setPicking(!picking)}>{t('catalog:itemEdit.coverSample')}</Button> : null}
+              {item.cover_user && value.kind !== 'restore' ? <Button variant="ghost" size="small" data-cover-restore=""
+                onClick={() => { setFailure(''); onChange({ kind: 'restore' }) }}>{t('catalog:itemEdit.coverRestore')}</Button> : null}
+              {value.kind !== 'keep' ? <Button variant="ghost" size="small" data-cover-undo=""
+                onClick={() => { setFailure(''); onChange({ kind: 'keep' }) }}>{t('catalog:itemEdit.undoRestore')}</Button> : null}
+            </div>
+            {state ? <span data-edit-source="" data-owner={item.cover_user && value.kind === 'keep' ? 'user' : undefined}>{state}</span> : null}
+            {failure ? <span data-cover-failure="" role="alert">{failure}</span> : null}
           </div>
-          <span data-edit-source="" data-owner={item.cover_user && value.kind === 'keep' ? 'user' : undefined}>{state}</span>
-          {failure ? <span data-cover-failure="" role="alert">{failure}</span> : null}
         </div>
+        {picking ? shownSamples.length ? <div data-cover-samples-grid="">
+          {shownSamples.map(entry => <button type="button" key={entry.n} data-cover-sample={entry.n}
+            aria-label={t('catalog:detailMedia.sampleNumber', { number: entry.n })} onClick={() => void sample(entry.n)}>
+            <img src={`/sample-thumb?code=${encodeURIComponent(item.code || '')}&n=${entry.n}`} alt="" loading="lazy"
+              onError={() => setMissing(now => new Set([...now, entry.n]))} />
+          </button>)}
+        </div> : <span data-edit-source="">{t('catalog:catalogPicture.previewNotFound')}</span> : null}
+        <input ref={file} type="file" accept="image/jpeg,image/png,image/webp" hidden data-cover-file=""
+          onChange={event => { const chosen = event.target.files?.[0]; event.target.value = ''; if (chosen) image(chosen, 'upload') }} />
       </div>
-      {picking ? shownSamples.length ? <div data-cover-samples-grid="">
-        {shownSamples.map(entry => <button type="button" key={entry.n} data-cover-sample={entry.n}
-          aria-label={t('catalog:detailMedia.sampleNumber', { number: entry.n })} onClick={() => void sample(entry.n)}>
-          <img src={`/sample-thumb?code=${encodeURIComponent(item.code || '')}&n=${entry.n}`} alt="" loading="lazy"
-            onError={() => setMissing(now => new Set([...now, entry.n]))} />
-        </button>)}
-      </div> : <span data-edit-source="">{t('catalog:catalogPicture.previewNotFound')}</span> : null}
-      <input ref={file} type="file" accept="image/jpeg,image/png,image/webp" hidden data-cover-file=""
-        onChange={event => { const chosen = event.target.files?.[0]; event.target.value = ''; if (chosen) image(chosen, 'upload') }} />
-    </section>
+    </div>
   );
 }
 
