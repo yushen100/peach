@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "2aac5aa4-aedd-4ad9-95e4-69b6112c1ea7", e._sentryDebugIdIdentifier = "sentry-dbid-2aac5aa4-aedd-4ad9-95e4-69b6112c1ea7");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "467a864c-1633-438f-aac6-97befb93f053", e._sentryDebugIdIdentifier = "sentry-dbid-467a864c-1633-438f-aac6-97befb93f053");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -8241,8 +8241,13 @@ var He = {
 	},
 	entityMerge: {
 		title: "Merge duplicate profiles",
-		bodyPerformer: "“{{alias}}” is already another actress profile. Merging keeps “{{keep}}” ({{keepWorks}} titles) and moves in the titles and aliases of “{{absorb}}” ({{absorbWorks}} titles). This can't be undone; the database is backed up first.",
-		bodyStudio: "“{{alias}}” is already another label profile. Merging keeps “{{keep}}” ({{keepWorks}} titles) and moves in the titles and aliases of “{{absorb}}” ({{absorbWorks}} titles). This can't be undone; the database is backed up first.",
+		menu: "Merge duplicate profile…",
+		bodyTaken: "“{{alias}}” is already the name of another profile. Merging keeps “{{keep}}” ({{keepWorks}} titles) and moves in the titles and aliases of “{{absorb}}” ({{absorbWorks}} titles). This can't be undone; the database is backed up first.",
+		bodyShared: "Added alias “{{alias}}”, which is also an alias of “{{other}}”. If they're duplicates, merging keeps “{{keep}}” ({{keepWorks}} titles) and moves in “{{absorb}}” ({{absorbWorks}} titles). This can't be undone; the database is backed up first.",
+		summary: "Merging keeps “{{keep}}” ({{keepWorks}} titles) and moves in the titles and aliases of “{{absorb}}” ({{absorbWorks}} titles). This can't be undone; the database is backed up first.",
+		pickLabel: "Other profile",
+		pickPlaceholder: "Search names or aliases",
+		pickFirst: "Pick the other profile first",
 		confirm: "Merge",
 		done: "Merged “{{source}}” into “{{target}}”"
 	},
@@ -15248,8 +15253,13 @@ var He = {
 	},
 	entityMerge: {
 		title: "合并重复档案",
-		bodyPerformer: "「{{alias}}」已是另一份女优档案。合并后保留「{{keep}}」（{{keepWorks}} 部作品），并入「{{absorb}}」（{{absorbWorks}} 部作品）的作品与别名；不能撤销，合并前会备份账本。",
-		bodyStudio: "「{{alias}}」已是另一份厂牌档案。合并后保留「{{keep}}」（{{keepWorks}} 部作品），并入「{{absorb}}」（{{absorbWorks}} 部作品）的作品与别名；不能撤销，合并前会备份账本。",
+		menu: "合并重复档案…",
+		bodyTaken: "「{{alias}}」已是另一份档案的名字。合并后保留「{{keep}}」（{{keepWorks}} 部作品），并入「{{absorb}}」（{{absorbWorks}} 部作品）的作品与别名；不能撤销，合并前会备份账本。",
+		bodyShared: "已添加别名「{{alias}}」，它也是「{{other}}」的别名。两份如果重复，合并后保留「{{keep}}」（{{keepWorks}} 部作品），并入「{{absorb}}」（{{absorbWorks}} 部作品）；不能撤销，合并前会备份账本。",
+		summary: "合并后保留「{{keep}}」（{{keepWorks}} 部作品），并入「{{absorb}}」（{{absorbWorks}} 部作品）的作品与别名；不能撤销，合并前会备份账本。",
+		pickLabel: "另一份档案",
+		pickPlaceholder: "搜索名字或别名",
+		pickFirst: "先选要合并的另一份档案",
 		confirm: "合并",
 		done: "已把「{{source}}」合并到「{{target}}」"
 	},
@@ -39143,4 +39153,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=2aac5aa4-aedd-4ad9-95e4-69b6112c1ea7
+//# debugId=467a864c-1633-438f-aac6-97befb93f053

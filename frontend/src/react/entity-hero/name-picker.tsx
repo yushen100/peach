@@ -3,7 +3,7 @@
  * 统称由用户自己定。同一个人在库里常有中文、日文、罗马字几种写法，哪一个该顶在标题上是他的
  * 偏好，数据库里没有能推出答案的字段。菜单按名称语言偏好归并已有艺名的写法，读音与损坏条目不列入。
  * 语言切换不触发统一名称操作。这枚下拉恒在，只有一个名字时也在——「她还叫过别的」要有入口，而恰恰是只剩一个
- * 名字的人最需要补。添别名是另一件事，隔一条线摆在末尾。
+ * 名字的人最需要补。添别名与合并重复档案是另一类事，隔一条线摆在末尾；合并只在能合并的种类上出现。
  *
  * 换统称写的是 `entity.canonical_name` 这个真相字段：确认、写回、回执与重进这一页都在壳里
  * （`actions.chooseName`），勾只在服务端换完、页面重画之后才挪。
@@ -19,11 +19,12 @@ import { MENU_POPOVER_SURFACE } from '@/components/base/dropdown/menu-styles';
 import { Glyph } from './glyph';
 import { t } from '../../i18n';
 
-export function NamePicker({ current, choices, onChoose, onAddAlias }: {
+export function NamePicker({ current, choices, onChoose, onAddAlias, onMerge }: {
   current: string;
   choices: { value: string; label: string }[];
   onChoose(name: string): void;
   onAddAlias(): void;
+  onMerge?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const toggle = useRef<HTMLButtonElement>(null);
@@ -55,6 +56,11 @@ export function NamePicker({ current, choices, onChoose, onAddAlias }: {
             <MenuItem id="alias" textValue={t('catalog:namePicker.addAlias')} data-namepick-alias="" onAction={onAddAlias}>
               <Glyph name="plus" /><span>{t('catalog:namePicker.addAliasMenu')}</span>
             </MenuItem>
+            {onMerge ? (
+              <MenuItem id="merge" textValue={t('shell:entityMerge.menu')} data-namepick-merge="" onAction={onMerge}>
+                <Glyph name="git-compare" /><span>{t('shell:entityMerge.menu')}</span>
+              </MenuItem>
+            ) : null}
           </MenuSection>
         </Menu>
       </Popover>

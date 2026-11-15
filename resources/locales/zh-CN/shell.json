@@ -198,8 +198,13 @@
   },
   "entityMerge": {
     "title": "合并重复档案",
-    "bodyPerformer": "「{{alias}}」已是另一份女优档案。合并后保留「{{keep}}」（{{keepWorks}} 部作品），并入「{{absorb}}」（{{absorbWorks}} 部作品）的作品与别名；不能撤销，合并前会备份账本。",
-    "bodyStudio": "「{{alias}}」已是另一份厂牌档案。合并后保留「{{keep}}」（{{keepWorks}} 部作品），并入「{{absorb}}」（{{absorbWorks}} 部作品）的作品与别名；不能撤销，合并前会备份账本。",
+    "menu": "合并重复档案…",
+    "bodyTaken": "「{{alias}}」已是另一份档案的名字。合并后保留「{{keep}}」（{{keepWorks}} 部作品），并入「{{absorb}}」（{{absorbWorks}} 部作品）的作品与别名；不能撤销，合并前会备份账本。",
+    "bodyShared": "已添加别名「{{alias}}」，它也是「{{other}}」的别名。两份如果重复，合并后保留「{{keep}}」（{{keepWorks}} 部作品），并入「{{absorb}}」（{{absorbWorks}} 部作品）；不能撤销，合并前会备份账本。",
+    "summary": "合并后保留「{{keep}}」（{{keepWorks}} 部作品），并入「{{absorb}}」（{{absorbWorks}} 部作品）的作品与别名；不能撤销，合并前会备份账本。",
+    "pickLabel": "另一份档案",
+    "pickPlaceholder": "搜索名字或别名",
+    "pickFirst": "先选要合并的另一份档案",
     "confirm": "合并",
     "done": "已把「{{source}}」合并到「{{target}}」"
   },

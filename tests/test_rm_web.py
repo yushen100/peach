@@ -1776,7 +1776,7 @@ class WebDataTests(unittest.TestCase):
             "/api/thumbnail-jobs", "/api/timeline", "/api/media-repair",
             "/api/scraping", "/api/scraping/cover", "/api/scraping/amane-bridge",
             "/api/scraping/check-all",
-            "/api/items", "/api/item", "/api/entity", "/api/entity/shapes", "/api/entity/latest", "/api/photos", "/api/photo-set",
+            "/api/items", "/api/item", "/api/entity", "/api/entity-merge", "/api/entity/shapes", "/api/entity/latest", "/api/photos", "/api/photo-set",
             "/api/index", "/api/parts", "/api/editions", "/api/duplicates", "/api/quality-goals",
             "/api/stats", "/api/tops", "/api/ads", "/api/related", "/api/facets",
             "/api/suggest",
@@ -3019,14 +3019,39 @@ class WebDataTests(unittest.TestCase):
             (1, 0))
         self.assertEqual(sorted(self._names_of()[1]), ["森泽佳奈"])
 
-    def test_alias_conflicts_outside_the_two_merge_kinds_stay_refused(self):
+    def test_alias_taken_by_another_creator_offers_a_merge_instead_of_refusing(self):
         with self.contract.write_transaction() as connection:
             connection.execute(
                 "INSERT INTO entity(id,kind,canonical_name,normalized_name,created_at,updated_at)"
                 " VALUES(24,'creator','Another Creator','another creator','2026-01-01','2026-01-01')")
-        with self.assertRaisesRegex(ValueError, "another creator is already named"):
-            rm_web.w_entity_alias(self.contract, {
-                "kind": "creator", "name": "Canonical Creator", "alias": "Another Creator"})
+        result = rm_web.w_entity_alias(self.contract, {
+            "kind": "creator", "name": "Canonical Creator", "alias": "Another Creator"})
+        self.assertFalse(result["added"])
+        self.assertEqual(result["conflict"]["other"], {"id": 24, "canonical_name": "Another Creator", "works": 0})
+        self.assertNotIn("shared", result["conflict"])
+
+    def test_alias_shared_with_another_profile_is_added_and_offers_a_merge(self):
+        self._two_entities_for_merge("performer", (60, "甲"), (61, "乙"))
+        with self.contract.write_transaction() as connection:
+            connection.execute("INSERT INTO entity_alias VALUES(61,'共名','共名','test',1.0)")
+        result = rm_web.w_entity_alias(self.contract, {"kind": "performer", "name": "甲", "alias": "共名"})
+        self.assertTrue(result["added"])
+        self.assertTrue(result["conflict"]["shared"])
+        self.assertEqual(result["conflict"]["other"]["id"], 61)
+        with closing(sqlite3.connect(self.db_path)) as connection:
+            self.assertEqual(connection.execute(
+                "SELECT entity_id FROM entity_alias WHERE normalized_alias='共名' ORDER BY entity_id").fetchall(),
+                [(60,), (61,)])
+
+    def test_merge_plan_names_both_sides_with_their_direct_works(self):
+        self._two_entities_for_merge("series", (62, "Series A"), (63, "Series B"))
+        plan = rm_web.q_entity_merge(self.contract, {"kind": "series", "id": "62", "other": "63"})
+        self.assertEqual(plan["current"], {"id": 62, "canonical_name": "Series A", "works": 1})
+        self.assertEqual(plan["other"], {"id": 63, "canonical_name": "Series B", "works": 1})
+        for args in ({"kind": "performer", "id": "62", "other": "63"}, {"kind": "series", "id": "62", "other": "62"},
+                     {"kind": "tag", "id": "62", "other": "63"}, {"kind": "series", "id": "62"}):
+            with self.subTest(args=args), self.assertRaises(ValueError):
+                rm_web.q_entity_merge(self.contract, args)
 
     def _two_entities_for_merge(self, kind: str, left: tuple[int, str],
                                 right: tuple[int, str]) -> None:
@@ -3110,6 +3135,26 @@ class WebDataTests(unittest.TestCase):
                 ).fetchone()[0],
                 "user:entity-merge")
             self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
+
+    def test_merging_series_and_creators_rewrites_their_flat_fields_as_user_owned(self):
+        for kind, keep, absorb in (("series", (64, "S-Keep"), (65, "S-Gone")),
+                                   ("creator", (66, "C-Keep"), (67, "C-Gone"))):
+            with self.subTest(kind=kind):
+                self._two_entities_for_merge(kind, keep, absorb)
+                with self.contract.write_transaction() as connection:
+                    connection.execute(f"UPDATE asset SET {kind}=? WHERE id=1", (keep[1],))
+                    connection.execute(f"UPDATE asset SET {kind}=? WHERE id=2", (absorb[1],))
+                merged = rm_web.w_entity_merge(self.contract, {
+                    "kind": kind, "target_id": keep[0], "source_id": absorb[0]})
+                self.assertEqual(merged["flat_rewritten"], 1)
+                with closing(sqlite3.connect(self.db_path)) as connection:
+                    self.assertEqual(connection.execute(
+                        f"SELECT DISTINCT {kind} FROM asset WHERE id IN (1,2)").fetchall(), [(keep[1],)])
+                    self.assertEqual(connection.execute(
+                        f"SELECT json_extract(field_owners,'$.{kind}') FROM asset WHERE id=2").fetchone()[0],
+                        "user:entity-merge")
+                    self.assertEqual(connection.execute(
+                        "SELECT target_id FROM entity_redirect WHERE old_id=?", (absorb[0],)).fetchone()[0], keep[0])
 
     def test_entity_merge_refuses_cross_kind_and_third_party_name_ambiguity(self):
         with self.contract.write_transaction() as connection:

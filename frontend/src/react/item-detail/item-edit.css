@@ -31,14 +31,16 @@
 .peach-react [data-item-edit] [data-edit-source][data-owner="user"] { color: var(--ink); font-weight: 600; }
 
 /* 身份胶囊与搜索框排在一行里，放不下就折行。胶囊本身与标签胶囊共用 `detail-tags.css` 的规则，
-   这里只管它们在一行里的排布；胶囊按首行 36px 居中。 */
-.peach-react [data-item-edit] [data-entity-chips] { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 6px; min-height: var(--edit-line); }
-.peach-react [data-item-edit] [data-entity-chip] { margin-block: 4px; }
-.peach-react [data-item-edit] [data-entity-option] svg {
+   这里只管它们在一行里的排布；胶囊按首行 36px 居中。资料页「合并重复档案」弹层（`merge-dialog.tsx`）
+   用的是同一组胶囊与搜索框，排布一起给。 */
+.peach-react [data-entity-merge] { --edit-line: 36px; }
+.peach-react :is([data-item-edit], [data-entity-merge]) [data-entity-chips] { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 6px; min-height: var(--edit-line); }
+.peach-react :is([data-item-edit], [data-entity-merge]) [data-entity-chip] { margin-block: 4px; }
+.peach-react :is([data-item-edit], [data-entity-merge]) [data-entity-option] svg {
   width: var(--icon-inline); height: var(--icon-inline); stroke: currentColor; fill: none; stroke-width: 2;
 }
 /* 胶囊里的「自建」是名字后一段灰色小字：名字右侧已有 8px 内边距，往回收一点，再与移除键隔开。 */
-.peach-react [data-item-edit] [data-entity-chip] [data-user-created-mark] {
+.peach-react :is([data-item-edit], [data-entity-merge]) [data-entity-chip] [data-user-created-mark] {
   flex: none; margin-inline: -4px 6px; font-size: var(--fs-xs); color: var(--muted); white-space: nowrap;
 }
 /* 侧栏身份格里「自建」标签压在头像底边居中：格子是居中的一列，头像高 `--id-face`。 */
@@ -58,8 +60,8 @@
 }
 
 /* 搜索框占满一行剩下的宽度，候选就地往下展开，不另开浮层：弹层本身已在顶层，再叠一层只会被它裁掉。 */
-.peach-react [data-item-edit] [data-entity-picker] { flex: 1 1 160px; min-width: 160px; display: flex; flex-direction: column; gap: 4px; }
-.peach-react [data-item-edit] [data-entity-options] {
+.peach-react :is([data-item-edit], [data-entity-merge]) [data-entity-picker] { flex: 1 1 160px; min-width: 160px; display: flex; flex-direction: column; gap: 4px; }
+.peach-react :is([data-item-edit], [data-entity-merge]) [data-entity-options] {
   display: flex;
   flex-direction: column;
   max-height: 200px;
@@ -68,7 +70,7 @@
   border-radius: 8px;
   background: var(--surface);
 }
-.peach-react [data-item-edit] [data-entity-option] {
+.peach-react :is([data-item-edit], [data-entity-merge]) [data-entity-option] {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -81,8 +83,8 @@
   text-align: start;
   cursor: pointer;
 }
-.peach-react [data-item-edit] [data-entity-option][aria-selected="true"] { background: var(--hover); color: var(--ink); }
-.peach-react [data-item-edit] [data-entity-option="new"] { color: var(--ink); font-weight: 500; }
+.peach-react :is([data-item-edit], [data-entity-merge]) [data-entity-option][aria-selected="true"] { background: var(--hover); color: var(--ink); }
+.peach-react :is([data-item-edit], [data-entity-merge]) [data-entity-option="new"] { color: var(--ink); font-weight: 500; }
 
 @media (max-width: 560px) {
   .peach-react [data-item-edit] [data-edit-row] { grid-template-columns: 1fr; gap: 4px; }

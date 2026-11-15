@@ -231,8 +231,13 @@
   },
   "entityMerge": {
     "title": "Merge duplicate profiles",
-    "bodyPerformer": "“{{alias}}” is already another actress profile. Merging keeps “{{keep}}” ({{keepWorks}} titles) and moves in the titles and aliases of “{{absorb}}” ({{absorbWorks}} titles). This can't be undone; the database is backed up first.",
-    "bodyStudio": "“{{alias}}” is already another label profile. Merging keeps “{{keep}}” ({{keepWorks}} titles) and moves in the titles and aliases of “{{absorb}}” ({{absorbWorks}} titles). This can't be undone; the database is backed up first.",
+    "menu": "Merge duplicate profile…",
+    "bodyTaken": "“{{alias}}” is already the name of another profile. Merging keeps “{{keep}}” ({{keepWorks}} titles) and moves in the titles and aliases of “{{absorb}}” ({{absorbWorks}} titles). This can't be undone; the database is backed up first.",
+    "bodyShared": "Added alias “{{alias}}”, which is also an alias of “{{other}}”. If they're duplicates, merging keeps “{{keep}}” ({{keepWorks}} titles) and moves in “{{absorb}}” ({{absorbWorks}} titles). This can't be undone; the database is backed up first.",
+    "summary": "Merging keeps “{{keep}}” ({{keepWorks}} titles) and moves in the titles and aliases of “{{absorb}}” ({{absorbWorks}} titles). This can't be undone; the database is backed up first.",
+    "pickLabel": "Other profile",
+    "pickPlaceholder": "Search names or aliases",
+    "pickFirst": "Pick the other profile first",
     "confirm": "Merge",
     "done": "Merged “{{source}}” into “{{target}}”"
   },

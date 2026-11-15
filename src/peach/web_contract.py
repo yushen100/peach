@@ -106,6 +106,7 @@ from .web_catalog import (
 )
 from .web_entity import (
     q_entity,
+    q_entity_merge,
     q_entity_photos,
     q_index,
     q_photo_set,
@@ -153,7 +154,7 @@ __all__ = [
     "is_jav_code",
     "jav_display_metadata", "normalise_code_key", "normalize_entity_name",
     "ordered_multipart_items", "part_marker", "promo_residue", "purge_assets",
-    "q_ads", "q_duplicates", "q_editions", "q_entity", "q_entity_photos", "q_facets",
+    "q_ads", "q_duplicates", "q_editions", "q_entity", "q_entity_merge", "q_entity_photos", "q_facets",
     "w_entity_alias", "w_entity_merge", "w_entity_name",
     "q_index", "q_item", "q_items", "q_parts", "q_photo_set", "q_playlists",
     "q_quality_goals", "q_related", "q_search_history", "q_stats", "q_suggest", "q_taste",

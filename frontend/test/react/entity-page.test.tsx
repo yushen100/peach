@@ -12,7 +12,7 @@ import { entityOptions, fetchItems, itemsParams, prefetchEntityPage, type Entity
 import { PENDING_REFETCH_MS } from '../../src/react/components/pending-work';
 import { EntityPage } from '../../src/react/entity-page/entity-page-view';
 import { queryClient } from '../../src/react/query';
-import { buttonNamed, click, mountRoot, pending, settle } from './render';
+import { buttonNamed, click, mountRoot, pending, settle, type } from './render';
 
 afterEach(() => { queryClient.clear() });
 notifyManager.setScheduler((notify) => notify());
@@ -103,6 +103,15 @@ function serve(plan: Plan = {}) {
     if (url.pathname === '/api/follow/credentials') return reply({ providers: [] });
     if (url.pathname === '/api/follow') return reply(plan.follow ? plan.follow(query) : followPage([]));
     if (url.pathname === '/api/feeds/discoveries') return reply(plan.feed ?? { items: [] });
+    if (url.pathname === '/api/suggest') {
+      return reply({ groups: [{ kind: query.get('kind'), items: [
+        { value: NAME, n: 4, entity_id: 7001 }, { value: '有冈みう', n: 9, entity_id: 7002 }] }] });
+    }
+    if (url.pathname === '/api/entity-merge') {
+      return reply({ kind: query.get('kind'), alias: '有冈みう',
+        current: { id: Number(query.get('id')), canonical_name: NAME, works: 4 },
+        other: { id: Number(query.get('other')), canonical_name: '有冈みう', works: 9 } });
+    }
     if (url.pathname === '/api/feeds/check') {
       const checks = plan.checks ?? ['idle'];
       return reply({ status: checks.length > 1 ? checks.shift() : checks[0] });
@@ -552,6 +561,64 @@ describe('写操作', () => {
     expect(page.props.helpers.receipt).toHaveBeenCalledWith(
       `已把「${NAME}」合并到「有冈みう」`);
     expect(page.props.actions.openEntity).toHaveBeenLastCalledWith('performer', '有冈みう', true);
+  });
+
+  it('撞上另一份档案的别名：别名照常添上，再问要不要合并', async () => {
+    const page = await open();
+    vi.mocked(page.props.helpers.aliasForm).mockResolvedValue({
+      added: true,
+      alias: 'ゆう',
+      conflict: {
+        kind: 'performer', alias: 'ゆう', shared: true,
+        current: { id: 7001, canonical_name: NAME, works: 4 },
+        other: { id: 7002, canonical_name: '有冈みう', works: 2 },
+      },
+    });
+    vi.spyOn(legacyUi, 'confirmModal').mockResolvedValue({ confirmed: false });
+
+    await click(page.host.querySelector('[data-namepick-toggle]'));
+    await click(document.querySelector('[data-namepick-alias]'));
+    await settle();
+
+    expect(legacyUi.confirmModal).toHaveBeenCalledWith(expect.objectContaining({
+      body: expect.stringContaining('它也是「有冈みう」的别名。两份如果重复，合并后保留「篠田ゆう」（4 部作品）'),
+    }));
+    expect(page.writes).toEqual([]);
+  });
+
+  it('名字菜单直接合并：搜出另一份，弹层写明保留作品多的那份，确认后合并并打开它', async () => {
+    const page = await open();
+    await click(page.host.querySelector('[data-namepick-toggle]'));
+    await click(document.querySelector('[data-namepick-merge]'));
+    const dialog = document.querySelector<HTMLDialogElement>('dialog[data-entity-merge-dialog]')!;
+    expect(dialog.open).toBe(true);
+    await type(dialog.querySelector('[data-entity-picker] input') as HTMLInputElement, '有冈');
+    await settle();
+    expect([...dialog.querySelectorAll('[data-entity-option]')].map(node => node.textContent)).toEqual(['有冈みう']);
+    await click(dialog.querySelector('[data-entity-option="7002"]'));
+    await settle();
+    expect(dialog.querySelector('[data-entity-merge-summary]')?.textContent)
+      .toBe(`合并后保留「有冈みう」（9 部作品），并入「${NAME}」（4 部作品）的作品与别名；不能撤销，合并前会备份账本。`);
+    await click(dialog.querySelector('[data-modal-confirm]'));
+    await settle();
+    expect(page.writes).toEqual([{
+      url: '/api/entity-merge',
+      body: { kind: 'performer', target_id: 7002, source_id: 7001 },
+    }]);
+    expect(page.props.helpers.receipt).toHaveBeenCalledWith(`已把「${NAME}」合并到「有冈みう」`);
+    expect(page.props.actions.openEntity).toHaveBeenLastCalledWith('performer', '有冈みう', true);
+  });
+
+  it('名字菜单直接合并：没选另一份就点合并，原因留在弹层里，不发请求', async () => {
+    const page = await open();
+    await click(page.host.querySelector('[data-namepick-toggle]'));
+    await click(document.querySelector('[data-namepick-merge]'));
+    const dialog = document.querySelector<HTMLDialogElement>('dialog[data-entity-merge-dialog]')!;
+    await click(dialog.querySelector('[data-modal-confirm]'));
+    await settle();
+    expect(dialog.open).toBe(true);
+    expect(dialog.textContent).toContain('先选要合并的另一份档案');
+    expect(page.writes).toEqual([]);
   });
 
   it('撞名时作品数相同，保留当前页并从另一条档案迁入关系', async () => {

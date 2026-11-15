@@ -46,12 +46,24 @@ export interface EntityPageData extends EntityHeroData {
   mark_link_id?: number | null;
 }
 
-/** 添加别名撞上另一条同类实体：表单不写别名，改由页面确认是否合并。 */
-export interface EntityAliasConflict {
-  kind: 'performer' | 'studio';
+/** 合并的双方：名字与直接作品数。`/api/entity-merge` 直接读，添加别名撞名时也随结果回来。 */
+export interface EntityMergePair {
+  kind: string;
   alias: string;
   current: { id: number; canonical_name: string; works: number };
   other: { id: number; canonical_name: string; works: number };
+}
+
+/** 添加别名撞上另一份同类档案。撞的是对方的名字时别名没写；`shared` 是撞上对方的别名，
+ *  别名照常写了（同名的不一定是同一份），页面再问要不要合并。 */
+export interface EntityAliasConflict extends EntityMergePair {
+  shared?: boolean;
+}
+
+/** 保留作品多的一侧；作品数相同保留当前页，一次点击不先替用户决定旧 ID 指向哪边。 */
+export function mergeSides(pair: EntityMergePair) {
+  const keepCurrent = pair.current.works >= pair.other.works;
+  return keepCurrent ? { keep: pair.current, absorb: pair.other } : { keep: pair.other, absorb: pair.current };
 }
 
 export interface EntityAliasWriteResult {
