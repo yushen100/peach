@@ -1042,6 +1042,99 @@ class FeedWebTest(FeedWebFixture):
         self.assertEqual(batch[-feed_followup.RETRY_SHARE:],
                          [f"OLD-{number:03d}" for number in range(feed_followup.RETRY_SHARE)])
 
+    BLURAY_TITLE = "Pretty Glamour ― 誰もが恋する私に ― /藤森里穂（ブルーレイディスク）"
+
+    def _bluray_shell(self, code="GRABD-039", title=BLURAY_TITLE):
+        with self.contract.database.write_transaction() as connection:
+            entity = connection.execute(
+                "INSERT INTO entity(kind,canonical_name,normalized_name,created_at,updated_at)"
+                " VALUES('performer','藤森里穂',peach_normalize('藤森里穂'),?,?)",
+                (feeds.stamp(), feeds.stamp())).lastrowid
+            shell = feeds.create_shell(connection, code, source_id=None, title=title,
+                                       performers="藤森里穂", entity_id=entity)
+            connection.execute("UPDATE feed_discovery SET scraped_at='2026-01-01T00:00:00Z',"
+                               "cover_url='https://c0.jdbstatic.com/covers/qn/QNZQX9.jpg' WHERE id=?", (shell,))
+        return shell
+
+    def _run_scrape(self, *codes):
+        handle = SimpleNamespace(saved={}, progress=lambda **_: None, checkpoint=lambda **_: None)
+        return feed_followup.run(self.contract, feed_followup.followup_key(codes), handle)
+
+    def test_a_bluray_product_number_resolves_to_its_dmm_streaming_edition_by_title(self):
+        """蓝光版品番 DMM 配信版里没有，序号也可能不同；标题去掉版本字样、出演者对得上的才算同一部。"""
+        def answer(request):
+            payload = json.loads(request.body)
+            if "legacySearchPPV" in payload["query"]:
+                self.assertEqual(payload["variables"]["queryWord"], "Pretty Glamour 誰もが恋する私に 藤森里穂")
+                contents = [{"id": "h_1714grace00039"}, {"id": "h_1714grace00038"}]
+                return HttpResponse(200, {"Content-Type": "application/json"},
+                                    json.dumps({"data": {"legacySearchPPV": {"result": {"contents": contents}}}}).encode(),
+                                    DMM_ENDPOINT)
+            cid = payload["variables"]["id"]
+            item = {"h_1714grace00039": ("GRACE-039", "Pretty Glamour ー 誰もが恋する私に ー 藤森里穂"),
+                    "h_1714grace00038": ("GRACE-038", "Pretty Glamour ー 別の作品 ー 藤森里穂")}[cid]
+            content = {"id": cid, "makerContentId": item[0], "title": item[1], "actresses": [{"name": "藤森里穂"}]}
+            return HttpResponse(200, {"Content-Type": "application/json"},
+                                json.dumps({"data": {"ppvContent": content}}).encode(), DMM_ENDPOINT)
+
+        from peach.jav_editions import digital_edition
+        root = self.contract.follow_secrets_root
+        transport = FakeTransport({DMM_ENDPOINT: answer})
+        self.assertEqual(digital_edition(self.BLURAY_TITLE, ["藤森里穂"], root, transport=transport), "GRACE-039")
+        self.assertEqual(digital_edition(self.BLURAY_TITLE, ["別の人"], root, transport=transport), "",
+                         "出演者对不上的不算同一部")
+        asked = len(transport.requests)
+        self.assertEqual(digital_edition("Pretty Glamour 藤森里穂", ["藤森里穂"], root, transport=transport), "")
+        self.assertEqual(len(transport.requests), asked, "标题没写蓝光的不问 DMM")
+
+    def test_a_bluray_shell_whose_streaming_edition_is_listed_leaves_the_list(self):
+        self._bluray_shell()
+        with self.contract.database.write_transaction() as connection:
+            feeds.create_shell(connection, "GRACE-039", source_id=None,
+                               title="Pretty Glamour ー 誰もが恋する私に ー 藤森里穂")
+        with patch("peach.jav_editions.digital_edition", return_value="GRACE-039") as lookup:
+            self._run_scrape("GRABD-039")
+        lookup.assert_called_once()
+        self.assertEqual(lookup.call_args.args[:2], (self.BLURAY_TITLE, ["藤森里穂"]))
+        with self.contract.database.read_connection() as connection:
+            self.assertEqual([row[0] for row in connection.execute("SELECT code FROM feed_discovery")], ["GRACE-039"])
+            self.assertIsNone(connection.execute("SELECT 1 FROM feed_discovery_entity WHERE discovery_id NOT IN"
+                                                 " (SELECT id FROM feed_discovery)").fetchone())
+        self.assertNotIn("GRABD-039", self.cover_urls)
+
+    def test_a_listed_bluray_shell_without_a_cover_becomes_its_streaming_edition(self):
+        """存量里取过资料、封面一直取不到的蓝光版归取资料那一批：改成配信版番号，资料与封面按它重取。"""
+        shell = self._bluray_shell("REBDB-1006", "Hinako2 Eternal Wave・森日向子 ブルーレイエディション（ブルーレイディスク）")
+        with self.contract.database.read_connection() as connection:
+            batch = feed_followup.scrape_batch(connection, hidden=frozenset(), retry_after=timedelta(0),
+                                               cover_root=self.contract.cover_root)
+        self.assertEqual(batch, ["REBDB-1006"])
+        self.assertEqual(self._cover_backlog(), [], "补封面那条通道不写账本，蓝光版不排进去")
+        with patch("peach.jav_editions.digital_edition", return_value="REBD-1021"):
+            summary = self._run_scrape(*batch)
+        self.assertEqual(summary["covers"], 1)
+        with self.contract.database.read_connection() as connection:
+            row = connection.execute("SELECT id,code,title,cover_url FROM feed_discovery").fetchone()
+            linked = connection.execute("SELECT entity_id FROM feed_discovery_entity WHERE discovery_id=?",
+                                        (shell,)).fetchall()
+        self.assertEqual((row["id"], row["code"], row["title"]), (shell, "REBD-1021", "REBD-1021 的标题"))
+        self.assertEqual(self.cover_urls, {"REBD-1021": "https://images.example.test/cover.jpg"})
+        self.assertEqual(len(linked), 1, "出演者关联跟着壳走")
+        # 并完就不再是蓝光版，下一轮不再问 DMM。
+        with self.contract.database.read_connection() as connection:
+            self.assertEqual(feed_followup.scrape_batch(connection, hidden=frozenset(), retry_after=timedelta(0),
+                                                        cover_root=self.contract.cover_root), [])
+
+    def test_a_bluray_shell_stays_when_dmm_has_no_matching_edition(self):
+        self._bluray_shell()
+        with patch("peach.jav_editions.digital_edition", side_effect=OSError("timeout")):
+            self._run_scrape("GRABD-039")
+        with patch("peach.jav_editions.digital_edition", return_value=""):
+            self._run_scrape("GRABD-039")
+        with self.contract.database.read_connection() as connection:
+            self.assertEqual([row[0] for row in connection.execute("SELECT code FROM feed_discovery")], ["GRABD-039"])
+        self.assertIn("GRABD-039", self.cover_urls, "对不上时照旧按原番号取封面")
+
     def test_scraping_one_code_stops_at_the_metadata_budget(self):
         """来源连不上时一部最多问到资料预算为止，原因写成哪几家在多少秒内没答复。"""
         from peach.jav_cover_fetch import DeadlineExceeded

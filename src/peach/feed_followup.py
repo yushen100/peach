@@ -121,10 +121,14 @@ def has_local_cover(cover_root: Path, code: str) -> bool:
 
 def scrape_batch(connection, fresh=(), *, exclude=(), now: datetime | None = None,
                  retry_after: timedelta = RETRY_AFTER,
-                 hidden: frozenset[str] = feeds.DEFAULT_HIDDEN_COMPILATIONS) -> list[str]:
+                 hidden: frozenset[str] = feeds.DEFAULT_HIDDEN_COMPILATIONS,
+                 cover_root: Path | None = None) -> list[str]:
     """下一批取资料的番号：这一轮新发现的 `fresh` 与还没取过资料的壳在前，上次没取到、
     已经过了 `retry_after` 的壳在后，并且至少留 `RETRY_SHARE` 个名额给后者。不在这一批里、
     只缺封面的归 `cover_backlog`。
+
+    给了 `cover_root` 时，还没封面、上次取资料已过 `retry_after` 的蓝光版也算重试：
+    并入配信版（`fold_bluray_edition`）要写壳，只有这一条通道写账本。
 
     已忽略的不算：人说了不想看，就不再替它花配额。已经入库的壳本来就不在表里
     （入库即从列表里消失，ADR-0042 第三条），这里同样用番号键排除掉。取回标题后认出是
@@ -139,8 +143,17 @@ def scrape_batch(connection, fresh=(), *, exclude=(), now: datetime | None = Non
                      skip, hidden, MAX_BATCH)
     retries = _first(_candidates(connection, "d.scrape_error IS NOT NULL AND d.scraped_at<?",
                                  (cutoff,), "d.scraped_at, "), skip, hidden, MAX_BATCH)
+    if cover_root is not None:
+        retries += [row["code"] for row in _visible(_candidates(
+            connection, "d.scrape_error IS NULL AND d.scraped_at<?", (cutoff,), "d.scraped_at, "), skip, hidden)
+            if _bluray_without_cover(row, cover_root) and row["code"] not in retries][:MAX_BATCH]
     head = [*fresh, *untried][:MAX_BATCH - min(len(retries), RETRY_SHARE)]
     return head + retries[:MAX_BATCH - len(head)]
+
+
+def _bluray_without_cover(row, cover_root: Path) -> bool:
+    from .jav_editions import bluray_title
+    return bluray_title(row["title"]) and not has_local_cover(cover_root, row["code"])
 
 
 def _first(rows, exclude, hidden, limit: int) -> list[str]:
@@ -157,8 +170,8 @@ def cover_backlog(connection, cover_root: Path, *, exclude=(), now: datetime | N
                   hidden: frozenset[str] = feeds.DEFAULT_HIDDEN_COMPILATIONS) -> list[str]:
     """本机还没有封面、上次取图已经过了 `retry_after` 的壳，资料齐了的和还没取过资料的都算。
 
-    上次没取到资料的不算：它归 `scrape_batch` 重试，取完资料就地补封面。调用方把这一批
-    取资料的番号放进 `exclude`，同一部不两头都派。
+    上次没取到资料的不算：它归 `scrape_batch` 重试，取完资料就地补封面；缺封面的蓝光版也归它，
+    先并入配信版再取图。调用方把这一批取资料的番号放进 `exclude`，同一部不两头都派。
     上次取图的时间读逐番号的取图记录（`record_cover_attempt`），没试过的排最前，其余由远到近；
     同样远的新片在前。排除规则与 `scrape_batch` 相同。
     """
@@ -170,7 +183,8 @@ def cover_backlog(connection, cover_root: Path, *, exclude=(), now: datetime | N
     for position, row in enumerate(_visible(rows, exclude, hidden)):
         code = row["code"]
         key = normalise_code_key(code)
-        if not key or is_korean_mib_code(key) or has_local_cover(cover_root, code):
+        if (not key or is_korean_mib_code(key) or has_local_cover(cover_root, code)
+                or _bluray_without_cover(row, cover_root)):
             continue
         try:
             attempted = cover_attempt_path(cover_root, key).stat().st_mtime
@@ -502,6 +516,46 @@ def performer_names(value: object) -> list[str]:
     return []
 
 
+def _shell(contract, condition: str, value):
+    with contract.database.read_connection() as connection:
+        return connection.execute(
+            "SELECT id,code,title,performers,scraped_at,scrape_error FROM feed_discovery"
+            f" WHERE {condition}", (value,)).fetchone()
+
+
+def fold_bluray_edition(contract, row) -> str | None:
+    """还没封面的蓝光版壳并入 DMM 配信版，返回之后按哪个番号接着取；这一条删掉了返回 None。
+
+    蓝光版另有品番（GRABD-039），官方封面按番号取不到，配信版（GRACE-039）是同一部片、同一张封套。
+    配信版已在列表里或已入库，这一条就是重复，删掉；否则把壳改成配信版番号，资料与封面按它重取，
+    已读、已忽略照旧。问不到 DMM 或对不上时原样留着，到了重试时间再问。
+    """
+    from .jav_editions import bluray_title, digital_edition
+
+    code = row["code"]
+    if not bluray_title(row["title"]) or has_local_cover(contract.cover_root, code):
+        return code
+    names = [name for name in re.split(r"[、,]", row["performers"] or "") if name.strip()]
+    try:
+        digital = normalise_code_key(digital_edition(row["title"], names, contract.follow_secrets_root))
+    except Exception:  # noqa: BLE001 - 问不到就当这次没对上，壳原样留着
+        return code
+    if not digital or digital == normalise_code_key(code):
+        return code
+    shell = int(row["id"])
+    with contract.database.write_transaction() as connection:
+        if feeds.in_library(connection, digital) or connection.execute(
+                "SELECT 1 FROM feed_discovery WHERE normalise_code_key(code)=? AND id<>?",
+                (digital, shell)).fetchone():
+            # 连接的 `PRAGMA foreign_keys` 是 OFF，子表的 `ON DELETE CASCADE` 要显式做。
+            connection.execute("DELETE FROM feed_discovery_entity WHERE discovery_id=?", (shell,))
+            connection.execute("DELETE FROM feed_discovery WHERE id=?", (shell,))
+            return None
+        connection.execute("UPDATE feed_discovery SET code=?,cover_url=NULL,scraped_at=NULL,scrape_error=NULL"
+                           " WHERE id=?", (digital, shell))
+    return digital
+
+
 def _scrape_fields(contract, provider, row) -> bool:
     """取一部的资料写进壳。返回取没取到；取不到的原因写在壳的 `scrape_error` 上。"""
     code = row["code"]
@@ -554,12 +608,13 @@ def run(contract, key: str, handle) -> dict:
             continue
         handle.progress(current=index, total=len(codes),
                         **item_progress(TASK_KEY, code), throttle=0)
-        with contract.database.read_connection() as connection:
-            row = connection.execute(
-                "SELECT id,code,scraped_at,scrape_error FROM feed_discovery WHERE code=?",
-                (code,)).fetchone()
+        row = _shell(contract, "code=?", code)
+        if row is not None and fold_bluray_edition(contract, row) is not None:
+            row = _shell(contract, "id=?", int(row["id"]))
+        else:
+            row = None
         if row is None:
-            # 壳被删了，或者这个番号这中间已经入库。两种都不该再取一遍。
+            # 壳被删了、并进了配信版，或者这个番号这中间已经入库。都不该再取一遍。
             continue
         if row["scraped_at"] is None or row["scrape_error"] is not None:
             provider = provider or LibraryMetadataProvider(contract.follow_secrets_root)
@@ -572,7 +627,7 @@ def run(contract, key: str, handle) -> dict:
             cover_url = connection.execute(
                 "SELECT cover_url FROM feed_discovery WHERE id=?", (int(row["id"]),)).fetchone()
         try:
-            covers += ensure_cover(contract, code, cover_url[0] if cover_url else None)
+            covers += ensure_cover(contract, row["code"], cover_url[0] if cover_url else None)
         except (CoverConnectError, httpx.TransportError):
             unreachable += 1
         except Exception:  # noqa: BLE001 - 取不到封面这一部照样有资料，下一轮再试
