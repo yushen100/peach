@@ -367,5 +367,40 @@ class RetiredLinkTests(unittest.TestCase):
         self.assertEqual(self.probed, [])
 
 
+    def _check(self, answers):
+        """跑一趟全量检查；`answers` 按地址给一串依次回的结果，最后一个一直重复。"""
+        calls = {}
+
+        def probe(url, timeout=0):
+            calls[url] = calls.get(url, 0) + 1
+            replies = answers[url]
+            return replies[min(calls[url], len(replies)) - 1]
+
+        web_links._probe = probe
+        web_links.w_links_check(self.contract, {"restart": True})
+        thread = self.contract.link_check.thread
+        if thread is not None:
+            thread.join(5)
+        return self.contract.link_check.snapshot(), calls
+
+    def test_a_temporary_failure_is_rechecked_a_bounded_number_of_times(self):
+        """限流、超时、5xx 是暂时的：这一趟里自动再问，好了就不进结果；站点拒绝（403）只问一次，留给人重试。"""
+        first, second = "https://crusegroup.net/model/316", "https://www.crusegroup.net/model/295"
+        state, calls = self._check({first: [(503, ""), (0, "ReadTimeout"), (200, "")], second: [(403, "")]})
+        self.assertEqual(state["status"], "complete")
+        self.assertEqual(calls, {first: 3, second: 1})
+        self.assertEqual(state["gone"], [])
+        self.assertEqual([(item["id"], item["temporary"], item["attempts"]) for item in state["unclear"]],
+                         [(2, False, 1)])
+
+    def test_a_link_that_stays_unreachable_is_kept_with_its_attempts_not_deleted(self):
+        """重查几轮还是打不开：留在「取不到」里并记下问过几次，不当成没了；确证 404 才进待删。"""
+        first, second = "https://crusegroup.net/model/316", "https://www.crusegroup.net/model/295"
+        state, calls = self._check({first: [(429, "")], second: [(502, ""), (404, "")]})
+        self.assertEqual(calls, {first: 1 + web_links.RECHECK_ROUNDS, second: 2})
+        self.assertEqual([(item["id"], item["note"]) for item in state["gone"]], [(2, "HTTP 404")])
+        self.assertEqual([(item["id"], item["temporary"], item["attempts"]) for item in state["unclear"]],
+                         [(1, True, 1 + web_links.RECHECK_ROUNDS)])
+
 if __name__ == "__main__":
     unittest.main()
