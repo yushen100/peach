@@ -177,7 +177,8 @@ export function syncEntitySkeletonParts(kind,name){
   const sync=(present,wanted,insert)=>{if(wanted&&!present)insert();else if(!wanted&&present)present.remove()};
   sync(skeleton.querySelector('.entityfoot'),kind!=='agency'&&feedState.hasEntityPart(kind,name,'costars'),
     ()=>skeleton.querySelector('.entityhero')?.insertAdjacentHTML('beforeend',feedState.costarSkeletonFoot()));
-  sync(skeleton.querySelector('.feednew'),feedState.hasEntityPart(kind,name,'feed'),
+  /* 设置关掉了新作行，骨架也不给它留位。 */
+  sync(skeleton.querySelector('.feednew'),preferencesState.appSettings.feedNewRows!==false&&feedState.hasEntityPart(kind,name,'feed'),
     ()=>skeleton.querySelector('.entitysection')?.insertAdjacentHTML('beforebegin',feedState.feedNewSkeletonSection()));
   sync(skeleton.querySelector('.entityfacts'),kind==='performer'&&feedState.hasEntityPart(kind,name,'facts'),
     ()=>skeleton.querySelector('.entityprofile')?.insertAdjacentHTML('beforeend',feedState.factsSkeleton()));

@@ -57,6 +57,8 @@ export interface AccessSettingsProps {
   devices?(state: AccessState): import('react').ReactNode;
   /** 不论访问方式都跟在后面的分区（访问口令）；确认文案随当前访问方式变。 */
   after?(state: AccessState): import('react').ReactNode;
+  /** 保存成功后报新的访问状态：远程访问卡按它判断能不能开。 */
+  onSaved?(state: AccessState): void;
 }
 
 export interface StartupState {

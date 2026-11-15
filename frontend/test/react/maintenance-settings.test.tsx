@@ -78,6 +78,16 @@ describe('自动更新', () => {
     expect(receipt).toHaveBeenCalledTimes(2);
   });
 
+  it('自动检查关着时检查频率也禁用，打开后才能选', async () => {
+    vi.stubGlobal('fetch', fetchMock(200, automatic));
+    const host = await mount(<AutomaticUpdates initial={automatic} receipt={vi.fn()} />);
+    const frequency = () => host.querySelector<HTMLButtonElement>('[aria-haspopup="listbox"]')!;
+    const disabled = () => frequency().disabled || frequency().hasAttribute('data-disabled');
+    expect(disabled()).toBe(true);
+    await click(switches(host)[0]);
+    expect(disabled()).toBe(false);
+  });
+
   it('源码运行锁住自动下载，检查频率那一行不带说明，失败原因留在分区里且不报成功', async () => {
     vi.stubGlobal('fetch', fetchMock(400, { detail: '设置正在保存' }));
     const receipt = vi.fn();

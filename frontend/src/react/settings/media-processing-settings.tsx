@@ -43,7 +43,9 @@ export function MediaProcessingSettings({ receipt }: { receipt(message: string):
       <Rows>
         <SettingsRow label={t('settings:videoPreviews.decoder')} description={t('settings:videoPreviews.decoderHelp')}>
           <div id="previewAccelerationSetting">
-            <Select aria-label={t('settings:videoPreviews.decoder')} selectedKey={policy.data?.preview_acceleration || 'auto'} isDisabled={blocked}
+            {/* 解码方式只给抽帧（九宫格与时间轴）用：关掉预览生成就用不上，和时间轴档位一起禁用。 */}
+            <Select aria-label={t('settings:videoPreviews.decoder')} selectedKey={policy.data?.preview_acceleration || 'auto'}
+              isDisabled={blocked || !!policy.data?.metadata_only}
               onSelectionChange={(mode) => {
                 if (mode === null) return;
                 void action.run('preview_acceleration', (signal) => apiSend<MediaProcessingPolicy>(MEDIA_PROCESSING_URL,

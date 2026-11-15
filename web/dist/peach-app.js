@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "ef6ab15a-f806-4f45-9da9-1c1844583da8", e._sentryDebugIdIdentifier = "sentry-dbid-ef6ab15a-f806-4f45-9da9-1c1844583da8");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "7eb543a5-0f8f-4812-9f16-8c662a7979d6", e._sentryDebugIdIdentifier = "sentry-dbid-7eb543a5-0f8f-4812-9f16-8c662a7979d6");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, n) => {
@@ -6452,11 +6452,12 @@ var He = "peach.settings.v1", Ue = {
 		detailAutoplay: "Autoplay when opening details",
 		feedLimit: "Number shown",
 		feedLimitInput: "Number of new releases shown",
+		feedNewRows: "Show new releases on Home and actress pages",
 		groupEditions: "Group parts and editions",
-		homeFeedNew: "Show new releases on Home",
 		homeShorts: "Portrait strip on Home",
 		homeTiers: "Show actress and label avatars on Home",
 		hoverDelay: "Hover preview delay",
+		hoverDelaySfw: "No previews in SFW mode.",
 		increaseContrast: "Increase contrast",
 		ingestNotices: "Import notifications",
 		interfaceSounds: "Interface sounds",
@@ -6489,6 +6490,7 @@ var He = "peach.settings.v1", Ue = {
 	pushDiscovery: {
 		addPrefix: "Add prefix",
 		cloudPrefixes: "Cloud path prefixes",
+		cloudPrefixesHelp: "Cloud notifications and cloud downloads both use this table to map cloud paths to media folders.",
 		configCopied: "CloudDrive2 config copied",
 		configLabel: "CloudDrive2 config",
 		copyConfig: "Copy config",
@@ -13306,11 +13308,12 @@ var He = "peach.settings.v1", Ue = {
 		detailAutoplay: "打开详情自动播放",
 		feedLimit: "显示数量",
 		feedLimitInput: "新作显示数量",
+		feedNewRows: "首页与人物页显示新作",
 		groupEditions: "合并分卷与版本",
-		homeFeedNew: "在首页显示新作",
 		homeShorts: "首页竖屏短片带",
 		homeTiers: "首页显示女优与厂牌头像",
 		hoverDelay: "悬停预览延迟",
+		hoverDelaySfw: "SFW 模式下不预览。",
 		increaseContrast: "增加对比度",
 		ingestNotices: "入库通知",
 		interfaceSounds: "界面音效",
@@ -13343,6 +13346,7 @@ var He = "peach.settings.v1", Ue = {
 	pushDiscovery: {
 		addPrefix: "添加前缀",
 		cloudPrefixes: "云端路径前缀",
+		cloudPrefixesHelp: "云通知和云下载都按这张表把网盘路径对应到媒体目录。",
 		configCopied: "已复制 CloudDrive2 配置",
 		configLabel: "CloudDrive2 配置",
 		copyConfig: "复制配置",
@@ -48074,7 +48078,7 @@ function Kfe(e) {
 	let r = !1, i = +n.sortDefaultsVersion || 0;
 	i < 2 && n.defaultSort === "new" && (n.defaultSort = "seed", r = !0);
 	let a = Hj[n.defaultSort];
-	return i < 3 && a && (n.defaultSort = a[0], r = !0), n.sortDefaultsVersion = 3, n.batchSize = Dj(+n.batchSize, 1, 200, 60), n.defaultSort = dM(n.defaultSort, Bj, "seed"), n.hoverDelaySeconds = Dj(+n.hoverDelaySeconds, 0, 60, 5), n.seekSeconds = Dj(+n.seekSeconds, 1, 300, 10), delete n.loginDays, delete n.metadataRefreshDays, n.ambientMode = n.ambientMode !== !1, n.theaterMode = n.theaterMode === !0, n.groupCollapse = n.groupCollapse !== !1, n.detailAutoplay = n.detailAutoplay !== !1, n.afterPlayback = dM(n.afterPlayback, lM, "next"), n.resumeRestartPercent = Dj(+n.resumeRestartPercent, 0, 20, 5), n.miniplayer = n.miniplayer !== !1, n.uiSounds = n.uiSounds !== !1, n.feedAutoScroll = n.feedAutoScroll !== !1, n.homeFeedNew = n.homeFeedNew !== !1, n.homeShortsLimit = n.homeShortsLimit === 0 ? 0 : Dj(+n.homeShortsLimit, 6, 60, 18), n.homeTiers = n.homeTiers !== !1, n.completionPrompt = n.completionPrompt !== !1, n.searchRecommendations = n.searchRecommendations !== !1, n.ingestNotices = n.ingestNotices !== !1, n.feedHideGroupCompilations = n.feedHideGroupCompilations !== !1, n.feedHideSoloCompilations = n.feedHideSoloCompilations === !0, n.feedHideExcerpts = n.feedHideExcerpts !== !1, n.searchHistoryLimit = Dj(+n.searchHistoryLimit, 0, 50, 10), n.relatedLimit = Dj(+n.relatedLimit, 0, 60, 20), n.feedLimit = Dj(+n.feedLimit, 1, 100, 12), Object.assign(n, mc(n)), n.theme = dM(n.theme, Wfe, "system"), n.performerNameLanguage = dM(n.performerNameLanguage, ["zh-CN", "ja"], "zh-CN"), n.interfaceLanguage = pt(n.interfaceLanguage) ? n.interfaceLanguage : "auto", n.systemLanguage = mt(n.systemLanguage), n.homeGlow = oM(n.homeGlow), n.accent = nM(n.accent), n.sidebarOrder = yf(n.sidebarOrder), n.manageOrder = jj(n.manageOrder), n.navigationOrders = Lj(n.navigationOrders), n.libraryOrder = Array.isArray(n.libraryOrder) ? [...new Set(n.libraryOrder.filter((e) => typeof e == "string"))] : [], {
+	return i < 3 && a && (n.defaultSort = a[0], r = !0), n.sortDefaultsVersion = 3, n.batchSize = Dj(+n.batchSize, 1, 200, 60), n.defaultSort = dM(n.defaultSort, Bj, "seed"), n.hoverDelaySeconds = Dj(+n.hoverDelaySeconds, 0, 60, 5), n.seekSeconds = Dj(+n.seekSeconds, 1, 300, 10), delete n.loginDays, delete n.metadataRefreshDays, n.ambientMode = n.ambientMode !== !1, n.theaterMode = n.theaterMode === !0, n.groupCollapse = n.groupCollapse !== !1, n.detailAutoplay = n.detailAutoplay !== !1, n.afterPlayback = dM(n.afterPlayback, lM, "next"), n.resumeRestartPercent = Dj(+n.resumeRestartPercent, 0, 20, 5), n.miniplayer = n.miniplayer !== !1, n.uiSounds = n.uiSounds !== !1, n.feedAutoScroll = n.feedAutoScroll !== !1, n.feedNewRows = n.feedNewRows !== !1, n.homeShortsLimit = n.homeShortsLimit === 0 ? 0 : Dj(+n.homeShortsLimit, 6, 60, 18), n.homeTiers = n.homeTiers !== !1, n.completionPrompt = n.completionPrompt !== !1, n.searchRecommendations = n.searchRecommendations !== !1, n.ingestNotices = n.ingestNotices !== !1, n.feedHideGroupCompilations = n.feedHideGroupCompilations !== !1, n.feedHideSoloCompilations = n.feedHideSoloCompilations === !0, n.feedHideExcerpts = n.feedHideExcerpts !== !1, n.searchHistoryLimit = Dj(+n.searchHistoryLimit, 0, 50, 10), n.relatedLimit = Dj(+n.relatedLimit, 0, 60, 20), n.feedLimit = Dj(+n.feedLimit, 1, 100, 12), Object.assign(n, mc(n)), n.theme = dM(n.theme, Wfe, "system"), n.performerNameLanguage = dM(n.performerNameLanguage, ["zh-CN", "ja"], "zh-CN"), n.interfaceLanguage = pt(n.interfaceLanguage) ? n.interfaceLanguage : "auto", n.systemLanguage = mt(n.systemLanguage), n.homeGlow = oM(n.homeGlow), n.accent = nM(n.accent), n.sidebarOrder = yf(n.sidebarOrder), n.manageOrder = jj(n.manageOrder), n.navigationOrders = Lj(n.navigationOrders), n.libraryOrder = Array.isArray(n.libraryOrder) ? [...new Set(n.libraryOrder.filter((e) => typeof e == "string"))] : [], {
 		settings: n,
 		migrated: r
 	};
@@ -81287,7 +81291,7 @@ async function Yje(e) {
 	] });
 	e.resolvedEntity?.id && G.setQueryData(zQ(t, n), e.resolvedEntity), G.prefetchQuery(WQ(e)), G.prefetchInfiniteQuery(KQ(t, n, 0, "")), e.media.media === "photos" && e.media.set && G.prefetchInfiniteQuery(KQ(t, n, e.media.set, ""));
 	let r = await G.fetchQuery(GQ(t, n));
-	r && !r.error && r.id && (e.restoreNavigation || G.removeQueries({ queryKey: AQ(Number(r.id)) }), G.prefetchQuery(jQ(Number(r.id), e.helpers.feedRowHtml)));
+	r && !r.error && r.id && (e.restoreNavigation || G.removeQueries({ queryKey: AQ(Number(r.id)) }), pM().value.feedNewRows !== !1 && G.prefetchQuery(jQ(Number(r.id), e.helpers.feedRowHtml)));
 }
 // src/identity-filter.ts
 var JQ = [
@@ -85739,14 +85743,18 @@ function vPe(e) {
 			total: t.total || 0,
 			hasMore: !!e[e.length - 1]?.has_more
 		};
-	}, [ce.data, ue]), fe = ce.refetch, pe = ce.fetchNextPage, me = yr({
+	}, [ce.data, ue]), fe = ce.refetch, pe = ce.fetchNextPage, me = pM(), he = (0, R.useSyncExternalStore)(me.subscribe, () => me.value.feedNewRows !== !1), ge = yr({
 		...jQ(d, o.feedRowHtml),
-		enabled: !!d
-	}), he = (0, R.useRef)(e.feedRevision);
+		enabled: !!d && he
+	});
+	(0, R.useLayoutEffect)(() => {
+		he || (c.feed.hidden = !0);
+	}, [he, c.feed]);
+	let _e = (0, R.useRef)(e.feedRevision);
 	(0, R.useEffect)(() => {
-		he.current !== e.feedRevision && (he.current = e.feedRevision, G.invalidateQueries({ queryKey: AQ(d) }));
+		_e.current !== e.feedRevision && (_e.current = e.feedRevision, G.invalidateQueries({ queryKey: AQ(d) }));
 	}, [d, e.feedRevision]);
-	let ge = !!N.data;
+	let ve = !!N.data;
 	(0, R.useEffect)(() => {
 		s.painted(T, D);
 	}, [
@@ -85755,7 +85763,7 @@ function vPe(e) {
 		D,
 		P,
 		de?.revision,
-		ge,
+		ve,
 		E.key
 	]), (0, R.useEffect)(() => {
 		c.body.isConnected && !document.getElementById("index")?.hidden && (Wg("entity", {
@@ -85773,17 +85781,17 @@ function vPe(e) {
 		S,
 		T
 	]);
-	let _e = (0, R.useRef)(!0), ve = (0, R.useRef)(null);
+	let ye = (0, R.useRef)(!0), be = (0, R.useRef)(null);
 	(0, R.useEffect)(() => () => {
-		_e.current = !1, ve.current?.abort();
+		ye.current = !1, be.current?.abort();
 	}, []);
-	let ye = (0, R.useCallback)(async () => {
+	let xe = (0, R.useCallback)(async () => {
 		await G.invalidateQueries({ queryKey: ["entity-route"] }), await G.invalidateQueries({ queryKey: zQ(t, n) }), await G.invalidateQueries({ queryKey: [
 			"entity-items",
 			t,
 			n
 		] });
-	}, [t, n]), be = br({
+	}, [t, n]), Se = br({
 		mutationFn: (e) => zi("/api/entity-alias", {
 			method: "POST",
 			body: JSON.stringify({
@@ -85792,8 +85800,8 @@ function vPe(e) {
 				...e
 			})
 		}),
-		onSuccess: () => ye()
-	}), xe = br({
+		onSuccess: () => xe()
+	}), Ce = br({
 		mutationFn: ({ from: e, to: n }) => zi("/api/entity-name", {
 			method: "POST",
 			body: JSON.stringify({
@@ -85802,8 +85810,8 @@ function vPe(e) {
 				canonical: n
 			})
 		}),
-		onSuccess: () => ye()
-	}), Se = br({
+		onSuccess: () => xe()
+	}), we = br({
 		mutationFn: (e) => zi("/api/feeds/source", {
 			method: "POST",
 			body: JSON.stringify({
@@ -85819,13 +85827,13 @@ function vPe(e) {
 				following: r
 			}
 		})
-	}), Ce = br({ mutationFn: (e) => zi("/api/follow/creator", {
+	}), Te = br({ mutationFn: (e) => zi("/api/follow/creator", {
 		method: "POST",
 		body: JSON.stringify({
 			entity_id: d,
 			key: e
 		})
-	}) }), we = (0, R.useMemo)(() => ({
+	}) }), Ee = (0, R.useMemo)(() => ({
 		openEntity: s.openEntity,
 		chooseName: (e) => {
 			let n = r.canonical_name;
@@ -85836,14 +85844,14 @@ function vPe(e) {
 					current: n
 				}),
 				confirmLabel: L("catalog:entityPage.changePrimaryName"),
-				onConfirm: () => xe.mutateAsync({
+				onConfirm: () => Ce.mutateAsync({
 					from: n,
 					to: e
 				})
 			}).then(({ confirmed: e, result: n }) => {
 				let r = n;
 				e && r?.changed && (o.receipt(L("catalog:entityPage.primaryNameChanged", { name: r.canonical_name }), { undo: async () => {
-					await xe.mutateAsync({
+					await Ce.mutateAsync({
 						from: r.canonical_name || "",
 						to: r.previous_name || ""
 					}), s.openEntity(t, r.previous_name || "");
@@ -85851,31 +85859,31 @@ function vPe(e) {
 			});
 		},
 		addAlias: () => {
-			o.aliasForm(r.user_aliases || [], (e) => be.mutateAsync(e));
+			o.aliasForm(r.user_aliases || [], (e) => Se.mutateAsync(e));
 		},
 		follow: async (e) => {
 			try {
-				await Se.mutateAsync(e);
+				await we.mutateAsync(e);
 			} catch (t) {
 				throw o.failure(L(e ? "catalog:entityHero.subscribeNewReleases" : "catalog:entityPage.unsubscribeNewReleases"), t), t;
 			}
 		},
 		refreshFeedAfterCheck: () => {
-			ve.current ??= new AbortController(), tW({
-				signal: ve.current.signal,
+			be.current ??= new AbortController(), tW({
+				signal: be.current.signal,
 				everyMs: pPe,
 				limitMs: mPe,
 				read: () => zi("/api/feeds/check"),
 				apply: () => {},
 				done: (e) => e.status !== "running"
 			}).then(() => {
-				_e.current && G.invalidateQueries({ queryKey: AQ(d) });
+				ye.current && G.invalidateQueries({ queryKey: AQ(d) });
 			});
 		},
 		feedAction: MQ,
 		avatarPicked: () => {
-			s.avatarChanged(), ye().then(() => {
-				_e.current && k((e) => e + 1);
+			s.avatarChanged(), xe().then(() => {
+				ye.current && k((e) => e + 1);
 			}), G.invalidateQueries({ queryKey: AQ(d) });
 		},
 		openFollowAuthor: (e) => {
@@ -85886,30 +85894,30 @@ function vPe(e) {
 		},
 		confirmFollowAuthor: async (e, t) => {
 			try {
-				await Ce.mutateAsync(e);
+				await Te.mutateAsync(e);
 			} catch (e) {
 				throw o.failure(L("catalog:entityPage.linkFollowedCreator"), e), e;
 			}
 			o.receipt(L("catalog:entityPage.followedCreatorLinked", {
 				author: t,
 				name: r.canonical_name
-			})), await ye();
+			})), await xe();
 		}
 	}), [
 		s,
-		be,
-		Ce,
+		Se,
+		Te,
 		r,
 		d,
 		i,
-		Se,
+		we,
 		_,
 		o,
 		t,
 		n,
-		ye,
-		xe
-	]), Te = (0, R.useMemo)(() => ({
+		xe,
+		Ce
+	]), De = (0, R.useMemo)(() => ({
 		portraitImg: () => o.portraitImg(t, r),
 		wireScroller: o.wireDrag,
 		wireFeedRow: o.wireFeedRow,
@@ -85918,7 +85926,7 @@ function vPe(e) {
 		r,
 		o,
 		t
-	]), Ee = (0, R.useMemo)(() => ({
+	]), Oe = (0, R.useMemo)(() => ({
 		setView: (e) => {
 			(e !== T || y.set) && (x(e === "people" ? "people" : "videos"), s.route(i, e === "photos" || e === "online" ? {
 				media: e,
@@ -85950,7 +85958,7 @@ function vPe(e) {
 				return;
 			}
 			let r = gPe(), a = await G.fetchInfiniteQuery(KQ(t, n, oe, r)).catch(() => null);
-			_e.current && a?.pages[0] && !a.pages[0].error && ae((e) => ({
+			ye.current && a?.pages[0] && !a.pages[0].error && ae((e) => ({
 				...e,
 				[oe]: r
 			}));
@@ -85973,19 +85981,19 @@ function vPe(e) {
 		e.revision,
 		T,
 		oe
-	]), De = (0, R.useMemo)(() => ({
+	]), ke = (0, R.useMemo)(() => ({
 		wireDrag: o.wireDrag,
 		wireScroller: o.wireScroller,
 		sourceToolsHtml: o.sourceToolsHtml,
 		wireSourceTools: (e) => o.wireSourceTools(e, () => {
 			fe();
 		})
-	}), [o, fe]), Oe = (r.tags || []).map((e) => ({
+	}), [o, fe]), Ae = (r.tags || []).map((e) => ({
 		k: e.k,
 		label: df(e.k),
 		n: e.n,
 		selected: qje(i.tag, e.k)
-	})), ke = [
+	})), je = [
 		u.length,
 		!v,
 		h,
@@ -86000,43 +86008,43 @@ function vPe(e) {
 		videos: v ? null : { count: r.asset_count || 0 },
 		photos: h ? { count: h } : null,
 		online: _ ? { count: r.follow?.n || 0 } : null
-	} : null, Ae = {
+	} : null, Me = {
 		sorts: o.sortKeys(i.sort || "new", i.dir || "", ee),
 		jav: ee ? {
 			layout: e.javLayout,
 			options: e.javLayouts
 		} : null
-	}, je = !!le?.id && !le.error, Me = le && !le.error ? {
-		back: je,
+	}, Ne = !!le?.id && !le.error, Pe = le && !le.error ? {
+		back: Ne,
 		shuffle: !!le.total,
 		layout: e.photoLayout,
 		layouts: e.photoLayouts,
-		setId: je ? Number(le.id) : 0
-	} : null, Ne = o.comboItems(i), Pe = Ne.length > 0 || !!i.state, Fe = T === "videos" && !!N.data && !(N.data.items || []).length, Ie = () => s.route({
+		setId: Ne ? Number(le.id) : 0
+	} : null, Fe = o.comboItems(i), Ie = Fe.length > 0 || !!i.state, Le = T === "videos" && !!N.data && !(N.data.items || []).length, Re = () => s.route({
 		...i,
 		state: "",
 		tag: "",
 		creator: "",
 		studio: "",
 		owner: ""
-	}, RQ), Le = "", Re = !1;
-	if (T === "people") Le = `${L(t === "studio" ? "catalog:shared.labels" : "catalog:shared.performers")} · ${u.length.toLocaleString()}`;
-	else if (T === "online") Re = E.busy, Le = L("catalog:entityPage.onlineUpdates", { count: E.total ?? r.follow?.n ?? 0 });
+	}, RQ), ze = "", Be = !1;
+	if (T === "people") ze = `${L(t === "studio" ? "catalog:shared.labels" : "catalog:shared.performers")} · ${u.length.toLocaleString()}`;
+	else if (T === "online") Be = E.busy, ze = L("catalog:entityPage.onlineUpdates", { count: E.total ?? r.follow?.n ?? 0 });
 	else if (T === "videos") {
-		Re = N.isPending;
+		Be = N.isPending;
 		let e = VQ(i.tag).length;
-		Le = N.data ? [`${L("catalog:shared.videos")} · ${(N.data.work_total ?? N.data.total ?? 0).toLocaleString()}`, e ? L("catalog:tagFilters.selectedCount", { count: e }) : ""].filter(Boolean).join(" · ") : "";
-	} else le && !le.error ? Le = je ? L("catalog:entityPage.setImageCount", {
+		ze = N.data ? [`${L("catalog:shared.videos")} · ${(N.data.work_total ?? N.data.total ?? 0).toLocaleString()}`, e ? L("catalog:tagFilters.selectedCount", { count: e }) : ""].filter(Boolean).join(" · ") : "";
+	} else le && !le.error ? ze = Ne ? L("catalog:entityPage.setImageCount", {
 		title: yi(le, "title"),
 		count: le.total || 0
-	}) : _Pe(le, qQ(le).length) : Re = ce.isPending;
-	let ze = (0, R.useMemo)(() => ({
+	}) : _Pe(le, qQ(le).length) : Be = ce.isPending;
+	let Ve = (0, R.useMemo)(() => ({
 		...e.card.actions,
 		loadMorePhotos: async () => {
 			let e = await pe();
 			if (e.isError) throw e.error;
 		}
-	}), [pe, e.card.actions]), Be = (0, R.useMemo)(() => u.length ? {
+	}), [pe, e.card.actions]), He = (0, R.useMemo)(() => u.length ? {
 		kind: t === "studio" ? "studios" : "performers",
 		people: u,
 		layout: e.peopleLayout
@@ -86050,32 +86058,32 @@ function vPe(e) {
 			kind: t,
 			name: n,
 			entity: r,
-			feedNew: me.data ?? null,
-			feedError: !me.data && me.isError ? Sa(me.error) : void 0,
+			feedNew: ge.data ?? null,
+			feedError: !ge.data && ge.isError ? Sa(ge.error) : void 0,
 			retryFeed: () => {
-				me.refetch();
+				ge.refetch();
 			},
-			feedHost: d ? c.feed : null,
+			feedHost: d && he ? c.feed : null,
 			jav: ee,
-			actions: we,
-			helpers: Te
+			actions: Ee,
+			helpers: De
 		}, O),
 		(0, Sr.createPortal)(/* @__PURE__ */ (0, z.jsx)(zTe, {
 			kind: t,
 			name: n,
 			view: T,
-			views: ke,
+			views: je,
 			state: i.state || "",
 			states: e.states,
-			tags: Oe,
-			combo: Ne,
-			readout: Le,
-			busy: Re,
-			video: Fe ? null : Ae,
-			photo: Me,
+			tags: Ae,
+			combo: Fe,
+			readout: ze,
+			busy: Be,
+			video: Le ? null : Me,
+			photo: Pe,
 			online: T === "online" ? E.head : null,
-			actions: Ee,
-			helpers: De
+			actions: Oe,
+			helpers: ke
 		}), c.filter),
 		(0, Sr.createPortal)(/* @__PURE__ */ (0, z.jsx)(TTe, {
 			enabled: T === "videos",
@@ -86116,15 +86124,15 @@ function vPe(e) {
 					"aria-hidden": !0,
 					className: "skeleton-sheen"
 				}, t))
-			}) : Fe ? /* @__PURE__ */ (0, z.jsx)(yPe, {
-				filtered: Pe,
-				onShowAll: Ie,
-				onOnline: _ ? () => Ee.setView("online") : void 0
+			}) : Le ? /* @__PURE__ */ (0, z.jsx)(yPe, {
+				filtered: Ie,
+				onShowAll: Re,
+				onOnline: _ ? () => Oe.setView("online") : void 0
 			}) : /* @__PURE__ */ (0, z.jsx)(DMe, {
 				kind: t,
 				name: n,
 				view: T,
-				roster: Be,
+				roster: He,
 				items: N.data ?? null,
 				revision: P,
 				fetchPage: re,
@@ -86140,7 +86148,7 @@ function vPe(e) {
 				photoSize: e.photoSize,
 				photoLayout: e.photoLayout,
 				helpers: e.card.helpers,
-				actions: ze,
+				actions: Ve,
 				layout: te,
 				selectMode: e.selectMode,
 				selected: e.selected,
@@ -90693,12 +90701,14 @@ function GIe({ host: e, tab: t, epoch: n }) {
 			}),
 			/* @__PURE__ */ (0, z.jsx)(X2, {
 				title: L("settings:preferencesPanel.hoverDelay"),
+				description: e.censored() ? L("settings:preferencesPanel.hoverDelaySfw") : void 0,
 				children: /* @__PURE__ */ (0, z.jsx)("div", {
 					id: "hoverDelaySetting",
 					children: /* @__PURE__ */ (0, z.jsx)(T2, {
 						id: "hoverDelaySetting",
 						label: L("settings:preferencesPanel.hoverDelay"),
 						value: r.hoverDelaySeconds,
+						disabled: e.censored(),
 						onApply: (t) => {
 							r.hoverDelaySeconds = Dj(t, 0, 60, 5), i(), e.changed("hoverDelay");
 						}
@@ -90782,14 +90792,14 @@ function KIe({ host: e, tab: t, epoch: n }) {
 				children: L("settings:preferencesPanel.newReleases")
 			}),
 			/* @__PURE__ */ (0, z.jsx)(Y2, {
-				id: "homeFeedNewSetting",
-				title: L("settings:preferencesPanel.homeFeedNew"),
-				checked: r.homeFeedNew,
+				id: "feedNewRowsSetting",
+				title: L("settings:preferencesPanel.feedNewRows"),
+				checked: r.feedNewRows,
 				onToggle: (t) => {
-					r.homeFeedNew = t, i(), e.changed("homeFeedNew");
+					r.feedNewRows = t, i(), e.changed("feedNewRows");
 				}
 			}),
-			/* @__PURE__ */ (0, z.jsx)(X2, {
+			r.feedNewRows ? /* @__PURE__ */ (0, z.jsxs)(z.Fragment, { children: [/* @__PURE__ */ (0, z.jsx)(X2, {
 				title: L("settings:preferencesPanel.feedLimit"),
 				children: /* @__PURE__ */ (0, z.jsx)("div", {
 					id: "feedLimitSetting",
@@ -90802,15 +90812,14 @@ function KIe({ host: e, tab: t, epoch: n }) {
 						}
 					}, n)
 				})
-			}),
-			/* @__PURE__ */ (0, z.jsx)(Y2, {
+			}), /* @__PURE__ */ (0, z.jsx)(Y2, {
 				id: "feedAutoScrollSetting",
 				title: L("settings:preferencesPanel.autoScroll"),
 				checked: r.feedAutoScroll,
 				onToggle: (t) => {
 					r.feedAutoScroll = t, i(), e.changed("feedAutoScroll");
 				}
-			}),
+			})] }) : null,
 			MIe.map(([t, n, r, i]) => /* @__PURE__ */ (0, z.jsx)(XIe, {
 				host: e,
 				id: t,
@@ -98258,7 +98267,7 @@ async function d5(e, t) {
 	if (n.status === "rejected") throw n.reason;
 }
 var HHe = u5(() => import("./peach-app.jav-page-CXMl6ZF4.js")), UHe = u5(() => import("./peach-app.stats-page-CcXtdb7M.js")), WHe = u5(() => import("./peach-app.taste-page-BpJn2_Sh.js")), GHe = u5(() => import("./peach-app.review-page-Dc9p3Z-E.js")), f5 = u5(() => import("./peach-app.data-cleanup-page-djF2PFlB.js")), KHe = u5(() => import("./peach-app.duplicates-page-Dkkc0EWO.js")), qHe = u5(() => import("./peach-app.quality-goals-page-w9azpThL.js")), JHe = u5(() => import("./peach-app.scraping-page-Br7OmnEh.js")), YHe = u5(async () => {
-	let [{ ConfigurationPage: e }, { DiagnosticsPage: t }] = await Promise.all([import("./peach-app.configuration-page-DcaRfBJr.js"), import("./peach-app.diagnostics-page-DyQ89xko.js")]);
+	let [{ ConfigurationPage: e }, { DiagnosticsPage: t }] = await Promise.all([import("./peach-app.configuration-page--r87h6Nu.js"), import("./peach-app.diagnostics-page-DyQ89xko.js")]);
 	return {
 		ConfigurationPage: e,
 		DiagnosticsPage: t
@@ -99353,7 +99362,7 @@ function bWe(e) {
 	e && (g9(e), Z.appSettings.feedAutoScroll && sd(e));
 }
 function e7(e) {
-	return pM().value.homeFeedNew !== !1 && Gi(e) && e !== "/junk-files";
+	return pM().value.feedNewRows !== !1 && Gi(e) && e !== "/junk-files";
 }
 function xWe() {
 	let e = B("#feedNew");
@@ -99373,7 +99382,7 @@ function t7() {
 }
 function SWe(e) {
 	let t = B("#feedNew");
-	pM().value.homeFeedNew === !1 ? (eg(t), t7()) : e7(location.pathname) && !e && xWe();
+	pM().value.feedNewRows === !1 ? (eg(t), t7()) : e7(location.pathname) && !e && xWe();
 }
 function CWe() {
 	Z5.feedRevision += 1, $h(B("#feedNew"), { revision: Z5.feedRevision }), a7({ feedRevision: Z5.feedRevision });
@@ -99623,7 +99632,7 @@ function d7(e, t) {
 	let r = (e, t, n) => {
 		t && !e ? n() : !t && e && e.remove();
 	};
-	r(n.querySelector(".entityfoot"), e !== "agency" && Z5.hasEntityPart(e, t, "costars"), () => n.querySelector(".entityhero")?.insertAdjacentHTML("beforeend", Z5.costarSkeletonFoot())), r(n.querySelector(".feednew"), Z5.hasEntityPart(e, t, "feed"), () => n.querySelector(".entitysection")?.insertAdjacentHTML("beforebegin", Z5.feedNewSkeletonSection())), r(n.querySelector(".entityfacts"), e === "performer" && Z5.hasEntityPart(e, t, "facts"), () => n.querySelector(".entityprofile")?.insertAdjacentHTML("beforeend", Z5.factsSkeleton()));
+	r(n.querySelector(".entityfoot"), e !== "agency" && Z5.hasEntityPart(e, t, "costars"), () => n.querySelector(".entityhero")?.insertAdjacentHTML("beforeend", Z5.costarSkeletonFoot())), r(n.querySelector(".feednew"), Z.appSettings.feedNewRows !== !1 && Z5.hasEntityPart(e, t, "feed"), () => n.querySelector(".entitysection")?.insertAdjacentHTML("beforebegin", Z5.feedNewSkeletonSection())), r(n.querySelector(".entityfacts"), e === "performer" && Z5.hasEntityPart(e, t, "facts"), () => n.querySelector(".entityprofile")?.insertAdjacentHTML("beforeend", Z5.factsSkeleton()));
 }
 var RWe = {
 	performers: "shell:entityMissing.performer",
@@ -101719,7 +101728,7 @@ function zKe() {
 		},
 		searchHistoryLimit: () => $h(B("#searchMenu"), { historyLimit: Z.appSettings.searchHistoryLimit }),
 		searchRecommendations: () => $h(B("#searchMenu"), { recommend: Z.appSettings.searchRecommendations }),
-		homeFeedNew: () => SWe(K.browse === "folders"),
+		feedNewRows: () => SWe(K.browse === "folders"),
 		homeShorts: () => {
 			Gi(location.pathname) && a9();
 		},
@@ -103549,4 +103558,4 @@ if (!$9) throw Error(L("shell:errorReport.hostMissing"));
 vJe($9);
 export { BL as $2ec61d1d4f780267$export$a8a3e93435678ff9, JL as $3a442827418ebe87$export$eb2fcfdbd7ba97d4, dz as $542a13ca2fa5b484$export$5b6b19405a83ff9d, tk as $72abaeab4d80592f$export$78efe591171d7d45, rB as $76d00c5a4edb230a$export$76ccd210b9029917, eB as $76d00c5a4edb230a$export$816b5d811295e6bc, oB as $76d00c5a4edb230a$export$b59bdbef9ce70de2, cB as $76d00c5a4edb230a$export$f6f0c3fe4ec306ea, $z as $76d00c5a4edb230a$export$f850895b287ef28e, Ave as $b4f18e3395fe64d7$export$3d96ec278d3efce4, kve as $b4f18e3395fe64d7$export$3e41faf802a29e71, Eve as $b4f18e3395fe64d7$export$b2539bed5023c21c, fB as $b4f18e3395fe64d7$export$e51a686c67fdaa2d, Nve as $bd263d78e9bf3c56$export$f5c9f3c2c4054eec, SO as $ea3928288112382f$export$439d29a4e110a164, wz as $f2ff30fde7b014be$export$3ddf2d174ce01153, jz as $fe21c36db05242bb$export$a98f0dcb43a68a25, Mz as $fe21c36db05242bb$export$d7b12c4107be0d61, obe as $l, eM as ACCENTS, WFe as AMANE_BRIDGE_CHECK_URL, $0 as AMANE_BRIDGE_KEY, GFe as AMANE_BRIDGE_REBUILD_URL, AW as ActivityMotion, jW as ActivityStatus, xa as ApiError, sK as ArtSlot, K3 as BATCH_DELETE_TEXT, Y as Button, xB as ButtonLink, zV as Bx, Q0 as CHECK_ALL_KEY, x0 as CLEANUP_ENTRY, b0 as CLEANUP_ENTRY_GRID, kh as CLEANUP_HASH_REDIRECTS, jh as CLEANUP_TOOLS, ei as CLOUD_LOCATIONS, h4 as CLOUD_PROXY_HELP, io as COLUMN_SORT, v2 as CONFIGURATION_KEY, nh as CONFIGURATION_SECTIONS, ZZ as CONFIGURATION_URL, KFe as COOKIE_TEXT_LIMIT, Z0 as COVER_JOB_KEY, Zd as COVER_STATE_TITLE, ds as CREDENTIAL_STATE, K0 as CUSTOM_SOURCES_KEY, G0 as CUSTOM_SOURCES_URL, Eq as CatalogViewToggle, KU as Checkbox, GU as CheckboxGlyph, SB as ChevronSortDown, GG as Chip, gK as CloudDownloadDialog, LW as CollapseChevron, IW as CollapseRegion, m0 as CollectionSummary, Ube as CommandSteps, y1 as CoverQueue, _Ae as DEFAULT_CATEGORY, Ta as DEFAULT_SORT, V1 as DIAGNOSTICS_KEY, lje as DIRECTORY_TEMPLATE_ERROR, Fwe as DISCOVERY_METADATA_KEY, CK as DISCOVERY_SORTS, lK as DOWNLOADS_KEY, cK as DOWNLOADS_URL, _Z as DUPLICATES_KEY, oK as DataTableFooter, QX as DataTableFrame, aK as DataTableSort, iH as Disclosure, pwe as DownloadsPanel, Yye as E3, vAe as ENTITY_REVIEW_KINDS, p4 as ENTRY_LINKS_HELP, m4 as ENTRY_LINKS_HINT, jV as Ea, dSe as EmptyFocusButton, EU as EmptyState, tH as ErrorText, Ebe as Eu, rH as ExternalLink, eo as FEEDS_KEY, v0 as FIELDSET_FOOT, tHe as FLOW_LABEL_X, eHe as FLOW_VIEWBOX, Qa as FOLLOW_CHECK_KEY, EH as FOLLOW_CHECK_TASK, Za as FOLLOW_CREDENTIALS_KEY, KUe as FOLLOW_INITIAL_RANGE_OPTIONS, Xa as FOLLOW_MANAGE_KEY, F$ as FOLLOW_MANAGE_NAV, $a as FOLLOW_RESOLVE_KEY, Kbe as Fact, Gbe as FactList, nH as FieldLabel, F0 as Fieldset, P0 as FieldsetTitle, oSe as FilterGlass, sU as FilterGlassRows, oU as FilterIconButton, cU as FilterPill, Vbe as Footer, IV as Gg, lU as GlassPill, UV as HN, eH as Help, mU as HintText, aAe as IDLE_REPAIR, rU as IconButton, U1 as IndexSearch, yU as Input, vU as InputBase, L0 as IssueRow, Zbe as ItemLibrary, yM as JAV_LAYOUTS, u3 as JAV_RECOMMENDATION_GRID, WUe as JAV_SELECTION_EVENT, wQ as JUNK_KEY, LK as JavHeader, $ke as KEEP_LABELS, Iye as L1, no as LAYOUTS, f4 as LIBRARY_FOLDER_HELP, rW as LIBRARY_PROCESSING_KEY, WZ as LINKS_KEY, GZ as LINK_CHECK_KEY, UAe as LINK_KINDS, KZ as LINK_PRUNE_KEY, ga as LOC, pU as Label, lH as LibraryLabel, V0 as LibraryProcessingCard, zU as LibraryShortcuts, $V as LinkButton, cbe as Lo, Zye as M6, whe as MEDIA_PROCESSING_KEY, _I as MEDIA_PROCESSING_URL, SZ as MEDIA_REPAIR_KEY, xZ as MEDIA_REPAIR_URL, Na as MEDIA_SOURCES_KEY, jl as MEDIA_SOURCE_ICONS, Qr as MEDIA_SOURCE_OPTIONS, vB as MENU_ITEM, yB as MENU_ITEM_INTERACTIVE, _B as MENU_POPOVER_SURFACE, ube as Ma, GB as MenuDialog, OJ as MixCard, bU as ModalFrame, kC as MotionConfigContext, qV as NR, I0 as NameLink, SU as Note, JV as OA, iQ as ORGANIZE_KEY, U3 as ORGANIZE_PARAMETER_HINT, H3 as ORGANIZE_SCOPE_HINT, V3 as ORGANIZE_TEXT, sQ as ORPHAN_RECORDS_KEY, G3 as ORPHAN_RECORDS_TEXT, PV as OV, TU as ObjectOrderDialog, vV as P7, xQ as PERFORMER_DELETE_KEY, Swe as PHASES, QZ as PICK_FOLDER_URL, C0 as PLAIN_STAT_STRIP, U0 as PLAYLISTS_KEY, pLe as POLICY_COLUMNS, hLe as POLICY_COVER_NOTE, mLe as POLICY_MATRIX, d4 as POLICY_SUMMARY, R0 as PathLine, GV as Pf, hFe as PlainStat, wW as ProcessingMode, NW as Progress, DZ as QUALITY_GOALS_KEY, WV as RB, s3 as RELEASE_COLUMN_VISIBILITY_KEY, o3 as RELEASE_COLUMN_WIDTHS_KEY, qG as RELEASE_NOTICE_EVENT, MK as RELEASE_PAGE_SIZES, wK as RELEASE_SORTS, WLe as RELEASE_SORT_COLUMNS, R1 as REPAIRS_KEY, T0 as REPAIR_CARD_TEXT, sh as REPAIR_CENTER_PATH, CZ as REPAIR_LIBRARIES_KEY, fQ as RESOURCE_APPLY_KEY, dQ as RESOURCE_SCAN_KEY, W3 as RESOURCE_SYNC_TEXT, M0 as RESULT_PANEL, N0 as RESULT_SECTION, gAe as REVIEW_CATEGORIES, CQ as REVIEW_COUNTS_KEY, bAe as REVIEW_DECISION_LABELS, AZ as REVIEW_KEY, jZ as REVIEW_LABELS, NZ as REVIEW_QUEUES, yAe as REVIEW_QUEUE_LABELS, PH as RUNNING_POLL_MS, nJ as RetryNote, jbe as Rf, YV as Rk, Rbe as Rows, bI as SCHEDULES, J0 as SCRAPING_CHECK_ALL_URL, HFe as SCRAPING_CHECK_URL, Y0 as SCRAPING_COVER_URL, X0 as SCRAPING_KEY, VFe as SCRAPING_SETTINGS_URL, nG as SEGMENT, tG as SEGMENTED_TRACK, pI as SETTINGS_KEY, lI as SETTINGS_URL, Ea as SORT_DEFAULT_DIR, wa as SORT_OPTIONS, ti as SOURCE_LABELS, FBe as STATS_KEY, pFe as STAT_STRIP, mFe as STAT_STRIP_SIX, Lbe as Section, yFe as SectionHeading, Bbe as SectionSkeleton, eG as SegmentedRadioGroup, sCe as SegmentedTabList, Yq as Segments, nK as Select, wB as Select$1, S2 as SelectField, TB as SelectItem, aZ as SelectionActions, Sj as SelectionDock, oZ as SelectionPopover, XV as SettingsCard, Ibe as SettingsRow, ZV as SettingsSectionLabel, Xq as Shuffle, Xbe as SiteLabel, iK as SortDirectionIcon, Zq as SortKeys, hH as SortableBoardTabs, _1 as SourceAvatar, cH as SourceLabel, aH as SourceMark, zbe as Stack, gFe as StatCard, KG as StatusLabel, Dbe as Su, k6 as Switch, NH as TASKS_KEY, MVe as TASTE_REFRESH_KEY, WVe as TASTE_REFRESH_TASK, NVe as TASTE_WINDOWS, gI as THUMBNAIL_JOBS_KEY, EQ as TRASH_KEY, LH as TRIGGER_LABELS, VX as Table, sZ as TableColumnControls, cZ as TableColumnResizer, uZ as TableSelectionHeader, l0 as TagManager, Wbe as TaskCenterLink, PW as TaskProgress, gU as TextField, hU as TextFieldContext, MV as Un, Mbe as Uz, vK as WANTS_KEY, W6 as WantMagnets, $v as WithPromise, CV as Wt, AV as Xc, KV as Xf, TV as Xl, wV as Xt, bV as _8, o as __commonJSMin, s as __exportAll, l as __toESM, HV as _p, kbe as aB, kW as activityKind, zo as addAlias, Ro as addSource, bK as addWant, yw as animate, U as apiGet, W as apiSend, pM as appSettingsStore, Oje as applyConfirmText, bQ as applyLeftovers, Dje as applyPlanText, Aje as applyText, _M as applyTheme, Ex as asNumber, gje as attachOrphan, xo as authorAvatar, Co as authorGroups, bo as authorInitial, yo as authorName, kY as autoResetPageIndex, jc as avatarInner, $Be as bandRows, uje as baseName, iAe as batchOperate, eme as beginPlayerGuidePreview, Ci as bodyFieldErrors, Dj as boundedPreference, tAe as bulkCloudPreferences, CU as busyProps, Obe as cB, Rze as cachedMagnetStates, qv as calcGeneratorVelocity, DAe as canApprove, xv as cancelFrame, xje as candidateText, xG as cardClass, MM as cardRatio, YX as catalogListSkeletonCellHtml, kV as cc, KCe as checkClientUpdates, ss as checkEvidenceGap, os as checkFailures, nee as checkFeeds, JAe as checkLine, is as checkReceipt, as as checkSummary, JFe as checkText, SPe as checkText$1, cs as checkedText, pJ as clickedBlank, N7 as closeDrawerAfterNav, Kke as cloudLocations, q4 as cloudProxySkeleton, QT as clsx, pbe as cn, yi as codedText, gne as collectMotionValues, YY as columnVisibilityFeature, IX as column_getCanSort, MX as column_getSortFn, TAe as commonReviewSources, hK as composingKey, lh as configurationSection, LVe as configureTasteBrowser, Ad as confirmModal, Rwe as controlDiscoveryMetadata, zwe as controlReleaseMetadata, Pxe as controlTask, dY as copyInstancePropertiesWithoutMemos, Pwe as coverArrived, Mwe as coverFetching, $d as coverFetchingHtml, Xd as coverReason, Qd as coverStateAction, wc as coverUrl, BY as createColumnHelper, NFe as createPlaylist, fs as credentialDone, U4 as credentialsSkeleton, IAe as currentReviewRow, hL as cx, Qye as d6, RV as dZ, NAe as decisionPayload, PAe as decisionReceipt, MAe as defaultChoice, Mje as deletePerformerVideos, FFe as deletePlaylist, Q4 as devicesSkeleton, x as diagnosticHeaders, u4 as diagnosticsSkeleton, Bwe as discoveryArtwork, AK as discoveryKey, kwe as discoveryScore, v9 as disposeStage, Zke as distinctName, ns as dropSources, Tbe as du, nAe as duplicateVictims, qH as elapsedText, Br as entityDisplayName, Ac as entityFaceImg, Ji as entityPath, mo as errorHeadline, Sa as errorMessage, H as esc, OY as expandRowModel, dV as f1, Pc as facePos, po as feedIntervalText, r2 as fetchAmaneBridge, n2 as fetchCheckAllJob, jo as fetchCheckJob, y2 as fetchConfiguration, t2 as fetchCoverJob, kK as fetchCoverNow, Ao as fetchCredentials, q0 as fetchCustomSources, SQ as fetchDeletePerformers, jje as fetchDeletePlan, H1 as fetchDiagnostics, jK as fetchDiscoveries, Lwe as fetchDiscoveryMetadata, yZ as fetchDuplicates, Jo as fetchFeeds, ko as fetchFollow, OQ as fetchJunkSummary, dW as fetchLibraryProcessing, YZ as fetchLinkCheck, XZ as fetchLinkPrune, JZ as fetchLinkStats, The as fetchMediaProcessing, wZ as fetchMediaRepair, Pa as fetchMediaSources, aQ as fetchOrganize, nje as fetchOrganizeExample, cQ as fetchOrphanRecords, IFe as fetchPlaylist, W0 as fetchPlaylists, OZ as fetchQualityGoals, IK as fetchReleases, TZ as fetchRepairLibraries, B1 as fetchRepairs, Mo as fetchResolveJob, mQ as fetchResourceApply, pQ as fetchResourceScan, VZ as fetchReview, DQ as fetchReviewCounts, vI as fetchSettings, e2 as fetchSources, IBe as fetchStats, No as fetchSuggestions, IH as fetchTasks, RVe as fetchTaste, zVe as fetchTasteJob, Ohe as fetchThumbnailJobs, kQ as fetchTrashSummary, yK as fetchWants, CAe as filterReviewRows, ma as firstGrapheme, qJ as flexRender, aHe as flowGraph, oHe as flowLabel, RBe as fmtCount, ca as fmtDur, ua as fmtSize, Axe as foldByKind, Kxe as foldRoutine, Qo as followFeedByName, $o as followFeedEntity, to as followSuggestKey, Xxe as followupDetail, kxe as followupTally, bv as frame, gV as g4, QY as getDefaultPaginationState, jM as gridLayout, So as groupByAuthor, Gxe as groupFollowups, IZ as groupReviewRows, Tje as hasChanges, hQ as hasResourceRoots, zH as hasResultProblems, KVe as historySpan, fV as i2, UVe as importTasteExport, W4 as indexersSkeleton, yt as interfaceLanguage, Uv as interpolate, SK as invalidateWants, VH as isActive, fo as isBroken, ao as isLayout, Eb as isMotionValue, MZ as isReviewCategory, qxe as isRoutine, G4 as javBrowserSkeleton, f3 as javContentSkeleton, wM as javLayout, d3 as javTagSkeleton, bi as jobText, Ct as joinList, Rje as junkBreakdown, Jke as keepGroup, RFe as keepPlaylist, pn as keepPreviousData, Eo as keepSelected, K8 as known, Fye as l1, Wye as l7, Owe as lastSearchNote, Wxe as latestOfKind, pa as leadingGraphemes, PLe as ledgerBackupsSkeleton, eVe as lengthRows, Ri as linkLabel, Ia as localTime, z1 as localizeRepairs, _2 as localizedFact, Dc as logoUrl, Zo as lookupFeedActor, _V as m7, LV as mM, Vi as mapLimit, qo as markAllPending, q8 as max, ZBe as mediumRows, Iwe as metadataInterval, rVe as min, VAe as mirrorText, cAe as missingToolText, bZ as mixedCloudPreferences, ZH as momentText, bw as motion, yb as motionValue, Dn as notifyManager, xV as oe, fje as organizeOutcome, k3 as overlayHost, oo as pageSizeOf, To as pageWindow, mi as partsLabel, ts as patchSource, lg as peachHistory, lg as peachHistory$1, jAe as pendingGenres, BBe as percentText, aje as pickOrganizeFolder, tQ as pickServerFolder, S0 as plainStatClass, dje as planSummary, VBe as playedFor, GBe as playedItemUrl, jxe as pollInterval, tW as pollUntil, gu as popCount, MFe as posterUrl, Mye as previewLibraryColor, ije as previewOrganize, dAe as previewUrl, Hxe as problemDestination, oW as processingActive, GH as progressLabel, JH as progressText, sH as providerIcon, qAe as pruneText, _Q as purgeCount, _je as purgeOrphan, BV as pv, wbe as qE, G as queryClient, wt as quoted, pV as r2, $Ve as radarRows, JBe as radialArc, YBe as radialBarSize, qBe as radialCeiling, KBe as radialSlices, eP as randomId, XVe as rankDetail, ZVe as rankShares, UBe as reachedShare, YH as readableErrorHeadline, Awe as recommendationScore, LAe as recordGenre, yje as recordsText, zFe as recreatePlaylist, AFe as refreshPlaylists, qd as relayoutCovers, c3 as releaseColumns, NK as releaseFilters, PK as releaseKey, rs as reloadFollowManage, BAe as reloadReview, vLe as rememberShape, sje as rememberTemplates, Bo as removeAlias, Xo as removeFeed, Lo as removeSource, HVe as removeTasteSource, xK as removeWants, Vo as renameAliasGroup, PFe as renamePlaylist, LFe as reorderPlaylist, _3 as repairCenterPanelSkeleton, on as replaceEqualDeep, nVe as replayRows, Bt as require_jsx_runtime, Nt as require_react, It as require_react_dom, sY as require_with_selector, Twe as resetWants, Oa as resolveFollowSort, Xv as resolveStartTime, jSe as restartEffectText, jFe as resumeAssetId, SAe as reviewGroupingOptions, FZ as reviewQueueData, PZ as reviewQueueOf, Lje as reviewSummary, wAe as reviewWindow, kAe as rowEvidence, BZ as rowFieldName, aX as rowPaginationFeature, EX as rowSelectionFeature, zX as rowSortingFeature, LZ as rowSubject, AAe as rowTags, OAe as rowTitle, KH as runError, Vye as s5, Ho as saveCredential, Eje as scanLine, Nhe as schedulePollInterval, Dwe as searchNote, oh as sectionTitle, kZ as selectRange, EAe as selectReviewRange, Do as selectionState, fAe as selectionSummary, fi as serverLabel, vi as serverLabelList, wi as serverText, Yo as setFeedEnabled, Io as setSourceEnabled, Fxe as setTaskSpeed, ph as settingsPath, zAe as settleReviewRows, Xke as sharedNamePrefix, ug as shellNavigate, DUe as showToast, UB as showToast$1, ea as siteMarkUrl, yY as skipFirstRun, gL as sortCx, co as sortLabel, ni as sourceDefaultCost, us as sourceIconUrl, kje as sourceMeta, eu as spinnerHtml, Vv as spring, qB as spriteGlyph, pi as stageText, Po as startCheck, WAe as startLinkCheck, GAe as startLinkPrune, oje as startOrganize, Fo as startResolve, Cje as startResourceApply, Sje as startResourceScan, VVe as startTasteRefresh, fFe as statCardClass, Rxe as statusLabel, sAe as statusLine, uo as statusText, NM as storeJavLayout, FAe as submitDecision, $H as summaryItems, mJ as suppressShiftTextSelection, L as t, VY as tableFeatures, bY as tableMemo, wo as tableRows, Vxe as taskIssues, HH as taskName, Uxe as taskSubject, GVe as tasteDate, JVe as tasteDimensions, qVe as tasteHours, jVe as tasteKey, FVe as tasteRefetchInterval, IVe as tasteTime, yH as textLang, a3 as tierPlaceholdersHtml, A_ as time, ibe as tl, Oo as toggleGroup, QVe as topScores, Hbe as translateWithNodes, hbe as um, lbe as uo, wU as useAction, A$ as useBackgroundJob, Tq as useCatalogView, HG as useClientUpdates, Xg as useConstant, eU as useEntityNames, Zg as useIsomorphicLayoutEffect, uV as useLibraryTints, br as useMutation, uH as useNavigationOrder, z0 as useOrderedLibraries, qU as useOverlayScrollbar, yr as useQuery, Ht as useQueryClient, sw as useReducedMotion, Mhe as useRunSchedule, Ahe as useSaveSchedule, yI as useSaveSettings, Phe as useSaveThumbnailMode, BX as useTable, tZ as useTablePreferences, fU as useViewGlide, rAe as victimBytes, abe as vl, Ewe as wantName, WBe as watchNote, HBe as watchedShare, $ye as we, Zu as wireHorizontalScroller, QU as withBackoff, cje as withOrganizeJob, jwe as writeJavQuery, Xye as z3 };
 
-//# debugId=ef6ab15a-f806-4f45-9da9-1c1844583da8
+//# debugId=7eb543a5-0f8f-4812-9f16-8c662a7979d6

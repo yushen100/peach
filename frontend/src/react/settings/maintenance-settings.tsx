@@ -87,7 +87,7 @@ export function AutomaticUpdates({ initial, receipt }: { initial: AutomaticUpdat
             onChange={(on) => setMode(on ? 'download' : 'check')} />
         </SettingsRow>
         <SettingsRow label={t('settings:autoUpdate.frequency')} description={help}>
-          <Select aria-label={t('settings:autoUpdate.frequency')} selectedKey={String(hours)} isDisabled={!initial.available}
+          <Select aria-label={t('settings:autoUpdate.frequency')} selectedKey={String(hours)} isDisabled={!initial.available || mode === 'off'}
             onSelectionChange={(key) => { if (key !== null) setHours(Number(key)); }}>
             {INTERVALS.map(([key, name]) => <SelectItem key={key} id={key}>{name}</SelectItem>)}
           </Select>

@@ -90,6 +90,21 @@ describe('媒体目录', () => {
     expect(host.querySelector('[aria-label="SMB 账号 1"]')).toBeNull();
   });
 
+  it('勾了「移除账号」时账号、密码与加密一起禁用，取消后恢复', async () => {
+    const host = await open({ media_sources: [{ location: 'local', root: 'D:\\Media', path: 'D:\\Media' }] });
+    await choose(host.querySelector('[aria-label="媒体来源 1"]'), 'SMB 共享');
+    const fields = () => [host.querySelector<HTMLInputElement>('input[aria-label="SMB 账号 1"]')!.disabled,
+      host.querySelector<HTMLInputElement>('input[aria-label="SMB 密码 1"]')!.disabled,
+      [...host.querySelectorAll<HTMLLabelElement>('label')].find((label) => label.textContent?.includes('要求 SMB 加密'))!
+        .querySelector<HTMLInputElement>('input')!.disabled];
+    const remove = () => [...host.querySelectorAll<HTMLLabelElement>('label')].find((label) => label.textContent?.includes('移除已保存的 SMB 账号'))!;
+    expect(fields()).toEqual([false, false, false]);
+    await click(remove());
+    expect(fields()).toEqual([true, true, true]);
+    await click(remove());
+    expect(fields()).toEqual([false, false, false]);
+  });
+
   it('保存 SMB 来源保留目录身份，密码输入保持为空', async () => {
     const fetcher = fetchMock(200, { saved: true, url: '/', revision: 'rev-2' });
     vi.stubGlobal('fetch', fetcher);

@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "6602493f-0f00-4ed2-a3ca-4381e00efd92", e._sentryDebugIdIdentifier = "sentry-dbid-6602493f-0f00-4ed2-a3ca-4381e00efd92");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "ee73934a-7978-4620-bd29-da0350370dbf", e._sentryDebugIdIdentifier = "sentry-dbid-ee73934a-7978-4620-bd29-da0350370dbf");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -6440,11 +6440,12 @@ var He = {
 		detailAutoplay: "Autoplay when opening details",
 		feedLimit: "Number shown",
 		feedLimitInput: "Number of new releases shown",
+		feedNewRows: "Show new releases on Home and actress pages",
 		groupEditions: "Group parts and editions",
-		homeFeedNew: "Show new releases on Home",
 		homeShorts: "Portrait strip on Home",
 		homeTiers: "Show actress and label avatars on Home",
 		hoverDelay: "Hover preview delay",
+		hoverDelaySfw: "No previews in SFW mode.",
 		increaseContrast: "Increase contrast",
 		ingestNotices: "Import notifications",
 		interfaceSounds: "Interface sounds",
@@ -6477,6 +6478,7 @@ var He = {
 	pushDiscovery: {
 		addPrefix: "Add prefix",
 		cloudPrefixes: "Cloud path prefixes",
+		cloudPrefixesHelp: "Cloud notifications and cloud downloads both use this table to map cloud paths to media folders.",
 		configCopied: "CloudDrive2 config copied",
 		configLabel: "CloudDrive2 config",
 		copyConfig: "Copy config",
@@ -13294,11 +13296,12 @@ var He = {
 		detailAutoplay: "打开详情自动播放",
 		feedLimit: "显示数量",
 		feedLimitInput: "新作显示数量",
+		feedNewRows: "首页与人物页显示新作",
 		groupEditions: "合并分卷与版本",
-		homeFeedNew: "在首页显示新作",
 		homeShorts: "首页竖屏短片带",
 		homeTiers: "首页显示女优与厂牌头像",
 		hoverDelay: "悬停预览延迟",
+		hoverDelaySfw: "SFW 模式下不预览。",
 		increaseContrast: "增加对比度",
 		ingestNotices: "入库通知",
 		interfaceSounds: "界面音效",
@@ -13331,6 +13334,7 @@ var He = {
 	pushDiscovery: {
 		addPrefix: "添加前缀",
 		cloudPrefixes: "云端路径前缀",
+		cloudPrefixesHelp: "云通知和云下载都按这张表把网盘路径对应到媒体目录。",
 		configCopied: "已复制 CloudDrive2 配置",
 		configLabel: "CloudDrive2 配置",
 		copyConfig: "复制配置",
@@ -38713,4 +38717,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=6602493f-0f00-4ed2-a3ca-4381e00efd92
+//# debugId=ee73934a-7978-4620-bd29-da0350370dbf

@@ -318,16 +318,17 @@ function MediaForm({ data, receipt }: ConfigurationGroupProps) {
                     {row.transport === 'smb' ? <div className="flex w-full flex-col gap-2">
                       <FolderFieldLine>
                         <FolderField label={t('settings:smbShare.account')} className="w-full @lg:flex-1">
+                          {/* 勾了「移除账号」保存时只清凭据，账号、密码与加密都不读：一起禁用。 */}
                           <Input aria-label={t('settings:smbShare.accountLabel', { index: index + 1 })} value={row.smb_username || ''}
-                            autoComplete="off" onChange={value => edit(index, { smb_username: value })} />
+                            autoComplete="off" isDisabled={row.smb_clear} onChange={value => edit(index, { smb_username: value })} />
                         </FolderField>
                         <FolderField label={t('settings:smbShare.password')} className="w-full @lg:flex-1">
                           <Input aria-label={t('settings:smbShare.passwordLabel', { index: index + 1 })} type="password" value={row.smb_password || ''}
                             autoComplete="new-password" placeholder={row.smb_password_saved ? t('settings:smbShare.keepPassword') : ''}
-                            onChange={value => edit(index, { smb_password: value })} />
+                            isDisabled={row.smb_clear} onChange={value => edit(index, { smb_password: value })} />
                         </FolderField>
                       </FolderFieldLine>
-                      <Checkbox isSelected={row.smb_encrypt || false} onChange={value => edit(index, { smb_encrypt: value })}>{t('settings:smbShare.requireEncryption')}</Checkbox>
+                      <Checkbox isSelected={row.smb_encrypt || false} isDisabled={row.smb_clear} onChange={value => edit(index, { smb_encrypt: value })}>{t('settings:smbShare.requireEncryption')}</Checkbox>
                       <Checkbox isSelected={row.smb_clear || false} onChange={value => edit(index, { smb_clear: value })}>{t('settings:smbShare.removeAccount')}</Checkbox>
                       <Button className="self-start" variant="secondary" {...busyProps(action.busy === `smb-${index}`)}
                         onClick={() => void action.run(`smb-${index}`, signal => apiSend<{ readable: boolean; directories: string[] }>(
