@@ -438,7 +438,7 @@ class QualityCapTests(unittest.TestCase):
 
     def test_original_quality_keeps_every_encoder_command_unchanged(self):
         for encoder in (HardwareEncoder("nvenc"), HardwareEncoder("amf", "1"), HardwareEncoder("qsv"),
-                        HardwareEncoder("videotoolbox"), HardwareEncoder("vaapi", "/dev/dri/renderD128")):
+                        HardwareEncoder("qsv", gpu_frames=True), HardwareEncoder("videotoolbox"), HardwareEncoder("vaapi", "/dev/dri/renderD128")):
             with self.subTest(backend=encoder.backend):
                 self.assertEqual(encoder.attempts("hevc", 0), encoder.attempts("hevc"))
                 joined = " ".join(item for attempt in encoder.attempts("hevc") for item in attempt.output)
@@ -473,6 +473,19 @@ class QualityCapTests(unittest.TestCase):
         self.assertEqual(qsv["qsv"][:2], ("-vf", f"scale={SCALE_720.replace('720', '1080')}"))
         self.assertEqual(qsv["qsv"][2:], ("-c:v", "h264_qsv", "-preset", "veryfast", "-b:v", "6M",
                                           "-maxrate", "8M", "-pix_fmt", "nv12"))
+
+    def test_qsv_full_chain_scales_inside_vpp_qsv_and_keeps_the_fallbacks(self):
+        """全硬件链在 `vpp_qsv` 里缩放，帧不回内存；两级回退照旧在内存里软件缩放。"""
+        qsv = self.outputs(HardwareEncoder("qsv", gpu_frames=True), 1080)
+        self.assertEqual(list(qsv), ["qsv-full", "d3d11va-qsv", "qsv"])
+        scale = ("w='if(gt(iw,ih),trunc(iw*min(ih,1080)/ih/2)*2,trunc(min(iw,1080)/2)*2)'"
+                 ":h='if(gt(iw,ih),trunc(min(ih,1080)/2)*2,trunc(ih*min(iw,1080)/iw/2)*2)'")
+        self.assertEqual(qsv["qsv-full"], (
+            "-vf", f"hwmap=derive_device=qsv,vpp_qsv={scale}:format=nv12",
+            "-c:v", "h264_qsv", "-preset", "veryfast", "-b:v", "6M", "-maxrate", "8M"))
+        self.assertNotIn("-pix_fmt", qsv["qsv-full"])
+        self.assertEqual(qsv["d3d11va-qsv"], qsv["qsv"])
+        self.assertEqual(qsv["qsv"][:2], ("-vf", f"scale={SCALE_720.replace('720', '1080')}"))
 
     def test_vaapi_scales_on_the_gpu_or_before_upload_with_vbr(self):
         outputs = self.outputs(HardwareEncoder("vaapi", "/dev/dri/renderD128"), 480)

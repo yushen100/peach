@@ -40,6 +40,7 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Interface**: Batch actions ask for confirmation first, and the reversible ones offer Undo (#690). / **界面**：批量操作都先确认再执行，能撤回的带撤销（#690）。
 - **Playback**: Titles closed near the end start from the beginning next time; the threshold is in Settings > Restart near end (#659). / **播放**：接近片尾时关掉的作品，下次打开从头播；剩余比例在设置「片尾从头播」里调（#659）。
 - **Playback**: When the browser can decode HEVC, the original file plays directly instead of being transcoded first (#616). / **播放**：浏览器能解 HEVC 时直接播放原文件，不再先在服务端转码（#616）。
+- **Playback**: On Windows with Intel graphics, transcoding keeps decoding, scaling and encoding on the GPU, using far less CPU (#238). / **播放**：Windows 上用 Intel 显卡转码时，解码、缩放与编码全程在显卡上完成，CPU 占用大幅下降（#238）。
 - **Playback**: TS and M2TS recordings with browser-playable video are repackaged as MP4 once instead of being re-encoded during playback (#220). / **播放**：视频流浏览器能解的 TS、M2TS 录像整片换封装成 MP4 播放，不再边播边重新编码（#220）。
 - **Playback**: Immersive mode in the top bar picks videos from the current page and returns there when closed; Trash no longer plays trashed files (#669). / **播放**：顶栏的沉浸模式按当前页面抽片，关掉后回到原页；回收站页不再播回收站里的文件（#669）。
 - **Playback**: Software transcoding of a whole video uses at most half the CPU cores, so other playing videos are not slowed down (#174). / **播放**：服务端软件转码整部视频时最多占一半 CPU 核，同时在播的视频不再被拖慢（#174）。

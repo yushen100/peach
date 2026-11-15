@@ -65,6 +65,8 @@ def _capped_windows_output(backend: str, max_height: int) -> tuple[str, ...]:
         "-c:v", "h264_qsv", "-preset", "veryfast")
     return ("-vf", f"scale={scale_size(max_height)}", *encoder, *rate, "-b:v", target, "-maxrate", peak,
             "-pix_fmt", "nv12")
+
+
 #: 帧全程留在 Intel 显卡：D3D11VA 解码后映射成 QSV 帧，`vpp_qsv` 转 NV12（含 10 位）再编码。
 #: 按厂商号选卡，混合显卡机器不用试序号；解码池默认定长，AV1 不加余量会报 surface pool 用尽。
 _QSV_FULL_DEVICES = (
@@ -76,6 +78,26 @@ _QSV_FULL_DECODE = (
     "-extra_hw_frames", "16",
 )
 _QSV_FULL_OUTPUT = ("-vf", "hwmap=derive_device=qsv,vpp_qsv=format=nv12", *_WINDOWS_ENCODER_OUTPUT["qsv"][:-2])
+
+
+def qsv_scale_size(max_height: int) -> str:
+    """`vpp_qsv` 的宽高参数，按短边缩到上限，口径同 `scale_size`。
+
+    `vpp_qsv` 只认 -1（保持比例），不认软件 `scale` 的 -2（取偶数），所以两边都写成显式的偶数式子。
+    """
+    short = f"min(ih,{max_height})"
+    narrow = f"min(iw,{max_height})"
+    return (f"w='if(gt(iw,ih),trunc(iw*{short}/ih/2)*2,trunc({narrow}/2)*2)'"
+            f":h='if(gt(iw,ih),trunc({short}/2)*2,trunc(ih*{narrow}/iw/2)*2)'")
+
+
+def _qsv_full_output(max_height: int) -> tuple[str, ...]:
+    """全硬件链的滤镜与编码参数。有画质上限时在 `vpp_qsv` 里缩放，码控与其余 QSV 路径一样改成带峰值的 VBR。"""
+    if max_height not in QUALITY_BITRATES:
+        return _QSV_FULL_OUTPUT
+    target, peak = QUALITY_BITRATES[max_height]
+    return ("-vf", f"hwmap=derive_device=qsv,vpp_qsv={qsv_scale_size(max_height)}:format=nv12",
+            "-c:v", "h264_qsv", "-preset", "veryfast", "-b:v", target, "-maxrate", peak)
 
 
 def videotoolbox_decode_options(codec: str) -> tuple[str, ...]:
@@ -215,7 +237,7 @@ class HardwareEncoder:
                 fallback = (HardwareAttempt("d3d11va-qsv", d3d11va_decode_options(codec), output), software_decode)
                 if not self.gpu_frames:
                     return fallback
-                return (HardwareAttempt("qsv-full", _QSV_FULL_DECODE, _QSV_FULL_OUTPUT), *fallback)
+                return (HardwareAttempt("qsv-full", _QSV_FULL_DECODE, _qsv_full_output(max_height)), *fallback)
             decode = d3d11va_decode_options(codec, self.device) if self.device else ()
             if not decode:
                 return (software_decode,)
