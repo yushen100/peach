@@ -980,6 +980,7 @@ class UpgradeRepairs:
         self._prepare_local()
         if not self.available or not self.contract.task_runs.enabled:
             return
+        self._repair_feed_overflow()
         if not retry_media and _read(self.receipt).get('media_paused'):
             return
         from .jobs import DiskSpaceDenied
@@ -991,6 +992,26 @@ class UpgradeRepairs:
             self.pause_media(error)
             if retry_media:
                 raise
+
+    def _repair_feed_overflow(self) -> None:
+        """版本升级时保守补建旧版被上限截掉的历史新作壳。"""
+        from . import feed_overflow_repair, web_settings
+        hidden = web_settings.hidden_compilations(self.contract.database)
+        with self.contract.database.read_connection() as connection:
+            if connection.execute(
+                    "SELECT 1 FROM ledger_upgrade_repair WHERE id=?",
+                    (feed_overflow_repair.RECEIPT_KEY,)).fetchone():
+                return
+            planned = feed_overflow_repair.candidates(connection, hidden)
+        if planned:
+            backup = self.contract.db_path.with_name(
+                f"ledger.pre-feed-overflow-{time.time_ns()}.db")
+            sqlite_backup(self.contract.db_path, backup)
+        with self.contract.database.write_transaction() as connection:
+            result = feed_overflow_repair.repair(connection, hidden)
+        if result is not None:
+            LOGGER.info("Feed overflow history repair: recovered %s of %s candidates",
+                        len(result["created"]), result["candidates"])
 
     def _prepare_local(self) -> None:
         """服务恢复任务前应用本地确定性修复。"""

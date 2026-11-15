@@ -193,6 +193,91 @@ class FeedPhaseTest(unittest.TestCase):
             due = following
 
 
+class HistoricalFeedOverflowRepairTest(unittest.TestCase):
+    """旧版已经把超过 20 条的作品记为已见时，只按确定证据补建。"""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.database = _database(Path(self._tmp.name))
+
+    def _old_batch(self, connection, source_id, *, count=35, shells=20,
+                   moment="2026-10-25T00:00:00.000Z"):
+        entries = tuple(feeds.FeedEntry(
+            f"/v/old{source_id}-{i}", f"PBD-{100 + i:03d}",
+            f"https://javdb.com/v/old{source_id}-{i}") for i in range(count))
+        for entry in reversed(entries):
+            feeds.record_entry(connection, source_id, entry,
+                               code=entry.code, now=moment)
+        for entry in entries[:shells]:
+            feeds.create_shell(connection, entry.code, source_id=source_id,
+                               title=entry.title, link=entry.link, now=moment)
+        return entries
+
+    def test_old_overflow_restores_fifteen_shells_and_is_idempotent(self):
+        from peach import feed_overflow_repair
+
+        with self.database.write_transaction() as connection:
+            source = feeds.add_source(connection, url="https://javdb.com/actors/ab1")
+            entries = self._old_batch(connection, source)
+            planned = feed_overflow_repair.candidates(connection)
+            self.assertEqual({row["code"] for row in planned},
+                             {entry.code for entry in entries[20:]})
+            outcome = feed_overflow_repair.repair(connection)
+            repeated = feed_overflow_repair.repair(connection)
+        self.assertEqual(outcome["candidates"], 15)
+        self.assertEqual(len(outcome["created"]), 15)
+        self.assertIsNone(repeated)
+        with self.database.read_connection() as connection:
+            self.assertEqual(connection.execute("SELECT count(*) FROM feed_item").fetchone()[0], 35)
+            self.assertEqual(connection.execute("SELECT count(*) FROM feed_discovery").fetchone()[0], 35)
+            self.assertEqual(feed_overflow_repair.candidates(connection), [])
+            self.assertEqual(connection.execute(
+                "SELECT count(*) FROM ledger_upgrade_repair WHERE id=?",
+                (feed_overflow_repair.RECEIPT_KEY,)).fetchone()[0], 1)
+            self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
+
+    def test_excludes_library_ignored_and_hidden_compilations(self):
+        from peach import feed_overflow_repair
+
+        with self.database.write_transaction() as connection:
+            source = feeds.add_source(connection, url="https://javdb.com/actors/ab1")
+            self._old_batch(connection, source)
+            connection.execute(
+                "INSERT INTO asset(location,path,name,medium,code) "
+                "VALUES('R','R:\\\\video\\\\old.mp4','old.mp4','video','PBD-132')")
+            other = feeds.add_source(connection, url="https://javdb.com/actors/ab2")
+            ignored = feeds.create_shell(connection, "PBD-133", source_id=other,
+                                         now="2026-10-24T00:00:00.000Z")
+            connection.execute("UPDATE feed_discovery SET ignored_at=? WHERE id=?",
+                               (feeds.stamp(), ignored))
+            connection.execute("UPDATE feed_item SET title='PBD-134 BEST 総集編'"
+                               " WHERE source_id=? AND code='PBD-134'", (source,))
+            planned = feed_overflow_repair.candidates(connection)
+            self.assertEqual({row["code"] for row in planned},
+                             {f"PBD-{n:03d}" for n in range(120, 132)})
+            outcome = feed_overflow_repair.repair(connection)
+        self.assertEqual(len(outcome["created"]), 12)
+        with self.database.read_connection() as connection:
+            self.assertEqual(connection.execute(
+                "SELECT ignored_at FROM feed_discovery WHERE id=?", (ignored,)).fetchone()[0] is not None,
+                True)
+            self.assertEqual(connection.execute(
+                "SELECT count(*) FROM feed_discovery").fetchone()[0], 33)
+
+    def test_incomplete_batch_and_disabled_source_are_not_repaired(self):
+        from peach import feed_overflow_repair
+
+        with self.database.write_transaction() as connection:
+            incomplete = feeds.add_source(connection, url="https://javdb.com/actors/ab1")
+            self._old_batch(connection, incomplete, shells=19)
+            disabled = feeds.add_source(connection, url="https://javdb.com/actors/ab2")
+            self._old_batch(connection, disabled)
+            feeds.set_enabled(connection, disabled, False)
+            self.assertEqual(feed_overflow_repair.candidates(connection), [])
+            outcome = feed_overflow_repair.repair(connection)
+        self.assertEqual(outcome["created"], [])
+
 class FeedStoreTest(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
@@ -234,6 +319,36 @@ class FeedStoreTest(unittest.TestCase):
         with self.database.read_connection() as connection:
             self.assertEqual(connection.execute(
                 "SELECT count(*) FROM feed_item").fetchone()[0], 3)
+
+    def test_more_than_twenty_new_works_all_have_shells_and_keep_backlog(self):
+        # 一页 35 部新作：仅 20 部进入本轮后继，另外 15 部不能只记为已见。
+        from peach import feed_followup
+
+        source_id = self._source()
+        entries = tuple(feeds.FeedEntry(
+            f"/v/test{index}", f"FNS-{index + 100:03d}",
+            f"https://javdb.com/v/test{index}") for index in range(35))
+        parsed = feeds.ParsedFeed("测试演员", entries)
+        with self.database.write_transaction() as connection:
+            source = connection.execute(
+                "SELECT * FROM feed_source WHERE id=?", (source_id,)).fetchone()
+            first = feeds.poll(connection, source, parsed)
+            second = feeds.poll(connection, source, parsed)
+
+        self.assertEqual(first["fresh"], 35)
+        self.assertEqual(len(first["created"]), feeds.MAX_NEW_PER_POLL)
+        self.assertEqual(second["fresh"], 0)
+        self.assertEqual(second["created"], [])
+        with self.database.read_connection() as connection:
+            self.assertEqual(connection.execute(
+                "SELECT count(*) FROM feed_item WHERE source_id=?",
+                (source_id,)).fetchone()[0], 35)
+            self.assertEqual(connection.execute(
+                "SELECT count(*) FROM feed_discovery").fetchone()[0], 35)
+            first_codes = [code for _id, code in first["created"]]
+            backlog = feed_followup.scrape_batch(connection, exclude=first_codes)
+            self.assertEqual(len(backlog), 15)
+            self.assertTrue(set(backlog).isdisjoint(first_codes))
 
     def test_second_poll_of_the_same_document_creates_nothing(self):
         source_id = self._source()
