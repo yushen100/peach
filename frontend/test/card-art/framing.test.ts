@@ -112,6 +112,20 @@ describe('coverAnchor：封面按自己的宽高比分流', () => {
     expect(fc2.dataset.frame).toBe('still');
   });
 
+  it('装好的竖版正封按正封摆，横图的整幅标记、人脸和正封框都不套到它身上', () => {
+    const pair = 'data-cover-front="/cover?front=1&code=START-404" data-cover-whole="/cover?code=START-404"'
+      + ' data-cover-layout="still" data-cx="0.3" data-posterbox="1147 2184 1542 0 2184 1542"';
+    const front = cover('/cover?front=1&code=START-404', 1536, 2184, pair);
+    coverAnchor(front);
+    expect(front.dataset.frame).toBe('front');
+    expect(front.classList.contains('panel')).toBe(false);
+    expect(front.style.getPropertyValue('--cover-x')).toBe('');
+    // 同一元素换回整张横图时，整幅标记照旧生效：不按右缘切。
+    const whole = cover('/cover?code=START-404', 2184, 1542, pair);
+    coverAnchor(whole);
+    expect(whole.dataset.frame).toBe('still');
+  });
+
   it('人脸落到可见窗口正中：锚点是 (脸 − 窗口/2) / (1 − 窗口)，夹在 0–100%', () => {
     const img = cover('/cover?code=SSIS-003', 1600, 900, 'data-cx="0.6"');
     coverAnchor(img);

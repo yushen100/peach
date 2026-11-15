@@ -98,7 +98,7 @@ export function syncJavImages(root: ParentNode, preference: unknown): void {
     const cover = img.dataset.javCover || '';
     const thumb = img.dataset.javThumb || '';
     const useCover = Boolean(cover && (normalizeJavImage(preference) === 'cover' || !thumb));
-    const src = useCover ? cover : thumb;
+    const src = useCover ? coverSource(img, img.dataset.javImageLayout === 'big', cover) : thumb;
     img.classList.toggle('cover', useCover);
     img.classList.toggle('whole', useCover && img.dataset.javImageLayout !== 'big');
     img.classList.toggle('front', useCover && img.dataset.javImageLayout === 'big');
@@ -107,7 +107,10 @@ export function syncJavImages(root: ParentNode, preference: unknown): void {
     img.classList.remove('panel');
     img.removeAttribute('style');
     (img.closest('.pic,[data-media-pic]') as HTMLElement | null)?.style.removeProperty('--cover-blur');
-    if (src && img.getAttribute('src') !== src) img.src = src;
+    if (src && img.getAttribute('src') !== src) {
+      delete img.dataset.thumbSrc;
+      img.src = src;
+    }
   });
 }
 
@@ -125,7 +128,21 @@ export function relayoutJavImages(root: ParentNode, layout: JavLayout): HTMLImag
     img.classList.remove('panel');
     img.removeAttribute('style');
     (img.closest('.pic,[data-media-pic]') as HTMLElement | null)?.style.removeProperty('--cover-blur');
-    if (img.complete && img.naturalWidth) ready.push(img);
+    // 装了竖版正封的换一张图：等新图 `load` 再算取景，不进立即重算的那一批。
+    const src = coverSource(img, layout === 'big', img.getAttribute('src') || '');
+    if (src !== img.getAttribute('src')) {
+      // 模糊补底记的是上一张图的派生档，换了图就不能再借。
+      delete img.dataset.thumbSrc;
+      img.src = src;
+    } else if (img.complete && img.naturalWidth) ready.push(img);
   });
   return ready;
+}
+
+/** 封面这一格该取哪张：装了竖版正封的大图位取它，小图位取整张横图；没装的原样用 `fallback`。 */
+export function coverSource(img: HTMLImageElement, big: boolean, fallback: string): string {
+  const front = img.dataset.coverFront || '';
+  const whole = img.dataset.coverWhole || '';
+  if (!front || !whole) return fallback;
+  return big ? front : whole;
 }
