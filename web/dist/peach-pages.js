@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "641bda18-def1-4718-acb5-3353cb892515", e._sentryDebugIdIdentifier = "sentry-dbid-641bda18-def1-4718-acb5-3353cb892515");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "bc4087e6-6f83-4414-b186-4e2f9aa25475", e._sentryDebugIdIdentifier = "sentry-dbid-bc4087e6-6f83-4414-b186-4e2f9aa25475");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -6627,6 +6627,7 @@ var He = {
 		homeTiers: "Show actress and label avatars on Home",
 		hoverDelay: "Hover preview delay",
 		hoverDelaySfw: "No previews in SFW mode.",
+		hoverPreview: "Play previews when hovering over cards",
 		increaseContrast: "Increase contrast",
 		ingestNotices: "Import notifications",
 		interfaceSounds: "Interface sounds",
@@ -13695,6 +13696,7 @@ var He = {
 		homeTiers: "首页显示女优与厂牌头像",
 		hoverDelay: "悬停预览延迟",
 		hoverDelaySfw: "SFW 模式下不预览。",
+		hoverPreview: "卡片悬停时播放视频预览",
 		increaseContrast: "增加对比度",
 		ingestNotices: "入库通知",
 		interfaceSounds: "界面音效",
@@ -39169,4 +39171,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=641bda18-def1-4718-acb5-3353cb892515
+//# debugId=bc4087e6-6f83-4414-b186-4e2f9aa25475

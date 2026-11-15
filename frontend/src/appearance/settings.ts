@@ -43,6 +43,8 @@ export interface AppSettings {
   defaultSortDirection?: string;
   sortDefaultsVersion: number;
   hoverDelaySeconds: number;
+  /** 卡片悬停时播放视频预览；关掉后悬停只显示静态图（#170）。 */
+  hoverPreview: boolean;
   seekSeconds: number;
   searchHistoryLimit: number;
   relatedLimit: number;
@@ -130,6 +132,7 @@ export function normalizeAppSettings(raw: unknown): { settings: AppSettings; mig
   settings.batchSize = boundedPreference(+(settings.batchSize as number), 1, 200, 60);
   settings.defaultSort = allowedSetting(settings.defaultSort, SORT_KEYS, 'seed');
   settings.hoverDelaySeconds = boundedPreference(+(settings.hoverDelaySeconds as number), 0, 60, 5);
+  settings.hoverPreview = settings.hoverPreview !== false;
   settings.seekSeconds = boundedPreference(+(settings.seekSeconds as number), 1, 300, 10);
   delete settings.loginDays;
   delete settings.metadataRefreshDays;

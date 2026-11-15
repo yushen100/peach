@@ -205,6 +205,7 @@ preferencesState.settingsEffects = {
     notifyShell();
     if(location.pathname==='/')replaceCatalogAddress();
   },
+  hoverPreview:()=>{if(!preferencesState.appSettings.hoverPreview)releaseHoverPreviews()},
   hoverDelay:()=>{
     if(!preferencesState.appSettings.hoverDelaySeconds)document.querySelectorAll('[data-previewing],[data-longhover]')
       .forEach(el=>{setHoverState(el,'previewing',false);setHoverState(el,'longhover',false)});

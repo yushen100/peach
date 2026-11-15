@@ -838,6 +838,7 @@
     "homeTiers": "Show actress and label avatars on Home",
     "hoverDelay": "Hover preview delay",
     "hoverDelaySfw": "No previews in SFW mode.",
+    "hoverPreview": "Play previews when hovering over cards",
     "increaseContrast": "Increase contrast",
     "ingestNotices": "Import notifications",
     "interfaceSounds": "Interface sounds",

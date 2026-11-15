@@ -494,12 +494,14 @@ function BrowseGroup({ host: current, tab, epoch }: GroupProps) {
         <input type="checkbox" id="groupCollapseSetting" data-toggle="" role="switch" checked={settings.groupCollapse}
           onChange={(event) => { settings.groupCollapse = event.target.checked; save(); current.changed('groupCollapse') }} />
       </label>
-      {/* SFW 模式停掉悬停预览，延迟这时不起作用：禁用并说明，关掉 SFW 就恢复。 */}
+      <ToggleRow id="hoverPreviewSetting" title={t('settings:preferencesPanel.hoverPreview')} checked={settings.hoverPreview}
+        onToggle={(on) => { settings.hoverPreview = on; save(); current.changed('hoverPreview') }} />
+      {/* SFW 模式与关掉悬停预览时延迟不起作用：禁用，SFW 另加说明。 */}
       <Row title={t('settings:preferencesPanel.hoverDelay')}
         description={current.censored() ? t('settings:preferencesPanel.hoverDelaySfw') : undefined}>
         <div id="hoverDelaySetting">
           <NumberSetting key={epoch} id="hoverDelaySetting" label={t('settings:preferencesPanel.hoverDelay')} value={settings.hoverDelaySeconds}
-            disabled={current.censored()}
+            disabled={current.censored() || !settings.hoverPreview}
             onApply={(value) => {
               settings.hoverDelaySeconds = boundedPreference(value, 0, 60, 5); save(); current.changed('hoverDelay');
             }} />

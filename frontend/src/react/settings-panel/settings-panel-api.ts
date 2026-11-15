@@ -42,6 +42,7 @@ export interface PanelSettings {
   feedHideSoloCompilations: boolean;
   feedHideExcerpts: boolean;
   hoverDelaySeconds: number;
+  hoverPreview: boolean;
   detailAutoplay: boolean;
   autoChineseSubtitles: boolean;
   afterPlayback: AfterPlayback;
@@ -62,7 +63,7 @@ export type SettingsEffect =
   | 'glowFrame'
   /** 光晕的开关、颜色、恢复默认与松手：侧栏那一层、其余玻璃面和侧栏配色钮一起对齐。 */
   | 'glow'
-  | 'batchSize' | 'defaultSort' | 'sortDirection' | 'hoverDelay' | 'seekSeconds'
+  | 'batchSize' | 'defaultSort' | 'sortDirection' | 'hoverDelay' | 'hoverPreview' | 'seekSeconds'
   | 'groupCollapse' | 'feedAutoScroll' | 'feedLimit' | 'feedCompilations' | 'miniplayer' | 'javImage'
   | 'searchHistoryLimit' | 'performerNameLanguage'
   /** 首页那几块的显隐：新作那一行、竖屏带（连同主网格排不排除竖屏）、两排头像。 */
