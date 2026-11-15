@@ -16,11 +16,16 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Added / 新增
 
+- **Library**: Edit details next to the title changes the code, title, date, region, performers, label, series and tags; edited values aren't overwritten by collection (#187). / **馆藏**：详情标题旁新增「编辑资料」，可改番号、标题、日期、产地、演员、厂牌、系列与标签，改过的值不再被采集覆盖（#187）。
+- **Library**: Performers, labels and series not found in Edit details can be created on the spot and carry a Custom tag in rosters and details (#549). / **馆藏**：编辑资料里搜不到的演员、厂牌、系列可直接新建，名册与详情上带「自建」标记（#549）。
+- **Library**: Edit details can replace the cover with an upload, the player's current frame or a sample; it stays in place and the scraped cover can be restored (#187). / **馆藏**：编辑资料可换封面：上传图片、取播放器当前画面或选样张，换上的封面不再被替换，可恢复刮削封面（#187）。
 - **Updates**: When an update is available, Check for updates lists each newer release's notes from GitHub in the interface language (#680). / **更新**：检查到新版本时，「检查更新」里按界面语言列出之后每一版在 GitHub 上的更新说明（#680）。
 - **Sourcing**: Wants checks for sources on a schedule; cards with no result show the check date, and found links are listed on the card (#650). / **采集**：「想要」清单定时给待找作品查资源，没查到的卡片注明日期，查到的链接直接列在卡片上（#650）。
 
 ### Changed / 变更
 
+- **Library**: Tags in details and Following details are read-only; add or remove them in Edit details, or with Edit tags at the end of the tag row (#187). / **馆藏**：详情与关注详情的标签平时只读，增删分别移到「编辑资料」和标签行尾的「编辑标签」里（#187）。
+- **Interface**: Regions read Japanese, Korean, Chinese and Western in the English interface (#187). / **界面**：英文界面的产地统一写作 Japanese、Korean、Chinese、Western（#187）。
 - **Updates**: The changelog and release pages put English first; Chinese notes and downloads are folded by language (#680). / **更新**：更新日志与发布页改为英文在前，中文说明和下载说明按语言折叠（#680）。
 - **Sourcing**: Bundled userscript 0.7.13 scrolls codes and performer names that don't fit back and forth within the panel row (peach-mitao/peach-userscript#34). / **采集**：随附用户脚本更新至 0.7.13，浮卡里放不下的番号、女优名改为在行内来回滚动（peach-mitao/peach-userscript#34）。
 
@@ -36,6 +41,7 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Library**: Video enhancement model tags such as `_prob4` no longer become part of creator names, aliases or search terms (#681). / **馆藏**：视频增强软件的模型代号（如 `_prob4`）不再算进创作者名，也不再登记成别名和搜索词（#681）。
 - **Sourcing**: Codes left with only a cover image after the video is deleted can be added to Wants, and an early cover no longer marks a want as acquired (#681). / **采集**：视频删掉后只剩封面图的番号能加入「想要」，先到的封面图也不再把想要标成已到手（#681）。
 - **Sourcing**: Mark all as read in the userscript's other tasks no longer hides failed or not-found items; those are dismissed one by one (#686). / **采集**：用户脚本「其他任务」的全部标为已读不再收起失败和未找到资源的项，这类要逐条确认（#686）。
+- **Library**: The Keep dropdown in Merge tags under tag management shows its options again (#187). / **馆藏**：标签管理里「合并标签」的「保留」下拉能看到选项了（#187）。
 
 ## [0.58.0] - 2026-11-14
 
