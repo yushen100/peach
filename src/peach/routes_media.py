@@ -420,9 +420,9 @@ def stream_plan(request: Request, id: int, session: str = "", mode: str = "", de
     capabilities = parse_decode(decode)
     conversion = _needs_conversion(state, id, source_path, session, capabilities)
     reason = plan.reason
-    if conversion and capabilities and state.transcode_service.remuxes(
+    if conversion and state.transcode_service.remuxes(
             source_path, session=session, registry=state.stream_sessions, decode=capabilities):
-        # 视频浏览器解得了，只差音轨或 `hev1` 标签：`/stream` 整片换封装，不重编码视频。
+        # 视频浏览器解得了，只差音轨、`hev1` 标签或容器（`.ts` 一类）：`/stream` 整片换封装，不重编码视频。
         conversion, reason = False, "remux"
     resolved = (_hls_plan(state, id, session, conversion)
                 if conversion or plan.protocol == "hls" else None)

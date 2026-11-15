@@ -3559,6 +3559,32 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
                 plain = (await self.client.get("/api/stream-plan?id=1&session=s&t=secret")).json()
                 self.assertEqual(plain["protocol"], "hls")
 
+    async def test_transport_stream_with_h264_is_remuxed_without_reporting_capabilities(self):
+        """`.ts` 里是 H.264：不报解码能力也走整片换封装（Range），HEVC 没报能力仍走转码分片。"""
+        ts = self.media_root / "recording.ts"
+        ts.write_bytes(b"ts-source")
+        con = sqlite3.connect(self.db)
+        con.execute(
+            "INSERT INTO asset(id,location,path,name,medium,size,duration,first_seen) "
+            "VALUES(4,'local',?,'recording.ts','video',9,13.5,'2026-08-15')",
+            (str(ts),),
+        )
+        con.commit()
+        con.close()
+        from peach.ffmpeg import BinaryChoice
+        from peach.transcodes import _MediaProfile
+        service = self.app.state.transcode_service
+        cases = (("h264", "range", "remux"), ("hevc", "hls", None))
+        for codec, protocol, reason in cases:
+            with self.subTest(codec=codec), \
+                    patch.object(service.resolver, "ffprobe", return_value=BinaryChoice(Path("ffprobe"), "test")), \
+                    patch.object(service, "_probe", return_value=_MediaProfile(codec, "yuv420p", "aac", 13.5)):
+                service._native_profiles.clear()
+                plan = (await self.client.get("/api/stream-plan?id=4&session=s&t=secret")).json()
+                self.assertEqual(plan["protocol"], protocol)
+                if reason:
+                    self.assertEqual((plan["reason"], plan["src"]), (reason, "/stream?id=4&session=s"))
+
     async def test_unprobeable_file_without_duration_gets_range_and_a_404_playlist(self):
         """moov 缺失的文件 ffprobe 读不出、账本也没时长：计划回 Range，播放列表回 404，不是 500。"""
         con = sqlite3.connect(self.db)

@@ -18,6 +18,9 @@ from .mp4index import composition_offsets_present
 
 
 BROWSER_NATIVE_SUFFIXES = frozenset({".mp4", ".m4v", ".webm", ".ogv", ".ogg"})
+#: MPEG-TS 一类容器：浏览器的 `<video>` 不认，但里面常是浏览器解得了的 H.264／HEVC。
+#: 起播前先探编码，解得了就整片换封装成 MP4（`-copy` 缓存），不按 6 秒分片重编码。
+REMUX_SUFFIXES = frozenset({".ts", ".m2ts", ".mts"})
 DIRECT_MP4_PIXEL_FORMATS = frozenset({"yuv420p", "yuvj420p"})
 #: 浏览器在 `decode=` 里能报的解码能力：HEVC 8 位、HEVC 10 位、认不认 `hev1` 标签（Safari 只认 `hvc1`）。
 DECODE_CAPABILITIES = frozenset({"hevc", "hevc10", "hev1"})
@@ -175,12 +178,18 @@ class TranscodeService:
                 decode: frozenset[str] = frozenset()) -> bool:
         """MP4 里浏览器解得了的视频，只因音轨或 `hev1` 标签放不了：整片换封装就行，不用重编码。
 
-        只认浏览器报了能力的 HEVC。H.264 配不兼容音轨仍走原来的转码分片：那条路起播快，
+        MP4 只认浏览器报了能力的 HEVC。H.264 配不兼容音轨仍走原来的转码分片：那条路起播快，
         H.264 重编码在任何机器上都跟得上，没理由为它改行为。
+
+        `.ts`、`.m2ts`、`.mts` 只是容器浏览器不认：视频流解得了（H.264 8 位，或报了能力的 HEVC）
+        就整片换封装，换一次之后命中缓存，拖动也准。
         """
-        if source.suffix.lower() not in {".mp4", ".m4v"} or self.resolver.ffprobe() is None:
+        suffix = source.suffix.lower()
+        if suffix not in {".mp4", ".m4v"} | REMUX_SUFFIXES or self.resolver.ffprobe() is None:
             return False
         profile = self._profile_for(source, session, registry)
+        if suffix in REMUX_SUFFIXES:
+            return bool(profile and video_decodes(profile, decode))
         return bool(profile and profile.video_codec == "hevc" and video_decodes(profile, decode)
                     and not profile.decode_order_timestamps
                     and not self._browser_compatible(source, profile, decode))
@@ -349,17 +358,21 @@ class TranscodeService:
                      decode: frozenset[str]) -> tuple[bool, _MediaProfile | None, bool]:
         """原片能不能直放：返回（直放、起播前探到的画像、只换封装）。
 
-        只有起播前就知道画像的 MP4 才按能力换封装：MKV 这类要转码时才探测，文件名得先定。"""
-        if self.needs_transcode(source):
+        只有起播前就知道画像的 MP4 与 `REMUX_SUFFIXES` 容器才按能力换封装：MKV 这类要转码时才探测，
+        文件名得先定。"""
+        remux_container = source.suffix.lower() in REMUX_SUFFIXES
+        if self.needs_transcode(source) and not remux_container:
             return False, None, False
         if self.resolver.ffprobe() is None:
-            return True, None, False
+            return not remux_container, None, False
         try:
             profile = self._profile_for(source, session, registry, stat)
         except OSError as exc:
             raise TranscodeUnavailable("source unavailable") from exc
         if profile is None:
             return False, None, False
+        if remux_container:
+            return False, profile, video_decodes(profile, decode)
         if self._decodes_in_browser(source, profile, decode):
             return True, profile, False
         return False, profile, profile.video_codec == "hevc" and video_decodes(profile, decode)
