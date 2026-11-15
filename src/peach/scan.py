@@ -89,6 +89,17 @@ class ScanTargetError(UserFacingError, ValueError):
     """来源与扫描根对不上，或者来源在本机没有落点。消息可以直接给人看。"""
 
 
+class ScanRootUnreadable(ScanTargetError):
+    """扫描根目录本身列不出来（掉线、没权限、不存在）。
+
+    这时什么都没枚举到，不能当成「这个来源空了」：照常结束会报 0 个文件，并把整个来源的
+    已有资产算进「清单中已消失」（#693）。根目录以下零星读不了的子目录仍按 `onerror` 跳过。
+    """
+
+    def __init__(self, directory, error):
+        super().__init__('errors.scan.rootUnreadable', {'root': str(directory), 'error': str(error)})
+
+
 class ScanPathConflict(ScanTargetError):
     """同一规范路径的既有记录须由用户复核，摄取不选择或合并身份。"""
 
@@ -488,7 +499,8 @@ def _walk(top: Path, pending: list[str] | None = None, *, onerror=lambda error: 
 
     与 `os.walk` 的差别只在一处：条目的大小与时间从 `DirEntry.stat()` 拿。Windows 的目录
     列表自带这两项，不必再对每个文件发一次 `os.stat`——网盘挂载上那一次就是一趟往返，
-    几万个文件就是几万趟。读不了的目录跳过；符号链接指向的目录列出但不进入。
+    几万个文件就是几万趟。读不了的子目录跳过，根目录本身列不出来时报 `ScanRootUnreadable`；
+    符号链接指向的目录列出但不进入。
     """
     if system_path(str(top)):
         return
@@ -509,6 +521,8 @@ def _walk(top: Path, pending: list[str] | None = None, *, onerror=lambda error: 
                 with os.scandir(directory) as scanner:
                     entries = list(scanner)
         except OSError as error:
+            if directory == os.fspath(top):
+                raise ScanRootUnreadable(directory, error) from error
             onerror(error)
             continue
         files = []
@@ -565,6 +579,8 @@ def _walk_smb(top, pending, onerror):
                     transport = top._transport()
                     entries = resource.scandir(transport)
             except OSError as error:
+                if directory == str(top):
+                    raise ScanRootUnreadable(directory, error) from error
                 onerror(error)
                 continue
             files, children = [], []

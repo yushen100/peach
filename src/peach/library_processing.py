@@ -46,7 +46,7 @@ from . import sample_followup
 from .metadata_policy import SOURCE_SPECS, preferred_tag_source
 from .platform import translate_ledger_path as _local_ledger_path
 from .review_csv import read_rows_shared, write_rows
-from .scan import scan_location
+from .scan import ScanRootUnreadable, scan_location
 from .fsutil import atomic_write_text
 from . import artifact_rules, upgrade_rules
 from .ffmpeg import FFmpegResolver
@@ -2355,16 +2355,21 @@ def _scan_sources(config, db_path, *, locations, asset_ids, stage, guard, update
                 def remember(value, key=key):
                     scan_checkpoints[key] = value
                     save_checkpoint()
-                registered = scan_location(db_path, source, root, declared_roots=config.locations,
-                                           mounts=mounts, report=lambda line: None,
-                                           read_directory=partial(directory_entries, file_identity=source == 'local'),
-                                           onerror=lambda error: issue(None, said_of(error), action='scanning_files'),
-                                           resume_state=scan_checkpoints.get(key), save_checkpoint=remember,
-                                           new_only=incremental,
-                                           progress=lambda files, size: update(
-                                               **stage_fields('library.scanFiles'), scanned=result.scanned + files,
-                                               scanned_bytes=result.scanned_bytes + size,
-                                               checked=0, total=0, current_action='scanning_files'))
+                try:
+                    registered = scan_location(db_path, source, root, declared_roots=config.locations,
+                                               mounts=mounts, report=lambda line: None,
+                                               read_directory=partial(directory_entries, file_identity=source == 'local'),
+                                               onerror=lambda error: issue(None, said_of(error), action='scanning_files'),
+                                               resume_state=scan_checkpoints.get(key), save_checkpoint=remember,
+                                               new_only=incremental,
+                                               progress=lambda files, size: update(
+                                                   **stage_fields('library.scanFiles'), scanned=result.scanned + files,
+                                                   scanned_bytes=result.scanned_bytes + size,
+                                                   checked=0, total=0, current_action='scanning_files'))
+                except ScanRootUnreadable as error:
+                    # 在线探测之后根目录又列不出来：记成这个来源的问题，别的来源照常扫。
+                    issue(None, said_of(error), action='reading_local')
+                    continue
                 result.scanned += registered.files
                 result.scanned_bytes += registered.total_bytes
                 result.junk_isolated += registered.junk_isolated

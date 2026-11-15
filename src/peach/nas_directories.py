@@ -20,12 +20,12 @@ def available() -> bool:
 
 def file_position(path, ledger_path: str = '') -> dict:
     """回执只描述已知容器/服务端位置，不推测宿主机的共享路径。"""
-    from .platform import location_mounts, resolve_root
+    from .platform import location_mount_values, resolve_root
     result = {'mode': 'server', 'path': str(path),
               'container': os.environ.get('PEACH_DISTRIBUTION') == 'docker'}
     if ledger_path:
         location, index, tail = resolve_root(ledger_path)
-        mounts = location_mounts().get(location, ())
+        mounts = location_mount_values().get(location, ())
         if 0 <= index < len(mounts):
             result.update(media_root=str(mounts[index]), relative_path='/'.join(tail))
     return result

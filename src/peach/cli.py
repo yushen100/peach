@@ -28,7 +28,7 @@ from .config import (
     PeachSettings,
 )
 from .migrations import plan, upgrade
-from .platform import location_mounts
+from .platform import location_mount_values
 from .scripting import open_readonly
 from .sync import LedgerSync, device_id
 from .sync import plan as sync_plan
@@ -497,14 +497,15 @@ def _scan(args: argparse.Namespace) -> int:
         print(_t("notInitialized"))
         return 4
     config = settings_file.active()
-    mounts = {location: tuple(str(mount) for mount in points)
-              for location, points in location_mounts().items()}
+    mounts = location_mount_values()
     try:
         if args.location == "configured" and args.root is None:
             from .platform import root_online, translate_ledger_path
+            from .smb_media import resolve
             for location, declared in config.locations.items():
                 for root in declared:
-                    if not root_online(translate_ledger_path(root)):
+                    # SMB 根按协议探测；本机路径形态的翻译对它只有占位，会被当成离线跳过。
+                    if not root_online(resolve(root) or translate_ledger_path(root)):
                         print(_t("scan.offline", location=location), flush=True)
                         continue
                     scan.scan_location(args.db, location, root, declared_roots=config.locations,

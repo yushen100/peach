@@ -58,7 +58,7 @@ from .media import (
 from .mdns import create_mdns_publisher
 from .mount_reachability import MountReachability
 from .mp4repair import HeaderRepairStore
-from .platform import location_mounts
+from .platform import location_mount_values
 from .previews import (
     COVER_SMALL_THUMB_EDGE,
     COVER_SMALL_THUMB_QUALITY,
@@ -674,7 +674,7 @@ def create_app(
         secrets_root=settings.secrets_root,
         db_path=settings.db_path,
         declared_roots=LOCATION_ROOT_DECLARATIONS,
-        mounts=location_mounts(),
+        mounts=location_mount_values(),
         available=_writer(sync),
         ffprobe=resolver.ffprobe,
         after_ingest=contract.cache_bust,

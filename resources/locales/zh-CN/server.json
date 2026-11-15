@@ -2639,7 +2639,8 @@
       "outsideMounts": "✗ {{path}} 不在来源 {{location}} 的挂载点 {{mounts}} 之下",
       "smbNotSaved": "SMB 目录尚未保存到媒体库配置",
       "prefixWithoutMount": "✗ 媒体来源 {{location}} 的第 {{index}} 个数据库路径前缀没有对应的本机目录；请先在 [media.mounts] 中按相同顺序配置媒体目录",
-      "checkpointMismatch": "扫描目录与保存的断点不一致，请核对挂载设置"
+      "checkpointMismatch": "扫描目录与保存的断点不一致，请核对挂载设置",
+      "rootUnreadable": "✗ 无法列出扫描目录 {{root}}（{{error}}）；本次没有扫描，也没有文件被算作已消失"
     },
     "faceDetect": {
       "faceModelMissing": "缺少人脸模型：{{path}}",

@@ -47,7 +47,7 @@ class InventoryPreview:
         self.lock = threading.Lock()
 
     def _files(self, config):
-        from .scan import _walk, is_sidecar, medium_of, walk_root_for, _relative_directory
+        from .scan import ScanRootUnreadable, _walk, is_sidecar, medium_of, walk_root_for, _relative_directory
         library_roots = tuple(root for roots in config.locations.values() for root in roots)
         seen = set()
         for key, source in self.meter.rows.items():
@@ -60,21 +60,26 @@ class InventoryPreview:
                 self.errors += 1
                 yield None
                 continue
-            for directory, entries in _walk(top, onerror=self._error):
+            # 根目录列不出来与子目录读失败一样只记一次错误，别的来源照常盘点。
+            try:
+                for directory, entries in _walk(top, onerror=self._error):
+                    yield None
+                    relative = _relative_directory(directory, top)
+                    for entry in entries:
+                        row = None
+                        path = str(PureWindowsPath(root, *relative, entry.name))
+                        if medium_of(entry.name) == 'video' and not is_sidecar(
+                                entry.name, frozenset(), path=path, library_roots=library_roots):
+                            owner = self.meter._media_key(path, location)
+                            identity = location, path.casefold()
+                            if owner is not None and identity not in self.known and identity not in seen:
+                                seen.add(identity)
+                                row = dict(location=location, path=path, name=entry.name,
+                                           size=None, duration=None, snapshot_path=None)
+                        yield row
+            except ScanRootUnreadable as error:
+                self._error(error)
                 yield None
-                relative = _relative_directory(directory, top)
-                for entry in entries:
-                    row = None
-                    path = str(PureWindowsPath(root, *relative, entry.name))
-                    if medium_of(entry.name) == 'video' and not is_sidecar(
-                            entry.name, frozenset(), path=path, library_roots=library_roots):
-                        owner = self.meter._media_key(path, location)
-                        identity = location, path.casefold()
-                        if owner is not None and identity not in self.known and identity not in seen:
-                            seen.add(identity)
-                            row = dict(location=location, path=path, name=entry.name,
-                                       size=None, duration=None, snapshot_path=None)
-                    yield row
 
     def _error(self, error):
         self.errors += 1

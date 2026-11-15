@@ -2639,7 +2639,8 @@
       "outsideMounts": "✗ {{path}} isn't under the mount points {{mounts}} of storage {{location}}",
       "smbNotSaved": "The SMB directory hasn't been saved to the library settings yet",
       "prefixWithoutMount": "✗ Database path prefix {{index}} of storage {{location}} has no matching directory on this device. Configure the media directories in [media.mounts] in the same order first",
-      "checkpointMismatch": "The scan directory doesn't match the saved checkpoint. Check the mount settings"
+      "checkpointMismatch": "The scan directory doesn't match the saved checkpoint. Check the mount settings",
+      "rootUnreadable": "✗ Can't list the scan directory {{root}} ({{error}}). Nothing was scanned, and no files were counted as missing"
     },
     "faceDetect": {
       "faceModelMissing": "Face model is missing: {{path}}",
