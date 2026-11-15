@@ -4463,6 +4463,7 @@
       "noPowerShell": "Code fast-forwarded, but PowerShell was not found; tests did not run and services were not restarted.",
       "inputsKeptChanging": "Code or dependencies kept changing during testing, and none of three runs produced a valid record; try again later.",
       "testsFailed": "Code fast-forwarded, but the full tests failed; services and the tray were not restarted. Check the logs.",
+      "testsTimedOut": "Code fast-forwarded, but the full tests didn't finish in time and were stopped; services and the tray were not restarted. Check the logs.",
       "testsPassed": "Code and full tests passed.",
       "manualTray": "Code and full tests passed; this is not a packaged tray, so reopen the tray process manually.",
       "trayExeMissing": "Code and tests passed, but the current tray EXE was not found; nothing was replaced.",

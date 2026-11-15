@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Callable
 
-from . import interface_text
+from . import interface_text, process_job
 from .fsutil import atomic_write_text, replace_with_retry
 
 
@@ -21,6 +21,11 @@ log = logging.getLogger(__name__)
 BACKUP_GLOB = "Peach.pre-source-sync-*.exe"
 STAGING_DIRNAME = "source-sync-build"
 KEEP_BACKUPS = 2
+#: 「同步源码」各步的期限（秒）：超时收掉整棵进程树，按这一步失败处理，托盘和服务保持原样。
+#: 完整测试本机要一个多小时，构建十来分钟，暂存包的 `migrate status` 只开库读版本。
+TEST_SECONDS = 4 * 3600
+BUILD_SECONDS = 3600
+MIGRATE_STATUS_SECONDS = 300
 
 WINDOWS_TRAY_INPUTS = (
     "src/peach/",
@@ -140,7 +145,7 @@ class WindowsUpdateInstaller:
         state_dir: Path,
         log_dir: Path,
         current_executable: Path | None = None,
-        run: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+        run: Callable[..., subprocess.CompletedProcess] = process_job.run,
         popen: Callable[..., subprocess.Popen] = subprocess.Popen,
         powershell: str | None = None,
         frozen: bool | None = None,
@@ -226,21 +231,30 @@ class WindowsUpdateInstaller:
         known = Path(r"C:\Program Files\PowerShell\7\pwsh.exe")
         return str(known) if known.is_file() else None
 
-    def _run_logged(self, command: list[str], *, append: bool = True) -> int:
+    def _run_logged(self, command: list[str], *, timeout: float, append: bool = True,
+                    env: dict[str, str] | None = None) -> int | None:
+        """跑一步并把输出记进 `log_path`；超时收掉整棵进程树，日志里记一行，返回 None。"""
         self.log_path.parent.mkdir(parents=True, exist_ok=True)
         mode = "a" if append else "w"
         with self.log_path.open(mode, encoding="utf-8", errors="replace") as log:
             log.write(f"\n[{datetime.now().isoformat(timespec='seconds')}] {' '.join(command)}\n")
             log.flush()
-            result = self._run(
-                command,
-                cwd=str(self.root),
-                stdin=subprocess.DEVNULL,
-                stdout=log,
-                stderr=subprocess.STDOUT,
-                check=False,
-                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
-            )
+            try:
+                result = self._run(
+                    command,
+                    cwd=str(self.root),
+                    stdin=subprocess.DEVNULL,
+                    stdout=log,
+                    stderr=subprocess.STDOUT,
+                    check=False,
+                    env=env,
+                    timeout=timeout,
+                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+                )
+            except subprocess.TimeoutExpired:
+                log.write(f"\n[{datetime.now().isoformat(timespec='seconds')}] "
+                          f"timed out after {timeout:g}s; the process tree was stopped\n")
+                return None
         return result.returncode
 
     def build_staged_tray(self, commit: str, *, shell: str | None = None) -> Path | None:
@@ -261,7 +275,7 @@ class WindowsUpdateInstaller:
         build_exit = self._run_logged([
             shell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(build_script),
             "-OutputDirectory", str(staging_dir),
-        ])
+        ], timeout=BUILD_SECONDS)
         if build_exit != 0 or not staged.is_file():
             return None
         return staged
@@ -274,15 +288,8 @@ class WindowsUpdateInstaller:
         """
         reset_environment = os.environ.copy()
         reset_environment["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
-        self.log_path.parent.mkdir(parents=True, exist_ok=True)
-        with self.log_path.open("a", encoding="utf-8", errors="replace") as log:
-            validation = self._run(
-                [str(staged), "migrate", "status"],
-                cwd=str(self.root), stdin=subprocess.DEVNULL, stdout=log,
-                stderr=subprocess.STDOUT, check=False, env=reset_environment,
-                creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
-            )
-        return validation.returncode == 0
+        return self._run_logged([str(staged), "migrate", "status"], timeout=MIGRATE_STATUS_SECONDS,
+                                env=reset_environment) == 0
 
     def prepare(
         self, commit: str, changed_paths: tuple[str, ...],
@@ -296,11 +303,13 @@ class WindowsUpdateInstaller:
             test_exit = self._run_logged(
                 [shell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(test_script),
                  "-Scope", "full", "-Fresh"],
-                append=attempt > 0,
+                timeout=TEST_SECONDS, append=attempt > 0,
             )
             # test_runner 的 4 表示验证期间输入变化；最多三次，每次取得完整有效记录。
             if test_exit != 4:
                 break
+        if test_exit is None:
+            return WindowsUpdatePreparation.of("failed", "tray.sourceSync.testsTimedOut")
         if test_exit == 4:
             return WindowsUpdatePreparation.of("failed", "tray.sourceSync.inputsKeptChanging")
         if test_exit != 0:
