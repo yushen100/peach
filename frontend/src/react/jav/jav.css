@@ -4,6 +4,8 @@
 .peach-react [data-jav-skeleton-avatar] { width: 38px; height: 38px; border-radius: 50%; }
 .peach-react [data-jav-skeleton-cover] { border-radius: var(--surface-radius); }
 .peach-react [data-jav-skeleton-text] { height: 20px; }
+/* 标题框只有两行 2.7em 高：每条占一行 1.35em，条高 1em、上下各让 0.175em，两条之间才有缝，也不会被框底截掉。 */
+.peach-react [data-jav-skeleton-card] [data-media-title] [data-jav-skeleton-text] { height: 1em; margin-block: 0.175em; }
 .peach-react [data-jav-skeleton-card] [data-media-byline] [data-jav-skeleton-text] { height: 1lh; }
 .peach-react [data-jav-skeleton-action] { height: 36px; border-radius: var(--control-radius); }
 .peach-react [data-jav-title] { margin: 0; font-weight: normal; }
