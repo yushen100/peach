@@ -1,7 +1,7 @@
 /** 语言写法只用于标签。查询、路由和写入始终使用调用方持有的原始名称与 ID。 */
 export type NameLanguage = 'zh-CN' | 'ja';
 export interface NameWriting {
-  id: number; kind: string; canonical_name: string; zh_cn: string | null; ja: string | null;
+  id: number; kind: string; canonical_name: string; zh_cn: string | null; ja: string | null; en?: string | null;
 }
 const names = new Map<string, NameWriting>();
 const identities = new Map<string, NameWriting>();
@@ -26,13 +26,16 @@ export function registerNameWritings(rows: NameWriting[], sharedGlyphs: Record<s
   notify();
 }
 function indexNameWriting(row: NameWriting): void {
-  identities.set(`${row.kind}/${row.id}`, row);
-  names.set(`${row.kind}/${row.canonical_name}`, row);
-  for (const name of [row.zh_cn, row.ja]) {
+  // 单人资料投影（`name_display.current`）不带罗马字：刷新一个人的写法不能丢掉形状总表交付过的 `en`。
+  const previous = identities.get(`${row.kind}/${row.id}`);
+  const merged = previous?.en && !row.en ? { ...row, en: previous.en } : row;
+  identities.set(`${merged.kind}/${merged.id}`, merged);
+  names.set(`${merged.kind}/${merged.canonical_name}`, merged);
+  for (const name of [merged.zh_cn, merged.ja]) {
     if (!name) continue;
-    const key = `${row.kind}/${name}`;
+    const key = `${merged.kind}/${name}`;
     const candidates = spellings.get(key) || new Map<number, NameWriting>();
-    candidates.set(row.id, row);
+    candidates.set(merged.id, merged);
     spellings.set(key, candidates);
   }
 }
