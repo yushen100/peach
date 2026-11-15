@@ -296,6 +296,7 @@ class MountWorker:
                 except (OSError, ValueError):
                     pass
                 finally:
+                    process.stdout.close()
                     replies.put(None)
             threading.Thread(target=pump, name='PeachMountWorker', daemon=True).start()
             self._process, self._replies = process, replies
@@ -343,10 +344,10 @@ class MountWorker:
             if 'progress' in message:
                 deadline = time.monotonic() + limit
                 continue
+            # 回答来自本进程刚起的子进程：结果与异常都按原类型还原。
             if 'error' in message:
-                # 回答来自本进程刚起的子进程，异常按原类型还原。
                 raise pickle.loads(base64.b64decode(message['error']))
-            return message['value']
+            return pickle.loads(base64.b64decode(message['value']))
 
     def close(self):
         """结束子进程，不等它退出：卡在挂载上的进程可能要等那次读写返回才真正退出。"""
@@ -362,6 +363,11 @@ class MountWorker:
             process.wait(timeout=1)
         except subprocess.TimeoutExpired:
             pass
+
+
+def stat_of(path):
+    """`file_stat` 的同一份字段，给 `MountWorker` 用：一批文件逐个 stat 不必每个起一个进程。"""
+    return SimpleNamespace(**_attributes(os.stat(path)))
 
 
 def probe(paths):
@@ -396,8 +402,14 @@ def move(source, target, case_only=False, rename=True):
 #: `MountWorker` 能执行的操作：名字 → (模块, 函数)，在子进程里用到时才导入。
 #: 带 `progress` 参数的操作中途报进度，父进程据此重新计时。
 SERVED = {
+    'stat': ('peach.media_io', 'stat_of'),
     'probe': ('peach.media_io', 'probe'),
     'move': ('peach.media_io', 'move'),
+    'boxes': ('peach.mp4repair', 'top_level_boxes'),
+    'layout': ('peach.mp4repair', 'read_layout'),
+    'stage': ('peach.mp4recover', 'stage_replacement'),
+    'swap': ('peach.mp4recover', 'swap_in'),
+    'unstage': ('peach.mp4recover', 'discard_staged'),
 }
 
 
@@ -412,7 +424,8 @@ def _serve():
         options = ({'progress': lambda value: _emit({'progress': value})}
                    if 'progress' in inspect.signature(function).parameters else {})
         try:
-            reply = {'value': function(*request['args'], **options)}
+            value = function(*request['args'], **options)
+            reply = {'value': base64.b64encode(pickle.dumps(value)).decode('ascii')}
         except Exception as error:
             reply = {'error': base64.b64encode(pickle.dumps(error)).decode('ascii')}
         try:

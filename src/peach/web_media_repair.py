@@ -15,6 +15,10 @@
 
 一轮只修一个库，由用户点名。选中计费来源（PikPak）上的库就是同意走流量：一部片要完整
 拉一遍才修得了。
+
+片源在网盘挂载上，挂载挂死时本进程里的一次 `stat` 或读盘会一直不返回，任务停在运行中、
+取消也解不开。所以 stat、读顶层盒子与片头、暂存与换回修好的文件都交给带期限的子进程
+（`media_io`）：卡住的那一部记失败，下一部照做，取消在两部之间生效。
 """
 from __future__ import annotations
 
@@ -24,7 +28,7 @@ import subprocess
 import time
 from pathlib import Path, PureWindowsPath
 
-from . import media_libraries, media_probe, mp4recover, mp4repair, settings_file
+from . import media_io, media_libraries, media_probe, mp4recover, mp4repair, settings_file
 from .mp4repair import RepairUnavailable
 from .platform import translate_ledger_path
 from .task_stages import stage as stage_fields
@@ -44,6 +48,11 @@ HEADER = "header"
 INDEX = "index"
 
 _MP4 = "(lower({0}path) LIKE '%.mp4' OR lower({0}path) LIKE '%.m4v')"
+
+#: 读片头索引（最多 64 MB）的期限；读取期间响应暂停与取消。
+LAYOUT_SECONDS = 300.0
+#: 暂存修好的文件时，多久没写完一块（`mp4recover.STAGE_CHUNK`）算卡住。
+STAGE_IDLE_SECONDS = 120.0
 
 
 def _cache_path(contract) -> Path:
@@ -74,10 +83,25 @@ def _save_cache(contract, entries: dict[str, str]) -> None:
         pass
 
 
-def _key(asset_id: int, source: Path) -> str:
-    """和边车同一套身份：文件换了内容，旧结论就不再作数。"""
-    stat = source.stat()
+def _key(asset_id: int, source: Path, stat=None) -> str:
+    """和边车同一套身份：文件换了内容，旧结论就不再作数。`stat` 没给就在带期限的子进程里取。"""
+    stat = media_io.file_stat(source) if stat is None else stat
     return f"{asset_id}-{stat.st_size}-{stat.st_mtime_ns}"
+
+
+def _stat(worker: media_io.MountWorker, source: Path):
+    return worker.call('stat', str(source))
+
+
+def _top_level(worker: media_io.MountWorker, source: Path):
+    """一部片的顶层盒子：用到时才读，一部片只读一次。"""
+    found = []
+
+    def read():
+        if not found:
+            found.append(worker.call('boxes', str(source)))
+        return found[0]
+    return read
 
 
 def _library_filter(library: str) -> tuple[str, list]:
@@ -100,55 +124,58 @@ def _candidates(contract, scope: tuple[str, list]) -> list[tuple[int, str, float
     return [(row["id"], row["path"], row["duration"]) for row in rows]
 
 
-def _diagnose(contract, source: Path, duration: float | None) -> str | None:
+def _diagnose(contract, source: Path, duration: float | None, boxes, stat) -> str | None:
     """这部片缺的是什么；什么都不缺回 None。"""
-    if (duration is None or duration < 0) and mp4recover.missing_index(source):
+    if (duration is None or duration < 0) and mp4recover.index_missing(boxes()):
         return INDEX
-    return HEADER if contract.transcode_service.decode_order_timestamps(source) else None
+    return HEADER if contract.transcode_service.decode_order_timestamps(source, stat=stat) else None
 
 
 def _survey(contract, job, job_id: str, rows, cache: dict[str, str]) -> list[tuple[int, str, str]]:
     """筛出需要修的那些。结论边判边进缓存，中途停下也不白读。"""
     store = contract.header_repairs
     found: list[tuple[int, str, str]] = []
-    for index, (asset_id, raw, duration) in enumerate(rows, start=1):
-        if job.snapshot() is None:
-            break
-        source = translate_ledger_path(raw)
-        try:
-            key = _key(asset_id, source)
-        except OSError:
-            continue
-        if store.lookup(asset_id, source) is not None:
-            _advance(job, job_id, index, skipped=True)
-            continue
-        kind = cache.get(key)
-        if kind == LEGACY_UNAVAILABLE:
+    with media_io.MountWorker() as worker:
+        for index, (asset_id, raw, duration) in enumerate(rows, start=1):
+            if job.snapshot() is None:
+                break
+            source = translate_ledger_path(raw)
             try:
-                kind = None if mp4repair.has_tail_moov(source) else UNAVAILABLE
+                stat = _stat(worker, source)
             except OSError:
+                continue
+            key = _key(asset_id, source, stat)
+            if store.lookup(asset_id, source, stat=stat) is not None:
                 _advance(job, job_id, index, skipped=True)
                 continue
-            if kind == UNAVAILABLE:
-                cache[key] = kind
-                _save_cache(contract, cache)
-        if kind == UNAVAILABLE and store.has_invalid_sidecar(asset_id, source):
-            kind = HEADER
-        if kind in (CLEAN, UNAVAILABLE):
-            _advance(job, job_id, index, skipped=True)
-            continue
-        if kind not in (HEADER, INDEX):
-            try:
-                kind = _diagnose(contract, source, duration)
-            except OSError:
+            boxes = _top_level(worker, source)
+            kind = cache.get(key)
+            if kind == LEGACY_UNAVAILABLE:
+                try:
+                    kind = None if mp4repair.tail_moov(boxes()) else UNAVAILABLE
+                except OSError:
+                    _advance(job, job_id, index, skipped=True)
+                    continue
+                if kind == UNAVAILABLE:
+                    cache[key] = kind
+                    _save_cache(contract, cache)
+            if kind == UNAVAILABLE and store.has_invalid_sidecar(asset_id, source, stat=stat):
+                kind = HEADER
+            if kind in (CLEAN, UNAVAILABLE):
+                _advance(job, job_id, index, skipped=True)
                 continue
-        if kind:
-            found.append((asset_id, raw, kind))
-        cache[key] = kind or CLEAN
-        _save_cache(contract, cache)
-        if not job.checkpoint(job_id, survey_checked=index, survey_cache=dict(cache), survey_cache_version=2):
-            raise UserInterruptedError("errors.webMediaRepair.scanStopped")
-        _advance(job, job_id, index, skipped=False)
+            if kind not in (HEADER, INDEX):
+                try:
+                    kind = _diagnose(contract, source, duration, boxes, stat)
+                except OSError:
+                    continue
+            if kind:
+                found.append((asset_id, raw, kind))
+            cache[key] = kind or CLEAN
+            _save_cache(contract, cache)
+            if not job.checkpoint(job_id, survey_checked=index, survey_cache=dict(cache), survey_cache_version=2):
+                raise UserInterruptedError("errors.webMediaRepair.scanStopped")
+            _advance(job, job_id, index, skipped=False)
     return found
 
 
@@ -184,7 +211,7 @@ def _record_replacement(contract, asset_id: int, source: Path, ffprobe: Path) ->
 
     115 的 SHA1 是按旧内容算的，留着会让查重把它和别的文件认成同一份，所以清掉等下次同步。
     """
-    stat = source.stat()
+    stat = media_io.file_stat(source)
     measured = media_probe.measure(str(ffprobe), asset_id, str(source))
     with contract.write_transaction() as connection:
         connection.execute(media_probe.UPDATE, measured)
@@ -194,7 +221,8 @@ def _record_replacement(contract, asset_id: int, source: Path, ffprobe: Path) ->
     contract.cache_bust()
 
 
-def _recover(contract, asset_id: int, raw: str, tools: tuple[Path, Path, Path]) -> bool:
+def _recover(contract, worker: media_io.MountWorker, asset_id: int, raw: str,
+             tools: tuple[Path, Path, Path]) -> bool:
     from .smb_media import resolve
     if resolve(raw) is not None:
         return False
@@ -208,17 +236,32 @@ def _recover(contract, asset_id: int, raw: str, tools: tuple[Path, Path, Path]) 
                   mp4recover.pick_references(raw, _reference_candidates(contract, asset_id, raw))]
     work = Path(contract.transcode_root) / "recover" / str(asset_id)
     try:
+        total = mp4recover.payload_size(worker.call('boxes', str(source)))
         recovery = mp4recover.recover(source, references, untrunc=untrunc, ffmpeg=ffmpeg,
-                                      ffprobe=ffprobe, work=work)
+                                      ffprobe=ffprobe, work=work, total=total)
+        staged = _stage(worker, source, recovery.path)
         from .task_control import committing
         with committing():
-            mp4recover.replace_original(source, recovery.path)
+            worker.call('swap', str(source), staged)
             _record_replacement(contract, asset_id, source, ffprobe)
     except (RepairUnavailable, OSError, subprocess.SubprocessError):
         return False
     finally:
         shutil.rmtree(work, ignore_errors=True)
     return True
+
+
+def _stage(worker: media_io.MountWorker, source: Path, repaired: Path) -> str:
+    """把修好的文件写到原片旁的临时名；写的时候能暂停、取消。没写完就把临时名删掉。"""
+    try:
+        return worker.call('stage', str(source), str(repaired), timeout=STAGE_IDLE_SECONDS, interruptible=True)
+    except BaseException:
+        try:
+            worker.call('unstage', str(source))
+        except OSError:
+            # 挂载还卡着就留给下一次暂存覆盖：临时名是固定的。
+            pass
+        raise
 
 
 def _recovery_tools(contract) -> tuple[Path, Path, Path] | None:
@@ -237,35 +280,46 @@ def _repair(contract, job, job_id: str, found, cache: dict[str, str]) -> None:
     previous = job.snapshot() or {}
     job.update(job_id, **stage_fields('mediaRepair.repair'), checked=previous.get('repaired', 0),
                total=len(found) + previous.get('repaired', 0))
-    for index, (asset_id, raw, kind) in enumerate(found, start=1):
-        if job.snapshot() is None:
-            return
-        source = translate_ledger_path(raw)
-        if kind == HEADER:
-            made = store.repair_now(asset_id, source)
-        elif tools is not None:
-            made = _recover(contract, asset_id, raw, tools)
-        else:
-            # 缺的是工具不是片子：装上 untrunc 之后这部还该再试，所以不记结论。
-            made = None
-        if made is False:
-            try:
-                cache[_key(asset_id, source)] = UNAVAILABLE
-            except OSError:
-                pass
-        with job.editing(job_id) as state:
-            if state is None:
+    with media_io.MountWorker() as worker:
+        for index, (asset_id, raw, kind) in enumerate(found, start=1):
+            if job.snapshot() is None:
                 return
-            state["checked"] = previous.get('repaired', 0) + index
-            state["repaired"] = state.get("repaired", 0) + (1 if made else 0)
-            state["failed"] = state.get("failed", 0) + (0 if made else 1)
-            state["missing_tool"] = state.get("missing_tool", 0) + (1 if made is None else 0)
-            state["message"] = source.name[:80]
-        _save_cache(contract, cache)
-        state = job.snapshot() or {}
-        if not job.checkpoint(job_id, **{key: state.get(key, 0) for key in
-                              ('checked', 'total', 'repaired', 'failed', 'missing_tool')}):
-            raise UserInterruptedError("errors.webMediaRepair.repairStopped")
+            source = translate_ledger_path(raw)
+            if kind == HEADER:
+                made = _rebuild_header(store, worker, asset_id, source)
+            elif tools is not None:
+                made = _recover(contract, worker, asset_id, raw, tools)
+            else:
+                # 缺的是工具不是片子：装上 untrunc 之后这部还该再试，所以不记结论。
+                made = None
+            if made is False:
+                try:
+                    cache[_key(asset_id, source, _stat(worker, source))] = UNAVAILABLE
+                except OSError:
+                    pass
+            with job.editing(job_id) as state:
+                if state is None:
+                    return
+                state["checked"] = previous.get('repaired', 0) + index
+                state["repaired"] = state.get("repaired", 0) + (1 if made else 0)
+                state["failed"] = state.get("failed", 0) + (0 if made else 1)
+                state["missing_tool"] = state.get("missing_tool", 0) + (1 if made is None else 0)
+                state["message"] = source.name[:80]
+            _save_cache(contract, cache)
+            state = job.snapshot() or {}
+            if not job.checkpoint(job_id, **{key: state.get(key, 0) for key in
+                                  ('checked', 'total', 'repaired', 'failed', 'missing_tool')}):
+                raise UserInterruptedError("errors.webMediaRepair.repairStopped")
+
+
+def _rebuild_header(store, worker: media_io.MountWorker, asset_id: int, source: Path) -> bool:
+    """补一份时间戳表边车；片源的 stat 与片头都在带期限的子进程里读。"""
+    try:
+        stat = _stat(worker, source)
+    except OSError:
+        return False
+    return store.repair_now(asset_id, source, stat=stat, read_layout=lambda path: worker.call(
+        'layout', str(path), timeout=LAYOUT_SECONDS, interruptible=True))
 
 
 def run_media_repair(contract, job_id: str, scope: tuple[str, list]) -> None:

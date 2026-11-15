@@ -161,45 +161,51 @@ def _seed(db_path: Path, rows: list[dict]) -> None:
 
 
 @contextmanager
-def _hung(stuck, *functions):
-    """模拟挂死的挂载：本进程与媒体子进程里，`functions` 碰到 `stuck` 里的路径都卡住。
+def hung_mount(stuck, *functions):
+    """模拟挂死的挂载：本进程与媒体子进程里，`functions`（如 `os.rename`、`builtins.open`）
+    碰到 `stuck` 里的路径都卡住。
 
     本进程只卡 30 秒，好让旧写法下的用例以超时失败而不是一直挂着；子进程卡 60 秒，
     由父进程按期限结束。产出拉起过的子进程。
     """
+    import builtins
     stuck = sorted(str(path) for path in stuck)
-    script = ('import os, sys, time\nimport peach.media_io as m\n'
+    script = ('import builtins, os, sys, time\n'
+              f'sys.path[:0] = {sys.path!r}\n'
+              'import peach.media_io as m\n'
               f'stuck = {stuck!r}\n'
               'def hang(original):\n'
               '    def call(path, *args, **kwargs):\n'
-              '        if os.fspath(path) in stuck: time.sleep(60)\n'
+              '        if isinstance(path, (str, os.PathLike)) and os.fspath(path) in stuck: time.sleep(60)\n'
               '        return original(path, *args, **kwargs)\n'
               '    return call\n'
-              + ''.join(f'os.{name} = hang(os.{name})\n' for name in functions)
+              + ''.join(f'{name} = hang({name})\n' for name in functions)
               + 'sys.exit(m.main(sys.argv[1:]))\n')
     children, original_popen = [], subprocess.Popen
 
     def spawn(command, **options):
-        operation = next((part for part in command if part in media_io.OPERATIONS), None)
-        if operation is not None:
+        if '-m' in command and 'peach.media_io' in command:
             # venv 的 python.exe 是转发器：结束它不一定结束真正的解释器，这里直接起基础解释器。
-            command = [sys._base_executable, '-c', script, *command[command.index(operation):]]
+            command = [sys._base_executable, '-c', script, *command[command.index('peach.media_io') + 1:]]
         child = original_popen(command, **options)
         children.append(child)
         return child
 
     def hang(original):
         def call(path, *args, **kwargs):
-            if os.fspath(path) in stuck:
+            if isinstance(path, (str, os.PathLike)) and os.fspath(path) in stuck:
                 time.sleep(30)
             return original(path, *args, **kwargs)
         return call
 
+    modules = {'os': os, 'builtins': builtins}
     with ExitStack() as stack:
         stack.enter_context(mock.patch.object(media_io, 'TIMEOUT_SECONDS', 1.0))
         stack.enter_context(mock.patch.object(media_io.subprocess, 'Popen', side_effect=spawn))
         for name in functions:
-            stack.enter_context(mock.patch.object(os, name, hang(getattr(os, name))))
+            module, attribute = name.split('.')
+            target = modules[module]
+            stack.enter_context(mock.patch.object(target, attribute, hang(getattr(target, attribute))))
         try:
             yield children
         finally:
@@ -247,7 +253,7 @@ class PlanTests(unittest.TestCase):
         started = time.monotonic()
         with closing(sqlite3.connect(self.db_path)) as connection, \
                 mock.patch.object(organize, 'translate_ledger_path', side_effect=lambda root: roots[root]), \
-                _hung([hung], 'scandir') as children:
+                hung_mount([hung], 'os.scandir') as children:
             result = organize.build_plan(connection, location='local', roots={'local': ('R:\\media', 'S:\\media')},
                                          file_template='{number}')
         self.assertLess(time.monotonic() - started, 15)
@@ -436,7 +442,7 @@ class ApplyTests(unittest.TestCase):
     def test_a_hung_rename_fails_only_that_row_and_the_rest_are_moved_by_a_new_worker(self):
         plan = self._three_rows()
         started = time.monotonic()
-        with _hung([self.media / 'old/b.mp4'], 'rename') as children:
+        with hung_mount([self.media / 'old/b.mp4'], 'os.rename') as children:
             result = self._apply(plan)
         self.assertLess(time.monotonic() - started, 15)
         self.assertEqual((result['moved'], result['failed']), (2, 1))
@@ -457,7 +463,7 @@ class ApplyTests(unittest.TestCase):
         self.assertEqual(result['moved'], 3)
         batch = organize.latest_batch(self.holder)
         with closing(sqlite3.connect(self.db_path)) as connection, \
-                _hung([self.media / 'old/ABC-002.mp4'], 'rename'):
+                hung_mount([self.media / 'old/ABC-002.mp4'], 'os.rename'):
             result = organize.rollback_batch(connection, batch)
         self.assertEqual((result['restored'], result['failed']), (2, 1))
         remaining = json.loads(batch.read_text(encoding='utf-8'))['entries']

@@ -36,6 +36,8 @@ DURATION_DRIFT = 0.05
 GOOD_ENOUGH = 0.99
 RUN_TIMEOUT_SECONDS = 4 * 3600
 ORIGINAL_SUFFIX = ".peach-original"
+#: 暂存修好的文件时每写这么多报一次进度；网盘上写一块可能要几秒。
+STAGE_CHUNK = 8 << 20
 
 
 @dataclass(frozen=True)
@@ -66,14 +68,24 @@ def untrunc_path(tools_root: Path) -> Path | None:
 
 def _payload_size(path: Path) -> int:
     with open(path, "rb") as handle:
-        return sum(end - body for kind, _start, body, end in _top_level(handle) if kind == b"mdat")
+        return payload_size(_top_level(handle))
 
 
 def missing_index(source: Path) -> bool:
     """顶层有 `mdat` 却没有 `moov`。只读每个顶层盒子的头，不碰码流。"""
     with open(source, "rb") as handle:
-        kinds = {kind for kind, *_ in _top_level(handle)}
+        return index_missing(_top_level(handle))
+
+
+def index_missing(boxes) -> bool:
+    """`missing_index` 的判据，按已经读出的顶层盒子判。"""
+    kinds = {kind for kind, *_ in boxes}
     return b"mdat" in kinds and b"moov" not in kinds
+
+
+def payload_size(boxes) -> int:
+    """顶层 `mdat` 的内容字节数。"""
+    return sum(end - body for kind, _start, body, end in boxes if kind == b"mdat")
 
 
 def pick_references(broken: str, candidates: list[str], limit: int = REFERENCE_LIMIT) -> list[str]:
@@ -127,10 +139,13 @@ def acceptable(durations: dict[str, float], errors: int) -> bool:
 
 
 def recover(source: Path, references: list[Path], *, untrunc: Path, ffmpeg: Path, ffprobe: Path,
-            work: Path) -> Recovery:
-    """逐个参照试，收恢复得最多的那一份。一份都收不了就抛 `RepairUnavailable`。"""
+            work: Path, total: int | None = None) -> Recovery:
+    """逐个参照试，收恢复得最多的那一份。一份都收不了就抛 `RepairUnavailable`。
+
+    `total` 是坏片 `mdat` 的字节数，调用方已经读过顶层盒子时给出，不再打开坏片。
+    """
     work.mkdir(parents=True, exist_ok=True)
-    total = _payload_size(source)
+    total = _payload_size(source) if total is None else total
     best: Recovery | None = None
     for index, reference in enumerate(references):
         output = work / f"recovered-{index}.mp4"
@@ -166,17 +181,51 @@ def recover(source: Path, references: list[Path], *, untrunc: Path, ffmpeg: Path
 def replace_original(source: Path, repaired: Path) -> Path:
     """修好的文件换到原路径，坏原件改名成同目录的隐藏文件；返回留档的路径。
 
-    先把新文件完整写成同目录的临时名，再做两次同目录改名：网盘上改名是服务端操作，
-    中途失败时原件还在原路径或留档名上，不会两头落空。
+    先把新文件完整写成同目录的临时名（`stage_replacement`），再做两次同目录改名
+    （`swap_in`）：网盘上改名是服务端操作，中途失败时原件还在原路径或留档名上，不会
+    两头落空。批量修复把两步分别交给带期限的子进程。
     """
+    kept = swap_in(source, stage_replacement(source, repaired))
+    repaired.unlink(missing_ok=True)
+    return Path(kept)
+
+
+def _kept(source: Path) -> Path:
     kept = source.with_name(f".{source.name}{ORIGINAL_SUFFIX}")
     if kept.exists():
         raise RepairUnavailable("errors.mp4recover.backupExists", {"name": kept.name})
+    return kept
+
+
+def stage_replacement(source, repaired, progress=None) -> str:
+    """把修好的文件完整写到原片同目录的临时名，返回临时名；`progress` 收已写字节数。"""
+    source, repaired = Path(source), Path(repaired)
+    _kept(source)
     staged = source.with_name(f".{source.name}.peach-repair.tmp")
     try:
-        shutil.copyfile(repaired, staged)
+        with open(repaired, 'rb') as reader, open(staged, 'wb') as writer:
+            while chunk := reader.read(STAGE_CHUNK):
+                writer.write(chunk)
+                if progress is not None:
+                    progress(writer.tell())
         if staged.stat().st_size != repaired.stat().st_size:
             raise UserOSError("errors.mp4recover.stagedSizeMismatch")
+    except BaseException:
+        staged.unlink(missing_ok=True)
+        raise
+    return str(staged)
+
+
+def discard_staged(source) -> None:
+    """删掉 `stage_replacement` 没写完的临时名（暂存中途取消或超时留下的）。"""
+    Path(source).with_name(f".{Path(source).name}.peach-repair.tmp").unlink(missing_ok=True)
+
+
+def swap_in(source, staged) -> str:
+    """原片改成留档名、临时名改成原片名；第二步失败就把原片改回去。返回留档名。"""
+    source, staged = Path(source), Path(staged)
+    try:
+        kept = _kept(source)
         os.replace(source, kept)
     except BaseException:
         staged.unlink(missing_ok=True)
@@ -187,5 +236,4 @@ def replace_original(source: Path, repaired: Path) -> Path:
         os.replace(kept, source)
         staged.unlink(missing_ok=True)
         raise
-    repaired.unlink(missing_ok=True)
-    return kept
+    return str(kept)
