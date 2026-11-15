@@ -52,6 +52,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 - **Sourcing**: Background jobs no longer use your JavDB account, so it isn't suspended for browsing too fast; a suspension shows its resume time (#702). / **采集**：后台任务读 JavDB 不再带登录账号，免得账号被判浏览过快停用；账号被停时提示停的是账号和恢复时间（#702）。
 - **Sourcing**: Refused sources show who and for how long instead of asking for a new cookie, and one paused source no longer stalls a browser batch (#702). / **采集**：来源被拒时点名并写明暂停多久，不再一律让人更新 Cookie；某个来源暂停时浏览器添加不再整批干等一天（#702）。
+- **Library**: Once every video with a problem in the last scan has been cleaned up by Resource sync or marked missing, its alert and floating notice go away (#166). / **馆藏**：上一趟扫描出问题的影片都被资源同步清掉或标为已消失后，那条告警和悬浮提示自动撤下（#166）。
 - **Sourcing**: Retry and later processing runs skip Check companion files for videos whose folders haven't changed, instead of rereading every NFO (#587). / **采集**：「立即重试」和之后的处理任务里，文件夹没变过的影片不再重读 NFO，「检查配套文件」快很多（#587）。
 - **Library**: DMM video previews in JAV details play again after DMM moved them to a new host (#697). / **馆藏**：DMM 换了预告视频的主机后，JAV 详情里的 DMM 视频预览重新能播（#697）。
 - **Sourcing**: Blu-ray editions in New releases merge into their DMM streaming edition, so they get the official cover and no longer appear twice (#694). / **采集**：新作里的蓝光版并入 DMM 配信版，能取到官方封面，也不再和配信版重复列出（#694）。
