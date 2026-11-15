@@ -860,6 +860,7 @@
   "releaseUpdates": {
     "appAndTools": "应用与工具",
     "appUpdatePackage": "应用更新包",
+    "changelogTitle": "{{versions}} 更新内容",
     "channel": "更新通道",
     "check": "检查更新",
     "checkDone": "检查完成",

@@ -876,6 +876,7 @@
   "releaseUpdates": {
     "appAndTools": "App and tools",
     "appUpdatePackage": "App update",
+    "changelogTitle": "What's new in {{versions}}",
     "channel": "Update channel",
     "check": "Check for updates",
     "checkDone": "Up to date",

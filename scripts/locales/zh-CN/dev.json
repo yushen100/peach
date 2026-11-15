@@ -1967,7 +1967,8 @@
     "unlabeledEntries": "{{file}} 的 {{version}} 一节还有未归类条目：{{preview}}{{remainder}}",
     "entriesWithoutReference": "{{file}} 的 {{version}} 一节有条目没带来源编号，句末补上（#issue 或 PR 编号）：{{preview}}{{remainder}}",
     "longEntry": "{{version}}：{{line}}…",
-    "entriesTooLong": "{{file}} 有条目超过 {{limit}} 字，改成一句话：{{preview}}{{remainder}}",
+    "entriesTooLong": "{{file}} 有条目中文超过 {{limit}} 字或英文超过 {{english_limit}} 个字符，改成一句话：{{preview}}{{remainder}}",
+    "notBilingual": "{{file}} 的 {{version}} 一节有行没写成「英文 / 中文」，或英文还是 TODO：{{preview}}{{remainder}}",
     "noSectionForNotes": "{{file}} 里没有 {{version}} 这一节，Release 正文无从生成",
     "noLinkForNotes": "{{file}} 底部缺少 `[{{version}}]:` 链接，Release 正文无从附上完整变更",
     "sectionExists": "{{file}} 里已经有 {{version}} 这一节",
@@ -1985,7 +1986,7 @@
     "notesNotGenerated": "Release 正文未生成",
     "changelogNotUpdated": "变更日志未更新",
     "failed": "{{what}}：{{error}}",
-    "description": "变更日志：从 Conventional Commits 起草，发布时把未发布节定版。\n\n格式遵循 Keep a Changelog 1.1.0（https://keepachangelog.com/zh-CN/1.1.0/），版本号遵循\nSemantic Versioning 2.0.0（https://semver.org/lang/zh-CN/spec/v2.0.0.html）：`## [未发布]`\n常在，每个发布一节 `## [X.Y.Z] - YYYY-MM-DD`，分组标题固定，底部给 compare 链接。\n\n草稿按提交主题分组，措辞要人改成使用者读得懂的话——规范的第一条原则就是变更日志写给\n人看，不是 `git log` 的转储。只改开发过程的提交（`docs`、`test`、`chore`、`refactor`）\n不进日志。定版时未发布节里人润色过的内容整段搬进版本节，那一节空着才用草稿兜底。\n\n每个条目再带一个区域标签（`- **播放**：…`）：分组标题按变化性质分，标签按使用者看到的\n区域分。认得的 scope 自动换成标签，草稿里还留着英文 scope 的条目就是等人定标签的。\n\n    python scripts/changelog.py                                # 起草未发布区间\n    python scripts/changelog.py --range v0.16.0..v0.27.1       # 起草任意区间\n    python scripts/changelog.py --release 0.30.0 --apply       # 把未发布节定版为 0.30.0\n    python scripts/changelog.py --notes 0.30.0 --to NOTES.md   # 生成这一版的 Release 正文\n"
+    "description": "变更日志：从 Conventional Commits 起草，发布时把未发布节定版。\n\n格式遵循 Keep a Changelog 1.1.0（https://keepachangelog.com/zh-CN/1.1.0/），版本号遵循\nSemantic Versioning 2.0.0（https://semver.org/lang/zh-CN/spec/v2.0.0.html）：`## [Unreleased]`\n常在，每个发布一节 `## [X.Y.Z] - YYYY-MM-DD`，分组标题固定，底部给 compare 链接。\n\n草稿按提交主题分组，措辞要人改成使用者读得懂的话——规范的第一条原则就是变更日志写给\n人看，不是 `git log` 的转储。只改开发过程的提交（`docs`、`test`、`chore`、`refactor`）\n不进日志。定版时未发布节里人润色过的内容整段搬进版本节，那一节空着才用草稿兜底。\n\n每个条目再带一个区域标签：分组标题按变化性质分，标签按使用者看到的区域分。认得的 scope\n自动换成标签，草稿里还留着英文 scope 的条目就是等人定标签的。\n\n每一行英文在前、中文在后，中间用 ` / ` 隔开：`- **Playback**: English (#1). / **播放**：中文（#1）。`\nRelease 正文与应用内的更新说明都按第一个 ` / ` 拆成两种语言。\n\n    python scripts/changelog.py                                # 起草未发布区间\n    python scripts/changelog.py --range v0.16.0..v0.27.1       # 起草任意区间\n    python scripts/changelog.py --release 0.30.0 --apply       # 把未发布节定版为 0.30.0\n    python scripts/changelog.py --notes 0.30.0 --to NOTES.md   # 生成这一版的 Release 正文\n"
   },
   "check_commit_message": {
     "pendingLabel": "待提交",

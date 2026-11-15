@@ -14,37 +14,42 @@ from scripts.version_bump import VersionError
 REPO = "owner/repo"
 
 #: 一份最小的 `CHANGELOG.md`：头部、润色过的未发布节、一个发布节、底部链接块。
-DOCUMENT = """# 变更日志
+DOCUMENT = """# Changelog / 变更日志
 
-说明段。
+Intro. / 说明段。
 
-## [未发布]
+## [Unreleased]
 
-### 新增
+### Added / 新增
 
-- 配置页新增桌面快捷方式开关。
+- **Settings**: Settings add a desktop shortcut switch. / **配置**：配置页新增桌面快捷方式开关。
 
-### 修复
+### Fixed / 修复
 
-- 忙态提示会说明正在进行的动作。
+- **Interface**: Busy hints say what is running. / **界面**：忙态提示会说明正在进行的动作。
 
 ## [0.27.1] - 2026-09-06
 
-第四个预发布。
+> Fourth pre-release. / 第四个预发布。
 
-[未发布]: https://github.com/owner/repo/compare/v0.27.1...HEAD
+[Unreleased]: https://github.com/owner/repo/compare/v0.27.1...HEAD
 [0.27.1]: https://github.com/owner/repo/releases/tag/v0.27.1
 """
+
+ADDED = "**Settings**: Settings add a desktop shortcut switch. / **配置**：配置页新增桌面快捷方式开关。"
+FIXED = "**Interface**: Busy hints say what is running. / **界面**：忙态提示会说明正在进行的动作。"
+#: 同一份文件，未发布节一条都没写。
+BARE = DOCUMENT.replace(f"### Added / 新增\n\n- {ADDED}\n\n### Fixed / 修复\n\n- {FIXED}\n\n", "")
 
 
 class EntryTests(unittest.TestCase):
     def test_only_user_facing_types_become_entries(self):
         self.assertEqual(entry_for(Commit("feat: 配置页并入管理菜单", "")),
-                         ("新增", "配置页并入管理菜单"))
+                         ("Added", "配置页并入管理菜单"))
         self.assertEqual(entry_for(Commit("fix(web): 忙态提示说明在做什么", "")),
-                         ("修复", "web：忙态提示说明在做什么"))
+                         ("Fixed", "web：忙态提示说明在做什么"))
         self.assertEqual(entry_for(Commit("perf(media): 首段缩到 0.67 秒", "")),
-                         ("变更", "**播放**：首段缩到 0.67 秒"))
+                         ("Changed", "**Playback**: TODO / **播放**：首段缩到 0.67 秒"))
         for subject in ("docs: 记一笔", "test: 补断言", "chore(release): 版本 0.29.1",
                         "refactor(follow): 登记表收口", "style: 空行", "随手写的主题"):
             with self.subTest(subject=subject):
@@ -52,13 +57,13 @@ class EntryTests(unittest.TestCase):
 
     def test_known_scopes_become_area_labels_and_unknown_ones_wait_for_a_human(self):
         self.assertEqual(entry_for(Commit("feat(review): 候选支持多选", "")),
-                         ("新增", "**复核**：候选支持多选"))
+                         ("Added", "**Review**: TODO / **复核**：候选支持多选"))
         self.assertEqual(entry_for(Commit("fix(avatars): 只装更大的那张", "")),
-                         ("修复", "**采集**：只装更大的那张"))
+                         ("Fixed", "**Sourcing**: TODO / **采集**：只装更大的那张"))
         self.assertEqual(entry_for(Commit("fix(web): 忙态提示说明在做什么", "")),
-                         ("修复", "web：忙态提示说明在做什么"))
+                         ("Fixed", "web：忙态提示说明在做什么"))
         self.assertEqual(entry_for(Commit("feat: 没有 scope 就没有标签", "")),
-                         ("新增", "没有 scope 就没有标签"))
+                         ("Added", "没有 scope 就没有标签"))
 
     def test_every_mapped_label_is_in_the_closed_vocabulary(self):
         self.assertLessEqual(set(changelog.AREA_BY_SCOPE.values()),
@@ -70,26 +75,26 @@ class EntryTests(unittest.TestCase):
 
     def test_breaking_changes_are_told_by_the_bang_or_the_footer(self):
         self.assertEqual(entry_for(Commit("fix!: 数据库路径改成 location 键", "")),
-                         ("破坏性变化", "数据库路径改成 location 键"))
+                         ("Breaking", "数据库路径改成 location 键"))
         self.assertEqual(
             entry_for(Commit("feat(config): 换掉盘符键", "BREAKING CHANGE: 设置文件要重写")),
-            ("破坏性变化", "**配置**：设置文件要重写"))
+            ("Breaking", "**Settings**: TODO / **配置**：设置文件要重写"))
 
     def test_security_work_gets_its_own_group(self):
         self.assertEqual(entry_for(Commit("fix(security): 凭据不再进日志", "")),
-                         ("安全", "凭据不再进日志"))
+                         ("Security", "凭据不再进日志"))
 
     def test_groups_keep_the_documented_order_and_drop_duplicates(self):
         grouped = group_entries([
             Commit("fix: 同一句", ""), Commit("feat: 新东西", ""),
             Commit("fix: 同一句", ""), Commit("fix!: 破坏性的", ""),
         ])
-        self.assertEqual(list(grouped), ["破坏性变化", "新增", "修复"])
-        self.assertEqual(grouped["修复"], ["同一句"])
+        self.assertEqual(list(grouped), ["Breaking", "Added", "Fixed"])
+        self.assertEqual(grouped["Fixed"], ["同一句"])
 
     def test_the_body_is_markdown_with_one_blank_line_between_groups(self):
         body = render_body(group_entries([Commit("feat: 甲", ""), Commit("fix: 乙", "")]))
-        self.assertEqual(body, "### 新增\n\n- 甲\n\n### 修复\n\n- 乙")
+        self.assertEqual(body, "### Added / 新增\n\n- 甲\n\n### Fixed / 修复\n\n- 乙")
 
 
 class PromoteTests(unittest.TestCase):
@@ -101,7 +106,7 @@ class PromoteTests(unittest.TestCase):
     def test_the_unreleased_wording_moves_into_the_new_section(self):
         updated = self.promoted()
         self.assertIn("## [0.28.0] - 2026-09-07", updated)
-        self.assertIn("- 配置页新增桌面快捷方式开关。", updated.split("## [0.28.0]")[1])
+        self.assertIn("/ **配置**：配置页新增桌面快捷方式开关。", updated.split("## [0.28.0]")[1])
         self.assertTrue(has_section(updated, "0.28.0"))
 
     def test_an_empty_unreleased_section_is_left_behind_at_the_top(self):
@@ -115,45 +120,45 @@ class PromoteTests(unittest.TestCase):
 
     def test_both_compare_links_are_written(self):
         updated = self.promoted()
-        self.assertIn("[未发布]: https://github.com/owner/repo/compare/v0.28.0...HEAD", updated)
+        self.assertIn("[Unreleased]: https://github.com/owner/repo/compare/v0.28.0...HEAD", updated)
         self.assertIn("[0.28.0]: https://github.com/owner/repo/compare/v0.27.1...v0.28.0",
                       updated)
         self.assertIn("[0.27.1]: https://github.com/owner/repo/releases/tag/v0.27.1", updated)
 
     def test_the_first_release_links_to_its_own_tag(self):
         document = DOCUMENT.replace(
-            "## [0.27.1] - 2026-09-06\n\n第四个预发布。\n\n", "").replace(
+            "## [0.27.1] - 2026-09-06\n\n> Fourth pre-release. / 第四个预发布。\n\n", "").replace(
             "[0.27.1]: https://github.com/owner/repo/releases/tag/v0.27.1\n", "").replace(
             "compare/v0.27.1...HEAD", "compare/v0.1.0...HEAD")
         updated = self.promoted(document, version="0.1.0", previous=None)
         self.assertIn("[0.1.0]: https://github.com/owner/repo/releases/tag/v0.1.0", updated)
 
     def test_a_draft_fills_in_when_nobody_wrote_the_unreleased_section(self):
-        bare = DOCUMENT.replace(
-            "### 新增\n\n- 配置页新增桌面快捷方式开关。\n\n"
-            "### 修复\n\n- 忙态提示会说明正在进行的动作。\n\n", "")
-        updated = promote(bare, "0.28.0", date="2026-09-07", repo=REPO, previous="v0.27.1",
-                          fallback="### 新增\n\n- 起草出来的那条")
+        updated = promote(BARE, "0.28.0", date="2026-09-07", repo=REPO, previous="v0.27.1",
+                          fallback="### Added / 新增\n\n- 起草出来的那条")
         self.assertIn("- 起草出来的那条", updated)
 
     def test_a_release_with_nothing_to_say_is_refused(self):
-        bare = DOCUMENT.replace(
-            "### 新增\n\n- 配置页新增桌面快捷方式开关。\n\n"
-            "### 修复\n\n- 忙态提示会说明正在进行的动作。\n\n", "")
         with self.assertRaisesRegex(VersionError, "没有可记录的变化"):
-            promote(bare, "0.28.0", date="2026-09-07", repo=REPO, previous="v0.27.1")
+            promote(BARE, "0.28.0", date="2026-09-07", repo=REPO, previous="v0.27.1")
 
     def test_the_same_version_cannot_be_promoted_twice(self):
         with self.assertRaisesRegex(VersionError, "已经有 0.27.1"):
             self.promoted(version="0.27.1")
 
     def test_a_document_without_the_required_anchors_is_refused(self):
-        with self.assertRaisesRegex(VersionError, "未发布"):
-            self.promoted("# 变更日志\n\n## [0.27.1] - 2026-09-06\n")
+        with self.assertRaisesRegex(VersionError, "Unreleased"):
+            self.promoted("# Changelog\n\n## [0.27.1] - 2026-09-06\n")
         without_link = DOCUMENT.replace(
-            "[未发布]: https://github.com/owner/repo/compare/v0.27.1...HEAD\n", "")
+            "[Unreleased]: https://github.com/owner/repo/compare/v0.27.1...HEAD\n", "")
         with self.assertRaisesRegex(VersionError, "链接"):
             self.promoted(without_link)
+
+
+#: 定版检查用的一节：英文在前、中文在后的单条修复。
+def section(version: str, entry: str, *, date: str = "2026-09-19") -> str:
+    heading = f"## [{version}]" + ("" if version == changelog.UNRELEASED else f" - {date}")
+    return f"{heading}\n\n### Fixed / 修复\n\n- {entry}\n"
 
 
 class SectionTests(unittest.TestCase):
@@ -161,69 +166,108 @@ class SectionTests(unittest.TestCase):
 
     def test_a_section_stops_at_the_next_heading(self):
         self.assertEqual(changelog.section_of(DOCUMENT, changelog.UNRELEASED),
-                         "### 新增\n\n- 配置页新增桌面快捷方式开关。\n"
-                         "\n### 修复\n\n- 忙态提示会说明正在进行的动作。")
+                         "### Added / 新增\n\n- " + ADDED + "\n\n### Fixed / 修复\n\n- " + FIXED)
 
     def test_the_last_section_stops_before_the_link_block(self):
-        self.assertEqual(changelog.section_of(DOCUMENT, "0.27.1"), "第四个预发布。")
+        self.assertEqual(changelog.section_of(DOCUMENT, "0.27.1"), "> Fourth pre-release. / 第四个预发布。")
 
     def test_a_version_without_a_section_yields_nothing(self):
         self.assertEqual(changelog.section_of(DOCUMENT, "0.28.0"), "")
 
     def test_a_release_refuses_raw_commit_scopes_before_it_is_shipped(self):
-        raw = "## [0.8.0] - 2026-09-19\n\n### 修复\n\n- web：修好一处界面\n"
         with self.assertRaisesRegex(VersionError, "未归类.*web"):
-            changelog.require_labeled_entries(raw, "0.8.0")
+            changelog.require_labeled_entries(section("0.8.0", "web：修好一处界面"), "0.8.0")
+        changelog.require_labeled_entries(
+            section("0.8.0", "**Interface**: Fixed a page. / **界面**：修好一处界面。"), "0.8.0")
 
-        labeled = raw.replace("web：", "**界面**：")
-        changelog.require_labeled_entries(labeled, "0.8.0")
+    def test_both_halves_carry_matching_area_tags(self):
+        """中文标签与英文标签对得上；只写一种语言、英文标签对错了都拒绝。"""
+        for entry in ("**界面**：修好一处界面。", "**Playback**: Fixed a page. / **界面**：修好一处界面。",
+                      "**Interface**: Fixed a page."):
+            with self.subTest(entry=entry), self.assertRaisesRegex(VersionError, "未归类"):
+                changelog.require_labeled_entries(section("0.8.0", entry), "0.8.0")
+
+    def test_every_line_puts_english_first_and_the_draft_todo_is_refused(self):
+        """分组标题、说明段都要英文在前；草稿留的 `TODO` 没写就不能定版。"""
+        cases = (
+            "## [0.8.0] - 2026-09-19\n\n### 修复\n\n- **Interface**: Fixed. / **界面**：修好。\n",
+            "## [0.8.0] - 2026-09-19\n\n只有中文的说明。\n\n### Fixed / 修复\n\n- **Interface**: Fixed. / **界面**：修好。\n",
+            section("0.8.0", "**Interface**: TODO / **界面**：修好一处界面。"),
+        )
+        for document in cases:
+            with self.subTest(document=document), self.assertRaisesRegex(VersionError, "英文 / 中文"):
+                changelog.require_labeled_entries(document, "0.8.0")
+        changelog.require_labeled_entries(
+            "## [0.8.0] - 2026-09-19\n\n> A note. / 说明。\n\n### Fixed / 修复\n\n"
+            "- **Interface**: Fixed. / **界面**：修好。\n", "0.8.0")
 
     def test_a_release_refuses_an_entry_longer_than_one_sentence(self):
-        """条目给使用者扫读：标签之后超过上限就拒绝定版，正好到上限的照常通过。"""
-        head = "## [0.8.0] - 2026-09-19\n\n### 修复\n\n- **界面**："
-        changelog.require_labeled_entries(head + "字" * changelog.ENTRY_LIMIT + "\n", "0.8.0")
-        with self.assertRaisesRegex(VersionError, f"超过 {changelog.ENTRY_LIMIT} 字"):
-            changelog.require_labeled_entries(head + "字" * (changelog.ENTRY_LIMIT + 1) + "\n", "0.8.0")
-        # 链接地址读者看不到，只计显示的文字。
-        linked = "字" * (changelog.ENTRY_LIMIT - 2) + "[说明](docs/DOCKER.md#一键更新可选-watchtower)"
-        changelog.require_labeled_entries(head + linked + "\n", "0.8.0")
+        """条目给使用者扫读：标签之后中文超过 80 字、英文超过 160 个字符就拒绝定版，正好到上限的照常通过。"""
+        def entry(english: str, chinese: str) -> str:
+            return section("0.8.0", f"**Interface**: {english} / **界面**：{chinese}")
+        changelog.require_labeled_entries(entry("a" * changelog.ENGLISH_LIMIT, "字" * changelog.ENTRY_LIMIT), "0.8.0")
+        for document in (entry("a", "字" * (changelog.ENTRY_LIMIT + 1)),
+                         entry("a" * (changelog.ENGLISH_LIMIT + 1), "字")):
+            with self.subTest(document=document[-40:]), self.assertRaisesRegex(VersionError, "一句话"):
+                changelog.require_labeled_entries(document, "0.8.0")
+        # 链接地址、加粗与代码标记读者看不到，只计显示的文字。
+        changelog.require_labeled_entries(
+            entry("a" * (changelog.ENGLISH_LIMIT - 9) + "`code` **[Docs](docs/DOCKER.md#watchtower)**",
+                  "字" * (changelog.ENTRY_LIMIT - 2) + "[说明](docs/DOCKER.md#一键更新可选-watchtower)"), "0.8.0")
 
     def test_entries_after_0_58_0_must_cite_an_issue_or_pull_request(self):
-        """0.58.0 之后与「未发布」段的条目句末带 issue 或 PR 编号；跨仓库写 owner/repo#编号；更早的版本不追补。"""
-        bare = "\n### 修复\n\n- **界面**：修好一处界面。\n"
-        for version in ("0.58.1", "0.59.0", "未发布"):
-            heading = f"## [{version}]" + ("" if version == "未发布" else " - 2026-11-20") + "\n"
+        """0.58.0 之后与 Unreleased 段的条目两半句末都带同样的 issue 或 PR 编号；跨仓库写 owner/repo#编号；更早的不追补。"""
+        bare = "**Interface**: Fixed a page. / **界面**：修好一处界面。"
+        for version in ("0.58.1", "0.59.0", changelog.UNRELEASED):
             with self.subTest(version=version), self.assertRaisesRegex(VersionError, "来源编号"):
-                changelog.require_labeled_entries(heading + bare, version)
-        for cited in ("修好一处界面（#651）。", "修好一处界面（#650、#651）。",
-                      "修好一处界面（peach-mitao/peach-userscript#28）。"):
-            with self.subTest(cited=cited):
+                changelog.require_labeled_entries(section(version, bare), version)
+        for english, chinese in (("(#651).", "（#651）。"), ("(#650, #651).", "（#650、#651）。"),
+                                 ("(peach-mitao/peach-userscript#28).", "（peach-mitao/peach-userscript#28）。")):
+            with self.subTest(cited=english):
                 changelog.require_labeled_entries(
-                    "## [0.59.0] - 2026-11-20\n\n### 修复\n\n- **界面**：" + cited + "\n", "0.59.0")
-        # 色号、锚点里的 # 不算编号；0.58.0 及更早照旧放行。
-        with self.assertRaisesRegex(VersionError, "来源编号"):
-            changelog.require_labeled_entries(
-                "## [0.59.0] - 2026-11-20\n\n### 修复\n\n- **界面**：强调色改成 #0043ce，见 [说明](docs/A.md#b)。\n",
-                "0.59.0")
-        changelog.require_labeled_entries("## [0.58.0] - 2026-11-14" + bare, "0.58.0")
+                    section("0.59.0", f"**Interface**: Fixed a page {english} / **界面**：修好一处界面{chinese}"),
+                    "0.59.0")
+        # 只有一半带编号、两半编号不同、色号与锚点里的 # 都不算；0.58.0 及更早照旧放行。
+        for entry in ("**Interface**: Fixed a page. / **界面**：修好一处界面（#651）。",
+                      "**Interface**: Fixed a page (#650). / **界面**：修好一处界面（#651）。",
+                      "**Interface**: Accent is #0043ce, see [docs](docs/A.md#b). / **界面**：强调色改成 #0043ce，见 [说明](docs/A.md#b)。"):
+            with self.subTest(entry=entry), self.assertRaisesRegex(VersionError, "来源编号"):
+                changelog.require_labeled_entries(section("0.59.0", entry), "0.59.0")
+        changelog.require_labeled_entries(section("0.58.0", bare, date="2026-11-14"), "0.58.0")
 
     def test_an_overlong_entry_in_an_older_release_also_blocks_the_release(self):
         """旧版本改写时也守住上限：任一已发布版本有超长条目，新版本就不能定版；旧版本没有标签也照样按字数算。"""
-        current = "## [0.8.0] - 2026-09-19\n\n### 修复\n\n- **界面**：修好一处界面。\n\n"
-        older = "## [0.7.0] - 2026-09-01\n\n### 修复\n\n- " + "字" * (changelog.ENTRY_LIMIT + 1) + "\n"
+        current = section("0.8.0", "**Interface**: Fixed a page. / **界面**：修好一处界面。") + "\n"
+        older = "## [0.7.0] - 2026-09-01\n\n### Fixed / 修复\n\n- " + "字" * (changelog.ENTRY_LIMIT + 1) + "\n"
         with self.assertRaisesRegex(VersionError, "0.7.0："):
             changelog.require_labeled_entries(current + older, "0.8.0")
         changelog.require_labeled_entries(current + older.replace("字", "", 1), "0.8.0")
 
 
 class NotesTests(unittest.TestCase):
-    """Release 页正文：那一节原文、到上一版的完整变更链接、安装提示；缺那一节或链接就拒绝。"""
+    """Release 页的更新说明：英文在前、中文折叠、末尾完整变更链接；缺那一节或链接就拒绝。"""
 
-    def test_the_notes_are_the_section_its_full_changelog_and_the_install_note(self):
+    def test_the_notes_put_english_first_and_fold_the_chinese(self):
         self.assertEqual(changelog.notes(DOCUMENT, "0.27.1"),
-                         "第四个预发布。\n\n[Full Changelog / 完整变更]"
-                         "(https://github.com/owner/repo/releases/tag/v0.27.1)\n\n"
-                         f"{changelog.INSTALL_NOTE}\n")
+                         "> Fourth pre-release.\n\n<details>\n<summary>简体中文</summary>\n\n> 第四个预发布。\n\n"
+                         "</details>\n\n[Full Changelog](https://github.com/owner/repo/releases/tag/v0.27.1)\n")
+
+    def test_downloads_fold_per_language_with_english_outside(self):
+        """按语言分开：外面是英文说明与折叠的 Downloads；中文说明与折叠的「下载」都在「简体中文」里。"""
+        body = changelog.notes(DOCUMENT, "0.27.1", ("English downloads.", "中文下载。"))
+        self.assertEqual(body,
+                         "> Fourth pre-release.\n\n<details>\n<summary>Downloads</summary>\n\nEnglish downloads.\n\n"
+                         "</details>\n\n<details>\n<summary>简体中文</summary>\n\n> 第四个预发布。\n\n"
+                         "<details>\n<summary>下载</summary>\n\n中文下载。\n\n</details>\n\n</details>\n\n"
+                         "[Full Changelog](https://github.com/owner/repo/releases/tag/v0.27.1)\n")
+
+
+    def test_groups_and_entries_split_at_the_first_separator(self):
+        """分组标题、条目、说明段都按第一个 ` / ` 拆开；中文里的全角斜杠留在中文那边。"""
+        english, chinese = changelog.bilingual(
+            "Lead. / 导语。\n\n### Fixed / 修复\n\n- **Interface**: Pages A/B fixed (#1). / **界面**：甲／乙页修好（#1）。")
+        self.assertEqual(english, "Lead.\n\n### Fixed\n\n- **Interface**: Pages A/B fixed (#1).")
+        self.assertEqual(chinese, "导语。\n\n### 修复\n\n- **界面**：甲／乙页修好（#1）。")
 
     def test_a_version_without_a_section_cannot_be_released(self):
         with self.assertRaisesRegex(VersionError, "0.28.0"):
@@ -247,12 +291,13 @@ class NotesTests(unittest.TestCase):
         self.assertNotIn("变更日志未更新", out.getvalue())
 
     def test_the_release_workflow_reads_the_notes_it_does_not_inline_them(self):
-        """固定文案只活在 `INSTALL_NOTE` 一处；工作流在标签提交上生成文件再交给 gh。"""
+        """固定文案只活在 `changelog.py` 与 `download_sections()`；工作流在标签提交上生成文件再交给 gh。"""
         workflow = (Path(changelog.ROOT) / ".github/workflows/release.yml").read_text(encoding="utf-8")
         self.assertIn("scripts/changelog.py --notes", workflow)
         self.assertIn("--to release/RELEASE_NOTES.md", workflow)
         self.assertIn("--notes-file RELEASE_NOTES.md", workflow)
         self.assertNotIn("--notes 'Windows", workflow)
+        self.assertNotIn("DOWNLOADS.md", workflow)
 
 
 class RecordedMergeTests(unittest.TestCase):
@@ -345,7 +390,7 @@ class DueTests(unittest.TestCase):
         """阈值是没有样本时的起点，所以每次都要把实际值报出来。"""
         found = self._due(["feat: 甲", "fix: 乙", "fix: 丙"], days=2)
         self.assertEqual((found["entries"], found["days"]), (3, 2))
-        self.assertEqual(found["groups"], {"新增": 1, "修复": 2})
+        self.assertEqual(found["groups"], {"Added": 1, "Fixed": 2})
 
 
 class ShippedChangelogTests(unittest.TestCase):
@@ -355,14 +400,14 @@ class ShippedChangelogTests(unittest.TestCase):
         self.document = (Path(changelog.ROOT) / changelog.CHANGELOG).read_text(encoding="utf-8")
 
     def test_the_anchors_the_release_entry_needs_are_all_present(self):
-        self.assertRegex(self.document, r"(?m)^## \[未发布\]$")
-        self.assertRegex(self.document, r"(?m)^\[未发布\]: https://github\.com/")
+        self.assertRegex(self.document, r"(?m)^## \[Unreleased\]$")
+        self.assertRegex(self.document, r"(?m)^\[Unreleased\]: https://github\.com/")
         self.assertIn("keepachangelog.com", self.document)
         self.assertIn("semver.org", self.document)
 
     def test_every_released_section_carries_an_iso_date(self):
         headings = [line for line in self.document.splitlines()
-                    if line.startswith("## [") and not line.startswith("## [未发布]")]
+                    if line.startswith("## [") and not line.startswith(f"## [{changelog.UNRELEASED}]")]
         self.assertTrue(headings, "至少要留一节已发布版本，compare 链条才接得上")
         for heading in headings:
             with self.subTest(heading=heading):
@@ -379,15 +424,13 @@ class ShippedChangelogTests(unittest.TestCase):
 
     def test_the_unreleased_section_already_passes_the_release_checks(self):
         """分支写进「未发布」的条目在合入前就按定版的检查过一遍，缺编号、超长不留到发版时才发现。"""
-        changelog.require_labeled_entries(self.document, "未发布")
+        changelog.require_labeled_entries(self.document, changelog.UNRELEASED)
 
-    def test_every_entry_carries_a_label_from_the_closed_vocabulary(self):
-        allowed = "|".join(changelog.AREAS)
-        for line in self.document.splitlines():
-            if not line.startswith("- "):
-                continue
-            with self.subTest(line=line):
-                self.assertRegex(line, rf"^- \*\*(?:{allowed})\*\*：")
+    def test_every_released_section_passes_the_bilingual_checks(self):
+        """历史版本也是英文在前：应用和 Release 页按同一规则拆分，旧版本不留只有中文的行。"""
+        for version in self._released_versions():
+            with self.subTest(version=version):
+                changelog.require_labeled_entries(self.document, version)
 
     def test_released_sections_run_newest_first(self):
         keys = [tuple(int(part) for part in version.split("."))

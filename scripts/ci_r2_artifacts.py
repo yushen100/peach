@@ -72,7 +72,7 @@ def allowed_path(name: str, group: str) -> bool:
         return len(parts) == 2 and parts[0] == "release" and (
             bool(re.fullmatch(r"Peach-[0-9]+\.[0-9]+\.[0-9]+-windows-x64[-A-Za-z0-9.]*\.(zip|exe)", parts[-1]))
             or parts[-1] in {"ffmpeg-corresponding-source.zip", "untrunc-corresponding-source.zip",
-                              "RELEASE_NOTES.md", "DOWNLOADS.md", "version.txt", "ci_windows.ps1",
+                              "RELEASE_NOTES.md", "version.txt", "ci_windows.ps1",
                               "smoke_desktop.py", "smoke_update_tasks.py", "smoke_split_update.py"})
     if group == "docker-release":
         return name == "build/ci-artifacts/docker-image.json"

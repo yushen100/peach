@@ -22,7 +22,7 @@ class ReadmeContractsTests(unittest.TestCase):
             root = Path(directory)
             (root / 'src/peach').mkdir(parents=True)
             (root / 'src/peach/__init__.py').write_text('__version__ = "0.8.0"\n', encoding='utf-8')
-            (root / 'CHANGELOG.md').write_text('## [未发布]\n\n## [0.8.0] - 2026-11-08\n\n'
+            (root / 'CHANGELOG.md').write_text('## [Unreleased]\n\n## [0.8.0] - 2026-11-08\n\n'
                                                '## [0.7.9] - 2026-11-01\n\n## [0.7.8] - 2026-10-20\n',
                                                encoding='utf-8')
             for version, problems in (('0.8.0', 0), ('0.7.9', 0), ('0.7.8', 2)):

@@ -109,6 +109,51 @@ class ReleaseUpdateTests(unittest.TestCase):
         self.assertEqual(self.check([release("0.8.0")])["state"], "ahead")
         self.assertEqual(self.check([])["state"], "empty")
 
+    BODY = ("> Lead. / ignored\n\n### Added\n\n- **Playback**: Subtitles follow the [interface](https://x/y) "
+            "language (#9).\n\n<details>\n<summary>Downloads</summary>\n\n### Docker\n\n- not a change\n\n</details>\n\n"
+            "<details>\n<summary>简体中文</summary>\n\n> 导语。\n\n### 新增\n\n- **播放**：字幕跟随界面语言（#9）。\n\n"
+            "<details>\n<summary>下载</summary>\n\n### Docker\n\n- 不是条目\n\n</details>\n\n</details>\n\n"
+            "[Full Changelog](https://x/compare)\n")
+
+    def test_an_available_update_carries_the_notes_of_every_newer_release_in_both_languages(self):
+        """检查到新版本时带上本机之后每一版的更新说明，新的在前；英文是正文、中文取折叠段，下载段不算。"""
+        rows = [release("0.9.0", body=self.BODY), release("0.10.0", body=self.BODY), release("0.11.0", body=self.BODY)]
+        notes = self.check(rows)["notes"]
+        self.assertEqual([row["version"] for row in notes], ["0.11.0", "0.10.0"])
+        self.assertEqual(notes[0]["url"], release_updates.RELEASES_URL + "/tag/v0.11.0")
+        self.assertEqual(notes[0]["en"], {"lead": ["Lead. / ignored"], "groups": [
+            {"title": "Added", "items": [{"area": "Playback", "text": "Subtitles follow the interface language (#9)."}]}]})
+        self.assertEqual(notes[0]["zh-CN"], {"lead": ["导语。"], "groups": [
+            {"title": "新增", "items": [{"area": "播放", "text": "字幕跟随界面语言（#9）。"}]}]})
+        self.assertNotIn("notes", self.check([release("0.9.0", body=self.BODY)]))
+
+    def test_chinese_only_release_bodies_read_the_same_in_both_languages(self):
+        """0.59.0 之前的 Release 正文只有中文、末尾跟着「下载选择」：两种语言都显示这份，下载表不算条目。"""
+        body = ("### 修复\n\n- **界面**：修好一处。\n\n[Full Changelog / 完整变更](https://x)\n\n安装提示。\n\n"
+                "## 下载选择\n\n| 平台 |\n")
+        notes = release_updates.changelog_notes(body)
+        self.assertEqual(notes["en"], notes["zh-CN"])
+        self.assertEqual(notes["en"]["groups"], [{"title": "修复", "items": [{"area": "界面", "text": "修好一处。"}]}])
+        for empty in (None, "", "[Full Changelog](https://x)\n"):
+            self.assertIsNone(release_updates.changelog_notes(empty))
+
+    def test_notes_follow_the_format_the_release_script_writes(self):
+        """应用拆的就是 `changelog.py --notes` 生成的正文；两边改格式要一起改。"""
+        from scripts import changelog
+        from scripts.package_windows_release import download_sections
+        document = (Path(changelog.ROOT) / changelog.CHANGELOG).read_text(encoding="utf-8")
+        version = "0.58.0"
+        body = changelog.notes(document, version, download_sections(version, lite_installer=True))
+        notes = release_updates.changelog_notes(body)
+        self.assertNotIn("Docker", [group["title"] for part in notes.values() for group in part["groups"]])
+        english, chinese = changelog.bilingual(changelog.section_of(document, version))
+        self.assertEqual(sum(len(group["items"]) for group in notes["en"]["groups"]),
+                         sum(line.startswith("- ") for line in english.splitlines()))
+        self.assertEqual([group["title"] for group in notes["zh-CN"]["groups"]],
+                         [line[4:] for line in chinese.splitlines() if line.startswith("### ")])
+        self.assertTrue(all(item["area"] in changelog.AREAS.values()
+                            for group in notes["en"]["groups"] for item in group["items"]))
+
     def test_prefers_app_update_when_all_tool_assets_are_uploaded(self):
         row = release("1.0.0")
         row["assets"] += [

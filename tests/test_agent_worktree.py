@@ -1182,7 +1182,7 @@ class IntegrationVersionTests(_WorktreeCase):
                                       subject="fix(web): 修一处使用者看得见的")
         report = integrate(self.repo, branch)
         self.assertEqual(report["release"]["entries"], 1)
-        self.assertEqual(report["release"]["groups"], {"修复": 1})
+        self.assertEqual(report["release"]["groups"], {"Fixed": 1})
         self.assertIn("due", report["release"])
 
     def test_development_only_work_never_asks_for_a_release(self):

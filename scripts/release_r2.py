@@ -126,7 +126,8 @@ def require_capacity(existing: list[dict], items: list[dict], tag: str, limit: i
     return projected
 
 
-def publish(root: Path, version: str, *, apply: bool = False) -> dict:
+def publish(root: Path, version: str, *, apply: bool = False, notes: str = "") -> dict:
+    """`notes` 是 `changelog.py --notes` 的更新说明，写进索引的 `body`，GitHub 取不到时应用照样能读。"""
     items = inventory(root, version)
     result = {"version": version, "files": items, "applied": apply}
     if not apply:
@@ -180,7 +181,8 @@ def publish(root: Path, version: str, *, apply: bool = False) -> dict:
             item["state"] = "uploaded"
             item["digest"] = "sha256:" + item["sha256"]
         release = {"tag_name": tag, "commit_sha": sha, "name": f"Peach {version}", "draft": False, "prerelease": True,
-                   "html_url": RELEASE_PAGE + tag, "published_at": published_at, "assets": assets}
+                   "html_url": RELEASE_PAGE + tag, "published_at": published_at, "assets": assets,
+                   **({"body": notes} if notes else {})}
         release_file = temporary / "release.json"
         release_file.write_text(json.dumps(release, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         upload(release_file, f"{prefix}/release.json")
@@ -204,9 +206,12 @@ def main(argv=None) -> int:
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--apply", action="store_true")
+    parser.add_argument("--notes", type=Path)
     args = parser.parse_args(argv)
     try:
-        print(json.dumps(publish(args.root.resolve(), args.version, apply=args.apply), ensure_ascii=False, indent=2))
+        notes = args.notes.read_text(encoding="utf-8") if args.notes else ""
+        result = publish(args.root.resolve(), args.version, apply=args.apply, notes=notes)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         print(t("release_r2.failed", error=error))
         return 1

@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "0722b237-33ad-4f42-a3b8-2a5f61397b21", e._sentryDebugIdIdentifier = "sentry-dbid-0722b237-33ad-4f42-a3b8-2a5f61397b21");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "c9874d78-a9a9-4830-a1b0-f9dabc83ae57", e._sentryDebugIdIdentifier = "sentry-dbid-c9874d78-a9a9-4830-a1b0-f9dabc83ae57");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -6490,6 +6490,7 @@ var He = {
 	releaseUpdates: {
 		appAndTools: "App and tools",
 		appUpdatePackage: "App update",
+		changelogTitle: "What's new in {{versions}}",
 		channel: "Update channel",
 		check: "Check for updates",
 		checkDone: "Up to date",
@@ -13324,6 +13325,7 @@ var He = {
 	releaseUpdates: {
 		appAndTools: "应用与工具",
 		appUpdatePackage: "应用更新包",
+		changelogTitle: "{{versions}} 更新内容",
 		channel: "更新通道",
 		check: "检查更新",
 		checkDone: "检查完成",
@@ -38681,4 +38683,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=0722b237-33ad-4f42-a3b8-2a5f61397b21
+//# debugId=c9874d78-a9a9-4830-a1b0-f9dabc83ae57
