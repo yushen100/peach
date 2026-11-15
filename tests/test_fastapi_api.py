@@ -3508,6 +3508,26 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(playlist.status_code, 200)
         self.assertEqual(playlist.text.count("#EXTINF:"), 3)
 
+    async def test_browser_reported_hevc_decoding_plays_the_original(self):
+        """浏览器报能解 HEVC：计划回 Range，`/stream` 地址带上同一份能力；只差音轨时标成换封装。"""
+        from peach.ffmpeg import BinaryChoice
+        from peach.transcodes import _MediaProfile
+        service = self.app.state.transcode_service
+        cases = (("aac", "standard-http-range"), ("ac3", "remux"))
+        for audio, reason in cases:
+            with self.subTest(audio=audio), \
+                    patch.object(service.resolver, "ffprobe", return_value=BinaryChoice(Path("ffprobe"), "test")), \
+                    patch.object(service, "_probe",
+                                 return_value=_MediaProfile("hevc", "yuv420p", audio, 13.5, codec_tag="hvc1")):
+                service._native_profiles.clear()
+                plan = (await self.client.get(
+                    "/api/stream-plan?id=1&session=s&decode=hevc,hevc10,bogus&t=secret")).json()
+                self.assertEqual((plan["protocol"], plan["reason"]), ("range", reason))
+                self.assertEqual(plan["src"], "/stream?id=1&session=s&decode=hevc,hevc10")
+                service._native_profiles.clear()
+                plain = (await self.client.get("/api/stream-plan?id=1&session=s&t=secret")).json()
+                self.assertEqual(plain["protocol"], "hls")
+
     async def test_unprobeable_file_without_duration_gets_range_and_a_404_playlist(self):
         """moov 缺失的文件 ffprobe 读不出、账本也没时长：计划回 Range，播放列表回 404，不是 500。"""
         con = sqlite3.connect(self.db)

@@ -1,6 +1,6 @@
 # ADR-0016：远端 MP4 默认标准 Range，HLS 改为按需模式
 
-- 状态：已接受
+- 状态：已接受；「不引入服务端编解码探测」「不为 HEVC 引入转码回退」两条已由 [ADR-0163](0163-browser-reports-decoding-capability.md) 取代
 - 日期：2026-08-18
 
 ## 背景

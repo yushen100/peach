@@ -712,6 +712,17 @@
     "speedUp": "Increase speed by {{step}}",
     "stream": "Stream {{number}}"
   },
+  "playerGestures": {
+    "backward": "Back {{delta}}  {{to}} / {{total}} · release to jump",
+    "deviceVolume": "Use your device's volume buttons in this browser",
+    "durationUnknown": "Duration not available yet, can't seek",
+    "forward": "Forward {{delta}}  {{to}} / {{total}} · release to jump",
+    "holdKey": "{{rate}}× fast-forward",
+    "holdTouch": "{{rate}}× speed · release to restore",
+    "seekFailed": "Can't seek right now. Try again shortly.",
+    "seekTo": "Jump to {{time}}",
+    "volume": "Volume {{percent}}%"
+  },
   "playerShell": {
     "buffering": "Buffering",
     "cannotPlay": "This video can't be played right now.",

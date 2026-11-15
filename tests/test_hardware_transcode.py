@@ -382,6 +382,15 @@ class VaapiConsumerTests(unittest.TestCase):
             with self.subTest(failures=failures):
                 asyncio.run(drive(failures))
 
+    def test_whole_file_software_transcode_leaves_cores_for_playback(self):
+        with patch.dict(os.environ, {"PEACH_TRANSCODE_BACKEND": "software"}):
+            service = TranscodeService(self.resolver, self.root / "cache-sw")
+        (attempt,) = service._attempts(Path("ffmpeg"), self.source, self.root / "out.mp4",
+                                       _MediaProfile("hevc", "yuv420p", "aac"))
+        threads = int(attempt.command[attempt.command.index("-threads") + 1])
+        self.assertGreaterEqual(threads, 2)
+        self.assertLessEqual(threads, max(2, (os.cpu_count() or 4) // 2))
+
     def test_hls_remux_does_not_probe_hardware(self):
         service = HlsSegmentService(self.resolver, self.root / "hls", hardware=HardwareTranscoder())
         with patch.object(service.hardware, "encoders") as encoders:

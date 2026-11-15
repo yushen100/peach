@@ -665,6 +665,17 @@
     "speedUp": "播放速度加 {{step}}",
     "stream": "线路 {{number}}"
   },
+  "playerGestures": {
+    "backward": "快退 {{delta}}　{{to}} / {{total}} · 松手跳转",
+    "deviceVolume": "此浏览器请用设备音量键",
+    "durationUnknown": "时长尚未取得，暂时无法跳转",
+    "forward": "快进 {{delta}}　{{to}} / {{total}} · 松手跳转",
+    "holdKey": "{{rate}}× 快进",
+    "holdTouch": "{{rate}}× 倍速 · 松手恢复",
+    "seekFailed": "暂时无法跳转，请稍后重试",
+    "seekTo": "跳转到 {{time}}",
+    "volume": "音量 {{percent}}%"
+  },
   "playerShell": {
     "buffering": "正在缓冲",
     "cannotPlay": "视频暂时无法播放",

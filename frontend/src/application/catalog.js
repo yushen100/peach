@@ -558,12 +558,17 @@ export function installCatalog7() {
     };
   }
 
+/** 当前页交给播放墙与沉浸的筛选：目录页是目录筛选，资料页是这一实体（标签另按交集处理）。 */
+export function pagePlaybackFilters(){
+  const context=currentBarsContext(),filters={...entityState.activeFilterState(),jav:javActive()?'1':''};
+  if(context.type==='entity'&&context.kind!=='tag')filters[context.kind]=context.name;
+  return filters;
+}
+
 export function installCatalog12() {
 applicationEffects.handler($('#wallBtn'), 'onclick', ()=>{
   setSelectMode(false,true);
-  const context=currentBarsContext(),filters={...entityState.activeFilterState(),jav:javActive()?'1':''};
-  if(context.type==='entity'&&context.kind!=='tag')filters[context.kind]=context.name;
-  navigationState.navigatePath(wallAddress(undefined,filters));
+  navigationState.navigatePath(wallAddress(undefined,pagePlaybackFilters()));
 });
 catalogState.mixRelatedCache = new Map();
 catalogState.reduceMotion = ()=>matchMedia('(prefers-reduced-motion:reduce)').matches;
