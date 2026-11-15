@@ -39,27 +39,40 @@ def userscript_bridge(request: Request):
                                  "Content-Security-Policy": "default-src 'none'; frame-ancestors 'self'; base-uri 'none'"})
 
 
-def status(code: str, service=Depends(browser_client)):
+def _local_names(service, code):
+    from .web_jav_browser_people import local_names
+    return lambda: local_names(service.contract, code)
+
+
+def status(code: str, record: bool = False, service=Depends(browser_client)):
     try:
-        return JSONResponse({**service.status(code), **service.want_state(code)}, headers={"Cache-Control": "no-store"})
+        result = service.status(code)
+        response = JSONResponse({**result, **service.want_state(code)}, headers={"Cache-Control": "no-store"})
     except ValueError as error:
         raise HTTPException(400, error_detail(error)) from None
+    # 作品浮卡与列表面板都用这条查状态；用户脚本只在作品页本身、且开了「记录浏览」时带 `record=1`。
+    if record:
+        service.browsing.work(result["code"], _local_names(service, result["code"]))
+    return response
 
 
 def active(service=Depends(browser_client)):
     return JSONResponse(service.active(), headers={"Cache-Control": "no-store"})
 
 
-def identify(source_url: str, code: str = "", service=Depends(browser_client)):
+def identify(source_url: str, code: str = "", record: bool = False, service=Depends(browser_client)):
     try:
         # 分段发售的商品页（`sora00613a`）按整片番号查状态与添加。
         status = service.status(whole_release(identify_source(source_url, code), source_url, service.edition_probe))
         # 作品同时有特典版与通常版时带回来源页是哪一版，用户脚本据此给出两个添加按钮。
         edition = page_edition(source_url, service.edition_probe)
-        return JSONResponse({**status, **service.want_state(status["code"]), **({"edition": edition} if edition else {})},
-                            headers={"Cache-Control": "no-store"})
+        response = JSONResponse({**status, **service.want_state(status["code"]), **({"edition": edition} if edition else {})},
+                                headers={"Cache-Control": "no-store"})
     except ValueError as error:
         raise HTTPException(400, error_detail(error)) from None
+    if record:
+        service.browsing.work(status["code"], _local_names(service, status["code"]), source_url)
+    return response
 
 
 def updates(request: Request, service=Depends(browser_client)):
@@ -76,14 +89,16 @@ def people(request: Request, codes: str, performers: list[str] = Query(default=[
         raise HTTPException(400, error_detail(error)) from None
 
 
-def performer(request: Request, source_url: str, names: list[str] = Query(default=[]),
+def performer(request: Request, source_url: str, names: list[str] = Query(default=[]), record: bool = False,
               service=Depends(browser_client)):
     from .web_jav_browser_performer import performer_status
     try:
         result = performer_status(service.contract, request.app.state.preview_service, source_url, names)
-        return JSONResponse(result, headers={"Cache-Control": "no-store"})
     except ValueError as error:
         raise HTTPException(400, error_detail(error)) from None
+    if record:
+        service.browsing.performer(source_url, result["name"])
+    return JSONResponse(result, headers={"Cache-Control": "no-store"})
 
 
 def follow_performer(request: Request, body: dict = Body(...), service=Depends(browser_client)):

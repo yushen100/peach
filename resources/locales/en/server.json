@@ -1052,6 +1052,9 @@
       "reorderIncomplete": "The new order must include every video in the playlist.",
       "progressOutsidePlaylist": "The resume position isn't in this playlist."
     },
+    "tasteSignals": {
+      "chooseSubject": "Give either a code or a performer id, not both."
+    },
     "javBrowserPeople": {
       "snapshotTooLarge": "The local people snapshot is too large.",
       "snapshotInvalid": "The local people snapshot is malformed.",
@@ -4221,6 +4224,7 @@
       "watched": "Watching and feedback",
       "collection": "Collection",
       "browsing": "Browsing history",
+      "downloads": "Downloads you added",
       "bookmarks": "Browser bookmarks",
       "follows": "Following",
       "peach": "Peach"

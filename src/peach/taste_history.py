@@ -93,7 +93,7 @@ TAKEOUT_DATE_RE = re.compile(
 HONG_KONG_TIMEZONE = timezone(timedelta(hours=8), name="HKT")
 
 #: 口味证据的来源：看板榜单与发现页推荐理由里的名字在 `taste.evidence.<id>`。
-EVIDENCE_SOURCES = ("watched", "collection", "browsing", "bookmarks", "follows", "peach")
+EVIDENCE_SOURCES = ("watched", "collection", "browsing", "downloads", "bookmarks", "follows", "peach")
 
 
 def taste_text(code: str, params: dict | None = None, language: str = interface_text.SOURCE_LANGUAGE) -> str:
