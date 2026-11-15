@@ -700,6 +700,7 @@ CI_FRONTEND_TESTS = frozenset({
     "test_frontend_preflight.FrontendPreflightTests.test_the_frontend_sources_typecheck",
     "test_frontend_preflight.FrontendPreflightTests.test_frontend_sources_and_tests_pass_lint",
     "test_frontend_build.VitestTests.test_the_island_suite_passes",
+    "test_frontend_build.BundleFreshnessTests.test_the_committed_bundle_is_what_the_current_sources_build",
 })
 
 CI_BROWSER_TESTS = frozenset({
