@@ -1008,6 +1008,18 @@ def _suffixed_code(text: str, *, whole: bool = False) -> str:
     return normalise_code_key(f"{label}-{digits}{suffix}") if LABEL_SUFFIXES.get(label) == suffix else ""
 
 
+def without_label_suffix(code: str | None) -> str:
+    """登记尾字母番号去掉尾字母后的写法（`IBW-483Z` → `IBW-483`）；不是这一类返回空串。
+
+    旧版把尾字母当版次剥掉，存下的就是这个写法；升级补修按它认出要改回的行。
+    """
+    value = normalise_code_key(code)
+    shape = re.fullmatch(r"([A-Z]+)-(\d+)([A-Z])", value)
+    if not shape or LABEL_SUFFIXES.get(shape.group(1)) != shape.group(3):
+        return ""
+    return f"{shape.group(1)}-{shape.group(2)}"
+
+
 def _tokyo_hot_from_text(text: str) -> str:
     """Tokyo-Hot 编号只在两个位置上认：名字开头，或站名已经写在名字里。"""
     head = _TOKYO_HOT_HEAD.match(text)

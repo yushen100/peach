@@ -31,6 +31,7 @@ RULES = (
     ('fc2-seller-backfill-', ('entity_ids',)),
     ('code-sibling-identity-', ('links',)),
     ('studio-unbounded-misses-', ('released',)), ('stale-filename-codes-', ('cleared',)),
+    ('label-suffix-codes-', ('codes',)),
     ('dangling-candidates-', ('repinned', 'withdrawn')),
     ('javdb-actor-records-', ('hidden', 'disabled_feeds')),
     ('source-resolution-tags-', ('tags',)),

@@ -291,6 +291,7 @@
       "source-resolution-tags": "来源的 4K 标签",
       "video-medium": "改登记为视频",
       "stale-filename-codes": "清除误认的番号",
+      "label-suffix-codes": "补回番号尾字母",
       "studio-unbounded-misses": "厂牌查询缓存",
       "verification-settlement": "核查差异结算",
       "performer-spacing": "带空格的演员名",

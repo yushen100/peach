@@ -1137,8 +1137,8 @@ class UpgradeRepairTests(unittest.TestCase):
             self.assertEqual(row[0], '元の題名')
             self.assertEqual(json.loads(row[1])['catalog_title'], 'auto:dmm')
             # 悬空候选、JavDB 记录类型、视频改登记、来源分辨率标签、画质分档与旧记录转换六条补修各记一行，这里只数更新已有资料的回执。
-            self.assertEqual(connection.execute('SELECT count(*) FROM ledger_upgrade_repair WHERE id NOT IN (?,?,?,?,?,?)',
-                                                (upgrade_repairs.DANGLING_KEY,
+            self.assertEqual(connection.execute('SELECT count(*) FROM ledger_upgrade_repair WHERE id NOT IN (?,?,?,?,?,?,?)',
+                                                (upgrade_repairs.DANGLING_KEY, upgrade_repairs.SUFFIX_CODES_KEY,
                                                  upgrade_repairs.JAVDB_RECORDS_KEY,
                                                  upgrade_repairs.VIDEO_MEDIUM_KEY,
                                                  upgrade_repairs.RESOLUTION_TAGS_KEY, quality_repair.KEY,
@@ -1510,6 +1510,45 @@ class UpgradeRepairTests(unittest.TestCase):
                                "VALUES(?,'local',?,?,'video',?,?,?)",
                                (key, f'{key}.mp4', 'SSIS-123.mp4', code, json.dumps({'code': owner}), duration))
 
+    def test_codes_missing_their_label_suffix_are_restored_once_with_a_receipt(self):
+        """#124：旧版把 `IBW-483z` 的 `z` 当版次剥掉，只改回扫描写入、去掉尾字母正好等于旧值的番号。"""
+        rows = [
+            (1, 'IBW-483z.mp4', 'IBW-483', 'scan:filename'),
+            # 没有归属的番号来路不明（旧导入），不碰。
+            (7, 'IBW-622z.mp4', 'IBW-622', None),
+            (2, 'IBW-518Z 少女.mp4', 'IBW-518', 'scan:filename'),
+            # 用户填的番号不碰。
+            (3, 'IBW-529z.mp4', 'IBW-529', 'user:manual'),
+            # 文件名本来就没有尾字母，旧值是对的。
+            (4, 'IBW-562.mp4', 'IBW-562', 'scan:filename'),
+            # 版次尾字母不是登记的尾字母。
+            (5, 'ADN-516C.mp4', 'ADN-516', 'scan:filename'),
+            # 去掉尾字母也对不上旧值：不是这一类误认，留着。
+            (6, 'IBW-613z.mp4', 'IBW-612', 'scan:filename'),
+        ]
+        with self.database.write_transaction() as connection:
+            for key, name, code, owner in rows:
+                connection.execute(
+                    'INSERT INTO asset(id,location,path,name,medium,code,field_owners) '
+                    "VALUES(?,'local',?,?,'video',?,?)",
+                    (key, rf'R:\{name}', name, code, json.dumps({'code': owner}) if owner else None))
+        self.service._restore_suffix_codes()
+        with self.database.read_connection() as connection:
+            codes = dict(connection.execute('SELECT id,code FROM asset ORDER BY id').fetchall())
+            receipt = connection.execute('SELECT result_json FROM ledger_upgrade_repair WHERE id=?',
+                                         (upgrade_repairs.SUFFIX_CODES_KEY,)).fetchone()
+        self.assertEqual(codes, {1: 'IBW-483Z', 2: 'IBW-518Z', 3: 'IBW-529', 4: 'IBW-562', 5: 'ADN-516',
+                                 6: 'IBW-612', 7: 'IBW-622'})
+        self.assertEqual(json.loads(receipt[0]), {'codes': [
+            {'id': 1, 'current': 'IBW-483', 'target': 'IBW-483Z'},
+            {'id': 2, 'current': 'IBW-518', 'target': 'IBW-518Z'}]})
+        # 只做一次：之后再记上的旧值不再改。
+        with self.database.write_transaction() as connection:
+            connection.execute("UPDATE asset SET code='IBW-483' WHERE id=1")
+        self.service._restore_suffix_codes()
+        with self.database.read_connection() as connection:
+            self.assertEqual(connection.execute('SELECT code FROM asset WHERE id=1').fetchone()[0], 'IBW-483')
+
     def test_codes_misread_from_old_filenames_are_cleared_once_with_a_receipt(self):
         rows = [
             # 手机录像的时间戳与被截断的「名字_日期」：现行规则都不认，账本里还记着旧值。
@@ -1665,8 +1704,8 @@ class UpgradeRepairTests(unittest.TestCase):
             rows = connection.execute('SELECT id,code,duration FROM asset ORDER BY id').fetchall()
             self.assertEqual([tuple(row) for row in rows], [(1, 'SSIS-123', None), (2, 'BAD-001', None)])
             # 悬空候选、JavDB 记录类型、视频改登记、来源分辨率标签、画质分档与旧记录转换六条补修各记一行，这里只数更新已有资料的回执。
-            self.assertEqual(connection.execute('SELECT count(*) FROM ledger_upgrade_repair WHERE id NOT IN (?,?,?,?,?,?)',
-                                                (upgrade_repairs.DANGLING_KEY,
+            self.assertEqual(connection.execute('SELECT count(*) FROM ledger_upgrade_repair WHERE id NOT IN (?,?,?,?,?,?,?)',
+                                                (upgrade_repairs.DANGLING_KEY, upgrade_repairs.SUFFIX_CODES_KEY,
                                                  upgrade_repairs.JAVDB_RECORDS_KEY,
                                                  upgrade_repairs.VIDEO_MEDIUM_KEY,
                                                  upgrade_repairs.RESOLUTION_TAGS_KEY, quality_repair.KEY,

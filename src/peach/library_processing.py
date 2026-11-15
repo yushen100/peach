@@ -2876,13 +2876,20 @@ def _checkpoint_key(row):
 
 
 def _newly_coded_assets(database, db_path) -> set[str]:
-    """账本里没番号、按现行内置规则能从文件名认出番号的影片 id；处理时会补上番号再采资料。"""
+    """按现行内置规则才有了番号的影片 id，处理时补上番号再采资料。
+
+    两类：账本里没番号、现在能从文件名认出的；番号带登记尾字母的（`IBW-483Z`）。后者是升级补修
+    刚从旧版截掉尾字母的写法改回来的（`upgrade_repairs.truncated_suffix_codes`），按旧写法采集时
+    来源返回都被身份闸拒掉，得按现番号再采一次。
+    """
+    from .catalog_rules import without_label_suffix
     from .repository import LedgerDatabase
     ledger = database if database is not None else LedgerDatabase(db_path)
     with ledger.read_connection() as connection:
         rows = connection.execute(
-            "SELECT id,name FROM asset WHERE medium='video' AND COALESCE(code,'')=''").fetchall()
-    return {str(row[0]) for row in rows if release_code_from_filename(row[1] or '')}
+            "SELECT id,name,code FROM asset WHERE medium='video'").fetchall()
+    return {str(row[0]) for row in rows
+            if (release_code_from_filename(row[1] or '') if not row[2] else without_label_suffix(row[2]))}
 
 
 class _LibraryCheckpoints:

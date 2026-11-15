@@ -291,6 +291,7 @@
       "source-resolution-tags": "4K tags from sources",
       "video-medium": "Reclassified as videos",
       "stale-filename-codes": "Misread codes cleared",
+      "label-suffix-codes": "Code suffixes restored",
       "studio-unbounded-misses": "Label lookup cache",
       "verification-settlement": "Verification differences settled",
       "performer-spacing": "Performer names with spaces",
