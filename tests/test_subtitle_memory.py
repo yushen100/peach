@@ -203,6 +203,22 @@ class SubtitleMemoryApiTests(unittest.TestCase):
             self.assertIsNotNone(response.json()["selected"])
         self.assertTrue(inspected)
 
+    def test_simplified_region_tag_precedes_generic_chinese_with_existing_language_records(self):
+        for name in ("sample.chinese.vtt", "sample.zh-CN.vtt", "sample.zh-TW.vtt"):
+            path = self.media / name
+            path.write_text(VTT, encoding="utf-8")
+            with self.app.state.database.write_transaction() as connection:
+                connection.execute("""INSERT INTO asset_subtitle(asset_id,location,path,name,language,format,
+                    pairing,first_seen,last_seen) VALUES(1,'local',?,?,'zh','vtt','suffix','2026-11-05','2026-11-05')""",
+                                   (str(path), name))
+        with self.client as client:
+            tracks = client.get("/api/assets/1/subtitles").json()["subtitles"]
+            simplified = next(track for track in tracks if track["name"] == "sample.zh-CN.vtt")
+            self.assertEqual(simplified["language"], "zh-Hans")
+            self.assertEqual(client.get("/api/player/memory?video=item:1&auto=zh").json()["selected"], simplified["id"])
+        with self.app.state.database.read_connection() as connection:
+            self.assertEqual({row[0] for row in connection.execute("SELECT language FROM asset_subtitle")}, {"zh"})
+
     def test_legacy_nonempty_choice_is_preserved_when_chinese_is_available(self):
         (self.media / "sample.chs.vtt").write_text(VTT, encoding="utf-8")
         memory = SubtitleMemory(self.root / "state/player-subtitles", "item:1")

@@ -670,14 +670,19 @@ def subtitle_tracks(state, asset_id: int) -> list[dict]:
     tracks = []
     for index, row in enumerate(rows):
         note = _subtitle_note(state, asset, row)
+        # 账本里登记成通用中文（`zh`）的旧行，文件名写明简繁（`zh-CN`、`zh-TW`）时按文件名细分，不改账本。
+        language = row["language"]
+        named = subtitles.language_of(row["name"])
+        if not language or (language == "zh" and named.startswith("zh-")):
+            language = named or language
         tracks.append({
             "id": f"sidecar:{subtitles.file_key(row['name'])}",
             "legacy_id": f"sidecar:{row['id']}" if isinstance(row["id"], int) else None,
             "index": index,
             "name": row["name"],
             "format": row["format"],
-            "language": row["language"],
-            "label": subtitles.track_label(row["name"], row["language"], asset.name),
+            "language": language,
+            "label": subtitles.track_label(row["name"], language, asset.name),
             "pairing": row["pairing"],
             "note": interface_text.text(f"server:labels.routesMedia.subtitle.{note}") if note else "",
             "note_code": f"labels.routesMedia.subtitle.{note}" if note else "",

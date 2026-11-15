@@ -45,8 +45,8 @@ SUBTITLE_FORMATS = {**TEXT_FORMATS, **GRAPHIC_FORMATS}
 #: 文件名末尾的语言 token → BCP 47 语言码。中日韩文写法的 token 是文件名里的原词，在 `content_words`。
 #: `ch` 在这个库里既是「中文字幕版」的版次标记也是语言标记，两种含义指向同一个结论。
 LANGUAGE_TOKENS: dict[str, str] = {
-    **{token: "zh-Hans" for token in ("chs", "gb", "gbk", "sc", "zhcn", "zh-cn", "chi", "chn")},
-    **{token: "zh-Hant" for token in ("cht", "big5", "tc", "zhtw", "zh-tw", "zhhk", "zh-hk")},
+    **{token: "zh-Hans" for token in ("chs", "gb", "gbk", "sc", "zhcn", "zh-cn", "zh-hans", "chi", "chn")},
+    **{token: "zh-Hant" for token in ("cht", "big5", "tc", "zhtw", "zh-tw", "zhhk", "zh-hk", "zh-hant")},
     **{token: "zh" for token in ("zh", "ch", "cn", "chinese")},
     **{token: "en" for token in ("en", "eng", "english")},
     **{token: "ja" for token in ("ja", "jp", "jpn", "japanese")},
@@ -67,6 +67,7 @@ LANGUAGE_LABEL_CODES = {
 _STRIPPABLE = (frozenset(LANGUAGE_TOKENS) | frozenset(VERSION_TAIL_TOKENS)
                | {"forced", "sdh", "default"})
 _SEPARATORS = ".-_ "
+_COMPOUND_LANGUAGES = sorted((token for token in LANGUAGE_TOKENS if "-" in token), key=len, reverse=True)
 #: 一个 stem 最多剥几层：`ABP-758.chs.forced` 是两层，再多就不像是 sidecar 命名了。
 _MAX_STRIPS = 3
 
@@ -106,6 +107,11 @@ def _stem(name: str) -> str:
 
 def _split_tail(stem: str) -> tuple[str, str]:
     """切下 stem 末尾的一个分隔 token；切不动时后半是空串。"""
+    folded = stem.casefold()
+    for token in _COMPOUND_LANGUAGES:
+        start = len(stem) - len(token)
+        if start > 0 and stem[start - 1] in _SEPARATORS and folded.endswith(token):
+            return stem[:start - 1], stem[start:]
     index = max(stem.rfind(separator) for separator in _SEPARATORS)
     if index <= 0:
         return stem, ""
