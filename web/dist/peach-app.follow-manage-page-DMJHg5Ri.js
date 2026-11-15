@@ -1,6 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
+<<<<<<<< HEAD:web/dist/peach-app.follow-manage-page-DMJHg5Ri.js
 		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "e4b8e48d-9d2a-4b23-bea7-e0715abbc316", e._sentryDebugIdIdentifier = "sentry-dbid-e4b8e48d-9d2a-4b23-bea7-e0715abbc316");
 	} catch {}
 })();
@@ -9,6 +10,16 @@ import { Page as Yt } from "./peach-app.page-QAncjzM1.js";
 import { AuthorAvatar as Xt, ErrorLine as Zt, SourceIcon as Qt, SourceLink as $t, StatusBadge as en } from "./peach-app.source-view--K6uWAMi.js";
 import { createPaginatedRowModel as tn, createSortedRowModel as nn, useTableSelection as rn } from "./peach-app.use-table-selection-CnuGRvGn.js";
 import { LEGACY_AVATAR_IMG as an } from "./peach-app.legacy-avatar-NSITxLRS.js";
+========
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "8d6513e2-723f-40bc-a1f0-83848d0799ad", e._sentryDebugIdIdentifier = "sentry-dbid-8d6513e2-723f-40bc-a1f0-83848d0799ad");
+	} catch {}
+})();
+import { $2ec61d1d4f780267$export$a8a3e93435678ff9 as e, $542a13ca2fa5b484$export$5b6b19405a83ff9d as t, $76d00c5a4edb230a$export$76ccd210b9029917 as n, $76d00c5a4edb230a$export$816b5d811295e6bc as r, $76d00c5a4edb230a$export$b59bdbef9ce70de2 as i, $76d00c5a4edb230a$export$f6f0c3fe4ec306ea as a, $76d00c5a4edb230a$export$f850895b287ef28e as o, $ea3928288112382f$export$439d29a4e110a164 as s, $l as c, ActivityStatus as l, Button as u, ButtonLink as d, Bx as f, COLUMN_SORT as p, Checkbox as m, ChevronSortDown as h, Chip as g, CollapseChevron as _, CollapseRegion as v, DataTableFooter as y, DataTableFrame as ee, DataTableSort as b, EmptyFocusButton as x, EmptyState as te, ErrorText as S, ExternalLink as C, FEEDS_KEY as w, FOLLOW_CHECK_KEY as T, FOLLOW_CHECK_TASK as E, FOLLOW_CREDENTIALS_KEY as D, FOLLOW_MANAGE_KEY as O, FOLLOW_MANAGE_NAV as k, FOLLOW_RESOLVE_KEY as A, FieldLabel as j, Help as M, Input as N, LAYOUTS as P, M6 as F, MENU_ITEM as I, MENU_ITEM_INTERACTIVE as L, MENU_POPOVER_SURFACE as R, ModalFrame as ne, Note as z, P7 as re, SORT_DEFAULT_DIR as ie, SORT_OPTIONS as ae, STAT_STRIP_SIX as B, Select as V, SelectItem as H, SelectionDock as oe, SelectionPopover as U, SiteLabel as W, SortDirectionIcon as se, SortableBoardTabs as ce, Switch as G, Table as le, TableColumnControls as ue, TableColumnResizer as de, TableSelectionHeader as fe, TagManager as pe, TaskProgress as me, Un as he, Wt as ge, Xf as _e, __toESM as ve, activityKind as ye, addAlias as be, addSource as xe, authorGroups as Se, authorName as Ce, avatarInner as we, busyProps as K, cardClass as Te, checkEvidenceGap as Ee, checkFailures as De, checkFeeds as Oe, checkReceipt as ke, checkSummary as Ae, checkedText as je, clickedBlank as Me, codedText as Ne, columnVisibilityFeature as Pe, composingKey as Fe, confirmModal as Ie, createColumnHelper as Le, credentialDone as Re, cx as ze, dZ as Be, dropSources as Ve, du as He, errorHeadline as Ue, errorMessage as q, feedIntervalText as We, fetchCheckJob as Ge, fetchCredentials as Ke, fetchFeeds as qe, fetchFollow as Je, fetchResolveJob as Ye, fetchSuggestions as Xe, flexRender as Ze, followFeedByName as Qe, followFeedEntity as $e, followSuggestKey as et, groupByAuthor as tt, isBroken as nt, isLayout as rt, jobText as it, joinList as J, keepSelected as at, l7 as ot, localTime as st, lookupFeedActor as ct, mapLimit as lt, markAllPending as ut, pageSizeOf as dt, pageWindow as ft, patchSource as pt, pv as mt, queryClient as ht, quoted as gt, reloadFollowManage as _t, removeAlias as vt, removeFeed as yt, removeSource as bt, renameAliasGroup as xt, require_jsx_runtime as St, require_react as Ct, resolveFollowSort as wt, rowPaginationFeature as Tt, rowSelectionFeature as Et, rowSortingFeature as Dt, selectionState as Ot, serverLabel as kt, setFeedEnabled as At, setSourceEnabled as jt, sortLabel as Mt, startCheck as Nt, startResolve as Pt, t as Y, tableFeatures as Ft, tableRows as It, toggleGroup as Lt, useAction as Rt, useBackgroundJob as zt, useMutation as Bt, useQuery as Vt, useTable as Ht, useTablePreferences as Ut } from "./peach-app.js";
+import { Page as Wt } from "./peach-app.page-QAncjzM1.js";
+import { AuthorAvatar as Gt, ErrorLine as Kt, SourceIcon as qt, SourceLink as Jt, StatusBadge as Yt } from "./peach-app.source-view-B-2OVj4g.js";
+import { createPaginatedRowModel as Xt, createSortedRowModel as Zt, useTableSelection as Qt } from "./peach-app.use-table-selection-CnuGRvGn.js";
+import { LEGACY_AVATAR_IMG as $t } from "./peach-app.legacy-avatar-NSITxLRS.js";
+>>>>>>>> agent/claude/placeholder-contrast:web/dist/peach-app.follow-manage-page-ooyyE_pu.js
 // src/react/follow-manage/add-source.tsx
 var X = /* @__PURE__ */ ve(Tt(), 1), Z = wt(), on = ze(L, R, "text-body-2-medium"), sn = Y("follow:addCreatorSource.placeholder"), cn = Y("follow:addCreatorSource.title"), ln = Y("follow:addCreatorSource.searchingByName"), un = Y("follow:addCreatorSource.recognizing"), dn = Y("follow:addCreatorSource.noSourceFound"), fn = "/settings/subscriptions", pn = (e, t) => `${e}:${t.url}`;
 function mn({ field: e, menu: n, options: r, active: i, busy: a, onPick: o, onClose: s }) {
@@ -1347,8 +1358,13 @@ function Wn({ source: e }) {
 	} : null;
 	return /* @__PURE__ */ (0, Z.jsx)("span", {
 		"aria-hidden": !0,
+<<<<<<<< HEAD:web/dist/peach-app.follow-manage-page-DMJHg5Ri.js
 		className: `relative inline-grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-background-tertiary-default text-caption-1-semibold text-text-secondary ${an}`,
 		dangerouslySetInnerHTML: { __html: we(Vn(e), t, null, "performer") }
+========
+		className: `relative inline-grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-media-placeholder text-caption-1-semibold text-text-secondary ${$t}`,
+		dangerouslySetInnerHTML: { __html: we(In(e), t, null, "performer") }
+>>>>>>>> agent/claude/placeholder-contrast:web/dist/peach-app.follow-manage-page-ooyyE_pu.js
 	});
 }
 var Gn = (e, t) => e.entity_id !== null && t.has(e.entity_id) && e.page_name && e.page_name !== e.name ? e.page_name : "";
@@ -4410,4 +4426,8 @@ function Xs(e) {
 }
 export { Xs as FollowManagePage };
 
+<<<<<<<< HEAD:web/dist/peach-app.follow-manage-page-DMJHg5Ri.js
 //# debugId=e4b8e48d-9d2a-4b23-bea7-e0715abbc316
+========
+//# debugId=8d6513e2-723f-40bc-a1f0-83848d0799ad
+>>>>>>>> agent/claude/placeholder-contrast:web/dist/peach-app.follow-manage-page-ooyyE_pu.js

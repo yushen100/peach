@@ -89,7 +89,7 @@ function OrphanIdentity({ item }: { item: OrphanRecord }) {
         <span className="flex min-w-0 items-center gap-3">
           {/* 快照图供认片；没有图或取不到时留一格带描边的占位，和重复文件页的封面格同一个样子。
               窄屏收起，把宽度让给名字与记录。 */}
-          <span className="relative inline-grid aspect-16/10 w-24 flex-none place-items-center max-cleanup-tight:hidden overflow-hidden rounded-lg border border-separator-border bg-background-tertiary-default text-text-tertiary">
+          <span className="relative inline-grid aspect-16/10 w-24 flex-none place-items-center max-cleanup-tight:hidden overflow-hidden rounded-lg border border-separator-border bg-media-placeholder text-text-tertiary">
             <PLAY aria-hidden className="size-5" />
             {item.has_thumb
               ? <img src={`/thumb?id=${item.id}&c=4`} alt="" loading="lazy"

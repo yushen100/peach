@@ -48,7 +48,7 @@ function GoalCard({ item, openItem, searchResources, javTitleHtml, javDisplayNam
             间距的规则，排在 `peach-app.css` 后面会赢。这颗按钮是 flex 子项，行内格
             会被块级化，算出来仍是 `display:grid`。 */}
         <button type="button" onClick={open} aria-label={t('manage:hdUpgrades.openVideo', { title: javDisplayName(item) })}
-          className="relative inline-grid w-card-cover shrink-0 self-start aspect-card-cover cursor-pointer place-items-center overflow-hidden rounded-2lg bg-background-tertiary-default">
+          className="relative inline-grid w-card-cover shrink-0 self-start aspect-card-cover cursor-pointer place-items-center overflow-hidden rounded-2lg bg-media-placeholder">
           {/* 图片取不到时（onError 把 img 摘掉）露出来的就是这句。 */}
           <span className="text-caption-1-regular text-text-secondary">{t('manage:hdUpgrades.noPreview')}</span>
           <img src={previewUrl(item)} alt="" loading="lazy"

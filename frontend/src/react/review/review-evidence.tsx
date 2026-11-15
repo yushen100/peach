@@ -60,7 +60,7 @@ export function OriginAsset(
   return (
     <div className="flex min-w-0 items-center gap-3">
       <button type="button" onClick={() => openItem(asset.id)}
-        className="flex aspect-card-cover w-20 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-2lg bg-background-tertiary-default outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring">
+        className="flex aspect-card-cover w-20 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-2lg bg-media-placeholder outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring">
         {asset.preview_url
           ? <img src={asset.preview_url} alt="" loading="lazy" className="size-full object-cover" />
           : <span className="text-caption-1-regular text-text-secondary">{t('manage:shared.noCover')}</span>}
@@ -92,7 +92,7 @@ export function EntityHead(
     <div className="flex min-w-0 items-center gap-3">
       {/* `card-art` 的 `avatarInner` 是唯一那份「有图走图、没图退首字母」的实现，页面不重画一遍。 */}
       <button type="button" aria-label={t('manage:reviewEvidence.openCreator', { name })} onClick={() => openEntity(kind, name)}
-        className={`relative inline-grid size-11 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-full bg-background-secondary-default text-caption-1-medium text-text-secondary outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring ${LEGACY_AVATAR_IMG}`}
+        className={`relative inline-grid size-11 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-full bg-media-placeholder text-caption-1-medium text-text-secondary outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring ${LEGACY_AVATAR_IMG}`}
         dangerouslySetInnerHTML={{ __html: avatar }} />
       <div className="flex min-w-0 flex-col items-start">
         <button type="button" onClick={() => openEntity(kind, name)}
@@ -195,7 +195,7 @@ export function AssetPicker(
           return (
             <button key={asset.id} type="button" aria-pressed={on} title={asset.name}
               onClick={(event) => toggle(index, event.shiftKey)}
-              className={`relative aspect-card-cover cursor-pointer overflow-hidden rounded-surface bg-background-tertiary-default outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-border-focus-ring ${on ? 'opacity-100 ring-2 ring-border-button-active ring-inset' : 'opacity-50'}`}>
+              className={`relative aspect-card-cover cursor-pointer overflow-hidden rounded-surface bg-media-placeholder outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-border-focus-ring ${on ? 'opacity-100 ring-2 ring-border-button-active ring-inset' : 'opacity-50'}`}>
               <img src={`/poster?id=${asset.id}&c=4`} alt="" loading="lazy"
                 className="size-full object-cover" />
               {/* 勾选的样子归注册表里那一枚：这里不另画一个，免得同一页出现两种「已选」。 */}

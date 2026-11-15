@@ -84,7 +84,7 @@ function Poster({ src }: { src: string }) {
 
 /** 圆框共用的那一副：38px 正圆，图铺满，首字母居中。 */
 const RING = 'relative inline-grid size-9.5 flex-none place-items-center overflow-hidden rounded-full'
-  + ' bg-background-secondary-default text-body-2-regular text-text-secondary'
+  + ' bg-media-placeholder text-body-2-regular text-text-secondary'
   + ' [&_img]:absolute [&_img]:inset-0 [&_img]:block [&_img]:size-full [&_img]:object-cover';
 
 /** 圆框里那段 HTML 由 `avatarInner` 拼：有图走图，没图退首字母，代表作头像查同一张代表作表。 */

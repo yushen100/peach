@@ -1,7 +1,11 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
+<<<<<<<< HEAD:web/dist/peach-app.data-cleanup-page-DDGokVrn.js
 		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "b1f5ceae-b8da-466c-871f-3df4bffe3439", e._sentryDebugIdIdentifier = "sentry-dbid-b1f5ceae-b8da-466c-871f-3df4bffe3439");
+========
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "e98451bc-af43-4d8f-9760-40646f7216c8", e._sentryDebugIdIdentifier = "sentry-dbid-e98451bc-af43-4d8f-9760-40646f7216c8");
+>>>>>>>> agent/claude/placeholder-contrast:web/dist/peach-app.data-cleanup-page-4clxi9W7.js
 	} catch {}
 })();
 import { BATCH_DELETE_TEXT as e, Button as t, CLEANUP_ENTRY as n, CLEANUP_ENTRY_GRID as r, CLEANUP_HASH_REDIRECTS as i, CLEANUP_TOOLS as a, Chip as o, DIRECTORY_TEMPLATE_ERROR as s, DUPLICATES_KEY as c, Fieldset as l, FieldsetTitle as u, IDLE_REPAIR as d, IconButton as f, IndexSearch as p, Input as m, JUNK_KEY as h, LINKS_KEY as g, LINK_CHECK_KEY as _, LINK_KINDS as v, LINK_PRUNE_KEY as ee, LOC as y, LibraryLabel as b, LibraryProcessingCard as x, MEDIA_REPAIR_KEY as S, MEDIA_REPAIR_URL as C, MEDIA_SOURCES_KEY as w, MEDIA_SOURCE_ICONS as T, Note as E, ORGANIZE_KEY as te, ORGANIZE_PARAMETER_HINT as ne, ORGANIZE_SCOPE_HINT as re, ORGANIZE_TEXT as ie, ORPHAN_RECORDS_KEY as D, ORPHAN_RECORDS_TEXT as O, PERFORMER_DELETE_KEY as k, PLAIN_STAT_STRIP as A, PlainStat as j, Progress as ae, QUALITY_GOALS_KEY as M, REPAIR_CARD_TEXT as oe, REPAIR_LIBRARIES_KEY as se, RESOURCE_APPLY_KEY as N, RESOURCE_SCAN_KEY as P, RESOURCE_SYNC_TEXT as F, RESULT_PANEL as ce, RESULT_SECTION as le, REVIEW_COUNTS_KEY as I, SOURCE_LABELS as ue, SectionHeading as de, Select as fe, SelectItem as pe, SourceLabel as L, SourceMark as me, StatusLabel as he, TRASH_KEY as ge, TaskProgress as R, Wt as _e, __toESM as ve, activityKind as z, apiSend as B, applyConfirmText as ye, applyLeftovers as V, applyPlanText as be, applyText as xe, attachOrphan as Se, baseName as Ce, busyProps as H, candidateText as we, checkLine as Te, codedText as Ee, confirmModal as De, cx as Oe, deletePerformerVideos as ke, entityDisplayName as Ae, entityFaceImg as je, entityPath as Me, errorMessage as U, esc as Ne, fetchDeletePerformers as Pe, fetchDeletePlan as Fe, fetchDuplicates as Ie, fetchJunkSummary as Le, fetchLinkCheck as Re, fetchLinkPrune as ze, fetchLinkStats as Be, fetchMediaRepair as Ve, fetchMediaSources as He, fetchOrganize as Ue, fetchOrganizeExample as We, fetchOrphanRecords as Ge, fetchQualityGoals as Ke, fetchRepairLibraries as qe, fetchResourceApply as Je, fetchResourceScan as Ye, fetchReviewCounts as Xe, fetchTrashSummary as Ze, firstGrapheme as Qe, fmtSize as W, hasChanges as $e, hasResourceRoots as et, jobText as G, junkBreakdown as tt, linkLabel as nt, missingToolText as rt, organizeOutcome as it, peachHistory$1 as at, pickOrganizeFolder as ot, plainStatClass as K, planSummary as st, previewOrganize as ct, pruneText as lt, purgeCount as ut, purgeOrphan as dt, queryClient as q, recordsText as ft, rememberTemplates as pt, require_jsx_runtime as mt, require_react as ht, reviewSummary as gt, runBulkAction as _t, scanLine as vt, serverLabel as yt, sourceMeta as bt, spriteGlyph as J, stageText as xt, startLinkCheck as St, startLinkPrune as Ct, startOrganize as wt, startResourceApply as Tt, startResourceScan as Et, statusLine as Dt, t as Y, useAction as Ot, useBackgroundJob as X, useEntityNames as kt, useMutation as At, useOrderedLibraries as jt, useQuery as Z, withOrganizeJob as Mt } from "./peach-app.js";
@@ -224,7 +228,11 @@ function $t({ title: e, items: t, hint: n, picked: r, onPick: i, actions: a, con
 				"data-link-identity": "",
 				children: [/* @__PURE__ */ (0, $.jsx)("span", {
 					"data-link-avatar": "",
+<<<<<<<< HEAD:web/dist/peach-app.data-cleanup-page-DDGokVrn.js
 					className: `relative flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-background-quaternary-default text-caption-1-medium text-text-primary ${Lt}`,
+========
+					className: `relative flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-media-placeholder text-caption-1-medium text-text-primary ${It}`,
+>>>>>>>> agent/claude/placeholder-contrast:web/dist/peach-app.data-cleanup-page-4clxi9W7.js
 					"aria-hidden": !0,
 					dangerouslySetInnerHTML: { __html: `<span>${Ne(Qe(e.entity))}</span>` + je({
 						kind: e.entity_kind,
@@ -1042,8 +1050,13 @@ function un({ item: e }) {
 	return /* @__PURE__ */ (0, $.jsxs)("span", {
 		className: "flex min-w-0 items-center gap-3",
 		children: [/* @__PURE__ */ (0, $.jsxs)("span", {
+<<<<<<<< HEAD:web/dist/peach-app.data-cleanup-page-DDGokVrn.js
 			className: "relative inline-grid aspect-16/10 w-24 flex-none place-items-center max-cleanup-tight:hidden overflow-hidden rounded-lg border border-separator-border bg-background-tertiary-default text-text-tertiary",
 			children: [/* @__PURE__ */ (0, $.jsx)(sn, {
+========
+			className: "relative inline-grid aspect-16/10 w-24 flex-none place-items-center max-cleanup-tight:hidden overflow-hidden rounded-lg border border-separator-border bg-media-placeholder text-text-tertiary",
+			children: [/* @__PURE__ */ (0, $.jsx)(on, {
+>>>>>>>> agent/claude/placeholder-contrast:web/dist/peach-app.data-cleanup-page-4clxi9W7.js
 				"aria-hidden": !0,
 				className: "size-5"
 			}), e.has_thumb ? /* @__PURE__ */ (0, $.jsx)("img", {
@@ -1180,8 +1193,13 @@ function fn({ person: e }) {
 		className: "flex min-w-0 items-center gap-3 text-text-primary",
 		children: [/* @__PURE__ */ (0, $.jsx)("span", {
 			"aria-hidden": !0,
+<<<<<<<< HEAD:web/dist/peach-app.data-cleanup-page-DDGokVrn.js
 			className: Oe("relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-background-quaternary-default text-caption-1-medium", Lt),
 			dangerouslySetInnerHTML: { __html: `<span>${Ne(Qe(t))}</span>` + je({
+========
+			className: De("relative flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-media-placeholder text-caption-1-medium", It),
+			dangerouslySetInnerHTML: { __html: `<span>${Me(Ze(t))}</span>` + Ae({
+>>>>>>>> agent/claude/placeholder-contrast:web/dist/peach-app.data-cleanup-page-4clxi9W7.js
 				kind: "performer",
 				id: e.entity_id,
 				hasImage: e.has_image,
@@ -1832,4 +1850,8 @@ function Pn({ toast: e, open: t, navigate: n }) {
 }
 export { Pn as DataCleanupPage, wn as DataCleanupToolPage };
 
+<<<<<<<< HEAD:web/dist/peach-app.data-cleanup-page-DDGokVrn.js
 //# debugId=b1f5ceae-b8da-466c-871f-3df4bffe3439
+========
+//# debugId=e98451bc-af43-4d8f-9760-40646f7216c8
+>>>>>>>> agent/claude/placeholder-contrast:web/dist/peach-app.data-cleanup-page-4clxi9W7.js

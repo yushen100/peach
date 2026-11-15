@@ -1,7 +1,11 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
+<<<<<<<< HEAD:web/dist/peach-app.review-page-CBVAOzkz.js
 		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "7b49e5cc-b3bc-4980-8a48-08771f42de61", e._sentryDebugIdIdentifier = "sentry-dbid-7b49e5cc-b3bc-4980-8a48-08771f42de61");
+========
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "169cf156-1abc-436e-9a3f-19d99a001a4d", e._sentryDebugIdIdentifier = "sentry-dbid-169cf156-1abc-436e-9a3f-19d99a001a4d");
+>>>>>>>> agent/claude/placeholder-contrast:web/dist/peach-app.review-page-By6Qm38-.js
 	} catch {}
 })();
 import { $ea3928288112382f$export$439d29a4e110a164 as e, $fe21c36db05242bb$export$a98f0dcb43a68a25 as t, $fe21c36db05242bb$export$d7b12c4107be0d61 as n, Button as r, ButtonLink as i, Checkbox as a, CheckboxGlyph as o, Chip as s, CollapseChevron as c, CollapseRegion as l, DEFAULT_CATEGORY as u, DataTableFooter as d, ENTITY_REVIEW_KINDS as f, Ea as p, EmptyState as m, ExternalLink as h, FIELDSET_FOOT as ee, FilterGlassRows as g, Gg as _, InputBase as v, LinkButton as te, Note as y, REVIEW_CATEGORIES as b, REVIEW_DECISION_LABELS as ne, REVIEW_KEY as re, REVIEW_LABELS as x, REVIEW_QUEUES as ie, REVIEW_QUEUE_LABELS as S, Select as C, SelectItem as w, SelectionActions as T, SelectionDock as ae, SortableBoardTabs as E, TextField as D, Wt as O, __toESM as k, apiGet as A, apiSend as j, avatarInner as M, busyProps as N, canApprove as oe, cardClass as P, codedText as se, commonReviewSources as F, composingKey as ce, currentReviewRow as le, cx as I, decisionPayload as ue, decisionReceipt as de, defaultChoice as fe, enterPageSelection as pe, errorMessage as L, exitPageSelection as me, fetchReview as he, filterReviewRows as ge, groupReviewRows as _e, isReviewCategory as ve, joinList as ye, l7 as be, localTime as xe, m7 as Se, mirrorText as Ce, pendingGenres as we, queryClient as Te, quoted as Ee, recordGenre as R, reloadReview as De, require_jsx_runtime as Oe, require_react as ke, reviewGroupingOptions as Ae, reviewQueueData as je, reviewQueueOf as Me, reviewWindow as Ne, rowEvidence as z, rowFieldName as B, rowSubject as V, rowTags as Pe, rowTitle as Fe, selectReviewRange as Ie, serverLabel as H, serverLabelList as Le, settleReviewRows as Re, submitDecision as ze, t as U, useMutation as Be, useNavigationOrder as Ve, useOverlayScrollbar as W, usePageSelection as He, useQuery as Ue, useViewGlide as We } from "./peach-app.js";
@@ -62,7 +66,7 @@ function at({ item: t, openItem: n }) {
 			type: "button",
 			disabled: !r,
 			onClick: r,
-			className: "flex aspect-card-cover w-16 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-background-tertiary-default outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring disabled:cursor-default",
+			className: "flex aspect-card-cover w-16 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-lg bg-media-placeholder outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring disabled:cursor-default",
 			children: [t.preview_url ? /* @__PURE__ */ (0, Q.jsx)("img", {
 				src: t.preview_url,
 				alt: "",
@@ -1077,7 +1081,7 @@ function qt({ asset: t, openItem: n }) {
 		children: [/* @__PURE__ */ (0, Q.jsxs)("button", {
 			type: "button",
 			onClick: () => n(t.id),
-			className: "flex aspect-card-cover w-20 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-2lg bg-background-tertiary-default outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring",
+			className: "flex aspect-card-cover w-20 shrink-0 cursor-pointer items-center justify-center overflow-hidden rounded-2lg bg-media-placeholder outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring",
 			children: [t.preview_url ? /* @__PURE__ */ (0, Q.jsx)("img", {
 				src: t.preview_url,
 				alt: "",
@@ -1110,7 +1114,11 @@ function Jt({ kind: e, name: t, works: n, avatar: r, openEntity: i }) {
 			type: "button",
 			"aria-label": U("manage:reviewEvidence.openCreator", { name: t }),
 			onClick: () => i(e, t),
+<<<<<<<< HEAD:web/dist/peach-app.review-page-CBVAOzkz.js
 			className: `relative inline-grid size-11 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-full bg-background-secondary-default text-caption-1-medium text-text-secondary outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring ${qe}`,
+========
+			className: `relative inline-grid size-11 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-full bg-media-placeholder text-caption-1-medium text-text-secondary outline-none focus-visible:ring-2 focus-visible:ring-border-focus-ring ${We}`,
+>>>>>>>> agent/claude/placeholder-contrast:web/dist/peach-app.review-page-By6Qm38-.js
 			dangerouslySetInnerHTML: { __html: r }
 		}), /* @__PURE__ */ (0, Q.jsxs)("div", {
 			className: "flex min-w-0 flex-col items-start",
@@ -1232,7 +1240,7 @@ function Xt({ assets: t, picked: n, onPicked: r, locked: i }) {
 					"aria-pressed": r,
 					title: t.name,
 					onClick: (e) => l(n, e.shiftKey),
-					className: `relative aspect-card-cover cursor-pointer overflow-hidden rounded-surface bg-background-tertiary-default outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-border-focus-ring ${r ? "opacity-100 ring-2 ring-border-button-active ring-inset" : "opacity-50"}`,
+					className: `relative aspect-card-cover cursor-pointer overflow-hidden rounded-surface bg-media-placeholder outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-border-focus-ring ${r ? "opacity-100 ring-2 ring-border-button-active ring-inset" : "opacity-50"}`,
 					children: [
 						/* @__PURE__ */ (0, Q.jsx)("img", {
 							src: `/poster?id=${t.id}&c=4`,
@@ -1879,4 +1887,8 @@ function rn(e) {
 }
 export { rn as ReviewPage };
 
+<<<<<<<< HEAD:web/dist/peach-app.review-page-CBVAOzkz.js
 //# debugId=7b49e5cc-b3bc-4980-8a48-08771f42de61
+========
+//# debugId=169cf156-1abc-436e-9a3f-19d99a001a4d
+>>>>>>>> agent/claude/placeholder-contrast:web/dist/peach-app.review-page-By6Qm38-.js

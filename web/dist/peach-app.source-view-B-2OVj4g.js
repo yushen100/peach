@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "57a4389c-e75d-41b8-8b19-c8c35e49c53a", e._sentryDebugIdIdentifier = "sentry-dbid-57a4389c-e75d-41b8-8b19-c8c35e49c53a");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "33ed7609-a10a-4a21-a0e6-6a50da7458c3", e._sentryDebugIdIdentifier = "sentry-dbid-33ed7609-a10a-4a21-a0e6-6a50da7458c3");
 	} catch {}
 })();
 import { Button as e, Chip as t, Wt as n, __toESM as r, authorAvatar as i, authorInitial as a, errorHeadline as o, isBroken as s, require_jsx_runtime as c, require_react as l, sourceIconUrl as u, statusText as d, t as f } from "./peach-app.js";
@@ -21,10 +21,10 @@ function _({ group: e, name: t }) {
 		loading: "lazy",
 		referrerPolicy: "no-referrer",
 		onError: () => s(o + 1),
-		className: "size-8 shrink-0 rounded-full bg-background-tertiary-default object-cover"
+		className: "size-8 shrink-0 rounded-full bg-media-placeholder object-cover"
 	}) : /* @__PURE__ */ (0, h.jsx)("span", {
 		title: f("follow:sourceView.noAvatar"),
-		className: "inline-grid size-8 shrink-0 place-items-center rounded-full bg-background-tertiary-default text-caption-1-semibold text-text-secondary",
+		className: "inline-grid size-8 shrink-0 place-items-center rounded-full bg-media-placeholder text-caption-1-semibold text-text-secondary",
 		children: a(t)
 	});
 }
@@ -81,4 +81,4 @@ function b({ text: t, prefix: n = "", tone: r = "error" }) {
 }
 export { _ as AuthorAvatar, b as ErrorLine, g as SourceIcon, y as SourceLink, v as StatusBadge };
 
-//# debugId=57a4389c-e75d-41b8-8b19-c8c35e49c53a
+//# debugId=33ed7609-a10a-4a21-a0e6-6a50da7458c3

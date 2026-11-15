@@ -386,9 +386,9 @@ body:not([data-density="dense"]) .peach-react [data-follow-list]:not([data-follo
   color: var(--muted);
   font: 600 11px/1 var(--board-font);
 }
-.peach-react [data-follow-image] [data-media-pic] { aspect-ratio: 4 / 3; min-height: 0; background: var(--sunk); }
-.peach-react [data-follow-image] [data-media-pic] > img { background: var(--sunk); object-fit: cover; }
-.peach-react [data-follow-image] :is([data-mix-faces], [data-mix-face] img) { background: var(--sunk); }
+.peach-react [data-follow-image] [data-media-pic] { aspect-ratio: 4 / 3; min-height: 0; background: var(--media-placeholder); }
+.peach-react [data-follow-image] [data-media-pic] > img { object-fit: cover; }
+.peach-react [data-follow-image] [data-mix-faces] { background: var(--media-placeholder); }
 .peach-react [data-follow-image] [data-mix-face] img { object-fit: cover; }
 .peach-react [data-follow-wall][data-layout="masonry"] [data-follow-image] [data-media-pic] { aspect-ratio: 1; }
 /* 带 width/height 属性的图按固有比例占位，没有尺寸的使用 1:1 框，加载后立即使用固有尺寸。
