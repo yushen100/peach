@@ -316,7 +316,7 @@ export function ReviewPage(props: ReviewProps) {
               onGroupBy={(next) => { setGroupBy(next); setFilter(''); setPage(1) }}
               groups={groups} filter={activeFilter}
               onFilter={(next) => { setFilter(next); setPage(1) }}
-              pageKeys={pageKeys} selected={selected} onSelected={setSelected}
+              pageKeys={pageKeys} allKeys={filteredRows.map((row) => row.item_key)} selected={selected} onSelected={setSelected}
               selectedRows={selectedRows} metadata={metadata}
               busy={bulk.isPending || decide.isPending} feedback={feedback}
               onUnifySource={unifySource} actions={bulkActions} />

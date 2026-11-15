@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "d157c990-e76e-409b-800e-704e759e657b", e._sentryDebugIdIdentifier = "sentry-dbid-d157c990-e76e-409b-800e-704e759e657b");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "b7ffab45-5bb6-4ffa-907a-7a1e7e2c0308", e._sentryDebugIdIdentifier = "sentry-dbid-b7ffab45-5bb6-4ffa-907a-7a1e7e2c0308");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -4410,6 +4410,7 @@ var He = {
 		processingStatus: "Status",
 		restoreSelected: "Move selected to Pending",
 		reviewStatus: "Review status",
+		selectAll: "Select all {{count, number}}",
 		selectGroup: "Select all in this group",
 		selectPage: "Select all on this page",
 		selectedCount_one: "{{count, number}} selected",
@@ -11551,6 +11552,7 @@ var He = {
 		processingStatus: "处理状态",
 		restoreSelected: "恢复所选",
 		reviewStatus: "复核状态",
+		selectAll: "全选全部 {{count, number}} 项",
 		selectGroup: "全选当前分类",
 		selectPage: "全选本页",
 		selectedCount: "已选 {{count, number}} 项",
@@ -39163,4 +39165,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=d157c990-e76e-409b-800e-704e759e657b
+//# debugId=b7ffab45-5bb6-4ffa-907a-7a1e7e2c0308
