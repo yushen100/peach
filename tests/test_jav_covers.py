@@ -42,13 +42,16 @@ class FetchRetryTests(unittest.TestCase):
             small.url: (200, jpeg(840, 563))}), 'FC2-PPV-123456', 0, prior_candidates=(small, large))
         self.assertEqual((winner, size), (large, (2184, 1468)))
 
-    def test_a_dvd_sleeve_close_in_size_beats_the_streaming_artwork(self):
-        """SOD 的配信版横图是另画的双栏宣传图；DVD 封套不比它小一成以上就用封套。"""
+    def test_a_dvd_sleeve_beats_the_streaming_artwork_unless_much_blurrier(self):
+        """SOD 的配信版横图是另画的双栏宣传图；统一用 DVD 封套，封套面积不到一半才用配信图。"""
         digital = covers.candidate_for('https://awsimgsrc.dmm.com/dig/digital/video/1start00435/1start00435pl.jpg')
         package = covers.candidate_for('https://awsimgsrc.dmm.com/dig/mono/movie/1start435/1start435pl.jpg')
         winner, size, _ = covers.best_cover(transport_for({digital.url: (200, jpeg(2184, 1542)),
             package.url: (200, jpeg(2184, 1466))}), 'START-435', 0, prior_candidates=(digital, package))
         self.assertEqual((winner, size), (package, (2184, 1466)))
+        winner, size, _ = covers.best_cover(transport_for({digital.url: (200, jpeg(2184, 1542)),
+            package.url: (200, jpeg(1600, 1075))}), 'START-435', 0, prior_candidates=(digital, package))
+        self.assertEqual((winner, size), (package, (1600, 1075)))
         small = covers.candidate_for('https://awsimgsrc.dmm.com/dig/mono/movie/1stars776/1stars776pl.jpg')
         winner, _, _ = covers.best_cover(transport_for({digital.url: (200, jpeg(2184, 1542)),
             small.url: (200, jpeg(800, 535))}), 'START-435', 0, prior_candidates=(digital, small))

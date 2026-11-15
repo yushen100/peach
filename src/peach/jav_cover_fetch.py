@@ -459,9 +459,10 @@ def official_image_candidates(url: str) -> list[Candidate]:
     return []
 
 
-#: DVD 封套的面积按这个倍数参与择优：不低于配信图九成就用封套。START-435 封套 2184×1466、
-#: 配信图 2184×1542，差 5%；STARS-776 的封套只有 800×535，照旧用配信图。
-PACKAGE_PREFERENCE = 1 / 0.9
+#: DVD 封套的面积按这个倍数参与择优：统一用封套，只有封套面积不到配信图一半（边长不到约七成，
+#: 明显更糊）才用配信图。START-435 封套 2184×1466、配信图 2184×1542，用封套；STARS-776 的封套
+#: 只有 800×535，面积约 13%，照旧用配信图。
+PACKAGE_PREFERENCE = 2.0
 
 _DMM_PORTRAIT = re.compile(r"pl\.jpg$", re.I)
 #: 竖版图只取这么大：高清那张 1536×2184 约 1 MB。
@@ -523,11 +524,16 @@ def is_package_image(url: str) -> bool:
     return "/mono/movie/" in urlparse(url or "").path.lower()
 
 
+def is_streaming_image(url: str) -> bool:
+    """DMM 的配信版横图（`digital/video`）：多数与封套同图，SOD 系是另画的宣传图。"""
+    return "/digital/video/" in urlparse(url or "").path.lower()
+
+
 def content_id_images(content_id: str) -> list[Candidate]:
     """内容编号推出的官方候选：配信版两条 CDN 路径，加 DVD 版封套。
 
     SOD 系（START、STARS 等）的配信版横图是另画的双栏宣传图，人物在左、剧照拼贴在右，
-    DVD 版才是标准封套；两张尺寸相近时择优偏向封套（`PACKAGE_PREFERENCE`）。
+    DVD 版才是标准封套；择优统一偏向封套，只有封套明显更糊才用配信图（`PACKAGE_PREFERENCE`）。
     """
     candidates: list[Candidate] = []
     for cid in cid_variants(content_id):
@@ -1046,10 +1052,12 @@ def _download_best(transport: HttpTransport, measured, record, *, minimum_width:
     动图时算没有，而不是没下载成——再问一遍还是这几张。
     """
     animated = 0
+    packaged = any(is_package_image(item[1].url) for item in measured)
 
     def preferred_pixels(item) -> float:
-        # DVD 封套与配信图尺寸相近时用封套：配信图可能是另画的宣传图（SOD 双栏），封套才有标准正封。
-        return item[0] * (PACKAGE_PREFERENCE if is_package_image(item[1].url) else 1)
+        # 同一部有 DVD 封套时，DMM 配信图降权：它可能是另画的宣传图（SOD 双栏），封套才有标准正封。
+        # 只压配信图，不改封套与其他来源（DUGA、MGS）之间按面积的比较。
+        return item[0] / PACKAGE_PREFERENCE if packaged and is_streaming_image(item[1].url) else item[0]
 
     for _pixels, winner, size in sorted(
             measured, key=lambda item: (candidate_quality(item[1]) > 0, preferred_pixels(item),

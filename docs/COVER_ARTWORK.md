@@ -21,7 +21,7 @@ DMM 的横图 `pl.jpg` 旁有竖版图 `ps.jpg`，即 FANZA 页面上的正封�
 - 对不上：竖版图是另外设计的海报，横图是整幅画面，边车记 `layout: still`。竖版图不比横图矮时装成竖版正封，卡片大图位用它，小图位仍看整张横图。
 - 取不到或不是 DMM 来源：沿用下面的折痕判据。
 
-SOD 系的配信版横图是另画的双栏宣传图，择优时 DMM 的 DVD 封套不低于它九成面积就用封套（`jav_cover_fetch.PACKAGE_PREFERENCE`）。阈值与实测样本在 `peach.jav_poster_crop.portrait_match`。手工框优先于竖版正封。已装封面用 `judge_cover_portraits.py` 补判并按同一判据补换封套，默认只挑比例不标准、没找到折痕或判成整幅画面的，先在 `--covers` 指向的副本上试。
+SOD 系的配信版横图是另画的双栏宣传图，择优统一用 DMM 的 DVD 封套，只有封套面积不到配信图一半（明显更糊）才用配信图（`jav_cover_fetch.PACKAGE_PREFERENCE`）。阈值与实测样本在 `peach.jav_poster_crop.portrait_match`。手工框优先于竖版正封。已装封面用 `judge_cover_portraits.py` 补判并按同一判据补换封套，默认只挑比例不标准、没找到折痕或判成整幅画面的，先在 `--covers` 指向的副本上试。
 
 ## 折痕判据
 

@@ -67,7 +67,7 @@ def eligible(path: Path, *, every: bool, named: bool) -> dict | None:
 
 
 def package_sleeve(evidence: dict, size: tuple[int, int], transport):
-    """配信版来源的封面，DVD 封套不比它小一成以上时取回封套：(图片字节, 尺寸, 新来源证据)；否则 None。
+    """配信版来源的封面，DVD 封套不明显更糊（面积不到一半）时取回封套：(图片字节, 尺寸, 新来源证据)；否则 None。
 
     SOD 系的配信版横图是另画的双栏宣传图，装封面的择优现在偏向封套（`PACKAGE_PREFERENCE`），
     装在这之前的按同一判据补换。
