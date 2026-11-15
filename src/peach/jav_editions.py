@@ -164,16 +164,20 @@ def digital_edition(title, performers, secrets_root: Path, *, transport=None) ->
                                                  "queryWord": words}, session=session)
             rows = ((data.get("legacySearchPPV") or {}).get("result") or {}).get("contents") or []
             for cid in [row.get("id") for row in rows if isinstance(row, dict)][:BLURAY_DETAIL_ATTEMPTS]:
-                item = source.content(str(cid), session=session)
-                code = normalise_code_key((item or {}).get("makerContentId"))
-                cast = [str(actor.get("name") or "") for actor in (item or {}).get("actresses") or []
-                        if isinstance(actor, dict)]
-                names = [*performers, *cast]
-                if (code and edition_title_key(item.get("title"), names) == edition_title_key(title, names)
-                        and (not performers or not cast
-                             or {_folded(name) for name in performers} & {_folded(name) for name in cast})):
+                item = source.content(str(cid), session=session) or {}
+                code = normalise_code_key(item.get("makerContentId"))
+                if code and _same_work(item, title, performers):
                     found.add(code)
     finally:
         if owned:
             transport.close()
     return found.pop() if len(found) == 1 else ""
+
+
+def _same_work(item: dict, title, performers: list[str]) -> bool:
+    """DMM 这条商品与蓝光版是不是同一部：标题键相同，两边都有出演者时至少一人相同。"""
+    cast = [str(actor.get("name") or "") for actor in item.get("actresses") or [] if isinstance(actor, dict)]
+    names = [*performers, *cast]
+    if edition_title_key(item.get("title"), names) != edition_title_key(title, names):
+        return False
+    return not performers or not cast or bool({_folded(name) for name in performers} & {_folded(name) for name in cast})
