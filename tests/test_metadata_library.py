@@ -3608,18 +3608,72 @@ class LibraryWatchdogTests(unittest.TestCase):
     @windows_ledger_roots
     def test_one_directory_is_listed_once_for_all_the_videos_in_it(self):
         """同一个文件夹里的片子共用一次目录列表，找 NFO 和找海报也不各列一遍。"""
-        from peach import library_nfo
+        from peach import library_nfo, media_io
         media = self.root / 'media'
         media.mkdir()
         for name in ('ABW-206.mp4', 'ABW-207.mp4', 'ABW-208.mp4'):
             (media / name).write_bytes(b'video')
         db = fresh_ledger(self.root)
         provider = self._provider()
-        with patch('peach.library_processing.directory_files', wraps=library_nfo.directory_files) as listed:
+        with patch('peach.library_processing.directory_files', wraps=library_nfo.directory_files) as listed,                 patch('peach.media_io.read_directories', wraps=media_io.read_directories) as prefetched:
             state = process_library(self._config(media), db, self.root / 'generated', self.root / 'covers',
                                     provider_factory=lambda: provider)
         self.assertEqual(state['checked'], 3)
-        self.assertEqual(listed.call_count, 1)
+        self.assertEqual(listed.call_count, 0)
+        self.assertEqual([[str(path) for path in call.args[0]] for call in prefetched.call_args_list], [[str(media)]])
+
+    def _nfo_run(self, media, db, provider):
+        from peach import media_io
+        with patch('peach.library_processing.read_nfo', wraps=media_io.read_nfo) as read:
+            state = process_library(self._config(media), db, self.root / 'generated', self.root / 'covers',
+                                    stage='metadata', provider_factory=lambda: provider)
+        return state, read.call_count
+
+    @windows_ledger_roots
+    def test_a_later_run_reuses_local_evidence_while_the_folder_is_unchanged(self):
+        """「立即重试」与下一轮处理不重读没动过的 NFO；目录里任何文件改了、增删了都重读。"""
+        media = self.root / 'media'
+        media.mkdir()
+        (media / 'ABW-212.mp4').write_bytes(b'video')
+        nfo = media / 'ABW-212.nfo'
+        nfo.write_text('<movie><title>Local title</title><sorttitle>ABW-212</sorttitle></movie>', encoding='utf-8')
+        db = fresh_ledger(self.root)
+        provider = self._provider()
+        process_library(self._config(media), db, self.root / 'generated', self.root / 'covers', stage='scan')
+        first, reads = self._nfo_run(media, db, provider)
+        self.assertEqual((first['status'], reads), ('complete', 1))
+        second, reads = self._nfo_run(media, db, provider)
+        self.assertEqual((second['status'], reads), ('complete', 0))
+        self.assertEqual(second['candidates'], first['candidates'])
+        nfo.write_text('<movie><title>Edited title</title><sorttitle>ABW-212</sorttitle></movie>', encoding='utf-8')
+        os.utime(nfo, ns=(nfo.stat().st_atime_ns, nfo.stat().st_mtime_ns + 10**9))
+        third, reads = self._nfo_run(media, db, provider)
+        self.assertEqual(reads, 1)
+        titles = [json.loads(row['candidates_json'])
+                  for row in read_rows(self.root / 'generated/library-metadata-field-candidates.csv')
+                  if row['field'] == 'title']
+        self.assertIn('Edited title', json.dumps(titles, ensure_ascii=False))
+        (media / 'poster.jpg').write_bytes(b'not read here')
+        _fourth, reads = self._nfo_run(media, db, provider)
+        self.assertEqual(reads, 1)
+
+    @windows_ledger_roots
+    def test_local_evidence_is_not_reused_after_the_code_patterns_change(self):
+        """番号识别规则改了，旧的读法可能认出别的番号：跨任务的本地证据整份不用。"""
+        media = self.root / 'media'
+        media.mkdir()
+        (media / 'ABW-213.mp4').write_bytes(b'video')
+        (media / 'ABW-213.nfo').write_text('<movie><title>Local</title><sorttitle>ABW-213</sorttitle></movie>',
+                                           encoding='utf-8')
+        db = fresh_ledger(self.root)
+        provider = self._provider()
+        process_library(self._config(media), db, self.root / 'generated', self.root / 'covers', stage='scan')
+        self.assertEqual(self._nfo_run(media, db, provider)[1], 1)
+        with closing(sqlite3.connect(db)) as connection, connection:
+            connection.execute("UPDATE profile SET settings_json=? WHERE id='local-default'",
+                               (json.dumps({'codePatterns': [r'ZZZ-\d+']}),))
+        _state, reads = self._nfo_run(media, db, provider)
+        self.assertEqual(reads, 1)
 
     @windows_ledger_roots
     def test_candidates_are_written_once_for_a_short_batch_not_once_per_asset(self):

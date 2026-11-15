@@ -1546,6 +1546,50 @@ class _DirectoryIndex:
         self._cache: dict[str, dict[str, Path]] = {}
         self._errors: dict[str, OSError] = {}
         self._sidecars: dict[str, SidecarIndex] = {}
+        #: 预读过的目录的指纹：每个文件的名字、大小与修改时间，见 `fingerprint`。
+        self._stamps: dict[str, str] = {}
+
+    def prefetch(self, directories, progress=lambda: None):
+        """用一个子进程连着列出这些目录，顺带记下每个文件的大小与修改时间。
+
+        逐个目录各起一个读取进程，起进程本身就是每部片的主要开销；连读只付一次。列不出的目录
+        不记结果，处理到它时照旧单独列一次、按原样报错。`progress` 每列完一个目录调一次，
+        里面抛出的停止请求会结束读取进程。"""
+        from .media_io import read_directories
+        from .smb_media import SmbResource, resolve
+        pending = {str(directory): directory for directory in directories}
+        pending = [directory for key, directory in pending.items() if key not in self._cache]
+        if not pending:
+            return
+        with closing(read_directories(pending)) as listings:
+            for directory, entries in listings:
+                progress()
+                if isinstance(entries, OSError):
+                    continue
+                # 口径与 `directory_files` 一致：本机跟随链接判文件，SMB 不收链接。
+                remote = isinstance(directory, SmbResource)
+                files = [entry for entry in entries
+                         if entry.is_file() and not (remote and entry.is_symlink())]
+                key = str(directory)
+                self._cache[key] = {entry.name.casefold(): (resolve(entry.path) if remote else None)
+                                    or Path(entry.path) for entry in files}
+                stamps = []
+                for entry in files:
+                    attributes = getattr(entry, 'attributes', None) or {}
+                    if 'st_size' not in attributes or 'st_mtime_ns' not in attributes:
+                        stamps = None
+                        break
+                    stamps.append((entry.name, attributes['st_size'], attributes['st_mtime_ns']))
+                if stamps is not None:
+                    self._stamps[key] = hashlib.sha256(
+                        json.dumps(sorted(stamps), ensure_ascii=False).encode('utf-8')).hexdigest()
+
+    def fingerprint(self, directory: Path):
+        """目录里全部文件的名字、大小与修改时间的摘要；没预读过或读不出时间的目录是 None。
+
+        NFO、海报改了内容，大小或修改时间跟着变；增删配套文件改的是文件名单。整个目录一起算，
+        同目录哪部片的配套文件动了，这一目录的影片都重读一遍，不会漏读。"""
+        return self._stamps.get(str(directory))
 
     def files(self, directory: Path) -> dict[str, Path]:
         key = str(directory)
@@ -2977,6 +3021,20 @@ def _candidate_baseline(database, row, code, verify_existing):
     return {**row, **{COLUMN_OF.get(value['field'], value['field']): value['current_value'] for value in values}}
 
 
+def _queue_companion_poster(config, row, video, code, cover_root, payload, posters, poster_jobs, issue):
+    """把这部片旁边的海报排进待读名单；封面已经装上的不排。"""
+    try:
+        poster_root = cover_root if code else config.directory('generated') / 'posters'
+        _queue_local_poster(video, code or f"{row['id']}_4", poster_root, payload, posters=posters,
+                            enqueue=lambda source, key, target: poster_jobs.append((row, source, key, target)),
+                            generated=not code)
+    except InterruptedError:
+        raise
+    except (OSError, ValueError):
+        issue(row, phrase('errors.libraryProcessing.companionImageUnreadable'), action='reading_local_cover',
+              retryable=True)
+
+
 def _read_local_metadata(config, db_path, row, cover_root, listing, state, update, issue, poster_jobs,
                          code_patterns=()):
     """读取一部影片的本地证据，返回可独立发布的资料与在线核查范围。
@@ -3012,16 +3070,7 @@ def _read_local_metadata(config, db_path, row, cover_root, listing, state, updat
         with closing(sqlite3.connect(db_path, timeout=30)) as connection, connection:
             write_owned_fields(connection, [row['id']], {'code': code}, SCAN_FILENAME, require_empty=True)
         state['identified'] += 1
-    try:
-        poster_root = cover_root if code else config.directory('generated') / 'posters'
-        _queue_local_poster(video, code or f"{row['id']}_4", poster_root, payload, posters=posters,
-                            enqueue=lambda source, key, target: poster_jobs.append((row, source, key, target)),
-                            generated=not code)
-    except InterruptedError:
-        raise
-    except (OSError, ValueError):
-        issue(row, phrase('errors.libraryProcessing.companionImageUnreadable'), action='reading_local_cover',
-              retryable=True)
+    _queue_companion_poster(config, row, video, code, cover_root, payload, posters, poster_jobs, issue)
     if payload:
         evidence_path = config.directory('sources') / 'library-metadata' / (hashlib.sha256(raw).hexdigest() + '.nfo')
         evidence_path.parent.mkdir(parents=True, exist_ok=True)
@@ -3118,8 +3167,18 @@ def _restore_processing_counts(state, previous):
         state[key] = previous.get(key, 0)
 
 
+#: 跨任务的本地证据索引隔多久落一次盘；本地检查做完、任务被打断时都会再落一次。
+LOCAL_INDEX_FLUSH_SECONDS = 60.0
+
+
 class _LocalEvidenceCache:
-    """保存已经读出的本地证据与待处理图片，供同一影片的后续阶段复用。"""
+    """保存已经读出的本地证据与待处理图片，供同一影片的后续阶段复用。
+
+    同一任务内（续跑）按 `state['local_metadata']` 直接复用。跨任务（「立即重试」、下一轮
+    全库处理）按 `<状态名>-items/index.json` 复用：每条记着读那一次影片所在目录的指纹
+    （`_DirectoryIndex.fingerprint`，全部文件的名字、大小与修改时间）与当时账本里的番号，
+    两样都对得上、证据文件还在才复用，NFO 与本地图片不再重读；目录里有任何文件动过就整部重读。
+    海报每次按当下的目录与封面重新排，换掉、删掉的封面照样补。"""
 
     def __init__(self, config, db_path, cover_root, listing, state, path):
         self.config, self.db_path, self.cover_root = config, db_path, cover_root
@@ -3131,6 +3190,61 @@ class _LocalEvidenceCache:
         except ValueError:
             # 保存时已经校验过；被手改坏的规则当没设置过，不让整轮处理失败。
             self.code_patterns = ()
+        self.items_root = path.parent / (path.stem + '-items')
+        self.index_path = self.items_root / 'index.json'
+        # 番号识别规则或处理规则变了，旧的读法可能认出别的番号：整份不用。
+        self.header = dict(rule=upgrade_rules.PROCESSING,
+                           patterns=hashlib.sha256(json.dumps(stored, ensure_ascii=False, sort_keys=True,
+                                                              default=str).encode('utf-8')).hexdigest())
+        try:
+            loaded = json.loads(self.index_path.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            loaded = {}
+        valid = isinstance(loaded, dict) and all(loaded.get(name) == value for name, value in self.header.items())
+        entries = loaded.get('entries') if valid else None
+        self.index = entries if isinstance(entries, dict) else {}
+        self.dirty, self.saved_at = False, time.monotonic()
+        self.reused = 0
+
+    def prefetch(self, rows, progress):
+        """把还要读的影片所在目录一次列出来，顺带取到算指纹要的大小与修改时间。"""
+        self.listing.prefetch([translate_ledger_path(row['path']).parent for row in rows
+                               if _checkpoint_key(row) not in self.state['local_metadata']], progress)
+
+    def _stamp(self, row, video, ledger_code):
+        directory = self.listing.fingerprint(video.parent)
+        if directory is None:
+            return None
+        return hashlib.sha256(json.dumps([directory, video.name, str(ledger_code or '')],
+                                         ensure_ascii=False).encode('utf-8')).hexdigest()
+
+    def _reuse(self, row, issue, poster_jobs):
+        """跨任务复用：指纹对得上就返回上次读出的本地证据，海报按当下重排；对不上返回 None。"""
+        key = _checkpoint_key(row)
+        remembered = self.index.get(key)
+        if not (isinstance(remembered, list) and len(remembered) == 2):
+            return None
+        video = translate_ledger_path(row['path'])
+        stamp = self._stamp(row, video, row['code'])
+        if stamp is None or stamp != remembered[0]:
+            return None
+        item_path = self.items_root / str(remembered[1])
+        try:
+            cached = json.loads(item_path.read_text(encoding='utf-8'))
+            code, verify, payload, entries = cached['local']
+        except (OSError, ValueError, KeyError, TypeError):
+            return None
+        entries = [(source, document, translate_ledger_path(path)) for source, document, path in entries]
+        if not all(Path(path).is_file() for _, _, path in entries):
+            return None
+        try:
+            _, posters = self.listing.sidecars(video)
+        except OSError:
+            return None
+        _queue_companion_poster(self.config, row, video, code, self.cover_root, payload, posters, poster_jobs, issue)
+        self.state['local_metadata'][key] = str(item_path)
+        self.reused += 1
+        return code, verify, payload, entries
 
     def read(self, row, update, issue, poster_jobs):
         key = _checkpoint_key(row)
@@ -3145,6 +3259,9 @@ class _LocalEvidenceCache:
                                for source, name, target in cached['posters'])
             return code, verify, payload, [(source, document, translate_ledger_path(path)) for source, document, path in entries]
         offset, issues_before = len(poster_jobs), self.state['issue_count']
+        reused = self._reuse(row, issue, poster_jobs)
+        if reused is not None:
+            return reused
         local = _read_local_metadata(self.config, self.db_path, row, self.cover_root, self.listing,
                                      self.state, update, issue, poster_jobs, self.code_patterns)
         if local is not None and self.state['issue_count'] == issues_before:
@@ -3153,11 +3270,24 @@ class _LocalEvidenceCache:
                           posters=[(str(source), name, str(target)) for _, source, name, target in poster_jobs[offset:]])
             encoded = json.dumps(record, ensure_ascii=False)
             digest = hashlib.sha256(encoded.encode()).hexdigest()
-            item_path = self.path.parent / (self.path.stem + '-items') / f"{row['id']}-{digest}.json"
+            item_path = self.items_root / f"{row['id']}-{digest}.json"
             if not item_path.is_file():
                 atomic_write_text(item_path, encoded)
             self.state['local_metadata'][key] = str(item_path)
+            # 账本里原来没有番号、这一次按文件名补上了的，下次对的是补上之后的番号。
+            stamp = self._stamp(row, translate_ledger_path(row['path']), row['code'] or code)
+            if stamp is not None:
+                self.index[key] = [stamp, item_path.name]
+                self.dirty = True
+                self.save()
         return local
+
+    def save(self, force=False):
+        """把跨任务索引落盘；按 `LOCAL_INDEX_FLUSH_SECONDS` 节流，`force` 时立即写。"""
+        if not self.dirty or (not force and time.monotonic() - self.saved_at < LOCAL_INDEX_FLUSH_SECONDS):
+            return
+        atomic_write_text(self.index_path, json.dumps({**self.header, 'entries': self.index}, ensure_ascii=False))
+        self.dirty, self.saved_at = False, time.monotonic()
 
 
 class _ProcessingStateFile:
@@ -3348,6 +3478,7 @@ def process_library(config, db_path, candidate_root, cover_root, *, location='co
                                 retrying=retrying, recheck_existing=recheck_existing, routes=routes,
                                 database=judgement_database)
         flush_candidates = lambda force=False: None
+        local_evidence = None
 
         try:
             guard = CapacityGuard(config)
@@ -3445,6 +3576,17 @@ def process_library(config, db_path, candidate_root, cover_root, *, location='co
             poster_jobs = []
             local_rows = list(checkpoints.remaining_metadata(rows))
             completed_count = len(rows) - len(local_rows)
+            listed = 0
+
+            def listing_progress():
+                nonlocal listed
+                listed += 1
+                if listed % 50 == 0:
+                    guard.check()
+                    update(**stage_fields('library.checkCompanions'), checked=completed_count, total=len(rows),
+                           current_asset_id=None, current_asset_name='', current_action='reading_local',
+                           current_started_at=time.time(), current_deadline_at=None)
+            local_evidence.prefetch([row for _, row in local_rows], listing_progress)
             for index, (_, row) in enumerate(local_rows):
                 guard.check()
                 issues_before = state['issue_count']
@@ -3463,6 +3605,7 @@ def process_library(config, db_path, candidate_root, cover_root, *, location='co
                     prepared.append((row, code, verify_existing, local_fields, entries,
                                      state['issue_count'] == issues_before))
                 update(checked=completed_count + index + 1)
+            local_evidence.save(force=True)
             flush_candidates(force=True)
             pending.pop('local')
             pending['metadata'] = len(prepared)
@@ -3556,6 +3699,12 @@ def process_library(config, db_path, candidate_root, cover_root, *, location='co
         finally:
             # 被打断也把已经攒下的候选写全：文件里要么是上一份完整的，要么是这一份完整的。
             flush_candidates(force=True)
+            if local_evidence is not None:
+                # 读过的本地证据留给下一趟复用；写不进去只是下一趟重读，不盖住原来的异常。
+                try:
+                    local_evidence.save(force=True)
+                except OSError:
+                    LOGGER.warning('Could not save the local evidence index', exc_info=True)
             remote.close()
         from .library_new_assets import remember
         unfinished = set(state['retryable_asset_ids'])
