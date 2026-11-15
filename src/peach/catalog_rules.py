@@ -1749,3 +1749,10 @@ def fill_masked_title(masked: str, originals) -> str | None:
               and not any(char in candidate for char in MASKED_TITLE_CHARS)
               and (found := pattern.search(candidate))}
     return filled.pop() if len(filled) == 1 else None
+
+
+#: 标题里标明蓝光版的说法（`jav_editions.bluray_title`）。
+BLURAY_TITLE = re.compile(r"ブルーレイ|blu[\s-]?ray", re.I)
+#: 比对蓝光版与配信版标题前去掉的版本字样与随附物：剩下的才是作品名。
+EDITION_TITLE_WORDS = re.compile(
+    r"ブルーレイ(?:ディスク|エディション|版)?|blu[\s-]?ray(?:\s*disc)?(?:\s*edition)?|特典映像付き?|チェキ付き?", re.I)

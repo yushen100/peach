@@ -15,6 +15,9 @@ import unicodedata
 from collections import OrderedDict
 from pathlib import Path
 
+from .catalog_rules import BLURAY_TITLE as _BLURAY
+from .catalog_rules import EDITION_TITLE_WORDS as _EDITION_WORDS
+
 #: 特典版商品号：通常版商品号（数字或 `h_数字` 目录头、字母段、序号）后紧跟一个 `v`。
 _BONUS_CID = re.compile(r"(?:h_\d+|\d+)?[a-z]+\d+v")
 #: 能有特典版的通常版商品号：序号后没有尾字母。`1dandy00851c` 这类带尾字母的是另一部作品，不问。
@@ -102,11 +105,6 @@ class EditionProbe:
         return isinstance(item, dict) and item.get("id") == cid
 
 
-#: 标题里标明蓝光版的说法。
-_BLURAY = re.compile(r"ブルーレイ|blu[\s-]?ray", re.I)
-#: 比对标题前去掉的版本字样与随附物：剩下的才是作品名。
-_EDITION_WORDS = re.compile(
-    r"ブルーレイ(?:ディスク|エディション|版)?|blu[\s-]?ray(?:\s*disc)?(?:\s*edition)?|特典映像付き?|チェキ付き?", re.I)
 #: 按标题搜 DMM 取几条、核几条详情；同名系列的前后作也会出现在结果里。
 BLURAY_SEARCH_LIMIT = 10
 BLURAY_DETAIL_ATTEMPTS = 3
