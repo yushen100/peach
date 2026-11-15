@@ -110,7 +110,8 @@ class MagnetChainTests(unittest.TestCase):
                 patch('peach.magnet_chain.PUBLIC_API.magnets', return_value=rows) as magnets, \
                 patch('peach.magnet_chain.PUBLIC_API.reviews', return_value=[{'id': 7, 'content': ed2k}]):
             found = fetcher.javdb('ABC-123')
-        movie.assert_called_once_with('ABC-123', refresh=True)
+        # 只重取磁链与评论；作品资料按快照规则复用。
+        movie.assert_called_once_with('ABC-123')
         magnets.assert_called_once_with('ABC-123', refresh=True, movie={'id': 'Exact'})
         self.assertEqual(len(found), 1)
         self.assertEqual((found[0]['size'], found[0]['size_text']), (int(4.12 * 1024 ** 3), '4.12GB'))

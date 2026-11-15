@@ -12,7 +12,7 @@ from concurrent.futures import Future, TimeoutError as FutureTimeout
 from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from contextvars import ContextVar
-from datetime import datetime
+from datetime import date, datetime
 from urllib.parse import urlencode, urlsplit
 
 from PIL import Image
@@ -86,6 +86,29 @@ def public_signature_parts(script: str) -> tuple[str, str] | None:
             return None
         values.append(value)
     return values[0], values[1]
+
+
+#: 作品资料当本地资料留存所需的字段：标题、发行日与封面都取到了才算齐。
+DURABLE_WORK_FIELDS = ("title", "release_date", "cover_url")
+
+
+def work_hold(key: str, result, released: str | None, today) -> dict:
+    """这份快照留多久：`{'durable': True}` 当本地资料固定，`{'until': 发行日}` 留到发行日再补取一次，空表按缓存规则过期。
+
+    只收作品身份与作品资料：番号认出的作品 id 找到了就不会变；作品资料要字段齐全，发行日当天或之后取得的固定，
+    发行前取得的留到发行日（发行前常缺演员、封面会换）。磁链、评论、图片会陆续更新，从不固定。
+    """
+    if key.startswith("movie-id:"):
+        return {"durable": True} if result else {}
+    if (not key.startswith("movie:") or not isinstance(result, dict)
+            or not all(result.get(name) for name in DURABLE_WORK_FIELDS)):
+        return {}
+    shown = (released or "")[:10]
+    try:
+        date.fromisoformat(shown)
+    except ValueError:
+        return {}
+    return {"durable": True} if shown <= today.isoformat() else {"until": shown}
 
 
 @contextmanager
@@ -528,8 +551,11 @@ class PublicAPI:
             if isinstance(result, dict):
                 released = result.get('release_date') or released
             released = released if isinstance(released, str) else None
-            snapshot = self._store().save(identity_cache_key(key), result, released)
-        lifetime = 6 * 3600 if image else cache_lifetime(snapshot.released, datetime.fromtimestamp(self.wallclock()).date())
+            today = datetime.fromtimestamp(self.wallclock()).date()
+            snapshot = self._store().save(identity_cache_key(key), result, released,
+                                          **work_hold(key, result, released, today))
+        lifetime = 6 * 3600 if image else None if snapshot.durable else cache_lifetime(
+            snapshot.released, datetime.fromtimestamp(self.wallclock()).date())
         remaining = lifetime if image else None if lifetime is None else max(0, snapshot.saved + lifetime - self.wallclock())
         with self.lock:
             self.cache[cache_key] = (float('inf') if remaining is None else self.clock() + remaining, result)
@@ -708,11 +734,13 @@ class PublicAPI:
                             released=movie.get('release_date'), refresh=refresh)
 
     def resources(self, code: str, *, refresh=False, review_pages=MAX_REVIEW_PAGES) -> dict:
-        """磁链区与评论正文的资源链接；一侧未取得只记警告，作品身份未取得直接抛出。"""
+        """磁链区与评论正文的资源链接；一侧未取得只记警告，作品身份未取得直接抛出。
+
+        `refresh` 只重取磁链与评论；作品资料按快照规则复用（发行后齐全的固定，其余当天有效）。"""
         from .downloads import parse_magnet
         from .sources.javdb import merge_resources, parse_comment_text
 
-        movie = self.movie(code, refresh=True) if refresh else self.movie(code)
+        movie = self.movie(code)
         source_url = "https://javdb.com/v/" + movie["id"]
         warnings = []
         items = {}

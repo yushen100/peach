@@ -6,20 +6,22 @@ import math
 import threading
 import time
 from collections import OrderedDict
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlsplit
 
 from .catalog_rules import normalise_code_key
 from .fsutil import atomic_write_text
 from .javdb_public import (PUBLIC_API, PublicBudgetExceeded, PublicRequestBudget, PublicSourceUnavailable,
-                          public_cache_scope, cache_checked_at, cache_failure)
-from .jav_cache import cache_fresh
+                          public_cache_scope, cache_checked_at, cache_failure, work_hold)
+from .jav_cache import held, hold_until
 from .javdb_identity import RULE
 from .jobs import BackgroundJob
 from .metadata import relay_args
 
 MAX_ITEMS = 100
-MAX_RECORDS = 2048
+#: 资料边车不限条数，只防文件失控；超出时先丢最早的记录。
+MAX_FILE_BYTES = 64 * 1024 * 1024
 FIELDS = ("id", "number", "title", "origin_title", "release_date", "maker_name", "series_name", "duration", "score", "tags", "actors", "javdb_rule")
 
 
@@ -75,12 +77,12 @@ class DiscoveryMetadata:
 
     def _load(self):
         try:
-            if self.path.stat().st_size > 16 * 1024 * 1024:
+            if self.path.stat().st_size > MAX_FILE_BYTES:
                 return
             payload = json.loads(self.path.read_text(encoding="utf-8"))
             rows = payload.get("records", {}) if payload.get("version") == RULE else {}
             if isinstance(rows, dict):
-                for code, record in list(rows.items())[-MAX_RECORDS:]:
+                for code, record in rows.items():
                     if isinstance(record, dict) and isinstance(record.get("movie", {}), dict):
                         self.records[normalise_code_key(code)] = record
         except (OSError, ValueError, TypeError, AttributeError):
@@ -89,7 +91,7 @@ class DiscoveryMetadata:
     def _save(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
         encoded = json.dumps({"version": RULE, "records": self.records}, ensure_ascii=False)
-        while len(encoded.encode("utf-8")) > 16 * 1024 * 1024 and self.records:
+        while len(encoded.encode("utf-8")) > MAX_FILE_BYTES and self.records:
             self.records.popitem(last=False)
             encoded = json.dumps({"version": RULE, "records": self.records}, ensure_ascii=False)
         atomic_write_text(self.path, encoded)
@@ -103,13 +105,16 @@ class DiscoveryMetadata:
             if movie and "actors" in projected:
                 projected["actors"] = [actor_record(actor)
                                        for actor in movie.get("actors") or [] if isinstance(actor, dict)][:100]
+            if movie:
+                today = datetime.fromtimestamp(self.clock()).date()
+                hold = work_hold('movie:' + code, movie, movie.get('release_date'), today)
+            else:
+                hold = {key: previous[key] for key in ('durable', 'until') if key in previous}
             self.records[code] = {"movie": projected,
                                   "checked_at": previous.get('checked_at', 0) if error else
                                   self.clock() if checked_at is None else checked_at,
-                                  "retry_after": self.clock() + 900 if error else 0, "error": error}
+                                  "retry_after": self.clock() + 900 if error else 0, "error": error, **hold}
             self.records.move_to_end(code)
-            while len(self.records) > MAX_RECORDS:
-                self.records.popitem(last=False)
             self.revision += 1
             self._save()
 
@@ -121,20 +126,24 @@ class DiscoveryMetadata:
                       "source_score": "ready" if source_number(movie.get("score")) is not None else "unavailable",
                       "duration": "ready" if source_number(movie.get("duration")) is not None else "unavailable"}
             state = "ready" if movie and "unavailable" not in fields.values() else "partial" if movie else "pending"
-            if not cache_fresh(record.get('checked_at', 0), movie.get('release_date'), self.clock()) and movie:
+            if not self._fresh(record, 0) and movie:
                 state = "stale"
             if record.get("error"):
                 state = "stale" if movie else "unavailable"
             return movie, {"metadata_state": state, "metadata_fields": fields,
                            "metadata_message": record.get("error", ""), "metadata_checked_at": record.get("checked_at")}
 
+    def _fresh(self, record, missing):
+        """发行后取齐的资料固定，发行前取齐的留到发行日，其余按发行日期缓存规则过期。"""
+        return held(record.get('checked_at', missing), record.get('movie', {}).get('release_date'), self.clock(),
+                    durable=record.get('durable') is True, until=hold_until(record.get('until')))
+
     def _pending_codes(self, codes, successful, refresh):
         """排除本批成功项、冷却项与仍新鲜的缓存。"""
         with self.lock:
             return [code for code in codes if code not in successful
                     and self.records.get(code, {}).get('retry_after', 0) <= self.clock()
-                    and (refresh or not cache_fresh(self.records.get(code, {}).get('checked_at', -1),
-                            self.records.get(code, {}).get('movie', {}).get('release_date'), self.clock()))]
+                    and (refresh or not self._fresh(self.records.get(code, {}), -1))]
 
     def ensure(self, codes, *, refresh=False, job_id=None, _resume=None):
         snapshot = None if _resume else self.job.snapshot() or self.last_job

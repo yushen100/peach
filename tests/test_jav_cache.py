@@ -52,7 +52,48 @@ class PublicationCacheTests(unittest.TestCase):
                 self.assertEqual(reader.reviews('EXM-001', 1), [{'id': 'review'}])
                 self.assertEqual(cache_checked_at('reviews:'), stamp('2026-10-13'))
                 self.assertEqual(reader.magnets('EXM-001'), [{'hash': 'resource'}])
-            reader._rows.assert_called_once_with('/v2/search', 'movies', {'q': 'EXM-001', 'type': 'movie', 'page': 1})
+            # 番号认出的作品 id 找到就固定，重启后不再重搜。
+            reader._rows.assert_not_called()
+
+    def test_complete_work_fetched_after_release_stays_as_local_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            now = [stamp('2026-10-13')]
+            api = self.api(root, now)
+            movie = {'id': 'Exact', 'number': 'EXM-001', 'title': 'T', 'cover_url': 'https://c/x.jpg',
+                     'release_date': '2026-10-10'}
+            fetch = Mock(return_value=movie)
+            api._cached('movie:EXM-001:Exact', fetch)
+            partial = Mock(return_value={**movie, 'cover_url': ''})
+            api._cached('movie:EXM-002:Other', partial)
+            now[0] = stamp('2026-10-20')
+            restarted = self.api(root, now)
+            self.assertEqual(restarted._cached('movie:EXM-001:Exact', fetch), movie)
+            restarted._cached('movie:EXM-002:Other', partial)
+            self.assertEqual((fetch.call_count, partial.call_count), (1, 2))
+            # 磁链、评论不跟着固定。
+            magnets = Mock(return_value=[{'hash': 'resource'}])
+            restarted._cached('magnets:Exact', magnets, released='2026-10-10')
+            now[0] += DAY
+            self.api(root, now)._cached('magnets:Exact', magnets, released='2026-10-10')
+            self.assertEqual(magnets.call_count, 2)
+
+    def test_complete_work_fetched_before_release_is_fetched_again_on_release_day(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            now = [stamp('2026-10-13')]
+            movie = {'id': 'Exact', 'number': 'EXM-001', 'title': 'T', 'cover_url': 'https://c/x.jpg',
+                     'release_date': '2026-10-17'}
+            fetch = Mock(return_value=movie)
+            self.api(root, now)._cached('movie:EXM-001:Exact', fetch)
+            now[0] = stamp('2026-10-16')
+            self.api(root, now)._cached('movie:EXM-001:Exact', fetch)
+            self.assertEqual(fetch.call_count, 1)
+            now[0] = stamp('2026-10-17')
+            self.api(root, now)._cached('movie:EXM-001:Exact', fetch)
+            now[0] = stamp('2027-03-01')
+            self.api(root, now)._cached('movie:EXM-001:Exact', fetch)
+            self.assertEqual(fetch.call_count, 2)
 
     def test_daily_refresh_and_failed_manual_refresh_keep_good_snapshot(self):
         with tempfile.TemporaryDirectory() as directory:
