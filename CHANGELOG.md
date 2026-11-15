@@ -51,6 +51,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Fixed / 修复
 
+- **Interface**: Wide or edge-to-edge site icons in round slots keep their whole mark instead of losing both ends or the corners (#576). / **界面**：横向或顶到边的站点图标放进圆形位置时完整显示，不再被裁掉两头或四角（#576）。
 - **Sourcing**: Background jobs no longer use your JavDB account, so it isn't suspended for browsing too fast; a suspension shows its resume time (#702). / **采集**：后台任务读 JavDB 不再带登录账号，免得账号被判浏览过快停用；账号被停时提示停的是账号和恢复时间（#702）。
 - **Sourcing**: Refused sources show who and for how long instead of asking for a new cookie, and one paused source no longer stalls a browser batch (#702). / **采集**：来源被拒时点名并写明暂停多久，不再一律让人更新 Cookie；某个来源暂停时浏览器添加不再整批干等一天（#702）。
 - **Library**: Once every video with a problem in the last scan has been cleaned up by Resource sync or marked missing, its alert and floating notice go away (#166). / **馆藏**：上一趟扫描出问题的影片都被资源同步清掉或标为已消失后，那条告警和悬浮提示自动撤下（#166）。
