@@ -18,10 +18,17 @@ def fingerprint(stat):
 
 
 def missing(path):
+    """只有盘上明确答「没有这个文件」才算没了；读不了、超时都按不确定，不接回。
+
+    stat 交给可终止的读取子进程：扫描与推送发现的线程不能卡在挂死的挂载上。
+    """
+    from . import media_io
     try:
-        Path(path).stat()
+        media_io.file_stat(path)
     except FileNotFoundError:
         return True
+    except OSError:
+        return False
     return False
 
 

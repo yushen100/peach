@@ -256,6 +256,21 @@ class FollowUpdateSchedulerTests(unittest.TestCase):
                              (failed["last_started_at"], failed["last_finished_at"], 1))
             self.assertFalse(status["running"])
 
+    def test_a_round_still_running_at_the_wait_limit_is_neither_success_nor_failure(self):
+        """等满期限这一轮还没跑完（多半被暂停了）：调度线程先回来，不按成功结算掉上一轮的失败，也不退避。"""
+        outcomes = [{"ok": True, "checked": 1, "results": [{"ok": False, "added": 0}]},
+                    {"ok": True, "status": "running", "checked": 0, "results": []}]
+        with tempfile.TemporaryDirectory() as temporary:
+            scheduler = FollowUpdateScheduler(Path(temporary), lambda: outcomes.pop(0), available=True)
+            scheduler._run()
+            failed = scheduler.status()
+            scheduler._run()
+            status = scheduler.status()
+            self.assertEqual((status["last_error"], status["consecutive_failures"]), ("1 个来源检查失败", 1))
+            self.assertEqual((status["last_finished_at"], status["last_checked"]), (failed["last_finished_at"], 1))
+            self.assertIsNotNone(status["last_started_at"])
+            self.assertFalse(status["running"])
+
     def test_reader_never_starts_or_accepts_schedule_changes(self):
         with tempfile.TemporaryDirectory() as temporary:
             scheduler = FollowUpdateScheduler(Path(temporary), lambda: {}, available=False)

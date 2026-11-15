@@ -18,6 +18,7 @@ import {
   DEFAULT_SORT, isSortKey, SORT_DEFAULT_DIR, SORT_OPTIONS, type SortDir, type SortKey,
 } from '../../follow-sort';
 import { clampPage, pageCount } from '../../pagination';
+import { pollUntil } from '../../polling';
 import { queryClient } from '../query';
 import { localTime } from '../time';
 import { t } from '../../i18n';
@@ -35,6 +36,8 @@ export const FOLLOW_STATUS_URL = '/api/follow/status';
 export const FEEDS_URL = '/api/feeds';
 export const FEED_SOURCE_URL = '/api/feeds/source';
 export const FEEDS_CHECK_URL = '/api/feeds/check';
+/** 订阅拉取在后台跑时，隔多久读一次进度。 */
+const FEED_CHECK_POLL_MS = 3000;
 export const FEEDS_LOOKUP_URL = '/api/feeds/lookup';
 
 /** 来源清单、创作者别名与推荐共用这一个键。 */
@@ -590,9 +593,19 @@ export const setFeedEnabled = (id: number, enabled: boolean, signal?: AbortSigna
 export const removeFeed = (id: number, signal?: AbortSignal) =>
   apiSend(FEED_SOURCE_URL, { action: 'remove', id }, 'POST', signal);
 
-/** 拉取走的是和定时同一条路：不点名就是「全部启用的源」，点名几条就只拉那几条，停用的也拉。 */
-export const checkFeeds = (signal?: AbortSignal, ids?: number[]) =>
-  apiSend(FEEDS_CHECK_URL, ids?.length ? { sources: ids } : { all: true }, 'POST', signal);
+/** 拉取走的是和定时同一条路：不点名就是「全部启用的源」，点名几条就只拉那几条，停用的也拉。
+ *  在后台发起、再按进度读到这一轮结束：请求不占着服务端线程等，这一轮被暂停也只是页面这边停在忙态。 */
+export async function checkFeeds(signal?: AbortSignal, ids?: number[]): Promise<void> {
+  const started = await apiSend<{ status?: string }>(FEEDS_CHECK_URL,
+    { ...(ids?.length ? { sources: ids } : { all: true }), background: true }, 'POST', signal);
+  if (started?.status !== 'running') return;
+  await pollUntil<{ status?: string }>({
+    signal: signal ?? new AbortController().signal, everyMs: FEED_CHECK_POLL_MS,
+    read: (polling) => apiGet<{ status?: string }>(FEEDS_CHECK_URL, polling),
+    apply: () => {},
+    done: (job) => job.status !== 'running',
+  });
+}
 
 /** JavDB 搜出来的一张演员卡。字段以 `web_feeds.q_feed_lookup` 为准。 */
 export interface FeedCandidate {

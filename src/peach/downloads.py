@@ -26,6 +26,7 @@ import json
 import logging
 import re
 import sqlite3
+import stat
 import threading
 import time
 from dataclasses import dataclass, field
@@ -1358,14 +1359,17 @@ class Landing:
         except ValueError:
             return False
         local = local_parent / PureWindowsPath(ledger_path).name
+        # 判类型与列目录都交给可终止的读取子进程：对账线程不能卡在挂死的网盘挂载上，读超时按没找到算。
+        from . import media_io
         try:
-            if local.is_file():
+            mode = media_io.file_stat(local).st_mode
+            if stat.S_ISREG(mode):
                 return self.push_discovery.ingest_now(location, ledger_path)
-            if not local.is_dir() or system_directory(local.name):
+            if not stat.S_ISDIR(mode) or system_directory(local.name):
                 return False
             found = False
             count = 0
-            for directory, entries in _walk(local):
+            for directory, entries in _walk(local, read_directory=media_io.directory_entries):
                 for item in entries:
                     relative = (*_relative_directory(directory, local), item.name)
                     path = str(PureWindowsPath(ledger_path).joinpath(*relative))
