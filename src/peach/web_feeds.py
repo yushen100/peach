@@ -341,7 +341,8 @@ def _plan_followups(contract, codes: list[str], *, automatic: bool) -> tuple[lis
         if not stock:
             return feed_followup.plan(fresh[:feed_followup.MAX_BATCH]), False
         batch = feed_followup.scrape_batch(
-            connection, fresh, exclude=[*codes, *busy], retry_after=retry_after, hidden=hidden)
+            connection, fresh, exclude=[*codes, *busy], retry_after=retry_after, hidden=hidden,
+            cover_root=contract.cover_root)
         covers = feed_followup.cover_backlog(
             connection, contract.cover_root, exclude=[*codes, *batch, *busy],
             retry_after=retry_after, hidden=hidden)
