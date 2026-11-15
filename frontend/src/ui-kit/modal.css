@@ -8,7 +8,9 @@
      窄屏上它比 Geist 的 calc(100vw - 20px) 更小，卡片会莫名再窄十几像素。 */
   max-width:min(540px,calc(100vw - 20px));max-height:min(800px,80vh);
   padding:0;border:0;border-radius:var(--floating-radius);
-  background:var(--surface);color:var(--ink);overflow:hidden;overscroll-behavior:contain;
+  /* 不裁边：框里的下拉、提示挂在 dialog 自己的弹层容器里（`overlay-host.ts`），裁了就只剩框内那一截，
+     React Aria 却按视口算空间，以为放得下、不往上翻。正文自己滚，底栏自己带下方圆角。 */
+  background:var(--surface);color:var(--ink);overflow:visible;overscroll-behavior:contain;
   box-shadow:0 0 0 1px var(--border-15),0 32px 72px -12px #0009,0 8px 32px -12px #0009;
   opacity:0;transition:opacity .3s cubic-bezier(.175,.885,.32,1.1),
     overlay .3s allow-discrete,display .3s allow-discrete}
@@ -22,7 +24,7 @@
 .ui-geist-modal-header h3{margin:0;font-size:var(--fs-xl);line-height:26px;font-weight:600;color:var(--ink)}
 .ui-geist-modal-scroll{position:relative;display:flex;flex:1;min-height:0;min-width:0}
 .ui-geist-modal-body{flex:1;min-height:0;min-width:0;overflow:auto;overscroll-behavior:contain;padding:8px 20px 20px;font-size:var(--fs-md);line-height:20px;color:var(--ink-2)}
-.ui-geist-modal footer{flex:none}
+.ui-geist-modal footer{flex:none;border-radius:0 0 var(--floating-radius) var(--floating-radius)}
 .ui-geist-modal-body p{margin:8px 0 0;line-height:20px;overflow-wrap:anywhere}
 .ui-geist-modal-body>p:first-child{margin-top:0}
 .ui-geist-modal-body [data-modal-error]:not(:empty){margin-top:12px}

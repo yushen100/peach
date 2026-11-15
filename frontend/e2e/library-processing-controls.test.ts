@@ -249,7 +249,8 @@ describe('扫描与采集控制', () => {
         assert.equal(await sources.locator('svg, img').count(), 2);
         const modalBody = dialog.locator('.ui-geist-modal-body');
         assert.equal(await modalBody.getAttribute('data-overlay-scrollbar'), 'true');
-        assert.equal(await dialog.evaluate(el => getComputedStyle(el).overflowY), 'hidden');
+        // 外框自己不滚，只有正文滚；外框不裁边（框里的下拉要能伸出去），所以是 visible 而不是 hidden。
+        assert.ok(!['auto', 'scroll'].includes(await dialog.evaluate(el => getComputedStyle(el).overflowY)), '弹窗外框自己不该滚');
         assert.equal(await sources.first().evaluate(el => getComputedStyle(el.parentElement!).overflowY), 'visible',
           '确认弹窗明细不应嵌套纵向滚动');
         const frame = () => dialog.locator('.ui-geist-modal-header,.geist-modal-footer').evaluateAll(parts =>
