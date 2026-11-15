@@ -111,6 +111,38 @@ def f95_discussion_image(value: object) -> bool:
             in _F95_DISCUSSION_ATTACHMENTS)
 
 
+def simpcity_image_media_items(metadata: Mapping[str, object]) -> list[dict[str, object]]:
+    """SimpCity 一层楼里的几张正文图投影成媒体清单，详情页按清单轮播。
+
+    采集时原图地址已经记在 `extra.images`（最多 40 张，按正文顺序），这里不再取页。只有一张图的
+    楼层不投影：条目自己的 `media_url` 就是那一张，照旧按单图显示。图在第三方图床上，按来源的
+    公网图床放行规则经 `/follow-stream` 代理，不带凭据。"""
+    images = metadata.get("images")
+    if not isinstance(images, list):
+        return []
+    urls = [url for value in images if (url := str(value or "")).startswith("https://")]
+    if len(urls) < 2:
+        return []
+    result: list[dict[str, object]] = []
+    for index, url in enumerate(urls):
+        try:
+            name = urllib.parse.unquote(urllib.parse.urlsplit(url).path.rsplit("/", 1)[-1])
+        except ValueError:
+            continue
+        result.append({"id": f"simpcity-image-{index + 1}", "name": name or f"image-{index + 1}",
+                       "media_kind": "image", "url": url, "thumb_url": url, "resource_provider": "simpcity"})
+    return result
+
+
+def fallback_media_items(provider: str, metadata: Mapping[str, object]) -> list[dict[str, object]]:
+    """条目没有存 `media_items` 时，按来源从已存字段推出的媒体清单：F95 的附件图、SimpCity 楼层图。"""
+    if provider == "f95zone":
+        return f95_attachment_media_items(metadata)
+    if provider == "simpcity":
+        return simpcity_image_media_items(metadata)
+    return []
+
+
 def f95_attachment_media_items(metadata: Mapping[str, object]) -> list[dict[str, object]]:
     """Project F95 image attachments, including rows saved before galleries existed."""
     attachments = metadata.get("attachments")

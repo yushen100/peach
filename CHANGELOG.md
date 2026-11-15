@@ -16,6 +16,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Added / 新增
 
+- **Following**: A SimpCity post with several images shows all of them in Following details, in post order, with the existing image carousel (#575). / **关注**：SimpCity 一层楼有多张图时，关注详情按正文顺序列出全部图片，可以轮播切换（#575）。
 - **Sourcing**: Scan and collection can Fill in covers only without metadata lookups, and Background tasks settings cap each run's requests, time and downloads (#589). / **采集**：扫描与采集新增「仅补全封面」，不查影片资料；「后台任务」里可调每趟的请求次数、时长和下载上限（#589）。
 - **Library**: Profile name menus can merge duplicate actress, label, creator, series and agency profiles; a new alias that another profile already uses offers it too (#207). / **馆藏**：女优、厂牌、创作者、系列与事务所的名字菜单可合并重复档案，添加的别名已被另一份档案使用时也会提示合并（#207）。
 - **Library**: Edit details next to the title changes the code, title, date, region, performers, label, series and tags; edited values aren't overwritten by collection (#187). / **馆藏**：详情标题旁新增「编辑资料」，可改番号、标题、日期、产地、演员、厂牌、系列与标签，改过的值不再被采集覆盖（#187）。

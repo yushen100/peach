@@ -793,6 +793,25 @@ class FollowContractTests(unittest.TestCase):
         self.assertTrue(item["media_needs_credential"])
         self.assertTrue(all("url" not in media for media in item["media_items"]))
 
+    def test_simpcity_floor_images_become_a_gallery_and_a_single_image_stays_single(self):
+        """SimpCity 楼层的几张图按正文顺序成为媒体清单，供详情页轮播；一张图的楼层照旧单图。"""
+        images = ["https://jpg6.su/img/one.jpg", "https://jpg6.su/img/two.jpg", "https://img.kiwi/three.png"]
+        self._seed(candidates=(
+            FollowCandidate(provider="simpcity", external_id="501", title="Thread",
+                            url="https://simpcity.cr/threads/t.9/post-501", media_url=images[0],
+                            thumb_url=images[0], extra={"images": images, "image_count": 3}),
+            FollowCandidate(provider="simpcity", external_id="502", title="Thread",
+                            url="https://simpcity.cr/threads/t.9/post-502", media_url=images[1],
+                            thumb_url=images[1], extra={"images": images[1:2], "image_count": 1}),
+        ), provider="simpcity", ref="t.9", semantics="release")
+        items = {group["primary"]["external_id"]: group["primary"] for group in self._get()["groups"]}
+        gallery = items["501"]["media_items"]
+        self.assertEqual([media["media_kind"] for media in gallery], ["image"] * 3)
+        self.assertEqual([media["index"] for media in gallery], [0, 1, 2])
+        self.assertTrue(all("url" not in media for media in gallery))
+        self.assertEqual(items["502"].get("media_items") or [], [])
+        self.assertEqual(items["502"]["media_kind"], "image")
+
     def test_confirmed_discussion_attachment_projects_a_gofile_placeholder(self):
         image = "https://attachments.f95zone.to/2026/09/6456143_attachment-3.gif"
         self._seed(candidates=(FollowCandidate(
