@@ -33,6 +33,8 @@ APP_ID = "02D9748A-78F6-4866-AC75-918177194DAB"
 UNINSTALL_KEY = rf"Software\Microsoft\Windows\CurrentVersion\Uninstall\{{{APP_ID}}}_is1"
 #: 开始菜单项的文件名，与 `.iss` 的 `[Icons]` 一致。
 MENU_SHORTCUT = "Peach.lnk"
+#: 每次 `taskkill` 的期限（秒）。
+TASKKILL_SECONDS = 30.0
 _UNINSTALLER = re.compile(r"unins\d{3}\.(?:exe|dat|msg)", re.IGNORECASE)
 
 
@@ -103,8 +105,13 @@ def stop(program: Path, *, timeout: float = 60) -> bool:
     while (strays := _running_from(program)) and time.monotonic() < deadline:
         time.sleep(.5)
     for pid in strays:
-        subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], capture_output=True,
-                       creationflags=subprocess.CREATE_NO_WINDOW, check=False)
+        try:
+            subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], stdin=subprocess.DEVNULL,
+                           capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW, check=False,
+                           timeout=TASKKILL_SECONDS)
+        except subprocess.TimeoutExpired:
+            # 杀不掉就照实报：下面再看一眼还剩谁。
+            pass
     return not _running_from(program)
 
 

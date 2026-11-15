@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from . import __version__, interface_text
+from . import __version__, interface_text, process_job
 from .config import PROJECT_ROOT
 
 
@@ -38,6 +38,8 @@ def discover_repository_root(
 #: 表示托盘是打包的、却数不出它落后多少——身份未取得，或那个提交不在本检出的历史里。
 #: 两种情况都当作陈旧：数不出来不等于没落后，而重建一次的代价只是一次构建。
 UNKNOWN_BUILD_AGE = -1
+#: git 超时被收掉时 `_git` 回的退出码，与 coreutils `timeout` 相同。
+GIT_TIMED_OUT = 124
 
 
 @dataclass(frozen=True)
@@ -101,26 +103,29 @@ class VersionManager:
         self,
         root: Path | None = None,
         *,
-        execute: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+        execute: Callable[..., subprocess.CompletedProcess[str]] = process_job.run,
     ) -> None:
         self.root = (root if root is not None else discover_repository_root()).resolve()
         self._execute = execute
 
     def _git(self, *args: str, timeout: float = 8.0) -> subprocess.CompletedProcess[str]:
+        """超时按失败返回：`fetch` 起的传输进程连同 git 一起被收掉，调用方照常走失败分支。"""
         creationflags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
-        return self._execute(
-            [
-                "git", "-c", f"safe.directory={self.root.as_posix()}",
-                "-C", str(self.root), *args,
-            ],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-            check=False,
-            creationflags=creationflags,
-        )
+        command = ["git", "-c", f"safe.directory={self.root.as_posix()}", "-C", str(self.root), *args]
+        try:
+            return self._execute(
+                command,
+                stdin=subprocess.DEVNULL,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=timeout,
+                check=False,
+                creationflags=creationflags,
+            )
+        except subprocess.TimeoutExpired:
+            return subprocess.CompletedProcess(command, GIT_TIMED_OUT, "", f"git timed out after {timeout:g}s")
 
     def _text(self, *args: str) -> str:
         result = self._git(*args)

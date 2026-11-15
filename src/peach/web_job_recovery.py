@@ -28,6 +28,8 @@ FALLBACK_SECONDS = 30
 #: 看见安装预约后多久问一次它撤下没有；撤下就接回并停掉这一问。
 RELEASE_POLL_SECONDS = 2
 AWAIT_RELEASE_JOB = 'await-install-release'
+#: 关停时等在途接回收尾的上限（秒）。
+STOP_SECONDS = 10
 
 
 def restore(contract, track=lambda key, handler: handler):
@@ -102,11 +104,24 @@ class RecoveryService:
             from .update_tasks import is_pausing
             is_pausing(self.contract.db_path)
 
-    def stop(self):
+    def stop(self, timeout=STOP_SECONDS):
+        """停调度，最多等 `timeout` 秒让在途的接回收尾；等不到就记下各线程停在哪，返回 False。
+
+        在途的那一轮可能卡在网盘读取上；关停照样往下走，那一轮由下次启动重新接回。"""
         from .update_tasks import unsubscribe
         unsubscribe(self._notice)
-        if self.scheduler.running:
-            self.scheduler.shutdown(wait=True)
+        if not self.scheduler.running:
+            return True
+        closer = threading.Thread(target=self.scheduler.shutdown, kwargs={'wait': True},
+                                  name='peach-recovery-stop', daemon=True)
+        closer.start()
+        closer.join(timeout)
+        if not closer.is_alive():
+            return True
+        from . import error_reporting
+        error_reporting.local_event('job-recovery-stop-timeout', step=self._step or 'unknown',
+                                    seconds=timeout, stacks=thread_stacks())
+        return False
 
     def wake(self):
         """马上接回一次；正在接回时，那一轮跑完再补一轮。"""

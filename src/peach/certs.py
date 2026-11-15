@@ -34,6 +34,8 @@ CERT_DAYS = 397
 RENEW_BEFORE_DAYS = 30
 #: 根证书十年有效期。它只在首次运行时生成一次，之后指纹不能变。
 CA_DAYS = 3650
+#: 单次 openssl 调用的期限（秒）；签发、读证书都是瞬时操作。
+OPENSSL_SECONDS = 60.0
 
 _SAN_DNS = re.compile(r"DNS:([^,\s]+)")
 _SAN_IP = re.compile(r"IP Address:([^,\s]+)")
@@ -62,13 +64,19 @@ def _openssl(*args: str, stdin: bytes | None = None) -> str:
     binary = shutil.which("openssl") or "/usr/bin/openssl"
     if not Path(binary).is_file():
         raise UserRuntimeError("errors.certs.opensslMissing")
-    result = subprocess.run(
-        [binary, *args], input=stdin, capture_output=True,
-        # 显式给 encoding：text=True 会用平台默认编码，中文输出会静默丢成空 stdout。
-        text=stdin is None, encoding=None if stdin is not None else "utf-8",
-        errors=None if stdin is not None else "replace",
-        creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
-    )
+    try:
+        result = subprocess.run(
+            # 不给输入时接 DEVNULL：要口令之类的交互提示读到 EOF 就失败，不会等一个没人敲的终端。
+            [binary, *args], input=stdin, stdin=subprocess.DEVNULL if stdin is None else None,
+            capture_output=True, timeout=OPENSSL_SECONDS,
+            # 显式给 encoding：text=True 会用平台默认编码，中文输出会静默丢成空 stdout。
+            text=stdin is None, encoding=None if stdin is not None else "utf-8",
+            errors=None if stdin is not None else "replace",
+            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+        )
+    except subprocess.TimeoutExpired:
+        raise UserRuntimeError("errors.certs.opensslFailed", {
+            "command": args[0], "detail": f"timed out after {OPENSSL_SECONDS:g}s"}) from None
     if result.returncode != 0:
         detail = result.stderr if isinstance(result.stderr, str) else result.stderr.decode(
             "utf-8", "replace")

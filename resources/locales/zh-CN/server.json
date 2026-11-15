@@ -4363,6 +4363,7 @@
       "external": "未同步：{{services}} 服务不归本托盘管理",
       "noOutput": "数据库同步没有输出",
       "startFailed": "数据库同步启动失败：{{error}}",
+      "timedOut": "数据库同步超过 {{seconds}} 秒没有结束，已终止",
       "notRecovered": "{{output}}；服务未能在 20 秒内恢复",
       "stoppingForSync": "正在安全停止服务并同步…",
       "stoppingForTakeover": "正在安全停止服务并接管写入…",
@@ -4376,6 +4377,7 @@
     },
     "prepare": {
       "noOutput": "退出码 {{code}}，没有输出",
+      "timedOut": "{{command}} 超过 {{seconds}} 秒没有结束，已终止",
       "frozen": "打包进程不加载项目 venv，依赖由重启脚本核对",
       "noLock": "没有 uv.lock：{{path}}",
       "noVenv": "没有项目 venv：{{path}}",
@@ -4468,6 +4470,7 @@
       "noPowerShell": "代码已快进，但找不到 PowerShell，未运行测试或重启服务。",
       "inputsKeptChanging": "测试期间代码或依赖持续变化，三次验证均未取得有效记录；请稍后重试。",
       "testsFailed": "代码已快进，但完整测试失败；服务与托盘均未重启，请查看日志。",
+      "testsTimedOut": "代码已快进，但完整测试超时未结束，已终止；服务与托盘均未重启，请查看日志。",
       "testsPassed": "代码与完整测试已通过。",
       "manualTray": "代码与完整测试已通过；当前不是打包托盘，托盘进程需手动重开。",
       "trayExeMissing": "代码与测试已通过，但找不到当前托盘 EXE，未执行替换。",
