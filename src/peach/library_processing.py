@@ -975,6 +975,7 @@ def _processing_lock(config, *, background, active):
             raise
         finally:
             lock.release()
+            _processing_released()
         return
     with _waiting_guard:
         _waiting_foreground += 1
@@ -994,6 +995,13 @@ def _processing_lock(config, *, background, active):
     finally:
         with _waiting_guard:
             _waiting_foreground -= 1
+        _processing_released()
+
+
+def _processing_released() -> None:
+    """锁放开或前台处理结束：叫醒因 `ProcessingBusy` 让路的后继通道，不让它们定时来问。"""
+    from .followups import deferrals_changed
+    deferrals_changed()
 
 
 def issues_path(config, job_id):

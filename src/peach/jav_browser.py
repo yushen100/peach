@@ -52,6 +52,10 @@ RECENT_SECONDS = 600
 #: 渠道级失败（额度用完、网盘空间不足、配置失效、CloudDrive2 连不上）后暂停这个渠道，
 #: 每隔这么久拿排在最前的番号试一次，成功就继续。
 PAUSE_PROBE_SECONDS = 600
+#: 两次清扫（`_requeue_recoverable`）之间至少隔这么久。
+SWEEP_SECONDS = 60
+#: 空闲等待按墙钟复核：Windows 的等待超时不计睡眠时间，睡醒后最晚这么久补上到期的重试。
+WALL_CLOCK_RECHECK = 3600.0
 #: 会让浏览器添加暂停的原因。`search` 是资源搜索暂不可用，暂停的是整条队列而不是某个渠道。
 #: 原因与恢复说明在 `server:javBrowser.paused.<原因>`：用户脚本的提示框分两行显示，排队行的说明连成一句。
 PAUSED_FAILURES = frozenset({"storage", "quota", "config", "network", "search"})
@@ -345,6 +349,11 @@ class JavBrowser:
         #: 资源搜索回了「稍后再试」时整条队列等到这一刻，其余番号不去一个个撞同一个故障。
         self._search_pause: dict | None = None
         self._swept_at = float("-inf")
+        #: 下载服务存过一条可重交或被挡住的任务，下一次清扫要看。
+        self._downloads_changed = False
+        on_save = getattr(getattr(self.downloads, "store", None), "on_save", None)
+        if on_save is not None:
+            on_save(self._download_saved)
         from .jav_browser_diagnostics import BrowserDiagnostics
         self.diagnostics = BrowserDiagnostics()
         self.rows = self._load()
@@ -460,6 +469,9 @@ class JavBrowser:
                 token = secrets.token_urlsafe(32)
                 self.credentials.save(CREDENTIAL, {
                     "token_hash": hashlib.sha256(token.encode()).hexdigest(), "provider": provider})
+        if token:
+            # 停用期间留在队列里的番号，启用后接着处理。
+            self._wake.set()
         return {**self.settings(), **({"token": token} if token else {})}
 
     def authorized(self, supplied: str) -> bool:
@@ -765,9 +777,10 @@ class JavBrowser:
         队列里已入库的行也要逐条读任务，一分钟最多扫一遍。
         """
         now = self.downloads.clock()
-        if now - self._swept_at < 60:
+        if now - self._swept_at < SWEEP_SECONDS:
             return
         self._swept_at = now
+        self._downloads_changed = False
         changed = False
         for row in self.rows.values():
             if row["state"] not in {"submitted", "failed"} or not row.get("task_id"):
@@ -974,11 +987,47 @@ class JavBrowser:
         self._thread = threading.Thread(target=self._loop, name="PeachJavBrowser", daemon=True)
         self._thread.start()
 
+    def _download_saved(self, task) -> None:
+        """下载服务的回调，在写入线程里：只记一笔并叫醒，不取队列锁。"""
+        if task.state in RESUBMITTABLE_STATES or task.blocked_at:
+            self._downloads_changed = True
+            self._wake.set()
+
+    def idle_wait(self) -> float | None:
+        """队列没有能马上处理的番号时睡多久；None 表示等加入、配置或下载状态变化叫醒。
+
+        到期点是排队行的重试时间、暂停渠道的试探时间；下载状态变过或还有待重查的无资源时，
+        再加上下一次清扫的时间。
+        """
+        with self._lock:
+            if self._stop.is_set() or not self.downloads.available or not self._config().get("token_hash"):
+                return None
+            moments = []
+            providers = set()
+            for row in self.rows.values():
+                if row["state"] != "queued":
+                    continue
+                providers.add(row.get("provider", ""))
+                if row.get("retry_at"):
+                    moments.append(parse_iso(row["retry_at"]))
+            for provider in providers:
+                if paused := self._paused(provider):
+                    moments.append(parse_iso(paused["retry_at"]))
+            unverified = not any(row["state"] in ACTIVE for row in self.rows.values()) and any(
+                row["state"] == "no_match" and not row.get("sources_complete") and not row.get("task_id")
+                for row in self.rows.values())
+            if self._downloads_changed or unverified:
+                moments.append(self._swept_at + SWEEP_SECONDS)
+            moments = [moment for moment in moments if moment is not None]
+            if not moments:
+                return None
+            return min(max(0.0, min(moments) - self.downloads.clock()), WALL_CLOCK_RECHECK)
+
     def _loop(self):
         while not self._stop.is_set():
             self._wake.clear()
             if not self.process_one():
-                self._wake.wait(30)
+                self._wake.wait(self.idle_wait())
 
     def stop(self):
         self._stop.set()
