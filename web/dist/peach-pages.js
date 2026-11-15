@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "4f47ace2-1f7c-4374-bc75-d391fed152d0", e._sentryDebugIdIdentifier = "sentry-dbid-4f47ace2-1f7c-4374-bc75-d391fed152d0");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "6f952c08-1369-40b8-98ca-48b2fc7ac58d", e._sentryDebugIdIdentifier = "sentry-dbid-6f952c08-1369-40b8-98ca-48b2fc7ac58d");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -6442,7 +6442,7 @@ var He = {
 		mode: "Processing",
 		modeLabel: "{{name}} processing mode",
 		notIncluded: "Not included",
-		previewsOff: "Video previews are turned off, so contact sheets are skipped.",
+		previewsOff: "Previews are turned off, so contact sheets are skipped.",
 		step: "Step",
 		stepAvatars: "Fetch avatars online",
 		stepContactSheet: "Generate contact sheets",
@@ -39129,4 +39129,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=4f47ace2-1f7c-4374-bc75-d391fed152d0
+//# debugId=6f952c08-1369-40b8-98ca-48b2fc7ac58d
