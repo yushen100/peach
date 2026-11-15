@@ -207,6 +207,41 @@ class PlaybackTrackingTests(unittest.TestCase):
         server.join(5)
         return reports
 
+    def test_an_mpv_that_only_sends_events_cannot_hold_a_question_past_its_deadline(self):
+        """mpv 活着却不答、事件照推：一次问答按总期限结束，跟踪线程不会一直占着名额。"""
+        ours, theirs = socket.socketpair()
+        self.addCleanup(ours.close)
+        self.addCleanup(theirs.close)
+
+        def chatter():
+            try:
+                for _ in range(100):
+                    theirs.sendall(b'{"event":"property-change","name":"x"}\n')
+                    time.sleep(0.05)
+            except OSError:
+                pass
+        threading.Thread(target=chatter, daemon=True).start()
+        probe = tracking.MpvProbe(tracking.SocketChannel(ours))
+        with patch.object(tracking, 'REQUEST_SECONDS', 0.3):
+            started = time.monotonic()
+            with self.assertRaises(TimeoutError):
+                probe.get('time-pos')
+            self.assertLess(time.monotonic() - started, 2)
+
+    def test_a_silent_named_pipe_read_ends_at_its_deadline(self):
+        """Windows 命名管道的同步句柄没有读超时：读取交给后台线程，`recv` 只等到期限。"""
+        release = threading.Event()
+        handle = MagicMock()
+        handle.read.side_effect = lambda size: (release.wait(10), b'')[1]
+        self.addCleanup(release.set)
+        channel = tracking.PipeChannel(handle)
+        started = time.monotonic()
+        with self.assertRaises(TimeoutError):
+            channel.recv(0.2)
+        self.assertLess(time.monotonic() - started, 2)
+        channel.close()
+        release.set()
+
     def test_mpv_counts_continuous_playback_and_seeks_until_exit(self):
         # 第一帧被连接探测吃掉；暂停期间的前进与大跳都不算观看。
         frames = [_frame(10), _frame(10), _frame(11), _frame(12), _frame(12, paused=True),

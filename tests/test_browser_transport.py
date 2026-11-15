@@ -6,6 +6,7 @@ import socket
 import struct
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -665,6 +666,59 @@ class WebSocketTests(unittest.TestCase):
             with self.assertRaises(RuntimeError) as caught:
                 ws.call("Page.navigate", url="about:blank")
         self.assertIn("no target", str(caught.exception))
+
+
+    def test_a_page_that_keeps_sending_events_cannot_hold_a_call_past_its_deadline(self):
+        """回包永远不到、事件却一直推来：期限按整次调用算，到期抛超时并丢掉这条连接。"""
+        server = ChattyCdp()
+        self.addCleanup(server.close)
+        ws = _WebSocket(f"ws://127.0.0.1:{server.port}/devtools/page/T1")
+        self.addCleanup(ws.close)
+        outcome = []
+
+        def call():
+            try:
+                ws.call("Page.enable", timeout=0.5)
+            except Exception as error:
+                outcome.append(error)
+        worker = threading.Thread(target=call, daemon=True)
+        started = time.monotonic()
+        worker.start()
+        worker.join(5)
+        self.assertFalse(worker.is_alive(), "调用一直挂着")
+        self.assertLess(time.monotonic() - started, 3)
+        self.assertIsInstance(outcome[0], TimeoutError)
+        with self.assertRaises(OSError):
+            ws.sock.recv(1)
+
+
+class ChattyCdp(FakeCdp):
+    """握手后每 50 毫秒推一条事件，从不回答命令。"""
+
+    def __init__(self):
+        super().__init__(lambda method, params: {})
+
+    def serve(self, connection: socket.socket):
+        head = b""
+        while b"\r\n\r\n" not in head:
+            chunk = connection.recv(4096)
+            if not chunk:
+                return
+            head += chunk
+        request = head.split(b"\r\n\r\n", 1)[0]
+        key = next(line.split(b":", 1)[1].strip() for line in request.split(b"\r\n") if line.lower().startswith(b"sec-websocket-key"))
+        accept = base64.b64encode(hashlib.sha1(key + b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11").digest())
+        connection.sendall(b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n"
+                           b"Sec-WebSocket-Accept: " + accept + b"\r\n\r\n")
+        event = json.dumps({"method": "Network.dataReceived", "params": {}}).encode()
+        try:
+            for _ in range(200):
+                connection.sendall(bytes([0x81, len(event)]) + event)
+                time.sleep(0.05)
+        except OSError:
+            pass
+        finally:
+            connection.close()
 
 
 class BrowserLookupTests(unittest.TestCase):

@@ -173,9 +173,16 @@ class _WebSocket:
             raise ConnectionError("browser refused the debugging connection")
         self.buffer = head.split(b"\r\n\r\n", 1)[1]
         self.next_id = 0
+        #: 正在进行的 `call` 的期限；读取按剩余时间等。
+        self._deadline: float | None = None
 
     def _read(self, size: int) -> bytes:
         while len(self.buffer) < size:
+            if self._deadline is not None:
+                remaining = self._deadline - time.monotonic()
+                if remaining <= 0:
+                    raise TimeoutError("browser did not answer the debugging command in time")
+                self.sock.settimeout(remaining)
             chunk = self.sock.recv(65536)
             if not chunk:
                 raise ConnectionError("browser closed the debugging connection")
@@ -213,17 +220,30 @@ class _WebSocket:
                 raise ConnectionError("browser closed the debugging connection")
 
     def call(self, method: str, timeout: float = 30.0, **params):
-        """发一条 CDP 命令，等它的回包；中途到的事件跳过。"""
+        """发一条 CDP 命令，等它的回包；中途到的事件跳过。
+
+        `timeout` 是整次调用的期限，不是单次读取的：页面一直推事件时，每次读取都等得到数据，
+        按单次读取计就永远等不到头。过期抛超时并关掉连接，连接上剩下的半截帧不能再用。
+        """
         self.next_id += 1
         wanted = self.next_id
-        self.sock.settimeout(timeout)
-        self.send(json.dumps({"id": wanted, "method": method, "params": params}))
-        while True:
-            message = json.loads(self.recv())
-            if message.get("id") == wanted:
-                if "error" in message:
-                    raise RuntimeError(f"{method}: {message['error'].get('message', message['error'])}")
-                return message.get("result", {})
+        deadline = time.monotonic() + timeout
+        try:
+            self.sock.settimeout(timeout)
+            self.send(json.dumps({"id": wanted, "method": method, "params": params}))
+            while True:
+                self._deadline = deadline
+                try:
+                    message = json.loads(self.recv())
+                finally:
+                    self._deadline = None
+                if message.get("id") == wanted:
+                    if "error" in message:
+                        raise RuntimeError(f"{method}: {message['error'].get('message', message['error'])}")
+                    return message.get("result", {})
+        except TimeoutError:
+            self.close()
+            raise
 
     def close(self) -> None:
         try:

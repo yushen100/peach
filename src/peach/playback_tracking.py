@@ -11,6 +11,7 @@ import http.client
 import json
 import logging
 import os
+import queue
 import socket
 import sys
 import threading
@@ -115,7 +116,7 @@ class Progress:
 
 class _Channel(Protocol):
     def send(self, data: bytes) -> None: ...
-    def recv(self) -> bytes: ...
+    def recv(self, timeout: float) -> bytes: ...
     def close(self) -> None: ...
 
 
@@ -127,7 +128,8 @@ class SocketChannel:
     def send(self, data: bytes) -> None:
         self.sock.sendall(data)
 
-    def recv(self) -> bytes:
+    def recv(self, timeout: float = REQUEST_SECONDS) -> bytes:
+        self.sock.settimeout(max(timeout, 0.001))
         return self.sock.recv(65536)
 
     def close(self) -> None:
@@ -135,19 +137,52 @@ class SocketChannel:
 
 
 class PipeChannel:
-    """Windows 命名管道。同步句柄没有读超时；mpv 退出时管道断开，读取随之返回。"""
+    """Windows 命名管道。
+
+    同步句柄没有读超时：mpv 还活着却不答时，`read` 会一直不返回。读取交给一条后台线程，
+    `recv` 只等到期限；到期抛超时，跟踪线程照常收尾、让出名额。卡着的那条读取线程等 mpv
+    退出、管道断开时自己结束。
+    """
 
     def __init__(self, handle):
         self.handle = handle
+        self._arrived: queue.SimpleQueue = queue.SimpleQueue()
+        self._reader: threading.Thread | None = None
 
     def send(self, data: bytes) -> None:
         self.handle.write(data)
 
-    def recv(self) -> bytes:
-        return self.handle.read(65536) or b""
+    def _pump(self) -> None:
+        try:
+            while True:
+                chunk = self.handle.read(65536) or b""
+                self._arrived.put(chunk)
+                if not chunk:
+                    return
+        except (OSError, ValueError):
+            self._arrived.put(b"")
+
+    def recv(self, timeout: float = REQUEST_SECONDS) -> bytes:
+        if self._reader is None:
+            self._reader = threading.Thread(target=self._pump, name="PeachMpvPipe", daemon=True)
+            self._reader.start()
+        try:
+            return self._arrived.get(timeout=max(timeout, 0.001))
+        except queue.Empty:
+            raise TimeoutError("mpv IPC did not answer in time") from None
 
     def close(self) -> None:
+        if self._reader is not None and self._reader.is_alive():
+            # 读取线程还卡在同步 `read` 上时，关句柄可能跟着等；交给后台关，跟踪线程不陪着等。
+            threading.Thread(target=self._close_quietly, name="PeachMpvPipeClose", daemon=True).start()
+            return
         self.handle.close()
+
+    def _close_quietly(self) -> None:
+        try:
+            self.handle.close()
+        except OSError:
+            pass
 
 
 def mpv_address(token: str) -> str:
@@ -177,9 +212,12 @@ class MpvProbe:
         self.request = 0
         self.eof = False
 
-    def _line(self) -> dict:
+    def _line(self, deadline: float) -> dict:
         while b"\n" not in self.buffer:
-            chunk = self.channel.recv()
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError("mpv IPC did not answer in time")
+            chunk = self.channel.recv(remaining)
             if not chunk:
                 raise EOFError("mpv IPC closed")
             self.buffer += chunk
@@ -189,11 +227,13 @@ class MpvProbe:
         return json.loads(line) if line.strip() else {}
 
     def get(self, name: str):
+        """问一个属性，整次问答以 `REQUEST_SECONDS` 为限：中途一直有事件推来也不会无限等。"""
         self.request += 1
         request = self.request
+        deadline = time.monotonic() + REQUEST_SECONDS
         self.channel.send(json.dumps({"command": ["get_property", name], "request_id": request}).encode() + b"\n")
         while True:
-            message = self._line()
+            message = self._line(deadline)
             if message.get("event") == "end-file" and message.get("reason") == "eof":
                 self.eof = True
             if message.get("request_id") == request:
