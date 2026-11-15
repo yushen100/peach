@@ -40,7 +40,7 @@ SECTION = {
         "updates. See [Docker deployment]({docs}/DOCKER.md) |\n\n"
         "### macOS first install\n\n"
         "Check the chip under About This Mac: Apple M-series takes Apple Silicon, Intel processors take Intel. Open "
-        "the DMG, drag Peach into Applications, then open it to finish setup.\n\n"
+        "the DMG, drag Peach to the Applications folder, then open it to finish setup.\n\n"
         "The app is ad-hoc signed and not yet notarized by Apple. If macOS says it is damaged and cannot be opened, "
         "run {quarantine} in Terminal and open it again; the password asked for is this Mac's login password and "
         "does not show while you type. The command only removes Peach's quarantine flag. Run it again after "
