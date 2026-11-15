@@ -145,7 +145,7 @@ class MountSourceTests(unittest.TestCase):
 
     def test_smb_addresses_stay_verbatim_for_scanning_and_are_unmapped_as_local_directories(self):
         """`smb://` 包成 Path 会变成 `smb:\\…` 或 `smb:/…`，扫描认不出是 SMB（#693）。"""
-        address = "smb://192.168.1.20:4450/Share"
+        address = "smb://192.0.2.20:4450/Share"
         with with_media({"local": (address, "/mnt/res")}, {"local": (r"X:\share", r"R:\media")}):
             with patch.dict("os.environ", {MOUNTS_ENV: ""}):
                 self.assertEqual(location_mount_values()["local"], (address, "/mnt/res"))

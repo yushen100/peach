@@ -544,7 +544,7 @@ class ScanCommandTests(unittest.TestCase):
 
     def test_an_smb_mount_reaches_the_scan_verbatim(self):
         """#693：挂载表里的 `smb://` 地址原样交给扫描，不被改写成本机路径形态。"""
-        address = "smb://192.168.1.20:4450/Share"
+        address = "smb://192.0.2.20:4450/Share"
         fixed = replace(settings_file.active(), mounts={"local": (address,)})
         with mock.patch.object(settings_file, "active", return_value=fixed), \
              mock.patch.dict(os.environ, {"PEACH_MEDIA_MOUNTS": ""}), \
