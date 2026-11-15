@@ -357,7 +357,7 @@ class JavBrowser:
         from .jav_browser_diagnostics import BrowserDiagnostics
         self.diagnostics = BrowserDiagnostics()
         from .taste_browsing import BrowsingRecorder
-        #: 开启「记录浏览」时，作品页、女优页的状态查询顺手记一笔（ADR-0163）。
+        #: 开启「记录浏览」时，作品页、女优页的状态查询顺手记一笔（ADR-0164）。
         self.browsing = BrowsingRecorder(contract)
         self.rows = self._load()
         self.ended = self._load_ended()
