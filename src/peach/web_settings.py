@@ -67,7 +67,8 @@ SYNCED_SETTING_KEYS = frozenset({
     "sidebarOrder", "manageOrder", "navigationOrders", "libraryOrder", "followInitialDays", "postSetupTutorialDone",
     "organizeTemplates", "feedHideGroupCompilations", "feedHideSoloCompilations",
     "feedHideExcerpts", "searchHistoryLimit", "codePatterns", "performerNameLanguage", "taskSpeedMode",
-    "interfaceLanguage", "javBrowserWantOnNoMatch", "wantStaleSearchDays", "wantStaleAttemptLimit",
+    "interfaceLanguage", "javBrowserWantOnNoMatch", "javBrowserRecordBrowsing", "wantStaleSearchDays",
+    "wantStaleAttemptLimit",
 })
 #: 「想要」两项节奏设置的键、档位校验与报错 code。
 WANT_CADENCE_KEYS = (
@@ -281,6 +282,7 @@ def q_settings(contract: SettingsContract, _args=None) -> dict:
         "javBrowserWantOnNoMatch": payload.get("javBrowserWantOnNoMatch") is not False,
         "wantStaleSearchDays": cadence.stale_every.days,
         "wantStaleAttemptLimit": cadence.attempt_limit,
+        "javBrowserRecordBrowsing": payload.get("javBrowserRecordBrowsing") is True,
     }
 
 
@@ -358,7 +360,7 @@ def w_settings(contract: SettingsContract, body) -> dict:
         if limit is None:
             raise UserValueError("api.settings.searchHistoryLimitInvalid", {"max": SEARCH_HISTORY_LIMIT_MAX})
         merged["searchHistoryLimit"] = limit
-    for key in [key for key, _kind in FEED_COMPILATION_SWITCHES] + ["javBrowserWantOnNoMatch"]:
+    for key in [key for key, _kind in FEED_COMPILATION_SWITCHES] + ["javBrowserWantOnNoMatch", "javBrowserRecordBrowsing"]:
         if key in body:
             if not isinstance(body[key], bool):
                 raise UserValueError("api.settings.switchNotBoolean", {"key": key})

@@ -96,7 +96,9 @@
     "tokenIssued": "已生成专用令牌",
     "turnedOff": "已关闭浏览器添加",
     "wantOnNoMatch": "没找到资源时加入想要",
-    "wantOnNoMatchHelp": "浏览器添加没搜到可下载的磁力时，把番号加进 JAV 的「想要」。"
+    "wantOnNoMatchHelp": "浏览器添加没搜到可下载的磁力时，把番号加进 JAV 的「想要」。",
+    "recordBrowsing": "记录浏览过的作品和女优",
+    "recordBrowsingHelp": "用户脚本打开作品页、女优页时记一笔，只存在本机，用作推荐的口味参考。"
   },
   "certificateTrust": {
     "androidSteps": "扫码下载后，到「设置 → 安全 → 加密与凭据 → 安装证书 → CA 证书」选择下载的文件。菜单名称因厂商而异。",

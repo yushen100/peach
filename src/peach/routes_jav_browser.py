@@ -41,9 +41,13 @@ def userscript_bridge(request: Request):
 
 def status(code: str, service=Depends(browser_client)):
     try:
-        return JSONResponse({**service.status(code), **service.want_state(code)}, headers={"Cache-Control": "no-store"})
+        result = service.status(code)
+        response = JSONResponse({**result, **service.want_state(code)}, headers={"Cache-Control": "no-store"})
     except ValueError as error:
         raise HTTPException(400, error_detail(error)) from None
+    # 作品浮卡与列表面板都用这条查状态；列表面板的番号已由 `/people` 标出，不算浏览。
+    service.browsing.work(result["code"])
+    return response
 
 
 def active(service=Depends(browser_client)):
@@ -56,10 +60,12 @@ def identify(source_url: str, code: str = "", service=Depends(browser_client)):
         status = service.status(whole_release(identify_source(source_url, code), source_url, service.edition_probe))
         # 作品同时有特典版与通常版时带回来源页是哪一版，用户脚本据此给出两个添加按钮。
         edition = page_edition(source_url, service.edition_probe)
-        return JSONResponse({**status, **service.want_state(status["code"]), **({"edition": edition} if edition else {})},
-                            headers={"Cache-Control": "no-store"})
+        response = JSONResponse({**status, **service.want_state(status["code"]), **({"edition": edition} if edition else {})},
+                                headers={"Cache-Control": "no-store"})
     except ValueError as error:
         raise HTTPException(400, error_detail(error)) from None
+    service.browsing.work(status["code"], source_url)
+    return response
 
 
 def updates(request: Request, service=Depends(browser_client)):
@@ -71,9 +77,12 @@ def people(request: Request, codes: str, performers: list[str] = Query(default=[
     from .web_jav_browser_people import cached_people
     try:
         result = cached_people(service.contract, request.app.state.preview_service, codes, performers)
-        return JSONResponse(result, headers={'Cache-Control': 'no-store'})
     except ValueError as error:
         raise HTTPException(400, error_detail(error)) from None
+    # 只有列表面板按番号批量问人物；带详情页出演者名的那一问是作品页自己，不算列表。
+    if not performers:
+        service.browsing.listed(result["items"])
+    return JSONResponse(result, headers={'Cache-Control': 'no-store'})
 
 
 def performer(request: Request, source_url: str, names: list[str] = Query(default=[]),
@@ -81,9 +90,10 @@ def performer(request: Request, source_url: str, names: list[str] = Query(defaul
     from .web_jav_browser_performer import performer_status
     try:
         result = performer_status(service.contract, request.app.state.preview_service, source_url, names)
-        return JSONResponse(result, headers={"Cache-Control": "no-store"})
     except ValueError as error:
         raise HTTPException(400, error_detail(error)) from None
+    service.browsing.performer(source_url, result["name"])
+    return JSONResponse(result, headers={"Cache-Control": "no-store"})
 
 
 def follow_performer(request: Request, body: dict = Body(...), service=Depends(browser_client)):

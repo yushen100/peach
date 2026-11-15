@@ -63,6 +63,34 @@ class TastePreferenceTests(unittest.TestCase):
         self.assertFalse((self.store.parent / 'preference-cache.json').exists())
         self.assertFalse((self.store.parent / 'browser-preference-cache.json').exists())
 
+    def test_userscript_browsing_and_added_downloads_feed_performers_while_plot_tags_do_not(self):
+        from peach.taste_browsing import _prepare, store_path
+        self.db.execute("INSERT INTO entity VALUES(6,'tag','绿帽NTR','绿帽ntr')")
+        self.asset(1, played=2)
+        self.db.execute("INSERT INTO asset_entity VALUES(1,6)")
+        self.db.executescript("ALTER TABLE asset ADD COLUMN code TEXT;"
+                              "CREATE TABLE download_submission(code TEXT,origin TEXT,created_at TEXT);")
+        with closing(sqlite3.connect(store_path(self.store))) as browsing:
+            _prepare(browsing)
+            browsing.executemany("INSERT INTO browse_visit(kind,subject,names,visited_at) VALUES(?,?,?,?)", [
+                ("work", "XYZ-001", '["其他女优"]', "2026-11-01T01:00:00+00:00"),
+                ("work", "XYZ-002", '["其他女优"]', "2026-11-02T01:00:00+00:00"),
+                ("performer", "https://javdb.com/actors/x", '["其他女优"]', "2026-11-02T02:00:00+00:00")])
+            browsing.commit()
+        strengths, _, evidence = preference_profile(self.db, self.store, cache=False)
+        self.assertEqual(evidence["performer"][5], ["browsing"])
+        browsed = strengths["performer"][5]
+        # 剧情类标签出现在看过的作品里只是巧合，不进口味；同一部作品的其他标签照常计入。
+        self.assertNotIn(6, strengths["tag"])
+        self.assertIn(2, strengths["tag"])
+        # 用户脚本加入下载的作品还没入库时，按浏览时记下的出演者算；批量补库的提交不算本人的下载。
+        self.db.executemany("INSERT INTO download_submission VALUES(?,?,?)", [
+            ("XYZ-001", "browser:https://javdb.com/v/a", "2026-11-03T00:00:00+00:00"),
+            ("XYZ-002", "aside-catalog-20261016", "2026-11-03T00:00:00+00:00")])
+        strengths, _, evidence = preference_profile(self.db, self.store, cache=False)
+        self.assertEqual(evidence["performer"][5], ["browsing", "downloads"])
+        self.assertGreater(strengths["performer"][5], browsed)
+
     def test_bookmarks_feed_preferences_without_creating_visits_and_removal_clears_evidence(self):
         from peach.taste_history import build_taste_dashboard, remove_history_source
         path = self.root / "bookmarks.html"
