@@ -151,6 +151,9 @@ applicationEffects.listen(document, 'keydown', e=>{
     if(mediaState.immerseOpen()){immerseApi().close();return}
     /* 详情开着：Escape 归舞台。焦点在浮窗里时舞台自己已经收了这一下；里层弹层（标签搜索框、右键
        菜单）先收掉的会 `preventDefault`，那一下只关弹层。焦点落在浮窗外（body）时在这里转给舞台。 */
+    /* 详情上面又开了一层挂在 body 的模态框（编辑资料、确认框）：这一下由浏览器关那一层，舞台留着。 */
+    const modal=e.target instanceof Element?e.target.closest('dialog[open]'):null;
+    if(modal&&modal.id!=='stage'&&mediaState.stageOpen())return;
     if(mediaState.stageOpen()){if(!e.defaultPrevented){e.preventDefault();stageApi().requestEscape()}return}
     /* 这一下已经被浮窗或弹层用掉了：舞台可能在冒泡到这里之前就关完，不能再顺手收侧栏或退出多选。 */
     if(e.defaultPrevented)return;

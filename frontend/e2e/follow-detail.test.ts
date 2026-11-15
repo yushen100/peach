@@ -69,6 +69,8 @@ describe('关注详情岛', () => {
       const opened = await openDetail(browser, 1002, viewport);
       try {
         const { page } = opened;
+        // 关注详情的标签平时只读：先点行尾「编辑标签」。
+        await page.locator('#stage [data-follow-tags-edit]').click();
         await page.locator('#stage [data-tag-plus]').click();
         const menu = page.locator('#stage [data-tag-picker]');
         await menu.waitFor({ state: 'visible' });

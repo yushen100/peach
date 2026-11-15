@@ -84,6 +84,9 @@ async function show(given: FollowDetailData, patch: Partial<FollowDetailProps> =
   return { host, props, actions: props.actions as ActionMocks };
 }
 
+/** 标签平时只读：先点行尾「编辑标签」，才有「添加标签」入口。 */
+const editTags = (host: Element) => click(host.querySelector('[data-follow-tags-edit]'));
+
 describe('取数', () => {
   it('标签候选保留来源分类并按规范名称显示选中勾号', async () => {
     const fallback = serve();
@@ -94,6 +97,7 @@ describe('取数', () => {
         { k:'未知', n:1, cat:'unknown', aliases:[], hidden:false },
       ] }) }) : fallback(url, init)));
     const { host } = await show(data(item(8, { tags:['3d'], detail_tags:['3d'], tag_types:{ '3d':'general' } })));
+    await editTags(host);
     await click(host.querySelector('[aria-label="添加标签"]')); await settle();
     const selected = host.querySelector('[data-pick="3D"]')!;
     expect(selected.getAttribute('aria-pressed')).toBe('true');
@@ -117,6 +121,7 @@ describe('取数', () => {
     const { host, actions: receipts } = await show(data(original));
     queryClient.setQueryData(followItemKey(sibling.id), data(sibling, group(original, { variants: [sibling] })));
     expect(buttonNamed('管理标签', host)).toBeNull();
+    await editTags(host);
     await click(host.querySelector('[aria-label="添加标签"]'));
     const input = host.querySelector<HTMLInputElement>('#tagPickSearch')!;
     await type(input, '精选');
@@ -128,11 +133,13 @@ describe('取数', () => {
     expect(receipts.toast).not.toHaveBeenCalled();
     await waiting.release({ ok: true, json: async () => ({ item: updated, group: group(updated, { variants: [sibling] }) }) });
     await settle();
-    expect(host.querySelector('[data-follow-tag="精选"]')).not.toBeNull();
+    expect(host.querySelector('[data-remove-tag="精选"]')).not.toBeNull();
     expect(queryClient.getQueryData<FollowDetailData>(followItemKey(sibling.id))?.group?.primary.tags).toContain('精选');
     expect(receipts.toast).toHaveBeenCalledWith('已添加标签「精选」', expect.objectContaining({ undo: expect.any(Function) }));
     await click(host.querySelector('[aria-label="删除标签 精选"]')); await settle();
-    expect(host.querySelector('[data-follow-tag="精选"]')).toBeNull();
+    expect(host.querySelector('[data-remove-tag="精选"]')).toBeNull();
+    expect(host.querySelector('[data-remove-tag="source"]')).not.toBeNull();
+    await editTags(host);
     expect(host.querySelector('[data-follow-tag="source"]')).not.toBeNull();
   });
 
@@ -146,11 +153,12 @@ describe('取数', () => {
       : fallback(url, init)));
     const { host } = await show(data(original));
     expect(host.querySelectorAll('[data-detail-tag]')).toHaveLength(20);
+    await editTags(host);
     await click(host.querySelector('[aria-label="添加标签"]'));
     await type(host.querySelector<HTMLInputElement>('#tagPickSearch')!, 'zz');
     await click(host.querySelector('[data-pick="zz"]'));
     await settle();
-    expect(host.querySelector('[data-follow-tag="zz"]')).not.toBeNull();
+    expect(host.querySelector('[data-remove-tag="zz"]')).not.toBeNull();
     expect(host.querySelector('[data-tags-more]')?.textContent).toBe('还有 10 个');
   });
 
@@ -159,6 +167,7 @@ describe('取数', () => {
     vi.stubGlobal('fetch', vi.fn((url: string, init?: RequestInit) => url === '/api/follow/tag'
       ? Promise.resolve({ ok: false, status: 400, json: async () => ({ error: '标签名不含逗号' }) }) : fallback(url, init)));
     const { host, actions: receipts } = await show(data(item(8)));
+    await editTags(host);
     await click(host.querySelector('[aria-label="添加标签"]'));
     const input = host.querySelector<HTMLInputElement>('#tagPickSearch')!;
     await type(input, 'a,b');
