@@ -312,10 +312,14 @@ class RunnerTests(LedgerTestCase):
                 mock.patch.object(followups_module, "DEFER_RECHECK_SECONDS", 60.0):
             child = self.store.enqueue_followups(parent.id, [("ledger-a:1", "ledger-a", "甲")])["queued"][0]
             runner = FollowupRunner(self.contract())
+            # 断言失败时也先收通道线程，它握着的账本连接会挡住临时目录的删除。
+            self.addCleanup(runner.stop, timeout=10)
             runner.wake()
+            # 运行函数记下尝试时这条还是 `running`，抛出 `ProcessingBusy` 后才回到队列。
             deadline = time.monotonic() + 10
-            while not attempts and time.monotonic() < deadline:
+            while (not attempts or self.store.get(child).status == "running") and time.monotonic() < deadline:
                 time.sleep(0.01)
+            self.assertEqual(attempts, ["ledger-a:1"])
             self.assertEqual(self.store.get(child).status, "pending")
             release.set()
             self.wait_until_settled(parent.id, timeout=5)
