@@ -411,5 +411,60 @@ class RecordRehomeTests(unittest.TestCase):
         self.assertEqual(self.query("SELECT path FROM asset WHERE id=7"), [("R:\\other\\FNS-257\\FNS-257.mp4",)])
 
 
+class CodeSiblingIdentityTests(unittest.TestCase):
+    """同番号副本缺演员、创作者时从已有归属的那一份补上（`code_siblings`）。"""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.db = Path(self.tmp.name).resolve() / "ledger.db"
+        upgrade(self.db, ROOT / "migrations")
+        self.connection = sqlite3.connect(self.db)
+        self.addCleanup(self.connection.close)
+        rows = ((1, r"B:\FC2\FC2-PPV-1666863\FC2-PPV-1666863-CD1.mp4", "FC2-PPV-1666863"),
+                (2, r"B:\FC2\FC2-PPV-1666863\www.98T.la@FC2-1666863-CD1.mp4", "FC2-PPV-1666863"),
+                (3, r"B:\FC2\FC2-PPV-1000000\FC2-PPV-1000000.mp4", "FC2-PPV-1000000"))
+        for asset_id, path, code in rows:
+            self.connection.execute("INSERT INTO asset(id,location,path,name,medium,code) VALUES(?,'115',?,?,'video',?)",
+                                    (asset_id, path, path.rsplit("\\", 1)[1], code))
+        for entity_id, kind, name in ((10, "performer", "大村阿美香"), (20, "creator", "進撃のごろうまる"),
+                                      (30, "creator", "FC2")):
+            self.connection.execute("INSERT INTO entity(id,kind,canonical_name,normalized_name,created_at,updated_at)"
+                                    " VALUES(?,?,?,?,'x','x')", (entity_id, kind, name, name.casefold()))
+        for entity_id, role, source in ((10, "performer", "javinizer:javdb:performer"),
+                                        (20, "creator", "script:fc2-seller@t"), (30, "creator", "legacy:asset")):
+            self.connection.execute("INSERT INTO asset_entity(asset_id,entity_id,role,source) VALUES(1,?,?,?)",
+                                    (entity_id, role, source))
+
+    def links(self, asset_id):
+        return sorted(self.connection.execute(
+            "SELECT entity_id,role FROM asset_entity WHERE asset_id=?", (asset_id,)).fetchall())
+
+    def test_a_copy_takes_cast_and_seller_but_not_the_folder_creator_and_reverts_by_batch(self):
+        from peach import auto_landing_revert, code_siblings
+        result = code_siblings.inherit(self.connection, [2, 3], now="t1")
+        self.assertEqual(self.links(2), [(10, "performer"), (20, "creator")],
+                         "演员与卖家跟着番号走，目录推出的创作者讲的是那个文件夹")
+        self.assertEqual(self.links(3), [])
+        self.assertEqual(self.connection.execute(
+            "SELECT tag FROM asset_tag WHERE asset_id=2").fetchall(), [("performer:大村阿美香",)])
+        self.assertEqual(len(result["links"]), 2)
+        self.assertEqual(code_siblings.inherit(self.connection, [2], now="t2")["links"], [],
+                         "已经有这个角色的不再补")
+        planned = auto_landing_revert.plan(self.connection, code_siblings.SOURCE, result["batch"],
+                                           logo_root=Path(self.tmp.name), cover_root=Path(self.tmp.name), files=False)
+        self.assertEqual(auto_landing_revert.apply(self.connection, planned)["deleted_sibling_links"], 2)
+        self.assertEqual(self.links(2), [])
+        self.assertEqual(self.connection.execute("SELECT count(*) FROM asset_tag WHERE asset_id=2").fetchone()[0], 0)
+
+    def test_a_copy_that_already_has_a_performer_keeps_it(self):
+        from peach import code_siblings
+        self.connection.execute("INSERT INTO entity(id,kind,canonical_name,normalized_name,created_at,updated_at)"
+                                " VALUES(11,'performer','別の人','別の人','x','x')")
+        self.connection.execute("INSERT INTO asset_entity(asset_id,entity_id,role,source) VALUES(2,11,'performer','user:manual')")
+        code_siblings.inherit(self.connection, [2], now="t1")
+        self.assertEqual(self.links(2), [(11, "performer"), (20, "creator")])
+
+
 if __name__ == "__main__":
     unittest.main()

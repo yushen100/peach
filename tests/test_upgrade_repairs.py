@@ -2113,6 +2113,82 @@ class UpgradeRepairTests(unittest.TestCase):
         self.assertEqual(json.loads(settled[0][0])['applied'], 1)
         self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))), 2)
 
+    def test_spaced_performer_rows_already_on_disk_settle_once_in_the_background(self):
+        """旧版扣在人工队列里的 `釈 アリス` 那一行，升级后在后台按新判据重判一次，对得上登记过的人就落库。"""
+        import csv
+        from peach.entities import normalize_entity_name
+        with self.database.write_transaction() as connection:
+            connection.execute("INSERT INTO asset(id,location,path,name,medium,code) "
+                               "VALUES(8,'local','ABF-347.mp4','ABF-347.mp4','video','ABF-347')")
+            connection.execute("INSERT INTO entity(id,kind,canonical_name,normalized_name,created_at,updated_at)"
+                               " VALUES(901,'performer','釈アリス',?,'x','x')", (normalize_entity_name('釈アリス'),))
+        self.contract.candidate_root.mkdir(parents=True)
+        candidates = [{'candidate_key': f'k{index}', 'source': source, 'value': [{'name': name}],
+                       'display_value': name, 'confidence': 0.75, 'provider_id': 'ABF-347'}
+                      for index, (source, name) in enumerate((('prestige', '釈 アリス'), ('javbus', '釈アリス')))]
+        with (self.contract.candidate_root / 'library-metadata-field-candidates.csv').open(
+                'w', encoding='utf-8-sig', newline='') as handle:
+            writer = csv.DictWriter(handle, fieldnames=['item_key', 'code', 'query', 'field', 'current_value',
+                                                        'candidates_json', 'status'])
+            writer.writeheader()
+            writer.writerow({'item_key': 'asset:8:performers', 'code': 'ABF-347', 'query': 'ABF-347',
+                             'field': 'performers', 'current_value': '', 'status': 'candidate',
+                             'candidates_json': json.dumps(candidates, ensure_ascii=False)})
+        self.service._settle_spaced_performers()
+        self.service._settle_spaced_performers()
+        with self.database.read_connection() as connection:
+            self.assertEqual([row[0] for row in connection.execute(
+                "SELECT entity_id FROM asset_entity WHERE asset_id=8 AND role='performer'")], [901])
+            settled = connection.execute("SELECT result_json FROM ledger_upgrade_repair WHERE id=?",
+                                         (upgrade_repairs.SPACED_PERFORMERS_KEY,)).fetchall()
+        self.assertEqual(len(settled), 1)
+        self.assertEqual(json.loads(settled[0][0])['applied'], 1)
+
+    def test_same_code_copies_inherit_the_cast_once_after_the_seller_backfill(self):
+        """存量里后入库、缺演员的同番号副本，升级后在卖家补挂之后照抄一次，两条回执各记一次。"""
+        with self.database.write_transaction() as connection:
+            for asset_id, name in ((21, 'FC2-PPV-1666863-CD1.mp4'), (22, 'www.98T.la@FC2-1666863-CD1.mp4')):
+                connection.execute("INSERT INTO asset(id,location,path,name,medium,code) "
+                                   "VALUES(?,'local',?,?,'video','FC2-PPV-1666863')", (asset_id, name, name))
+            connection.execute("INSERT INTO entity(id,kind,canonical_name,normalized_name,created_at,updated_at)"
+                               " VALUES(910,'performer','Cast','cast','x','x')")
+            connection.execute("INSERT INTO asset_entity(asset_id,entity_id,role,source) "
+                               "VALUES(21,910,'performer','javinizer:javdb:performer')")
+        self.service._backfill_identities()
+        self.service._backfill_identities()
+        with self.database.read_connection() as connection:
+            self.assertEqual([row[0] for row in connection.execute(
+                "SELECT entity_id FROM asset_entity WHERE asset_id=22 AND role='performer'")], [910])
+            receipts = {row[0]: json.loads(row[1]) for row in connection.execute(
+                'SELECT id,result_json FROM ledger_upgrade_repair WHERE id IN (?,?)',
+                (upgrade_repairs.FC2_SELLERS_KEY, upgrade_repairs.CODE_SIBLINGS_KEY))}
+        self.assertEqual(len(receipts[upgrade_repairs.CODE_SIBLINGS_KEY]['links']), 1)
+        self.assertEqual(receipts[upgrade_repairs.FC2_SELLERS_KEY]['entity_ids'], [])
+
+    def test_enhancement_model_aliases_and_search_terms_are_cleared_once_with_a_backup(self):
+        """`prob4`、`chf3` 这类代号别名与搜索词删掉并记进回执，带代号的规范名不改、只补去掉代号的别名。"""
+        with self.database.write_transaction() as connection:
+            connection.execute("INSERT INTO entity(id,kind,canonical_name,normalized_name,created_at,updated_at)"
+                               " VALUES(7391,'creator','大叔 chf3_prob4','大叔 chf3_prob4','x','x')")
+            for alias in ('prob4', 'chf3', '大叔11'):
+                connection.execute("INSERT INTO entity_alias(entity_id,alias,normalized_alias,source,confidence)"
+                                   " VALUES(7391,?,?,'stash:performer',0.8)", (alias, alias))
+                connection.execute("INSERT INTO entity_search_term(entity_id,term,purpose,source,created_at)"
+                                   " VALUES(7391,?,'discovery','stash:performer','x')", (alias,))
+        self.service._settle_enhancement_names()
+        self.service._settle_enhancement_names()
+        with self.database.read_connection() as connection:
+            aliases = sorted(row[0] for row in connection.execute('SELECT alias FROM entity_alias WHERE entity_id=7391'))
+            terms = sorted(row[0] for row in connection.execute('SELECT term FROM entity_search_term'))
+            canonical = connection.execute('SELECT canonical_name FROM entity WHERE id=7391').fetchone()[0]
+            receipt = json.loads(connection.execute('SELECT result_json FROM ledger_upgrade_repair WHERE id=?',
+                                                    (upgrade_repairs.ENHANCEMENT_NAMES_KEY,)).fetchone()[0])
+        self.assertEqual(aliases, ['大叔', '大叔11'])
+        self.assertEqual(terms, ['大叔11'])
+        self.assertEqual(canonical, '大叔 chf3_prob4')
+        self.assertEqual((len(receipt['aliases']), len(receipt['terms']), len(receipt['added_aliases'])), (2, 2, 1))
+        self.assertTrue(Path(receipt['backup']).is_file())
+
     def test_stale_receipt_cannot_hide_a_restored_database(self):
         self.asset(1)
         self.service.root.mkdir(parents=True)

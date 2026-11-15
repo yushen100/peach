@@ -720,7 +720,7 @@ DISCOVERY_LIMIT = 24
 LISTED = (
     "(normalise_code_key(d.code) IS NULL OR normalise_code_key(d.code) NOT IN"
     " (SELECT key FROM (SELECT normalise_code_key(a.code) AS key FROM asset a"
-    " WHERE a.code IS NOT NULL AND COALESCE(a.disposal,'')<>'vanished') WHERE key IS NOT NULL))",
+    " WHERE a.medium='video' AND a.code IS NOT NULL AND COALESCE(a.disposal,'')<>'vanished') WHERE key IS NOT NULL))",
     "NOT is_feed_hidden(d.title,d.performers,d.studio)",
     "NOT is_cover_pending(d.code,d.release_date)",
 )

@@ -59,7 +59,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import (company_profiles, fc2_sellers, follow_creators, jav_poster_crop, metadata_text_repair,
+from . import (code_siblings, company_profiles, fc2_sellers, follow_creators, jav_poster_crop, metadata_text_repair,
                record_rehome, sample_images, seed_pack, wants, western_artwork)
 from .metadata_auto_apply import UNION_TAGS_SOURCE, planned_verified_revert, revert_verified
 
@@ -287,6 +287,7 @@ def plan(connection, source: str, batch: str = "", *, logo_root: Path, cover_roo
         "javdb_records": _planned_javdb_records(connection, source, batch),
         "resolution_tags": _planned_resolution_tags(connection, source, batch),
         "quality": _planned_quality(connection, source, batch),
+        "siblings": code_siblings.planned_revert(connection, source, batch),
     }
 
 
@@ -318,7 +319,8 @@ def counts(planned: dict) -> dict:
             "garbled": len(planned["garbled"]),
             "javdb_records": len(planned.get("javdb_records", [])),
             "resolution_tags": len(planned.get("resolution_tags", [])),
-            "quality": len(planned.get("quality", []))}
+            "quality": len(planned.get("quality", [])),
+            "siblings": len(planned.get("siblings", []))}
 
 
 def apply(connection, planned: dict) -> dict:
@@ -376,6 +378,7 @@ def apply(connection, planned: dict) -> dict:
     restored_resolution = revert_resolution_tags(connection, planned.get("resolution_tags", []))
     from .quality_repair import revert as revert_quality
     restored_quality = revert_quality(connection, planned.get("quality", []))
+    removed_siblings = code_siblings.revert(connection, planned.get("siblings", []))
     return {"deleted_links": len(links), "deleted_aliases": len(aliases), "deleted_profiles": len(profiles),
             "deleted_claims": len(claims), "deleted_refs": len(refs), "deleted_memberships": len(memberships),
             "deleted_makers": len(makers), "deleted_samples": removed_samples,
@@ -388,7 +391,7 @@ def apply(connection, planned: dict) -> dict:
             "deleted_verified_tags": verified_revert["removed_tags"],
             "deleted_verified_decisions": verified_revert["decisions"], "restored_garbled_rows": restored_garbled,
             "restored_javdb_records": restored_javdb, "restored_resolution_tags": restored_resolution,
-            "restored_quality": restored_quality}
+            "restored_quality": restored_quality, "deleted_sibling_links": removed_siblings}
 
 
 def remove_files(planned: dict) -> int:

@@ -26,7 +26,10 @@ ITEMS = (
 #: 历史里的规则：账本行 id 的前缀、计哪个字段（`None` 为资料整理的改动合计）。
 #: 前缀去掉末尾的连字符就是规则 id，名字在 `server:repairCenter.history.<id>`。
 RULES = (
-    ('catalog-', None), ('verification-settlement-', ('applied',)),
+    ('catalog-', None), ('verification-settlement-', ('applied',)), ('performer-spacing-', ('applied',)),
+    ('enhancement-suffix-names-', ('aliases', 'terms', 'added_aliases')),
+    ('fc2-seller-backfill-', ('entity_ids',)),
+    ('code-sibling-identity-', ('links',)),
     ('studio-unbounded-misses-', ('released',)), ('stale-filename-codes-', ('cleared',)),
     ('dangling-candidates-', ('repinned', 'withdrawn')),
     ('javdb-actor-records-', ('hidden', 'disabled_feeds')),

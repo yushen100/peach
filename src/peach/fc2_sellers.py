@@ -231,6 +231,39 @@ def install(connection, frozen: dict, *, batch: str) -> dict:
             'changes': connection.total_changes - before}
 
 
+def _pending_accounts(connection, frozen: dict, asset_ids=None) -> list[dict]:
+    """计划里还有作品没挂上卖家账号的那些账号；`asset_ids` 给了就只看含这些作品的。"""
+    wanted = None if asset_ids is None else {int(value) for value in asset_ids}
+    linked = {row[0] for row in connection.execute(
+        "SELECT asset_id FROM asset_entity WHERE role='creator' AND source LIKE ?", (SOURCE + '@%',))}
+    accounts = []
+    for group in frozen['accounts']:
+        ids = {asset_id for record in group['records'] for asset_id in record['asset_ids']}
+        if (wanted is None or ids & wanted) and ids - linked:
+            accounts.append(group)
+    return accounts
+
+
+def pending(connection, root: Path) -> bool:
+    """整库补一次时有没有要挂的，只读；有才先备份。"""
+    return bool(_pending_accounts(connection, collect(connection, root)))
+
+
+def land(connection, root: Path, *, asset_ids=None, now: str | None = None) -> dict:
+    """自动落库那一步：来源快照已写明卖家、还没挂上卖家账号的 FC2 作品，按同一份计划挂上。
+
+    `asset_ids` 给了就只处理含这些作品的账号——刚采完资料的那几部，以及后来才认出番号
+    的副本；不给就是整库补一次（升级补修）。已挂上的跳过，所以重复跑不改任何东西；
+    计划过期或与已合并的人物冲突时这一批整批不写，留给下一轮。批次号按时刻记，整批可撤。
+    """
+    frozen = collect(connection, root)
+    accounts = _pending_accounts(connection, frozen, asset_ids)
+    if not accounts:
+        return {'entity_ids': [], 'skipped': frozen['skipped'], 'changes': 0}
+    moment = now or datetime.now(timezone.utc).isoformat()
+    return install(connection, {**frozen, 'accounts': accounts}, batch=f'{SOURCE}@{moment}')
+
+
 def planned_revert(connection, source: str, batch: str) -> list[dict]:
     if source != SOURCE:
         return []

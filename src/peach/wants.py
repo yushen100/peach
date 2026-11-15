@@ -148,10 +148,10 @@ def wanted_keys(connection, keys: Iterable[str]) -> set[str]:
 
 
 def in_library(connection, key: str) -> bool:
-    """这个番号键在库里有没有一部：与 `feeds.in_library` 同一口径，已消失的不算，回收站里的算。"""
+    """这个番号键在库里有没有一部：与 `feeds.in_library` 同一口径，只算视频，已消失的不算，回收站里的算。"""
     _register(connection)
     return connection.execute(
-        "SELECT 1 FROM asset WHERE code IS NOT NULL AND COALESCE(disposal,'')<>'vanished'"
+        "SELECT 1 FROM asset WHERE medium='video' AND code IS NOT NULL AND COALESCE(disposal,'')<>'vanished'"
         " AND normalise_code_key(code)=? LIMIT 1", (key,)).fetchone() is not None
 
 
@@ -277,7 +277,7 @@ def reconcile(connection, asset_ids: Iterable[int], *, now: str | None = None) -
     """新登记的这几行命中了哪些想要，标「已入库」并返回它们的 id。
 
     番号键用 `record_rehome.code_key`：刚登记的行 `code` 还空着，从文件名解析。判在库与
-    `feeds.in_library` 同一口径，只看 `disposal` 为空的行。关注条目按 `follow_item.asset_id`
+    `feeds.in_library` 同一口径，只看 `disposal` 为空的视频，先入库的封面图不算到手。关注条目按 `follow_item.asset_id`
     认：保存进账本的那条就是它。同一个批次号记这一轮的时刻，整批撤回按它认。
     """
     ids = sorted({int(value) for value in asset_ids})
@@ -291,7 +291,7 @@ def reconcile(connection, asset_ids: Iterable[int], *, now: str | None = None) -
     for batch in _chunks(ids):
         marks = ",".join("?" * len(batch))
         for row in _rows(connection, f"SELECT id,code,name FROM asset WHERE id IN ({marks})"
-                         " AND disposal IS NULL", batch):
+                         " AND disposal IS NULL AND medium='video'", batch):
             key = asset_code_key(row)
             if key:
                 by_key.setdefault(key, int(row["id"]))

@@ -1246,6 +1246,50 @@ class ReviewQueueTests(unittest.TestCase):
         self.assertEqual(result["applied"], 0)
         self.assertEqual(self.queue_keys("metadata_fields"), ["NOPE"])
 
+    def test_an_official_page_spacing_family_and_given_names_lands_the_registered_performer(self):
+        """片商官网在姓与名之间留空格（`釈 アリス`），社区站写连着的：同一位，去掉空格对得上账本里的人就落库。"""
+        from peach.entities import normalize_entity_name
+        self._asset(127, "ABF-347", "ABF-347.mp4")
+        con = sqlite3.connect(self.db_path)
+        try:
+            con.execute("INSERT INTO entity(id,kind,canonical_name,normalized_name,created_at,updated_at)"
+                        " VALUES(901,'performer','釈アリス',?,'x','x')", (normalize_entity_name("釈アリス"),))
+            con.commit()
+        finally:
+            con.close()
+        self.write_metadata_rows([
+            {"item_key": "SPACED", "field": "performers", "current": "", "code": "ABF-347",
+             "candidates": [{"source": "prestige", "value": [{"name": "釈 アリス"}], "display": "釈 アリス"},
+                            {"source": "javbus", "value": [{"name": "釈アリス"}], "display": "釈アリス"}]},
+        ])
+        self.assertEqual(self._auto_without_snapshots()["applied"], 1)
+        con = sqlite3.connect(self.db_path)
+        try:
+            landed = con.execute("SELECT entity_id FROM asset_entity WHERE asset_id=127 AND role='performer'").fetchall()
+        finally:
+            con.close()
+        self.assertEqual(landed, [(901,)])
+
+    def test_a_spaced_label_that_matches_nobody_still_goes_to_review(self):
+        """`看護師 さゆり` 去掉空格也对不上任何登记过的人：是称呼不是艺名，照旧交人工。"""
+        self._asset(128, "300MIUM-601", "300MIUM-601.mp4")
+        self.write_metadata_rows([
+            {"item_key": "LABEL", "field": "performers", "current": "", "code": "300MIUM-601",
+             "candidates": [{"source": "mgstage", "value": [{"name": "看護師 さゆり"}], "display": "看護師 さゆり"}]},
+        ])
+        self.assertEqual(self._auto_without_snapshots()["applied"], 0)
+        self.assertEqual(self.queue_keys("metadata_fields"), ["LABEL"])
+
+    def test_a_western_stage_name_with_a_space_lands(self):
+        """欧美演员的艺名本来就带空格，两家一致就落库。"""
+        self._asset(129, "WSA-001", "WSA-001.mp4")
+        self.write_metadata_rows([
+            {"item_key": "WEST", "field": "performers", "current": "", "code": "WSA-001",
+             "candidates": [{"source": "dmm", "value": [{"name": "Tiny Lu"}], "display": "Tiny Lu"},
+                            {"source": "r18dev", "value": [{"name": "Tiny Lu"}], "display": "Tiny Lu"}]},
+        ])
+        self.assertEqual(self._auto_without_snapshots()["applied"], 1)
+
     def _fc2_performer_row(self, key, code, *candidates):
         """一行 FC2 出演者：`candidates` 是 `(来源, 名字)`，名字用顿号分隔多位。"""
         return {"item_key": key, "field": "performers", "current": "", "code": code,
