@@ -607,6 +607,7 @@ def special_scopes(path: str, kind: str) -> tuple[str, ...] | None:
         return ("tooling",) if path in {
             ".github/workflows/project-board.yml", ".github/workflows/docker.yml",
             ".github/workflows/star-history.yml", ".github/workflows/issue-intake.yml",
+            ".github/workflows/gitgud-mirror.yml",
         } else ("full",)
     if path.rsplit("/", 1)[-1] == "conftest.py" or any(path.startswith(p) for p in FULL_ONLY_PREFIXES):
         return ("full",)

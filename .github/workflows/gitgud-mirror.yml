@@ -1,0 +1,103 @@
+name: GitGud 备份
+
+# GitGud 只保存代码与发布制品，不跑 CI：master 与版本标签推上来后原样推过去，推送带 ci.skip，不触发 GitGud 流水线。
+# 版本发布后由 release.yml 按标签手动触发本工作流，把 GitHub Release 的制品存进 GitGud 包仓库并登记 Release；
+# 旧版本也用手动触发补存。R2 只留最近三个版本，GitGud 保留全部已备份版本。
+on:
+  push:
+    branches: [master]
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 要备份制品的版本标签，例如 v0.58.0
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUTF8: "1"
+  PYTHONIOENCODING: "utf-8"
+  GITGUD_PROJECT: https://gitgud.io/peach-mitao/peach
+
+jobs:
+  code:
+    name: 推送代码
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # 同一个 ref 排队推送：较早的运行后完成会被 GitGud 当成回退拒收。
+    concurrency:
+      group: gitgud-code-${{ inputs.tag || github.ref }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: 推送到 GitGud
+        env:
+          GITGUD_TOKEN: ${{ secrets.GITGUD_MIRROR_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          [ -n "$GITGUD_TOKEN" ] || { echo "缺少 secret GITGUD_MIRROR_TOKEN"; exit 1; }
+          if [ -n "$TAG" ]; then
+            [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "标签格式不对：$TAG"; exit 1; }
+            refspec="refs/tags/$TAG:refs/tags/$TAG"
+          elif [ "$GITHUB_REF_TYPE" = tag ]; then
+            refspec="$GITHUB_REF:$GITHUB_REF"
+          else
+            refspec="HEAD:$GITHUB_REF"
+          fi
+          auth="$(printf 'oauth2:%s' "$GITGUD_TOKEN" | base64 -w0)"
+          echo "::add-mask::$auth"
+          # 不强推：GitGud 与 GitHub 分叉时停下来报错，交给人处理。
+          git -c "http.$GITGUD_PROJECT.git/.extraheader=Authorization: Basic $auth" \
+            push -o ci.skip "$GITGUD_PROJECT.git" "$refspec"
+
+  release:
+    name: 备份发布制品
+    if: github.event_name == 'workflow_dispatch'
+    needs: code
+    runs-on: ubuntu-latest
+    # 一个版本约 1.4 GB：从 GitHub 下载，再逐个上传并等 GitGud 核对摘要。
+    timeout-minutes: 60
+    concurrency:
+      group: gitgud-release-${{ inputs.tag }}
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      GITLAB_TOKEN: ${{ secrets.GITGUD_MIRROR_TOKEN }}
+      GITLAB_HOST: gitgud.io
+      TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: 取得 glab
+        run: |
+          uv sync --locked --python python
+          .venv/bin/python scripts/fetch_release_tools.py
+          echo "PEACH_GLAB=$PWD/build/release-tools/glab" >> "$GITHUB_ENV"
+      - name: 转存 Release 制品并登记 GitGud Release
+        run: |
+          set -euo pipefail
+          project="$(printf '%s' "${GITGUD_PROJECT#https://gitgud.io/}" | sed 's#/#%2F#g')"
+          if "$PEACH_GLAB" api --hostname gitgud.io "projects/$project/releases/$TAG" > /dev/null 2>&1; then
+            echo "GitGud 上已有 $TAG 的 Release，跳过"
+            exit 0
+          fi
+          gh release download "$TAG" --dir release \
+            --pattern '*.zip' --pattern '*.exe' --pattern '*.dmg' --pattern 'SHA256SUMS.txt*'
+          .venv/bin/python scripts/changelog.py --notes "${TAG#v}" --to release/RELEASE_NOTES.md
+          CI_COMMIT_TAG="$TAG" CI_COMMIT_SHA="$(git rev-parse "refs/tags/$TAG^{commit}")" \
+            CI_PROJECT_URL="$GITGUD_PROJECT" PEACH_DOWNLOAD_BACKEND=gitgud \
+            .venv/bin/python scripts/publish_gitlab_release.py

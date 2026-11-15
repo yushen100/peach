@@ -5595,6 +5595,34 @@ class GitGudPackageMirrorTests(unittest.TestCase):
             self.assertIn('https://downloads.example/v1.2.3/',
                           (root / 'RELEASE_NOTES.md').read_text(encoding='utf-8'))
 
+    def test_gitgud_backup_stores_signed_sums_unchanged_and_links_packages(self):
+        from scripts import publish_gitlab_release as module
+        sha = '1' * 40
+        asset = {'name': 'app.zip', 'size': 3, 'sha256': 'a' * 64}
+        link = {'name': 'app.zip · GitGud', 'url': 'https://gitgud.io/package/app.zip',
+                'link_type': 'package', 'direct_asset_path': '/gitgud/app.zip'}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            (root / 'RELEASE_NOTES.md').write_text('### Added\n\n- Backup.\n', encoding='utf-8')
+            signed = [root / 'SHA256SUMS.txt', root / 'SHA256SUMS.txt.sig']
+            signed[0].write_bytes(b'a' * 64 + b'  app.zip\n')
+            signed[1].write_bytes(b'signature bytes')
+            with mock.patch.dict(os.environ, {'CI_COMMIT_TAG': 'v1.2.3', 'CI_COMMIT_SHA': sha,
+                    'CI_PROJECT_URL': 'https://gitgud.io/owner/repo', 'PEACH_DOWNLOAD_BACKEND': 'gitgud'}), \
+                    mock.patch.object(module.subprocess, 'check_output', return_value=sha), \
+                    mock.patch.object(module.subprocess, 'run') as run, \
+                    mock.patch('scripts.release_r2.inventory', return_value=[asset]), \
+                    mock.patch('scripts.release_r2.release_sums', return_value=signed) as sums, \
+                    mock.patch.object(module, 'gitgud_package_links', return_value=[link]) as mirror:
+                module.publish(root)
+            sums.assert_called_once_with(root, [asset], root)
+            mirrored = mirror.call_args.args[1]['assets']
+            self.assertEqual([item['name'] for item in mirrored], ['app.zip', 'SHA256SUMS.txt', 'SHA256SUMS.txt.sig'])
+            self.assertEqual(mirrored[2]['sha256'], hashlib.sha256(b'signature bytes').hexdigest())
+            command = run.call_args.args[0]
+            self.assertEqual(json.loads(command[command.index('--assets-links') + 1]), [link])
+            self.assertNotIn('--use-package-registry', command)
+
 
 class MainlineScopeTests(unittest.TestCase):
     """主线推送只跑改动域与平台敏感用例；基线取不稳就退回全量（ADR-0119）。"""

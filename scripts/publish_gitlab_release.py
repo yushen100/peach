@@ -134,12 +134,12 @@ def publish(root: Path = Path('release')) -> None:
                                          os.environ['CI_PROJECT_URL']), encoding='utf-8')
         command.extend(["--assets-links", json.dumps(links)])
     elif backend == "gitgud":
-        from .release_r2 import inventory
+        # GitHub 发版后的备份走这里：签过名的摘要与签名原样存进包仓库（ADR-0137），Release 只登记包链接。
+        from .release_r2 import describe, inventory, release_sums
         files = inventory(root, tag[1:])
-        sums = root / 'SHA256SUMS.txt'
-        sums.write_text("".join(f"{item['sha256']}  {item['name']}\n" for item in files), encoding="utf-8")
-        command.extend([*(str(root / item["name"]) for item in files), str(sums),
-                        "--use-package-registry", "--package-name", "peach-release"])
+        assets = files + [describe(path) for path in release_sums(root, files, root)]
+        links = gitgud_package_links(root, {'tag_name': tag, 'assets': assets}, os.environ['CI_PROJECT_URL'])
+        command.extend(["--assets-links", json.dumps(links)])
     else:
         raise ValueError(t("publish_gitlab_release.unknownBackend"))
     subprocess.run(command, check=True)
