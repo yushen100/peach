@@ -42,6 +42,24 @@ class FetchRetryTests(unittest.TestCase):
             small.url: (200, jpeg(840, 563))}), 'FC2-PPV-123456', 0, prior_candidates=(small, large))
         self.assertEqual((winner, size), (large, (2184, 1468)))
 
+    def test_a_dvd_sleeve_close_in_size_beats_the_streaming_artwork(self):
+        """SOD 的配信版横图是另画的双栏宣传图；DVD 封套不比它小一成以上就用封套。"""
+        digital = covers.candidate_for('https://awsimgsrc.dmm.com/dig/digital/video/1start00435/1start00435pl.jpg')
+        package = covers.candidate_for('https://awsimgsrc.dmm.com/dig/mono/movie/1start435/1start435pl.jpg')
+        winner, size, _ = covers.best_cover(transport_for({digital.url: (200, jpeg(2184, 1542)),
+            package.url: (200, jpeg(2184, 1466))}), 'START-435', 0, prior_candidates=(digital, package))
+        self.assertEqual((winner, size), (package, (2184, 1466)))
+        small = covers.candidate_for('https://awsimgsrc.dmm.com/dig/mono/movie/1stars776/1stars776pl.jpg')
+        winner, _, _ = covers.best_cover(transport_for({digital.url: (200, jpeg(2184, 1542)),
+            small.url: (200, jpeg(800, 535))}), 'START-435', 0, prior_candidates=(digital, small))
+        self.assertEqual(winner, digital)
+
+    def test_a_streaming_content_id_also_names_its_dvd_sleeve(self):
+        self.assertEqual(covers.package_cid('1start00435'), '1start435')
+        self.assertEqual(covers.package_cid('ssis00503'), 'ssis503')
+        self.assertIn('https://awsimgsrc.dmm.com/dig/mono/movie/1start435/1start435pl.jpg',
+                      {candidate.url for candidate in covers.content_id_images('1start00435')})
+
     def test_mgs_releases_use_their_own_catalog_without_waiting_for_an_unrelated_mirror(self):
         url = 'https://image.mgstage.com/images/nanpatv/200gana/1995/pb_e_200gana-1995.jpg'
         with patch.object(covers, 'mgstage_images', return_value=[covers.candidate_for(url)]):

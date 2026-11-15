@@ -284,9 +284,18 @@ PORTRAIT_MATCH_HEIGHT = 200
 #: 灰度、轻微模糊后的归一化相关系数达到这个数才算对上。实测 22 张封套 0.61～1.00（老片 800 宽
 #: 横图配 147×200 小图，重压缩后偏低），贴右缘的独立海报 0.09～0.18。
 PORTRAIT_MATCH_MIN = 0.45
+#: 横图与竖版图都至少这么高时，门槛提到 `PORTRAIT_SHARP_MIN`：实测 36 张高清封套 0.977～1.000，
+#: 4:3 的 VR 整幅图 SIVR-414 竖版图另有修饰，贴右缘也只有 0.50。
+PORTRAIT_SHARP_HEIGHT = 1000
+PORTRAIT_SHARP_MIN = 0.9
 #: 对上的那一块还得贴着横图右缘：独立海报常和横图某一段长得像（STARS-260 落在中段 0.78、
 #: STCV-530 落在左段 0.74），封套的正封永远顶着右缘。容差是横图宽的这个比例。
 PORTRAIT_EDGE_TOLERANCE = 0.02
+#: 封套证实之后，折痕只在 DMM 左缘往右这么多倍横图高之内找：实测最厚的书脊 STZY-019 是 0.072。
+PORTRAIT_SPINE_MAX = 0.09
+#: 那一段里的满高缝还得达到段内最强梯度的这个比例，挡掉正封画面里偶然贯穿的淡线。
+#: 实测书脊右缘 0.22～1.00，对应段内最强的 0.27～1.00。
+PORTRAIT_SEAM_STRENGTH = 0.5
 #: 竖版图要比这个宽高比更竖才算竖版。有些素人作品的 `ps` 和 `pl` 是同一张横图，说明不了什么。
 PORTRAIT_MAX_ASPECT = 1.0
 SLEEVE = "sleeve"
@@ -336,7 +345,9 @@ def portrait_match(cover, portrait) -> PortraitMatch | None:
     _, score, _, (left, _) = cv2.minMaxLoc(result)
     x0 = round(left * cover_h / height)
     x1 = min(cover_w, round((left + scaled_portrait_w) * cover_h / height))
-    sleeve = (score >= PORTRAIT_MATCH_MIN
+    # 高清横图配高清竖版图时，封套的竖版图是逐像素裁出来的；分数不够高说明是另画的一张。
+    floor = PORTRAIT_SHARP_MIN if min(cover_h, portrait_h) >= PORTRAIT_SHARP_HEIGHT else PORTRAIT_MATCH_MIN
+    sleeve = (score >= floor
               and cover_w - x1 <= cover_w * PORTRAIT_EDGE_TOLERANCE)
     return PortraitMatch(SLEEVE if sleeve else POSTER, round(float(score), 3), x0, x1)
 
@@ -652,14 +663,27 @@ def portrait_of(record: dict | None) -> PortraitMatch | None:
 
 def _matched_sleeve(width: int, height: int, gradient_source: GradientSource,
                     portrait: PortraitMatch, code: str | None, title: str) -> dict:
-    """竖版图证实是封套：折痕找得到、且离 DMM 的左缘不远就用折痕，否则用 DMM 的左缘。
+    """竖版图证实是封套：在 DMM 左缘到它右边一个书脊宽之间找折痕，找不到用 DMM 的左缘。
 
-    DMM 的 `ps` 按固定宽度从右缘量回去，厚书脊时会带进一条书脊，折痕更准；但折痕离它太远时，
-    说明梯度认错了边，DMM 那一块至少是这部作品的正封。
+    DMM 的 `ps` 按固定宽度从右缘量回去，要么正好是正封，要么多带一截书脊（STZY-019 带进整条
+    111 列宽的黄色书脊，老片 800 宽的横图普遍带 15 列左右），所以折痕只会在它的左缘或右边。
+    这一段里最靠右、满高且够强的那条缝是书脊右缘：书脊左缘同样满高，取最右才不会把书脊留在框里。
+    没有这样的缝时退回原有折痕判据，落在这一段里才采信。
     """
+    profile = gradient_source() if callable(gradient_source) else gradient_source
+    seams = getattr(profile, "seams", None)
+    low = max(0, portrait.x0 - round(width * PORTRAIT_EDGE_TOLERANCE))
+    high = min(width - 1, portrait.x0 + round(height * PORTRAIT_SPINE_MAX))
+    if profile is not None and seams is not None and len(profile) == width == len(seams) and low <= high:
+        window = range(low, high + 1)
+        top = max(profile[column] for column in window)
+        edges = [column for column in window if seams[column] >= SEAM_MIN_COVERAGE
+                 and top > 0 and profile[column] >= top * PORTRAIT_SEAM_STRENGTH]
+        if edges:
+            return _panel(width, height, max(edges) + 1, FOLD)
     wide = is_wide_sleeve_label(code, title) and WIDE_SLEEVE_RATIO_MIN <= width / height < WIDE_SLEEVE_RATIO_MAX
-    fold = fold_column(width, height, gradient_source, WIDE_PANEL if wide else DVD_PANEL)
-    if fold is not None and abs(fold - portrait.x0) <= width * PORTRAIT_EDGE_TOLERANCE:
+    fold = fold_column(width, height, profile, WIDE_PANEL if wide else DVD_PANEL)
+    if fold is not None and low <= fold <= high:
         return _panel(width, height, fold, FOLD)
     return _panel(width, height, portrait.x0, MATCH)
 
@@ -677,6 +701,9 @@ def crop_record(code: str | None, width: int, height: int,
     番号形态先判：不该裁的图连梯度都不算，`gradient_source` 是惰性的就一次都不解码。
     """
     width, height = int(width or 0), int(height or 0)
+    # VR 与数字发行厂牌的整幅画面，DMM 也常从右侧裁一块当竖版图：对上了也不说明有书脊。
+    if portrait is not None and portrait.verdict == SLEEVE and is_scene_cover(code, title):
+        portrait = PortraitMatch(POSTER, portrait.score, portrait.x0, portrait.x1)
     if portrait is not None and width > 0 and height > 0:
         box = (_matched_sleeve(width, height, gradient_source, portrait, code, title)
                if portrait.verdict == SLEEVE else _whole(width, height))

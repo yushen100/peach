@@ -697,13 +697,29 @@ class PortraitRecordTests(unittest.TestCase):
         self.assertEqual(jav_poster_crop.portrait_of(record), found)
 
     def test_a_proven_sleeve_without_a_fold_starts_at_the_dmm_edge(self):
-        """连 VR 标题、整幅版式这些原有判据都让位：竖版图证明了它是封套。"""
+        """人脸猜出的整幅版式让位：竖版图证明了它是封套。"""
         found = jav_poster_crop.PortraitMatch(jav_poster_crop.SLEEVE, .7, 404, 800)
         record = jav_poster_crop.crop_record("RLMP-034", 800, 538, [0.0] * 800,
-                                             title="【VR】作品", layout="still", portrait=found)
+                                             layout="still", portrait=found)
         self.assertEqual((record["box"]["method"], record["box"]["x0"]),
                          (jav_poster_crop.MATCH, 404))
         self.assertNotIn("layout", record)
+
+    def test_a_vr_picture_cropped_by_dmm_is_not_a_sleeve(self):
+        """DMM 也常从 VR 整幅图右侧裁一块当竖版图（SIVR-414），对上了也不说明有书脊。"""
+        found = jav_poster_crop.PortraitMatch(jav_poster_crop.SLEEVE, .99, 1059, 2184)
+        record = jav_poster_crop.crop_record("SIVR-414", 2184, 1638, [0.0] * 2184,
+                                             title="【VR】作品", portrait=found)
+        self.assertEqual((record["box"]["method"], record["layout"]), (NONE, "still"))
+
+    def test_the_fold_is_the_right_edge_of_a_spine_the_dmm_portrait_kept(self):
+        """DMM 按固定宽度裁，厚书脊整条带进竖版图（STZY-019）：书脊两缘都满高，取右缘。"""
+        found = jav_poster_crop.PortraitMatch(jav_poster_crop.SLEEVE, .99, 1095, 2184)
+        profile = jav_poster_crop.ColumnProfile([0.1] * 2184, [0.3] * 2184)
+        for column, (grad, seam) in {1100: (.7, .79), 1206: (1.0, 1.0)}.items():
+            profile[column], profile.seams[column] = grad, seam
+        record = jav_poster_crop.crop_record("STZY-019", 2184, 1542, profile, portrait=found)
+        self.assertEqual((record["box"]["method"], record["box"]["x0"]), (FOLD, 1207))
 
     def test_a_poster_shows_the_whole_picture_and_records_the_front_image(self):
         found = jav_poster_crop.PortraitMatch(jav_poster_crop.POSTER, .1, 900, 1990)
@@ -777,15 +793,35 @@ class JudgePortraitScriptTests(unittest.TestCase):
         path = self.install("START-404", (1100, 776), {"box": {"x0": 550, "y0": 0, "x1": 1100, "y1": 776, "method": FOLD}})
         original = path.read_bytes()
         _, poster = cv2.imencode('.jpg', noise(546, 776, 8))
-        with patch.object(script, "dmm_portrait", return_value=poster.tobytes()):
+        with patch.object(script, "dmm_portrait", return_value=poster.tobytes()), \
+                patch.object(script, "package_sleeve", return_value=None):
             result = script.judge(path, script.eligible(path, every=False, named=False), None, self.report)
         self.assertEqual((result["verdict"], result["method"], result["front"]),
                          (jav_poster_crop.POSTER, NONE, [546, 776]))
         self.assertEqual(path.read_bytes(), original, "补判只重装取景，不换封面")
         self.assertTrue((self.report / "originals" / "START-404.poster.json").is_file())
         self.assertIsNone(script.eligible(path, every=True, named=False))
-        with patch.object(script, "dmm_portrait", return_value=None):
+        with patch.object(script, "dmm_portrait", return_value=None), \
+                patch.object(script, "package_sleeve", return_value=None):
             self.assertEqual(script.judge(path, {"source_url": "x"}, None, self.report)["status"], "no_portrait")
+
+    def test_a_streaming_cover_is_swapped_for_a_dvd_sleeve_close_in_size(self):
+        """SOD 的配信版横图换成尺寸相近的 DVD 封套；封套太小的保留配信图。"""
+        import cv2
+
+        script = batch_script('judge_cover_portraits')
+        evidence = {"source_url": "https://awsimgsrc.dmm.com/dig/digital/video/1start00435/1start00435pl.jpg"}
+        _, sleeve = cv2.imencode('.jpg', noise(1092, 733, 10))
+        with patch.object(script, "probe_size", return_value=(1092, 733)) as probe, \
+                patch.object(script, "official_image", return_value=sleeve.tobytes()):
+            data, size, swapped = script.package_sleeve(evidence, (1092, 771), None)
+        self.assertEqual(probe.call_args.args[1].url,
+                         "https://awsimgsrc.dmm.com/dig/mono/movie/1start435/1start435pl.jpg")
+        self.assertEqual((size, swapped["source_url"]), ((1092, 733), probe.call_args.args[1].url))
+        self.assertEqual(data, sleeve.tobytes())
+        with patch.object(script, "probe_size", return_value=(800, 535)):
+            self.assertIsNone(script.package_sleeve(evidence, (2184, 1542), None))
+        self.assertIsNone(script.package_sleeve({"source_url": "https://image.mgstage.com/pb_e_x.jpg"}, (800, 538), None))
 
 
 class ManualBoxTests(unittest.TestCase):

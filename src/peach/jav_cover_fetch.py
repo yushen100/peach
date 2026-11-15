@@ -459,6 +459,10 @@ def official_image_candidates(url: str) -> list[Candidate]:
     return []
 
 
+#: DVD 封套的面积按这个倍数参与择优：不低于配信图九成就用封套。START-435 封套 2184×1466、
+#: 配信图 2184×1542，差 5%；STARS-776 的封套只有 800×535，照旧用配信图。
+PACKAGE_PREFERENCE = 1 / 0.9
+
 _DMM_PORTRAIT = re.compile(r"pl\.jpg$", re.I)
 #: 竖版图只取这么大：高清那张 1536×2184 约 1 MB。
 PORTRAIT_LIMIT = 8 * 1024 * 1024
@@ -482,11 +486,13 @@ def dmm_portrait(transport: HttpTransport, url: str, *, deadline: float | None =
     它只用来判定版式（`cover_artwork.install_cover`），取不到时照原有判据取景，不让装封面失败。
     """
     portrait = dmm_portrait_url(url)
-    if not portrait:
-        return None
+    return official_image(transport, portrait, deadline=deadline) if portrait else None
+
+
+def official_image(transport: HttpTransport, url: str, *, deadline: float | None = None) -> bytes | None:
+    """取一张可有可无的官方图（竖版图、补换的封套）；来源说没有、预算用完或网络失败都是 None。"""
     try:
-        return _fetch(transport, portrait, referer=_referer_for(portrait), limit=PORTRAIT_LIMIT,
-                      deadline=deadline)
+        return _fetch(transport, url, referer=_referer_for(url), limit=16 * 1024 * 1024, deadline=deadline)
     except (Unavailable, DeadlineExceeded, SourcePaused, SourceBudgetExhausted, httpx.TransportError):
         return None
 
@@ -506,13 +512,32 @@ def proxyable_cover_url(url: str) -> bool:
             and bool(official_image_candidates(clean)))
 
 
+def package_cid(content_id: str) -> str:
+    """配信版内容编号对应的 DVD 版编号：数字段去掉补位的零，至少留三位。`1start00435` → `1start435`。"""
+    shape = re.match(r"^(.*?[a-z])0*(\d{3,})$", (content_id or "").strip().lower())
+    return shape.group(1) + shape.group(2) if shape else ""
+
+
+def is_package_image(url: str) -> bool:
+    """DMM 的 DVD 版封套（`mono/movie`）：实体封套，正封在右侧。"""
+    return "/mono/movie/" in urlparse(url or "").path.lower()
+
+
 def content_id_images(content_id: str) -> list[Candidate]:
+    """内容编号推出的官方候选：配信版两条 CDN 路径，加 DVD 版封套。
+
+    SOD 系（START、STARS 等）的配信版横图是另画的双栏宣传图，人物在左、剧照拼贴在右，
+    DVD 版才是标准封套；两张尺寸相近时择优偏向封套（`PACKAGE_PREFERENCE`）。
+    """
     candidates: list[Candidate] = []
     for cid in cid_variants(content_id):
         candidates.extend([
             candidate_for(AWS_MODERN.format(kind="digital/video", cid=cid)),
             candidate_for(AWS_LEGACY_DIGITAL.format(cid=cid)),
         ])
+    package = package_cid(content_id)
+    if package:
+        candidates.append(candidate_for(AWS_MODERN.format(kind="mono/movie", cid=package)))
     return _unique_candidates(candidates)
 
 
@@ -1021,8 +1046,14 @@ def _download_best(transport: HttpTransport, measured, record, *, minimum_width:
     动图时算没有，而不是没下载成——再问一遍还是这几张。
     """
     animated = 0
+
+    def preferred_pixels(item) -> float:
+        # DVD 封套与配信图尺寸相近时用封套：配信图可能是另画的宣传图（SOD 双栏），封套才有标准正封。
+        return item[0] * (PACKAGE_PREFERENCE if is_package_image(item[1].url) else 1)
+
     for _pixels, winner, size in sorted(
-            measured, key=lambda item: (candidate_quality(item[1]) > 0, item[0], candidate_quality(item[1])), reverse=True):
+            measured, key=lambda item: (candidate_quality(item[1]) > 0, preferred_pixels(item),
+                                        candidate_quality(item[1])), reverse=True):
         try:
             data = _fetch(transport, winner.url, referer=winner.referer,
                           limit=16 * 1024 * 1024, deadline=deadline)

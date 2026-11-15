@@ -7,9 +7,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import re
 import shutil
 import sys
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
@@ -17,9 +20,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 from peach import jav_poster_crop as crop
 from peach.cover_artwork import cover_group, install_cover, is_user_cover
 from peach.fsutil import atomic_write_text
-from peach.images import measure_image_file
+from peach.images import measure_image_file, measure_image_size
 from peach.interface_text import dev as t
-from peach.jav_cover_fetch import HostLimitedTransport, dmm_portrait, dmm_portrait_url
+from peach.jav_cover_fetch import (AWS_MODERN, PACKAGE_PREFERENCE, HostLimitedTransport, Unavailable, candidate_for,
+                                   dmm_portrait, dmm_portrait_url, official_image, package_cid, probe_size)
 from peach.scraping_access import SourceTransport
 
 
@@ -62,23 +66,53 @@ def eligible(path: Path, *, every: bool, named: bool) -> dict | None:
     return evidence if every or doubtful(record, face, size, str(evidence.get('title') or record.get('title') or '')) else None
 
 
+def package_sleeve(evidence: dict, size: tuple[int, int], transport):
+    """配信版来源的封面，DVD 封套不比它小一成以上时取回封套：(图片字节, 尺寸, 新来源证据)；否则 None。
+
+    SOD 系的配信版横图是另画的双栏宣传图，装封面的择优现在偏向封套（`PACKAGE_PREFERENCE`），
+    装在这之前的按同一判据补换。
+    """
+    found = re.search(r'/digital/video/([^/]+)/', str(evidence.get('source_url') or ''))
+    cid = package_cid(found.group(1)) if found else ''
+    if not cid:
+        return None
+    candidate = candidate_for(AWS_MODERN.format(kind='mono/movie', cid=cid))
+    try:
+        width, height = probe_size(transport, candidate)
+    except (Unavailable, OSError, ValueError):
+        return None
+    if width * height * PACKAGE_PREFERENCE < size[0] * size[1]:
+        return None
+    data = official_image(transport, candidate.url)
+    if data is None or measure_image_size(data) != (width, height):
+        return None
+    digest = hashlib.sha256(data).hexdigest()
+    return data, (width, height), {**evidence, 'source': candidate.source, 'source_url': candidate.url,
+                                   'width': width, 'height': height, 'raw_sha256': digest,
+                                   'installed_sha256': digest, 'checked_at': time.time()}
+
+
 def judge(path: Path, evidence: dict, transport, report: Path) -> dict:
-    portrait = dmm_portrait(transport, str(evidence['source_url']))
-    if portrait is None:
-        return {'code': path.stem, 'status': 'no_portrait'}
     backup = report / 'originals'
+    size = measure_image_file(path)
+    payload = path.read_bytes()
+    upgraded = package_sleeve(evidence, size, transport)
+    if upgraded is not None:
+        payload, size, evidence = upgraded
+    portrait = dmm_portrait(transport, str(evidence['source_url']))
+    if portrait is None and upgraded is None:
+        return {'code': path.stem, 'status': 'no_portrait'}
     for member in cover_group(path):
         saved = backup / member.relative_to(path.parent)
         if member.exists() and not saved.exists():
             saved.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(member, saved)
-    size = measure_image_file(path)
-    install_cover(path, path.stem, path.read_bytes(), size, evidence=evidence, portrait=portrait)
+    install_cover(path, path.stem, payload, size, evidence=evidence, portrait=portrait)
     record = crop.read_sidecar(path) or {}
     found = crop.portrait_of(record)
     return {'code': path.stem, 'status': 'judged', 'verdict': found.verdict if found else None,
             'score': found.score if found else None, 'method': (record.get('box') or {}).get('method'),
-            'front': record.get('front')}
+            'front': record.get('front'), 'package': upgraded is not None}
 
 
 def main() -> int:

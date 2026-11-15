@@ -291,12 +291,18 @@ class CoverArtworkTests(unittest.TestCase):
         self.assertEqual(evidence["raw_sha256"], str(winner))
 
 
-def textured(size, seed):
-    """有纹理的 JPEG 字节与像素：竖版图比对要在纹理上做。"""
+def textured(size, seed, fold=None):
+    """有纹理的 JPEG 字节与像素：竖版图比对要在纹理上做。
+
+    纹理先模糊：纯噪声每一列都像一条满高接缝，真实封面的接缝覆盖率只有三四成。`fold` 处画一条折痕。
+    """
     import numpy
+    from PIL import ImageFilter
 
     pixels = numpy.random.default_rng(seed).integers(0, 256, (size[1], size[0], 3), dtype=numpy.uint8)
-    image = Image.fromarray(pixels)
+    image = Image.fromarray(pixels).filter(ImageFilter.GaussianBlur(3))
+    if fold is not None:
+        image.paste((10, 10, 10), (fold - 2, 0, fold, size[1]))
     output = io.BytesIO()
     image.save(output, "JPEG", quality=95)
     return output.getvalue(), image
@@ -339,13 +345,16 @@ class PortraitInstallTests(unittest.TestCase):
         self.assertNotIn("front", record)
 
     def test_a_portrait_cut_from_the_sleeve_frames_the_front_panel(self):
-        portrait = self.portrait(self.image.crop((554, 0, 1100, 776)))
-        cover_artwork.install_cover(self.target, "START-404", self.cover, (1100, 776),
+        """DMM 那块从 540 列起、带进书脊；正封从 554 列的折痕起。"""
+        cover, image = textured((1100, 776), 1, fold=554)
+        portrait = self.portrait(image.crop((540, 0, 1100, 776)))
+        cover_artwork.install_cover(self.target, "START-404", cover, (1100, 776),
                                     detector=Detector(), portrait=portrait)
         record = jav_poster_crop.read_sidecar(self.target)
         self.assertFalse(self.front.exists(), "封套的正封按折痕切，DMM 那块会带进书脊")
         self.assertEqual(record["portrait"]["verdict"], jav_poster_crop.SLEEVE)
-        self.assertLessEqual(abs(record["box"]["x0"] - 554), 22)
+        self.assertEqual(record["box"]["method"], jav_poster_crop.FOLD)
+        self.assertLessEqual(abs(record["box"]["x0"] - 554), 1, "缝是一列过渡带，从它下一列起")
         self.assertNotIn("layout", record)
 
     def test_a_later_cover_without_a_poster_removes_the_old_front_image(self):
