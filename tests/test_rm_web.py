@@ -3,6 +3,7 @@ import pathlib
 import sqlite3
 import tempfile
 import threading
+import time
 import unittest
 from contextlib import ExitStack, closing, contextmanager
 from dataclasses import replace
@@ -10,11 +11,12 @@ from datetime import datetime
 from pathlib import Path
 from unittest import mock
 
-from peach import catalog_rules, interface_text, jav_poster_crop, web_batch, web_catalog, web_entity, web_playlists, web_search, web_stats
+from peach import catalog_rules, interface_text, jav_poster_crop, media_io, web_batch, web_catalog, web_entity, web_playlists, web_search, web_stats
 from peach import web_contract as rm_web
 from peach.previews import entity_image_key, logo_key
 from peach.web_catalog import q_editions, q_items, q_parts
 from support.ledger import fresh_ledger
+from support.stalls import stalled_mount
 
 
 # 调用点继续走 `rm_web`（`web_contract` 现在只是再导出层），但 **patch 必须打在真的
@@ -2196,6 +2198,48 @@ class WebDataTests(unittest.TestCase):
         self.assertIsNone(self.row(1))
         self.assertTrue(kept.exists(), "不在回收站的媒体一个都不能碰")
         self.assertIsNotNone(self.row(2))
+
+    def test_empty_trash_finishes_within_the_deadline_when_the_drive_is_stuck(self):
+        """网盘答不上：这一条记删不了、文件和账本行都留着，整趟按期限做完，任务不停在运行中。"""
+        folder = Path(self.tmp.name).resolve() / "stuck"
+        folder.mkdir()
+        binned = folder / "binned.mp4"
+        binned.write_bytes(b"media")
+        with closing(sqlite3.connect(self.db_path)) as connection:
+            connection.execute("UPDATE asset SET path=?,snapshot_path=NULL WHERE id=1", (str(binned),))
+            connection.commit()
+        rm_web.w_feedback(self.contract, {"id": 1, "kind": "dispose"})
+        with stalled_mount(folder), mock.patch.object(media_io, "TIMEOUT_SECONDS", 0.2):
+            started = time.monotonic()
+            result = rm_web.w_empty_trash(self.contract)
+            self.assertLess(time.monotonic() - started, 3)
+        self.assertEqual(result["purged"], 0)
+        self.assertEqual([item["id"] for item in result["blocked"]], [1])
+        self.assertEqual(binned.read_bytes(), b"media")
+        self.assertIsNotNone(self.row(1))
+
+    def test_a_quarantine_that_lands_after_its_deadline_is_put_back(self):
+        """隔离改名卡住、过了期限才做成：请求已把这一行记成删不了，文件要回到原名，不落在隐藏的临时名下。"""
+        original = Path(self.tmp.name).resolve() / "late.mp4"
+        original.write_bytes(b"media")
+        release, landed = threading.Event(), []
+
+        def slow_quarantine():
+            release.wait(10)
+            moved = web_batch._quarantine_media(original, location="local")
+            landed.append(moved)
+            return moved
+        with mock.patch.object(media_io, "TIMEOUT_SECONDS", 0.1):
+            with self.assertRaises(TimeoutError):
+                web_batch._changed_within_deadline(
+                    f"late-{id(self)}", slow_quarantine, lambda moved: web_batch._restore_one(original, moved))
+        release.set()
+        deadline = time.monotonic() + 5
+        while (not landed or landed[0].exists()) and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertTrue(landed)
+        self.assertFalse(landed[0].exists())
+        self.assertEqual(original.read_bytes(), b"media")
 
     def test_empty_trash_moves_media_outside_the_write_lock_and_spares_rows_restored_meanwhile(self):
         """网盘上逐个 stat、改名不占写锁；这期间被还原出回收站的，事务里复核时留下、文件放回原处。"""
