@@ -22,6 +22,7 @@ from peach.scan import medium_of, scan_location
 from peach.strm_stream import StrmResources, rewrite_playlist
 from support.ledger import fresh_ledger
 from support.web import route_client
+from support.stalls import elapsed, stalled_mount
 
 
 @contextmanager
@@ -55,6 +56,13 @@ class StrmTextTests(unittest.TestCase):
                 with self.assertRaises(ValueError) as caught:
                     strm.read_target(self.path)
                 self.assertNotIn('secret', str(caught.exception))
+
+    def test_a_stuck_pointer_file_is_refused_within_the_deadline(self):
+        self.path.write_text('https://example.com/a.mp4', encoding='utf-8')
+        with stalled_mount(self.path):
+            seconds, result = elapsed(strm.read_target, self.path)
+        self.assertLess(seconds, 3)
+        self.assertIsInstance(result, ValueError)
 
     def test_strm_and_iso_are_catalogued_without_background_probe(self):
         db = fresh_ledger(self.root)

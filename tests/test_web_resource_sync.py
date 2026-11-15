@@ -9,16 +9,71 @@ import contextlib
 import json
 import os
 import sqlite3
+import subprocess
+import sys
 import tempfile
+import threading
+import time
 import unittest
 from pathlib import Path, PureWindowsPath
 from unittest import mock
 
-from peach import web_batch
+from peach import media_io, task_control, web_batch
 from peach import web_contract as rm_web
 from peach import web_resource_sync as rm_sync
 
 from support.ledger import fresh_ledger
+
+
+def read_here(path):
+    """在本进程里列一个目录，与读取子进程同样地给找不到的目录标上 `hollow`。"""
+    try:
+        return [media_io.DirectoryEntry(item) for item in media_io._local_directory(path, '')]
+    except FileNotFoundError as error:
+        try:
+            error.hollow = media_io._hollow(Path(path))
+        except OSError:
+            error.hollow = False
+        raise
+
+
+def directories_with(read):
+    return lambda paths, walk=False: media_io.directories_in_process(paths, walk, read)
+
+
+#: 真的删除子进程入口；夹具把它换成本进程里的版本，专测期限的用例再换回来。
+REMOVE_DIRECTORIES = media_io.remove_directories
+
+
+def remove_here(paths):
+    for path in paths:
+        try:
+            yield os.fspath(path), media_io.remove_directory(path)
+        except OSError as error:
+            yield os.fspath(path), error
+
+
+def read_in_process(case) -> None:
+    """媒体读取放回本进程，用例对 `os.scandir` 的 patch 才看得见；读取子进程的期限与回收
+    由 `test_media_io` 和本文件里专测期限的用例覆盖。"""
+    def present(paths):
+        answers = []
+        for path in paths:
+            try:
+                os.stat(path)
+                answers.append(True)
+            except (FileNotFoundError, NotADirectoryError):
+                answers.append(False)
+            except OSError:
+                answers.append(None)
+        return answers
+    from peach.platform import root_online
+    for target, name, value in ((rm_sync, '_read_directories', directories_with(read_here)),
+                                (media_io, 'paths_present', present), (media_io, 'root_online', root_online),
+                                (media_io, 'remove_directories', remove_here)):
+        patcher = mock.patch.object(target, name, value)
+        patcher.start()
+        case.addCleanup(patcher.stop)
 
 
 def finish_scan(contract) -> dict:
@@ -76,6 +131,7 @@ class PurgeMissingTests(unittest.TestCase):
                                          {"115": (str(self.mount),)})
             declared.start()
             self.addCleanup(declared.stop)
+        read_in_process(self)
 
     def tearDown(self):
         # 状态到达 complete 后，后台线程还要结算 task_run。先等线程真正退出，避免它在
@@ -344,9 +400,9 @@ class PurgeMissingTests(unittest.TestCase):
 
     def test_rows_under_a_removed_media_folder_stay_when_their_disk_cannot_be_read(self):
         self._add_removed_folder_row()
-        readable = web_batch.root_online
+        readable = media_io.root_online
         with self._synced(), mock.patch.object(
-                web_batch, "root_online", lambda path: path != Path(path.anchor) and readable(path)):
+                media_io, "root_online", lambda path: path != Path(path.anchor) and readable(path)):
             scan = finish_scan(self.contract)
             result = rm_sync.w_resource_sync_apply(
                 self.contract, {"confirm": True, "clean_cache": False, "scan_id": scan["scan_id"]})
@@ -604,6 +660,7 @@ class ResourceSyncCleanupTests(unittest.TestCase):
             patcher = mock.patch.object(module, "LOCATION_ROOT_DECLARATIONS", declared)
             patcher.start()
             self.addCleanup(patcher.stop)
+        read_in_process(self)
 
     def tearDown(self):
         self.contract.resource_scan.stop()
@@ -789,3 +846,191 @@ class ResourceSyncCleanupTests(unittest.TestCase):
                          "它永久删除数据库行，只读端那份复制来的数据库不能被它清掉")
         self.assertIn("/api/resource-sync/scan", rm_web.READ_ONLY_POST_ROUTES)
         self.assertNotIn("/api/data-cleanup/empty-folders", rm_web.POST_HANDLERS)
+
+    def blocked_at(self, directory: Path):
+        """读到 `directory` 就停住，直到放行：网盘上一次不返回的目录读取。记下每次读了哪个目录。"""
+        reached, release, reads = threading.Event(), threading.Event(), []
+
+        def reading(path):
+            reads.append(os.path.normcase(os.fspath(path)))
+            if os.path.normcase(os.fspath(path)) == os.path.normcase(os.fspath(directory)):
+                reached.set()
+                release.wait(30)
+            return read_here(path)
+        self.addCleanup(release.set)
+        return mock.patch.object(rm_sync, "_read_directories", directories_with(reading)), reached, release, reads
+
+    def wait_scan(self, timeout=60.0) -> dict:
+        self.contract.resource_scan.thread.join(timeout)
+        self.assertFalse(self.contract.resource_scan.thread.is_alive(), "后台检查没有结束")
+        return self.contract.resource_scan.snapshot()
+
+    def test_a_directory_read_that_never_returns_is_skipped_as_unreadable(self):
+        """#655：网盘目录读一次不返回，只记这个目录读不了，整趟照常跑完；里面的行不判失效。"""
+        children, popen = [], subprocess.Popen
+        # 真的读取子进程，只是读到 keep 时一直不返回。
+        script = ("import sys, time\nimport peach.media_io as m\nread = m._local_directory\n"
+                  "def stuck(path, value):\n"
+                  f"    if path == {str(self.keep)!r}: time.sleep(60)\n"
+                  "    return read(path, value)\n"
+                  "m._local_directory = stuck\nsys.exit(m.main(sys.argv[1:]))\n")
+
+        def hung_at_keep(command, **options):
+            if command[-3] == "directories":
+                command = [sys._base_executable, "-c", script, *command[-3:]]
+            child = popen(command, **options)
+            children.append(child)
+            return child
+        started = time.monotonic()
+        with mock.patch.object(rm_sync, "_read_directories", media_io.read_directories), \
+                mock.patch.object(media_io, "TIMEOUT_SECONDS", 1.0), \
+                mock.patch.object(media_io.subprocess, "Popen", side_effect=hung_at_keep):
+            rm_sync.w_resource_sync_scan(self.contract, {"background": True, "restart": True})
+            state = self.wait_scan()
+
+        self.assertLess(time.monotonic() - started, 50)
+        self.assertEqual(state["status"], "complete")
+        cloud = next(source for source in state["result"]["sources"] if source["location"] == "115")
+        # keep 读不了：a.mp4 与回收站里的 c.mp4 都不判失效，keep 也不算空；只剩 gone/b.mp4。
+        self.assertEqual((cloud["missing"], cloud["unreadable"], cloud["empty"]), (1, 1, 4))
+        self.assertEqual(state["vanished_ids"], [2])
+        self.assertTrue(all(child.poll() is not None for child in children), "卡住的读取子进程要回收")
+
+    def test_scan_reports_each_directory_and_a_cancel_stops_at_the_next_one(self):
+        """#655：心跳停在启动时刻、取消打断不了。每读完一个目录刷新进度，取消在下一个目录前生效。"""
+        patcher, reached, release, reads = self.blocked_at(self.unreadable)
+        with patcher, mock.patch.object(rm_sync, "PROGRESS_SECONDS", 0):
+            started = rm_sync.w_resource_sync_scan(self.contract, {"background": True, "restart": True})
+            self.assertTrue(reached.wait(30))
+            deadline = time.monotonic() + 30
+            while time.monotonic() < deadline and (self.contract.resource_scan.snapshot() or {}).get("checked", 0) < 2:
+                time.sleep(.05)
+            state = self.contract.resource_scan.snapshot()
+            # 账本里三个目录（keep、gone、unreadable）依次读，卡在第三个时前两个已读完。
+            self.assertEqual((state["checked"], state["total"]), (2, 3))
+            self.assertEqual(state["current"]["label"], "gone")
+            run_id = state["run_id"]
+            # 任务中心的进度两秒写一次，至少已写进第一个目录，心跳随之续上。
+            self.assertGreaterEqual(self.contract.task_runs.get(run_id).progress_current, 1)
+            task_control.request(self.contract.task_runs, run_id, "cancel")
+            release.set()
+            state = self.wait_scan()
+
+        self.assertEqual(state["status"], "cancelled")
+        self.assertEqual(started["status"], "running")
+        self.assertNotIn(os.path.normcase(os.fspath(self.mount)), reads, "取消后不再进入找空文件夹那一段")
+
+    def test_a_large_directory_is_not_paced_entry_by_entry(self):
+        """#655：逐条目过停点会按速度档节流（标准档每条 0.03 秒），几万个条目的来源要跑几个小时，
+        CPU 与网络都是 0，看上去和卡死一样。停点只在目录边界。"""
+        for index in range(300):
+            (self.keep / f"{index:03}.mp4").write_bytes(b"")
+        paced = []
+        pace = task_control.Control.pace
+
+        def counting(control, kind):
+            paced.append(kind)
+            return pace(control, kind)
+        with mock.patch.object(task_control.Control, "pace", counting):
+            rm_sync.w_resource_sync_scan(self.contract, {"background": True, "restart": True})
+            state = self.wait_scan()
+        self.assertEqual(state["status"], "complete")
+        self.assertLess(len(paced), 100, "停点次数应与目录数同量级，不随条目数增长")
+
+    def test_apply_skips_an_empty_folder_whose_removal_never_returns(self):
+        """执行时删空目录：网盘上删一个目录一直不返回，只记它删不掉，其余照删，执行照常完成。"""
+        scan = finish_scan(self.contract)
+        stuck = self.mount / "empty" / "nested"
+        children, popen = [], subprocess.Popen
+        script = ("import os, sys, time\nimport peach.media_io as m\nrmdir = os.rmdir\n"
+                  "def slow(path):\n"
+                  f"    if path == {str(stuck)!r}: time.sleep(60)\n"
+                  "    return rmdir(path)\n"
+                  "os.rmdir = slow\nsys.exit(m.main(sys.argv[1:]))\n")
+
+        def hung_at_stuck(command, **options):
+            if command[-2] == "rmdirs":
+                command = [sys._base_executable, "-c", script, *command[-2:], ""]
+            child = popen(command, **options)
+            children.append(child)
+            return child
+        started = time.monotonic()
+        with mock.patch.object(media_io, "remove_directories", REMOVE_DIRECTORIES), \
+                mock.patch.object(media_io, "TIMEOUT_SECONDS", 1.0), \
+                mock.patch.object(media_io.subprocess, "Popen", side_effect=hung_at_stuck):
+            result = self.apply(scan, clean_cache=False)
+
+        self.assertLess(time.monotonic() - started, 50)
+        # 文宣与只装着它的 release 删掉；nested 卡住记一次失败，装着它的 empty 不空、照旧留着。
+        self.assertEqual((result["dirs_removed"], result["dir_errors"]), (2, 1))
+        self.assertTrue(stuck.is_dir())
+        self.assertFalse((self.mount / "release").exists())
+        listings = [child.args[-2] for child in children if "rmdirs" in child.args]
+        self.assertGreaterEqual(len(listings), 2, "卡住的那个之后换一个子进程接着删")
+        self.assertTrue(all(child.poll() is not None for child in children))
+
+    def purge_asks(self, answer_for_gone):
+        """执行删行前那一次问「文件在不在」时，gone/b.mp4 按 `answer_for_gone` 答；复核那一次照实答。"""
+        present, gone = media_io.paths_present, os.path.normcase(os.fspath(self.mount / "gone" / "b.mp4"))
+        calls = []
+
+        def asking(paths):
+            calls.append(paths)
+            answers = present(paths)
+            if len(calls) == 1:
+                return answers
+            return [answer_for_gone() if os.path.normcase(os.fspath(path)) == gone else answer
+                    for path, answer in zip(paths, answers)]
+        return mock.patch.object(media_io, "paths_present", asking)
+
+    def test_apply_keeps_a_row_whose_file_check_never_answers(self):
+        """执行删行前再问一次文件在不在：网盘上没答上的这一行保留，执行照常完成。"""
+        scan = finish_scan(self.contract)
+        with self.purge_asks(lambda: None):
+            result = self.apply(scan, clean_cache=False)
+        # 回收站里的 c.mp4 照删。
+        self.assertEqual(result["purged"], 1)
+        self.assertEqual([(item["id"], item["reason_code"]) for item in result["blocked"]],
+                         [(2, "errors.mediaIo.readTimedOut")])
+        self.assertEqual(self.ids(), [1, 2, 4, 5])
+
+    def test_apply_keeps_a_row_when_its_source_drops_while_asking(self):
+        """问的途中来源掉线：那一刻答的「不在」不作数，这个来源上的这一批都保留。"""
+        scan = finish_scan(self.contract)
+        dropped = []
+        online = media_io.root_online
+        with self.purge_asks(lambda: dropped.append(True) or False), \
+                mock.patch.object(media_io, "root_online", lambda root: not dropped and online(root)):
+            result = self.apply(scan, clean_cache=False)
+        self.assertEqual([(item["id"], item["reason_code"]) for item in result["blocked"]],
+                         [(2, "errors.webBatch.storageOffline"), (3, "errors.webBatch.storageOffline")])
+        self.assertEqual(result["purged"], 0)
+        self.assertEqual(self.ids(), [1, 2, 3, 4, 5])
+
+    def test_purge_removes_empty_parents_up_to_but_not_including_the_source_root(self):
+        deep = self.mount / "creator" / "release"
+        deep.mkdir(parents=True)
+        (self.mount / "creator" / "keep.nfo").write_bytes(b"x")
+        other = self.mount / "solo" / "inner"
+        other.mkdir(parents=True)
+        removed = web_batch._remove_empty_ancestors_bounded([deep, other], [self.mount])
+        self.assertEqual(sorted(path.name for path in removed), ["inner", "release", "solo"])
+        self.assertTrue((self.mount / "creator").is_dir(), "装着别的文件的上级照旧留着")
+        self.assertTrue(self.mount.is_dir(), "来源根绝不随空目录一起删")
+
+    def test_recovery_returns_while_a_resumed_scan_waits_on_a_directory(self):
+        """接回一轮会卡住的检查不能拖住恢复服务：检查在后台线程里等，接回当场返回。"""
+        from peach import job_recovery, web_job_recovery
+        job_recovery.save(self.contract.db_path, "resource-scan", "interrupted", {"restart": True}, waiting=True)
+        patcher, reached, release, _reads = self.blocked_at(self.keep)
+        with patcher:
+            started = time.monotonic()
+            resumed = web_job_recovery.restore(self.contract)
+            elapsed = time.monotonic() - started
+            self.assertTrue(reached.wait(30))
+            self.assertTrue(self.contract.resource_scan.thread.is_alive())
+            release.set()
+            state = self.wait_scan()
+        self.assertEqual(resumed, ["resource-scan"])
+        self.assertLess(elapsed, 10)
+        self.assertEqual(state["status"], "complete")

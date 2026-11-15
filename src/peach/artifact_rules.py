@@ -40,6 +40,10 @@ def current(path: Path, rule: str = PREVIEWS, *, source=None, source_required: b
                 return False
             source = Path(expected['path'])
         try:
+            if allow_unavailable_source:
+                # 允许来源不在的是请求路径（图片墙核对原图）：网盘答不上按期限当作不在，不挂住请求。
+                from . import media_io
+                return expected == media_io.bounded(media_io.mount_key(source), fingerprint, source)
             return expected == fingerprint(source)
         except OSError:
             return allow_unavailable_source

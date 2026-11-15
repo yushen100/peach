@@ -22,7 +22,117 @@ from .os_errors import CodedOSError, CodedTimeoutError
 #: 单项读取的期限。目录枚举按「多久没有新条目」计：挂死的挂载一条也不返回，到期判失败；
 #: 网络盘上的大目录逐条返回得慢，只要还在返回就不按总时长判死。
 TIMEOUT_SECONDS = 20.0
-OPERATIONS = ('directory', 'files', 'nfo', 'art', 'online', 'resolve', 'stat', 'browse', 'volume', 'serve')
+OPERATIONS = ('directory', 'files', 'nfo', 'art', 'online', 'resolve', 'stat', 'browse', 'volume', 'serve', 'present', 'directories', 'rmdirs')
+
+
+#: 请求路径上一次挂载读取的期限。播放、缩略图、字幕这类请求不能为一个答不上的网盘一直挂着。
+REQUEST_TIMEOUT_SECONDS = 10.0
+#: 同一挂载上同时在等的读取上限；超出的请求直接按超时回，不再多开线程。
+REQUEST_SLOTS_PER_MOUNT = 16
+#: 挂载上有读取卡着时，隔这么久放一个请求过去试：答上了就整个挂载放行。
+REQUEST_RETRY_SECONDS = 30.0
+#: 全进程超了期还没回的读取线程上限；到了就不再放请求去试卡着的挂载，免得线程越积越多。
+MAX_STUCK_READS = 64
+
+_bounded_lock = threading.Lock()
+_bounded_active: dict = {}
+#: 挂载名 → 下一次放请求去试的时刻。挂载卡着时才有这一项。
+_bounded_stuck: dict = {}
+#: 超了期还没回的读取，按挂载记。挂载放行后仍留着计数，线程真正返回才去掉。
+_bounded_late: dict = {}
+
+
+def mount_key(path):
+    """`bounded` 用来分组的挂载名：盘符或 UNC 共享、POSIX 前两级目录、SMB 来源的 root_id。"""
+    root_id = getattr(path, 'root_id', None)
+    if root_id is not None:
+        return f'smb:{root_id}'
+    text = os.fspath(path)
+    if os.name == 'nt':
+        from pathlib import PureWindowsPath
+        pure = PureWindowsPath(text)
+        return (pure.drive or pure.anchor or text).casefold()
+    from pathlib import PurePosixPath
+    return '/'.join(PurePosixPath(text).parts[:3])
+
+
+def _release(key, box):
+    """读取线程返回时清账；调用方不持锁。卡着的读取都回来了，挂载自然放行。"""
+    with _bounded_lock:
+        remaining = _bounded_active.get(key, 1) - 1
+        if remaining:
+            _bounded_active[key] = remaining
+        else:
+            _bounded_active.pop(key, None)
+        late = _bounded_late.get(key)
+        if late is not None:
+            late.discard(box)
+            if not late:
+                _bounded_late.pop(key, None)
+                _bounded_stuck.pop(key, None)
+
+
+def _admit(key):
+    """调用方持 `_bounded_lock`：这次读取放不放行。挂载卡着时只按间隔放一个去试。"""
+    if _bounded_active.get(key, 0) >= REQUEST_SLOTS_PER_MOUNT:
+        return False
+    retry_at = _bounded_stuck.get(key)
+    if retry_at is None:
+        return True
+    import time
+    now = time.monotonic()
+    if now < retry_at or sum(len(calls) for calls in _bounded_late.values()) >= MAX_STUCK_READS:
+        return False
+    _bounded_stuck[key] = now + REQUEST_RETRY_SECONDS
+    return True
+
+
+def bounded(key, call, *args, timeout=None, **kwargs):
+    """在请求路径上带期限地做一次挂载读取，到期抛超时（`OSError` 的子类）。
+
+    子进程（`file_stat` 等）每次要起一个解释器，约 150 毫秒，放不进每个 Range 请求和一屏几十张
+    缩略图；这里改在后台线程里读，调用方只等到期限。卡住的那次读取收不回来，线程照旧挂着；
+    为免越挂越多，同一挂载（`key`）上有读取超了期还没返回时，后来的请求不再开线程，直接按超时回。
+    那次读取自己返回，或隔 `REQUEST_RETRY_SECONDS` 放过去试的一个请求在期限内答上了，挂载就放行：
+    一次丢在挂载层里永远不回的读取，不能让整个盘到重启前都打不开。线程不占 anyio 的线程池，
+    `/healthz` 不受连累。
+    """
+    import time
+    from concurrent.futures import Future, wait
+    with _bounded_lock:
+        if not _admit(key):
+            raise CodedTimeoutError(errno.ETIMEDOUT, 'errors.mediaIo.readTimedOut', filename=str(key))
+        _bounded_active[key] = _bounded_active.get(key, 0) + 1
+    box = Future()
+
+    def run():
+        try:
+            box.set_result(call(*args, **kwargs))
+        except BaseException as error:
+            box.set_exception(error)
+        finally:
+            _release(key, box)
+    try:
+        threading.Thread(target=run, name='PeachMediaDeadline', daemon=True).start()
+    except RuntimeError:
+        _release(key, box)
+        raise CodedOSError(errno.EIO, 'errors.mediaIo.readerFailed', filename=str(key)) from None
+    wait([box], timeout=REQUEST_TIMEOUT_SECONDS if timeout is None else timeout)
+    with _bounded_lock:
+        # 读取线程先交结果再取锁清账，这里在锁内看 done，两边不会错过对方。
+        if not box.done():
+            _bounded_late.setdefault(key, set()).add(box)
+            _bounded_stuck.setdefault(key, time.monotonic() + REQUEST_RETRY_SECONDS)
+            late = True
+        else:
+            late = False
+            error = box.exception()
+            if error is None or (isinstance(error, OSError) and not isinstance(error, TimeoutError)):
+                # 期限内答上了（读到了，或报了文件系统错误）：挂载在应答，卡着的那几次不再拦后来的请求。
+                _bounded_stuck.pop(key, None)
+    if late:
+        raise CodedTimeoutError(errno.ETIMEDOUT, 'errors.mediaIo.readTimedOut', filename=str(key))
+    return box.result()
 
 
 def _request(operation, path, *, value='', timeout=None):
@@ -138,6 +248,249 @@ def _directory_stream(path, value):
         process.stdout.close()
 
 
+def read_directories(paths, *, walk=False):
+    """依次列出 `paths`，`walk` 时连同各级子目录；逐个产出 `(目录, 条目列表或 OSError)`。
+
+    一个子进程连续读一串目录，不再每个目录起一个进程：网盘上几千个目录，起进程的开销会比
+    读目录本身还大。某个目录超过期限没有新条目，它产出超时错误，剩下的换一个子进程接着读。
+    报找不到的目录，错误上带 `hollow`：是不是 CloudDrive 的空目录（见 `directory_hollow`）。
+    调用方中途不读了要关掉生成器，子进程才会被回收。
+    """
+    from .smb_media import resolve
+    local = []
+    for path in paths:
+        if resolve(path) is None:
+            local.append(os.fspath(path))
+        else:
+            yield from directories_in_process([path], walk, directory_entries)
+    if local:
+        yield from _directories_stream(list(reversed(local)), walk)
+
+
+def directories_in_process(paths, walk, read):
+    """`read_directories` 的同一次序与产出，读取交给 `read`（SMB 走自己的连接与期限）。"""
+    stack = list(reversed(paths))
+    while stack:
+        directory = stack.pop()
+        try:
+            entries = read(directory)
+        except OSError as error:
+            yield directory, error
+            continue
+        yield directory, entries
+        if walk:
+            stack.extend(_subdirectories([vars(entry) for entry in entries]))
+
+
+def _subdirectories(items):
+    """walk 时接着往下读的子目录：真目录，不跟目录链接，读不出类型的不进。父子两边按它推演同一个次序。"""
+    return [item['path'] for item in items if item['directory'] and not item['symlink'] and not item['error']]
+
+
+def _directories_stream(stack, walk):
+    """父进程与子进程各持一份同样的栈：子进程每读完一个目录，父进程照同一规则推进，
+    子进程卡住或退出时，父进程手里就是还没读的那些。"""
+    import tempfile
+    command = ([sys.executable, 'media-read'] if getattr(sys, 'frozen', False)
+               else [sys.executable, '-m', 'peach.media_io'])
+    while stack:
+        with tempfile.NamedTemporaryFile('w', encoding='utf-8', suffix='.json', delete=False) as listing:
+            json.dump(stack, listing)
+        current, items, heard = None, [], False
+        try:
+            try:
+                process = subprocess.Popen([*command, 'directories', listing.name, 'walk' if walk else ''],
+                    stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+            except OSError as error:
+                for directory in reversed(stack):
+                    yield directory, error
+                return
+            try:
+                for line in _paced(process.stdout, TIMEOUT_SECONDS, stack[-1]):
+                    heard = True
+                    message = json.loads(line)
+                    if 'reading' in message:
+                        if not stack or message['reading'] != stack[-1]:
+                            break
+                        current, items = stack.pop(), []
+                    elif 'entry' in message and current is not None:
+                        items.append(message['entry'])
+                    elif message.get('done') == len(items) and current is not None:
+                        if walk:
+                            stack.extend(_subdirectories(items))
+                        directory, current = current, None
+                        yield directory, [DirectoryEntry(item) for item in items]
+                    elif 'error' in message and current is not None:
+                        error = OSError(message['error'].get('errno'), message['error']['message'], current)
+                        error.hollow = message['error'].get('hollow', False)
+                        directory, current = current, None
+                        yield directory, error
+                    elif 'end' in message:
+                        if not stack:
+                            return
+                        break
+                    else:
+                        break
+            except TimeoutError:
+                if current is not None:
+                    # 卡在这个目录上：只记它读超时，剩下的换一个子进程接着读。
+                    yield current, CodedTimeoutError(errno.ETIMEDOUT, 'errors.mediaIo.readTimedOut',
+                                                     filename=current)
+                    continue
+            except (OSError, ValueError, KeyError):
+                pass
+            finally:
+                process.kill()
+                process.wait()
+                process.stdout.close()
+        finally:
+            os.unlink(listing.name)
+        # 子进程半途退出或答非所问：读到一半的目录算读不了，剩下的换一个子进程接着读；
+        # 一句话都没答就退出的，换几次也一样，剩下的全部算读不了。
+        if current is not None:
+            yield current, CodedOSError(errno.EIO, 'errors.mediaIo.readerFailed', filename=current)
+        elif not heard:
+            for directory in reversed(stack):
+                yield directory, CodedOSError(errno.EIO, 'errors.mediaIo.readerFailed', filename=directory)
+            return
+
+
+def _stream_directories(listing, walk):
+    """按名单（一个栈，从末尾取）逐个列目录；walk 时把子目录压回栈。每个目录先报 `reading`，
+    再逐条报条目，最后报 `done` 或 `error`；全部读完报 `end`。"""
+    stack = json.loads(Path(listing).read_text(encoding='utf-8'))
+    count = 0
+    try:
+        while stack:
+            directory = stack.pop()
+            _emit({'reading': directory})
+            items = []
+            entries = _local_directory(directory, '')
+            while True:
+                try:
+                    item = next(entries)
+                except StopIteration:
+                    break
+                except OSError as error:
+                    failure = dict(kind='os', errno=error.errno, message=str(error))
+                    if isinstance(error, FileNotFoundError):
+                        try:
+                            failure['hollow'] = _hollow(Path(directory))
+                        except OSError:
+                            failure['hollow'] = False
+                    _emit({'error': failure})
+                    items = None
+                    break
+                _emit({'entry': item})
+                items.append(item)
+            if items is None:
+                continue
+            _emit({'done': len(items)})
+            count += 1
+            if walk:
+                stack.extend(_subdirectories(items))
+        _emit({'end': count})
+    except OSError:
+        # 父进程已超时离开、管道关闭时，结果没有读取方，不算故障。
+        pass
+    return 0
+
+
+def remove_directories(paths):
+    """依次删这些空目录，逐个产出 `(目录, 结果)`：`removed` 删掉了，`gone` 已经不在，
+    `kept` 不空或是目录链接（照旧留着），删不掉或超时是 OSError。
+
+    一个子进程按给定次序连续删；某个目录超过期限没有回答，它记超时，剩下的换一个子进程接着删。
+    调用方中途不删了要关掉生成器，子进程才会被回收。
+    """
+    import tempfile
+    command = ([sys.executable, 'media-read'] if getattr(sys, 'frozen', False)
+               else [sys.executable, '-m', 'peach.media_io'])
+    pending = [os.fspath(path) for path in reversed(paths)]
+    while pending:
+        with tempfile.NamedTemporaryFile('w', encoding='utf-8', suffix='.json', delete=False) as listing:
+            json.dump(list(reversed(pending)), listing)
+        current, heard = None, False
+        try:
+            try:
+                process = subprocess.Popen([*command, 'rmdirs', listing.name],
+                    stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+            except OSError as error:
+                for directory in reversed(pending):
+                    yield directory, error
+                return
+            try:
+                for line in _paced(process.stdout, TIMEOUT_SECONDS, pending[-1]):
+                    heard = True
+                    message = json.loads(line)
+                    if 'end' in message:
+                        if not pending and current is None:
+                            return
+                        break
+                    if current is None and pending and message.get('removing') == pending[-1]:
+                        current = pending.pop()
+                    elif 'result' in message and current is not None:
+                        directory, current = current, None
+                        yield directory, message['result']
+                    elif 'error' in message and current is not None:
+                        directory, current = current, None
+                        yield directory, OSError(message['error'].get('errno'), message['error']['message'], directory)
+                    else:
+                        break
+            except TimeoutError:
+                if current is not None:
+                    yield current, CodedTimeoutError(errno.ETIMEDOUT, 'errors.mediaIo.readTimedOut', filename=current)
+                    continue
+            except (OSError, ValueError, KeyError):
+                pass
+            finally:
+                process.kill()
+                process.wait()
+                process.stdout.close()
+        finally:
+            os.unlink(listing.name)
+        if current is not None:
+            yield current, CodedOSError(errno.EIO, 'errors.mediaIo.readerFailed', filename=current)
+        elif not heard:
+            for directory in reversed(pending):
+                yield directory, CodedOSError(errno.EIO, 'errors.mediaIo.readerFailed', filename=directory)
+            return
+
+
+def remove_directory(path):
+    """删一个空目录：`removed`、`gone`（已经不在）或 `kept`（不空、是目录链接）；其他错误照常抛出。"""
+    try:
+        if os.path.islink(path):
+            return 'kept'
+        os.rmdir(path)
+    except FileNotFoundError:
+        # CloudDrive 会在最后一个子项消失时自己收掉空的一层。
+        return 'gone'
+    except OSError as error:
+        if error.errno in {errno.ENOTEMPTY, errno.EEXIST}:
+            return 'kept'
+        raise
+    return 'removed'
+
+
+def _stream_rmdirs(listing):
+    """按名单逐个删目录：每个先报 `removing`，再报 `result` 或 `error`；全部做完报 `end`。"""
+    try:
+        for path in json.loads(Path(listing).read_text(encoding='utf-8')):
+            _emit({'removing': path})
+            try:
+                _emit({'result': remove_directory(path)})
+            except OSError as error:
+                _emit({'error': dict(kind='os', errno=error.errno, message=str(error))})
+        _emit({'end': True})
+    except OSError:
+        # 父进程已超时离开、管道关闭时，结果没有读取方，不算故障。
+        pass
+    return 0
+
+
 def directory_files(path):
     from .smb_media import resolve
     return {name: resolve(value) or Path(value) for name, value in _request('files', path).items()}
@@ -199,6 +552,97 @@ def resolve_case_insensitive(path):
 
 def file_stat(path, *, timeout=None):
     return SimpleNamespace(**_request('stat', path, timeout=timeout))
+
+
+def _hollow(path):
+    """CloudDrive 上的空目录：`scandir` 报找不到，`listdir` 却说目录在、里面是空的。
+
+    挂载层给空目录列不出 `.` 与 `..`，`FindFirstFileW` 于是回 `ERROR_FILE_NOT_FOUND`；
+    `os.listdir` 把它当成空目录。2026-09-27
+    """
+    return path.is_dir() and not path.is_symlink() and not os.listdir(path)
+
+
+def paths_present(paths):
+    """逐条问这些路径还在不在：True 在，False 不在，None 没答上（读错或超时）。
+
+    本机路径一个子进程问一批；某一条超过期限没有回答，它记 None，剩下的换一个子进程接着问。
+    """
+    from .smb_media import resolve
+    answers = [None] * len(paths)
+    local = []
+    for index, path in enumerate(paths):
+        if resolve(path) is None:
+            local.append(index)
+            continue
+        try:
+            _request('stat', path)
+            answers[index] = True
+        except (FileNotFoundError, NotADirectoryError):
+            answers[index] = False
+        except OSError:
+            pass
+    while local:
+        answered, stalled = _present_stream([paths[index] for index in local])
+        for index, value in zip(local, answered):
+            answers[index] = value
+        # 卡住的是第一条没答上的那条：记 None，跳过它接着问；子进程自己退出了就不再换。
+        local = local[len(answered) + 1:] if stalled else []
+    return answers
+
+
+def _present_stream(paths):
+    """一个子进程依次回答 `paths`，返回答上的那几条，以及是不是卡住了（不是自己退出）。
+
+    名单写进本机临时文件交给子进程：命令行装不下几百条网盘路径。
+    """
+    import tempfile
+    command = ([sys.executable, 'media-read'] if getattr(sys, 'frozen', False)
+               else [sys.executable, '-m', 'peach.media_io'])
+    with tempfile.NamedTemporaryFile('w', encoding='utf-8', suffix='.json', delete=False) as listing:
+        json.dump([os.fspath(path) for path in paths], listing)
+    answers = []
+    stalled = False
+    try:
+        try:
+            process = subprocess.Popen([*command, 'present', listing.name],
+                stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+        except OSError:
+            return answers, stalled
+        try:
+            for line in _paced(process.stdout, TIMEOUT_SECONDS, paths[0]):
+                answers.append(json.loads(line)['present'])
+                if len(answers) == len(paths):
+                    break
+        except TimeoutError:
+            stalled = True
+        except (OSError, ValueError, KeyError):
+            pass
+        finally:
+            process.kill()
+            process.wait()
+            process.stdout.close()
+    finally:
+        os.unlink(listing.name)
+    return answers, stalled
+
+
+def _stream_present(listing):
+    """名单里每个路径答一行；读不出来的答 None，不当成不在。"""
+    for path in json.loads(Path(listing).read_text(encoding='utf-8')):
+        try:
+            os.stat(path)
+            value = True
+        except (FileNotFoundError, NotADirectoryError):
+            value = False
+        except OSError:
+            value = None
+        try:
+            _emit({'present': value})
+        except OSError:
+            return 0
+    return 0
 
 
 def _attributes(stat):
@@ -476,6 +920,12 @@ def main(argv=None):
         return _serve()
     if args.operation == 'directory':
         return _stream_directory(args.path, args.value)
+    if args.operation == 'present':
+        return _stream_present(args.path)
+    if args.operation == 'directories':
+        return _stream_directories(args.path, args.value == 'walk')
+    if args.operation == 'rmdirs':
+        return _stream_rmdirs(args.path)
     try:
         response = {'value': _read(args.operation, args.path, args.value)}
     except (OSError, ValueError) as error:

@@ -790,6 +790,7 @@
       "revealFailed": "打开文件管理器失败，请重试",
       "revealMissing": "这个位置已经不在了",
       "revealOutsideDataRoot": "这个位置不归 Peach 管，只能自己打开",
+      "revealUnreachable": "这个位置所在的盘没有及时响应，请稍后再试",
       "revealUnsupported": "这台机器上打不开文件管理器",
       "taskAlreadyRunning": "{{task}}已有一轮在进行，等它跑完再试",
       "taskCanceled": "任务已取消，已保存的结果保留",

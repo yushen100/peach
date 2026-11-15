@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import csv
+import errno
 import hashlib
 import json
 import logging
@@ -17,9 +18,11 @@ import re
 import stat
 import shutil
 import tempfile
+import threading
 import time
 import uuid
 
+from functools import partial
 from pathlib import Path, PureWindowsPath
 from typing import Sequence
 
@@ -37,6 +40,7 @@ from .task_stages import batch_progress
 from .web_activity import DEFAULT_PROFILE_ID
 from .web_catalog import attach_card_performers
 from .media_sources import cost_for
+from .os_errors import CodedTimeoutError
 from .user_messages import UserFacingError, UserOSError, UserValueError
 from .web_resource_sync import _managed_cache_root, clean_purged_caches
 from .web_state import WebContract
@@ -151,22 +155,64 @@ def _scored_junk(contract: WebContract) -> tuple[list[dict], frozenset[int]]:
 
 
 def _restore_staged_media(staged):
-    """数据库失败时恢复隔离文件；本地备份带原路径与内容摘要。"""
+    """数据库失败时恢复隔离文件；本地备份带原路径与内容摘要。
+
+    每一项带期限（`media_io.bounded`）：网盘答不上时抛超时，不把请求挂住。
+    """
+    from . import media_io
     for original, quarantine in reversed(staged):
-        if quarantine.exists() and not original.exists():
-            manifest = quarantine.parent / 'restore.json'
-            if quarantine.name == 'content' and manifest.is_file():
-                record = json.loads(manifest.read_text(encoding='utf-8'))
-                if record['original'] != str(original):
-                    raise UserValueError('api.batch.quarantinePathMismatch')
-                shutil.copyfile(quarantine, original)
-                if hashlib.sha256(original.read_bytes()).hexdigest() != record['sha256']:
-                    raise UserValueError('api.batch.quarantineContentMismatch')
-                quarantine.unlink()
-                manifest.unlink()
-                quarantine.parent.rmdir()
-            else:
-                quarantine.rename(original)
+        media_io.bounded(media_io.mount_key(original), _restore_one, original, quarantine,
+                         timeout=media_io.TIMEOUT_SECONDS)
+
+
+def _restore_one(original, quarantine) -> None:
+    if quarantine.exists() and not original.exists():
+        manifest = quarantine.parent / 'restore.json'
+        if quarantine.name == 'content' and manifest.is_file():
+            record = json.loads(manifest.read_text(encoding='utf-8'))
+            if record['original'] != str(original):
+                raise UserValueError('api.batch.quarantinePathMismatch')
+            shutil.copyfile(quarantine, original)
+            if hashlib.sha256(original.read_bytes()).hexdigest() != record['sha256']:
+                raise UserValueError('api.batch.quarantineContentMismatch')
+            quarantine.unlink()
+            manifest.unlink()
+            quarantine.parent.rmdir()
+        else:
+            quarantine.rename(original)
+
+
+def _changed_within_deadline(key, change, undo):
+    """带期限地改一次网盘上的文件（隔离改名、删除），超期抛超时。
+
+    卡住的那次改动收不回来，可能过了期限才做成：这时请求已经把这一行记成删不了、账本行留着，
+    读取线程做成后自己调 `undo` 撤回（隔离件改名放回原处），文件不会落在隐藏的临时名下。
+    做成与放弃在同一把锁下判定，两边不会都以为对方没做。
+    """
+    from . import media_io
+    guard = threading.Lock()
+    state = {"abandoned": False, "settled": False, "value": None}
+
+    def attempt():
+        value = change()
+        with guard:
+            if not state["abandoned"]:
+                state.update(settled=True, value=value)
+                return value
+        if undo is not None and value is not None:
+            try:
+                undo(value)
+            except (OSError, ValueError):
+                LOGGER.exception("Failed to undo a media change that finished after its deadline")
+        return value
+    try:
+        return media_io.bounded(key, attempt, timeout=media_io.TIMEOUT_SECONDS)
+    except TimeoutError:
+        with guard:
+            if state["settled"]:
+                return state["value"]
+            state["abandoned"] = True
+        raise
 
 
 def _mountinfo_field(value: str) -> str:
@@ -257,20 +303,26 @@ def _quarantine_media(original: Path, *, location: str | None = None) -> Path:
         raise
 
 
-def _online_source_roots() -> dict[str, tuple[Path, ...]]:
-    """Return only declared physical roots that can be enumerated now, per source."""
+def _online_source_roots(online=None) -> dict[str, tuple[Path, ...]]:
+    """Return only declared physical roots that can be enumerated now, per source.
+
+    `online(root)` 换掉在线判断，例如交给可终止的读取子进程（`_bounded_online`）；
+    不给时在本进程里带期限地问（`_online_within_deadline`）。
+    """
     roots: dict[str, tuple[Path, ...]] = {}
     for location, declarations in LOCATION_ROOT_DECLARATIONS.items():
-        online = []
+        found = []
         for declaration in declarations:
             from .smb_media import resolve
             remote = resolve(declaration)
             root = remote or translate_ledger_path(declaration)
-            if (remote is None and is_unmapped(root)) or not root.is_dir() or not root_online(root):
+            if remote is None and is_unmapped(root):
                 continue
-            online.append(root)
-        if online:
-            roots[location] = tuple(online)
+            if not (online or _online_within_deadline)(root):
+                continue
+            found.append(root)
+        if found:
+            roots[location] = tuple(found)
     return roots
 
 
@@ -303,6 +355,37 @@ def _remove_empty_ancestors(parent: Path, source_roots: Sequence[Path]) -> list[
     return removed
 
 
+def _remove_empty_ancestors_bounded(parents: Sequence, source_roots: Sequence[Path]) -> list[Path]:
+    """`_remove_empty_ancestors` 的同一范围，删除交给可终止的子进程（`media_io.remove_directories`）。
+
+    各级上级目录从深到浅一起交出去：`rmdir` 只删得掉空目录，不空的、目录链接照旧留着，
+    下级没删掉时上级自然也不空。网盘上卡住的那个只是没删，剩下的照删。SMB 上的照旧走自己的连接。
+    """
+    from contextlib import closing
+
+    from . import media_io
+    from .smb_media import SmbResource
+    removed: list[Path] = []
+    targets: set[Path] = set()
+    for parent in parents:
+        if isinstance(parent, SmbResource):
+            removed.extend(_remove_empty_ancestors(parent, source_roots))
+            continue
+        source_root = next(
+            (root for root in sorted(source_roots, key=lambda item: len(item.parts), reverse=True)
+             if within_root(parent, root)),
+            None,
+        )
+        current = parent
+        while source_root is not None and current != source_root and within_root(current, source_root):
+            targets.add(current)
+            current = current.parent
+    ordered = sorted(targets, key=lambda item: len(item.parts), reverse=True)
+    with closing(media_io.remove_directories(ordered)) as results:
+        removed.extend(Path(path) for path, result in results if result == "removed")
+    return removed
+
+
 def purge_vanished_rows(contract: WebContract, rows) -> dict:
     """永久删除文件已不在盘上的这些行，连同引用与派生产物；返回 `_finish_purge` 的回执。
 
@@ -312,7 +395,7 @@ def purge_vanished_rows(contract: WebContract, rows) -> dict:
     跳过进 `blocked`，媒体文件一个字节都不碰。这一批要删的只是账本行。
     """
     contract.cache_bust()
-    return _finish_purge(_purge_outside_lock(contract, rows, missing_only=True), contract)
+    return _finish_purge(_purge_outside_lock(contract, rows, missing_only=True), contract, bounded=True)
 
 
 def _purge_outside_lock(contract: WebContract, rows, *, missing_only: bool = False,
@@ -342,13 +425,17 @@ def _purge_receipt(contract: WebContract, outcome: dict, **fields) -> dict:
     return result
 
 
-def _finish_purge(outcome, contract=None):
+def _finish_purge(outcome, contract=None, *, bounded: bool = False):
     """Delete committed quarantine files; report any residue for explicit cleanup.
 
     同时撤下钉着这些资产的资料候选（#486）。撤不成不影响删除结果：复核页按路径改挂或剔掉
     悬空行；处理任务正拿着候选表时，它下一次写表也可能把这几行写回去。
 
     事务里复核没过、没删的行（`commit_purge`），它们的隔离文件在这里放回原处。
+
+    删隔离件、放回隔离件都带期限，答不上的进 `cleanup_pending`；删空的上级目录交给可终止的
+    子进程（`media_io.remove_directories`）。`bounded`：来源在线判断也交给子进程（只删账本行的
+    那一批用）；不给时在本进程里带期限地问。
     """
     _restore_staged_media(outcome.pop("_returned", []))
     outcome.pop("_items", None)
@@ -362,14 +449,12 @@ def _finish_purge(outcome, contract=None):
             withdraw_purged_rows(candidate_root, ids)
         except (OSError, ValueError, csv.Error):
             LOGGER.exception("Failed to withdraw metadata candidates of deleted assets")
+    from . import media_io
     cleanup_pending = []
     for _original, quarantine in outcome.pop("_staged"):
         try:
-            quarantine.unlink(missing_ok=True)
-            manifest = quarantine.parent / 'restore.json'
-            if quarantine.name == 'content' and manifest.is_file():
-                manifest.unlink()
-                quarantine.parent.rmdir()
+            media_io.bounded(media_io.mount_key(quarantine), _drop_quarantine, quarantine,
+                             timeout=media_io.TIMEOUT_SECONDS)
         except OSError as error:
             cleanup_pending.append({
                 "path": str(quarantine), "reason": error.strerror or str(error),
@@ -379,21 +464,32 @@ def _finish_purge(outcome, contract=None):
             snapshot.unlink(missing_ok=True)
         except OSError:
             pass
-    source_roots = tuple(root for roots in _online_source_roots().values() for root in roots)
+    parents = outcome.pop("_parents")
     removed_directories: set[Path] = set()
-    for parent in outcome.pop("_parents"):
-        removed_directories.update(_remove_empty_ancestors(parent, source_roots))
+    if parents:
+        source_roots = tuple(root for roots in _online_source_roots(_bounded_online if bounded else None).values()
+                             for root in roots)
+        removed_directories.update(_remove_empty_ancestors_bounded(parents, source_roots))
     outcome["cleanup_pending"] = cleanup_pending
     outcome["empty_dirs_removed"] = len(removed_directories)
     return outcome
 
 
+def _drop_quarantine(quarantine) -> None:
+    quarantine.unlink(missing_ok=True)
+    manifest = quarantine.parent / 'restore.json'
+    if quarantine.name == 'content' and manifest.is_file():
+        manifest.unlink()
+        quarantine.parent.rmdir()
+
+
 def _purge_media_path(row, online_roots: dict[str, tuple[Path, ...]], *,
-                      missing_only: bool = False) -> Path:
+                      missing_only: bool = False, online=root_online) -> Path:
     """核对永久删除目标的路径映射和来源可读性，失败时拒绝删除。
 
     `missing_only` 只删账本行：媒体目录已从设置里移除时，这一行不在任何来源根下，
     所在的盘可读就交给调用方 `stat`，文件确实不在才删。要删媒体文件的仍只认在线来源根。
+    `online(root)` 判断来源根此刻是否可读。
     """
     media = row["path"]
     from .smb_media import resolve
@@ -404,10 +500,10 @@ def _purge_media_path(row, online_roots: dict[str, tuple[Path, ...]], *,
         raise UserOSError("errors.webBatch.pathUnmapped")
     if PureWindowsPath(str(media)).drive:
         location = row["location"] if "location" in row.keys() else None
-        if any(within_root(translated, root) and root_online(root)
+        if any(within_root(translated, root) and online(root)
                for root in online_roots.get(location, ())):
             return translated
-        if missing_only and not _inside_declared_root(translated) and root_online(Path(translated.anchor)):
+        if missing_only and not _inside_declared_root(translated) and online(Path(translated.anchor)):
             return translated
         raise UserOSError("errors.webBatch.storageOffline")
     return translated
@@ -459,6 +555,16 @@ def stage_purge(rows, *, missing_only: bool = False) -> dict:
 
     ``missing_only`` 删的只是账本行：文件还在（或答不上在不在）的行进 ``blocked``。
     """
+    if missing_only:
+        return _stage_missing_rows(rows)
+    from . import media_io
+    checked: dict[str, bool] = {}
+
+    def online(root) -> bool:
+        key = str(root)
+        if key not in checked:
+            checked[key] = _online_within_deadline(root)
+        return checked[key]
     items, blocked = [], []
     online_roots = None
     for row in rows:
@@ -467,46 +573,131 @@ def stage_purge(rows, *, missing_only: bool = False) -> dict:
         if media:
             try:
                 if online_roots is None and PureWindowsPath(str(media)).drive:
-                    online_roots = _online_source_roots()
-                translated = _purge_media_path(row, online_roots or {}, missing_only=missing_only)
+                    online_roots = _online_source_roots(online)
+                translated = _purge_media_path(row, online_roots or {}, online=online)
             except OSError as error:
                 blocked.append(_blocked(row["id"], media, error))
                 continue
         media_stat = None
         if media:
             try:
-                media_stat = translated.stat()
+                media_stat = media_io.bounded(media_io.mount_key(translated), translated.stat)
             except FileNotFoundError:
                 pass
             except OSError as error:
                 blocked.append(_blocked(row["id"], media, error))
                 continue
-        if media and missing_only:
-            if media_stat is not None:
-                blocked.append(_blocked(row["id"], media, code="labels.webBatch.stillOnDisk"))
-                continue
         staged = None
-        if media and not missing_only:
+        if media:
             original = translated
+            key = media_io.mount_key(original)
             try:
                 if media_stat is not None and not stat.S_ISREG(media_stat.st_mode):
                     raise OSError("not a regular file")
                 if media_stat is not None:
                     if _is_rclone_mount(original):
-                        original.unlink()
+                        # 删了就收不回来：过了期限才删成的，这一行留着，资源同步下次按已消失处理。
+                        _changed_within_deadline(key, original.unlink, None)
                     else:
-                        staged = (original, _quarantine_media(
-                            original, location=row['location'] if 'location' in row.keys() else None))
+                        location = row['location'] if 'location' in row.keys() else None
+                        # 撤回可能在循环走到后面几行时才跑：路径要绑定在这一行上。
+                        quarantine = _changed_within_deadline(
+                            key, partial(_quarantine_media, original, location=location),
+                            partial(_restore_one, original))
+                        staged = (original, quarantine)
             except OSError as error:
                 blocked.append(_blocked(row["id"], media, error))
                 continue
-        snapshot = row["snapshot_path"]
-        items.append({"id": row["id"], "path": media, "staged": staged,
-                      "snapshot": Path(snapshot) if snapshot else None,
-                      "parent": translated.parent if media else None})
+        items.append(_purge_item(row, translated, staged))
+    return _staged_outcome(items, blocked)
+
+
+def _purge_item(row, translated, staged=None) -> dict:
+    snapshot = row["snapshot_path"]
+    return {"id": row["id"], "path": row["path"], "staged": staged,
+            "snapshot": Path(snapshot) if snapshot else None,
+            "parent": translated.parent if row["path"] else None}
+
+
+def _staged_outcome(items, blocked) -> dict:
     return {"purged": 0, "blocked": blocked, "_items": items,
             "_staged": [item["staged"] for item in items if item["staged"]],
             "_returned": [], "_snapshots": [], "_parents": [], "_ids": [], "_codes": []}
+
+
+def _online_within_deadline(root) -> bool:
+    """根目录此刻可读：本进程里带期限地问（`media_io.bounded`），卡住超过期限算不在线。"""
+    from . import media_io
+    try:
+        return bool(media_io.bounded(media_io.mount_key(root),
+                                     lambda: root.is_dir() and root_online(root)))
+    except OSError:
+        return False
+
+
+def _bounded_online(root) -> bool:
+    """在可终止的读取子进程里确认根目录可读；卡住超过期限算不在线。"""
+    from . import media_io
+    try:
+        return bool(media_io.root_online(root))
+    except OSError:
+        return False
+
+
+def _stage_missing_rows(rows) -> dict:
+    """只删账本行的那一批：文件还在、答不上在不在、或问的途中来源掉线的行进 ``blocked``。
+
+    这一批多半来自资源同步的执行，路径都在网盘上。来源在线与文件在不在都交给可终止的读取
+    子进程问（`media_io`）：网盘卡住时只是这几行删不了，整趟照常完成。文件在不在一批一起问，
+    问前问后各确认一次来源在线：问的途中掉线的盘，答的「不在」不作数。
+    """
+    from . import media_io
+    from .smb_media import SmbResource
+    checked: dict[str, bool] = {}
+
+    def online(root) -> bool:
+        key = str(root)
+        if key not in checked:
+            checked[key] = _bounded_online(root)
+        return checked[key]
+    items, blocked, asking = [], [], []
+    online_roots = None
+    for row in rows:
+        media = row["path"]
+        if not media:
+            items.append(_purge_item(row, None))
+            continue
+        try:
+            if online_roots is None and PureWindowsPath(str(media)).drive:
+                online_roots = _online_source_roots(online)
+            asking.append((row, _purge_media_path(row, online_roots or {}, missing_only=True, online=online)))
+        except OSError as error:
+            blocked.append(_blocked(row["id"], media, error))
+    answers = media_io.paths_present([translated for _row, translated in asking]) if asking else []
+    checked.clear()
+    for (row, translated), answer in zip(asking, answers):
+        media = row["path"]
+        if answer is True:
+            blocked.append(_blocked(row["id"], media, code="labels.webBatch.stillOnDisk"))
+        elif answer is None:
+            blocked.append(_blocked(row["id"], media, CodedTimeoutError(
+                errno.ETIMEDOUT, "errors.mediaIo.readTimedOut", filename=str(translated))))
+        elif (not isinstance(translated, SmbResource) and PureWindowsPath(str(media)).drive
+              and not _purge_root_online(row, translated, online)):
+            blocked.append(_blocked(row["id"], media, UserOSError("errors.webBatch.storageOffline")))
+        else:
+            items.append(_purge_item(row, translated))
+    return _staged_outcome(items, blocked)
+
+
+def _purge_root_online(row, translated: Path, online) -> bool:
+    """这一行所在的来源根（或来源外那一行所在的盘）此刻还在不在线。"""
+    location = row["location"] if "location" in row.keys() else None
+    for declaration in LOCATION_ROOT_DECLARATIONS.get(location, ()):
+        root = translate_ledger_path(declaration)
+        if within_root(translated, root):
+            return online(root)
+    return online(Path(translated.anchor))
 
 
 def commit_purge(connection, outcome: dict, *, eligible=None) -> None:

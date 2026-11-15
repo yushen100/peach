@@ -182,6 +182,115 @@ class MediaIoTests(unittest.TestCase):
         self.assertEqual(len(children), 1)
         self.assertIsNotNone(children[0].poll())
 
+    def _spawned(self, script=None):
+        """数读取子进程；给了 `script` 时用它换掉子进程的入口（真的 media_io，只改一处行为）。"""
+        children, original_popen = [], subprocess.Popen
+
+        def spawn(command, **options):
+            if script is not None and command[-3] == 'directories':
+                command = [sys._base_executable, '-c', script, *command[-3:]]
+            child = original_popen(command, **options)
+            children.append(child)
+            return child
+        return children, patch.object(media_io.subprocess, 'Popen', side_effect=spawn)
+
+    def test_one_reader_walks_the_whole_tree(self):
+        """几千个目录各起一个进程，起进程比读目录还慢；整棵树由一个读取子进程连续读完。"""
+        for name in ('a/1', 'a/2', 'b'):
+            (self.root / name).mkdir(parents=True)
+        (self.root / 'a' / '1' / 'x.mp4').write_bytes(b'x')
+        children, spawning = self._spawned()
+        with spawning:
+            listings = dict(media_io.read_directories([self.root], walk=True))
+        names = {Path(directory).relative_to(self.root).as_posix(): sorted(entry.name for entry in listing)
+                 for directory, listing in listings.items()}
+        self.assertEqual(names, {'.': ['a', 'b'], 'a': ['1', '2'], 'a/1': ['x.mp4'], 'a/2': [], 'b': []})
+        self.assertEqual(len(children), 1)
+        missing = dict(media_io.read_directories([self.root / 'gone']))[os.fspath(self.root / 'gone')]
+        self.assertIsInstance(missing, FileNotFoundError)
+        self.assertFalse(missing.hollow, '真找不到的目录不是 CloudDrive 空目录')
+
+    def test_a_stuck_directory_times_out_alone_and_the_rest_are_read_by_a_new_reader(self):
+        for name in ('a', 'stuck', 'z'):
+            (self.root / name).mkdir()
+            (self.root / name / 'x.mp4').write_bytes(b'x')
+        stuck = os.fspath(self.root / 'stuck')
+        script = ('import sys, time\nimport peach.media_io as m\nread = m._local_directory\n'
+                  'def slow(path, value):\n'
+                  f'    if path == {stuck!r}: time.sleep(60)\n'
+                  '    return read(path, value)\n'
+                  'm._local_directory = slow\nsys.exit(m.main(sys.argv[1:]))\n')
+        children, spawning = self._spawned(script)
+        with patch.object(media_io, 'TIMEOUT_SECONDS', 1.0), spawning:
+            listings = dict(media_io.read_directories([self.root], walk=True))
+        self.assertIsInstance(listings.pop(stuck), TimeoutError)
+        self.assertEqual({Path(directory).name: [entry.name for entry in listing] for directory, listing in listings.items()
+                          if Path(directory) != self.root}, {'a': ['x.mp4'], 'z': ['x.mp4']})
+        self.assertEqual(len(children), 2)
+        self.assertTrue(all(child.poll() is not None for child in children))
+
+    def test_one_remover_deletes_in_order_and_a_stuck_directory_times_out_alone(self):
+        for name in ('a', 'stuck', 'z', 'full'):
+            (self.root / name).mkdir()
+        (self.root / 'full' / 'x.mp4').write_bytes(b'x')
+        stuck = os.fspath(self.root / 'stuck')
+        script = ('import os, sys, time\nimport peach.media_io as m\nrmdir = os.rmdir\n'
+                  'def slow(path):\n'
+                  f'    if path == {stuck!r}: time.sleep(60)\n'
+                  '    return rmdir(path)\n'
+                  'os.rmdir = slow\nsys.exit(m.main(sys.argv[1:]))\n')
+        children, original_popen = [], subprocess.Popen
+
+        def spawn(command, **options):
+            if command[-2] == 'rmdirs':
+                command = [sys._base_executable, '-c', script, *command[-2:]]
+            child = original_popen(command, **options)
+            children.append(child)
+            return child
+        names = ('a', 'stuck', 'z', 'full', 'gone')
+        with patch.object(media_io, 'TIMEOUT_SECONDS', 1.0), \
+                patch.object(media_io.subprocess, 'Popen', side_effect=spawn):
+            results = list(media_io.remove_directories([self.root / name for name in names]))
+        self.assertEqual([Path(path).name for path, _result in results], list(names))
+        verdicts = dict((Path(path).name, result) for path, result in results)
+        self.assertIsInstance(verdicts.pop('stuck'), TimeoutError)
+        self.assertEqual(verdicts, {'a': 'removed', 'z': 'removed', 'full': 'kept', 'gone': 'gone'})
+        self.assertTrue((self.root / 'stuck').is_dir())
+        self.assertEqual(len(children), 2)
+        self.assertTrue(all(child.poll() is not None for child in children))
+
+    def test_closing_the_listing_early_reaps_the_reader(self):
+        """取消在两个目录之间生效：调用方不读了，读取子进程不能留着。"""
+        for name in ('a', 'b', 'c'):
+            (self.root / name).mkdir()
+        children, spawning = self._spawned()
+        with spawning:
+            listings = media_io.read_directories([self.root], walk=True)
+            next(listings)
+            listings.close()
+        self.assertEqual(len(children), 1)
+        self.assertIsNotNone(children[0].poll())
+
+    def test_presence_answers_each_path_and_a_stalled_answer_is_unknown_not_gone(self):
+        """复核失效候选：卡住的那一条答 None（照旧保留），换一个读取进程接着问后面的。"""
+        here = self.root / 'here.mp4'
+        here.write_bytes(b'x')
+        children, original_popen = [], subprocess.Popen
+
+        def first_stalls(command, **options):
+            if not children:
+                command = [sys._base_executable, '-c', 'import time; time.sleep(60)']
+            child = original_popen(command, **options)
+            children.append(child)
+            return child
+        paths = [self.root / 'stuck.mp4', here, self.root / 'gone.mp4']
+        with patch.object(media_io, 'TIMEOUT_SECONDS', 1.0), \
+                patch.object(media_io.subprocess, 'Popen', side_effect=first_stalls):
+            answers = media_io.paths_present(paths)
+        self.assertEqual(answers, [None, True, False])
+        self.assertEqual(len(children), 2)
+        self.assertTrue(all(child.poll() is not None for child in children))
+
     @staticmethod
     def _entry_line(name):
         entry = dict(name=name, path=name, directory=False, symlink=False, attributes={'st_size': 1}, error='')
@@ -371,3 +480,95 @@ class MediaIoTests(unittest.TestCase):
             library_processing._generate_previews(self.config, [row], Mock(),
                 update=Mock(side_effect=[None, PermissionError('Permission denied')]), issue=issue, guard=Mock())
         issue.assert_not_called()
+
+
+class BoundedReadTests(unittest.TestCase):
+    """请求路径上的挂载读取：到期就回，卡住的挂载不再多开线程。"""
+
+    def setUp(self):
+        import threading
+        self.release = threading.Event()
+        self.addCleanup(self.release.set)
+        self.key = f'test-mount-{id(self)}'
+
+    def _stuck(self):
+        self.release.wait(10)
+        return 'late'
+
+    def test_stuck_read_times_out_and_later_reads_on_the_mount_fail_fast(self):
+        started = time.monotonic()
+        with self.assertRaises(TimeoutError):
+            media_io.bounded(self.key, self._stuck, timeout=0.1)
+        self.assertLess(time.monotonic() - started, 2)
+        calls = []
+        with self.assertRaises(TimeoutError):
+            media_io.bounded(self.key, calls.append, 1, timeout=5)
+        self.assertEqual(calls, [])
+        # 别的挂载照常读。
+        self.assertEqual(media_io.bounded(self.key + '-other', lambda: 'ok', timeout=1), 'ok')
+
+    def test_mount_reopens_once_the_stuck_read_returns(self):
+        with self.assertRaises(TimeoutError):
+            media_io.bounded(self.key, self._stuck, timeout=0.1)
+        self.release.set()
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            try:
+                self.assertEqual(media_io.bounded(self.key, lambda: 'ok', timeout=1), 'ok')
+                return
+            except TimeoutError:
+                time.sleep(0.01)
+        self.fail('卡住的读取返回后，挂载没有放行')
+
+    def test_a_read_lost_for_good_does_not_close_the_mount_until_restart(self):
+        """卡着的那次永远不回：隔一段时间放一个请求去试，答上了就整个挂载放行。"""
+        with patch.object(media_io, 'REQUEST_RETRY_SECONDS', 0.2):
+            with self.assertRaises(TimeoutError):
+                media_io.bounded(self.key, self._stuck, timeout=0.1)
+            with self.assertRaises(TimeoutError):
+                media_io.bounded(self.key, lambda: 'ok', timeout=1)
+            time.sleep(0.3)
+            self.assertEqual(media_io.bounded(self.key, lambda: 'ok', timeout=1), 'ok')
+            self.assertEqual(media_io.bounded(self.key, lambda: 'again', timeout=1), 'again')
+
+    def test_a_timeout_raised_by_the_read_itself_is_not_taken_for_a_stuck_mount(self):
+        def inner_timeout():
+            raise TimeoutError('socket timed out')
+        with self.assertRaises(TimeoutError):
+            media_io.bounded(self.key, inner_timeout, timeout=5)
+        self.assertNotIn(self.key, media_io._bounded_stuck)
+        self.assertEqual(media_io.bounded(self.key, lambda: 'ok', timeout=1), 'ok')
+
+    def test_errors_from_the_read_reach_the_caller(self):
+        def missing():
+            raise FileNotFoundError(2, 'gone')
+        with self.assertRaises(FileNotFoundError):
+            media_io.bounded(self.key, missing)
+        self.assertNotIn(self.key, media_io._bounded_active)
+
+    def test_concurrent_reads_on_one_mount_are_capped(self):
+        import threading
+        with patch.object(media_io, 'REQUEST_SLOTS_PER_MOUNT', 2):
+            waiting = [threading.Thread(target=lambda: self.assertRaises(
+                TimeoutError, media_io.bounded, self.key, self._stuck, timeout=1)) for _ in range(2)]
+            for thread in waiting:
+                thread.start()
+            deadline = time.monotonic() + 2
+            while media_io._bounded_active.get(self.key, 0) < 2 and time.monotonic() < deadline:
+                time.sleep(0.01)
+            started = time.monotonic()
+            with self.assertRaises(TimeoutError):
+                media_io.bounded(self.key, lambda: 'ok', timeout=5)
+            self.assertLess(time.monotonic() - started, 0.5)
+            for thread in waiting:
+                thread.join(5)
+
+    def test_mount_key_groups_by_drive_or_top_directories(self):
+        if os.name == 'nt':
+            self.assertEqual(media_io.mount_key(Path('A:/番号/one.mp4')), 'a:')
+            self.assertEqual(media_io.mount_key(Path('//nas/share/x/one.mp4')),
+                             media_io.mount_key(Path('//NAS/Share/y/two.mp4')))
+            self.assertNotEqual(media_io.mount_key(Path('//nas/share/x/one.mp4')),
+                                media_io.mount_key(Path('//nas/other/x/one.mp4')))
+        else:
+            self.assertEqual(media_io.mount_key(Path('/Volumes/Media/x/one.mp4')), '/Volumes/Media')

@@ -76,6 +76,9 @@ def finish(db: Path, key: str, job_id: str, status: str) -> None:
         data = read(db, key)
         if data.get("job_id") == job_id:
             data["status"] = status
+            if isinstance(data.get('checkpoint'), dict) and data['checkpoint']:
+                # 下次启动按进度快照恢复页面状态，快照的状态要与记录一起落到终态。
+                data['checkpoint']['status'] = status
             atomic_write_text(_path(db, key), json.dumps(data, ensure_ascii=False))
 
 

@@ -75,8 +75,14 @@ class TranscodeNeedsSession(TranscodeUnavailable):
 
 
 def _source_stat(source: Path, known):
-    """片源的 stat：调用方刚取过（`known`）就用它，网盘上每次 stat 都是一趟网络往返；没取过再问。"""
-    return source.stat() if known is None else known
+    """片源的 stat：调用方刚取过（`known`）就用它，网盘上每次 stat 都是一趟网络往返；没取过再问。
+
+    再问时带期限（`media_io.bounded`），网盘答不上抛超时，由调用方按片源不可用处理。
+    """
+    if known is not None:
+        return known
+    from . import media_io
+    return media_io.bounded(media_io.mount_key(source), source.stat)
 
 
 def _touch(path: Path) -> None:
