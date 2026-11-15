@@ -114,8 +114,8 @@ def search_hits(html: str, wanted: set[str], key=name_key) -> list[str]:
     对得上的全都返回，不只取第一个。同一个名字在站上真有两位时，两页都进判定——
     取第一个是默默替用户挑了一位。
 
-    `key` 可以换成更宽的归一（比如先折叠繁简与日本字形）。默认不折叠：折叠要
-    opencc，那是可选依赖，不能让这一层跟着必装。
+    默认的 `name_key` 已经折掉日本字形（`有岡` 与 `有冈`）；繁简转换要 opencc，那是可选
+    依赖，需要时由调用方换成更宽的 `key`。
     """
     out = []
     for path, title in BOX.findall(html):
