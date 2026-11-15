@@ -26,10 +26,17 @@ OPERATIONS = ('directory', 'files', 'nfo', 'art', 'online', 'resolve', 'stat', '
 REQUEST_TIMEOUT_SECONDS = 10.0
 #: 同一挂载上同时在等的读取上限；超出的请求直接按超时回，不再多开线程。
 REQUEST_SLOTS_PER_MOUNT = 16
+#: 挂载上有读取卡着时，隔这么久放一个请求过去试：答上了就整个挂载放行。
+REQUEST_RETRY_SECONDS = 30.0
+#: 全进程超了期还没回的读取线程上限；到了就不再放请求去试卡着的挂载，免得线程越积越多。
+MAX_STUCK_READS = 64
 
 _bounded_lock = threading.Lock()
 _bounded_active: dict = {}
+#: 挂载名 → 下一次放请求去试的时刻。挂载卡着时才有这一项。
 _bounded_stuck: dict = {}
+#: 超了期还没回的读取，按挂载记。挂载放行后仍留着计数，线程真正返回才去掉。
+_bounded_late: dict = {}
 
 
 def mount_key(path):
@@ -47,17 +54,34 @@ def mount_key(path):
 
 
 def _release(key, box):
+    """读取线程返回时清账；调用方不持锁。卡着的读取都回来了，挂载自然放行。"""
     with _bounded_lock:
         remaining = _bounded_active.get(key, 1) - 1
         if remaining:
             _bounded_active[key] = remaining
         else:
             _bounded_active.pop(key, None)
-        stuck = _bounded_stuck.get(key)
-        if stuck is not None:
-            stuck.discard(box)
-            if not stuck:
+        late = _bounded_late.get(key)
+        if late is not None:
+            late.discard(box)
+            if not late:
+                _bounded_late.pop(key, None)
                 _bounded_stuck.pop(key, None)
+
+
+def _admit(key):
+    """调用方持 `_bounded_lock`：这次读取放不放行。挂载卡着时只按间隔放一个去试。"""
+    if _bounded_active.get(key, 0) >= REQUEST_SLOTS_PER_MOUNT:
+        return False
+    retry_at = _bounded_stuck.get(key)
+    if retry_at is None:
+        return True
+    import time
+    now = time.monotonic()
+    if now < retry_at or sum(len(calls) for calls in _bounded_late.values()) >= MAX_STUCK_READS:
+        return False
+    _bounded_stuck[key] = now + REQUEST_RETRY_SECONDS
+    return True
 
 
 def bounded(key, call, *args, timeout=None, **kwargs):
@@ -65,14 +89,17 @@ def bounded(key, call, *args, timeout=None, **kwargs):
 
     子进程（`file_stat` 等）每次要起一个解释器，约 150 毫秒，放不进每个 Range 请求和一屏几十张
     缩略图；这里改在后台线程里读，调用方只等到期限。卡住的那次读取收不回来，线程照旧挂着；
-    为免越挂越多，同一挂载（`key`）上有读取超了期还没返回时，后来的请求不再开线程，直接按超时回，
-    等那次读取自己返回后才放行。线程不占 anyio 的线程池，`/healthz` 不受连累。
+    为免越挂越多，同一挂载（`key`）上有读取超了期还没返回时，后来的请求不再开线程，直接按超时回。
+    那次读取自己返回，或隔 `REQUEST_RETRY_SECONDS` 放过去试的一个请求在期限内答上了，挂载就放行：
+    一次丢在挂载层里永远不回的读取，不能让整个盘到重启前都打不开。线程不占 anyio 的线程池，
+    `/healthz` 不受连累。
     """
+    import time
+    from concurrent.futures import Future, wait
     with _bounded_lock:
-        if _bounded_stuck.get(key) or _bounded_active.get(key, 0) >= REQUEST_SLOTS_PER_MOUNT:
+        if not _admit(key):
             raise CodedTimeoutError(errno.ETIMEDOUT, 'errors.mediaIo.readTimedOut', filename=str(key))
         _bounded_active[key] = _bounded_active.get(key, 0) + 1
-    from concurrent.futures import Future, TimeoutError as FutureTimeout
     box = Future()
 
     def run():
@@ -87,16 +114,22 @@ def bounded(key, call, *args, timeout=None, **kwargs):
     except RuntimeError:
         _release(key, box)
         raise CodedOSError(errno.EIO, 'errors.mediaIo.readerFailed', filename=str(key)) from None
-    try:
-        return box.result(REQUEST_TIMEOUT_SECONDS if timeout is None else timeout)
-    except FutureTimeout:
-        with _bounded_lock:
-            # 读取线程先交结果再取锁清账，这里在锁内看 done，两边不会错过对方。
-            if not box.done():
-                _bounded_stuck.setdefault(key, set()).add(box)
-        if box.done():
-            return box.result()
-        raise CodedTimeoutError(errno.ETIMEDOUT, 'errors.mediaIo.readTimedOut', filename=str(key)) from None
+    wait([box], timeout=REQUEST_TIMEOUT_SECONDS if timeout is None else timeout)
+    with _bounded_lock:
+        # 读取线程先交结果再取锁清账，这里在锁内看 done，两边不会错过对方。
+        if not box.done():
+            _bounded_late.setdefault(key, set()).add(box)
+            _bounded_stuck.setdefault(key, time.monotonic() + REQUEST_RETRY_SECONDS)
+            late = True
+        else:
+            late = False
+            error = box.exception()
+            if error is None or (isinstance(error, OSError) and not isinstance(error, TimeoutError)):
+                # 期限内答上了（读到了，或报了文件系统错误）：挂载在应答，卡着的那几次不再拦后来的请求。
+                _bounded_stuck.pop(key, None)
+    if late:
+        raise CodedTimeoutError(errno.ETIMEDOUT, 'errors.mediaIo.readTimedOut', filename=str(key))
+    return box.result()
 
 
 def _request(operation, path, *, value='', timeout=None):

@@ -489,6 +489,25 @@ class BoundedReadTests(unittest.TestCase):
                 time.sleep(0.01)
         self.fail('卡住的读取返回后，挂载没有放行')
 
+    def test_a_read_lost_for_good_does_not_close_the_mount_until_restart(self):
+        """卡着的那次永远不回：隔一段时间放一个请求去试，答上了就整个挂载放行。"""
+        with patch.object(media_io, 'REQUEST_RETRY_SECONDS', 0.2):
+            with self.assertRaises(TimeoutError):
+                media_io.bounded(self.key, self._stuck, timeout=0.1)
+            with self.assertRaises(TimeoutError):
+                media_io.bounded(self.key, lambda: 'ok', timeout=1)
+            time.sleep(0.3)
+            self.assertEqual(media_io.bounded(self.key, lambda: 'ok', timeout=1), 'ok')
+            self.assertEqual(media_io.bounded(self.key, lambda: 'again', timeout=1), 'again')
+
+    def test_a_timeout_raised_by_the_read_itself_is_not_taken_for_a_stuck_mount(self):
+        def inner_timeout():
+            raise TimeoutError('socket timed out')
+        with self.assertRaises(TimeoutError):
+            media_io.bounded(self.key, inner_timeout, timeout=5)
+        self.assertNotIn(self.key, media_io._bounded_stuck)
+        self.assertEqual(media_io.bounded(self.key, lambda: 'ok', timeout=1), 'ok')
+
     def test_errors_from_the_read_reach_the_caller(self):
         def missing():
             raise FileNotFoundError(2, 'gone')
