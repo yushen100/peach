@@ -560,8 +560,14 @@ describe('设计决定：数据管理、索引页与资料页头', () => {
       const dot = page.locator('#index [data-alpha-tag][data-tag-cat="r34-artist"] [data-tag-dot]');
       await dot.waitFor({ timeout: 5_000 });
       assert.equal(await dot.evaluate((element) => getComputedStyle(element).backgroundColor), 'rgb(227, 108, 108)');
-      assert.equal(await dock.count(), 0, '在线词表不给多选坞');
-      assert.equal(await page.evaluate(() => document.documentElement.style.getPropertyValue('--selection-dock-space')), '');
+      // 在线词表进了多选也有自己的浮条（隐藏、屏蔽内容），页底同样按它的实际高度留白。
+      await dock.getByRole('button', { name: '屏蔽内容', exact: true }).waitFor({ timeout: 5_000 });
+      assert.equal(await dock.count(), 1, '在线词表只摆它自己那一条多选坞');
+      const online = await dock.evaluate((element) => ({
+        padding: parseFloat(getComputedStyle(document.querySelector('#index .peach-react')!).paddingBottom),
+        required: (element as HTMLElement).offsetHeight + parseFloat(getComputedStyle(element).bottom) + 16,
+      }));
+      assert.ok(online.padding >= online.required, `在线词表选择坞下方留白不足：${JSON.stringify(online)}`);
       assert.deepEqual(opened.problems, []);
     } finally {
       await opened.close();

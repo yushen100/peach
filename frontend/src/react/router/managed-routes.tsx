@@ -159,7 +159,7 @@ export const MANAGED_ROUTES: ManagedRouteTable = {
     prefetch: (open, signal) => withPage(javPage, prefetchJav(open.tab, signal)),
     page: (open, actions) => {
       const { JavPage } = javPage.get();
-      return <JavPage {...open} navigate={actions.navigate} receipt={(message, options) => actions.receipt(message, options)} />;
+      return <JavPage {...open} navigate={actions.navigate} receipt={(message, { undo } = {}) => actions.receipt(message, undo ? { undo } : {})} />;
     },
   },
   '/stats': {
@@ -189,7 +189,7 @@ export const MANAGED_ROUTES: ManagedRouteTable = {
     page: (open, actions) => {
       const { ReviewPage } = reviewPage.get();
       return <ReviewPage {...open} route={actions.routeReview} openItem={actions.openItem} openEntity={actions.openEntity}
-        revealSource={actions.revealSource} toast={(message, options) => actions.receipt(message, options)} />;
+        revealSource={actions.revealSource} toast={(message, { undo } = {}) => actions.receipt(message, undo ? { undo } : {})} />;
     },
   },
   /* 首页只展开日常扫描；维护工具各自预取自己的二级页数据。 */
@@ -260,7 +260,7 @@ export const MANAGED_ROUTES: ManagedRouteTable = {
     page: (open, actions) => {
       const { FollowManagePage } = followManagePage.get();
       return <FollowManagePage {...open} route={actions.routeFollowManage} savePreference={actions.saveFollowPreference}
-        toast={(message, options) => actions.receipt(message, options)} openFollow={actions.openFollow} />;
+        toast={(message, { undo } = {}) => actions.receipt(message, undo ? { undo } : {})} openFollow={actions.openFollow} />;
     },
   },
 };

@@ -420,9 +420,10 @@ describe('标签', () => {
     serve(() => ({ items: [tag('痴女')], has_more: false, categories: { role: 1 } }));
     const given = props({ kind: 'tags' });
     const host = await open(given);
+    // 状态那一组（使用中、已隐藏）平时也在，类型药丸跟在后面。
     const pills = [...host.querySelectorAll('[data-tag-pill]')].map((pill) => pill.textContent);
-    expect(pills).toEqual(['全部', '角色设定', '情境场所']);
-    await click([...host.querySelectorAll('[data-tag-pill]')][1]);
+    expect(pills).toEqual(['使用中', '已隐藏', '全部', '角色设定', '情境场所']);
+    await click([...host.querySelectorAll('[data-tag-pill]')].find((pill) => pill.textContent === '角色设定'));
     expect(given.route).toHaveBeenLastCalledWith(expect.objectContaining({ category: 'role' }), { replace: false });
   });
 
@@ -457,7 +458,7 @@ describe('标签', () => {
     expect(host.textContent).not.toContain('已选');
   });
 
-  it('切到在线词表直接给字母表，点开去关注页', async () => {
+  it('切到在线词表直接给字母表；选择模式下点选，退出选择后点开去关注页', async () => {
     seed(indexKey('tags', '', 'all'), [tag('痴女')]);
     seed(onlineTagsKey('', 'all'), [tag('long_hair', 'general')]);
     const fetcher = serve(() => ({ items: [tag('long_hair', 'general')], has_more: false }));
@@ -468,11 +469,15 @@ describe('标签', () => {
     await settle();
     expect(given.route).toHaveBeenLastCalledWith(
       expect.objectContaining({ scope: 'online', view: 'alphabet', category: 'all' }), { replace: false });
-    expect(urls(fetcher)[0]).toContain('/api/follow/tags?types=all');
+    // 状态药丸的计数另走 `/api/tag-management`，词表本身的第一次读取是在线标签。
+    expect(urls(fetcher).filter((url) => !url.includes('/api/tag-management?'))[0]).toContain('/api/follow/tags?types=all');
+    // 选择模式下在线标签也是点选，浮条给隐藏与屏蔽内容；退出选择后点开才去关注页。
+    await click(alphaTag(host, 'long_hair'));
+    expect(given.openFollowTag).not.toHaveBeenCalled();
+    expect(host.querySelector('[aria-label="所选标签操作"]')?.textContent).toContain('已选 1 个标签');
+    await act(async () => setSelectMode(false));
     await click(alphaTag(host, 'long_hair'));
     expect(given.openFollowTag).toHaveBeenCalledWith('long_hair');
     expect(given.showTags).not.toHaveBeenCalled();
-    // 多选是本地目录语义：在线那一套不给操作条。
-    expect(host.querySelector('[aria-label="所选标签操作"]')).toBeNull();
   });
 });

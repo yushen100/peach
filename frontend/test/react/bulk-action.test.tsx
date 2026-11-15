@@ -6,6 +6,12 @@ import { runBulkAction, type BulkAction } from '../../src/react/components/bulk-
 import { SelectionDock } from '../../src/react/components/selection-dock';
 import { buttonNamed, click, mountRoot, settle } from './render';
 
+// 测试配置把 `@peach/legacy/ui` 换成了一律取消的桩；这里要看真实弹窗的正文与按钮。
+vi.mock('@peach/legacy/ui', async (original) => ({
+  ...await original<typeof import('@peach/legacy/ui')>(),
+  confirmModal: (await import('../../src/ui-kit/modal')).confirmModal,
+}));
+
 afterEach(() => document.body.replaceChildren());
 
 const dialog = () => document.querySelector('dialog')!;
@@ -40,7 +46,7 @@ describe('runBulkAction', () => {
     expect(dialog().textContent).toContain('不能撤销。');
     accept();
     await pending;
-    expect(receipt).toHaveBeenCalledWith('已标记 1 项', undefined);
+    expect(receipt).toHaveBeenCalledWith('已标记 1 项');
   });
 
   it('声明能撤销却没交回撤销函数：弹窗不关，原因留在正文下面', async () => {

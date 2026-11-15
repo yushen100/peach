@@ -462,7 +462,7 @@ describe('链接管理', () => {
     await settle();
     expect(seen).toHaveLength(1);
     expect(seen[0]!.danger).toBe(true);
-    expect(seen[0]!.body).toBe('将删除 1 条失效链接。删除前会再次检查，删除后无法恢复。');
+    expect(seen[0]!.body).toBe('将删除 1 条失效链接，删除前会再检查一次。不能撤销。');
     expect(server.posts('/api/links/prune')).toEqual([{ confirm: true, check_id: 'check-3', background: true }]);
   });
 

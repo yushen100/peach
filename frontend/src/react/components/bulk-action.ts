@@ -85,6 +85,8 @@ export async function runBulkAction<T>(action: BulkAction<T>, items: readonly T[
   if (!confirmed) return false;
   const message = action.receipt(items, { undo });
   // 后台任务那种写入，结论由任务自己的回执说，这里不再补一条。
-  if (message) host.receipt(message, undo ? { undo } : undefined);
+  if (!message) return true;
+  if (undo) host.receipt(message, { undo });
+  else host.receipt(message);
   return true;
 }
