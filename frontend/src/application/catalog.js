@@ -34,7 +34,7 @@ import { releaseHoverPreviews } from './../card-art/hover';
 import { revealRoutedPage } from './follow.js';
 import { pageSkeletonHtml } from './../management-placeholder';
 import { catalogEmptyHtml } from './../catalog-onboarding';
-import { junkRoute } from './../junk-queue';
+import { junkRoute, junkSelectAllSkeletonHtml } from './../junk-queue';
 import { wallAddress } from '../react/video-wall/wall-route';
 import { restoringPage } from '../history/page-navigation';
 import { joinList, t as tr } from '../i18n';
@@ -538,7 +538,7 @@ export function junkQueueProps(){
     ...junkRoute(location.search),helpers:catalogState.junkQueueHelpers,actions:catalogState.junkQueueActions,
     batchSize:preferencesState.appSettings.batchSize,revision:catalogState.controller.revision,selectMode,selected:new Set(selected),
     countRow:$('#count'),settled:settleCatalog,
-    skeletonHtml:()=>pageSkeletonHtml(tr('shell:skeleton.loadingJunkFiles'),{cards:true,className:'catalog-skeleton postercard-skeleton'}),
+    skeletonHtml:()=>junkSelectAllSkeletonHtml()+pageSkeletonHtml(tr('shell:skeleton.loadingJunkFiles'),{cards:true,className:'catalog-skeleton postercard-skeleton'}),
     canLoadMore:()=>$('#stats').hidden&&$('#index').hidden,
   };
 }

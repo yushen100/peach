@@ -6,6 +6,12 @@ const placeholder = 'relative overflow-hidden skeleton-sheen bg-background-terti
 const text = (width = '60%') => `<span class="${placeholder} inline-block max-w-full align-middle" style="width:${width};height:1em"></span>`;
 const wait = 'disabled data-skeleton-action';
 const chart = 'min-w-0 rounded-2-5xl bg-background-secondary-default p-5 flex flex-col gap-4 max-sm:p-4';
+/** Board UI `Checkbox` 的未勾静止态：`md` 16px 框配 14px 字，`sm` 14px 框配 13px 字，和组件同一副间距。 */
+const check = (label = '', size: 'md' | 'sm' = 'md', className = '') => `<span class="group inline-flex items-center select-none ${size === 'sm' ? 'gap-1.5' : 'gap-2'} ${className}">`
+  + `<span class="flex shrink-0 items-center justify-center rounded-sm ${size === 'sm' ? 'size-3.5' : 'size-4'} border bg-background-primary-default shadow-xs border-border-checkbox-default"></span>`
+  + `${label ? `<span class="${size === 'sm' ? 'text-body-2-medium' : 'text-body-medium'} text-text-primary">${label}</span>` : ''}</span>`;
+/** 玻璃条上的药丸，类名同 `react/components/filter-glass.tsx` 的 `GlassPill`。 */
+const glassPill = (label: string) => `<button ${wait} class="h-8 rounded-full border border-(--glass-low) bg-transparent px-3 text-body-2-regular leading-none whitespace-nowrap">${label}</button>`;
 
 /** 统计首屏与 StatsPage 的读数卡、双列库存图和三列分布图共用布局。 */
 export function statsSkeleton(): string {
@@ -69,7 +75,8 @@ export function tasteSkeleton(): string {
   </div></div>`;
 }
 
-/** 重复文件首屏：完整汇总、玻璃批量条、组头和两行文件，尺寸跟正文一致。 */
+/** 重复文件首屏：完整汇总、玻璃批量条（全选本页、三条全部规则与「已保留」入口）、组头（勾选框、
+ *  判据与五颗键里常驻的四颗）和两行文件，尺寸跟正文一致；窄屏换行也就和正文换在同一处。 */
 export function duplicatesSkeleton(): string {
   const row = `<div class="duplicate-row items-center gap-3 border-t border-separator-border px-5 py-4 max-compact:p-4">
     <span class="${placeholder} row-span-2 inline-grid aspect-16/10 w-full rounded-2lg"></span>
@@ -79,29 +86,31 @@ export function duplicatesSkeleton(): string {
   </div>`;
   const group = `<section class="mb-6 overflow-hidden rounded-surface bg-background-secondary-default dark:bg-background-primary-default" data-duplicate-group>
     <div class="flex flex-wrap items-center gap-3 bg-background-tertiary-default p-5 max-compact:p-4 dark:bg-background-secondary-default">
-      <b class="text-title-2-medium">${text('5em')}</b><span class="font-mono text-caption-1-regular leading-5">${text('8em')}</span>
-      <span class="ml-auto flex flex-wrap gap-2 max-compact:ml-0 max-compact:w-full">${[t('cleanup:duplicates.keepLargest'), t('cleanup:duplicates.keepLongest'), t('cleanup:duplicates.trashGroup')].map(label => islandButton({ variant: 'secondary', size: 'small', label, attrs: wait })).join('')}</span>
+      ${check()}<b class="text-title-2-medium">${text('5em')}</b><span class="font-mono text-caption-1-regular leading-5">${text('8em')}</span>
+      <span class="rounded-sm px-2 py-0.5 text-caption-1-regular leading-5">${text('4em')}</span>
+      <span class="ml-auto flex flex-wrap gap-2 max-compact:ml-0 max-compact:w-full">${[t('cleanup:duplicates.keepLargest'), t('cleanup:duplicates.keepLongest'), t('cleanup:duplicates.keepAll'), t('cleanup:duplicates.trashGroup')].map(label => islandButton({ variant: 'secondary', size: 'small', label, attrs: wait })).join('')}</span>
     </div>${row.repeat(2)}</section>`;
   return `<div class="peach-react"><div class="mx-auto w-full max-w-board pb-10.5">
     <div data-collection-summary class="mb-5 flex items-end justify-between gap-4 rounded-surface bg-background-secondary-default px-6 py-5 max-compact:flex-col max-compact:items-start max-compact:gap-3 max-compact:p-4 dark:bg-background-primary-default">
       <div class="flex min-w-0 flex-col gap-2"><span class="text-body-regular text-text-secondary">${t('cleanup:duplicates.summaryLabel')}</span><strong class="text-display-4-medium">${text('4em')}</strong></div><p class="text-body-regular text-text-secondary">${text('12em')}</p>
     </div>
-    <div data-filter-glass data-glass-pane class="mb-5.5 flex flex-wrap items-center gap-x-2.5 gap-y-2 px-4 py-2.5"><h3 class="mr-1 text-body-medium">${t('cleanup:duplicates.bulkKeep')}</h3>${[t('cleanup:duplicates.allKeepLargest'), t('cleanup:duplicates.allKeepLongest')].map(label => `<button ${wait} class="h-8 rounded-full border border-separator-border px-3 text-body-2-medium">${label}</button>`).join('')}</div>
+    <div data-filter-glass data-glass-pane class="mb-5.5 flex flex-wrap items-center gap-x-2.5 gap-y-2 px-4 py-2.5"><h3 class="mr-1 text-body-medium">${t('cleanup:duplicates.bulkKeep')}</h3>${check(t('cleanup:duplicates.selectPage'), 'sm')}${[t('cleanup:duplicates.allKeepLargest'), t('cleanup:duplicates.allKeepLongest'), t('cleanup:duplicates.allKeepAll')].map(glassPill).join('')}<span class="ml-auto"></span>${glassPill(text('4.5em'))}</div>
     ${group.repeat(2)}
   </div></div>`;
 }
 
-/** 高清版首屏：摘要面与六张待升级的卡，类名同 `QualityGoalsPage` 落地那一版（卡面是
- *  `cardClass({ padding: 'none' })`），接管那一拍间距、卡高与底色都不跳。 */
+/** 高清版首屏：摘要面、「全选」与六张待升级的卡，类名同 `QualityGoalsPage` 落地那一版（卡面是
+ *  `cardClass({ padding: 'none' })`，底栏左端一枚勾选框、右边两颗键），接管那一拍间距、卡高与底色都不跳。 */
 export function qualityGoalsSkeleton(): string {
   const card = `<li class="min-w-0 bg-background-secondary-default rounded-2xl shadow-card flex flex-col gap-3 p-3">
     <div class="flex min-w-0 gap-4"><span class="${placeholder} inline-grid w-card-cover shrink-0 aspect-card-cover rounded-2lg"></span>
       <div class="flex min-w-0 flex-1 flex-col gap-1.5"><h3 class="text-headline-medium">${text('80%')}</h3><p class="text-body-2-regular">${text('60%')}</p></div>
     </div>
-    <footer class="flex justify-end">${islandButton({ variant: 'secondary', size: 'small', label: t('manage:hdUpgrades.viewEditions'), attrs: wait })}</footer>
+    <footer class="flex flex-wrap items-center justify-end gap-2">${check('', 'md', 'mr-auto')}${[t('manage:resourceSearch.searchTorrents'), t('manage:hdUpgrades.viewEditions')].map(label => islandButton({ variant: 'secondary', size: 'small', label, attrs: wait })).join('')}</footer>
   </li>`;
   return `<div class="peach-react"><div class="mx-auto flex w-full max-w-board flex-col gap-8">
     ${islandSummary(t('manage:hdUpgrades.summaryLabel'))}
+    <div class="mb-4">${check(t('manage:hdUpgrades.selectAll'), 'sm')}</div>
     <ul class="card-grid-cover gap-5">${card.repeat(6)}</ul>
   </div></div>`;
 }

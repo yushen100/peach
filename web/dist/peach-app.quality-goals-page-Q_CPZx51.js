@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "dbf047e7-3458-4cf0-89b8-6133d7d9179d", e._sentryDebugIdIdentifier = "sentry-dbid-dbf047e7-3458-4cf0-89b8-6133d7d9179d");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "4af5157a-d8bf-4fb0-b3ef-8f9de3d8005a", e._sentryDebugIdIdentifier = "sentry-dbid-4af5157a-d8bf-4fb0-b3ef-8f9de3d8005a");
 	} catch {}
 })();
 import { Button as e, Checkbox as t, CloudDownloadDialog as n, CollectionSummary as r, EmptyState as i, LOC as a, Note as o, OA as s, QUALITY_GOALS_KEY as c, SelectionDock as l, __toESM as u, cardClass as d, enterPageSelection as f, errorMessage as p, exitPageSelection as m, fetchQualityGoals as h, fmtDur as g, fmtSize as _, previewUrl as v, require_jsx_runtime as y, require_react as b, t as x, usePageSelection as S, useQuery as C } from "./peach-app.js";
@@ -20,82 +20,82 @@ function O({ item: n, openItem: r, searchResources: i, javTitleHtml: o, javDispl
 		}),
 		children: [/* @__PURE__ */ (0, D.jsxs)("div", {
 			className: "flex min-w-0 gap-4",
+			children: [/* @__PURE__ */ (0, D.jsxs)("button", {
+				type: "button",
+				onClick: f,
+				"aria-label": x("manage:hdUpgrades.openVideo", { title: s(n) }),
+				className: "relative inline-grid w-card-cover shrink-0 self-start aspect-card-cover cursor-pointer place-items-center overflow-hidden rounded-2lg bg-media-placeholder",
+				children: [/* @__PURE__ */ (0, D.jsx)("span", {
+					className: "text-caption-1-regular text-text-secondary",
+					children: x("manage:hdUpgrades.noPreview")
+				}), /* @__PURE__ */ (0, D.jsx)("img", {
+					src: v(n),
+					alt: "",
+					loading: "lazy",
+					onError: (e) => e.currentTarget.remove(),
+					className: "absolute inset-0 size-full object-contain"
+				})]
+			}), /* @__PURE__ */ (0, D.jsxs)("div", {
+				className: "flex min-w-0 flex-col gap-1.5",
+				children: [
+					/* @__PURE__ */ (0, D.jsx)("h3", {
+						className: "text-headline-medium text-text-primary",
+						children: /* @__PURE__ */ (0, D.jsx)("button", {
+							type: "button",
+							onClick: f,
+							title: s(n),
+							className: "line-clamp-2 w-full cursor-pointer text-left wrap-anywhere",
+							dangerouslySetInnerHTML: { __html: o(n) }
+						})
+					}),
+					/* @__PURE__ */ (0, D.jsxs)("p", {
+						className: "flex flex-wrap items-center gap-2 text-body-2-regular text-text-secondary",
+						children: [
+							/* @__PURE__ */ (0, D.jsx)("span", {
+								className: "contents",
+								dangerouslySetInnerHTML: { __html: c(n.location, n.cost) }
+							}),
+							/* @__PURE__ */ (0, D.jsx)("span", { children: a[n.location] ?? n.location }),
+							/* @__PURE__ */ (0, D.jsx)("span", { children: g(n.duration) }),
+							/* @__PURE__ */ (0, D.jsx)("span", { children: Number(n.size) > 0 ? _(Number(n.size)) : x("manage:hdUpgrades.unknownSize") })
+						]
+					}),
+					n.reason ? /* @__PURE__ */ (0, D.jsx)("p", {
+						className: "border-t border-separator-border pt-3 text-body-2-regular text-text-secondary wrap-anywhere",
+						children: n.reason
+					}) : null
+				]
+			})]
+		}), /* @__PURE__ */ (0, D.jsxs)("footer", {
+			className: "flex flex-wrap items-center justify-end gap-2",
 			children: [
 				n.code ? /* @__PURE__ */ (0, D.jsx)(t, {
 					slot: null,
-					className: "mt-1 shrink-0 self-start",
+					className: "mr-auto",
 					"aria-label": x("manage:hdUpgrades.selectVideo", { title: s(n) }),
 					isSelected: l,
 					onChange: u
 				}) : null,
-				/* @__PURE__ */ (0, D.jsxs)("button", {
-					type: "button",
+				n.code ? /* @__PURE__ */ (0, D.jsx)(e, {
+					variant: "secondary",
+					size: "small",
+					onClick: () => i({
+						code: n.code,
+						title: s(n),
+						origin: `asset:${n.id}`,
+						searchReason: n.reason || "",
+						duration: n.duration,
+						cover: v(n)
+					}),
+					children: x("manage:resourceSearch.searchTorrents")
+				}) : null,
+				/* @__PURE__ */ (0, D.jsx)(e, {
+					variant: "secondary",
+					size: "small",
 					onClick: f,
-					"aria-label": x("manage:hdUpgrades.openVideo", { title: s(n) }),
-					className: "relative inline-grid w-card-cover shrink-0 self-start aspect-card-cover cursor-pointer place-items-center overflow-hidden rounded-2lg bg-media-placeholder",
-					children: [/* @__PURE__ */ (0, D.jsx)("span", {
-						className: "text-caption-1-regular text-text-secondary",
-						children: x("manage:hdUpgrades.noPreview")
-					}), /* @__PURE__ */ (0, D.jsx)("img", {
-						src: v(n),
-						alt: "",
-						loading: "lazy",
-						onError: (e) => e.currentTarget.remove(),
-						className: "absolute inset-0 size-full object-contain"
-					})]
-				}),
-				/* @__PURE__ */ (0, D.jsxs)("div", {
-					className: "flex min-w-0 flex-col gap-1.5",
-					children: [
-						/* @__PURE__ */ (0, D.jsx)("h3", {
-							className: "text-headline-medium text-text-primary",
-							children: /* @__PURE__ */ (0, D.jsx)("button", {
-								type: "button",
-								onClick: f,
-								title: s(n),
-								className: "line-clamp-2 w-full cursor-pointer text-left wrap-anywhere",
-								dangerouslySetInnerHTML: { __html: o(n) }
-							})
-						}),
-						/* @__PURE__ */ (0, D.jsxs)("p", {
-							className: "flex flex-wrap items-center gap-2 text-body-2-regular text-text-secondary",
-							children: [
-								/* @__PURE__ */ (0, D.jsx)("span", {
-									className: "contents",
-									dangerouslySetInnerHTML: { __html: c(n.location, n.cost) }
-								}),
-								/* @__PURE__ */ (0, D.jsx)("span", { children: a[n.location] ?? n.location }),
-								/* @__PURE__ */ (0, D.jsx)("span", { children: g(n.duration) }),
-								/* @__PURE__ */ (0, D.jsx)("span", { children: Number(n.size) > 0 ? _(Number(n.size)) : x("manage:hdUpgrades.unknownSize") })
-							]
-						}),
-						n.reason ? /* @__PURE__ */ (0, D.jsx)("p", {
-							className: "border-t border-separator-border pt-3 text-body-2-regular text-text-secondary wrap-anywhere",
-							children: n.reason
-						}) : null
-					]
+					children: x("manage:hdUpgrades.viewEditions")
 				})
 			]
-		}), /* @__PURE__ */ (0, D.jsxs)("footer", {
-			className: "flex flex-wrap justify-end gap-2",
-			children: [n.code ? /* @__PURE__ */ (0, D.jsx)(e, {
-				variant: "secondary",
-				size: "small",
-				onClick: () => i({
-					code: n.code,
-					title: s(n),
-					origin: `asset:${n.id}`,
-					searchReason: n.reason || "",
-					duration: n.duration,
-					cover: v(n)
-				}),
-				children: x("manage:resourceSearch.searchTorrents")
-			}) : null, /* @__PURE__ */ (0, D.jsx)(e, {
-				variant: "secondary",
-				size: "small",
-				onClick: f,
-				children: x("manage:hdUpgrades.viewEditions")
-			})]
 		})]
 	});
 }
@@ -195,4 +195,4 @@ function k({ toast: a, ...u }) {
 }
 export { k as QualityGoalsPage };
 
-//# debugId=dbf047e7-3458-4cf0-89b8-6133d7d9179d
+//# debugId=4af5157a-d8bf-4fb0-b3ef-8f9de3d8005a

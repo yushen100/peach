@@ -42,8 +42,6 @@ function GoalCard({ item, openItem, searchResources, javTitleHtml, javDisplayNam
     <li data-goal-id={item.id} data-board-selected={picked || undefined}
       className={cardClass({ padding: 'none', className: 'flex flex-col gap-3 p-3' })}>
       <div className="flex min-w-0 gap-4">
-        {item.code ? <Checkbox slot={null} className="mt-1 shrink-0 self-start" aria-label={t('manage:hdUpgrades.selectVideo', { title: javDisplayName(item) })}
-          isSelected={picked} onChange={onPick} /> : null}
         {/* 居中那句占位文字用 `inline-grid`：旧样式表里 `.grid` 是海报墙那条带列宽和
             间距的规则，排在 `peach-app.css` 后面会赢。这颗按钮是 flex 子项，行内格
             会被块级化，算出来仍是 `display:grid`。 */}
@@ -77,7 +75,10 @@ function GoalCard({ item, openItem, searchResources, javTitleHtml, javDisplayNam
             : null}
         </div>
       </div>
-      <footer className="flex flex-wrap justify-end gap-2">
+      {/* 勾选框放在底栏左端：摆在封面前面会把标题和读数那一列挤窄，宽屏三列时读数折成好几行。 */}
+      <footer className="flex flex-wrap items-center justify-end gap-2">
+        {item.code ? <Checkbox slot={null} className="mr-auto" aria-label={t('manage:hdUpgrades.selectVideo', { title: javDisplayName(item) })}
+          isSelected={picked} onChange={onPick} /> : null}
         {item.code ? <Button variant="secondary" size="small" onClick={() => searchResources({
           code: item.code!, title: javDisplayName(item), origin: `asset:${item.id}`, searchReason: item.reason || '',
           duration: item.duration, cover: previewUrl(item),

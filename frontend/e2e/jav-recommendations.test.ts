@@ -136,7 +136,8 @@ describe('JAV 推荐与加载结构', () => {
       });
       assert.deepEqual(avatarShape, { width: '38px', height: '38px', radius: '50%' });
       assert.deepEqual(await page.locator('[data-jav-skeleton-actions]').first().locator('.skeleton').evaluateAll(nodes => nodes.map(node => getComputedStyle(node).height)), ['36px', '36px', '36px']);
-      assert.deepEqual(await page.locator('[data-jav-skeleton-card]').first().locator('[data-jav-skeleton-text]').evaluateAll(nodes => nodes.map(node => getComputedStyle(node).height)), ['20px', '20px', '18px', '18px']);
+      // 标题两条各占一行、条高 1em（14px），之间留缝；署名两条按行高。
+      assert.deepEqual(await page.locator('[data-jav-skeleton-card]').first().locator('[data-jav-skeleton-text]').evaluateAll(nodes => nodes.map(node => getComputedStyle(node).height)), ['14px', '14px', '18px', '18px']);
       assert.equal(await page.locator('[data-jav-skeleton-cover]').first().evaluate(node => getComputedStyle(node).borderRadius),
         await page.locator('#main').evaluate(node => getComputedStyle(node).getPropertyValue('--surface-radius').trim()));
       assert.equal(await page.locator('[data-jav-filter] [data-entity-sep]').count(), 1);
