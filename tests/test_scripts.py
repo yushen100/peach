@@ -5574,7 +5574,9 @@ class GitGudPackageMirrorTests(unittest.TestCase):
         response.__enter__.return_value.read.return_value = json.dumps(release).encode()
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory).resolve()
-            (root / 'RELEASE_NOTES.md').write_text('### Added\n\n- Downloads.\n', encoding='utf-8')
+            (root / 'RELEASE_NOTES.md').write_text(
+                '### Added\n\n- Downloads.\n\n[Installer](https://github.com/peach-mitao/peach/releases/download/'
+                'v1.2.3/Peach-1.2.3-windows-x64-setup.exe)\n', encoding='utf-8')
             with mock.patch.dict(os.environ, {'CI_COMMIT_TAG': 'v1.2.3', 'CI_COMMIT_SHA': sha,
                     'CI_PROJECT_URL': 'https://gitgud.io/owner/repo', 'PEACH_DOWNLOAD_BACKEND': 'both',
                     'PEACH_R2_PUBLIC_BASE': 'https://downloads.example'}), \

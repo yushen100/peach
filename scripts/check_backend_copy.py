@@ -44,10 +44,12 @@ CONTENT_FILES = {
     "studio_words.py",        # 厂牌官网与公司资料判据的页面原词、复核判词与按厂牌名索引的取图来源
     "taste_words.py",         # 口味维度匹配词、停用词、馆藏规范标签名与成人站标题记号
     "junk_words.py",          # 推广套话、推广品牌、推广目录形态与分卷标记
+    "release_words.py",       # GitHub Release 正文里认的折叠标题与旧版下载段标题
 }
 #: 开发工具里整份只有数据的脚本，键是 `scripts/` 下的相对路径；数据和输出混在一起的脚本照常计数。
 DEV_CONTENT_FILES = {
     "legacy_values.py",  # 旧版复核产物与续跑日志里的中文取值到英文 id 的对照
+    "release_download_text.py",  # Release 正文下载段的中英文模板
 }
 CODE_KEYWORDS = {"code", "message_code"}
 CODED_CALLS = {"message_fields", "UserFacingError", "UserValueError", "UserRuntimeError", "UserPermissionError",

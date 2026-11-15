@@ -11,7 +11,7 @@ import httpx
 from . import __version__, distribution, docker_update
 from .http import HttpRequest, HttpxTransport
 from .update_packages import TOOL_PATHS
-from . import interface_text
+from . import interface_text, release_words
 from .user_messages import UserValueError, message_fields
 
 RELEASES_URL = "https://github.com/peach-mitao/peach/releases"
@@ -22,12 +22,15 @@ DOWNLOADS_API = DOWNLOADS_BASE + "/releases.json"
 LISTING_RULE = 'source-aware-v2'
 #: 有新版本时最多列出几版的更新说明，更早的看 Release 页。
 NOTES_LIMIT = 10
-#: Release 正文里中文那一段的折叠标题，与 `scripts/changelog.py` 的 `CHINESE_SUMMARY` 相同。
-CHINESE_FOLD = re.compile(r"<details>\s*<summary>简体中文</summary>(?P<body>.*?)</details>", re.S)
-#: 下载段的折叠块（英文 Downloads、中文「下载」），不算更新说明。
-DOWNLOADS_FOLD = re.compile(r"<details>\s*<summary>(?:Downloads|下载)[^<]*</summary>.*?</details>", re.S)
+#: Release 正文里中文那一段的折叠块，标题与 `scripts/changelog.py` 的 `CHINESE_SUMMARY` 相同。
+CHINESE_FOLD = re.compile(rf"<details>\s*<summary>{re.escape(release_words.CHINESE_SUMMARY)}</summary>"
+                          r"(?P<body>.*?)</details>", re.S)
+#: 下载段的折叠块（英文、中文各一个），不算更新说明；先于中文段去掉，中文段里就不再有嵌套。
+DOWNLOADS_FOLD = re.compile(rf"<details>\s*<summary>(?:{'|'.join(map(re.escape, release_words.DOWNLOAD_SUMMARIES))})"
+                            r"[^<]*</summary>.*?</details>", re.S)
 #: 更新说明到这里为止：之后是旧写法的下载段或完整变更链接。
-NOTES_END = re.compile(r"^(?:## 下载选择|\[Full Changelog|\*\*Full Changelog)", re.M)
+NOTES_END = re.compile(rf"^(?:{re.escape(release_words.LEGACY_DOWNLOADS_HEADING)}|\[Full Changelog|\*\*Full Changelog)",
+                       re.M)
 #: 安装方式与更新通道：响应带 `installation_code`、`channel_code`，前端按它取译文和判断；
 #: 同层的名字按 zh-CN 渲染（`server:release.installation.<id>`、`server:release.channel.<id>`）。
 INSTALLATIONS = ("docker", "standalone", "source")
