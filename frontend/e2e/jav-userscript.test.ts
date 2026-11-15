@@ -123,6 +123,8 @@ async function open(browser: Browser, options: {
 }
 
 const button = (page: Page) => page.locator(ROOT).locator('[data-action="add"]');
+// 没在跟踪又要核对状态时，查询是按钮区里的刷新图标键，主按钮隐藏。
+const recheck = (page: Page) => page.locator(ROOT).locator('[data-action="query"]');
 const settingsDialog = (page: Page) => page.locator('#peach-jav-settings').getByRole('dialog');
 async function unpairedStorage(page: Page) {
   const values = await page.evaluate(() => window.javMock.values);
@@ -575,11 +577,11 @@ describe('JAV 用户脚本', () => {
       await page.clock.fastForward(30_000);
       assert.equal(await page.evaluate(() => window.javMock.calls.length), 2);
       assert.equal(await page.evaluate(() => window.javMock.reports.length), 1);
-      await button(page).click();
+      await recheck(page).click();
       await pending(page, 3);
       await page.evaluate(() => window.javMock.pending[2]!.onerror());
       await ready(page, '查询 Peach 状态');
-      await button(page).click();
+      await recheck(page).click();
       await pending(page, 4);
       await reply(page, 3, body('failed'));
       await ready(page, '重试加入 Peach 馆藏');
@@ -603,7 +605,7 @@ describe('JAV 用户脚本', () => {
       await reply(page, 1, body('owned', 'ABW-123'));
       await ready(page, '查询 Peach 状态');
       assert.match(await page.locator(ROOT).getByRole('status', { name: 'Peach 任务状态', exact: true }).innerText(), /状态无效/);
-      await button(page).click();
+      await recheck(page).click();
       await pending(page, 3);
       await page.evaluate(() => window.javMock.reply(2, {}, 401));
       await ready(page, '查询 Peach 状态');
