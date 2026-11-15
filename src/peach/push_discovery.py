@@ -309,9 +309,12 @@ class DiscoveryQueue:
         debounce: float = DEBOUNCE_SECONDS, settle: float = SETTLE_SECONDS,
         timeout: float = SETTLE_TIMEOUT_SECONDS, max_pending: int = MAX_PENDING,
         journal: Path | None = None, journal_seconds: float = JOURNAL_SECONDS,
+        probe_many: Callable[[list[tuple[str, str]]], list] | None = None,
     ):
         self.ingest = ingest
         self.probe = probe
+        #: 一次探一批，按序回大小、None 或 OSError；给了就不再逐条调 `probe`。
+        self.probe_many = probe_many
         self.debounce = debounce
         self.settle = settle
         self.timeout = timeout
@@ -371,19 +374,32 @@ class DiscoveryQueue:
         """把到期的待办推进一步，返回这一轮实际登记的条数。"""
         with self._lock:
             ready = [entry for entry in self._pending.values() if entry.due <= now]
-        done = 0
+        live = []
         for entry in ready:
-            done += self._advance(entry, now)
+            if now - entry.first_seen > self.timeout:
+                self._forget(entry)
+                self.counters.timed_out += 1
+            else:
+                live.append(entry)
+        done = 0
+        for entry, size in zip(live, self._sizes(live)):
+            done += self._advance(entry, now, size)
         return done
 
-    def _advance(self, entry: _Pending, now: float) -> int:
-        if now - entry.first_seen > self.timeout:
-            self._forget(entry)
-            self.counters.timed_out += 1
-            return 0
-        try:
-            size = self.probe(entry.location, entry.path)
-        except OSError:
+    def _sizes(self, entries: list[_Pending]) -> list:
+        """这一轮到期各条的大小：数字、None（明确不在）或 OSError（没答上）。"""
+        if self.probe_many is not None:
+            return self.probe_many([(entry.location, entry.path) for entry in entries])
+        sizes = []
+        for entry in entries:
+            try:
+                sizes.append(self.probe(entry.location, entry.path))
+            except OSError as error:
+                sizes.append(error)
+        return sizes
+
+    def _advance(self, entry: _Pending, now: float, size) -> int:
+        if isinstance(size, OSError):
             # 读不了、超时：不知道文件在不在，不当成没了。隔一个静置窗口再测，
             # 一直答不上就由 `timeout` 交回全量扫描。
             with self._lock:
@@ -725,7 +741,7 @@ class PushDiscoveryService:
         self.config = self.settings.load(self.declared_roots)
         self.queue = DiscoveryQueue(
             self._ingest, self._probe, debounce=debounce, settle=settle,
-            journal=Path(state_root) / PENDING_FILENAME)
+            journal=Path(state_root) / PENDING_FILENAME, probe_many=self._probe_many)
         self.local_channel = ChannelState()
         self._observer = None
         self._lock = threading.Lock()
@@ -738,12 +754,14 @@ class PushDiscoveryService:
 
     # -- 出口：两条通道最后都走这里
 
-    def _local_path(self, location: str, path: str) -> Path:
+    def _local_directory(self, location: str, path: str):
+        """账本路径所在目录的本机形态（`Path` 或 SMB 目录）。"""
         from .scan import walk_root_for
-        ledger_dir = str(PureWindowsPath(path).parent)
-        directory = walk_root_for(
-            location, ledger_dir, declared_roots=self.declared_roots, mounts=self.mounts)
-        return directory / PureWindowsPath(path).name
+        return walk_root_for(location, str(PureWindowsPath(path).parent),
+                             declared_roots=self.declared_roots, mounts=self.mounts)
+
+    def _local_path(self, location: str, path: str) -> Path:
+        return self._local_directory(location, path) / PureWindowsPath(path).name
 
     def _probe(self, location: str, path: str) -> int | None:
         """文件大小；明确不在回 None。读不了、超时照常抛 OSError，由队列过一会儿再测。
@@ -754,6 +772,42 @@ class PushDiscoveryService:
             return media_io.file_stat(self._local_path(location, path)).st_size
         except (FileNotFoundError, NotADirectoryError, ValueError):
             return None
+
+    def _probe_many(self, items: list[tuple[str, str]]) -> list:
+        """一轮到期的几条一起探：同一目录里有两条以上就列一次目录拿大小，其余逐条 stat。
+
+        每次读取都起一个子进程；整目录批量落地时逐条 stat 会让队列排上几十秒。
+        目录里按名字找不到的那条（大小写、Unicode 形态不一）再单独 stat 一次，不据此判它不在。
+        """
+        sizes: list = [None] * len(items)
+        groups: dict[str, tuple[object, list[tuple[int, str, str]]]] = {}
+        for index, (location, path) in enumerate(items):
+            try:
+                directory = self._local_directory(location, path)
+            except ValueError:
+                continue
+            groups.setdefault(str(directory), (directory, []))[1].append((index, location, path))
+        for directory, members in groups.values():
+            found = {}
+            if len(members) > 1:
+                try:
+                    found = {entry.name: entry for entry in media_io.directory_entries(directory)}
+                except (FileNotFoundError, NotADirectoryError):
+                    continue
+                except OSError as error:
+                    for index, _location, _path in members:
+                        sizes[index] = error
+                    continue
+            for index, location, path in members:
+                entry = found.get(PureWindowsPath(path).name)
+                try:
+                    if entry is None:
+                        sizes[index] = self._probe(location, path)
+                    elif not entry.is_dir():
+                        sizes[index] = entry.stat().st_size
+                except OSError as error:
+                    sizes[index] = error
+        return sizes
 
     def _ingest(self, location: str, path: str, move_from=None, *, notify: bool = True) -> bool:
         from .record_rehome import reattach_in

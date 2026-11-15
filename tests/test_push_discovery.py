@@ -788,6 +788,28 @@ class HungMountTests(_ServiceCase):
         self.assertTrue(finished, "队列线程卡在了本进程的 stat 上")
         self.assertEqual(size, 4)
 
+    def test_files_due_together_in_one_directory_are_probed_with_one_listing(self):
+        for name, size in (("a.mp4", 1), ("b.mp4", 2), ("c.mp4", 3)):
+            (self.media / name).write_bytes(b"0" * size)
+        (self.media / "sub").mkdir()
+        (self.media / "sub" / "d.mp4").write_bytes(b"0" * 4)
+        service = self.service()
+        items = [("local", self.ledger("local", name)) for name in ("a.mp4", "b.mp4", "c.mp4", "gone.mp4")]
+        items.append(("local", self.ledger("local", "sub", "d.mp4")))
+        listings, stats = mock.Mock(wraps=push.media_io.directory_entries), mock.Mock(wraps=push.media_io.file_stat)
+        with mock.patch.object(push.media_io, "directory_entries", listings), \
+                mock.patch.object(push.media_io, "file_stat", stats), _hung_mount(self.media):
+            finished, sizes = _within(lambda: service._probe_many(items))
+        self.assertTrue(finished, "批量探测卡在了本进程的读盘上")
+        self.assertEqual(sizes, [1, 2, 3, None, 4])
+        # 根目录四条列一次；按名字找不到的那条和单独一条的子目录各 stat 一次。
+        self.assertEqual((listings.call_count, stats.call_count), (1, 2))
+        from peach.os_errors import CodedTimeoutError
+        with mock.patch.object(push.media_io, "directory_entries",
+                               side_effect=CodedTimeoutError(errno.ETIMEDOUT, "errors.mediaIo.readTimedOut")):
+            answers = service._probe_many(items[:2])
+        self.assertTrue(all(isinstance(answer, TimeoutError) for answer in answers), answers)
+
     def test_a_probe_that_times_out_is_not_taken_for_a_missing_file(self):
         from peach.os_errors import CodedTimeoutError
         service = self.service()
@@ -981,8 +1003,8 @@ class LocalChannelTests(_ServiceCase):
     def test_default_native_watcher_is_idle_until_new_files_arrive(self):
         (self.media/'existing.mp4').write_bytes(b'old')
         service = self.service()
-        probe = mock.Mock(wraps=service.queue.probe)
-        service.queue.probe = probe
+        probe = mock.Mock(wraps=service.queue.probe_many)
+        service.queue.probe_many = probe
         service.start()
         self.assertTrue(service.wait_local(15))
         if not service.local_channel.running:
