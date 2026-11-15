@@ -50,6 +50,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Fixed / 修复
 
+- **Library**: Codes such as S2M-009, S2MCR-08, CW3D2DBD-14 and IBW-483z are recognised from file names, and KIRARI MKD-S codes can be sent to sources (#124). / **馆藏**：能从文件名认出 S2M-009、S2MCR-08、CW3D2DBD-14 和 IBW-483z 这类番号，KIRARI 的 MKD-S 番号也能拿去采集了（#124）。
 - **Library**: DMM video previews in JAV details play again after DMM moved them to a new host (#697). / **馆藏**：DMM 换了预告视频的主机后，JAV 详情里的 DMM 视频预览重新能播（#697）。
 - **Sourcing**: Blu-ray editions in New releases merge into their DMM streaming edition, so they get the official cover and no longer appear twice (#694). / **采集**：新作里的蓝光版并入 DMM 配信版，能取到官方封面，也不再和配信版重复列出（#694）。
 - **Library**: The Keep dropdown in Merge tags under tag management shows its options again (#187). / **馆藏**：标签管理里「合并标签」的「保留」下拉能看到选项了（#187）。
