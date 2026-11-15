@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "01d8aff9-1e49-4c03-812d-926a844ea7a5", e._sentryDebugIdIdentifier = "sentry-dbid-01d8aff9-1e49-4c03-812d-926a844ea7a5");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "dbf047e7-3458-4cf0-89b8-6133d7d9179d", e._sentryDebugIdIdentifier = "sentry-dbid-dbf047e7-3458-4cf0-89b8-6133d7d9179d");
 	} catch {}
 })();
 import { Button as e, Checkbox as t, CloudDownloadDialog as n, CollectionSummary as r, EmptyState as i, LOC as a, Note as o, OA as s, QUALITY_GOALS_KEY as c, SelectionDock as l, __toESM as u, cardClass as d, enterPageSelection as f, errorMessage as p, exitPageSelection as m, fetchQualityGoals as h, fmtDur as g, fmtSize as _, previewUrl as v, require_jsx_runtime as y, require_react as b, t as x, usePageSelection as S, useQuery as C } from "./peach-app.js";
@@ -32,7 +32,7 @@ function O({ item: n, openItem: r, searchResources: i, javTitleHtml: o, javDispl
 					type: "button",
 					onClick: f,
 					"aria-label": x("manage:hdUpgrades.openVideo", { title: s(n) }),
-					className: "relative inline-grid w-card-cover shrink-0 self-start aspect-card-cover cursor-pointer place-items-center overflow-hidden rounded-2lg bg-background-tertiary-default",
+					className: "relative inline-grid w-card-cover shrink-0 self-start aspect-card-cover cursor-pointer place-items-center overflow-hidden rounded-2lg bg-media-placeholder",
 					children: [/* @__PURE__ */ (0, D.jsx)("span", {
 						className: "text-caption-1-regular text-text-secondary",
 						children: x("manage:hdUpgrades.noPreview")
@@ -195,4 +195,4 @@ function k({ toast: a, ...u }) {
 }
 export { k as QualityGoalsPage };
 
-//# debugId=01d8aff9-1e49-4c03-812d-926a844ea7a5
+//# debugId=dbf047e7-3458-4cf0-89b8-6133d7d9179d

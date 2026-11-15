@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "2d0762ac-92bb-422b-8eff-40ad005d3ad6", e._sentryDebugIdIdentifier = "sentry-dbid-2d0762ac-92bb-422b-8eff-40ad005d3ad6");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "9662d6f4-54a0-4074-9185-c16d99763dbb", e._sentryDebugIdIdentifier = "sentry-dbid-9662d6f4-54a0-4074-9185-c16d99763dbb");
 	} catch {}
 })();
 import { Button as e, Checkbox as t, CollectionSummary as n, DUPLICATES_KEY as r, EmptyState as i, FilterGlass as a, GlassPill as o, KEEP_LABELS as s, KEPT_DUPLICATES_KEY as ee, LOC as c, MEDIA_SOURCES_KEY as te, MEDIA_SOURCE_ICONS as l, Note as u, SelectionDock as ne, SourceLabel as d, SourceMark as f, TRASH_KEY as p, __toESM as m, batchOperate as h, bulkCloudPreferences as re, busyProps as ie, cardClass as ae, cloudLocations as oe, confirmModal as se, distinctName as g, duplicateVictims as _, enterPageSelection as v, errorMessage as y, exitPageSelection as ce, fetchDuplicates as le, fetchKeptDuplicates as ue, fetchMediaSources as de, fmtDur as b, fmtSize as x, groupKey as S, keepGroup as C, keepGroups as w, mixedCloudPreferences as fe, queryClient as T, require_jsx_runtime as E, require_react as D, runBulkAction as pe, sharedNamePrefix as me, spriteGlyph as O, t as k, useMutation as A, usePageSelection as he, useQuery as j, victimBytes as M } from "./peach-app.js";
@@ -89,7 +89,7 @@ function ve({ file: e, prefix: t, openItem: n }) {
 				type: "button",
 				onClick: r,
 				"aria-label": k("cleanup:duplicates.previewFile", { name: e.name }),
-				className: "relative row-span-2 inline-grid aspect-16/10 w-full cursor-pointer place-items-center overflow-hidden rounded-2lg bg-background-tertiary-default text-text-secondary",
+				className: "relative row-span-2 inline-grid aspect-16/10 w-full cursor-pointer place-items-center overflow-hidden rounded-2lg bg-media-placeholder text-text-secondary",
 				children: [/* @__PURE__ */ (0, P.jsx)(F, {
 					"aria-hidden": !0,
 					className: "size-6"
@@ -464,4 +464,4 @@ function G({ openItem: l, toast: f, failure: p }) {
 }
 export { G as DuplicatesPage };
 
-//# debugId=2d0762ac-92bb-422b-8eff-40ad005d3ad6
+//# debugId=9662d6f4-54a0-4074-9185-c16d99763dbb
