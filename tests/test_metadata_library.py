@@ -219,6 +219,23 @@ class LibraryNfoTests(unittest.TestCase):
         self.assertEqual(set(current['completed_previews']), set(keys))
         self.assertEqual(set(current['completed_metadata']), set(keys[1:]))
 
+    def test_creator_nicknames_with_numbers_stay_unknown_until_there_is_release_evidence(self):
+        """#572：创作者目录里「昵称加数字」和番号同形，分不清就不写成番号。"""
+        from peach.catalog_rules import release_code_from_filename
+        ambiguous = (dict(name='sumwall95 masturbation_1.mp4', creator='sunwall'),
+                     dict(name='oscarkim123 cos.mp4', creator='oscarkim123'),
+                     dict(name='aerith 2412a.mp4', creator='cosplayer'))
+        for row in ambiguous:
+            self.assertTrue(release_code_from_filename(row['name']), row['name'])
+            self.assertIsNone(library_processing._filename_code(row), row['name'])
+        # 没有创作者、有厂牌或出演者、写法本身属于发行体系的，照旧认出番号。
+        for row, code in ((dict(name='ABP-123.mp4'), 'ABP-123'),
+                          (dict(name='ABP-123.mp4', creator='uploader', studio='Prestige'), 'ABP-123'),
+                          (dict(name='ABP-123.mp4', creator='uploader', performers='someone'), 'ABP-123'),
+                          (dict(name='FC2-PPV-1234567.mp4', creator='uploader'), 'FC2-PPV-1234567'),
+                          (dict(name='300MIUM-698.mp4', creator='uploader'), '300MIUM-698')):
+            self.assertEqual(library_processing._filename_code(row), code, row)
+
     def test_old_completed_receipts_retry_codeless_videos_the_current_rules_now_recognise(self):
         from peach.library_processing import _LibraryCheckpoints
         database = LedgerDatabase(fresh_ledger(self.root))

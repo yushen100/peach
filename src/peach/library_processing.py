@@ -1506,6 +1506,18 @@ def _scrapes_as_jav(row, code):
                           ('performer',) if row.get('performers') else (), row.get('region'))
 
 
+def _filename_code(row, patterns=()):
+    """从文件名认出的番号；目录身份说明它分不清时是 None（#572）。
+
+    归在创作者名下、没有厂牌、发行日或出演者、写法又不属于任何发行体系时，`sumwall95`、
+    `oscarkim123` 这类「昵称加数字」和真番号同形，机器分不出是哪一种。这时不写进 `code`，
+    留在未知：写进去它就当番号显示、按番号取封面键。判据与刮削入口同一份
+    （`catalog_rules.scrapes_as_jav`），有发行证据或带 NFO 的照旧认。
+    """
+    code = release_code_from_filename(row.get('name') or '', patterns=patterns)
+    return code if code and _scrapes_as_jav(row, code) else None
+
+
 def _studio_evidence(row):
     """判片商时本机手上有的证据：文件路径、文件名和账本里已记的厂牌。"""
     return (row.get('path'), row.get('name'), row.get('studio'))
@@ -3000,7 +3012,7 @@ def _read_local_metadata(config, db_path, row, cover_root, listing, state, updat
     if video.name.casefold() not in files:
         issue(row, phrase('errors.libraryProcessing.mediaInaccessible'), action='reading_local', retryable=True)
         return None
-    code = _provider_code(row['code']) or release_code_from_filename(row['name'], patterns=code_patterns)
+    code = _provider_code(row['code']) or _filename_code(row, code_patterns)
     payload = None
     entries = []
     nfo, posters = listing.sidecars(video)
