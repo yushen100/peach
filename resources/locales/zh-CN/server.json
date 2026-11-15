@@ -4369,6 +4369,7 @@
     },
     "prepare": {
       "noOutput": "退出码 {{code}}，没有输出",
+      "timedOut": "{{command}} 超过 {{seconds}} 秒没有结束，已终止",
       "frozen": "打包进程不加载项目 venv，依赖由重启脚本核对",
       "noLock": "没有 uv.lock：{{path}}",
       "noVenv": "没有项目 venv：{{path}}",

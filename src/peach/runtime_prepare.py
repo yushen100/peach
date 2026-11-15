@@ -37,7 +37,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
-from . import interface_text
+from . import interface_text, process_job
 from .fsutil import atomic_write_text
 
 
@@ -49,6 +49,13 @@ STATE_FILE = "runtime-prepare.json"
 OUTPUT_TAIL = 600
 #: 能续跑的触发方式。后继另按 `followup_key` 判，不在这里。
 RESUMABLE_TRIGGERS = ("scheduled",)
+#: 各步子进程的期限（秒），只防永远不返回：超时就收掉整棵进程树，按这一步失败处理。
+#: 托盘启动和手动重启都排在这几步后面，卡住时服务起不来，重启还占着托盘的操作锁。
+UV_CHECK_SECONDS = 300
+UV_SYNC_SECONDS = 1800
+MIGRATE_STATUS_SECONDS = 300
+#: 升级先整库备份再逐个迁移，大账本在慢盘上要很久，给足宽限。
+MIGRATE_UPGRADE_SECONDS = 2 * 3600
 
 Run = Callable[..., subprocess.CompletedProcess]
 
@@ -86,6 +93,12 @@ def _tail(completed: subprocess.CompletedProcess) -> str:
     return text[-OUTPUT_TAIL:] if text else _text("tray.prepare.noOutput", {"code": completed.returncode})
 
 
+def _timed_out(error: subprocess.TimeoutExpired) -> str:
+    command = (f"{Path(str(error.cmd[0])).stem} {error.cmd[1]}" if isinstance(error.cmd, (list, tuple))
+               else str(error.cmd))
+    return _text("tray.prepare.timedOut", {"command": command, "seconds": f"{error.timeout:g}"})
+
+
 def _quiet() -> dict:
     return {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
 
@@ -108,7 +121,7 @@ def find_uv(*, which: Callable[[str], str | None] = shutil.which,
 class Dependencies:
     """项目 venv 与 `uv.lock` 的一致性。`check` 只读，`sync` 真装。"""
 
-    def __init__(self, root: Path, *, run: Run = subprocess.run,
+    def __init__(self, root: Path, *, run: Run = process_job.run,
                  which: Callable[[str], str | None] = shutil.which,
                  environ: Mapping[str, str] | None = None, frozen: bool | None = None,
                  clock: Callable[[], float] = time.monotonic) -> None:
@@ -131,7 +144,7 @@ class Dependencies:
             return _text("tray.prepare.noUv"), None
         return None, uv
 
-    def _uv(self, uv: Path, *extra: str) -> subprocess.CompletedProcess:
+    def _uv(self, uv: Path, *extra: str, timeout: float) -> subprocess.CompletedProcess:
         environment = dict(self._environ)
         # 调用方自己的 venv 不能顶替项目的 `.venv`。
         for key in ("VIRTUAL_ENV", "UV_PROJECT_ENVIRONMENT"):
@@ -139,17 +152,20 @@ class Dependencies:
         environment.update(NO_COLOR="1", UV_NO_PROGRESS="1")
         return self._run(
             [str(uv), *UV_SYNC, *extra, "--project", str(self.root)],
-            cwd=str(self.root), capture_output=True, text=True, encoding="utf-8",
-            errors="replace", env=environment, check=False, **_quiet())
+            cwd=str(self.root), stdin=subprocess.DEVNULL, capture_output=True, text=True,
+            encoding="utf-8", errors="replace", env=environment, check=False, timeout=timeout,
+            **_quiet())
 
     def check(self) -> Step:
         reason, uv = self._skip()
         if uv is None:
             return Step("dependencies", "skipped", reason or "")
         try:
-            completed = self._uv(uv, "--check")
+            completed = self._uv(uv, "--check", timeout=UV_CHECK_SECONDS)
         except OSError as exc:
             return Step("dependencies", "failed", _text("tray.prepare.uvFailed", {"error": exc}))
+        except subprocess.TimeoutExpired as exc:
+            return Step("dependencies", "failed", _text("tray.prepare.checkFailed", {"output": _timed_out(exc)}))
         if completed.returncode == 0:
             return Step("dependencies", "current", _text("tray.prepare.dependenciesCurrent"))
         output = f"{completed.stdout or ''}\n{completed.stderr or ''}"
@@ -168,9 +184,11 @@ class Dependencies:
         _reason, uv = self._skip()
         started = self._clock()
         try:
-            completed = self._uv(uv)
+            completed = self._uv(uv, timeout=UV_SYNC_SECONDS)
         except OSError as exc:
             return Step("dependencies", "failed", _text("tray.prepare.uvFailed", {"error": exc}))
+        except subprocess.TimeoutExpired as exc:
+            return Step("dependencies", "failed", _text("tray.prepare.syncFailed", {"output": _timed_out(exc)}))
         if completed.returncode != 0:
             return Step("dependencies", "failed", _text("tray.prepare.syncFailed", {"output": _tail(completed)}))
         return Step("dependencies", "synced", _text("tray.prepare.synced", {
@@ -216,7 +234,7 @@ class Migrations:
     """用 venv 的 `peach migrate` 子进程把账本迁到当前结构。"""
 
     def __init__(self, db: Path, *, peach: Callable[[], Path],
-                 writer: Callable[[], tuple[bool, str]], run: Run = subprocess.run,
+                 writer: Callable[[], tuple[bool, str]], run: Run = process_job.run,
                  environ: Callable[[], Mapping[str, str]] | None = None) -> None:
         self.db = Path(db)
         self._peach = peach
@@ -224,14 +242,14 @@ class Migrations:
         self._run = run
         self._environ = environ or (lambda: os.environ)
 
-    def _migrate(self, executable: Path, *action: str) -> subprocess.CompletedProcess:
+    def _migrate(self, executable: Path, *action: str, timeout: float) -> subprocess.CompletedProcess:
         environment = dict(self._environ())
         # 子进程的 stdout 被管道捕获时默认走 ANSI 代码页，中文会变成替换字符。
         environment["PYTHONIOENCODING"] = "utf-8"
         return self._run(
             [str(executable), "migrate", *action, "--db", str(self.db)],
-            capture_output=True, text=True, encoding="utf-8", errors="replace",
-            env=environment, check=False, **_quiet())
+            stdin=subprocess.DEVNULL, capture_output=True, text=True, encoding="utf-8",
+            errors="replace", env=environment, check=False, timeout=timeout, **_quiet())
 
     def apply(self) -> Step:
         if not self.db.is_file():
@@ -241,9 +259,11 @@ class Migrations:
             return Step("migrations", "skipped", _text("tray.prepare.notMigrating", {"reason": why}))
         try:
             executable = self._peach()
-            status = self._migrate(executable, "status")
+            status = self._migrate(executable, "status", timeout=MIGRATE_STATUS_SECONDS)
         except OSError as exc:
             return Step("migrations", "failed", _text("tray.prepare.migrateStartFailed", {"error": exc}))
+        except subprocess.TimeoutExpired as exc:
+            return Step("migrations", "failed", _text("tray.prepare.statusFailed", {"output": _timed_out(exc)}))
         if status.returncode != 0:
             return Step("migrations", "failed", _text("tray.prepare.statusFailed", {"output": _tail(status)}))
         # `_migrate` 打的是 `migrations: <总数>, pending: <待迁移数>`。
@@ -253,9 +273,12 @@ class Migrations:
         if int(found.group(1)) == 0:
             return Step("migrations", "current", _text("tray.prepare.migrationsCurrent"))
         try:
-            upgrade = self._migrate(executable, "upgrade", "--yes")
+            upgrade = self._migrate(executable, "upgrade", "--yes", timeout=MIGRATE_UPGRADE_SECONDS)
         except OSError as exc:
             return Step("migrations", "failed", _text("tray.prepare.migrateStartFailed", {"error": exc}))
+        except subprocess.TimeoutExpired as exc:
+            return Step("migrations", "failed", _text("tray.prepare.upgradeFailed", {
+                "count": found.group(1), "output": _timed_out(exc)}))
         if upgrade.returncode != 0:
             return Step("migrations", "failed", _text("tray.prepare.upgradeFailed", {
                 "count": found.group(1), "output": _tail(upgrade)}))

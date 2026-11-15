@@ -4369,6 +4369,7 @@
     },
     "prepare": {
       "noOutput": "Exit code {{code}}, no output",
+      "timedOut": "{{command}} didn't finish within {{seconds}} seconds and was stopped",
       "frozen": "The packaged app does not load the project venv; the restart script checks dependencies",
       "noLock": "No uv.lock: {{path}}",
       "noVenv": "No project venv: {{path}}",

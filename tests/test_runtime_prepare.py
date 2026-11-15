@@ -30,6 +30,47 @@ OUTDATED = (
 )
 
 
+def hanging_program(directory: Path) -> Path:
+    """一个永不退出的可执行文件：它起的 Python 又起一个孙进程，都占着输出管道。
+
+    孙进程 PID 写进同目录的 `grandchild.pid`，清理时按它收尸。"""
+    script = directory / "hang.py"
+    script.write_text(
+        "import subprocess, sys, time\n"
+        "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
+        f"open({str(directory / 'grandchild.pid')!r}, 'w').write(str(child.pid))\n"
+        "time.sleep(60)\n", encoding="utf-8")
+    interpreter = getattr(sys, "_base_executable", sys.executable)
+    if os.name == "nt":
+        program = directory / "hang.cmd"
+        program.write_text(f'@"{interpreter}" "{script}"\r\n', encoding="utf-8")
+    else:
+        program = directory / "hang.sh"
+        program.write_text(f'#!/bin/sh\n"{interpreter}" "{script}"\n', encoding="utf-8")
+        program.chmod(0o755)
+    return program
+
+
+def kill_grandchild(directory: Path) -> None:
+    import psutil
+    try:
+        psutil.Process(int((directory / "grandchild.pid").read_text())).kill()
+    except (OSError, ValueError, psutil.Error):
+        pass
+
+
+def finishes_within(call, seconds: float):
+    """在线程里调用，期限内没返回就判失败，不让卡住的实现把整个测试进程拖住。"""
+    import threading
+    outcome = {}
+    worker = threading.Thread(target=lambda: outcome.update(value=call()), daemon=True)
+    worker.start()
+    worker.join(seconds)
+    if worker.is_alive():
+        raise AssertionError(f"{seconds} 秒内没有返回")
+    return outcome["value"]
+
+
 class FakeRun:
     """按调用顺序回放结果，同时记下每次的命令与关键字参数。"""
 
@@ -116,6 +157,28 @@ class DependencyTests(unittest.TestCase):
         step = self.dependencies(run).check()
         self.assertTrue(step.failed)
         self.assertIn("lockfile", step.message)
+
+    def test_a_check_that_never_returns_fails_within_its_deadline(self):
+        """托盘启动先跑这一步：uv 卡住时按失败返回，整棵进程树一并收掉。"""
+        directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.addCleanup(kill_grandchild, directory)
+        uv = hanging_program(directory)
+        dependencies = Dependencies(self.tree.root, which=lambda _name: str(uv), environ=dict(os.environ),
+                                    frozen=False)
+        with unittest.mock.patch.object(runtime_prepare, "UV_CHECK_SECONDS", 2), \
+                unittest.mock.patch.dict(os.environ, {"PEACH_LANGUAGE": "en"}):
+            step = finishes_within(dependencies.check, 30)
+        self.assertTrue(step.failed)
+        self.assertIn("didn't finish within 2 seconds", step.message)
+
+    def test_a_sync_that_never_returns_is_a_failure_not_an_exception(self):
+        run = FakeRun(completed(1, OUTDATED), subprocess.TimeoutExpired(["uv", "sync"], 1800))
+        with unittest.mock.patch.dict(os.environ, {"PEACH_LANGUAGE": "en"}):
+            step = self.dependencies(run).sync()
+        self.assertTrue(step.failed)
+        self.assertIn("uv sync didn't finish within 1800 seconds", step.message)
+        self.assertEqual([kwargs["timeout"] for _command, kwargs in run.calls],
+                         [runtime_prepare.UV_CHECK_SECONDS, runtime_prepare.UV_SYNC_SECONDS])
 
     def test_without_uv_nothing_runs(self):
         run = FakeRun()
@@ -256,6 +319,28 @@ class MigrationTests(unittest.TestCase):
         self.assertTrue(step.failed)
         self.assertIn("peach.exe missing", step.message)
 
+
+    def test_a_status_that_never_returns_fails_within_its_deadline(self):
+        directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.addCleanup(kill_grandchild, directory)
+        peach = hanging_program(directory)
+        migrations = Migrations(self.db, peach=lambda: peach, writer=lambda: (True, "writer"),
+                                environ=lambda: os.environ)
+        with unittest.mock.patch.object(runtime_prepare, "MIGRATE_STATUS_SECONDS", 2), \
+                unittest.mock.patch.dict(os.environ, {"PEACH_LANGUAGE": "en"}):
+            step = finishes_within(migrations.apply, 30)
+        self.assertTrue(step.failed)
+        self.assertIn("didn't finish within 2 seconds", step.message)
+
+    def test_an_upgrade_past_its_deadline_reports_the_backup(self):
+        run = FakeRun(completed(0, "migrations: 43, pending: 1\n"),
+                      subprocess.TimeoutExpired(["peach.exe", "migrate", "upgrade"], 7200))
+        step = self.migrations(run).apply()
+        self.assertTrue(step.failed)
+        self.assertIn("备份", step.message)
+        self.assertIn("peach migrate 超过 7200 秒没有结束", step.message)
+        self.assertEqual([kwargs["timeout"] for _command, kwargs in run.calls],
+                         [runtime_prepare.MIGRATE_STATUS_SECONDS, runtime_prepare.MIGRATE_UPGRADE_SECONDS])
 
 class RecordTests(unittest.TestCase):
     def test_the_record_is_read_back_only_for_the_tray_that_wrote_it(self):
