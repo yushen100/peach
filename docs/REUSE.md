@@ -120,6 +120,14 @@ YuNet 与 SFace 沿用既有模型哈希校验，Python 读取模型字节后交
 
 社区浏览器用例核对源码及构建样式，在 4:3、16:9 与手机竖屏下检查全屏及退出状态。Windows 由现有完整浏览器入口执行，macOS 的独立入口只加载画面比例用例，不重复运行 Windows 那一份。代码及样式资源替换即可生效，无存量数据转换；视口模拟不代替折叠屏实机验收。
 
+## 双栈监听与 IPv6 局域网发布
+
+监听复用 uvicorn 0.54.0 的 `Server.run(sockets=...)`：Peach 用标准库 `socket.create_server(dualstack_ipv6=True)` 预先绑好一个双栈 `::` 套接字再交给它，因为 uvicorn 按 `host` 只建单栈套接字，asyncio 的 `create_server` 也会给 IPv6 套接字强制打开 `IPV6_V6ONLY`。代理头仍由 uvicorn 自带的 `ProxyHeadersMiddleware` 处理，信任口径与 uvicorn 默认一致；来源判断用标准库 `ipaddress`。网卡前缀与地址用 `ifaddr==0.2.0`（MIT），它本来就是 zeroconf 的传递依赖，这次改为显式固定，不增加分发体积。
+
+Windows 与 Linux 的 AAAA 记录由 zeroconf 0.151.5 的 `ServiceInfo` 多地址发布，`Zeroconf()` 全网卡监听语义保持 ADR-0009 的已验证基线。macOS 沿用 `dns-sd -P`，它只接受一个地址，因此只发布 A 记录。
+
+Peach 自己负责的部分是局域网来源策略：IPv6 只接受回环、链路本地、ULA、本机网卡同一 /64 前缀，以及 `PEACH_LAN_IPV6_PREFIXES` 列出的前缀。2026-10-29 在一台有运营商 IPv6 前缀的 Windows 10 主机上，用真实套接字验证 IPv4、IPv6 回环与全球 IPv6 地址都能连到同一个 `::` 监听，zeroconf 发布 A 与两条 AAAA，系统解析器取到 AAAA 后经 IPv6 访问成功。Docker 默认网络与关闭 IPv6 的容器都绑得出 `::`，IPv4 映射正常；开启 IPv6 的网络里，容器能看到客户端的 IPv6 来源。
+
 ## 叶子证书密钥标识与存量补签
 
 采用 peach-patcher 的 [PR #177](https://github.com/peach-mitao/peach/pull/177)，固定来源提交 `62927d4b975bdad3420ef214bc9330382a4233d6`，许可证沿用本项目 AGPL-3.0-or-later。运行期与两个 TLS 设置脚本复用 OpenSSL 的 [`subjectKeyIdentifier` 和 `authorityKeyIdentifier`](https://docs.openssl.org/3.0/man5/x509v3_config/#authority-key-identifier) 扩展，显式签入叶子证书；标准库 [`ssl.create_default_context`](https://docs.python.org/3.14/library/ssl.html#ssl.create_default_context) 的严格验证策略保持启用。现有签发工具随运行环境提供，无新增依赖。
@@ -1023,7 +1031,7 @@ A 盘垃圾隔离使用短名称 `peach-purge-<32 位 UUID>.peach-quarantine`，
 | 图标 | 固定版本的本地 Lucide 子集；Health Icons 24 px outline（CC0）用于领域图标；Phosphor regular 填充字形（MIT）只用在描边说不清的地方（字母表 Aa、播放列表） | 标签、状态和交互设计 |
 | 资源文本中间省略 | Vercel Geist `MiddleTruncate` 行为契约 + 浏览器原生 `ResizeObserver`、`Intl.Segmenter`、Canvas 测量 | 文件名、路径、URL、ID 等资源标识用 `data-middle-truncate`；标题、说明、人名、标签等语义文本保留末尾省略；页面源测试登记全部末尾省略选择器，新增截断未先分类会失败 |
 | 定时轮询 | APScheduler（MIT，固定稳定版；3.x `BackgroundScheduler` / interval trigger） | 只在 ledger writer 启动、持久频率、首次延迟、单实例、手动/自动互斥、运行状态与来源错误汇总 |
-| 局域网发现 | Python zeroconf | 服务生命周期和真实客户端验收 |
+| 局域网发现 | Python zeroconf | 服务生命周期、A/AAAA 地址选择和真实客户端验收 |
 | 生成产物跨机同步 | Syncthing 2.1.x，Windows send-only → Mac receive-only | 目录划分、忽略规则、方向固定与「Mac 不发布正式产物」的边界 |
 | Windows 托盘 | pystray 0.19.5（LGPLv3）、Pillow、Win32 Per-Monitor V2 DPI | Peach 服务归属、后台更新检查、菜单动作、品牌图标 |
 | Windows 托盘恢复 | Windows 自带 `OpenProcess`、`GetProcessTimes`、[`WaitForSingleObject`](https://learn.microsoft.com/en-us/windows/win32/api/synchapi/nf-synchapi-waitforsingleobject)、`GetExitCodeProcess`；Python 3.12+ 标准库 `ctypes` / `subprocess`，无新增依赖或分发体积 | `tray_lifecycle` 保留明确退出意图、创建时间校验、3 次 / 5 分钟预算与重启交接。pystray 0.19.5 的 `_message_handlers` 接收 `WM_STOP` / `WM_ENDSESSION`，已核对安装包源码；Windows 临时进程实验证明强制退出能恢复，明确退出不会恢复。原生 API 随受支持的 Windows 维护；pystray 使用项目固定版本。不采用 Task Scheduler `RestartOnFailure`：它只管理任务启动的实例，桌面快捷方式与现有重启脚本不归其管理；不新增 psutil 运行时依赖，进程句柄已覆盖等待与退出码。已知边界是监视器随整棵进程树被终止时不能恢复。 |

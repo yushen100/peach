@@ -9,6 +9,7 @@ import time
 import ipaddress
 from collections.abc import Callable
 
+import ifaddr
 from zeroconf import ServiceInfo, Zeroconf
 
 
@@ -57,6 +58,25 @@ def lan_ipv4() -> str:
     return max(candidates)[2]
 
 
+def lan_ipv6(ipv4: str) -> tuple[str, ...]:
+    """与 `ipv4` 同一块网卡上可发布的 IPv6：全球单播与 ULA，不含链路本地。
+
+    链路本地地址要带网卡序号才能连，浏览器的地址栏用不了，所以不发布。
+    """
+    found: set[str] = set()
+    for adapter in ifaddr.get_adapters():
+        if not any(entry.is_IPv4 and entry.ip == ipv4 for entry in adapter.ips):
+            continue
+        for entry in adapter.ips:
+            if not entry.is_IPv6:
+                continue
+            address = ipaddress.IPv6Address(entry.ip[0].split("%", 1)[0])
+            if address.is_loopback or address.is_link_local or address.is_multicast:
+                continue
+            found.add(str(address))
+    return tuple(sorted(found))
+
+
 def _explicit_resolver(address: str) -> Callable[[], str]:
     parsed = ipaddress.ip_address(address)
     if not isinstance(parsed, ipaddress.IPv4Address):
@@ -102,6 +122,19 @@ def answers_on_network(hostname: str, timeout: float = 2.0) -> bool:
     return False
 
 
+def _resolve(address_resolver: Callable[[], str],
+             ipv6_resolver: Callable[[str], tuple[str, ...]] | None) -> tuple[str, tuple[str, ...]]:
+    """本轮要发布的 IPv4 与同网卡 IPv6。读不到 IPv6 只少发 AAAA，不影响 A 记录。"""
+    address = address_resolver()
+    if ipv6_resolver is None:
+        return address, ()
+    try:
+        return address, tuple(ipv6_resolver(address))
+    except OSError:
+        LOGGER.warning("读取网卡 IPv6 地址失败，本轮只发布 IPv4", exc_info=True)
+        return address, ()
+
+
 class MdnsPublisher:
     """Publish Peach exactly like the verified pre-migration web server.
 
@@ -120,14 +153,17 @@ class MdnsPublisher:
         secure: bool = False,
         address_resolver: Callable[[], str] = lan_ipv4,
         refresh_seconds: float = REFRESH_SECONDS,
+        ipv6_resolver: Callable[[str], tuple[str, ...]] | None = None,
     ) -> None:
         self.name = _normalized_name(name)
         self.port = port
         self.secure = secure
         self._address_resolver = address_resolver
+        self._ipv6_resolver = ipv6_resolver
         self._zeroconf: Zeroconf | None = None
         self._info: ServiceInfo | None = None
         self.address: str | None = None
+        self.ipv6_addresses: tuple[str, ...] = ()
         self.status = "pending"
         self.refresh_seconds = refresh_seconds
         self._stop = threading.Event()
@@ -144,15 +180,17 @@ class MdnsPublisher:
         finally:
             self._start_watcher()
 
-    def _register(self) -> None:
+    def _register(self, current: tuple[str, tuple[str, ...]] | None = None) -> None:
         if self._zeroconf is not None:
             return
-        address = self._address_resolver()
+        address, ipv6 = current or _resolve(self._address_resolver, self._ipv6_resolver)
         service_type = HTTPS_SERVICE_TYPE if self.secure else HTTP_SERVICE_TYPE
+        # AAAA 记录同样经 IPv4 组播应答；监听语义不变，仍是 ADR-0009 的全网卡 `Zeroconf()`。
         info = ServiceInfo(
             service_type,
             f"{self.name}.{service_type}",
-            addresses=[socket.inet_aton(address)],
+            addresses=[socket.inet_aton(address)]
+            + [socket.inet_pton(socket.AF_INET6, item) for item in ipv6],
             port=self.port,
             properties={"path": "/", "scheme": "https" if self.secure else "http"},
             server=f"{self.hostname}.",
@@ -166,6 +204,7 @@ class MdnsPublisher:
         self._zeroconf = zeroconf
         self._info = info
         self.address = address
+        self.ipv6_addresses = ipv6
         self.status = self.hostname
 
     def stop(self) -> None:
@@ -196,16 +235,16 @@ class MdnsPublisher:
         记录比没有记录更糟，客户端会一直连一个不存在的地方。
         """
         try:
-            address = self._address_resolver()
+            current = _resolve(self._address_resolver, self._ipv6_resolver)
         except (OSError, RuntimeError):
             if self._zeroconf is not None:
                 self._unregister()
                 self.status = "unavailable"
             return "unavailable"
-        if self._zeroconf is not None and address == self.address:
+        if self._zeroconf is not None and current == (self.address, self.ipv6_addresses):
             return "unchanged"
         self._unregister()
-        self._register()
+        self._register(current)
         return "republished"
 
     def _unregister(self) -> None:
@@ -219,6 +258,7 @@ class MdnsPublisher:
             self._zeroconf = None
             self._info = None
             self.address = None
+            self.ipv6_addresses = ()
             self.status = "stopped"
 
 
@@ -329,15 +369,19 @@ class DnsSdPublisher:
 
 def create_mdns_publisher(
     name: str, port: int, secure: bool = False, address: str | None = None,
-    refresh_seconds: float = REFRESH_SECONDS,
+    refresh_seconds: float = REFRESH_SECONDS, ipv6: bool = False,
 ) -> MdnsPublisher:
-    """`address` 显式钉住时复查是空转：解析器返回常量，地址永远不变。
+    """`address` 显式钉住时 IPv4 不再变化，复查只跟随同网卡的 IPv6 前缀。
 
-    macOS 走系统 mDNSResponder（`DnsSdPublisher`），其余平台用进程内的 zeroconf。
+    `ipv6` 表示服务确实在收 IPv6 连接，只有这时才发布 AAAA 记录。macOS 走系统
+    mDNSResponder（`DnsSdPublisher`），`dns-sd -P` 只带一个地址，不发布 AAAA；
+    其余平台用进程内的 zeroconf。
     """
     resolver = _explicit_resolver(address) if address else lan_ipv4
-    publisher = DnsSdPublisher if sys.platform == "darwin" else MdnsPublisher
-    return publisher(
+    if sys.platform == "darwin":
+        return DnsSdPublisher(name, port, secure=secure, address_resolver=resolver,
+                              refresh_seconds=refresh_seconds)
+    return MdnsPublisher(
         name, port, secure=secure, address_resolver=resolver,
-        refresh_seconds=refresh_seconds,
+        refresh_seconds=refresh_seconds, ipv6_resolver=lan_ipv6 if ipv6 else None,
     )

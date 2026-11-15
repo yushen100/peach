@@ -90,6 +90,23 @@ class TrayTests(unittest.TestCase):
     @unittest.skipUnless(
         os.name == "nt", "macOS 走 build_macos_service_specs，不发布 LAN 地址"
     )
+    def test_windows_https_listens_dual_stack_and_pins_only_the_published_ipv4(self):
+        """HTTPS 监听所有网卡才收得到 IPv6；`--mdns-address` 只钉 A 记录与健康检查地址。"""
+        with tempfile.TemporaryDirectory() as directory:
+            tls_dir = Path(directory)
+            for name in ("peach-local-ca.crt", "peach.crt", "peach.key"):
+                (tls_dir / name).write_text("test-only", encoding="utf-8")
+            specs = {spec.name: spec for spec in build_service_specs(lan_address="192.0.2.10",
+                                                                     tls_dir=tls_dir)}
+        command = specs["https"].command
+        self.assertEqual(command[command.index("--host") + 1], "0.0.0.0")
+        self.assertEqual(command[command.index("--mdns-address") + 1], "192.0.2.10")
+        self.assertNotIn("--ipv4-only", command)
+        self.assertEqual(specs["https"].health_url, "https://192.0.2.10/healthz")
+
+    @unittest.skipUnless(
+        os.name == "nt", "macOS 走 build_macos_service_specs，不发布 LAN 地址"
+    )
     def test_windows_service_address_uses_the_current_route_when_not_configured(self):
         with tempfile.TemporaryDirectory() as directory:
             tls_dir = Path(directory)
@@ -1217,6 +1234,9 @@ class MacMenuBarTests(unittest.TestCase):
             self.assertIn("--port", command)
             self.assertGreater(int(command[command.index("--port") + 1]), 1024)
             self.assertNotIn("--mdns-address", command)
+            # pf 只转发 IPv4 的 80/443；IPv6 客户端按 AAAA 连过来会落到没人监听的端口。
+            if "0.0.0.0" in command:
+                self.assertIn("--ipv4-only", command)
 
     def test_https_spec_only_appears_with_real_tls_material(self):
         """macOS 这份是开发环境：没有本机 CA 也应该能用，不像 Windows 那样直接报错。"""

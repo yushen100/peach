@@ -539,9 +539,18 @@ minnano-av 与 javdb 使用实际解析并核对身份后落库的记录，显�
 ### 从哪个地址打开
 
 - **Windows 测试包**：选「只有这台电脑」时打开 `http://127.0.0.1:<端口>`；选「同一局域网的设备」时，其他设备打开 `http://<mdns_name>.local:<端口>`。测试包用 HTTP，不加密。
-- **源码部署**：托盘在 80 端口提供 HTTP、在本机局域网 IPv4 地址的 443 端口提供 HTTPS，浏览器打开 `https://<mdns_name>.local`。局域网地址默认自动选择，也可以用启动参数或 `PEACH_LAN_ADDRESS` 指定。
+- **源码部署**：托盘在 80 端口提供 HTTP、在 443 端口提供 HTTPS，浏览器打开 `https://<mdns_name>.local`。发布的局域网 IPv4 地址默认自动选择，也可以用启动参数或 `PEACH_LAN_ADDRESS` 指定。
 
 `<mdns_name>` 是设置文件 `[server].mdns_name` 的值，Peach 会在局域网里广播这个名字。
+
+### IPv6
+
+`host` 为 `0.0.0.0` 或 `::` 时，Peach 在同一个套接字上接收 IPv4 和 IPv6 连接；系统没有 IPv6 时只监听 IPv4。`peach serve --ipv4-only` 保持只监听 IPv4。
+
+- mDNS 在服务确实接收 IPv6 时，为 `<mdns_name>.local` 同时发布 A 记录和 AAAA 记录。AAAA 取与发布的 IPv4 同一块网卡上的全球单播和 ULA 地址，不含链路本地地址；运营商更换前缀后，下一轮地址复查（20 秒）重新发布。
+- IPv6 地址可以从公网直接路由，所以 Peach 只接受回环、链路本地、ULA（`fc00::/7`）以及与本机网卡同一 /64 前缀的 IPv6 连接，其他 IPv6 来源收到 403。IPv4 来源的判断不变。
+- macOS 源码部署的 80/443 由 pf 只转发 IPv4，两条服务带 `--ipv4-only`，不发布 AAAA 记录。
+- 证书只签发局域网 IPv4 地址。用 `https://[<IPv6 地址>]` 直接访问会报证书不匹配，用 `https://<mdns_name>.local` 访问不受影响。
 
 ### 访问密码与登录
 
@@ -751,7 +760,7 @@ PikPak 官方核验通道使用「推送发现」中该媒体根对应的唯一 
 - 网页不展示数据库路径输入，`media_root` 为 `null`。`media_dir` 行中的 `root` 可省略或留空，服务端按媒体目录补齐；已有行提交原 `root` 时保留它。媒体目录与已有配置唯一匹配时复用原前缀，新目录自动生成前缀，并用目录名作为媒体库名称。
 - Windows 上 `peach init` 写出的 `[media.locations] local` 直接是那些目录，`[media.mounts]` 为空；macOS 上配置的目录是 `R:\media`（第二个起 `R:\media2`……），本机目录按同样顺序写进 `[media.mounts] local`。复制、writer 镜像、SMB 一律不问，保持关闭或留空。
 - 切换由 `tray.SetupGate` 负责，Windows 托盘与 macOS 菜单栏共用。它挂在健康轮询里（Windows 10 秒、macOS 5 秒），每轮重新 `settings_file.load_config()`；不再需要设置时，停掉引导服务，按新 Peach 数据目录构建正常规格并启动，托盘进程本身不重启。
-- 独立测试包按设置在高位端口提供 HTTP：本机模式绑定 `127.0.0.1` 且不发布 mDNS，局域网模式绑定 `0.0.0.0` 并发布 `<mdns_name>.local:<端口>`；托盘打开页面和健康检查始终走回环。源码部署由 `build_service_specs(tls_dir=..., mdns_hostname=...)` 构建 HTTP 跳转与 HTTPS 入口，TLS 材料没齐就等下一轮。mDNS 名由这里传进规格，不读 import 时的值。
+- 独立测试包按设置在高位端口提供 HTTP：本机模式绑定 `127.0.0.1` 且不发布 mDNS，局域网模式以双栈绑定 `0.0.0.0` 并发布 `<mdns_name>.local:<端口>`；托盘打开页面和健康检查始终走回环。源码部署由 `build_service_specs(tls_dir=..., mdns_hostname=...)` 构建 HTTP 跳转与 HTTPS 入口，TLS 材料没齐就等下一轮。mDNS 名由这里传进规格，不读 import 时的值。
 - 首次扫描不在引导服务里跑，因为那个进程在切换时就会被停掉。表单勾了「现在扫描」只写一个一次性标记 `<Peach 数据目录>/state/first-scan.request`（内容是来源 ID），托盘切换完成后读取并删除它，用子进程跑 `peach scan <来源>`，输出在 `<Peach 数据目录>/logs/tray-scan.out.log`。配置页保存时勾选扫描也走这个标记。
 - 配置页的数据走 `/api/configuration`，保存时先把旧文件复制成 `config.previous.toml`，再写入并留重载标记，由托盘接手。文件夹选择走 `/api/pick-folder`。
 - wheel 把 `web`、`migrations`、`resources` 装进 `peach/_resources`。`scripts/smoke_wheel.py` 在仓库外用安装了 wheel 的解释器运行；CI 的消费任务只下载制品，不检出源码。测试只用临时 Peach 数据目录。

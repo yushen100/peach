@@ -6,7 +6,7 @@ import threading
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from peach import server, settings_file
 from starlette.requests import Request
@@ -53,7 +53,8 @@ class ServerTests(unittest.TestCase):
                 patch.object(cli, "_build_sync", return_value=None), \
                 patch.object(cli, "create_app"), patch.object(cli, "TUNNEL_ENABLED", False), \
                 patch("peach.mdns.lan_ipv4", side_effect=OSError("no route")) as route, \
-                patch.object(cli, "_run_uvicorn"):
+                patch("peach.listening.bind", return_value=(MagicMock(), True)), \
+                patch("peach.listening.serve"):
             self.assertEqual(cli.main(["serve", "--host", "0.0.0.0", "--no-mdns"]), 0)
         route.assert_not_called()
 
@@ -65,19 +66,48 @@ class ServerTests(unittest.TestCase):
         for arguments in (["serve", "--host", "0.0.0.0", "--no-mdns"],
                           ["serve", "--host", "0.0.0.0", "--port", "80", "--redirect-origin", "https://peach.test"]):
             handlers.clear()
+            sock = MagicMock(**{"getsockname.return_value": ("::", 8900)})
             with self.subTest(arguments=arguments), \
                     patch.object(cli, "_require_readable_settings"), \
                     patch.object(cli, "_serve_token", return_value="test"), \
                     patch.object(cli, "_build_sync", return_value=None), \
                     patch.object(cli, "create_app"), patch.object(cli, "TUNNEL_ENABLED", False), \
+                    patch("peach.listening.bind", return_value=(sock, True)), \
                     patch("uvicorn.Config") as config, patch("uvicorn.Server") as uvicorn_server:
                 config.return_value.get_loop_factory.return_value = None
                 uvicorn_server.return_value.serve = AsyncMock(
-                    side_effect=lambda: handlers.append(asyncio.get_running_loop().get_exception_handler()))
+                    side_effect=lambda **_: handlers.append(asyncio.get_running_loop().get_exception_handler()))
                 self.assertEqual(cli.main(arguments), 0)
                 handler, = handlers
                 self.assertIs(handler.func, error_reporting.asyncio_handler)
                 self.assertEqual(handler.keywords, {"uvicorn_server": uvicorn_server.return_value})
+                uvicorn_server.return_value.serve.assert_awaited_once_with(sockets=[sock])
+
+    def test_cli_publishes_aaaa_only_when_the_socket_accepts_ipv6(self):
+        """mDNS 跟着实际绑出来的套接字走，而不是跟着 `--host` 的写法走。"""
+        from peach import cli
+        for ipv6, argv in ((True, ["serve", "--host", "0.0.0.0", "--mdns-address", "192.0.2.10"]),
+                           (False, ["serve", "--host", "0.0.0.0", "--ipv4-only",
+                                    "--mdns-address", "192.0.2.10"])):
+            with self.subTest(ipv6=ipv6), patch.object(cli, "_require_readable_settings"), \
+                    patch.object(cli, "_serve_token", return_value="test"), \
+                    patch.object(cli, "_build_sync", return_value=None), \
+                    patch.object(cli, "create_app") as create_app, \
+                    patch.object(cli, "TUNNEL_ENABLED", False), \
+                    patch("peach.listening.bind", return_value=(MagicMock(), ipv6)) as bind, \
+                    patch("peach.listening.serve"):
+                self.assertEqual(cli.main(argv), 0)
+                settings = create_app.call_args.args[0]
+                self.assertEqual(settings.mdns_ipv6, ipv6)
+                self.assertTrue(settings.mdns_enabled)
+                self.assertEqual(bind.call_args.kwargs, {"ipv4_only": not ipv6})
+
+    def test_cli_treats_every_loopback_spelling_as_local(self):
+        from peach import cli
+        for host in ("::1", "[::1]", "127.0.0.2", "localhost"):
+            with self.subTest(host=host):
+                self.assertTrue(cli._is_loopback(host))
+        self.assertFalse(cli._is_loopback("::"))
 
     def test_initialization_preserves_existing_configuration(self):
         with tempfile.TemporaryDirectory() as directory:
