@@ -2061,8 +2061,10 @@ class WebDataTests(unittest.TestCase):
         self.assertTrue(finished.is_set(), "第二次写入没能在 10 秒内拿到写锁，写锁没被释放")
 
     def stage_media(self, aid, name="clip.mp4"):
-        """把某条资产指向真实的临时文件，物理删除才有东西可删。"""
-        path = Path(self.tmp.name) / name
+        """把某条资产指向真实的临时文件，物理删除才有东西可删。
+
+        和 `setUp` 声明的来源根一样取 `resolve()` 后的路径：CI 的临时目录是 8.3 短名，不解析就不在来源根下。"""
+        path = Path(self.tmp.name).resolve() / name
         path.write_bytes(b"media")
         con = sqlite3.connect(self.db_path)
         con.execute("UPDATE asset SET path=?,snapshot_path=NULL WHERE id=?", (str(path), aid))

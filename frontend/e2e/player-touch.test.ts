@@ -43,8 +43,9 @@ it(`${viewport.width}×${viewport.height} 触摸：控制条、横滑预览、�
     assert.match(await page.locator('.vjs-peach-gesture').innerText(), /30:00/);
     await touch('touchEnd'); assert.ok(Math.abs(Number(await page.evaluate('fixture.video.currentTime')) - 1800) < .01);
     await tap(right); await tap(right); assert.ok(Math.abs(Number(await page.evaluate('fixture.video.currentTime')) - 1810) < .01);
-    await touch('touchStart'); await page.waitForTimeout(550);
-    assert.equal(await page.evaluate('fixture.video.playbackRate'), 2);
+    // 长按 500ms 才起倍速；慢的 CI 机器上固定等 550ms 余量不够，等到倍速真的变了为止。
+    await touch('touchStart');
+    await page.waitForFunction('fixture.video.playbackRate === 2', null, { timeout: 2_000 });
     await touch('touchEnd'); assert.equal(await page.evaluate('fixture.video.playbackRate'), 1);
     await touch('touchStart', right); await touch('touchMove', right, 300 - viewport.height * .2);
     assert.ok(Math.abs(Number(await page.evaluate('fixture.video.volume')) - .7) < .01);
