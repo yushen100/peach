@@ -215,6 +215,10 @@
   "detailSource": {
     "checkingDirectory": "正在核对目录…",
     "locating": "正在定位",
+    "recollect": "重新采集资料",
+    "recollectBusy": "另一趟处理正在进行，等它结束后再重新采集",
+    "recollectStarted": "已开始重新采集，进度见任务",
+    "recollectTip": "不用缓存，向各来源重新取这部片的资料；你改过或批准过的字段不会被覆盖",
     "reveal": "定位源文件",
     "revealTip": "在文件管理器里打开源文件所在目录",
     "syncDeletions": "同步删除",

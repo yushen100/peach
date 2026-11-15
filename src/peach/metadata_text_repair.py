@@ -1,7 +1,8 @@
 """按字段归属和同番号来源证据补修已损坏的机器文字。
 
 0.51.0 之前中文 Windows 上的采集桥按 GBK 输出、主程序按 UTF-8 宽松读，人物名里留下 U+FFFD
-（#478）。刮削来源（`javinizer:*`）挂上的这类人物关联在升级时直接解除，`performer:` 标签一起删，
+（#478）。标题、片商这些字段里的 U+FFFD 不看是哪个来源写的：无主、文件名或自动写入的按同番号的
+干净来源替换，复核批准过的只重采、交回复核（#208），只有用户手改的不碰。刮削来源（`javinizer:*`）挂上的这类人物关联在升级时直接解除，`performer:` 标签一起删，
 作品按现行严格解码重采；失去全部关联、也没有人维护痕迹的乱码实体连同子表行删掉。删掉的每一行
 原样记进升级回执的 `garbled_people`，可用
 `revert_auto_landing.py --source upgrade:garbled-performers` 整批插回。
@@ -128,9 +129,15 @@ def collect(connection, snapshots: Path) -> dict:
             continue
         for field, column in FIELDS.items():
             current, owner = asset[column] or '', owner_of(asset['field_owners'], column)
-            if MARKER not in current or not owner.startswith('auto:') or owner[5:] not in SOURCE_SPECS:
+            if MARKER not in current or owner.startswith('user:'):
                 continue
             affected.append(asset['id'])
+            if is_protected(owner):
+                # 复核时批准的是当时那份乱码（#208）：人的结论不自动改，但片子照样按现行严格解码
+                # 重采，干净的候选回到复核页与这个值并排。
+                rows.append({'asset_id': asset['id'], 'field': field, 'column': column, 'current': current,
+                             'owner': owner, 'action': 'review', 'reason': 'reviewed-garbled-text'})
+                continue
             group = {'item_key': f'asset:{asset["id"]}:{field}', 'asset_id': asset['id'],
                      'asset_path': asset['path'], 'field': field, 'code': code,
                      'current_value': current, 'candidates': _candidates(snapshots, code, field)}

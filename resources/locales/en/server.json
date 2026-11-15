@@ -883,6 +883,8 @@
       "addMediaDirectory": "Add a media directory first",
       "collectionConfigMismatch": "The current collection doesn't match the media settings",
       "selectionInvalid": "Select valid videos",
+      "recheckNotBoolean": "recheck must be true or false",
+      "recheckSelectedOnly": "Re-collecting is only for up to {{limit}} selected videos and the metadata stage",
       "selectionRetryExclusive": "Selected items and retrying failures can't be used together",
       "stageInvalid": "Invalid processing stage",
       "incrementalStageUnsupported": "New-file discovery supports only scan or sync",

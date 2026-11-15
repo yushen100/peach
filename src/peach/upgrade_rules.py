@@ -8,7 +8,8 @@ FC2_METADATA = 'fc2-javdb-first-v1'
 PUBLIC_SNAPSHOTS = 2
 PROVIDER_EVIDENCE = 2
 #: 文字补修规则。4：刮削挂上的乱码人物关联自动解除并重采（#478）；已有旧回执的库只重跑文字补修。
-PROVIDER_TEXT = 4
+#: 5：标题等字段里的乱码不再只认自动写入的那几家来源，无主与复核批准过的也排进重采（#208）。
+PROVIDER_TEXT = 5
 OFFICIAL_COVER_CATALOG_MISSES = 1
 #: 文件名番号判据放宽后（如 TMA 的 `T28-612`），账本里还没番号、按现行规则认得出的影片撤掉处理检查点重新处理。
 #: 判据又放宽时加一。2：S Model、キャットウォーク的数字厂牌段（#124）。

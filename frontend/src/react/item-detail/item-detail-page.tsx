@@ -38,6 +38,7 @@ import { MediaCarousel } from '../components/media-carousel';
 import { CatalogPicture } from './catalog-picture';
 import { fetchJavDetail, javDetailKey } from '../jav-detail/jav-detail';
 import { busyProps } from '../settings/use-action';
+import { LIBRARY_PROCESSING_URL } from '../library-processing/library-processing';
 import { ExternalPlayback } from './external-playback';
 import { isPlayerGuidePreview } from '../../player/guide-preview';
 import { CoverCrop } from '../cover-crop/cover-crop-page';
@@ -487,7 +488,7 @@ function DetailTitle({ item, queue, helpers, actions, onStatus }: {
                 }} />
             </span>
           ) : null}
-          {item.location === 'online' ? null : <SourceTools id={item.id} actions={actions} onStatus={onStatus} />}
+          {item.location === 'online' ? null : <SourceTools id={item.id} code={item.code || ''} actions={actions} onStatus={onStatus} />}
           <ItemEditButton item={item} helpers={helpers} onSaved={(saved) => {
             applySavedItem(saved);
             actions.toast(t('catalog:itemEdit.saved'));
@@ -499,8 +500,25 @@ function DetailTitle({ item, queue, helpers, actions, onStatus }: {
 }
 
 /** 定位源文件与核对目录。对账删掉的可能就是这一条，删了就没什么可停留的，直接退回列表。 */
-function SourceTools({ id, actions, onStatus }: { id: number; actions: ItemDetailActions; onStatus(text: string): void }) {
+function SourceTools({ id, code, actions, onStatus }: {
+  id: number; code: string; actions: ItemDetailActions; onStatus(text: string): void;
+}) {
   const [busy, setBusy] = useState('');
+  /* 这一部重新采集资料（#208）：不复用来源快照，已有字段也再核一遍；你改过、批准过的字段不被覆盖。
+     另一趟处理在跑时接口原样交回那一趟的状态，这里据 `recheck` 认出没排上。 */
+  const recollect = async () => {
+    if (busy) return;
+    setBusy('recollect');
+    onStatus('');
+    try {
+      const state = await apiSend<{ recheck?: boolean }>(LIBRARY_PROCESSING_URL,
+        { stage: 'metadata', asset_ids: [id], recheck: true });
+      onStatus(t(state.recheck ? 'catalog:detailSource.recollectStarted' : 'catalog:detailSource.recollectBusy'));
+    } catch (error) {
+      onStatus(requestErrorMessage(error));
+    }
+    setBusy('');
+  };
   const reveal = async () => {
     if (busy) return;
     setBusy('reveal');
@@ -526,6 +544,13 @@ function SourceTools({ id, actions, onStatus }: { id: number; actions: ItemDetai
         {...(busy === 'sync' ? { 'aria-busy': true, 'aria-disabled': true } : {})} onClick={() => void sync()}>
         <Glyph name="folder-sync" />
       </button>
+      {code ? (
+        <button type="button" data-recollect={id} title={t('catalog:detailSource.recollectTip')}
+          aria-label={t('catalog:detailSource.recollect')}
+          {...(busy === 'recollect' ? { 'aria-busy': true, 'aria-disabled': true } : {})} onClick={() => void recollect()}>
+          <Glyph name="refresh-cw" />
+        </button>
+      ) : null}
     </>
   );
 }

@@ -228,6 +228,10 @@
   "detailSource": {
     "checkingDirectory": "Checking directory…",
     "locating": "Locating",
+    "recollect": "Re-collect details",
+    "recollectBusy": "Another processing run is going; re-collect after it finishes",
+    "recollectStarted": "Re-collecting; see Tasks for progress",
+    "recollectTip": "Fetch this video's details from every source again without the cache; fields you edited or approved stay",
     "reveal": "Show source file",
     "revealTip": "Open the source file's directory in the file manager",
     "syncDeletions": "Sync deletions",

@@ -1147,6 +1147,29 @@ class UpgradeRepairTests(unittest.TestCase):
         self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))), 2)
         self.assertEqual(upgrade_repairs._read(self.service.receipt)['text_media_ids'], [1])
 
+    def garbled_title_plan(self, owner):
+        from peach import metadata_text_repair
+        self.damaged_asset(owner=owner)
+        self.clean_snapshot()
+        with self.database.read_connection() as connection:
+            plan = metadata_text_repair.collect(connection, self.root / 'sources/library-metadata')
+        with self.database.write_transaction() as connection:
+            changed = metadata_text_repair.apply(connection, plan)
+        with self.database.read_connection() as connection:
+            title = connection.execute('SELECT catalog_title FROM asset WHERE id=1').fetchone()[0]
+        return [row['action'] for row in plan['rows']], plan['asset_ids'], changed, title
+
+    def test_garbled_titles_without_an_owner_are_replaced_from_a_clean_source(self):
+        """#208：旧版没记归属的乱码标题也按同番号的干净来源替换。"""
+        actions, asset_ids, changed, title = self.garbled_title_plan(None)
+        self.assertEqual((actions, asset_ids, changed['text_fields'], title), (['replace'], [1], 1, '元の題名'))
+
+    def test_garbled_titles_approved_in_review_are_kept_but_requeued(self):
+        """#208：复核批准过的乱码不自动改，但照样排进重采，干净候选回到复核页。"""
+        actions, asset_ids, changed, title = self.garbled_title_plan('review:makers')
+        self.assertEqual((actions, asset_ids, changed['text_review'], title),
+                         (['review'], [1], 1, '壊' + BAD + 'れた題名'))
+
     def test_damaged_manual_titles_are_kept_and_garbled_studios_still_count_for_review(self):
         self.damaged_asset(owner='user:manual')
         self.clean_snapshot()

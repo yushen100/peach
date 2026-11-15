@@ -833,6 +833,56 @@ class LibraryNfoTests(unittest.TestCase):
         self.assertEqual({code: title for _, code, title in rows},
                          {code: f'测试作品 {code}' for code in codes.values()})
 
+    @windows_ledger_roots
+    def test_recollecting_one_video_replaces_garbled_scraped_text_but_keeps_edited_fields(self):
+        """#208：详情页点名重采这一部，不复用快照，已有字段也按来源再核；你改过的字段不动。"""
+        media = self.root / 'media'
+        media.mkdir()
+        (media / 'DASD-813.mp4').write_bytes(b'video')
+        db = fresh_ledger(self.root)
+        config = PeachConfig(self.root, self.root / 'config.toml', present=True,
+                             locations={'local': (str(media),)})
+        process_library(config, db, self.root / 'generated', self.root / 'covers', stage='scan')
+        with closing(sqlite3.connect(db)) as connection, connection:
+            connection.execute("UPDATE asset SET catalog_title=?,series=?,field_owners=? WHERE name='DASD-813.mp4'",
+                               ('\ufffd\u01e5\ufffd', '\ufffd系列', json.dumps({
+                                   'code': 'scan:filename', 'catalog_title': 'auto:r18dev', 'series': 'user:manual'})))
+            asset_id = connection.execute("SELECT id FROM asset WHERE name='DASD-813.mp4'").fetchone()[0]
+        provider = stub_provider()
+        provider.query.side_effect = lambda code, *args, **kwargs: {
+            'id': code, 'title': '正しい題名', 'series': '来源系列', 'maker': '测试厂牌',
+            'release_date': '2021-02-13'}
+
+        def run(**options):
+            with patch('peach.library_processing._asks_cover', return_value=False),                     patch('peach.library_processing._enrich_finished_performers',
+                          return_value={'aliases': 0, 'avatars': 0, 'conflicts': 0, 'failed': 0}):
+                return process_library(config, db, self.root / 'generated', self.root / 'covers',
+                    stage='metadata', provider_factory=lambda: provider, database=LedgerDatabase(db),
+                    asset_ids=[asset_id], route_overrides='censored=r18dev', **options)
+
+        run()
+        with closing(sqlite3.connect(db)) as connection:
+            self.assertEqual(connection.execute('SELECT catalog_title FROM asset WHERE id=?', (asset_id,)).fetchone()[0],
+                             '\ufffd\u01e5\ufffd')
+        self.assertEqual(run(recheck_existing=True)['status'], 'complete')
+        with closing(sqlite3.connect(db)) as connection:
+            title, series = connection.execute('SELECT catalog_title,series FROM asset WHERE id=?',
+                                               (asset_id,)).fetchone()
+        self.assertEqual(title, '正しい題名')
+        self.assertEqual(series, '\ufffd系列')
+
+    def test_recollect_is_only_for_a_few_named_videos_and_the_metadata_stage(self):
+        from peach.web_library_processing import RECHECK_LIMIT, _recheck_grant
+        self.assertTrue(_recheck_grant({'recheck': True}, 'metadata', [7]))
+        self.assertFalse(_recheck_grant({}, 'all', None))
+        for body, stage, ids in (({'recheck': True}, 'metadata', None),
+                                 ({'recheck': True}, 'previews', [7]),
+                                 ({'recheck': True}, 'all', [7]),
+                                 ({'recheck': True}, 'metadata', list(range(RECHECK_LIMIT + 1))),
+                                 ({'recheck': 'yes'}, 'metadata', [7])):
+            with self.subTest(stage=stage, ids=ids), self.assertRaises(ValueError):
+                _recheck_grant(body, stage, ids)
+
     def test_javboss_fields_and_original_tags(self):
         path = self.root / 'sample.nfo'
         path.write_text('<movie><generator>JavBoss</generator><uniqueid type="javboss">ABW-358</uniqueid>'
