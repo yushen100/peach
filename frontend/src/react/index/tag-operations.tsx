@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { UNSAFE_PortalProvider } from 'react-aria';
-import { confirmModal, formModal } from '@peach/legacy/ui';
+import { formModal } from '@peach/legacy/ui';
 import { overlayHost } from '../components/overlay-host';
 import { Input } from '@/components/base/input/input';
 import { Select, SelectItem } from '../components/select';
