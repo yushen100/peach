@@ -655,7 +655,7 @@
     "mode": "Processing",
     "modeLabel": "{{name}} processing mode",
     "notIncluded": "Not included",
-    "previewsOff": "Video previews are turned off, so contact sheets are skipped.",
+    "previewsOff": "Previews are turned off, so contact sheets are skipped.",
     "step": "Step",
     "stepAvatars": "Fetch avatars online",
     "stepContactSheet": "Generate contact sheets",
