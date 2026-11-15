@@ -449,3 +449,76 @@ class MediaIoTests(unittest.TestCase):
             library_processing._generate_previews(self.config, [row], Mock(),
                 update=Mock(side_effect=[None, PermissionError('Permission denied')]), issue=issue, guard=Mock())
         issue.assert_not_called()
+
+
+class BoundedReadTests(unittest.TestCase):
+    """请求路径上的挂载读取：到期就回，卡住的挂载不再多开线程。"""
+
+    def setUp(self):
+        import threading
+        self.release = threading.Event()
+        self.addCleanup(self.release.set)
+        self.key = f'test-mount-{id(self)}'
+
+    def _stuck(self):
+        self.release.wait(10)
+        return 'late'
+
+    def test_stuck_read_times_out_and_later_reads_on_the_mount_fail_fast(self):
+        started = time.monotonic()
+        with self.assertRaises(TimeoutError):
+            media_io.bounded(self.key, self._stuck, timeout=0.1)
+        self.assertLess(time.monotonic() - started, 2)
+        calls = []
+        with self.assertRaises(TimeoutError):
+            media_io.bounded(self.key, calls.append, 1, timeout=5)
+        self.assertEqual(calls, [])
+        # 别的挂载照常读。
+        self.assertEqual(media_io.bounded(self.key + '-other', lambda: 'ok', timeout=1), 'ok')
+
+    def test_mount_reopens_once_the_stuck_read_returns(self):
+        with self.assertRaises(TimeoutError):
+            media_io.bounded(self.key, self._stuck, timeout=0.1)
+        self.release.set()
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            try:
+                self.assertEqual(media_io.bounded(self.key, lambda: 'ok', timeout=1), 'ok')
+                return
+            except TimeoutError:
+                time.sleep(0.01)
+        self.fail('卡住的读取返回后，挂载没有放行')
+
+    def test_errors_from_the_read_reach_the_caller(self):
+        def missing():
+            raise FileNotFoundError(2, 'gone')
+        with self.assertRaises(FileNotFoundError):
+            media_io.bounded(self.key, missing)
+        self.assertNotIn(self.key, media_io._bounded_active)
+
+    def test_concurrent_reads_on_one_mount_are_capped(self):
+        import threading
+        with patch.object(media_io, 'REQUEST_SLOTS_PER_MOUNT', 2):
+            waiting = [threading.Thread(target=lambda: self.assertRaises(
+                TimeoutError, media_io.bounded, self.key, self._stuck, timeout=1)) for _ in range(2)]
+            for thread in waiting:
+                thread.start()
+            deadline = time.monotonic() + 2
+            while media_io._bounded_active.get(self.key, 0) < 2 and time.monotonic() < deadline:
+                time.sleep(0.01)
+            started = time.monotonic()
+            with self.assertRaises(TimeoutError):
+                media_io.bounded(self.key, lambda: 'ok', timeout=5)
+            self.assertLess(time.monotonic() - started, 0.5)
+            for thread in waiting:
+                thread.join(5)
+
+    def test_mount_key_groups_by_drive_or_top_directories(self):
+        if os.name == 'nt':
+            self.assertEqual(media_io.mount_key(Path('A:/番号/one.mp4')), 'a:')
+            self.assertEqual(media_io.mount_key(Path('//nas/share/x/one.mp4')),
+                             media_io.mount_key(Path('//NAS/Share/y/two.mp4')))
+            self.assertNotEqual(media_io.mount_key(Path('//nas/share/x/one.mp4')),
+                                media_io.mount_key(Path('//nas/other/x/one.mp4')))
+        else:
+            self.assertEqual(media_io.mount_key(Path('/Volumes/Media/x/one.mp4')), '/Volumes/Media')

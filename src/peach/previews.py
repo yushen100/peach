@@ -419,6 +419,8 @@ PHOTO_THUMB_WIDTH = 640
 PHOTO_SOURCE_RECHECK = 600.0
 #: 记住「已核对」的资产条数上限。
 PHOTO_VERIFIED_LIMIT = 4096
+#: 当场缩一张图最多等这么久：要从网盘读整张原图，比单次 stat 的期限宽。
+PHOTO_THUMBNAIL_TIMEOUT = 30.0
 
 
 class PhotoThumbnailService:
@@ -477,7 +479,17 @@ class PhotoThumbnailService:
         return destination
 
     def thumbnail(self, asset_id: int, source: Path) -> Path:
-        destination = self._thumbnail(asset_id, source)
+        """缩好的那一份，没有就当场缩。读原图带期限：网盘答不上时报取不到，不挂住图片墙的请求。
+
+        期限按「生成缩略图」单独分组，一张大图读得慢只拖住同一挂载上的其它缩图，不连带播放。
+        """
+        from . import media_io
+        try:
+            destination = media_io.bounded(("photo-thumbnail", media_io.mount_key(source)),
+                                           self._thumbnail, asset_id, source,
+                                           timeout=PHOTO_THUMBNAIL_TIMEOUT)
+        except TimeoutError as exc:
+            raise _unavailable("photoThumbnailFailed") from exc
         self._remember_verified(asset_id, destination)
         return destination
 

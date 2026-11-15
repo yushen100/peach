@@ -35,7 +35,7 @@ from starlette.requests import ClientDisconnect
 from . import (
     avatar_face, avatar_online, avatar_picker, avatar_provider, error_reporting,
     follow_assets, follow_providers, images, interface_text,
-    jav_poster_crop, link_marks, link_status, peach_proxy, public_http, scraping_access, site_icons,
+    jav_poster_crop, link_marks, link_status, media_io, peach_proxy, public_http, scraping_access, site_icons,
     social_links, subtitles,
     taste_history, timeline_sheets, web_follow, web_timeline_thumbnails,
 )
@@ -50,7 +50,7 @@ from .follow_store import FollowStore
 from .follow_stream import (
     FollowMediaUnavailable, FollowProxyError, ResolvedFollowMedia, open_upstream,
 )
-from .media import MediaOffline, MediaUnavailable, normalized_path
+from .media import MediaOffline, MediaUnavailable, bounded_normalized_path, normalized_path
 from .platform import within_root
 from .previews import ENTITY_THUMB_TYPE, PreviewUnavailable, entity_image_key
 from .remote_media_cache import AVATAR_REFRESH_SECONDS, FAVICON_REFRESH_SECONDS, cache_for
@@ -276,6 +276,9 @@ def local_playback(request: Request, id: int, player: str = 'default', args=Depe
         launcher.open_media(path, player, track=_playback_tracker(request.app.state, id))
     except ValueError as exc:
         raise HTTPException(400, error_detail(exc)) from None
+    except TimeoutError:
+        # 文件所在的盘没在期限内答上：按脱盘回，和网页播放同一个口径。
+        raise MediaOffline(id, "") from None
     except (OSError, subprocess.SubprocessError) as exc:
         LOGGER.warning('Local player failed to start: player=%s type=%s errno=%s winerror=%s',
                        player, type(exc).__name__, getattr(exc, 'errno', None), getattr(exc, 'winerror', None))
@@ -567,20 +570,32 @@ SUBTITLE_BYTE_LIMIT = 4 * 1024 * 1024
 
 
 def _subtitle_rows(state, asset_id: int):
-    """资产本身加它的字幕行。资产不存在时抛 `MediaNotFound`，由 `api.py` 收口。"""
+    """资产本身加它的字幕行。资产不存在时抛 `MediaNotFound`，由 `api.py` 收口。
+
+    同目录发现要列正片目录（POSIX 上连路径解析也要问盘），网盘在期限内答不上时只列账本里登记的。
+    """
     asset = state.media_engine.asset(asset_id)
     with state.database.read_connection() as connection:
         rows = [dict(row) for row in subtitles.subtitles_for(connection, asset_id)]
     if asset.path:
-        video = normalized_path(asset.path)
-        if any(within_root(video, root) for root in state.media_engine.filesystem.allowed_roots):
-            known = {str(normalized_path(row["path"])).casefold() for row in rows}
-            # 列表一次、每条轨各一次都走这里；目录列举按视频路径缓存，网盘目录不每次列一遍。
-            listings = getattr(state, "sidecar_listings", None)
-            found = (listings.discover(video, VIDEO) if listings is not None
-                     else subtitles.discover_sidecars(video, VIDEO))
-            rows.extend(row for row in found if row["path"].casefold() not in known)
+        try:
+            rows.extend(_sidecar_rows(state, asset, rows))
+        except TimeoutError:
+            pass
     return asset, rows
+
+
+def _sidecar_rows(state, asset, rows) -> list[dict]:
+    video = bounded_normalized_path(asset.path)
+    if not any(within_root(video, root) for root in state.media_engine.filesystem.allowed_roots):
+        return []
+    known = media_io.bounded(media_io.mount_key(video), lambda: {
+        str(normalized_path(row["path"])).casefold() for row in rows})
+    # 列表一次、每条轨各一次都走这里；目录列举按视频路径缓存，网盘目录不每次列一遍。
+    listings = getattr(state, "sidecar_listings", None)
+    found = (listings.discover(video, VIDEO) if listings is not None
+             else subtitles.discover_sidecars(video, VIDEO))
+    return [row for row in found if row["path"].casefold() not in known]
 
 
 def _subtitle_path(state, asset, row) -> Path | None:
@@ -590,8 +605,8 @@ def _subtitle_path(state, asset, row) -> Path | None:
     """
     if not asset.path:
         return None
-    directory = normalized_path(asset.path).parent
-    path = normalized_path(row["path"])
+    directory = bounded_normalized_path(asset.path).parent
+    path = bounded_normalized_path(row["path"])
     if str(path.parent).casefold() != str(directory).casefold():
         return None
     if not any(within_root(path, root)
@@ -602,15 +617,22 @@ def _subtitle_path(state, asset, row) -> Path | None:
 
 def _subtitle_bytes(state, asset, row) -> tuple[bytes | None, str]:
     """字幕文件的内容，以及取不到时的原因 id（`labels.routesMedia.subtitle.<id>`）。原因进列表给人看。"""
-    path = _subtitle_path(state, asset, row)
-    if path is None:
-        return None, "outsideFolder"
     try:
-        if path.stat().st_size > SUBTITLE_BYTE_LIMIT:
-            return None, "tooLarge"
-        return path.read_bytes(), ""
+        path = _subtitle_path(state, asset, row)
     except OSError:
         return None, "notFound"
+    if path is None:
+        return None, "outsideFolder"
+    def read() -> bytes | None:
+        if path.stat().st_size > SUBTITLE_BYTE_LIMIT:
+            return None
+        return path.read_bytes()
+
+    try:
+        data = media_io.bounded(media_io.mount_key(path), read)
+    except OSError:
+        return None, "notFound"
+    return (None, "tooLarge") if data is None else (data, "")
 
 
 def _subtitle_note(state, asset, row) -> str:

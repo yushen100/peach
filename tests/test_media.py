@@ -9,10 +9,11 @@ from unittest.mock import patch
 import peach.media as media_module
 from peach.ffmpeg import BinaryChoice, FFmpegResolver, binary_diagnostics
 from peach.media import (
-    FilesystemBackend, MediaEngine, MediaUnavailable, normalized_path,
+    FilesystemBackend, MediaEngine, MediaOffline, MediaUnavailable, normalized_path,
     resolve_case_insensitive,
 )
 from peach.repository import MediaAsset
+from support.stalls import elapsed, stalled_mount
 
 
 class MediaEngineTests(unittest.TestCase):
@@ -244,6 +245,54 @@ class MediaEngineTests(unittest.TestCase):
             repository, FilesystemBackend([Path("R:/")], Path("snapshots")),
         )
         self.assertEqual(engine.stream_plan(1).protocol, "range")
+
+
+class StalledMountTests(unittest.TestCase):
+    """网盘答不上时，请求按期限回明确的错误，不把线程一直挂着。"""
+
+    def setUp(self):
+        self.root = Path(self.enterContext(tempfile.TemporaryDirectory())).resolve()
+        self.video = self.root / "one.mp4"
+        self.video.write_bytes(b"test")
+
+    def test_backend_construction_does_not_touch_the_roots(self):
+        """POSIX 上授权根原先在构造时 `resolve()`，挂死的挂载会让服务起不来。"""
+        with patch.object(Path, "resolve", side_effect=AssertionError("构造时碰了授权根")):
+            backend = FilesystemBackend([self.root / "mount"], self.root / "snapshots")
+        self.assertEqual(len(backend._declared_roots), 1)
+
+    def test_stuck_stat_reports_offline_within_the_deadline(self):
+        backend = FilesystemBackend([self.root], self.root / "snapshots")
+        self.assertTrue(backend.allowed_roots)  # 先把授权根解析好，卡住的只有片源这一次读取
+        with stalled_mount(self.root) as caught:
+            seconds, result = elapsed(backend.located, MediaAsset(1, str(self.video), None))
+            again, second = elapsed(backend.located, MediaAsset(1, str(self.video), None))
+        self.assertTrue(caught)
+        self.assertIsInstance(result, MediaOffline)
+        self.assertLess(seconds, 3)
+        # 同一挂载上有读取卡着，后来的请求不再开线程，直接回脱盘。
+        self.assertIsInstance(second, MediaOffline)
+        self.assertLess(again, seconds)
+
+    def test_stuck_case_insensitive_listing_reports_offline(self):
+        backend = FilesystemBackend([self.root], self.root / "snapshots")
+        self.assertTrue(backend.allowed_roots)  # 先把授权根解析好，卡住的只有片源这一次读取
+        missing = self.root / "sub" / "ABW-118.mp4"
+        missing.parent.mkdir()
+        with stalled_mount(missing.parent):
+            seconds, result = elapsed(backend.located, MediaAsset(2, str(missing), None))
+        self.assertIsInstance(result, MediaOffline)
+        self.assertLess(seconds, 3)
+
+    def test_mount_recovers_once_the_stuck_read_returns(self):
+        backend = FilesystemBackend([self.root], self.root / "snapshots")
+        self.assertTrue(backend.allowed_roots)  # 先把授权根解析好，卡住的只有片源这一次读取
+        with stalled_mount(self.root):
+            self.assertIsInstance(elapsed(backend.located, MediaAsset(1, str(self.video), None))[1],
+                                  MediaOffline)
+        path, found = backend.located(MediaAsset(1, str(self.video), None))
+        self.assertEqual(path, self.video)
+        self.assertEqual(found.st_size, 4)
 
 
 if __name__ == "__main__":

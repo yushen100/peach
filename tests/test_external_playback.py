@@ -15,6 +15,7 @@ from unittest.mock import MagicMock, patch
 from peach.external_playback import TTL_SECONDS, issue, valid
 from peach import local_playback
 from peach import playback_tracking as tracking
+from support.stalls import stalled_mount
 
 
 class ExternalPlaybackTests(unittest.TestCase):
@@ -71,6 +72,21 @@ class ExternalPlaybackTests(unittest.TestCase):
                 launch.assert_called_once_with(str(media), 'open')
                 local_playback.open_media(media, 'potplayer')
                 self.assertEqual(selected.call_args.args[0], ['player.exe', str(media)])
+
+    def test_a_stuck_drive_fails_within_the_deadline_without_launching(self):
+        with tempfile.TemporaryDirectory() as directory:
+            media = Path(directory).resolve() / 'stuck' / 'movie.mp4'
+            media.parent.mkdir()
+            media.write_bytes(b'video')
+            with patch.object(local_playback.sys, 'platform', 'win32'), \
+                    patch.dict(os.environ, {'PEACH_HEADLESS_MANAGED': '0'}), \
+                    patch.object(os, 'startfile', create=True) as launch, \
+                    stalled_mount(media.parent):
+                started = time.monotonic()
+                with self.assertRaises(TimeoutError):
+                    local_playback.open_media(media)
+                self.assertLess(time.monotonic() - started, 3)
+            launch.assert_not_called()
 
     def test_headless_deployment_and_unknown_player_cannot_launch(self):
         with patch.dict(os.environ, {'PEACH_HEADLESS_MANAGED': '1'}):

@@ -1,6 +1,7 @@
 """HLS 分片：关键帧对齐、时间戳连续、播放列表报真实时长。"""
 import asyncio
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
@@ -11,6 +12,7 @@ from peach.mp4index import (
 from peach.hardware_transcode import HardwareEncoder
 from peach.segments import HlsSegmentService, StreamSessionRegistry, build_hls_playlist
 from support.mp4 import minimal_mp4
+from support.stalls import stalled_mount
 
 
 class Mp4IndexTests(unittest.TestCase):
@@ -371,6 +373,31 @@ class SegmentCommandTests(unittest.TestCase):
 
         asyncio.run(drive())
         return captured
+
+
+class StalledSourceTests(unittest.TestCase):
+    """片源所在的盘答不上：分片计划与文件头读取按期限回读不到，不挂住 HLS 线程池。"""
+
+    def setUp(self):
+        self.root = Path(self.enterContext(tempfile.TemporaryDirectory())).resolve()
+        self.source = self.root / "stuck" / "clip.mp4"
+        self.source.parent.mkdir()
+        self.source.write_bytes(minimal_mp4(timescale=1000, sample_delta=40, samples=100, keyframe_every=25))
+
+    def test_fingerprint_and_plan_answer_within_the_deadline(self):
+        service = HlsSegmentService(resolver=mock.Mock(ffmpeg=lambda: None), work_root=self.root / "cache")
+        with stalled_mount(self.source.parent), mock.patch("peach.mp4index.MOOV_READ_TIMEOUT", 0.2):
+            started = time.monotonic()
+            self.assertEqual(service.fingerprint(self.source), (str(self.source), 0, 0))
+            self.assertIsNone(service.plan(self.source, 4.0))
+            self.assertLess(time.monotonic() - started, 3)
+
+    def test_header_read_answers_within_the_deadline(self):
+        with stalled_mount(self.source.parent), mock.patch("peach.mp4index.MOOV_READ_TIMEOUT", 0.2):
+            started = time.monotonic()
+            self.assertIsNone(keyframe_seconds(self.source))
+            self.assertLess(time.monotonic() - started, 3)
+        self.assertEqual(keyframe_seconds(self.source)[:2], [0.0, 1.0])
 
 
 class PlanCacheTests(unittest.TestCase):

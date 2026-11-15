@@ -11,7 +11,7 @@ description: macOS、跨平台路径与挂载、双机任务交接或 Git 状态
 ## 路径与部署
 
 - ledger 路径保持 Windows 形态，不改写成 POSIX，也不从 macOS 写 `asset.path`；映射由 `asset.location` 和媒体配置声明，不从盘符猜来源。操作细节按 [路径配置](../../../docs/OPERATIONS.md#在-macos-上对应-windows-路径mediamounts)。
-- 读取复用 `peach.platform`：授权根比较考虑文件系统身份，挂载在线以目录实际可读判断，磁盘闸门用 `system_volume()`。脱盘是来源级状态，媒体缺失、来源离线与权限错误分别处理。
+- 读取复用 `peach.platform`：授权根比较只看路径文字、不碰盘（Windows 与 macOS 不分大小写），挂载在线以目录实际可读判断，磁盘闸门用 `system_volume()`。脱盘是来源级状态，媒体缺失、来源离线与权限错误分别处理。
 - 先确认源码部署、独立包或 Docker。媒体工具由 `FFmpegResolver` 按显式配置、随包工具、数据目录和 PATH 查找；独立 macOS 包不要求 Homebrew，源码开发外壳的 LaunchAgent 不能推广到所有安装方式。
 - 安装、端口、工具与启动方式以 `docs/OPERATIONS.md` 和 `docs/DOCKER.md` 当前章节为准，现场核对，不复制另一部署的目录。
 

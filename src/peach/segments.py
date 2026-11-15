@@ -147,8 +147,10 @@ class HlsSegmentService:
         return self._semaphore
 
     def fingerprint(self, source: Path) -> tuple:
+        from . import media_io
         try:
-            stat = source.stat()
+            # 起播与每个分片请求都问这一句：网盘答不上按期限当作读不到，不挂住 HLS 线程池。
+            stat = media_io.bounded(media_io.mount_key(source), source.stat)
         except OSError:
             return (str(source), 0, 0)
         return (str(source), stat.st_size, int(stat.st_mtime))

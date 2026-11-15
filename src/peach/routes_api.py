@@ -152,7 +152,14 @@ def reveal(request: Request, body: dict[str, Any] = Body(default_factory=dict), 
         return JSONResponse(
             {"error": "source not mapped", "location": asset.location},
             status_code=409)
-    if not target.exists():
+    from . import media_io
+    try:
+        present = media_io.bounded(media_io.mount_key(target), target.exists)
+    except OSError:
+        # 网盘在期限内答不上：说明是盘没响应，不当成文件已删去提示对账。
+        return JSONResponse({"error": "source unreachable", "location": asset.location,
+                             **message_fields("api.routes.revealUnreachable")}, status_code=503)
+    if not present:
         # 文件已经不在了——正是「删完回来同步」的入口，前端据此提示对账。
         return JSONResponse(
             {"error": "file missing", "location": asset.location},

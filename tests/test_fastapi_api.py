@@ -21,6 +21,7 @@ from peach import __version__, interface_text
 from support.amane import write_amane_metadata
 from support.ledger import fresh_ledger
 from support.mp4 import minimal_mp4
+from support.stalls import stalled_mount
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -3792,6 +3793,18 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
             )
         self.assertEqual(response.status_code, 200)
         reveal.assert_called_once_with(source)
+
+    async def test_reveal_answers_within_the_deadline_when_the_drive_is_stuck(self):
+        """文件所在的盘答不上：回 503 说明盘没响应，不当成文件已删，也不把请求挂住。"""
+        source = self._seed_photo()
+        with stalled_mount(source), patch("peach.routes_api.reveal_path", return_value=True) as reveal:
+            started = time.monotonic()
+            response = await self.client.post("/api/reveal", headers={"X-Token": "secret"}, json={"id": 9})
+            seconds = time.monotonic() - started
+        self.assertLess(seconds, 3)
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["message_code"], "api.routes.revealUnreachable")
+        reveal.assert_not_called()
 
     async def test_reveal_by_path_stays_inside_peach_own_data_root(self):
         """页面上印着全路径的那几处（凭据文件、问题日志、要删的数据目录）按 `path` 定位。

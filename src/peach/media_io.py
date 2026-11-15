@@ -22,6 +22,83 @@ TIMEOUT_SECONDS = 20.0
 OPERATIONS = ('directory', 'files', 'nfo', 'art', 'online', 'resolve', 'stat', 'browse', 'present', 'directories', 'rmdirs')
 
 
+#: 请求路径上一次挂载读取的期限。播放、缩略图、字幕这类请求不能为一个答不上的网盘一直挂着。
+REQUEST_TIMEOUT_SECONDS = 10.0
+#: 同一挂载上同时在等的读取上限；超出的请求直接按超时回，不再多开线程。
+REQUEST_SLOTS_PER_MOUNT = 16
+
+_bounded_lock = threading.Lock()
+_bounded_active: dict = {}
+_bounded_stuck: dict = {}
+
+
+def mount_key(path):
+    """`bounded` 用来分组的挂载名：盘符或 UNC 共享、POSIX 前两级目录、SMB 来源的 root_id。"""
+    root_id = getattr(path, 'root_id', None)
+    if root_id is not None:
+        return f'smb:{root_id}'
+    text = os.fspath(path)
+    if os.name == 'nt':
+        from pathlib import PureWindowsPath
+        pure = PureWindowsPath(text)
+        return (pure.drive or pure.anchor or text).casefold()
+    from pathlib import PurePosixPath
+    return '/'.join(PurePosixPath(text).parts[:3])
+
+
+def _release(key, box):
+    with _bounded_lock:
+        remaining = _bounded_active.get(key, 1) - 1
+        if remaining:
+            _bounded_active[key] = remaining
+        else:
+            _bounded_active.pop(key, None)
+        stuck = _bounded_stuck.get(key)
+        if stuck is not None:
+            stuck.discard(box)
+            if not stuck:
+                _bounded_stuck.pop(key, None)
+
+
+def bounded(key, call, *args, timeout=None, **kwargs):
+    """在请求路径上带期限地做一次挂载读取，到期抛超时（`OSError` 的子类）。
+
+    子进程（`file_stat` 等）每次要起一个解释器，约 150 毫秒，放不进每个 Range 请求和一屏几十张
+    缩略图；这里改在后台线程里读，调用方只等到期限。卡住的那次读取收不回来，线程照旧挂着；
+    为免越挂越多，同一挂载（`key`）上有读取超了期还没返回时，后来的请求不再开线程，直接按超时回，
+    等那次读取自己返回后才放行。线程不占 anyio 的线程池，`/healthz` 不受连累。
+    """
+    with _bounded_lock:
+        if _bounded_stuck.get(key) or _bounded_active.get(key, 0) >= REQUEST_SLOTS_PER_MOUNT:
+            raise CodedTimeoutError(errno.ETIMEDOUT, 'errors.mediaIo.readTimedOut', filename=str(key))
+        _bounded_active[key] = _bounded_active.get(key, 0) + 1
+    from concurrent.futures import Future, TimeoutError as FutureTimeout
+    box = Future()
+
+    def run():
+        try:
+            box.set_result(call(*args, **kwargs))
+        except BaseException as error:
+            box.set_exception(error)
+        finally:
+            _release(key, box)
+    try:
+        threading.Thread(target=run, name='PeachMediaDeadline', daemon=True).start()
+    except RuntimeError:
+        _release(key, box)
+        raise CodedOSError(errno.EIO, 'errors.mediaIo.readerFailed', filename=str(key)) from None
+    try:
+        return box.result(REQUEST_TIMEOUT_SECONDS if timeout is None else timeout)
+    except FutureTimeout:
+        with _bounded_lock:
+            # 读取线程先交结果再取锁清账，这里在锁内看 done，两边不会错过对方。
+            if not box.done():
+                _bounded_stuck.setdefault(key, set()).add(box)
+        if box.done():
+            return box.result()
+        raise CodedTimeoutError(errno.ETIMEDOUT, 'errors.mediaIo.readTimedOut', filename=str(key)) from None
+
+
 def _request(operation, path, *, value='', timeout=None):
     from .smb_media import resolve
     remote = resolve(path)

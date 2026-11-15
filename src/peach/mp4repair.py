@@ -569,8 +569,9 @@ class HeaderRepairStore:
 
     def _name(self, asset_id: int, source: Path, stat=None) -> str | None:
         if stat is None:
+            from . import media_io
             try:
-                stat = source.stat()
+                stat = media_io.bounded(media_io.mount_key(source), source.stat)
             except OSError:
                 return None
         return f"{asset_id}-{stat.st_size}-{stat.st_mtime_ns}{SIDECAR_SUFFIX}"

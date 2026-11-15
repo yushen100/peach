@@ -16,6 +16,7 @@ from unittest import mock
 
 from peach import scan, subtitles
 from support.ledger import fresh_ledger
+from support.stalls import elapsed, stalled_mount
 
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS = ROOT / "migrations"
@@ -430,6 +431,26 @@ class SubtitleApiTests(unittest.TestCase):
             self.assertEqual(next(row for row in current if row["name"] == "ABP-758.srt")["id"], original["id"])
             (self.media / "ABP-758.srt").unlink()
             self.assertEqual(client.get(original["src"]).status_code, 404)
+
+    def test_a_stuck_media_folder_answers_with_ledger_tracks_within_the_deadline(self):
+        """网盘目录答不上：列表只回账本登记的字幕，正文按读不到回；都不把请求挂住，也不缓存这次结果。"""
+        from peach.routes_media import _subtitle_bytes, _subtitle_rows
+        with self._client() as client:
+            state = client.app.state
+            self.assertTrue(state.media_engine.filesystem.allowed_roots)
+            with stalled_mount(self.media):
+                seconds, result = elapsed(_subtitle_rows, state, 1)
+                self.assertLess(seconds, 3)
+                asset, rows = result
+                self.assertEqual(sorted(row["name"] for row in rows),
+                                 ["ABP-758.chs.srt", "ABP-758.en.srt", "ABP-758.jp.srt"])
+                row = next(row for row in rows if row["name"] == "ABP-758.chs.srt")
+                seconds, (data, note) = elapsed(_subtitle_bytes, state, asset, row)
+                self.assertLess(seconds, 3)
+                self.assertEqual((data, note), (None, "notFound"))
+            (self.media / "ABP-758.srt").write_text("1\n00:00:00,000 --> 00:00:05,000\n旁挂\n", encoding="utf-8")
+            names = [row["name"] for row in _subtitle_rows(state, 1)[1]]
+            self.assertIn("ABP-758.srt", names)
 
     def test_discovery_stays_inside_authorized_media_roots(self):
         from peach.routes_media import _subtitle_rows

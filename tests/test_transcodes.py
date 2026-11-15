@@ -2,6 +2,7 @@ import json
 import subprocess
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -10,6 +11,7 @@ from peach.ffmpeg import BinaryChoice
 from peach.hardware_transcode import HardwareEncoder
 from peach.transcodes import TranscodeCancelled, TranscodeService, TranscodeUnavailable
 from support.mp4 import minimal_mp4
+from support.stalls import stalled_mount
 
 
 class _Resolver:
@@ -76,6 +78,21 @@ class TranscodeServiceTests(unittest.TestCase):
             process.assert_not_called()
             self.assertFalse(list((root / 'cache').glob('*.mp4')))
             self.assertEqual(source.read_bytes(), b'original')
+
+    def test_a_stuck_source_is_reported_unavailable_within_the_deadline(self):
+        """起播时片源 stat 没有现成的可用（大小写兜底、SMB）：再问一次也带期限。"""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            source = root / 'stuck' / 'movie.mkv'
+            source.parent.mkdir()
+            source.write_bytes(b'original')
+            service = TranscodeService(_Resolver(root / 'ffmpeg.exe'), root / 'cache')
+            with stalled_mount(source.parent), patch('peach.transcodes.subprocess.Popen') as process:
+                started = time.monotonic()
+                with self.assertRaises(TranscodeUnavailable):
+                    service.browser_path(1, source)
+                self.assertLess(time.monotonic() - started, 3)
+            process.assert_not_called()
 
     def test_diagnostic_profile_reads_cached_evidence_without_touching_media(self):
         from peach.transcodes import _MediaProfile

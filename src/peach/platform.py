@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import logging
 import os
+import sys
 from collections.abc import Mapping, Sequence
 from functools import lru_cache
 from pathlib import Path, PureWindowsPath
@@ -156,20 +157,15 @@ def root_online(root: Path) -> bool:
 
 
 
-def _letter_drive(path: Path) -> bool:
-    drive = path.drive
-    return len(drive) == 2 and drive[0].isalpha() and drive[1] == ":"
-
-
 def within_root(path: Path, root: Path) -> bool:
-    """路径是否落在授权根内。
+    """路径是否落在授权根内。只比较路径文字，不碰盘。
 
-    字面比较先走一遍；不匹配时用 inode 比较兜底，因为账本里是 `R:\\Media`
-    而授权根是 `/Volumes/Media/media`，exFAT/NTFS 大小写不敏感、pathlib 不是。
+    账本里是 `R:/Media`、授权根是 `.../media` 这类只差大小写的情形，在大小写不敏感的平台上
+    按不分大小写的文字比较放行：Windows（NTFS 与网盘盘符）与 macOS（APFS、exFAT 默认不分）。
+    Linux 上的文件系统分大小写，只认原样。
 
-    Windows 上 inode 比较要 stat 两边，网盘挂载的盘符每次 stat 都是一趟网络往返，而授权根有
-    好几个、每个请求逐个问。所以先按不分大小写的字面比较，两边都是盘符路径且盘符不同就直接
-    不在：不同盘符的同深度前缀只有跨盘的目录联接才会是同一个目录。
+    不用 `samefile` 比文件身份：每个媒体请求都走到这里，stat 网盘上的授权根会让请求跟着挂死的
+    挂载一起挂住。盘符映射与软链由两边同样经 `normalized_path` 对齐，文字比较就够了。
     """
     from .smb_media import SmbResource
     if isinstance(path, SmbResource) or isinstance(root, SmbResource):
@@ -180,17 +176,12 @@ def within_root(path: Path, root: Path) -> bool:
         return True
     if os.name == "nt":
         folded, base = os.path.normcase(path), os.path.normcase(root)
-        if folded == base or folded.startswith(base.rstrip("\\") + "\\"):
-            return True
-        if _letter_drive(path) and _letter_drive(root) and path.drive.casefold() != root.drive.casefold():
-            return False
-    depth = len(root.parts)
-    if len(path.parts) < depth:
-        return False
-    try:
-        return Path(*path.parts[:depth]).samefile(root)
-    except OSError:
-        return False
+        return folded == base or folded.startswith(base.rstrip("\\") + "\\")
+    if sys.platform == "darwin":
+        depth = len(root.parts)
+        return (len(path.parts) >= depth
+                and [part.casefold() for part in path.parts[:depth]] == [part.casefold() for part in root.parts])
+    return False
 
 
 def system_volume() -> Path:

@@ -786,6 +786,7 @@
       "revealFailed": "Couldn't open the file manager. Try again.",
       "revealMissing": "This location no longer exists.",
       "revealOutsideDataRoot": "Peach doesn't manage this location. Open it yourself.",
+      "revealUnreachable": "The drive holding this location didn't respond in time. Try again later.",
       "revealUnsupported": "Can't open a file manager on this device.",
       "taskAlreadyRunning": "{{task}} is already running. Try again after it finishes.",
       "taskCanceled": "Task canceled. Saved results are kept.",
