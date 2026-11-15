@@ -18,6 +18,7 @@
 """
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -218,6 +219,7 @@ def cut(face: CoverFace) -> tuple[bytes, dict] | None:
                   "asset_id": face.asset_id,
                   "asset_code": face.code, "crop_box": list(box),
                   "crop_source_px": [face.width, face.height],
+                  "crop_source_sha256": hashlib.sha256(face.body).hexdigest(),
                   "face_px": face.face_px, "identity_verified": False, **sheet}
 
 
@@ -242,7 +244,8 @@ def installed_face_readable(avatar_root: Path, kind: str, entity_id: int, probe)
     return _has_face(probe, body)
 
 
-def installed_face_px(avatar_root: Path, kind: str, entity_id: int) -> int | None:
+def installed_face_px(avatar_root: Path, kind: str, entity_id: int,
+                      cover_root: Path | None = None) -> int | None:
     """装着的那张如果是这一档截的，返回它当时那张脸的像素宽；别的来源（或没有）是 None。
 
     只有从封面来的图才会被这一档换掉：整张封面装上的那种按 0 算，任何一张脸都比它宽。
@@ -261,7 +264,23 @@ def installed_face_px(avatar_root: Path, kind: str, entity_id: int) -> int | Non
         return 0
     if record.get("provider") != PROVIDER:
         return None
+    if _source_replaced(record, cover_root):
+        # 截它的那张封面已经换了：旧框量的是旧图，按 0 算，让这一档按现在的封面重截（#565）。
+        return 0
     try:
         return int(record.get("face_px") or 0)
     except (TypeError, ValueError):
         return 0
+
+
+def _source_replaced(record: dict, cover_root: Path | None) -> bool:
+    """截这张头像的封面现在还在、内容却不是当时那张。记录里没有源图指纹的旧头像不判。"""
+    digest = str(record.get("crop_source_sha256") or "")
+    key = str(record.get("asset_code") or "")
+    if cover_root is None or not digest or not key or record.get("sheet_cell") is not None:
+        return False
+    try:
+        body = (Path(cover_root) / f"{key}.jpg").read_bytes()
+    except OSError:
+        return False
+    return hashlib.sha256(body).hexdigest() != digest

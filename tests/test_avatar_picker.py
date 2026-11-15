@@ -455,6 +455,34 @@ class HistorySourceTests(PickerFixture):
         self.remember(body, provider="history", external_id=digest[:12])
         self.assertEqual(self.history()[0].label, "来源未记录")
 
+    def test_pictures_of_a_merged_entry_are_offered_to_the_kept_person(self):
+        """#565：人物合并后，被合并条目取过、装过的图列成保留人物的可选候选，现装的那张不动。"""
+        body = picture(60, 80, "blue")
+        digest = self.remember(body, external_id="merged")
+        evidence = self.providers / "social-web/evidence" / f"performer-7792-{digest}.json"
+        moved = evidence.with_name(f"performer-7790-{digest}.json")
+        record = json.loads(evidence.read_text(encoding="utf-8"))
+        moved.write_text(json.dumps({**record, "entity_id": 7790}), encoding="utf-8")
+        evidence.unlink()
+        def merged_history():
+            return avatar_picker._history(self.providers, 7792, "",
+                                          merged=avatar_picker.merged_entity_ids(self.connection, 7792))
+        self.assertEqual(merged_history(), [])
+        with self.connection:
+            self.connection.execute("INSERT INTO entity_redirect(old_id,target_id,source,merged_at) "
+                                    "VALUES(7790,7792,'user:merge','t')")
+        self.assertEqual([choice.ref for choice in merged_history()], [f"sha256:{digest}"])
+        listed = self.listed()["choices"]
+        self.assertIn(f"sha256:{digest}", [choice["ref"] for choice in listed])
+        resolved, _origin = avatar_picker.resolve(f"sha256:{digest}", self.connection, self.providers,
+                                                  7792, None)
+        self.assertEqual(resolved, body)
+
+    def test_a_user_crop_records_the_fingerprint_of_the_picture_it_was_drawn_on(self):
+        body = picture(60, 80, "blue")
+        _cropped, origin = avatar_picker.crop(body, {"x0": 0, "y0": 0, "x1": 30, "y1": 30})
+        self.assertEqual(origin["crop_source_sha256"], hashlib.sha256(body).hexdigest())
+
     def test_cropping_a_history_choice_retains_the_original_site_and_account(self):
         body = picture(60, 80, "blue")
         digest = self.remember(body, external_id="https://lit.link/example",
@@ -948,6 +976,28 @@ class CoverFocusTests(AssetArtworkTests):
     def test_a_whole_cover_without_a_face_record_falls_back_to_the_front_panel(self):
         self.assertEqual(self.whole_cover_history()["focus"],
                          {"x0": 217, "y0": 0, "x1": 400, "y1": 260})
+
+    def test_a_whole_cover_does_not_borrow_the_frame_of_a_replaced_cover(self):
+        """#565：封面后来换成别的图，本机边车量的是新图；历史里那张旧封面不套新图的脸框。"""
+        self.cover.write_bytes(picture(400, 260, "red"))
+        sidecar_path(self.cover).write_text(json.dumps(face_record(400, 260)), "utf-8")
+        self.assertEqual(self.whole_cover_history()["focus"],
+                         {"x0": 217, "y0": 0, "x1": 400, "y1": 260})
+
+    def test_a_cover_face_crop_counts_as_nothing_once_its_cover_is_replaced(self):
+        """#565：封面截图记着源图指纹；封面换了，旧截图按 0 算，后继按现封面重截。"""
+        from peach import avatar_cover_face
+        face = avatar_cover_face.CoverFace(11, "ABW-232", self.cover.read_bytes(), 400, 260,
+                                           face_record(400, 260))
+        _body, origin = avatar_cover_face.cut(face)
+        provenance = self.avatars / "performer-7792.img.provenance.json"
+        provenance.write_text(json.dumps(origin), "utf-8")
+        width = avatar_cover_face.installed_face_px(self.avatars, "performer", 7792, self.covers)
+        self.assertGreater(width, 0)
+        self.cover.write_bytes(picture(400, 260, "red"))
+        self.assertEqual(avatar_cover_face.installed_face_px(self.avatars, "performer", 7792, self.covers), 0)
+        # 不给封面目录时不判，旧行为不变。
+        self.assertEqual(avatar_cover_face.installed_face_px(self.avatars, "performer", 7792), width)
 
     def co_star(self, asset_id: int) -> None:
         """同一部作品里再登记一位演员。"""

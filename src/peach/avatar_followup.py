@@ -298,7 +298,8 @@ def _run(contract, key: str, handle) -> dict:
     avatar_root = contract.avatar_root
     providers_root = contract.candidate_root / "provider-cache" / "performer-avatars"
     # 装着的是封面截的那一档时还要往下走：图库可能有了人像，封面可能换了更清楚的。
-    cropped_px = avatar_cover_face.installed_face_px(avatar_root, kind, entity_id)
+    cropped_px = avatar_cover_face.installed_face_px(avatar_root, kind, entity_id,
+                                                     getattr(contract, 'cover_root', None))
     small = _installed_small(avatar_root, kind, entity_id)
     if (avatar_picker.installed_digest(avatar_root, kind, entity_id)
             and (_installed_record(avatar_root, kind, entity_id).get("user_selected")
