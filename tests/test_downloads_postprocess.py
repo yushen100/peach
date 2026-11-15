@@ -147,12 +147,13 @@ class DownloadPostprocessTests(unittest.TestCase):
     def test_stuck_cloud_rename_leaves_other_ledger_writes_running(self):
         import threading
         entered, release = threading.Event(), threading.Event()
-        original = post.organize._rename
+        # 挂载上的存在判断与改名一起在 `_relocate` 里交给读取子进程，卡在这一步等同网盘改名卡住。
+        original = post.organize._relocate
 
-        def stuck(source, target):
+        def stuck(source, target, worker):
             entered.set()
             release.wait(10)
-            original(source, target)
+            return original(source, target, worker)
 
         outcome = {}
 
@@ -162,7 +163,7 @@ class DownloadPostprocessTests(unittest.TestCase):
             except BaseException as error:
                 outcome['error'] = error
 
-        with patch.object(post.organize, '_rename', side_effect=stuck):
+        with patch.object(post.organize, '_relocate', side_effect=stuck):
             worker = threading.Thread(target=organize)
             worker.start()
             try:
