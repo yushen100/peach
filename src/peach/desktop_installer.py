@@ -107,7 +107,7 @@ def stop(program: Path, *, timeout: float = 60) -> bool:
     for pid in strays:
         try:
             subprocess.run(["taskkill", "/PID", str(pid), "/T", "/F"], stdin=subprocess.DEVNULL,
-                           capture_output=True, creationflags=subprocess.CREATE_NO_WINDOW, check=False,
+                           capture_output=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), check=False,
                            timeout=TASKKILL_SECONDS)
         except subprocess.TimeoutExpired:
             # 杀不掉就照实报：下面再看一眼还剩谁。
