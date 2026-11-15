@@ -2,10 +2,12 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from pathlib import Path
 
+from peach import process_job
 from peach.process_job import assign_to_job, close_job, create_kill_on_close_job
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -137,6 +139,66 @@ class KillOnCloseJobTests(unittest.TestCase):
             # 托盘解释器和服务都持有日志句柄；整棵进程树 signaled 后才能删临时目录。
             survivors = still_running(handles, seconds=10)
             self.assertFalse(survivors, f"托盘被强杀后这些进程还活着：{sorted(survivors)}")
+
+
+#: 子进程起一个继承输出管道的孙进程，记下孙进程 PID 后自己要么睡着、要么先退出。
+HOLDS_PIPE = """
+import subprocess, sys, time
+grandchild = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
+open(sys.argv[1], "w").write(str(grandchild.pid))
+print("started", flush=True)
+if sys.argv[2] == "stay":
+    time.sleep(60)
+"""
+
+
+class BoundedRunTests(unittest.TestCase):
+    def test_success_returns_the_output_like_subprocess_run(self):
+        completed = process_job.run([sys.executable, "-c", "print('ok')"], timeout=30,
+                                    capture_output=True, text=True)
+        self.assertEqual((completed.returncode, completed.stdout.strip()), (0, "ok"))
+        with self.assertRaises(subprocess.CalledProcessError):
+            process_job.run([sys.executable, "-c", "raise SystemExit(3)"], timeout=30, check=True)
+
+    def holding_pipe(self, mode: str):
+        """超时后整棵树都被收掉，调用在期限内返回，不被孙进程占着的管道挂住。"""
+        import psutil
+        directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        marker = directory / "grandchild.pid"
+        outcome = {}
+
+        def call():
+            try:
+                process_job.run([sys.executable, "-c", HOLDS_PIPE, str(marker), mode], timeout=3,
+                                capture_output=True, text=True)
+            except subprocess.TimeoutExpired as error:
+                outcome["error"] = error
+
+        def cleanup():
+            try:
+                psutil.Process(int(marker.read_text())).kill()
+            except (OSError, ValueError, psutil.Error):
+                pass
+        self.addCleanup(cleanup)
+        worker = threading.Thread(target=call, daemon=True)
+        started = time.monotonic()
+        worker.start()
+        worker.join(30)
+        self.assertFalse(worker.is_alive(), "超时后还在等孙进程占着的输出管道")
+        self.assertIsInstance(outcome.get("error"), subprocess.TimeoutExpired)
+        self.assertLess(time.monotonic() - started, 3 + process_job.REAP_SECONDS + 10)
+        self.assertIn("started", outcome["error"].output or "")
+        grandchild = int(marker.read_text())
+        self.assertTrue(wait_until(lambda: not psutil.pid_exists(grandchild)
+                                   or psutil.Process(grandchild).status() == psutil.STATUS_ZOMBIE),
+                        "孙进程还活着")
+
+    def test_a_grandchild_holding_the_pipe_is_killed_on_timeout(self):
+        self.holding_pipe("stay")
+
+    def test_an_orphaned_grandchild_holding_the_pipe_is_killed_on_timeout(self):
+        """子进程自己先退出，只剩孙进程占着管道：标准库的 `run` 这时会一直等。"""
+        self.holding_pipe("exit")
 
 
 if __name__ == "__main__":
