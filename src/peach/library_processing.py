@@ -380,10 +380,16 @@ class CoverKept(NotFound):
 
 
 def cover_settled(path):
-    """网络封面按 1600px 判断高清；用户提供的本地图片和 FC2 商品图保留尺寸门槛。"""
+    """网络封面按 1600px 判断高清；用户提供的本地图片和 FC2 商品图保留尺寸门槛。
+
+    编辑资料里换上的封面一律算定稿（ADR-0165）：后台不再为它去找更好的。
+    """
     size = measure_image_file(path)
     if size is None:
         return False
+    from .cover_artwork import is_user_cover
+    if is_user_cover(Path(path)):
+        return True
     try:
         evidence = json.loads(Path(path).with_suffix('.scraping.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):

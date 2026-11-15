@@ -1760,7 +1760,7 @@ class WebDataTests(unittest.TestCase):
             "/api/tutorial-progress", "/api/performer/delete",
             "/api/library-shortcuts", "/api/folders/preview", "/api/folders/rule",
             "/api/custom-metadata",
-            "/api/preference", "/api/quality-goal", "/api/item-tag", "/api/batch",
+            "/api/preference", "/api/quality-goal", "/api/item-tag", "/api/item-edit", "/api/batch",
             "/api/search-history", "/api/trash/empty",
             "/api/review/decision", "/api/review/genre", "/api/review/auto-landings/revert",
             "/api/purge-missing", "/api/orphan-records/attach",

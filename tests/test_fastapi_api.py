@@ -2184,6 +2184,37 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(added.status_code, 200)
         self.assertIn("手动标签", added.json()["tags"])
 
+    async def test_item_edit_is_authenticated_and_returns_the_refreshed_item(self):
+        body = {"id": 1, "fields": {"title": "人工标题"}, "performers": {"add": [{"name": "自建艺人"}]}}
+        denied = await self.client.post("/api/item-edit", json=body)
+        self.assertEqual(denied.status_code, 401)
+        saved = await self.client.post("/api/item-edit?t=secret", json=body)
+        self.assertEqual(saved.status_code, 200, saved.text)
+        item = saved.json()["item"]
+        self.assertEqual(item["field_sources"]["title"]["owner"], "user")
+        self.assertEqual([ref["user_created"] for ref in item["entity_refs"]["performer"] if ref["name"] == "自建艺人"], [True])
+        stale = await self.client.post("/api/item-edit?t=secret", json={**body, "expected_revision": -1})
+        self.assertEqual(stale.status_code, 409)
+
+    async def test_item_cover_upload_and_restore_are_authenticated(self):
+        from io import BytesIO
+        from PIL import Image
+        picture = BytesIO()
+        Image.new("RGB", (640, 430), (120, 40, 40)).save(picture, "JPEG")
+        denied = await self.client.post("/api/item-cover?id=1", content=picture.getvalue(),
+                                        headers={"Content-Type": "image/jpeg"})
+        self.assertEqual(denied.status_code, 401)
+        saved = await self.client.post("/api/item-cover?id=1&origin=upload&t=secret", content=picture.getvalue(),
+                                       headers={"Content-Type": "image/jpeg"})
+        self.assertEqual(saved.status_code, 200, saved.text)
+        self.assertTrue(saved.json()["item"]["cover_user"])
+        refused = await self.client.post("/api/item-cover?id=1&t=secret", content=b"not an image",
+                                         headers={"Content-Type": "image/jpeg"})
+        self.assertEqual(refused.status_code, 400)
+        restored = await self.client.post("/api/item-cover/restore?t=secret", json={"id": 1})
+        self.assertEqual(restored.status_code, 200, restored.text)
+        self.assertFalse(restored.json()["item"]["cover_user"])
+
     async def test_tag_management_requires_auth_and_applies_the_preview(self):
         denied = await self.client.get('/api/tag-management')
         self.assertEqual(denied.status_code, 401)

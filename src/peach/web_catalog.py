@@ -1146,6 +1146,8 @@ def q_item(contract: WebContract, aid):
         d["sample_images"] = sample_images.detail_refs(c, d.get("code"))
         # 真相字段的字段级归属随详情一起下发：页面要显示某个值是谁写的、还能不能
         # 被自动写入者改，`mutation_revision` 则是编辑时回传的乐观并发凭据。
+        from .item_edit import field_sources
+        d["field_sources"] = field_sources(d.get("field_owners"))
         d["field_owners"] = parse_owners(d.get("field_owners"))
         d["mutation_revision"] = int(d.get("mutation_revision") or 0)
         # 在线资产的 `path` 是来源作品页，不是可播地址；能播的那条代理在
@@ -1171,6 +1173,11 @@ def q_item(contract: WebContract, aid):
         ))
         canonical, legacy_rows = visible_identity_data(c, canonical, legacy_rows)
         makers = label_makers(contract, c, aid)
+        identity_ids = sorted({int(row[0]) for row in canonical if row[1] != "tag"})
+        # 编辑框里新建的档案带个小标记，和刮来的放在一起时认得出来（ADR-0165）。
+        user_created = {int(row[0]) for row in c.execute(
+            "SELECT id FROM entity WHERE id IN (" + ",".join("?" * len(identity_ids)) + ") "
+            "AND json_extract(metadata_json,'$.user_created')=1", identity_ids)} if identity_ids else set()
     legacy = [row[0] for row in legacy_rows]
     official_tag_names = {
         normalize_entity_name(tag)
@@ -1209,7 +1216,8 @@ def q_item(contract: WebContract, aid):
         for kind in ("creator", "performer", "studio", "series")
     }
     d["entity_refs"] = {
-        kind: [entity_ref(contract, kind, entity_id, name)
+        kind: [{**entity_ref(contract, kind, entity_id, name),
+                **({"user_created": True} if int(entity_id) in user_created else {})}
                for entity_id, item_kind, name in canonical if item_kind == kind]
         for kind in ("creator", "performer", "studio", "series")
     }
@@ -1222,6 +1230,9 @@ def q_item(contract: WebContract, aid):
     d["has_thumb"] = contract.has_snapshot(d["snapshot_path"])
     d['has_local_poster'] = (contract.poster_root / f"{d['id']}_4.jpg").is_file()
     attach_artwork_fields(contract, d)
+    # 编辑资料的封面区要知道现在这张是不是用户换上的（ADR-0165）。
+    from .item_cover import cover_state
+    d.update(cover_state(contract.cover_root, artwork_key(d['id'], d.get('code'))))
     # 身份格的厂牌位和顶栏小圆片同一条判据：没装标识就不输出 `<img>`。规范厂牌走
     # `entity_refs`，非规范的那条只有扁平 `studio` 字段，两边都要有标志，否则
     # 后者会从「本来能取到图」退化成永远首字母。
@@ -1674,7 +1685,21 @@ def w_item_tag(contract: WebContract, body):
     contract.cache_bust()
     aid = int(body["id"])
     operation = str(body.get("operation", "")).strip()
-    tag = str(body.get("tag", "")).strip()
+    # 事务边界只有一个入口：write_transaction 自己取 database.write_lock 并在异常时回滚。
+    # 这里不手取那把锁再手动 commit/close：任何 execute 抛出都会漏掉回滚和关闭。
+    # 那把锁不可重入，所以外层不能再套一个取同一把锁的 with，否则自死锁。
+    with contract.write_transaction() as c:
+        tag = write_item_tag(c, aid, operation, str(body.get("tag", "")))
+    return {"ok": True, "operation": operation, "tag": tag,
+            "tags": [item["k"] for item in q_item(contract, aid)["tags"]]}
+
+
+def write_item_tag(c, aid: int, operation: str, raw: str) -> str:
+    """在调用方的事务里给一部片加一个标签或隐藏一个标签，返回落下的规范名。
+
+    编辑框一次保存里的标签增删也走这里，与单条接口是同一套判据。
+    """
+    tag = str(raw or "").strip()
     if operation not in {"add", "remove"}:
         raise ValueError("operation must be add or remove")
     if not tag or len(tag) > 80 or is_performer_marker(tag):
@@ -1686,37 +1711,32 @@ def w_item_tag(contract: WebContract, body):
         tag = canonical[0]
     normalized = normalize_entity_name(tag)
     stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    # 事务边界只有一个入口：write_transaction 自己取 database.write_lock 并在异常时回滚。
-    # 这里不手取那把锁再手动 commit/close：任何 execute 抛出都会漏掉回滚和关闭。
-    # 那把锁不可重入，所以外层不能再套一个取同一把锁的 with，否则自死锁。
-    with contract.write_transaction() as c:
-        if not c.execute("SELECT 1 FROM asset WHERE id=?", (aid,)).fetchone():
-            raise ValueError("asset not found")
-        from .entities import _ingest_name_id
-        identity = _ingest_name_id(c, 'tag', canonical_tag_name(tag))
-        if identity is not None:
-            tag = c.execute('SELECT canonical_name FROM entity WHERE id=?', (identity,)).fetchone()[0]
-            normalized = normalize_entity_name(tag)
-        if operation == "remove":
-            c.execute(
-                "INSERT INTO asset_tag_preference(profile_id,asset_id,normalized_tag,hidden,updated_at) "
-                f"VALUES('{DEFAULT_PROFILE_ID}',?,?,1,?) ON CONFLICT(profile_id,asset_id,normalized_tag) "
-                "DO UPDATE SET hidden=1,updated_at=excluded.updated_at",
-                (aid, normalized, stamp),
-            )
-        else:
-            c.execute(
-                f"DELETE FROM asset_tag_preference WHERE profile_id='{DEFAULT_PROFILE_ID}' "
-                "AND asset_id=? AND normalized_tag=?", (aid, normalized),
-            )
-            c.execute(
-                "INSERT OR IGNORE INTO asset_tag(asset_id,tag,confidence,source) "
-                "VALUES(?,?,1.0,'web-user')", (aid, tag),
-            )
-            upsert_asset_entity(
-                c, kind="tag", name=tag, asset_id=aid, role="tag",
-                source="web-user", confidence=1.0,
-                metadata={"profile_id": DEFAULT_PROFILE_ID}, now=stamp,
-            )
-    return {"ok": True, "operation": operation, "tag": tag,
-            "tags": [item["k"] for item in q_item(contract, aid)["tags"]]}
+    if not c.execute("SELECT 1 FROM asset WHERE id=?", (aid,)).fetchone():
+        raise ValueError("asset not found")
+    from .entities import _ingest_name_id
+    identity = _ingest_name_id(c, 'tag', canonical_tag_name(tag))
+    if identity is not None:
+        tag = c.execute('SELECT canonical_name FROM entity WHERE id=?', (identity,)).fetchone()[0]
+        normalized = normalize_entity_name(tag)
+    if operation == "remove":
+        c.execute(
+            "INSERT INTO asset_tag_preference(profile_id,asset_id,normalized_tag,hidden,updated_at) "
+            f"VALUES('{DEFAULT_PROFILE_ID}',?,?,1,?) ON CONFLICT(profile_id,asset_id,normalized_tag) "
+            "DO UPDATE SET hidden=1,updated_at=excluded.updated_at",
+            (aid, normalized, stamp),
+        )
+    else:
+        c.execute(
+            f"DELETE FROM asset_tag_preference WHERE profile_id='{DEFAULT_PROFILE_ID}' "
+            "AND asset_id=? AND normalized_tag=?", (aid, normalized),
+        )
+        c.execute(
+            "INSERT OR IGNORE INTO asset_tag(asset_id,tag,confidence,source) "
+            "VALUES(?,?,1.0,'web-user')", (aid, tag),
+        )
+        upsert_asset_entity(
+            c, kind="tag", name=tag, asset_id=aid, role="tag",
+            source="web-user", confidence=1.0,
+            metadata={"profile_id": DEFAULT_PROFILE_ID}, now=stamp,
+        )
+    return tag

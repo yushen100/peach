@@ -859,7 +859,9 @@ def _index_rows(contract: WebContract, kind, q, limit, offset, category):
             rows = rows[:limit]
         elif kind in INDEX_ENTITY_KINDS:
             entity_kind = INDEX_ENTITY_KINDS[kind]
+            # `user_created`：编辑资料里新建的档案，名册上和刮来的放一起，卡片带小标记（ADR-0165）。
             sql = ("SELECT e.id entity_id,e.kind entity_kind,e.canonical_name k,count(DISTINCT " + video_work_key(contract, c) + ") n,"
+                   "json_extract(e.metadata_json,'$.user_created') IS 1 user_created,"
                    "(SELECT a2.id FROM asset_entity ae2 JOIN asset a2 ON a2.id=ae2.asset_id "
                    " WHERE ae2.entity_id=e.id AND a2.medium='video' AND a2.snapshot_path IS NOT NULL " +
                    (" AND (e.kind='creator' OR (" + solo_performer_clause("a2.id", "e.id") + '))' if entity_kind == "performer" else "") +
