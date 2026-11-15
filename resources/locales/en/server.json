@@ -4356,6 +4356,7 @@
       "external": "Not synced: the {{services}} services are not managed by this tray",
       "noOutput": "Database sync produced no output",
       "startFailed": "Database sync could not start: {{error}}",
+      "timedOut": "Database sync didn't finish within {{seconds}} seconds and was stopped",
       "notRecovered": "{{output}}; services did not recover within 20 seconds",
       "stoppingForSync": "Stopping services safely and syncing…",
       "stoppingForTakeover": "Stopping services safely and taking over writes…",

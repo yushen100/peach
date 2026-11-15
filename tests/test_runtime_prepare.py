@@ -16,6 +16,7 @@ from peach.runtime_prepare import (
     read_record, record, task_gate,
 )
 from peach.sync import marker_path
+from support.processes import finishes_within, hanging_program, kill_grandchild
 
 
 def completed(returncode: int = 0, stdout: str = "", stderr: str = ""):
@@ -28,47 +29,6 @@ OUTDATED = (
     " + grpcio==1.84.0\n"
     "The environment is outdated; run `uv sync` to update the environment\n"
 )
-
-
-def hanging_program(directory: Path) -> Path:
-    """一个永不退出的可执行文件：它起的 Python 又起一个孙进程，都占着输出管道。
-
-    孙进程 PID 写进同目录的 `grandchild.pid`，清理时按它收尸。"""
-    script = directory / "hang.py"
-    script.write_text(
-        "import subprocess, sys, time\n"
-        "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
-        f"open({str(directory / 'grandchild.pid')!r}, 'w').write(str(child.pid))\n"
-        "time.sleep(60)\n", encoding="utf-8")
-    interpreter = getattr(sys, "_base_executable", sys.executable)
-    if os.name == "nt":
-        program = directory / "hang.cmd"
-        program.write_text(f'@"{interpreter}" "{script}"\r\n', encoding="utf-8")
-    else:
-        program = directory / "hang.sh"
-        program.write_text(f'#!/bin/sh\n"{interpreter}" "{script}"\n', encoding="utf-8")
-        program.chmod(0o755)
-    return program
-
-
-def kill_grandchild(directory: Path) -> None:
-    import psutil
-    try:
-        psutil.Process(int((directory / "grandchild.pid").read_text())).kill()
-    except (OSError, ValueError, psutil.Error):
-        pass
-
-
-def finishes_within(call, seconds: float):
-    """在线程里调用，期限内没返回就判失败，不让卡住的实现把整个测试进程拖住。"""
-    import threading
-    outcome = {}
-    worker = threading.Thread(target=lambda: outcome.update(value=call()), daemon=True)
-    worker.start()
-    worker.join(seconds)
-    if worker.is_alive():
-        raise AssertionError(f"{seconds} 秒内没有返回")
-    return outcome["value"]
 
 
 class FakeRun:

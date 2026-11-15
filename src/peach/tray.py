@@ -37,6 +37,7 @@ from .config import (
 from .mdns import lan_ipv4
 from .netwatch import NetworkChangeWatcher
 from .mount import mount_share as mount_smb_share
+from . import process_job
 from .process_job import assign_to_job, create_kill_on_close_job
 from .tray_diagnostics import show_report as show_diagnostic_report
 from .tray_lifecycle import Lifecycle
@@ -121,6 +122,11 @@ READINESS_CODES = {
 #: 托盘拉起的整托盘重启脚本最多等多久。脚本停旧托盘、同步依赖、起新托盘各有期限，
 #: 本托盘还活着地等过这么久，说明脚本卡在停托盘之前，菜单动作锁要放开。
 TRAY_RESTART_WAIT = 300.0
+#: 「同步 Ledger」那次 `peach ledger-sync` 的期限。它跑时服务停着、托盘操作锁被占着，
+#: 自愈每一轮都在跳过；超时收掉整棵进程树，照常把服务拉回来。复制走原子替换，被打断不留半份账本。
+LEDGER_SYNC_SECONDS = 1800.0
+#: `launchctl print` 与 `kickstart` 的期限。
+LAUNCHCTL_SECONDS = 30.0
 
 
 def _service_state(ok: bool, detail: str, *, detailed: bool) -> str:
@@ -280,7 +286,7 @@ class ServiceManager:
         *,
         popen: Callable[..., subprocess.Popen] = subprocess.Popen,
         health_get: Callable[..., httpx.Response] = httpx.get,
-        run: Callable[..., subprocess.CompletedProcess] = subprocess.run,
+        run: Callable[..., subprocess.CompletedProcess] = process_job.run,
         ledger_plan: Callable[[], SyncPlan] | None = None,
         mount_share: Callable[[], bool] | None = None,
         log_dir: Path | None = None,
@@ -680,13 +686,15 @@ class ServiceManager:
             sync_environment["PYTHONIOENCODING"] = "utf-8"
             result = self._run(
                 command,
-                cwd=str(PROJECT_ROOT), capture_output=True, text=True,
+                cwd=str(PROJECT_ROOT), stdin=subprocess.DEVNULL, capture_output=True, text=True,
                 encoding="utf-8", errors="replace", shell=False,
-                env=sync_environment,
+                env=sync_environment, timeout=LEDGER_SYNC_SECONDS,
                 creationflags=creationflags,
             )
             output = (result.stdout or result.stderr or tray_text("tray.ledger.noOutput")).strip()
             ok = result.returncode == 0
+        except subprocess.TimeoutExpired as exc:
+            ok, output = False, tray_text("tray.ledger.timedOut", seconds=f"{exc.timeout:g}")
         except (OSError, subprocess.SubprocessError) as exc:
             ok, output = False, tray_text("tray.ledger.startFailed", error=exc)
         finally:
@@ -1649,10 +1657,14 @@ def launchd_owns_this_process(
         if getuid is None:
             return False
         uid = getuid()
-    result = run(
-        ["launchctl", "print", f"gui/{uid}/{LAUNCH_AGENT_LABEL}"],
-        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
-    )
+    try:
+        result = run(
+            ["launchctl", "print", f"gui/{uid}/{LAUNCH_AGENT_LABEL}"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
+            timeout=LAUNCHCTL_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return False
     if result.returncode != 0:
         return False
     match = re.search(r"^\s*pid\s*=\s*(\d+)", result.stdout or "", re.MULTILINE)
@@ -1674,10 +1686,13 @@ def restart_tray_process(
         if getuid is None:
             raise OSError("launchd is unavailable on this platform")
         uid = getuid()
-    return run(
-        ["launchctl", "kickstart", "-k", f"gui/{uid}/{LAUNCH_AGENT_LABEL}"],
-        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
-    )
+    command = ["launchctl", "kickstart", "-k", f"gui/{uid}/{LAUNCH_AGENT_LABEL}"]
+    try:
+        return run(command, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                   check=False, timeout=LAUNCHCTL_SECONDS)
+    except subprocess.TimeoutExpired as exc:
+        # 按失败返回：调用方把刚停掉的服务拉回来，不留一个没有服务的菜单栏图标。
+        return subprocess.CompletedProcess(command, 124, "", str(exc))
 
 
 _MACOS_DIAGNOSTICS_LOCK = threading.Lock()

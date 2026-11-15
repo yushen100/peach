@@ -4356,6 +4356,7 @@
       "external": "未同步：{{services}} 服务不归本托盘管理",
       "noOutput": "数据库同步没有输出",
       "startFailed": "数据库同步启动失败：{{error}}",
+      "timedOut": "数据库同步超过 {{seconds}} 秒没有结束，已终止",
       "notRecovered": "{{output}}；服务未能在 20 秒内恢复",
       "stoppingForSync": "正在安全停止服务并同步…",
       "stoppingForTakeover": "正在安全停止服务并接管写入…",
