@@ -700,6 +700,9 @@
     "faceModelsReady": "人脸模型已就绪"
   },
   "api": {
+    "listening": {
+      "outsideLan": "这个地址只接受局域网内的连接"
+    },
     "auth": {
       "invalidRememberDays": "请选择有效的保持登录时间",
       "sessionNotSaved": "登录设备未能记下，请检查数据目录能否写入后重试",

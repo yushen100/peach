@@ -131,7 +131,7 @@ def _resolve(address_resolver: Callable[[], str],
     try:
         return address, tuple(ipv6_resolver(address))
     except OSError:
-        LOGGER.warning("读取网卡 IPv6 地址失败，本轮只发布 IPv4", exc_info=True)
+        LOGGER.warning("Could not read interface IPv6 addresses; publishing IPv4 only this round", exc_info=True)
         return address, ()
 
 

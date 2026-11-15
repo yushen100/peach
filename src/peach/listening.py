@@ -13,6 +13,8 @@ from collections.abc import Callable
 
 import ifaddr
 
+from .user_messages import message_fields
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -76,7 +78,7 @@ def bind(host: str, port: int, *, ipv4_only: bool = False) -> tuple[socket.socke
                 # 端口被占、权限不够换成 IPv4 也一样失败；只有地址族不可用才退回。
                 if not ipv6_unavailable(exc):
                     raise
-                LOGGER.info("IPv6 监听不可用（%s），只监听 IPv4", exc)
+                LOGGER.info("IPv6 listening unavailable (%s); listening on IPv4 only", exc)
         return _inheritable(socket.create_server(("0.0.0.0", port))), False
     address = _parse(host)
     if address is None:
@@ -133,9 +135,9 @@ def configured_ipv6_networks(text: str) -> tuple[ipaddress.IPv6Network, ...]:
         try:
             network = ipaddress.ip_network(item.strip(), strict=False)
         except ValueError:
-            raise ValueError(f"PEACH_LAN_IPV6_PREFIXES 里的 {item.strip()} 不是 IPv6 前缀") from None
+            raise ValueError(f"PEACH_LAN_IPV6_PREFIXES: {item.strip()} is not an IPv6 prefix") from None
         if network.version != 6:
-            raise ValueError(f"PEACH_LAN_IPV6_PREFIXES 里的 {item.strip()} 不是 IPv6 前缀")
+            raise ValueError(f"PEACH_LAN_IPV6_PREFIXES: {item.strip()} is not an IPv6 prefix")
         networks.append(network)
     return tuple(networks)
 
@@ -165,7 +167,7 @@ class LanBoundary:
                 try:
                     self._cached = self._networks()
                 except OSError:
-                    LOGGER.warning("读取本机 IPv6 前缀失败", exc_info=True)
+                    LOGGER.warning("Could not read local IPv6 prefixes", exc_info=True)
                 self._stamp = now
             return self._cached
 
@@ -190,11 +192,11 @@ class LanBoundary:
         scope["server"] = _unmapped(scope.get("server"))
         client = scope.get("client")
         if client and not self.allows(str(client[0])):
-            LOGGER.warning("拒绝局域网以外的 IPv6 连接：%s", client[0])
+            LOGGER.warning("Refused IPv6 connection from outside the local network: %s", client[0])
             if scope["type"] == "websocket":
                 await send({"type": "websocket.close", "code": 1008})
                 return
-            body = json.dumps({"error": "这个地址只接受局域网内的连接"}, ensure_ascii=False).encode()
+            body = json.dumps(message_fields("api.listening.outsideLan", key="error"), ensure_ascii=False).encode()
             await send({"type": "http.response.start", "status": 403,
                         "headers": [(b"content-type", b"application/json; charset=utf-8"),
                                     (b"content-length", str(len(body)).encode()),

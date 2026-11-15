@@ -826,7 +826,7 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--redirect-origin", default="", help="HTTP navigation to one HTTPS origin")
     serve.add_argument("--port", type=int, default=SERVE_PORT)
     serve.add_argument("--ipv4-only", action="store_true",
-                       help="0.0.0.0 只监听 IPv4，不接收 IPv6 连接，也不发布 AAAA 记录")
+                       help="with 0.0.0.0, listen on IPv4 only: no IPv6 connections and no AAAA records")
     serve.add_argument("--db", type=Path, default=DEFAULT_DB)
     serve.add_argument("--token", default="")
     serve.add_argument("--docs", action="store_true")

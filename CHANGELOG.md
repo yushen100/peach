@@ -32,6 +32,7 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Library**: Duplicates supports multi-select; kept groups no longer come back when a copy goes missing, and can be restored from Kept (#690). / **馆藏**：重复文件页支持多选，保留过的组不再因少一份而重新出现，可在「已保留」里取消（#690）。
 - **Interface**: Wants, HD upgrades, junk files, the profile online view, rosters and online tags support multi-select; the queue page gets the select toggle (#690). / **界面**：想要、高清升级、垃圾文件、资料页在线视图、名册与在线标签支持多选，处理队列页接入右上角多选开关（#690）。
 - **Sourcing**: With Browsing history checked in the userscript, works and performers you open count toward discovery recommendations, as do downloads you add (#691). / **采集**：用户脚本勾选「浏览记录」后，打开过的作品、女优计入发现页推荐，用户脚本加入下载的作品也算（#691）。
+- **Desktop**: With LAN access on, Peach also accepts IPv6 connections from the local network and publishes the .local name over IPv6 (#239). / **桌面**：开放局域网访问时同时接受局域网内的 IPv6 连接，.local 名字也能解析到 IPv6 地址（#239）。
 
 ### Changed / 变更
 

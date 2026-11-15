@@ -700,6 +700,9 @@
     "faceModelsReady": "Face models are ready"
   },
   "api": {
+    "listening": {
+      "outsideLan": "This address only accepts connections from the local network"
+    },
     "auth": {
       "invalidRememberDays": "Choose a valid stay-signed-in duration.",
       "sessionNotSaved": "Couldn't remember this device. Check that the data directory is writable, then try again.",
