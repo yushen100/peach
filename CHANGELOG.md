@@ -36,6 +36,14 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Library**: Video enhancement model tags such as `_prob4` no longer become part of creator names, aliases or search terms (#681). / **馆藏**：视频增强软件的模型代号（如 `_prob4`）不再算进创作者名，也不再登记成别名和搜索词（#681）。
 - **Sourcing**: Codes left with only a cover image after the video is deleted can be added to Wants, and an early cover no longer marks a want as acquired (#681). / **采集**：视频删掉后只剩封面图的番号能加入「想要」，先到的封面图也不再把想要标成已到手（#681）。
 - **Sourcing**: Mark all as read in the userscript's other tasks no longer hides failed or not-found items; those are dismissed one by one (#686). / **采集**：用户脚本「其他任务」的全部标为已读不再收起失败和未找到资源的项，这类要逐条确认（#686）。
+### 修复
+
+- **账本**：网盘改名卡住、写入方卡死或 JavDB 查询所在任务被暂停时，播放计数、评分和任务进度不再跟着停住（#683）。
+- **采集**：用户脚本不再把标题中 File05 这类词及 MISSAV、Jable 无码番号误报为冲突（peach-mitao/peach-userscript#34）。
+- **采集**：MGStage 番号前多一段数字、AIRAV 番号带来源名的作品能查到了，片商官网另取导演、剧情与剧照（#653）。
+- **采集**：DMM 分段发售的作品（如 SORA-613A）按整片番号搜资源和添加，带尾字母的番号能进资源搜索（#662）。
+- **更新**：源码运行、Docker 和已是最新时，检查更新不再列出用不上的「下载内容」，安装包的下载说明不再贴着上一行（#663）。
+- **馆藏**：认出 TMA 的 `T28-612`、`T38-076` 这类番号，已入库的此类影片下次处理时补上番号和资料（#656）。
 
 ## [0.58.0] - 2026-11-14
 

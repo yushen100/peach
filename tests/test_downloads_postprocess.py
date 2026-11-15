@@ -144,6 +144,42 @@ class DownloadPostprocessTests(unittest.TestCase):
         self.assertEqual(ledger_backups.list_backups(folder, ledger_backups.ORGANIZE_PATTERN),
                          [*old[3:], backup])
 
+    def test_stuck_cloud_rename_leaves_other_ledger_writes_running(self):
+        import threading
+        entered, release = threading.Event(), threading.Event()
+        original = post.organize._rename
+
+        def stuck(source, target):
+            entered.set()
+            release.wait(10)
+            original(source, target)
+
+        outcome = {}
+
+        def organize():
+            try:
+                outcome['result'] = post._organize(self.contract, self.task, self.asset_id)
+            except BaseException as error:
+                outcome['error'] = error
+
+        with patch.object(post.organize, '_rename', side_effect=stuck):
+            worker = threading.Thread(target=organize)
+            worker.start()
+            try:
+                self.assertTrue(entered.wait(10))
+                with self.database.write_transaction(timeout=1) as connection:
+                    connection.execute("UPDATE download_task SET postprocess_detail='other write' WHERE id=?",
+                                       (self.task.id,))
+            finally:
+                release.set()
+                worker.join(10)
+        self.assertNotIn('error', outcome)
+        self.assertEqual(outcome['result']['moved'], 1)
+        self.assertTrue(self.target.exists())
+        with self.database.read_connection() as connection:
+            self.assertEqual(connection.execute('SELECT path FROM asset WHERE id=?', (self.asset_id,)).fetchone()[0],
+                             str(self.target))
+
     def test_retry_uses_the_bound_asset_after_a_move(self):
         post._organize(self.contract, self.task, self.asset_id)
         main, path, _ = post._bind_main(self.contract, self.store.get(self.task.id))

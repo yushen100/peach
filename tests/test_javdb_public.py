@@ -202,6 +202,64 @@ class PublicProtocolTests(unittest.TestCase):
         self.assertEqual(calls, [1])
         self.assertEqual(api.pending, {})
 
+    def test_a_paused_task_does_not_keep_the_source_or_its_pending_answer(self):
+        from peach import task_control
+        from peach.task_runs import TaskRunStore
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        database = Path(temporary.name).resolve() / 'database'
+        database.mkdir()
+        store = TaskRunStore(fresh_ledger(database))
+        run = store.start('demo', trigger='manual')
+        api = PublicAPI()
+        entered, requested = threading.Event(), threading.Event()
+
+        def fetch():
+            entered.set()
+            self.assertTrue(requested.wait(3))
+            # 传输层发请求前的停点（`http` 的 `@controlled`）。
+            task_control.checkpoint(None)
+            return {'id': 'Exact'}
+
+        def paused_owner():
+            with task_control.bind(store, run.id):
+                return api._cached('movie:EXM-001:Exact', fetch)
+
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            owner = pool.submit(paused_owner)
+            try:
+                self.assertTrue(entered.wait(3))
+                task_control.request(store, run.id, 'pause')
+                requested.set()
+                same = pool.submit(api._cached, 'movie:EXM-001:Exact', fetch)
+                other = pool.submit(api._cached, 'movie:EXM-002:Other', lambda: {'id': 'Other'})
+                self.assertEqual(same.result(timeout=3), {'id': 'Exact'})
+                self.assertEqual(other.result(timeout=3), {'id': 'Other'})
+            finally:
+                requested.set()
+                task_control.request(store, run.id, 'resume')
+            self.assertEqual(owner.result(timeout=5), {'id': 'Exact'})
+        self.assertEqual(api.pending, {})
+
+    def test_waiting_on_a_stuck_request_for_the_same_key_gives_up(self):
+        api = PublicAPI()
+        entered, release = threading.Event(), threading.Event()
+
+        def fetch():
+            entered.set()
+            release.wait(5)
+            return 'pixels'
+
+        with patch('peach.javdb_public.PENDING_WAIT_SECONDS', 0.1), ThreadPoolExecutor(max_workers=1) as pool:
+            owner = pool.submit(api._cached, 'image:Exact:0', fetch)
+            try:
+                self.assertTrue(entered.wait(3))
+                with self.assertRaises(PublicSourceUnavailable):
+                    api._cached('image:Exact:0', fetch)
+            finally:
+                release.set()
+            self.assertEqual(owner.result(timeout=3), 'pixels')
+
     def test_images_use_three_slots_and_leave_api_interval_intact(self):
         api = PublicAPI(lambda *_: HttpResponse(200, {}, b'pixels'))
         api._cached('movie-id:EXM-001', lambda: ['Exact'])

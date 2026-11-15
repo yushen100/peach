@@ -1086,6 +1086,9 @@
     }
   },
   "errors": {
+    "ledger": {
+      "writeBusy": "本地数据库正忙：这次写入排队超过 {{seconds}} 秒，没有保存，请稍后重试。"
+    },
     "hardwareTranscode": {
       "backendInvalid": "PEACH_TRANSCODE_BACKEND 必须为 {{backends}}"
     },

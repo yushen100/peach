@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import time
 import json
+from contextlib import closing
 from pathlib import Path
 
 from . import interface_text, junk, ledger_backups, organize, settings_file
@@ -18,6 +19,7 @@ from .jobs import JobDeferred
 from .library_processing import COLLECT_STAGE, _ffprobe_path, process_library
 from .media_probe import probe_unmeasured
 from .task_runs import declared_rows, item_progress, run_progress
+from .task_control import operation
 from .task_stages import stage_label, stage_progress
 from .task_retry import RELAYED, RetryableTaskError
 from .user_messages import UserRuntimeError, UserValueError
@@ -191,19 +193,25 @@ def _organize(contract, task, main: int) -> dict:
         return {"moved": 0, "skipped": Said(organize.SKIP_REASON_CODES[first]) if first in organize.SKIP_REASON_CODES
                 else Said("labels.downloadPostprocess.nothingToOrganize")}
     name = f"ledger.pre-download-{task.id}-{time.strftime('%Y%m%d-%H%M%S')}.db"
+    # 用自己的连接逐条提交，不进 `write_transaction`：改名要动网盘，网盘一卡，握着的进程写锁
+    # 会让播放计数、评分、任务心跳等全部写入一起停住。`apply_plan` 每动完一个文件就提交一次，
+    # 写锁只在那条 UPDATE 期间占用。
     with ledger_backups.organize_backup(Path(contract.db_path), contract.candidate_root,
-                                        name) as backup, \
-            contract.database.write_transaction() as connection:
+                                        name) as backup, operation(), \
+            closing(contract.database.connect(write=True)) as connection:
         integrity = connection.execute('PRAGMA integrity_check').fetchone()[0]
         if integrity != 'ok':
             raise UserRuntimeError('errors.downloadPostprocess.integrityBefore', {'integrity': integrity})
         baseline = {tuple(row) for row in connection.execute('PRAGMA foreign_key_check')}
         result = organize.apply_plan(connection, movable, generated_root=contract.candidate_root)
+        connection.commit()
         integrity = connection.execute('PRAGMA integrity_check').fetchone()[0]
         introduced = {tuple(row) for row in connection.execute('PRAGMA foreign_key_check')} - baseline
-        if integrity != 'ok' or introduced:
-            raise UserRuntimeError('errors.downloadPostprocess.integrityAfter',
-                                   {'integrity': integrity, 'count': len(introduced)})
+    if result.get('moved'):
+        contract.database.after_commit()
+    if integrity != 'ok' or introduced:
+        raise UserRuntimeError('errors.downloadPostprocess.integrityAfter',
+                               {'integrity': integrity, 'count': len(introduced)})
     if result.get('failed'):
         reasons = '；'.join(str(row['reason']) for row in result.get('failures', ()))
         if all(row.get('retryable') for row in result.get('failures', ())):
