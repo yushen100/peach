@@ -705,8 +705,7 @@ def _stage_missing_rows(rows) -> dict:
         elif answer is None:
             blocked.append(_blocked(row["id"], media, CodedTimeoutError(
                 errno.ETIMEDOUT, "errors.mediaIo.readTimedOut", filename=str(translated))))
-        elif (not isinstance(translated, SmbResource) and PureWindowsPath(str(media)).drive
-              and not _purge_root_online(row, translated, online)):
+        elif not isinstance(translated, SmbResource) and not _purge_root_online(row, translated, online):
             blocked.append(_blocked(row["id"], media, UserOSError("errors.webBatch.storageOffline")))
         else:
             items.append(_purge_item(row, translated))
