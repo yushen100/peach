@@ -154,7 +154,7 @@ function entityProps(name: string, hosts: EntityPageProps['hosts']): EntityPageP
     helpers: {
       portraitImg: () => '', wireDrag: vi.fn(), wireScroller: vi.fn(), wireFeedRow: vi.fn(),
       feedRowHtml: () => '<div class="feednewrow"></div>', receipt: vi.fn(), failure: vi.fn(),
-      aliasForm: vi.fn(async () => {}), sourceToolsHtml: () => '', wireSourceTools: vi.fn(), comboItems: () => [],
+      aliasForm: vi.fn(async () => undefined), sourceToolsHtml: () => '', wireSourceTools: vi.fn(), comboItems: () => [],
       sortKeys: vi.fn(() => [{ key: 'new', label: '入库时间', pressed: true, dir: '' as const, ariaLabel: '' }]),
     },
     actions: {

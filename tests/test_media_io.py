@@ -14,6 +14,7 @@ from types import SimpleNamespace
 
 from peach import media_io, library_processing
 from peach.user_messages import UserInterruptedError
+from test_organize import hung_mount
 
 
 class MediaIoTests(unittest.TestCase):
@@ -166,7 +167,6 @@ class MediaIoTests(unittest.TestCase):
 
     def test_a_cancel_during_an_interruptible_call_ends_the_worker_at_once(self):
         from peach.task_control import Cancelled
-        from test_organize import hung_mount
         stuck = self.root / 'stuck.mp4'
         polls = []
 

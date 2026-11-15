@@ -46,6 +46,37 @@ export interface EntityPageData extends EntityHeroData {
   mark_link_id?: number | null;
 }
 
+/** 合并的双方：名字与直接作品数。`/api/entity-merge` 直接读，添加别名撞名时也随结果回来。 */
+export interface EntityMergePair {
+  kind: string;
+  alias: string;
+  current: { id: number; canonical_name: string; works: number };
+  other: { id: number; canonical_name: string; works: number };
+}
+
+/** 添加别名撞上另一份同类档案。撞的是对方的名字时别名没写；`shared` 是撞上对方的别名，
+ *  别名照常写了（同名的不一定是同一份），页面再问要不要合并。 */
+export interface EntityAliasConflict extends EntityMergePair {
+  shared?: boolean;
+}
+
+/** 保留作品多的一侧；作品数相同保留当前页，一次点击不先替用户决定旧 ID 指向哪边。 */
+export function mergeSides(pair: EntityMergePair) {
+  const keepCurrent = pair.current.works >= pair.other.works;
+  return keepCurrent ? { keep: pair.current, absorb: pair.other } : { keep: pair.other, absorb: pair.current };
+}
+
+export interface EntityAliasWriteResult {
+  added?: boolean;
+  alias?: string;
+  conflict?: EntityAliasConflict;
+}
+
+export interface EntityMergeResult {
+  target: { id: number; canonical_name: string };
+  source: { id: number; canonical_name: string };
+}
+
 /** `/api/photos`、`/api/photo-set` 的一页。`sets` 里 `kind` 为 `code` 的是名下作品的官方样张。 */
 export interface PhotoPage {
   error?: string;
@@ -108,7 +139,8 @@ export interface EntityPageHelpers {
   /** 失败回执（`actionFailure`）。 */
   failure(label: string, error: unknown): void;
   /** 「添加别名」弹层：表单与回执在壳里，写回交给 `write`（页面的 mutation，成功后重取资料与作品）。 */
-  aliasForm(mine: string[], write: (payload: { alias: string; remove?: boolean }) => Promise<{ added?: boolean; alias?: string }>): Promise<void>;
+  aliasForm(mine: string[], write: (payload: { alias: string; remove?: boolean }) => Promise<EntityAliasWriteResult>):
+    Promise<EntityAliasWriteResult | undefined>;
   /** 图集那两枚源文件键；`done` 在对账改动了这一组之后重取它。 */
   sourceToolsHtml(setId: number): string;
   wireSourceTools(root: Element, done: () => void): void;

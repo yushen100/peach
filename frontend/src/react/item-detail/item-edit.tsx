@@ -31,7 +31,6 @@ export const ITEM_EDIT_URL = '/api/item-edit';
 export const ITEM_COVER_URL = '/api/item-cover';
 const TEXT_FIELDS = ['title', 'original_title', 'code', 'release_date'] as const;
 type TextField = typeof TEXT_FIELDS[number];
-type EntityKind = 'performer' | 'studio' | 'series';
 const REGIONS = ['', 'jp', 'kr', 'cn', 'west', 'other'] as const;
 
 export interface Choice { id: number | null; name: string; user_created?: boolean }
@@ -326,9 +325,11 @@ function CoverRow({ item, value, onChange }: { item: DetailItem; value: CoverDra
   );
 }
 
-/** 已选的几个身份排成胶囊，后面跟一个搜索框；单选的（厂牌、系列）选了一个就收起搜索框。 */
-function EntityChips({ kind, values, single = false, labelledBy, onChange }: {
-  kind: EntityKind; values: Choice[]; single?: boolean; labelledBy: string; onChange(values: Choice[]): void;
+/** 已选的几个身份排成胶囊，后面跟一个搜索框；单选的（厂牌、系列）选了一个就收起搜索框。
+ *  资料页「合并重复档案」也用它单选另一份，`picker` 透传给搜索框（不新建、不列当前这份）。 */
+export function EntityChips({ kind, values, single = false, labelledBy, onChange, picker }: {
+  kind: string; values: Choice[]; single?: boolean; labelledBy: string; onChange(values: Choice[]): void;
+  picker?: { allowCreate?: boolean; exclude?: number; placeholder?: string };
 }) {
   const pick = (value: Choice) => {
     if (values.some(other => sameChoice(other, value))) return;
@@ -345,7 +346,7 @@ function EntityChips({ kind, values, single = false, labelledBy, onChange }: {
             onClick={() => onChange(values.filter(other => !sameChoice(other, value)))}><Glyph name="x" /></button>
         </span>
       ))}
-      {single && values.length ? null : <EntityPicker kind={kind} labelledBy={labelledBy} onPick={pick} />}
+      {single && values.length ? null : <EntityPicker kind={kind} labelledBy={labelledBy} onPick={pick} {...picker} />}
     </div>
   );
 }
@@ -354,8 +355,12 @@ interface SuggestItem { value: string; n: number; entity_id: number | null }
 interface SuggestResponse { groups?: { kind: string; items: SuggestItem[] }[] }
 
 /** 输入名字搜馆藏里已有的档案（名称与别名都认），列表最后一格是「新建」。搜的是 `/api/suggest`，
- *  与搜索栏同一条判据。回车挑高亮那一项，没有高亮就按输入新建。 */
-function EntityPicker({ kind, labelledBy, onPick }: { kind: EntityKind; labelledBy: string; onPick(value: Choice): void }) {
+ *  与搜索栏同一条判据。回车挑高亮那一项，没有高亮就按输入新建。资料页的「合并重复档案」也用它：
+ *  那里不新建（`allowCreate`），也不列出当前这份（`exclude`）。 */
+export function EntityPicker({ kind, labelledBy, onPick, allowCreate = true, exclude, placeholder }: {
+  kind: string; labelledBy: string; onPick(value: Choice): void;
+  allowCreate?: boolean; exclude?: number; placeholder?: string;
+}) {
   const [query, setQuery] = useState('');
   const [active, setActive] = useState(0);
   const term = query.trim();
@@ -367,8 +372,8 @@ function EntityPicker({ kind, labelledBy, onPick }: { kind: EntityKind; labelled
   const items = (found.data?.groups || []).find(group => group.kind === kind)?.items || [];
   const exact = items.some(item => foldName(item.value) === foldName(term));
   const options: Choice[] = [
-    ...items.map(item => ({ id: item.entity_id, name: item.value })),
-    ...(term && !exact ? [{ id: null, name: term }] : []),
+    ...items.filter(item => exclude == null || item.entity_id !== exclude).map(item => ({ id: item.entity_id, name: item.value })),
+    ...(allowCreate && term && !exact ? [{ id: null, name: term }] : []),
   ];
   const choose = (value: Choice) => { onPick(value); setQuery(''); setActive(0) };
   const keydown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -387,7 +392,7 @@ function EntityPicker({ kind, labelledBy, onPick }: { kind: EntityKind; labelled
   };
   return (
     <div data-entity-picker="">
-      <Input aria-labelledby={labelledBy} value={query} maxLength={200} placeholder={t('catalog:itemEdit.searchOrCreate')}
+      <Input aria-labelledby={labelledBy} value={query} maxLength={200} placeholder={placeholder ?? t('catalog:itemEdit.searchOrCreate')}
         onChange={value => { setQuery(value); setActive(0) }} onKeyDown={keydown} />
       {term ? (
         <div role="listbox" aria-labelledby={labelledBy} data-entity-options="" aria-busy={found.isFetching || undefined}>

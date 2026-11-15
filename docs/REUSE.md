@@ -920,7 +920,7 @@ A 盘垃圾隔离使用短名称 `peach-purge-<32 位 UUID>.peach-quarantine`，
 - 统计与口味两页按登录态 Vercel Analytics／Speed Insights 的当前页面重做，排行与数据源共用父网格的引导线。
 - 口味页顶部给出结论与可点入口：浏览与 Peach 两侧的共同信号、可探索标签、待补证据的下一步动作。
 - 操作回执复用 Toast（Sonner 的栈，`frontend/src/react/toaster.tsx`；壳里只调 `toast()`／`actionReceipt()`）；按钮以 Spinner 和 `aria-busy` 标明忙态。后台任务显示可恢复进度，断线自动重连。
-- 实体的统称由用户在资料页自选：菜单只列这条实体名下已有的写法，选中的提为规范名、换下的留成别名，扁平投影跟着改；先过确认弹层并点名两个写法，成功后发可撤销回执；不收自由文本，撞上另一条实体的规范名只报冲突。
+- 实体的统称由用户在资料页自选：菜单只列这条实体名下已有的写法，选中的提为规范名、换下的留成别名，扁平投影跟着改；先过确认弹层并点名两个写法，成功后发可撤销回执。添加别名撞上另一条女优或厂牌时，确认后按直接作品数保留多的一侧、相同时保留当前页，再迁移关系并留下旧 ID 转址；其他实体种类只报撞名冲突。
   - 艺人入口审计复用 `entry_links` 的 JAV 目录闸与日文名选择、只读 SQLite 和 `review_csv`；`audit_performer_entry_names.py` 覆盖全部 performer，分别记录入口来源、名称选择和中文来源缺口，远端页面未请求时保留「未取得」。译名复核后的原日文名按 `performer-localization` 来源优先。`localize_performer_names.py --mapping-source` 标明 CSV 的真实复核来源，`--only` 限定实体并拒绝不完整的同人合并组；别名、兼容标签、来源留痕和备份沿用已有实现。未新增依赖。
   - MISSAV 入口优先读取 `state/missav-actresses.json` 的实际名录 href，保留原字形、数字前缀与括号艺名；`directory_name_key` 仅对匹配折叠字形及纯汉字、假名名称的空白，英文名称空白保留。同名对应不同路径时不显示入口；明确 `verified=false` 的来源项阻止该名称入口及模板回退，页面重新核验后可解除。未采全名录的缺项保留模板候选，不能判为站点未收录。七沢みあ、逢沢みゆ的 h1 与 canonical 已在用户 Chrome 验证，证据在 `<私有验证记录>`；名录原始分页和全库匹配 CSV 在 `review/missav-directory/`。API 与全库审计共用 `entry_links.build`，派生入口不写 ledger，403 验证页记「未取得」。艺名选择沿用现名、读音排除与来源冲突复核。无新增依赖。
 - FC2 作品计数复用 `ordered_multipart_items`，`web_catalog.video_work_key` 按账本代次缓存已确认的合集键；资料、名册、同台艺人、标签与补全共用。`/api/items.work_total` 供作品读数，`total` 仍用于文件分页；不确定分段不归组。出演名单展开复用 BoardUI `Button`。跨角色人工合并走 `merge_entity`，`user:identity-merge:<kind>` 的别名与墓碑共同证明旧资料页地址，单纯同名不跨角色跳转。

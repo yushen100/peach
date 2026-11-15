@@ -936,6 +936,9 @@
       "selectionChanged": "The selection changed. Refresh and try again",
       "operationInvalid": "This bulk action isn't supported"
     },
+    "entityMerge": {
+      "thirdParty": "These names also belong to another profile: {{names}}. Sort that profile out first."
+    },
     "media": {
       "invalidPlaybackOrigin": "Invalid playback address.",
       "localPlaybackUnavailable": "Open it on this device with the network playback address or the M3U playlist.",

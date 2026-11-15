@@ -12,15 +12,29 @@ import json
 import re
 import sqlite3
 
+from datetime import datetime, timezone
 from urllib.parse import urlsplit
+from uuid import uuid4
 
 from . import (company_profiles, entry_links, feeds, interface_text, link_status, performer_header, web_feeds,
                web_follow)
 from .catalog_rules import (LENGTH_TAGS, dir_expr, photo_set_title, solo_performer_clause, tag_cat)
 from .coded_text import Said, coded
-from .entities import (USER_ALIAS_SOURCE, normalize_entity_name, prefer_entity_name, resolve_entity,
-                       resolve_entity_id)
+from .entities import (
+    FLAT_COLUMN,
+    USER_ALIAS_SOURCE,
+    is_identity_alias,
+    merge_entity,
+    normalize_entity_name,
+    prefer_entity_name,
+    resolve_entity,
+    resolve_entity_id,
+    rewrite_flat_projection,
+)
+from .field_owners import write_owned_fields
+from .migrations import sqlite_backup
 from .social_links import ARCHIVE_HOSTS, is_archive
+from .user_messages import UserValueError
 from .media_sources import cost_for
 from .web_catalog import (
     JAV_ASSET_PREDICATE,
@@ -1325,6 +1339,75 @@ def q_suggest(contract: WebContract, q: str, limit: int = SUGGEST_GROUP_LIMIT,
     ]}
 
 
+#: 有资料页的几类实体都能两两合并（issue #207）；标签走标签管理里的合并。只做同类：
+#: 跨角色合并另有身份关系与来源证明，不能从这个入口顺手做掉。
+MERGE_KINDS = frozenset(PROFILE_KINDS)
+MERGE_ALIAS_SOURCE = "user:identity-merge"
+MERGE_FLAT_OWNER = "user:entity-merge"
+
+
+def _merge_pair(connection, kind: str, current: tuple[int, str], other: tuple[int, str], alias: str) -> dict:
+    """撞名或直接合并时给界面的双方：名字与直接作品数，界面据此说明保留哪一份。"""
+    return {
+        "kind": kind,
+        "alias": alias,
+        "current": {"id": current[0], "canonical_name": current[1], "works": _direct_work_count(connection, current[0])},
+        "other": {"id": other[0], "canonical_name": other[1], "works": _direct_work_count(connection, other[0])},
+    }
+
+
+def _direct_work_count(connection, entity_id: int) -> int:
+    """合并会搬走的直接作品关系数；用于冲突弹层说明两边各有多少作品。"""
+    return int(connection.execute(
+        "SELECT count(DISTINCT ae.asset_id) FROM asset_entity ae"
+        " JOIN asset a ON a.id=ae.asset_id"
+        " WHERE ae.entity_id=? AND " + COUNTED_VIDEO,
+        (entity_id,),
+    ).fetchone()[0])
+
+
+def _entity_identity_names(connection, entity_id: int) -> list[str]:
+    row = connection.execute(
+        "SELECT kind,canonical_name FROM entity WHERE id=?", (entity_id,)).fetchone()
+    if row is None:
+        return []
+    kind, canonical = str(row["kind"]), str(row["canonical_name"])
+    names = [canonical]
+    names.extend(str(alias[0]) for alias in connection.execute(
+        "SELECT alias FROM entity_alias WHERE entity_id=? ORDER BY alias", (entity_id,)))
+    unique: list[str] = []
+    seen: set[str] = set()
+    for name in names:
+        normalized = normalize_entity_name(name)
+        if not normalized or normalized in seen or not is_identity_alias(kind, name):
+            continue
+        seen.add(normalized)
+        unique.append(name)
+    return unique
+
+
+def _third_party_names(connection, kind: str, target_id: int, source_id: int,
+                       names: list[str]) -> list[str]:
+    """合并后会变成目标别名的写法是否已经属于第三条实体。
+
+    两条实体合并后，旧名必须是唯一可解析的别名。若第三条实体也登记了同一写法，
+    合并只会把一个有歧义的地址换成另一个，旧页面仍然打不开。
+    """
+    found: list[str] = []
+    for name in names:
+        normalized = normalize_entity_name(name)
+        row = connection.execute(
+            "SELECT canonical_name FROM entity e WHERE e.kind=?"
+            " AND e.id NOT IN (?,?) AND (e.normalized_name=?"
+            " OR EXISTS(SELECT 1 FROM entity_alias a WHERE a.entity_id=e.id"
+            " AND a.normalized_alias=?)) LIMIT 1",
+            (kind, target_id, source_id, normalized, normalized),
+        ).fetchone()
+        if row and str(row[0]) not in found:
+            found.append(str(row[0]))
+    return found
+
+
 def w_entity_alias(contract: WebContract, body):
     """给这条实体添一个别名，或撤掉一个自己添过的。
 
@@ -1367,10 +1450,14 @@ def w_entity_alias(contract: WebContract, body):
             # 统称本来就是这个写法，添进别名表只会让下拉里并排出现两个一样的名字。
             return {"ok": True, "alias": canonical, "added": False}
         taken = c.execute(
-            "SELECT canonical_name FROM entity WHERE kind=? AND normalized_name=? AND id<>?",
+            "SELECT id,canonical_name FROM entity"
+            " WHERE kind=? AND normalized_name=? AND id<>?",
             (kind, alias_key, entity_id)).fetchone()
         if taken:
-            raise ValueError(f"another {kind} is already named {taken[0]}")
+            if kind not in MERGE_KINDS:
+                raise ValueError(f"another {kind} is already named {taken['canonical_name']}")
+            return {"ok": True, "alias": alias, "added": False, "conflict": _merge_pair(
+                c, kind, (entity_id, canonical), (int(taken["id"]), str(taken["canonical_name"])), alias)}
         existing = c.execute(
             "SELECT alias FROM entity_alias WHERE entity_id=? AND normalized_alias=?",
             (entity_id, alias_key)).fetchone()
@@ -1380,7 +1467,129 @@ def w_entity_alias(contract: WebContract, body):
             "INSERT INTO entity_alias(entity_id,alias,normalized_alias,source,confidence)"
             " VALUES(?,?,?,?,1.0)",
             (entity_id, alias, alias_key, USER_ALIAS_SOURCE))
-        return {"ok": True, "alias": alias, "added": True}
+        added = {"ok": True, "alias": alias, "added": True}
+        # 这个写法也是另一份同类档案的别名：照常加上（同名的不一定是同一个人），再问要不要合并。
+        shared = c.execute(
+            "SELECT e.id,e.canonical_name FROM entity e JOIN entity_alias a ON a.entity_id=e.id"
+            " WHERE e.kind=? AND a.normalized_alias=? AND e.id<>? ORDER BY e.id LIMIT 1",
+            (kind, alias_key, entity_id)).fetchone() if kind in MERGE_KINDS else None
+        if shared:
+            added["conflict"] = {**_merge_pair(
+                c, kind, (entity_id, canonical), (int(shared["id"]), str(shared["canonical_name"])), alias),
+                "shared": True}
+        return added
+
+
+def q_entity_merge(contract: WebContract, args):
+    """直接合并前的说明：`id` 是当前资料页，`other` 是选中的另一份同类档案。只读。"""
+    kind = str(args.get("kind", "")).strip()
+    if kind not in MERGE_KINDS:
+        raise ValueError("kind must be a mergeable entity kind")
+    try:
+        current_id, other_id = int(args.get("id")), int(args.get("other"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("id and other are required") from exc
+    if current_id == other_id:
+        raise ValueError("cannot merge a profile into itself")
+    with contract.read_connection() as c:
+        names = {int(row[0]): str(row[2]) for row in c.execute(
+            "SELECT id,kind,canonical_name FROM entity WHERE id IN (?,?) AND kind=?",
+            (current_id, other_id, kind))}
+        if len(names) != 2:
+            raise ValueError("entity not found")
+        return _merge_pair(c, kind, (current_id, names[current_id]), (other_id, names[other_id]),
+                           names[other_id])
+
+
+def _merge_flat_projection(connection, kind: str, target_id: int, source_name: str, target_name: str) -> int:
+    """作品上的扁平署名跟着改成保留那份的名字。厂牌、系列、创作者是真相字段，按用户归属写，
+    之后的刮削压不回去；女优走出演者扁平标签；事务所没有扁平列。"""
+    column = FLAT_COLUMN.get(kind)
+    if column:
+        asset_ids = [int(row[0]) for row in connection.execute(
+            f"SELECT id FROM asset WHERE {column}=?", (source_name,))]
+        flat = write_owned_fields(connection, asset_ids, {column: target_name}, MERGE_FLAT_OWNER)
+        return len(asset_ids) if column in flat.written else 0
+    if kind == "performer":
+        return rewrite_flat_projection(connection, kind, target_id, source_name, target_name)
+    return 0
+
+
+def w_entity_merge(contract: WebContract, body):
+    """把另一份同类档案并入指定档案。
+
+    资料页有两个入口（issue #207）：添加别名撞上另一份同类档案时，以及名字菜单里的
+    「合并重复档案」。只收 `MERGE_KINDS`、只做一对、双方必须同类。调用方显式给保留侧，界面按
+    作品多的一侧、作品数相同则当前页优先来选。合并沿用 `merge_entity` 的全部关系迁移
+    与旧 ID 墓碑；本入口额外同步扁平投影、执行外键差集校验，并在写入前备份整库。
+    """
+    kind = str(body.get("kind", "")).strip()
+    if kind not in MERGE_KINDS:
+        raise ValueError("kind must be a mergeable entity kind")
+    try:
+        target_id = int(body.get("target_id"))
+        source_id = int(body.get("source_id"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("target_id and source_id are required") from exc
+    if target_id <= 0 or source_id <= 0:
+        raise ValueError("target_id and source_id are required")
+    if source_id == target_id:
+        raise ValueError("cannot merge a profile into itself")
+
+    with contract.write_transaction() as connection:
+        # 备份与合并共用同一把数据库写锁；备份看到的是这次合并前的确定状态。
+        connection.execute("BEGIN IMMEDIATE")
+        rows = {
+            int(row["id"]): row for row in connection.execute(
+                "SELECT id,kind,canonical_name FROM entity WHERE id IN (?,?)",
+                (target_id, source_id),
+            )
+        }
+        target, source = rows.get(target_id), rows.get(source_id)
+        if target is None or source is None:
+            raise ValueError("entity not found")
+        if str(target["kind"]) != kind or str(source["kind"]) != kind:
+            raise ValueError("only entities of the same kind can be merged")
+        source_names = _entity_identity_names(connection, source_id)
+        third_party = _third_party_names(
+            connection, kind, target_id, source_id, source_names)
+        if third_party:
+            raise UserValueError("api.entityMerge.thirdParty", {"names": " / ".join(third_party[:3])})
+
+        before_foreign_keys = {tuple(row) for row in connection.execute(
+            "PRAGMA foreign_key_check")}
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+        backup = contract.db_path.with_name(
+            f"ledger.pre-entity-merge-{stamp}-{source_id}-{uuid4().hex[:8]}.db")
+        sqlite_backup(contract.db_path, backup)
+
+        target_name = str(target["canonical_name"])
+        source_name = str(source["canonical_name"])
+        moved = merge_entity(
+            connection,
+            target_id=target_id,
+            source_id=source_id,
+            source_name=source_name,
+            alias_source=f"{MERGE_ALIAS_SOURCE}:{kind}",
+        )
+        flat_rewritten = _merge_flat_projection(connection, kind, target_id, source_name, target_name)
+
+        broken = [row for row in connection.execute("PRAGMA foreign_key_check")
+                  if tuple(row) not in before_foreign_keys]
+        if broken:
+            raise RuntimeError(
+                f"merging entity {source_id} into {target_id} added {len(broken)} foreign key violations")
+
+    contract.cache_bust()
+    return {
+        "ok": True,
+        "kind": kind,
+        "target": {"id": target_id, "canonical_name": target_name},
+        "source": {"id": source_id, "canonical_name": source_name},
+        "moved": moved,
+        "flat_rewritten": flat_rewritten,
+        "backup": backup.name,
+    }
 
 
 def w_entity_name(contract: WebContract, body):

@@ -14,7 +14,7 @@ const followActions: FollowFeedActions = { route: vi.fn(), shuffle: vi.fn(), loa
   toggleSelection: vi.fn(), setImagesOnly: vi.fn(), setPhotoLayout: vi.fn(), canFlip: () => true, toast: vi.fn(),
   failure: vi.fn(), checkReport: vi.fn() };
 const helpers: EntityPageHelpers = { portraitImg: entityPortraitImg, wireDrag: vi.fn(), wireScroller: vi.fn(), wireFeedRow: vi.fn(),
-  feedRowHtml: () => '', receipt: vi.fn(), failure: vi.fn(), aliasForm: async () => {}, sourceToolsHtml: () => '',
+  feedRowHtml: () => '', receipt: vi.fn(), failure: vi.fn(), aliasForm: async () => undefined, sourceToolsHtml: () => '',
   wireSourceTools: vi.fn(), comboItems: () => [], sortKeys: () => [] };
 const preference = { sort: 'rating', dir: 'asc' };
 

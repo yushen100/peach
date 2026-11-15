@@ -49,12 +49,14 @@ from .web_entity import (
     entity_shapes,
     q_entity,
     q_entity_latest,
+    q_entity_merge,
     q_entity_photos,
     q_index,
     q_photo_set,
     q_suggest,
     suggest_kinds,
     w_entity_alias,
+    w_entity_merge,
     w_entity_name,
 )
 from .web_downloads import (q_downloads, w_download_cancel, w_download_postprocess,
@@ -416,6 +418,7 @@ GET_HANDLERS = {
     "/api/parts": q_parts,
     "/api/editions": q_editions,
     "/api/entity": q_entity,
+    "/api/entity-merge": q_entity_merge,
     "/api/performer/delete-plan": q_performer_delete_plan,
     "/api/entity-batch/plan": q_entity_batch_plan,
     "/api/performer/delete-candidates": q_performer_delete_candidates,
@@ -522,6 +525,7 @@ POST_HANDLERS = {
     "/api/performer/delete": w_performer_delete,
     "/api/entity-batch": w_entity_batch,
     "/api/entity-alias": w_entity_alias,
+    "/api/entity-merge": w_entity_merge,
     "/api/face-models": _post_face_models,
 }
 
