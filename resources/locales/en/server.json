@@ -1082,6 +1082,9 @@
     }
   },
   "errors": {
+    "ledger": {
+      "writeBusy": "The local database is busy: this write waited more than {{seconds}} s and was not saved. Try again later."
+    },
     "hardwareTranscode": {
       "backendInvalid": "PEACH_TRANSCODE_BACKEND must be one of {{backends}}"
     },
