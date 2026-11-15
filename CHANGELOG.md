@@ -29,6 +29,7 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Settings**: Wants recheck interval and give-up count, ledger backup count, log retention days and the transcode quality cap are adjustable (#661). / **配置**：「想要」老片的再查间隔与放弃次数、账本备份份数、日志保留天数和播放转码的画质上限都能在 Peach 配置里调了（#661）。
 - **Playback**: On phones and tablets, tap shows controls, double-tap seeks or pauses, long-press plays at 2x, and dragging sideways previews a seek (#156). / **播放**：手机和平板上轻点显示控制条，双击两侧快进快退、中间暂停，长按临时 2 倍速，横向拖动预览后跳转（#156）。
 - **Playback**: On phones and tablets, holding the left double-tap area pauses the picture and rewinds the target 2 seconds per second, jumping there on release (#684). / **播放**：手机和平板上按住画面左侧双击区，画面停住、目标每秒回退 2 秒，松手跳过去（#684）。
+- **Playback**: Settings > Playback can turn on Chinese subtitles from the video's folder for videos whose subtitles you haven't picked yet; off by default (#428). / **播放**：设置「播放」里可打开「没选过字幕的影片自动打开同目录的中文字幕」，默认关（#428）。
 - **Playback**: Holding the Right arrow key plays at 2x until released (#275). / **播放**：按住右方向键临时 2 倍速，松开恢复原来的速度（#275）。
 - **Library**: Duplicates supports multi-select; kept groups no longer come back when a copy goes missing, and can be restored from Kept (#690). / **馆藏**：重复文件页支持多选，保留过的组不再因少一份而重新出现，可在「已保留」里取消（#690）。
 - **Interface**: Wants, HD upgrades, junk files, the profile online view, rosters and online tags support multi-select; the queue page gets the select toggle (#690). / **界面**：想要、高清升级、垃圾文件、资料页在线视图、名册与在线标签支持多选，处理队列页接入右上角多选开关（#690）。

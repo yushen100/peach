@@ -41,6 +41,7 @@ export interface PanelSettings {
   feedHideExcerpts: boolean;
   hoverDelaySeconds: number;
   detailAutoplay: boolean;
+  autoChineseSubtitles: boolean;
   afterPlayback: AfterPlayback;
   resumeRestartPercent: number;
   miniplayer: boolean;

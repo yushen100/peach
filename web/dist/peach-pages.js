@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "971a3226-c6d5-48e6-9a43-7e916d844322", e._sentryDebugIdIdentifier = "sentry-dbid-971a3226-c6d5-48e6-9a43-7e916d844322");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "84ff1303-202f-45eb-ac9a-43bb5d6503f6", e._sentryDebugIdIdentifier = "sentry-dbid-84ff1303-202f-45eb-ac9a-43bb5d6503f6");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -6603,6 +6603,7 @@ var He = {
 		software: "Software codec"
 	},
 	preferencesPanel: {
+		autoChineseSubtitles: "Turn on Chinese subtitles from the video's folder until you pick one",
 		autoScroll: "Auto-scroll",
 		batchSize: "Videos per batch",
 		batchSizeInput: "Videos per batch",
@@ -13664,6 +13665,7 @@ var He = {
 		software: "软件编解码"
 	},
 	preferencesPanel: {
+		autoChineseSubtitles: "没选过字幕的影片自动打开同目录的中文字幕",
 		autoScroll: "自动滚动",
 		batchSize: "每批加载作品",
 		batchSizeInput: "每批作品",
@@ -39155,4 +39157,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=971a3226-c6d5-48e6-9a43-7e916d844322
+//# debugId=84ff1303-202f-45eb-ac9a-43bb5d6503f6

@@ -111,7 +111,7 @@ const settings = (): PanelSettings => ({
   theme: 'system', uiSounds: true, homeGlow: { ...normalizeHomeGlow(null), on: true, preset: 'ash' }, accent: 'blue',
   sidebarOrder: [''], batchSize: 60, defaultSort: 'seed', defaultSortDirection: '', groupCollapse: true,
   javImage: 'cover', performerNameLanguage: 'zh-CN', interfaceLanguage: 'zh-CN', systemLanguage: null, feedAutoScroll: true, feedLimit: 12, feedHideGroupCompilations: true, feedHideSoloCompilations: false,
-  feedHideExcerpts: true, hoverDelaySeconds: 5, detailAutoplay: false, afterPlayback: 'next', resumeRestartPercent: 5, miniplayer: true, seekSeconds: 10,
+  feedHideExcerpts: true, hoverDelaySeconds: 5, detailAutoplay: false, autoChineseSubtitles: false, afterPlayback: 'next', resumeRestartPercent: 5, miniplayer: true, seekSeconds: 10,
   relatedLimit: 24, searchHistoryLimit: 10, followInitialDays: 30, avatarRefreshDays: 90, faviconRefreshDays: 365,
   feedNewRows: true, homeShortsLimit: 18, homeTiers: true, completionPrompt: true, searchRecommendations: true, ingestNotices: true,
 });
@@ -289,6 +289,10 @@ describe('设置面板与壳的接缝', () => {
     current.changed.mockClear();
     await click(panel.querySelector('#detailAutoplaySetting'));
     expect([current.value.detailAutoplay, effects(current.changed)]).toEqual([true, []]);
+    /* 自动中文字幕默认关，播放器读记忆时现读这一项，同样只落盘。 */
+    current.changed.mockClear();
+    await click(panel.querySelector('#autoChineseSubtitlesSetting'));
+    expect([current.value.autoChineseSubtitles, effects(current.changed)]).toEqual([true, []]);
     /* 补全提示条与入库通知由各自的组件当场读这一份偏好，同样只落盘。 */
     for (const [id, field] of [['completionPromptSetting', 'completionPrompt'], ['ingestNoticesSetting', 'ingestNotices']] as const) {
       current.changed.mockClear();

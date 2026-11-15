@@ -64,6 +64,8 @@ export interface AppSettings {
   theme: string;
   groupCollapse: boolean;
   detailAutoplay: boolean;
+  /** 没手动选过字幕的影片，打开时自动选同目录的中文字幕；默认关。 */
+  autoChineseSubtitles: boolean;
   afterPlayback: AfterPlayback;
   /** 离片尾不到这个百分比就当看完，下次从头播；0 表示只有播完才从头。 */
   resumeRestartPercent: number;
@@ -132,6 +134,7 @@ export function normalizeAppSettings(raw: unknown): { settings: AppSettings; mig
   settings.theaterMode = settings.theaterMode === true;
   settings.groupCollapse = settings.groupCollapse !== false;
   settings.detailAutoplay = settings.detailAutoplay !== false;
+  settings.autoChineseSubtitles = settings.autoChineseSubtitles === true;
   settings.afterPlayback = allowedSetting(settings.afterPlayback, AFTER_PLAYBACK_CHOICES, 'next');
   settings.resumeRestartPercent = boundedPreference(+(settings.resumeRestartPercent as number), 0, 20, 5);
   settings.miniplayer = settings.miniplayer !== false;

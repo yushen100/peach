@@ -805,6 +805,7 @@
     "software": "软件编解码"
   },
   "preferencesPanel": {
+    "autoChineseSubtitles": "没选过字幕的影片自动打开同目录的中文字幕",
     "autoScroll": "自动滚动",
     "batchSize": "每批加载作品",
     "batchSizeInput": "每批作品",
