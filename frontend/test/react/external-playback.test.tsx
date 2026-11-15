@@ -4,6 +4,8 @@ import { choose, click, mount, settle } from './render';
 
 beforeEach(() => {
   for (const key of ['peach.local-player.v1', 'peach.playback-target.v1']) localStorage.removeItem(key);
+  // 链接调起的播放器按 UA 给；默认用认不出平台的 UA，只列检测到的程序和网络方式。
+  vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (test)');
   const proto = HTMLElement.prototype;
   const matches = Element.prototype.matches;
   vi.spyOn(Element.prototype, 'matches').mockImplementation(function (this: Element, selector: string) {
@@ -106,4 +108,41 @@ it('本机检测失败时保留网络方式，重新检测后可以选择本机�
   await choose(host.querySelector('[aria-label="外部播放器"]'), 'PotPlayer');
   expect(localStorage.getItem('peach.playback-target.v1')).toBe('local:potplayer');
   expect(host.textContent).not.toContain('检测暂不可用');
+});
+
+it('手机上按平台列出链接调起的播放器，打开时把签发的播放地址包进对应协议', async () => {
+  vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 Chrome/150.0 Mobile Safari/537.36');
+  const fetcher = vi.fn(async (url: string) => new Response(JSON.stringify(url === '/api/local-players'
+    ? { players: [] } : { url: '/external-stream/4?ticket=short&origin=x', playlist: '/external-playlist/4.m3u?ticket=short' })));
+  vi.stubGlobal('fetch', fetcher);
+  let opened = '';
+  vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { opened = this.href });
+  const host = await mount(<ExternalPlayback id={4} />);
+  await settle();
+  await click(host.querySelector('[aria-label="外部播放器"]'));
+  expect([...document.querySelectorAll('[role="option"]')].map(node => node.textContent?.trim())).toEqual([
+    '系统选择播放器', 'VLC', 'MX Player', 'M3U 播放列表', '网络播放地址 / VR',
+  ]);
+  await choose(host.querySelector('[aria-label="外部播放器"]'), 'VLC');
+  expect(localStorage.getItem('peach.playback-target.v1')).toBe('scheme:vlc');
+  await click(host.querySelector('[aria-label="使用外部播放器打开"]'));
+  await settle();
+  const origin = new URL(location.href);
+  expect(opened).toBe(`intent://${origin.host}/external-stream/4?ticket=short&origin=x#Intent;scheme=${origin.protocol.slice(0, -1)};`
+    + 'action=android.intent.action.VIEW;type=video/*;package=org.videolan.vlc;end');
+  expect(host.querySelector('input')?.value).toContain('/external-stream/4?ticket=short');
+  expect(host.textContent).toContain('没有反应说明这台设备没装该播放器');
+});
+
+it('本机已检测到的播放器不再重复列出链接调起的同名项', async () => {
+  vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150.0 Safari/537.36');
+  vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ players: [
+    { id: 'default', label: '系统默认播放器' }, { id: 'potplayer', label: 'PotPlayer' },
+  ] }))));
+  const host = await mount(<ExternalPlayback id={6} />);
+  await settle();
+  await click(host.querySelector('[aria-label="外部播放器"]'));
+  expect([...document.querySelectorAll('[role="option"]')].map(node => node.textContent?.trim())).toEqual([
+    '系统默认播放器', 'PotPlayer', 'VLC', 'M3U 播放列表', '网络播放地址 / VR',
+  ]);
 });

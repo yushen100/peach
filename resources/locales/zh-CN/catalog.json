@@ -371,10 +371,12 @@
     "siteSamples": "{{site}} 样张"
   },
   "externalPlayback": {
+    "androidChooser": "系统选择播放器",
     "externalPlayer": "外部播放器",
     "m3uPlaylist": "M3U 播放列表",
     "openInPlayer": "使用外部播放器打开",
     "redetect": "重新检测播放器",
+    "schemeHint": "没有反应说明这台设备没装该播放器，可复制地址改用其他播放器；链接 6 小时内有效。",
     "streamUrl": "网络播放地址",
     "streamUrlHint": "链接 6 小时内有效，播放设备需要能访问当前 Peach 地址。",
     "streamUrlVr": "网络播放地址 / VR"

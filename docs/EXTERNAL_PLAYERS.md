@@ -58,6 +58,21 @@ PotPlayer 只做了取证，没有接入，原因如下：
 | --- | --- |
 | M3U 播放列表 | 用支持网络地址的外部播放器打开下载的 `.m3u` |
 | 网络播放地址 / VR | 生成地址并显示，供 VR 等播放器使用 |
+| 按平台列出的播放器 | 用 URL Scheme 把同一个限时地址交给这台设备上的播放器 |
+
+手机、平板和远程访问的电脑上，菜单按浏览器 UA 判断的平台多列几项可用链接调起的播放器，点「打开」后签发
+同一个网络播放地址，包成对应协议链接交给系统；运行 Peach 的电脑上已检测到的同名播放器只列本机那一项。
+
+| 平台 | 播放器与链接写法 |
+| --- | --- |
+| Android | 系统选择播放器、VLC、MX Player：`intent://<主机/路径?查询>#Intent;scheme=https;type=video/*;package=…;end` |
+| iOS / iPadOS | VLC（`vlc-x-callback://x-callback-url/stream?url=…`）、Infuse（`infuse://x-callback-url/play?url=…`）、nPlayer（`nplayer-<地址>`） |
+| macOS | IINA（`iina://weblink?url=…`）、VLC（`vlc://<地址>`）、Infuse |
+| Windows | PotPlayer（`potplayer://<地址>`）、VLC（`vlc://<地址>`） |
+| Linux | VLC（`vlc://<地址>`） |
+
+浏览器不报告链接是否被接住：没装对应播放器时点了没有反应，网络播放地址照常显示，可以复制给其他播放器。
+`vlc://` 要求 VLC 已注册该协议，Windows 版默认安装不一定注册。链接调起不回传观看进度。
 
 播放器选择只保存在当前浏览器。另一台设备需要能访问当前 Peach 地址；电脑上用 `localhost`
 生成的地址不能供手机访问。HTTPS 使用项目证书时，外部设备也需要信任该证书。
