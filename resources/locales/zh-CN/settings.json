@@ -878,7 +878,7 @@
   "releaseUpdates": {
     "appAndTools": "应用与工具",
     "appUpdatePackage": "应用更新包",
-    "changelogTitle": "{{versions}} 更新内容",
+    "changelogTitle": "{{versions}} 更新重点",
     "channel": "更新通道",
     "check": "检查更新",
     "checkDone": "检查完成",
@@ -889,6 +889,7 @@
     "dockerUpdateBody": "Watchtower 会拉取 Peach {{version}} 的镜像并重建容器，/data 数据卷保留，进行中的任务在启动后续跑。",
     "downloadAndInstall": "下载并安装",
     "downloadNewVersion": "下载新版本",
+    "highlightTitle": "{{title}}：",
     "includesMediaTools": "本次更新包含媒体工具。",
     "installAfterRestart": "Peach {{version}} 将在重启后安装。",
     "installation": "安装方式",

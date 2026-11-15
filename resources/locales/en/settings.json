@@ -892,7 +892,7 @@
   "releaseUpdates": {
     "appAndTools": "App and tools",
     "appUpdatePackage": "App update",
-    "changelogTitle": "What's new in {{versions}}",
+    "changelogTitle": "Highlights in {{versions}}",
     "channel": "Update channel",
     "check": "Check for updates",
     "checkDone": "Up to date",
@@ -903,6 +903,7 @@
     "dockerUpdateBody": "Watchtower pulls the Peach {{version}} image and recreates the container. The /data volume is kept, and running tasks resume after startup.",
     "downloadAndInstall": "Download and install",
     "downloadNewVersion": "Download new version",
+    "highlightTitle": "{{title}}: ",
     "includesMediaTools": "This update includes media tools.",
     "installAfterRestart": "Peach {{version}} will be installed after a restart.",
     "installation": "Installation",

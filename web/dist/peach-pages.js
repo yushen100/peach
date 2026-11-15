@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "c9874d78-a9a9-4830-a1b0-f9dabc83ae57", e._sentryDebugIdIdentifier = "sentry-dbid-c9874d78-a9a9-4830-a1b0-f9dabc83ae57");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "2f41668b-5301-4da5-b906-c6ec5209e70b", e._sentryDebugIdIdentifier = "sentry-dbid-2f41668b-5301-4da5-b906-c6ec5209e70b");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -6490,7 +6490,7 @@ var He = {
 	releaseUpdates: {
 		appAndTools: "App and tools",
 		appUpdatePackage: "App update",
-		changelogTitle: "What's new in {{versions}}",
+		changelogTitle: "Highlights in {{versions}}",
 		channel: "Update channel",
 		check: "Check for updates",
 		checkDone: "Up to date",
@@ -6501,6 +6501,7 @@ var He = {
 		dockerUpdateBody: "Watchtower pulls the Peach {{version}} image and recreates the container. The /data volume is kept, and running tasks resume after startup.",
 		downloadAndInstall: "Download and install",
 		downloadNewVersion: "Download new version",
+		highlightTitle: "{{title}}: ",
 		includesMediaTools: "This update includes media tools.",
 		installAfterRestart: "Peach {{version}} will be installed after a restart.",
 		installation: "Installation",
@@ -7170,6 +7171,10 @@ var He = {
 			"stale-filename-codes": "Misread codes cleared",
 			"studio-unbounded-misses": "Label lookup cache",
 			"verification-settlement": "Verification differences settled",
+			"performer-spacing": "Performer names with spaces",
+			"enhancement-suffix-names": "Video enhancement tags in names",
+			"fc2-seller-backfill": "FC2 sellers linked",
+			"code-sibling-identity": "Cast and creators copied to same-code copies",
 			"interface-text-codes": "Interface text in task records"
 		},
 		items: {
@@ -13325,7 +13330,7 @@ var He = {
 	releaseUpdates: {
 		appAndTools: "应用与工具",
 		appUpdatePackage: "应用更新包",
-		changelogTitle: "{{versions}} 更新内容",
+		changelogTitle: "{{versions}} 更新重点",
 		channel: "更新通道",
 		check: "检查更新",
 		checkDone: "检查完成",
@@ -13336,6 +13341,7 @@ var He = {
 		dockerUpdateBody: "Watchtower 会拉取 Peach {{version}} 的镜像并重建容器，/data 数据卷保留，进行中的任务在启动后续跑。",
 		downloadAndInstall: "下载并安装",
 		downloadNewVersion: "下载新版本",
+		highlightTitle: "{{title}}：",
 		includesMediaTools: "本次更新包含媒体工具。",
 		installAfterRestart: "Peach {{version}} 将在重启后安装。",
 		installation: "安装方式",
@@ -13997,6 +14003,10 @@ var He = {
 			"stale-filename-codes": "清除误认的番号",
 			"studio-unbounded-misses": "厂牌查询缓存",
 			"verification-settlement": "核查差异结算",
+			"performer-spacing": "带空格的演员名",
+			"enhancement-suffix-names": "名字里的视频增强代号",
+			"fc2-seller-backfill": "补挂 FC2 卖家",
+			"code-sibling-identity": "同番号副本补齐演员与创作者",
 			"interface-text-codes": "任务记录的界面文字"
 		},
 		items: {
@@ -38683,4 +38693,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=c9874d78-a9a9-4830-a1b0-f9dabc83ae57
+//# debugId=2f41668b-5301-4da5-b906-c6ec5209e70b

@@ -18,8 +18,9 @@ RELEASES_URL = "https://github.com/peach-mitao/peach/releases"
 API_URL = "https://api.github.com/repos/peach-mitao/peach/releases?per_page=100"
 DOWNLOADS_BASE = "https://downloads.peach.video"
 DOWNLOADS_API = DOWNLOADS_BASE + "/releases.json"
-#: 检查结果的形状；改了就让缓存的旧结果作废、后台按新规则重查一次。v2 起带更新说明 `notes`。
-LISTING_RULE = 'source-aware-v2'
+#: 检查结果的形状；改了就让缓存的旧结果作废、后台按新规则重查一次。v2 起带更新说明 `notes`，
+#: v3 起 `notes` 只有每版的重点。
+LISTING_RULE = 'source-aware-v3'
 #: 有新版本时最多列出几版的更新说明，更早的看 Release 页。
 NOTES_LIMIT = 10
 #: Release 正文里中文那一段的折叠块，标题与 `scripts/changelog.py` 的 `CHINESE_SUMMARY` 相同。
@@ -28,9 +29,6 @@ CHINESE_FOLD = re.compile(rf"<details>\s*<summary>{re.escape(release_words.CHINE
 #: 下载段的折叠块（英文、中文各一个），不算更新说明；先于中文段去掉，中文段里就不再有嵌套。
 DOWNLOADS_FOLD = re.compile(rf"<details>\s*<summary>(?:{'|'.join(map(re.escape, release_words.DOWNLOAD_SUMMARIES))})"
                             r"[^<]*</summary>.*?</details>", re.S)
-#: 更新说明到这里为止：之后是旧写法的下载段或完整变更链接。
-NOTES_END = re.compile(rf"^(?:{re.escape(release_words.LEGACY_DOWNLOADS_HEADING)}|\[Full Changelog|\*\*Full Changelog)",
-                       re.M)
 #: 安装方式与更新通道：响应带 `installation_code`、`channel_code`，前端按它取译文和判断；
 #: 同层的名字按 zh-CN 渲染（`server:release.installation.<id>`、`server:release.channel.<id>`）。
 INSTALLATIONS = ("docker", "standalone", "source")
@@ -118,44 +116,35 @@ def _release_candidates(rows: list, endpoint: str, system: str = "win32", machin
     return releases
 
 
-def _changelog_part(text: str) -> dict:
-    """一种语言的更新说明：开头的说明段与各分组的条目。条目拆出区域标签，链接只留显示的文字，
-    去掉加粗；反引号留给前端显示成代码。"""
-    lead, groups = [], []
+def _highlights(text: str, heading: str) -> list[dict]:
+    """一种语言里重点分组的条目：`- **标题**: 说明 (#1).` 拆成标题与说明。链接只留显示的文字，
+    编号与反引号留给前端显示成链接与代码。"""
+    items, inside = [], False
     for raw in text.splitlines():
         line = raw.strip()
-        if not line:
-            continue
         if line.startswith("### "):
-            groups.append({"title": line[4:].strip(), "items": []})
-            continue
-        line = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", line)
-        if line.startswith("- ") and groups:
-            found = re.match(r"^\*\*(?P<area>[^*]+)\*\*\s*[:：]\s*(?P<text>.+)$", line[2:])
-            item = {"area": found["area"], "text": found["text"]} if found else {"area": "", "text": line[2:]}
-            item["text"] = item["text"].replace("**", "")
-            groups[-1]["items"].append(item)
-        elif not groups:
-            lead.append(line.removeprefix("> ").replace("**", ""))
-    return {"lead": lead, "groups": [group for group in groups if group["items"]]}
+            inside = line[4:].strip() == heading
+        elif inside and line.startswith("- "):
+            line = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", line[2:])
+            found = re.match(r"^\*\*(?P<title>[^*]+)\*\*\s*[:：]\s*(?P<text>.+)$", line)
+            items.append({"title": found["title"], "text": found["text"]} if found else {"title": "", "text": line})
+    return items
 
 
 def changelog_notes(body: object) -> dict | None:
-    """把 Release 正文拆成英文与中文两份更新说明（格式见 `scripts/changelog.py`）。
+    """Release 正文里这一版的重点，英文与中文各一份（格式见 `scripts/changelog.py`）。
 
-    英文是正文，中文在「简体中文」折叠段里；0.59.0 之前只有中文的旧正文两边相同。
-    下载段与完整变更链接不算更新说明。取不出任何条目时返回 None。
+    英文是正文，中文在「简体中文」折叠段里；重点分组之外的完整变更不显示，去 Release 页看。
+    没有重点分组的版本（只有修复，或 0.59.0 之前的旧正文）返回 None。
     """
     if not isinstance(body, str) or not body.strip():
         return None
     body = DOWNLOADS_FOLD.sub("", body.replace("\r\n", "\n"))
-    end = NOTES_END.search(body)
-    body = body[:end.start()] if end else body
     folded = CHINESE_FOLD.search(body)
     english = CHINESE_FOLD.sub("", body) if folded else body
-    chinese = folded["body"] if folded else body
-    notes = {"en": _changelog_part(english), "zh-CN": _changelog_part(chinese)}
-    return notes if any(part["groups"] or part["lead"] for part in notes.values()) else None
+    notes = {"en": _highlights(english, release_words.HIGHLIGHTS[0]),
+             "zh-CN": _highlights(folded["body"] if folded else "", release_words.HIGHLIGHTS[1])}
+    return notes if any(notes.values()) else None
 
 
 def _release_notes(rows: list, current: tuple[int, ...], latest: tuple[int, ...]) -> list[dict]:

@@ -35,6 +35,7 @@ if not __package__:
     __package__ = "scripts"
 if str(Path(__file__).resolve().parents[1] / "src") not in sys.path:
     sys.path.insert(1, str(Path(__file__).resolve().parents[1] / "src"))
+from peach import interface_text, release_notices, release_words
 from peach.interface_text import dev as t
 
 from . import version_bump
@@ -47,10 +48,11 @@ UNRELEASED = "Unreleased"
 
 #: 一行里英文与中文的分隔；只按第一个拆，中文里要写斜杠就用全角「／」。
 SEPARATOR = " / "
-#: Release 正文里中文那一段的折叠标题；应用读正文时也认它。
-CHINESE_SUMMARY = "简体中文"
-#: 下载段的折叠标题（英文，中文）；应用读正文时按它们跳过下载段。
-DOWNLOADS_SUMMARY = ("Downloads", "下载")
+#: Release 正文里中文那一段的折叠标题、下载段的折叠标题（英文，中文）与重点分组标题（英文，中文），
+#: 应用读正文时认同一份（`peach.release_words`）。
+CHINESE_SUMMARY = release_words.CHINESE_SUMMARY
+DOWNLOADS_SUMMARY = release_words.DOWNLOAD_SUMMARIES
+HIGHLIGHTS = release_words.HIGHLIGHTS
 
 #: Conventional Commits 的主题形状：`type(scope)!: 描述`。
 SUBJECT = re.compile(r"^(?P<type>[a-z]+)(?:\((?P<scope>[^)]*)\))?(?P<bang>!)?:\s*(?P<text>.+)$")
@@ -349,9 +351,42 @@ def fold(summary: str, body: str) -> str:
     return f"<details>\n<summary>{summary}</summary>\n\n{body.strip()}\n\n</details>"
 
 
+def highlights(version: str) -> tuple[str, str] | None:
+    """这一版升级公告的 `features` 写成英文、中文两段重点；没有公告条目时返回 None。
+
+    每条是 `- **标题**: 说明 (#1).`，带 `refs` 的在句末附编号，GitHub 会把编号显示成链接。
+    """
+    features = release_notices.NOTICES.get(version, {}).get("features") or []
+    if not features:
+        return None
+    base = f"server:releaseNotes.v{version.replace('.', '-')}.items"
+    parts = []
+    for language, heading, colon, refs, end in (("en", HIGHLIGHTS[0], ": ", " ({})", "."),
+                                                ("zh-CN", HIGHLIGHTS[1], "：", "（{}）", "。")):
+        joiner = ", " if language == "en" else "、"
+        lines = [f"### {heading}", ""]
+        for item in features:
+            title = interface_text.text(f"{base}.{item['id']}.title", language=language)
+            body = interface_text.text(f"{base}.{item['id']}.body", language=language)
+            suffix = refs.format(joiner.join(item["refs"])) if item.get("refs") else ""
+            lines.append(f"- **{title}**{colon}{body}{suffix}{end}")
+        parts.append("\n".join(lines))
+    return parts[0], parts[1]
+
+
+def _before_groups(section: str, inserted: str) -> str:
+    """把 `inserted` 放在开头说明段之后、第一个分组之前。"""
+    found = re.search(r"^### ", section, re.M)
+    if found is None:
+        return f"{section.rstrip()}\n\n{inserted}"
+    head = section[:found.start()].rstrip()
+    return f"{head}\n\n{inserted}\n\n{section[found.start():]}" if head else f"{inserted}\n\n{section}"
+
+
 def notes(document: str, version: str, downloads: tuple[str, str] | None = None) -> str:
     """Release 页的正文，按语言分开：外面是英文更新说明与折叠的 Downloads，中文更新说明与折叠的
-    「下载」一起放进折叠的「简体中文」段，末尾是到上一版的完整变更链接。
+    「下载」一起放进折叠的「简体中文」段，末尾是到上一版的完整变更链接。更新说明在开头说明段之后
+    先列这一版公告的重点（`highlights()`），检查更新只显示这一组。
 
     `downloads` 是下载段的（英文，中文），由 `package_windows_release.download_sections()` 生成。
     使用者在 GitHub 上读到的就是这段，所以那一节或它的链接缺了不能静默发一段固定文案顶上，
@@ -364,6 +399,9 @@ def notes(document: str, version: str, downloads: tuple[str, str] | None = None)
     if link is None:
         raise version_bump.VersionError(t("changelog.noLinkForNotes", file=CHANGELOG, version=version))
     english, chinese = bilingual(section)
+    picked = highlights(version)
+    if picked:
+        english, chinese = _before_groups(english, picked[0]), _before_groups(chinese, picked[1])
     if downloads:
         english += "\n\n" + fold(DOWNLOADS_SUMMARY[0], downloads[0])
         chinese += "\n\n" + fold(DOWNLOADS_SUMMARY[1], downloads[1])
