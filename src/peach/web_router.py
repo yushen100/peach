@@ -10,6 +10,8 @@
 """
 from __future__ import annotations
 
+from contextlib import nullcontext
+
 from . import media_libraries, settings_file
 from .follow_discovery import MAX_SUGGESTIONS, MAX_TERM_LENGTH
 from .review_csv import candidate_root_version
@@ -554,13 +556,20 @@ READ_ONLY_POST_ROUTES = frozenset({
 # 在只读端本来就不写。
 
 
+#: 用户在页面上点开才发的读请求：库外详情、评论与磁链、查找资源弹层、按名字搜 JavDB 演员。
+#: 只有这几条带登录账号的 Cookie（`scraping_access.with_account`），后台任务一律匿名取页。
+ACCOUNT_ROUTES = frozenset({"/api/resources/search", "/api/jav/detail", "/api/jav/reviews", "/api/jav/resources",
+                            "/api/feeds/lookup"})
+
+
 def dispatch_api_get(contract: WebContract, path, args):
     """Dispatch the stable JSON read contract used by the current web client."""
+    from .scraping_access import with_account
     try:
         handler = GET_HANDLERS[path]
     except KeyError as exc:
         raise ContractRouteNotFound(path) from exc
-    with revision_snapshot():
+    with revision_snapshot(), (with_account() if path in ACCOUNT_ROUTES else nullcontext()):
         return handler(contract, args)
 
 

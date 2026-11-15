@@ -56,6 +56,8 @@ PAUSE_PROBE_SECONDS = 600
 SWEEP_SECONDS = 60
 #: 空闲等待按墙钟复核：Windows 的等待超时不计睡眠时间，睡醒后最晚这么久补上到期的重试。
 WALL_CLOCK_RECHECK = 3600.0
+#: 没查成的来源要停这么久以上，番号就不等它：按其余来源结算，来源恢复后再补查。
+LONG_SOURCE_PAUSE = 3600.0
 #: 会让浏览器添加暂停的原因。`search` 是资源搜索暂不可用，暂停的是整条队列而不是某个渠道。
 #: 原因与恢复说明在 `server:javBrowser.paused.<原因>`：用户脚本的提示框分两行显示，排队行的说明连成一句。
 PAUSED_FAILURES = frozenset({"storage", "quota", "config", "network", "search"})
@@ -286,6 +288,12 @@ def _download_candidate(items, code, skip=frozenset(), edition=""):
         return bool(_BONUS_MARK.search(text) or (bonus and bonus.search(text)))
     return next((item for item in eligible if is_bonus(item) == (edition == "bonus")),
                 eligible[0] if eligible else None)
+
+
+def _awaiting_recheck(row: dict, now: float) -> bool:
+    """没分清来源有没有查成的无资源，且已到可以重查的时候（先结算的那几行要等 `recheck_after`）。"""
+    return (row["state"] == "no_match" and not row.get("sources_complete") and not row.get("task_id")
+            and (not row.get("recheck_after") or parse_iso(row["recheck_after"]) <= now))
 
 
 def _failure_projection(task) -> dict:
@@ -822,16 +830,16 @@ class JavBrowser:
         """升级前记下的无资源没分清来源有没有查成（JavDB 要求登录那几天大量误记），按现在的判据重查。
 
         现在的无资源行带 `sources_complete`；没带的行在队列空闲时每次清扫重查一条，排到队尾，
-        不挤占用户新加的番号，也不一下子把几十个番号压给来源。
+        不挤占用户新加的番号，也不一下子把几十个番号压给来源。因来源长时间暂停而先结算的行带
+        `recheck_after`，到那个时刻（来源恢复）才重查。
         """
         if any(row["state"] in ACTIVE for row in self.rows.values()) or self._submitting:
             return False
-        code = next((key for key, row in self.rows.items() if row["state"] == "no_match"
-                     and not row.get("sources_complete") and not row.get("task_id")), None)
+        code = next((key for key, row in self.rows.items() if _awaiting_recheck(row, self.downloads.clock())), None)
         if code is None:
             return False
         row = self.rows.pop(code)
-        for key in ("message", "retry_at", "retry_attempt", "retry_limit", "retry_exhausted", "ended_at"):
+        for key in ("message", "retry_at", "retry_attempt", "retry_limit", "retry_exhausted", "ended_at", "recheck_after"):
             row.pop(key, None)
         self.rows[code] = {**row, "state": "queued"}
         return True
@@ -943,10 +951,15 @@ class JavBrowser:
 
         有直连来源没查成（JavDB 要求登录、来源冷却、连接失败）时，这一轮的「没有」不算数：
         即使后备索引器答复了，也按来源冷却排自动重试，重试用完记成来源未取得，不记无资源。
+        来源要停 `LONG_SOURCE_PAUSE` 以上时不让番号干等：按其余来源的结果记无资源并注明哪个来源没查，
+        不带 `sources_complete`，等那个来源恢复（`recheck_after`）后由清扫重查。
         """
         failed = result.get('state') in {'error', 'unavailable'} or bool(result.get('error'))
-        message = Said('labels.javBrowser.searchUnavailable' if failed
-                       else NO_OTHER_MAGNET if row.get('skip') else MESSAGES['no_match'])
+        reason = (Said(result['error_code'], **(result.get('error_params') or {}))
+                  if failed and isinstance(result.get('error_code'), str) else None)
+        message = (Said('labels.javBrowser.searchFailedWith', error=reason) if reason
+                   else Said('labels.javBrowser.searchUnavailable') if failed
+                   else Said(NO_OTHER_MAGNET) if row.get('skip') else Said(MESSAGES['no_match']))
         after = result.get('retry_after')
         timed = type(after) in (int, float) and math.isfinite(after) and after >= 0
         unfetched = [str(value) for value in result.get('unfetched_sources') or () if value]
@@ -956,6 +969,13 @@ class JavBrowser:
             now = self.downloads.clock()
             self._search_pause = {"failure": SEARCH_PAUSE, "since": iso(now),
                                   "retry_at": row.get('retry_at') or iso(now + after)}
+        elif not failed and unfetched and timed and after > LONG_SOURCE_PAUSE:
+            now = self.downloads.clock()
+            sources = ' / '.join(dict.fromkeys(unfetched))
+            row.update(state='no_match', **_message(Said('labels.javBrowser.noMatchSourcesPaused', sources=sources)),
+                       ended_at=iso(now), recheck_after=iso(now + after))
+            for key in ('retry_at', 'retry_attempt', 'retry_limit', 'sources_complete'):
+                row.pop(key, None)
         elif not failed and unfetched:
             # 只是部分来源没答复，别的番号照样可能在其余来源找到，不暂停整条队列。
             self._schedule_retry(row, RetryableTaskError('errors.javBrowser.searchUnavailable',
@@ -1016,11 +1036,14 @@ class JavBrowser:
             for provider in providers:
                 if paused := self._paused(provider):
                     moments.append(parse_iso(paused["retry_at"]))
-            unverified = not any(row["state"] in ACTIVE for row in self.rows.values()) and any(
-                row["state"] == "no_match" and not row.get("sources_complete") and not row.get("task_id")
-                for row in self.rows.values())
+            idle = not any(row["state"] in ACTIVE for row in self.rows.values())
+            unverified = idle and any(_awaiting_recheck(row, self.downloads.clock()) for row in self.rows.values())
             if self._downloads_changed or unverified:
                 moments.append(self._swept_at + SWEEP_SECONDS)
+            if idle:
+                # 先结算的无资源等来源恢复：到点叫醒清扫。
+                moments.extend(parse_iso(row["recheck_after"]) for row in self.rows.values()
+                               if row["state"] == "no_match" and row.get("recheck_after"))
             moments = [moment for moment in moments if moment is not None]
             if not moments:
                 return None

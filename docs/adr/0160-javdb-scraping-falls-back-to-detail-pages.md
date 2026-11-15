@@ -2,7 +2,7 @@
 
 - 状态：已采纳
 - 日期：2026-11-12
-- 关系：修订 [ADR-0144](0144-javdb-scraping-uses-the-anonymous-api.md) 第一条「详情页解析只留给视频预览」；接口的间隔、预算、按主机冷却（[ADR-0148](0148-javdb-api-host-and-signature-fallback.md)）与快照复用不变
+- 关系：修订 [ADR-0144](0144-javdb-scraping-uses-the-anonymous-api.md) 第一条「详情页解析只留给视频预览」；接口的间隔、预算、按主机冷却（[ADR-0148](0148-javdb-api-host-and-signature-fallback.md)）与快照复用不变；网页带账号 Cookie 一条被 [ADR-0166](0166-javdb-background-reads-are-anonymous.md) 修订
 
 ## 背景
 

@@ -22,6 +22,7 @@ from .coded_text import Said, coded, parallel
 from .content_words import PROMO_NAME, TRAILER_NAME
 from .downloads import parse_magnet
 from .jav_cover_fetch import HostLimitedTransport
+from .scripting import HostLimiter
 from .metadata import relay_args
 from .javdb_public import (_CACHE_ROOT, PUBLIC_API, PublicIdentityAmbiguous, PublicNotFound, PublicRequestBudget,
                            PublicSourceUnavailable, public_cache_scope)
@@ -169,6 +170,11 @@ def rank_candidates(items: list[dict], goal: str = "quality") -> list[dict]:
     return sorted(unique.values(), key=rank)[:MAX_RESULTS]
 
 
+#: 磁链来源的主机间隔，整个进程共用：浏览器添加、想要定时查找与查找资源弹层一个接一个地查番号时，
+#: 同一主机的请求不因为每次新建 `Fetcher` 而各算各的间隔、叠在一起撞限流。
+MAGNET_LIMITER = HostLimiter({}, default_interval=3.0)
+
+
 class Fetcher:
     def __init__(self, root: Path, *, transport=None, deadline: float | None = None):
         self.root = Path(root)
@@ -177,7 +183,7 @@ class Fetcher:
         self._owned = transport is None
         self.transport = transport or HostLimitedTransport(
             SourceTransport(self.root, max_requests=18, max_bytes=24 * 1024 * 1024,
-                            max_seconds=45), 3)
+                            max_seconds=45), 3, limiter=MAGNET_LIMITER)
         self.session = Session(self.transport, self.deadline)
 
     def close(self):

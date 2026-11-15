@@ -239,15 +239,15 @@ class ContractTests(unittest.TestCase):
 
 
 class FailureReasonTests(unittest.TestCase):
-    def test_the_table_has_twelve_reasons_each_with_a_kind(self):
+    def test_the_table_has_thirteen_reasons_each_with_a_kind(self):
         self.assertEqual({reason.value for reason in FailureReason}, {
-            "cloudflare_challenge", "ip_banned", "geo_restricted", "auth_required", "not_found", "gone",
+            "cloudflare_challenge", "ip_banned", "geo_restricted", "account_suspended", "auth_required", "not_found", "gone",
             "parse_error", "no_usable_metadata", "rate_limited", "timeout", "server_error", "network"})
         self.assertEqual(set(REASON_KINDS), set(FailureReason))
         self.assertEqual(set(REASON_KINDS.values()), {"auth", "unavailable", "not_found"})
         self.assertEqual({reason for reason, kind in REASON_KINDS.items() if kind == "auth"},
                          {FailureReason.CLOUDFLARE_CHALLENGE, FailureReason.IP_BANNED,
-                          FailureReason.GEO_RESTRICTED, FailureReason.AUTH_REQUIRED})
+                          FailureReason.GEO_RESTRICTED, FailureReason.ACCOUNT_SUSPENDED, FailureReason.AUTH_REQUIRED})
         self.assertEqual({reason for reason, kind in REASON_KINDS.items() if kind == "not_found"},
                          {FailureReason.NOT_FOUND, FailureReason.GONE, FailureReason.NO_USABLE_METADATA})
 

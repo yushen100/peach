@@ -561,16 +561,64 @@ class ScrapingAccessTests(unittest.TestCase):
         self.assertEqual(direct(request, 1, 100).status, 200)
         self.assertFalse(cooldown.exists())
 
+    def test_the_javdb_account_cookie_rides_only_on_requests_the_user_opened(self):
+        """后台任务匿名取 JavDB，用户点开的页面才带登录账号；JavBus 年龄门的会话照带。"""
+        from peach import scraping_access
+        save(self.root, "javdb", {"cookie": "_jdb_session=private"})
+        self.assertFalse(scraping_access.sends_cookie("javdb"))
+        self.assertTrue(scraping_access.sends_cookie("javbus"))
+        with scraping_access.with_account():
+            self.assertTrue(scraping_access.sends_cookie("javdb"))
+        self.assertFalse(scraping_access.sends_cookie("javdb"))
+        with patch.object(scraping_access, "client_for", wraps=scraping_access.client_for) as made:
+            SourceTransport(self.root)._transport_for("javdb").close()
+            with scraping_access.with_account():
+                SourceTransport(self.root)._transport_for("javdb").close()
+        self.assertEqual([call.kwargs["session"] for call in made.call_args_list], [False, True])
+        # 匿名那次撞上 403，不让人去换 Cookie：这次根本没带。
+        transport = SourceTransport(self.root)
+        transport.transports["javdb"] = lambda *args: HttpResponse(403, {}, b"")
+        with self.assertRaises(scraping_access.SourcePaused) as caught:
+            transport(HttpRequest("GET", "https://javdb.com/search?q=ABP-616&f=all", {}), 1, 100)
+        self.assertNotIn("Cookie", str(caught.exception))
+
+    def test_a_suspended_account_pauses_until_the_page_says_it_resumes(self):
+        """账号被临时停用与出口被拦分开：按页面写的恢复时刻停，提示里说停的是账号、换出口没用。"""
+        from peach.scraping_access import SourceRefused, cooldown_state
+        from datetime import datetime, timedelta, timezone
+        resume = datetime.now(timezone(timedelta(hours=8))).replace(second=0, microsecond=0) + timedelta(hours=5)
+        body = ("<html><body><div>帳號已被臨時停用：系統檢測到該帳號的瀏覽速度遠超正常用戶，判定為異常採集行為。"
+                f"將於 {resume:%Y-%m-%d %H:%M}（UTC+08:00）自動恢復。</div></body></html>").encode("utf-8")
+        save(self.root, "javdb", {"cookie": "_jdb_session=private"})
+        transport = SourceTransport(self.root)
+        transport.transports["javdb"] = lambda *args: HttpResponse(403, {}, body)
+        with self.assertRaises(SourceRefused) as caught:
+            transport(HttpRequest("GET", "https://javdb.com/search?q=ABP-616&f=all", {}), 1, 100000)
+        self.assertEqual(caught.exception.reason, "account_suspended")
+        self.assertIn("账号被临时停用", str(caught.exception))
+        self.assertIn("换出口没用", str(caught.exception))
+        until, blocks = cooldown_state(self.root, "javdb")
+        self.assertAlmostEqual(until, resume.timestamp(), delta=1)
+        self.assertEqual(blocks, 0, "账号停用不往出口封禁那档翻倍")
+
     def test_a_new_cookie_lifts_the_pause_the_old_one_earned(self):
         """过期的 `cf_clearance` 撞出 403 后整站冷却；用户换了新 Cookie 就该立刻再试，不等旧账到期。"""
         from peach.scraping_access import SourcePaused
         cooldown = self.root / "scraping-javten.cooldown.json"
         request = HttpRequest("GET", "https://javten.com/search?kw=4898837", {})
+        # 没贴过 Cookie 时，裸 403 不提 Cookie。
         refused = SourceTransport(self.root)
         refused.transports["javten"] = lambda *args: HttpResponse(403, {}, b"")
         with self.assertRaises(SourcePaused) as caught:
             refused(request, 1, 100)
-        self.assertIn("更新它的 Cookie", str(caught.exception))
+        self.assertNotIn("Cookie", str(caught.exception))
+        cooldown.unlink()
+        save(self.root, "javten", {"cookie": "cf_clearance=old"})
+        refused = SourceTransport(self.root)
+        refused.transports["javten"] = lambda *args: HttpResponse(403, {}, b"")
+        with self.assertRaises(SourcePaused) as caught:
+            refused(request, 1, 100)
+        self.assertIn("Cookie 已过期", str(caught.exception))
         self.assertTrue(cooldown.exists())
         save(self.root, "javten", {"network": "peach"})
         self.assertTrue(cooldown.exists(), "只改连接方式不算换了 Cookie")

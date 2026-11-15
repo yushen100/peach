@@ -508,7 +508,7 @@ def _expected_failure(stage, error, fields):
     if kinds & LOCAL_EXCEPTION_TYPES:
         return True
     if ("peach.sources.base", "SourceFailure") in kinds:
-        return str(error.reason) in {"cloudflare_challenge", "ip_banned", "geo_restricted", "auth_required",
+        return str(error.reason) in {"cloudflare_challenge", "ip_banned", "geo_restricted", "account_suspended", "auth_required",
             "not_found", "gone", "no_usable_metadata", "rate_limited", "timeout", "server_error", "network"}
     if ("peach.metadata", "MetadataProviderError") in kinds and error.detail != "parse_error":
         return error.kind in {"auth", "not_found"} or error.retryable is True or error.temporary is True

@@ -29,6 +29,7 @@ from ..javdb_identity import RULE
 from ..javdb_public import actor_gender, public_image_url
 from ..metadata import relay_args
 from ..catalog_vocabulary import RESOURCE_COMMENT_SOURCE
+from ..scripting import HostLimiter
 from ..source_page_words import JAVDB_FIELDS
 from .base import FailureReason, Page, Session, SiteConfig, SiteRecord, SiteSource, SourceFailure
 
@@ -37,6 +38,10 @@ from .base import FailureReason, Page, Session, SiteConfig, SiteRecord, SiteSour
 JAVDB = SiteConfig(name="javdb", label="javdb", provider="javdb-page",
                    base_url="https://javdb.com", domains=("javdb.com", "jdbstatic.com", "jdbimgs.com"),
                    stage="community", interval=3.0, cookie=True)
+#: 搜索页另有更严的额度：2026-11-16 实测同一出口连着搜几次就回空白 403，详情页与首页照常。
+#: 整个进程的 javdb 搜索（刮削、库外详情、磁链查找）共用这一份间隔，叠在主机间隔之上。
+SEARCH_INTERVAL = 12.0
+SEARCH_LIMITER = HostLimiter({"javdb.com": SEARCH_INTERVAL})
 #: 刮削那一问的配置。来源名、域名与 Cookie 仍是 `javdb` 这一站的（视频预览照旧读详情页，
 #: 冷却按这个名字记）；解析器名另起，候选与账本证据分得清是哪一种取法。接口自己的间隔、冷却与
 #: 请求预算在 `peach.javdb_public`，这一问不经会话的传输。
@@ -184,6 +189,8 @@ class JavDBSource(SiteSource):
         return f"{self.config.base_url}/search?q={urllib.parse.quote(code)}&f=all"
 
     def _page(self, url: str, *, session: Session) -> Page:
+        if urllib.parse.urlsplit(url).path == "/search":
+            SEARCH_LIMITER.wait(url)
         page = session.get(url, config=self.config)
         if LOGIN.search(page.text):
             raise SourceFailure(FailureReason.AUTH_REQUIRED, "errors.javdb.loginRequired")
