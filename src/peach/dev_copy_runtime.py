@@ -15,7 +15,7 @@ import uuid
 
 from filelock import FileLock, Timeout
 
-from . import dev_copy, interface_text
+from . import dev_copy, interface_text, process_job
 from .diagnostic_browser import BUNDLE_CHUNK_NAME
 from .fsutil import atomic_write_bytes, atomic_write_text
 from .jobs import process_alive
@@ -23,6 +23,8 @@ from .user_messages import UserFacingError, UserValueError
 
 ACTIVE = {'building', 'waiting_restart', 'restarting'}
 BUNDLES = ('peach-app.js', 'peach-app.css', 'peach-pages.js', 'peach-pages.css')
+#: 前端构建的期限（秒）；本机一次一两分钟。
+BUILD_SECONDS = 900.0
 
 
 def _directory(root: Path) -> Path:
@@ -117,10 +119,16 @@ def build_frontend(root: Path) -> None:
     directory.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='build-', dir=directory) as temporary:
         stage = Path(temporary).resolve()
-        result = subprocess.run([npm, '--prefix', str(root / 'frontend'), 'run', 'build'],
-            cwd=root, env={**os.environ, 'PEACH_FRONTEND_OUT_DIR': str(stage)},
-            stdin=subprocess.DEVNULL, capture_output=True, text=True, encoding='utf-8', errors='replace',
-            **({'creationflags': subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {}))
+        try:
+            # npm 再起 node：超时收掉整棵进程树，不让孙进程占着管道把调用方挂住。
+            result = process_job.run([npm, '--prefix', str(root / 'frontend'), 'run', 'build'],
+                cwd=root, env={**os.environ, 'PEACH_FRONTEND_OUT_DIR': str(stage)},
+                stdin=subprocess.DEVNULL, capture_output=True, text=True, encoding='utf-8', errors='replace',
+                timeout=BUILD_SECONDS, **({'creationflags': subprocess.CREATE_NO_WINDOW} if os.name == 'nt' else {}))
+        except subprocess.TimeoutExpired as error:
+            atomic_write_text(directory / 'build.log', (error.output or '') + (error.stderr or ''))
+            raise UserValueError("errors.devCopyRuntime.buildFailed", {
+                "detail": f"npm run build timed out after {BUILD_SECONDS:g}s"}) from None
         atomic_write_text(directory / 'build.log', (result.stdout or '') + (result.stderr or ''))
         if result.returncode:
             raise UserValueError("errors.devCopyRuntime.buildFailed", {

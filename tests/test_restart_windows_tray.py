@@ -73,6 +73,12 @@ class RestartWindowsTrayTests(unittest.TestCase):
         with mock.patch.object(windows_restart, "_command_lines", return_value={}):
             self.assertEqual(windows_restart.find_source_tray_windows(), ())
 
+    def test_a_command_line_query_that_never_returns_reads_as_unknown(self):
+        hung = subprocess.TimeoutExpired(["powershell.exe"], windows_restart.COMMAND_LINE_SECONDS)
+        with mock.patch.object(windows_restart.process_job, "run", side_effect=hung) as run:
+            self.assertEqual(windows_restart._command_lines([42]), {})
+        self.assertEqual(run.call_args.kwargs["timeout"], windows_restart.COMMAND_LINE_SECONDS)
+
     def test_windows_command_line_splits_the_source_bootstrap_intact(self):
         line = f'"{self.service.parent / "pythonw.exe"}" -c "{self.BOOTSTRAP}" --show'
         argv = windows_restart.parse_windows_command_line(line)
