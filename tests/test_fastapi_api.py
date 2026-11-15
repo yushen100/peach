@@ -4330,6 +4330,27 @@ class UnconfiguredMachineTests(unittest.IsolatedAsyncioTestCase):
                     await context.__aexit__(None, None, None)
                 await asyncio.to_thread(closed.wait, 5)
 
+    async def test_shutdown_stops_waiting_for_a_warmup_that_never_finishes(self):
+        """预热查询卡住（比如读一个挂死的网盘）时，关停最多等 `WARMUP_STOP_SECONDS` 就往下走。"""
+        parent = self.settings.db_path.parent
+        parent.mkdir(parents=True)
+        database = fresh_ledger(parent)
+        opened, release = threading.Event(), threading.Event()
+
+        def query(contract, path, args):
+            opened.set()
+            release.wait(60)
+
+        context = self.ledger_client(database)
+        with patch("peach.api.web_contract.dispatch_api_get", side_effect=query), \
+                patch("peach.api.WARMUP_STOP_SECONDS", 0.5):
+            try:
+                await context.__aenter__()
+                self.assertTrue(await asyncio.to_thread(opened.wait, 5))
+                await asyncio.wait_for(context.__aexit__(None, None, None), 20)
+            finally:
+                release.set()
+
     async def test_the_page_serves_the_first_run_shell(self):
         response = await self.client.get("/")
         self.assertEqual(response.status_code, 200)

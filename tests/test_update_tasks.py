@@ -534,6 +534,21 @@ class RecoveryServiceCadenceTests(unittest.TestCase):
             time.sleep(.02)
         return predicate()
 
+    def test_stop_waits_for_a_stuck_recovery_only_up_to_its_deadline(self):
+        """关停时在途接回卡住：最多等 `timeout` 秒，记下各线程停在哪，不把关停挂住。"""
+        import threading
+        stuck, release = threading.Event(), threading.Event()
+        self.service.start()
+        self.addCleanup(release.set)
+        self.service.scheduler.add_job(lambda: (stuck.set(), release.wait(30)))
+        self.assertTrue(stuck.wait(5))
+        with patch('peach.error_reporting.local_event') as event:
+            started = time.monotonic()
+            self.assertFalse(self.service.stop(timeout=.5))
+        self.assertLess(time.monotonic() - started, 3)
+        self.assertEqual(event.call_args.args[0], 'job-recovery-stop-timeout')
+        self.assertIn('stacks', event.call_args.kwargs)
+
     def test_an_idle_service_does_not_restore_between_events(self):
         self.service.start()
         time.sleep(.5)
