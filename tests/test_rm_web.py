@@ -1792,7 +1792,7 @@ class WebDataTests(unittest.TestCase):
             "/api/taste/refresh",
             "/api/links/prune", "/api/resource-sync/apply",
             "/api/follow/tags", "/api/follow/authors",
-            "/api/taste", "/api/settings", "/api/links", "/api/organize", "/api/organize/example", "/api/orphan-records",
+            "/api/taste", "/api/taste/signals", "/api/settings", "/api/links", "/api/organize", "/api/organize/example", "/api/orphan-records",
             "/api/feeds", "/api/feeds/check", "/api/feeds/discoveries", "/api/feeds/lookup",
             "/api/feeds/schedule",
             "/api/downloads", "/api/resources/search",
@@ -2512,7 +2512,7 @@ class WebDataTests(unittest.TestCase):
         self.assertFalse(rm_web.q_item(self.contract, 1)["liked"])
         self.assertEqual(rm_web.q_item(self.contract, 1)["like_reason"], "保留原文")
         self.assertEqual((self.row(1)["feedback"], self.row(2)["feedback"]), ("dislike", None))
-        with sqlite3.connect(self.db_path) as con:
+        with closing(sqlite3.connect(self.db_path)) as con:
             self.assertEqual([row[0] for row in con.execute("SELECT asset_id FROM watch_queue")], [1],
                              "原本就在稍后看里的那条留下")
             self.assertIsNone(con.execute("SELECT 1 FROM asset_preference WHERE asset_id=2").fetchone())
