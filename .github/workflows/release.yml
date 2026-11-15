@@ -663,3 +663,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: gh workflow run project-board.yml --ref master
+
+  gitgud-backup:
+    name: 备份制品到 GitGud
+    if: github.ref_type == 'tag'
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: write
+    steps:
+      - name: 请求 GitGud 备份
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: gh workflow run gitgud-mirror.yml --ref master -f "tag=$GITHUB_REF_NAME"
