@@ -356,9 +356,6 @@ class JavBrowser:
             on_save(self._download_saved)
         from .jav_browser_diagnostics import BrowserDiagnostics
         self.diagnostics = BrowserDiagnostics()
-        from .taste_browsing import BrowsingRecorder
-        #: 开启「记录浏览」时，作品页、女优页的状态查询顺手记一笔（ADR-0164）。
-        self.browsing = BrowsingRecorder(contract)
         self.rows = self._load()
         self.ended = self._load_ended()
 
@@ -444,7 +441,7 @@ class JavBrowser:
             providers[0]["key"] if providers else "")
         return {"enabled": bool(config.get("token_hash")), "provider": selected,
                 "active_provider": preferred, "available": self.downloads.available, **catalog,
-                "want_on_no_match": self.want_on_no_match(), "record_browsing": self.browsing.enabled(),
+                "want_on_no_match": self.want_on_no_match(),
                 "userscript": {"version": release["version"],
                                "minimum_version": release.get("bridge_min_version", release["version"]),
                                "install_url": release.get("install_url", "/integrations/peach-jav.user.js")},

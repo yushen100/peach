@@ -97,9 +97,7 @@
     "tokenIssued": "Dedicated token generated",
     "turnedOff": "Add from browser turned off",
     "wantOnNoMatch": "Add to Wants when nothing is found",
-    "wantOnNoMatchHelp": "When adding from the browser finds no downloadable magnet, add the code to JAV Wants.",
-    "recordBrowsing": "Record browsed works and performers",
-    "recordBrowsingHelp": "When the userscript opens a work or performer page, keep a local note of it for recommendations. Stays on this device."
+    "wantOnNoMatchHelp": "When adding from the browser finds no downloadable magnet, add the code to JAV Wants."
   },
   "certificateTrust": {
     "androidSteps": "After downloading, go to Settings → Security → Encryption & credentials → Install a certificate → CA certificate and choose the downloaded file. Menu names vary by manufacturer.",

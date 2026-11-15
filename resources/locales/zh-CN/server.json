@@ -1052,9 +1052,6 @@
       "reorderIncomplete": "排序必须完整包含当前播放列表的所有视频",
       "progressOutsidePlaylist": "续播位置不在这个播放列表中"
     },
-    "tasteSignals": {
-      "chooseSubject": "请只给番号或女优 id 其中一个"
-    },
     "javBrowserPeople": {
       "snapshotTooLarge": "本地人物快照过大",
       "snapshotInvalid": "本地人物快照格式无效",
@@ -4224,7 +4221,6 @@
       "watched": "观看与反馈",
       "collection": "馆藏积累",
       "browsing": "浏览记录",
-      "downloads": "主动下载",
       "bookmarks": "浏览器书签",
       "follows": "关注",
       "peach": "Peach"
