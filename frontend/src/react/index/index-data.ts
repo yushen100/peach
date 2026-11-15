@@ -78,6 +78,8 @@ export interface IndexPerson {
   has_logo?: boolean;
   members?: number;
   mark?: number | null;
+  /** 编辑资料里新建的档案（ADR-0165）。 */
+  user_created?: boolean | number;
 }
 
 export interface IndexTag {

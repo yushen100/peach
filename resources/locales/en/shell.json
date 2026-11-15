@@ -187,10 +187,7 @@
     "moreCount_one": "{{count, number}} more",
     "moreCount_other": "{{count, number}} more",
     "optionsLoadFailed": "Couldn't load tag suggestions",
-    "removeTagNamed": "Remove tag {{tag}}",
-    "renameTag": "Rename tag",
-    "renameTagNamed": "Rename tag {{tag}}",
-    "tagChanged": "This tag has changed. Reopen the details."
+    "removeTagNamed": "Remove tag {{tag}}"
   },
   "documentTitle": {
     "fallback": "Peach"
@@ -472,10 +469,10 @@
     "viewReason": "Why this is recommended: {{reason}}"
   },
   "region": {
-    "china": "China",
+    "china": "Chinese",
     "clear": "Clear region",
-    "japan": "Japan",
-    "korea": "Korea",
+    "japan": "Japanese",
+    "korea": "Korean",
     "other": "Other",
     "western": "Western"
   },

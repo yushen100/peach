@@ -1,5 +1,6 @@
-/* 本地与在线详情共用标签外观、选择器和标签名称编辑。 */
-import { useCallback, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
+/* 本地与在线详情共用标签外观与选择器。详情侧栏只读，增删在编辑框里做（`editable`）；
+   标签本身的改名、合并在标签管理页。 */
+import { useCallback, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { RiArrowDownSLine, RiArrowUpSLine } from '@remixicon/react';
 import { spinnerHtml, wireAnchoredMenu } from '@peach/legacy/ui';
@@ -7,12 +8,11 @@ import { Button } from '@/components/base/buttons/button';
 import { foldName, icon } from '@peach/legacy/core';
 import { apiGet } from '../../api';
 import { pickerSections, recentTags, type DetailTag, type TagCount } from '../item-detail/item-detail';
-import { TagEditor, type ManagedTag, type TagScope } from '../index/tag-operations';
+import { type ManagedTag, type TagScope } from '../index/tag-operations';
 import { composingKey } from './ime';
 import { Note } from './note';
 import { useOverlayScrollbar } from './overlay-scrollbar';
-import { useAction, busyProps } from '../settings/use-action';
-import { queryClient } from '../query';
+import { busyProps } from '../settings/use-action';
 import { t } from '../../i18n';
 
 const Glyph = ({ name }: { name: string }) => <span className="contents" dangerouslySetInnerHTML={{ __html: icon(name) }} />;
@@ -22,58 +22,51 @@ const TAGS_SHOWN = 20;
 const TAGS_SLACK = 4;
 interface DetailTagsProps {
   tags: DetailTag[]; candidates: readonly TagCount[]; scope?: TagScope; id?: string; adding?: boolean;
-  label(tag: string): string; onOpen(tag: string): void; onAdd(tag: string): void; onRemove(tag: DetailTag): void;
-  busyAttrs(tag: string): { 'aria-busy'?: boolean; 'aria-disabled'?: boolean };
+  /** 编辑框里传 true：每枚带移除键，行尾有「+」。侧栏不传，只能点开标签。 */
+  editable?: boolean;
+  /** 排在这一行最后的控件（关注详情的「编辑标签／完成」），与「还有 N 个」「+」同一行。 */
+  trailing?: ReactNode;
+  label(tag: string): string; onOpen?(tag: string): void; onAdd?(tag: string): void; onRemove?(tag: DetailTag): void;
+  busyAttrs?(tag: string): { 'aria-busy'?: boolean; 'aria-disabled'?: boolean };
 }
 
-export function DetailTags({ tags, candidates, scope = 'local', id, adding, label, onOpen, onAdd, onRemove, busyAttrs }: DetailTagsProps) {
-  const [editing, setEditing] = useState<ManagedTag | null>(null);
+export function DetailTags({ tags, candidates, scope = 'local', id, adding, editable = false, trailing, label, onOpen, onAdd, onRemove, busyAttrs }: DetailTagsProps) {
   const [asked, setAsked] = useState(false);
   const inventory = useQuery({ queryKey:['tag-management', scope],
     queryFn:({ signal }) => apiGet<{ items:ManagedTag[] }>(`/api/tag-management${scope === 'online' ? '?scope=online' : ''}`, signal),
-    enabled:asked && (scope === 'online' || !candidates.length) });
+    enabled:editable && asked && (scope === 'online' || !candidates.length) });
   const options = inventory.data?.items?.filter(tag => !tag.hidden && !tag.blocked && (scope === 'online' || tag.cat !== 'meta')) || candidates;
-  const action = useAction();
-  const rename = (tag: DetailTag) => { void action.run('rename', async signal => {
-    const result = await queryClient.fetchQuery({ queryKey: ['tag-management', scope],
-      queryFn: () => apiGet<{ items: ManagedTag[] }>(`/api/tag-management${scope === 'online' ? '?scope=online' : ''}`, signal) });
-    const row = result.items.find(value => value.k === tag.k || value.aliases.includes(tag.k));
-    if (!row) throw new Error(t('shell:detailTags.tagChanged'));
-    return row;
-  }, row => setEditing(row)) };
   const [open, setOpen] = useState(false);
   /* 刚加上的标签按名字排进去，多半落在收起的那一截里，看着像没加上：收起时它们也露在外面。 */
   const [added, setAdded] = useState<readonly string[]>([]);
-  const add = (tag: string) => { setAdded(keys => [...keys, foldName(tag)]); onAdd(tag) };
+  const add = (tag: string) => { setAdded(keys => [...keys, foldName(tag)]); onAdd?.(tag) };
   const long = tags.length > TAGS_SHOWN + TAGS_SLACK;
   const shown = long && !open ? tags.filter((tag, index) => index < TAGS_SHOWN || added.includes(foldName(tag.k))) : tags;
   return <>
-    <div data-stage-tags="" data-detail-tags="" id={id}>
+    <div data-stage-tags="" data-detail-tags="" data-tags-editable={editable ? '' : undefined} id={id}>
       {shown.map(tag => <span key={tag.k} data-detail-tag="" data-tag-cat={tag.cat}>
-        <button type="button" data-tag={tag.k} data-follow-tag={scope === 'online' ? tag.k : undefined}
-          title={label(tag.k)} onClick={() => onOpen(tag.k)}>{label(tag.k)}</button>
-        <button type="button" data-edit-tag={tag.k} title={t('shell:detailTags.renameTag')} aria-label={t('shell:detailTags.renameTagNamed', { tag: label(tag.k) })}
-          {...busyProps(!!action.busy)} onClick={() => rename(tag)}><Glyph name="pencil" /></button>
-        <button type="button" data-remove-tag={tag.k} title={t('shell:detailTags.hideTag')} aria-label={t('shell:detailTags.removeTagNamed', { tag: label(tag.k) })}
-          {...busyAttrs(tag.k)} onClick={() => onRemove(tag)}><Glyph name="x" /></button>
+        {editable
+          ? <span data-tag={tag.k} title={label(tag.k)}>{label(tag.k)}</span>
+          : <button type="button" data-tag={tag.k} data-follow-tag={scope === 'online' ? tag.k : undefined}
+            title={label(tag.k)} onClick={() => onOpen?.(tag.k)}>{label(tag.k)}</button>}
+        {editable ? <button type="button" data-remove-tag={tag.k} title={t('shell:detailTags.hideTag')} aria-label={t('shell:detailTags.removeTagNamed', { tag: label(tag.k) })}
+          {...busyAttrs?.(tag.k)} onClick={() => onRemove?.(tag)}><Glyph name="x" /></button> : null}
       </span>)}
       {long ? <Button variant="secondary" size="small" data-tags-more="" aria-expanded={open}
         trailingIcon={open ? RiArrowUpSLine : RiArrowDownSLine} onClick={() => setOpen(!open)}>
         {open ? t('shell:shared.collapse') : t('shell:detailTags.moreCount', { count: tags.length - shown.length })}</Button> : null}
-      <TagPicker tags={tags} candidates={options} label={label} onAdd={add} adding={adding} scope={scope}
-        onOpen={() => setAsked(true)} loading={inventory.isFetching} />
+      {editable ? <TagPicker tags={tags} candidates={options} label={label} onAdd={add} adding={adding} scope={scope}
+        onOpen={() => setAsked(true)} loading={inventory.isFetching} /> : null}
+      {trailing}
     </div>
-    {action.error ? <Note tone="error">{action.error}</Note> : null}
     {inventory.isError ? <Note tone="error" action={<Button variant="secondary" onClick={() => void inventory.refetch()}>{t('shell:shared.retryNow')}</Button>}>{t('shell:detailTags.optionsLoadFailed')}</Note> : null}
-    {editing ? <TagEditor operation="rename" selected={[editing]} scope={scope}
-      close={() => setEditing(null)} done={() => setEditing(null)} /> : null}
   </>;
 }
 
 /* 标签选择器：最近使用 + 全部（或搜索结果），上下键挑、回车加，输入的词没有完全命中就多一格
    「新建」。开合走全站菜单那一对口（`presentMenu`／`dismissMenu`），`hidden` 由它们管。
    选字过程中框里是半截拼音，筛选按 `term` 走、组完字才跟上，不拿「zhon」去筛。 */
-function TagPicker({ tags, candidates, label, onAdd, adding, scope, onOpen, loading }: Pick<DetailTagsProps, 'tags' | 'candidates' | 'label' | 'onAdd' | 'adding' | 'scope'> & { onOpen():void; loading:boolean }) {
+function TagPicker({ tags, candidates, label, onAdd, adding, scope, onOpen, loading }: Pick<DetailTagsProps, 'tags' | 'candidates' | 'label' | 'adding' | 'scope'> & { onAdd(tag: string): void; onOpen():void; loading:boolean }) {
   const plus = useRef<HTMLButtonElement>(null);
   const picker = useRef<HTMLDivElement>(null);
   const body = useOverlayScrollbar<HTMLDivElement>();

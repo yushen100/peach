@@ -1,7 +1,9 @@
 /* 编辑与确认沿用 formModal / confirmModal，表单字段复用 BoardUI。 */
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { UNSAFE_PortalProvider } from 'react-aria';
 import { confirmModal, formModal } from '@peach/legacy/ui';
+import { overlayHost } from '../components/overlay-host';
 import { Input } from '@/components/base/input/input';
 import { Select, SelectItem } from '../components/select';
 import { apiSend } from '../../api';
@@ -76,8 +78,11 @@ export function TagEditor({ operation, selected, close, done, scope = 'local' }:
     });
     return () => { controller.abort(); dialog.close() };
   }, []);
-  return view ? createPortal(<TagFields operation={initial.current.operation} selected={initial.current.selected} dialog={view.dialog}
-    update={value => { draft.current = value }} />, view.host) : null;
+  /* 「保留哪一个」的下拉挂进这个弹层自己的 dialog：落在 body 或详情舞台上会被后开的模态框盖住，看起来是空下拉。 */
+  return view ? createPortal(<UNSAFE_PortalProvider getContainer={() => overlayHost(view.dialog.dialog)}>
+    <TagFields operation={initial.current.operation} selected={initial.current.selected} dialog={view.dialog}
+      update={value => { draft.current = value }} />
+  </UNSAFE_PortalProvider>, view.host) : null;
 }
 
 function TagFields({ operation, selected, dialog, update }: {

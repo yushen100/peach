@@ -1,4 +1,6 @@
-/* 在线标签复用本地详情的标签行、选择器和名称编辑。 */
+/* 在线标签复用本地详情的标签行与选择器。 */
+import { useState } from 'react';
+import { Button } from '@/components/base/buttons/button';
 import { apiSend } from '../../api';
 import { collectionItems, replaceFollowItem, type FollowGroup } from '../follow-feed/follow-feed';
 import { DetailTags } from '../components/detail-tags';
@@ -35,11 +37,15 @@ export function FollowTags({ item, label, actions }: { item: FollowDetailItem; l
       },
     });
   }) };
+  /* 平时只读，点得开；行尾一枚编辑键切到增删，与作品详情「编辑资料」里的标签同一套控件。 */
+  const [editing, setEditing] = useState(false);
   return <section aria-label={t('follow:followDetail.contentTags')} data-follow-tag-editor="" data-follow-detail-tags="">
     <DetailTags tags={detailTags(item, label).map(k => ({ k, cat: tagCategory(item, k) }))} scope="online" adding={!!action.busy}
-      candidates={[]}
+      candidates={[]} editable={editing}
       label={label} onOpen={actions.openTag} onAdd={tag => write('add', tag)} onRemove={tag => write('remove', tag.k)}
-      busyAttrs={() => busyProps(!!action.busy)} />
+      busyAttrs={() => busyProps(!!action.busy)}
+      trailing={<Button variant="secondary" size="small" data-follow-tags-edit="" aria-pressed={editing} onClick={() => setEditing(!editing)}>
+        {editing ? t('follow:followDetail.tagsDone') : t('follow:followDetail.editTags')}</Button>} />
     {action.error ? <Note tone="error">{action.error}</Note> : null}
   </section>;
 }

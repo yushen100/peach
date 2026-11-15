@@ -163,10 +163,7 @@
     "hideTag": "从此内容隐藏该标签",
     "moreCount": "还有 {{count, number}} 个",
     "optionsLoadFailed": "无法读取标签候选",
-    "removeTagNamed": "删除标签 {{tag}}",
-    "renameTag": "修改标签名称",
-    "renameTagNamed": "修改标签 {{tag}}",
-    "tagChanged": "标签已变化，请重新打开详情"
+    "removeTagNamed": "删除标签 {{tag}}"
   },
   "documentTitle": {
     "fallback": "Peach · 蜜桃"

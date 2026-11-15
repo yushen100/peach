@@ -444,7 +444,10 @@ describe('设计决定：关注详情、作品详情、播放器与侧栏', () =
     const opened = await openItemPage(browser, `/assets/${ITEM.plain}`, DESKTOP);
     try {
       const page = opened.page;
-      const picker = page.locator('#stage [data-tag-picker]');
+      // 标签增删收进了「编辑资料」：选择器长在编辑框里。
+      await page.locator('#stage [data-item-edit-open]').click();
+      await page.locator('dialog[data-item-edit-dialog]').waitFor();
+      const picker = page.locator('dialog[data-item-edit-dialog] [data-tag-picker]');
       /* 关闭动效只有 150ms，点完再读计算样式会在负载高时读到已收起；改记选择器上真正开播过的动效。 */
       await page.evaluate(() => {
         const played: string[] = [];
@@ -460,7 +463,7 @@ describe('设计决定：关注详情、作品详情、播放器与侧栏', () =
         if (await page.evaluate(() => !matchMedia('(prefers-reduced-motion: reduce)').matches)) {
           await page.waitForFunction(() => (window as unknown as { pickerMotion: string[] }).pickerMotion.includes('board-menu-in'));
         }
-        await page.locator('#stage [data-rating-value]').click();
+        await page.locator('dialog[data-item-edit-dialog] [data-edit-section] h4').first().click();
         await picker.waitFor({ state: 'hidden' });
         return played();
       };
@@ -545,7 +548,7 @@ describe('设计决定：关注详情、作品详情、播放器与侧栏', () =
       const node = document.querySelector(selector);
       return node ? [getComputedStyle(node).touchAction, getComputedStyle(node).userSelect] : null;
     }), selectors);
-    const controls = ['#closeStage', '#likeBtn', '#stage [data-stage-action]', '#stage [data-title-fold]', '#tagPlus',
+    const controls = ['#closeStage', '#likeBtn', '#stage [data-stage-action]', '#stage [data-title-fold]', '#stage [data-item-edit-open]',
       '#stage [data-detail-tag] [data-tag]'];
     const stage = await openItemPage(browser, `/assets/${ITEM.plain}`, MOBILE);
     try {
