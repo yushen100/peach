@@ -156,7 +156,7 @@ GitGud 的 Linux 平台 Runner 不提供 Docker 守护进程，Docker 镜像由 
 
 GitHub 发版时，`release.yml` 的 `r2-mirror` 作业在 Release 公开后下载它的制品、`SHA256SUMS.txt` 与签名，交给 `scripts/release_r2.py` 原样上传到 R2，逐个从 `https://downloads.peach.video` 完整下载核对后改写 `releases.json`。凭据用 `release` environment 里与 Sparkle appcast 相同的 R2 secret 和变量。镜像只留最新三个版本：新版本登记进索引后删除更老的版本目录，GitHub 上的同版本制品不受影响；比保留版本还旧的版本拒绝上传。连不上 GitHub 的客户端靠这份索引更新，作业失败时它们停在上一个镜像版本，重跑这个作业即可。
 
-GitGud 只做备份，不跑 CI。`gitgud-mirror.yml` 在 master 和版本标签推送后，用 `ci.skip` 把同一个 ref 推到 GitGud，不强推，两边分叉就报错停下。Release 发布后，`release.yml` 的 `gitgud-backup` 按标签手动触发它：从 GitHub Release 下载制品、`SHA256SUMS.txt` 与签名，以 `gitgud` 后端运行 `scripts/publish_gitlab_release.py`，存进 GitGud 包仓库并登记 Release，摘要与签名原样保存。GitGud 上已有这一版的 Release 时直接跳过。旧版本在 Actions 里手动运行这个工作流补存，填写版本标签即可。凭据是仓库 secret `GITGUD_MIRROR_TOKEN`，即 GitGud 项目访问令牌（Maintainer，`api` 与 `write_repository`），过期后两个作业都会失败。R2 只留最近三个版本，GitHub Release 与 GitGud 保留全部版本。
+GitGud 只做备份，不跑 CI。`gitgud-mirror.yml` 在 master 和版本标签推送后，用 `ci.skip` 把同一个 ref 推到 GitGud，不强推，两边分叉就报错停下。Release 发布后，`release.yml` 的 `gitgud-backup` 按标签手动触发它：从 GitHub Release 下载制品、`SHA256SUMS.txt` 与签名，以 `gitgud` 后端运行 `scripts/publish_gitlab_release.py`，存进 GitGud 包仓库并登记 Release，摘要与签名原样保存。GitGud 上已有这一版的 Release 时直接跳过。旧版本在 Actions 里手动运行这个工作流补存，填写版本标签即可。凭据是仓库 secret `GITGUD_MIRROR_TOKEN`，即 GitGud 上带 `api` scope、Maintainer 角色的项目访问令牌，过期后两个作业都会失败。项目机器人令牌不能再建新的项目令牌，新建或续期要用项目所有者账号在网页上操作。R2 只留最近三个版本，GitHub Release 与 GitGud 保留全部版本。
 
 可选的 `r2` 后端使用独立 Standard 桶与 HTTPS 自定义域名。`PEACH_R2_ACCESS_KEY_ID`、`PEACH_R2_SECRET_ACCESS_KEY`、`PEACH_R2_ENDPOINT` 放入受保护且隐藏的 CI 变量，环境作用域为 `release`；`PEACH_R2_BUCKET` 和 `PEACH_R2_PUBLIC_BASE` 指定发布目标。S3 传输复用 rclone，版本文件禁止覆盖；每份文件必须从公开入口完整下载并核对大小及 SHA-256 后，才更新公开版本索引和 Release 链接。
 
