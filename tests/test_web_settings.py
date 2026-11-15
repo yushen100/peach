@@ -138,7 +138,8 @@ class SettingsRoundTripTests(unittest.TestCase):
                           "feedHideGroupCompilations": True,
                           "feedHideSoloCompilations": False, "feedHideExcerpts": True,
                           "searchHistoryLimit": None, "performerNameLanguage": "zh-CN", "taskSpeedMode": "standard",
-                          "interfaceLanguage": "auto", "systemLanguage": None, "javBrowserWantOnNoMatch": True})
+                          "interfaceLanguage": "auto", "systemLanguage": None, "javBrowserWantOnNoMatch": True,
+                          "wantStaleSearchDays": 7, "wantStaleAttemptLimit": 3})
 
     def test_code_patterns_are_checked_when_saved(self):
         """写错的规则在保存那一刻报出来；存下的规则去掉空行，读回来是同一份。"""
@@ -238,6 +239,15 @@ class SettingsRoundTripTests(unittest.TestCase):
         self.assertFalse(q_settings(self.contract)["javBrowserWantOnNoMatch"])
         self.assertEqual(self._stored_json(), {"javBrowserWantOnNoMatch": False})
 
+    def test_the_want_search_cadence_takes_only_listed_choices(self):
+        for body in ({"wantStaleSearchDays": 2}, {"wantStaleAttemptLimit": -1}, {"wantStaleAttemptLimit": True}):
+            with self.assertRaises(ValueError):
+                w_settings(self.contract, body)
+        self.assertEqual(self._stored_json(), {})
+        saved = w_settings(self.contract, {"wantStaleSearchDays": 14, "wantStaleAttemptLimit": 0})
+        self.assertEqual((saved["wantStaleSearchDays"], saved["wantStaleAttemptLimit"]), (14, 0))
+        self.assertEqual(self._stored_json(), {"wantStaleSearchDays": 14, "wantStaleAttemptLimit": 0})
+
     def test_avatar_and_favicon_periods_are_read_only(self):
         settings = q_settings(self.contract)
         self.assertEqual(settings["avatarRefreshDays"], 90)
@@ -257,7 +267,8 @@ class SettingsRoundTripTests(unittest.TestCase):
                           "feedHideGroupCompilations": True,
                           "feedHideSoloCompilations": False, "feedHideExcerpts": True,
                           "searchHistoryLimit": None, "performerNameLanguage": "zh-CN", "taskSpeedMode": "standard",
-                          "interfaceLanguage": "auto", "systemLanguage": None, "javBrowserWantOnNoMatch": True})
+                          "interfaceLanguage": "auto", "systemLanguage": None, "javBrowserWantOnNoMatch": True,
+                          "wantStaleSearchDays": 7, "wantStaleAttemptLimit": 3})
         self.assertEqual(q_settings(self.contract)["sidebarOrder"], order)
         self.assertEqual(self._stored_json()["sidebarOrder"], order)
 

@@ -67,7 +67,7 @@ export function HealthList({ group, openItem, receipt }: {
         <DataTable label={label} title={t('manage:healthList.tableTitle')} unit={t('manage:healthList.tableUnit')} panel={false}
           items={group.items} columns={columns} rowId={item => String(item.id)} rowLabel={identity}
           selected={selected} onSelected={setSelected}
-          actions={items => <Button size="small" variant="secondary" {...busyProps(action.busy === 'copy')}
+          actions={() => []} controls={items => <Button size="small" variant="secondary" {...busyProps(action.busy === 'copy')}
             onClick={() => copy(items)}>{t('manage:healthList.copySelected')}</Button>} />
       </Stack>}
   </Disclosure>;

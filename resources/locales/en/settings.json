@@ -242,7 +242,7 @@
     "count_one": "{{count, number}} backup available",
     "count_other": "{{count, number}} backups available",
     "empty": "No backups yet",
-    "help": "The database stores all metadata, watch history, and review decisions. Manual and automatic pre-write backups are kept: the 5 most recent plus any from the last 24 hours.",
+    "help": "The database stores all metadata, watch history, and review decisions. Set how many backups to keep under Retention below.",
     "jobIncomplete": "The task didn't finish.",
     "loading": "Loading backups",
     "manual": "Manual",
@@ -414,18 +414,14 @@
     "checking": "Checking sources for updates",
     "consecutiveFailures_one": "Failed {{count, number}} time in a row",
     "consecutiveFailures_other": "Failed {{count, number}} times in a row",
-    "everyHours_one": "Every hour",
-    "everyHours_other": "Every {{count, number}} hours",
-    "everyMinutes_one": "Every minute",
-    "everyMinutes_other": "Every {{count, number}} minutes",
     "faviconRefresh": "Yearly",
-    "feedOff": "Off",
+    "feedScheduleHelp": "Each subscription is fetched at this interval; Wants are searched for in the same run.",
+    "feedScheduleInterval": "Subscription fetch interval",
     "fetchingFeeds": "Fetching subscriptions",
     "initialRangeSaved": "Initial fetch range saved",
     "invalidInterval": "Enter a whole number from 15 to 10080 (minutes).",
     "lastCheckFailed": "Last auto-check failed",
     "lastFetchFailed": "Last auto-fetch failed",
-    "loadingFeedInterval": "Loading subscription interval",
     "nextRun": "Next run {{time}}",
     "primaryOnly": "Primary computer only",
     "retryFailed": "Couldn't retry: {{error}}"
@@ -659,6 +655,7 @@
     "mode": "Processing",
     "modeLabel": "{{name}} processing mode",
     "notIncluded": "Not included",
+    "previewsOff": "Previews are turned off, so contact sheets are skipped.",
     "step": "Step",
     "stepAvatars": "Fetch avatars online",
     "stepContactSheet": "Generate contact sheets",
@@ -756,6 +753,7 @@
     "unitEntries": "entries",
     "unitItems": "items",
     "unitMinutes": "min",
+    "unitPercent": "%",
     "unitSeconds": "sec",
     "unitVideos": "videos"
   },
@@ -802,7 +800,18 @@
     "waiting": "Waiting for sign-in",
     "waitingBrowser": "Waiting for you to sign in to PikPak in the browser window"
   },
+  "playbackEnd": {
+    "next": "Play in order",
+    "repeatAll": "Repeat list",
+    "repeatOne": "Repeat one",
+    "restart": "Start over near the end",
+    "restartHelp": "If less than this much is left, start from the beginning next time.",
+    "shuffle": "Shuffle",
+    "stop": "Stop",
+    "title": "When a video ends"
+  },
   "playbackTranscode": {
+    "qualitySaved": "Quality limit saved",
     "saved": "Transcoding mode saved",
     "software": "Software codec"
   },
@@ -811,15 +820,21 @@
     "batchSize": "Videos per batch",
     "batchSizeInput": "Videos per batch",
     "close": "Close preferences",
+    "completionPrompt": "Missing preview prompt",
     "defaultImage": "Default image",
     "defaultSort": "Default sort",
     "defaultSortDirection": "Default sort direction",
     "detailAutoplay": "Autoplay when opening details",
     "feedLimit": "Number shown",
     "feedLimitInput": "Number of new releases shown",
+    "feedNewRows": "Show new releases on Home and actress pages",
     "groupEditions": "Group parts and editions",
+    "homeShorts": "Portrait strip on Home",
+    "homeTiers": "Show actress and label avatars on Home",
     "hoverDelay": "Hover preview delay",
+    "hoverDelaySfw": "No previews in SFW mode.",
     "increaseContrast": "Increase contrast",
+    "ingestNotices": "Import notifications",
     "interfaceSounds": "Interface sounds",
     "miniPlayer": "Mini player after leaving details",
     "navCaption": "Preferences",
@@ -833,6 +848,7 @@
     "relatedLimit": "Related recommendations",
     "searchHistoryInput": "Search history",
     "searchHistoryLimit": "Search history limit",
+    "searchRecommendations": "Show recommendations for empty search",
     "sectionsLabel": "Preference sections",
     "seekStep": "Skip interval",
     "seekStepInput": "Skip forward / back",
@@ -849,6 +865,7 @@
   "pushDiscovery": {
     "addPrefix": "Add prefix",
     "cloudPrefixes": "Cloud path prefixes",
+    "cloudPrefixesHelp": "Cloud notifications and cloud downloads both use this table to map cloud paths to media folders.",
     "configCopied": "CloudDrive2 config copied",
     "configLabel": "CloudDrive2 config",
     "copyConfig": "Copy config",
@@ -876,7 +893,7 @@
   "releaseUpdates": {
     "appAndTools": "App and tools",
     "appUpdatePackage": "App update",
-    "changelogTitle": "What's new in {{versions}}",
+    "changelogTitle": "Highlights in {{versions}}",
     "channel": "Update channel",
     "check": "Check for updates",
     "checkDone": "Up to date",
@@ -887,6 +904,7 @@
     "dockerUpdateBody": "Watchtower pulls the Peach {{version}} image and recreates the container. The /data volume is kept, and running tasks resume after startup.",
     "downloadAndInstall": "Download and install",
     "downloadNewVersion": "Download new version",
+    "highlightTitle": "{{title}}: ",
     "includesMediaTools": "This update includes media tools.",
     "installAfterRestart": "Peach {{version}} will be installed after a restart.",
     "installation": "Installation",
@@ -949,6 +967,19 @@
     "preRepairBackup": "Pre-repair database backup",
     "queued": "Queued",
     "reclaimable": "{{size}} reclaimable"
+  },
+  "retention": {
+    "backups": "Automatic database backups",
+    "backupsHelp": "Keeps this many recent pre-write backups; anything from the last 24 hours stays.",
+    "copies_one": "{{count, number}} copy",
+    "copies_other": "{{count, number}} copies",
+    "days_one": "{{count, number}} day",
+    "days_other": "{{count, number}} days",
+    "halfYear": "6 months",
+    "logs": "Logs",
+    "logsHelp": "Logs not written to for this long are deleted.",
+    "oneYear": "1 year",
+    "title": "Retention"
   },
   "runtimeInfo": {
     "logDirectory": "Log directory",
@@ -1206,6 +1237,10 @@
   "transcoding": {
     "mode": "Transcoding",
     "modeHelp": "Used to transcode videos during playback.",
+    "original": "Original",
+    "quality": "Quality limit",
+    "qualityHeight": "{{height}}p",
+    "qualityHelp": "Applies only to videos that need re-encoding; lower it on slow networks.",
     "title": "Playback"
   },
   "uninstall": {
@@ -1270,5 +1305,18 @@
   },
   "videoProcessing": {
     "autoHardwareFirst": "Auto (hardware first)"
+  },
+  "wantSearch": {
+    "attempts_one": "{{count, number}} search",
+    "attempts_other": "{{count, number}} searches",
+    "daily": "Daily",
+    "everyDays_one": "Every {{count, number}} day",
+    "everyDays_other": "Every {{count, number}} days",
+    "giveUp": "Give up after",
+    "giveUpHelp": "Older releases pause after this many empty searches; resume them from the list.",
+    "interval": "Recheck older releases",
+    "intervalHelp": "How often to search again for releases over 90 days old that weren't found.",
+    "never": "Never",
+    "title": "Wants search"
   }
 }

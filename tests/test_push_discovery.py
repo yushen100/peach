@@ -8,6 +8,7 @@
 """
 from __future__ import annotations
 
+import errno
 import json
 import os
 import sqlite3
@@ -16,7 +17,7 @@ import threading
 import time
 import tomllib
 import unittest
-from contextlib import closing
+from contextlib import closing, contextmanager
 from dataclasses import replace
 from pathlib import Path, PureWindowsPath
 from types import SimpleNamespace
@@ -41,6 +42,47 @@ def _wait_for(check, timeout=15.0, interval=0.05):
             return found
         time.sleep(interval)
     return check()
+
+
+@contextmanager
+def _hung_mount(root: Path):
+    """`root` 下的路径在本进程里一碰就卡住，像挂死的网盘挂载；读取子进程看不到这层替身。"""
+    release = threading.Event()
+    prefix = os.path.normcase(str(root))
+
+    def hang(real):
+        def call(path, *args, **kwargs):
+            try:
+                touched = os.path.normcase(os.fsdecode(os.fspath(path))).startswith(prefix)
+            except TypeError:
+                touched = False
+            if touched:
+                release.wait(60)
+            return real(path, *args, **kwargs)
+        return call
+    with mock.patch.object(os, "stat", hang(os.stat)), mock.patch.object(os, "scandir", hang(os.scandir)), \
+            mock.patch.object(os.path, "isdir", hang(os.path.isdir)), \
+            mock.patch.object(os.path, "exists", hang(os.path.exists)), \
+            mock.patch.object(os.path, "isfile", hang(os.path.isfile)):
+        try:
+            yield
+        finally:
+            release.set()
+
+
+def _within(function, timeout=15.0):
+    """在另一个线程里跑 `function`，`timeout` 秒内跑完返回 `(True, 结果或异常)`。"""
+    outcome = {}
+
+    def run():
+        try:
+            outcome["value"] = function()
+        except Exception as error:
+            outcome["value"] = error
+    worker = threading.Thread(target=run, daemon=True)
+    worker.start()
+    worker.join(timeout)
+    return not worker.is_alive(), outcome.get("value")
 
 
 class CloudPathTests(unittest.TestCase):
@@ -278,6 +320,23 @@ class QueueTests(unittest.TestCase):
         self.assertEqual(self.ingested, [])
         self.assertEqual(self.queue.snapshot()["missing"], 1)
         self.assertEqual(self.queue.snapshot()["pending"], 0)
+
+    def test_a_probe_that_cannot_answer_keeps_the_file_queued(self):
+        """读超时不等于文件没了：过一个静置窗口再测，答上了照常登记。"""
+        answers = [TimeoutError("stat timed out"), 10, 10]
+
+        def probe(_location, _path):
+            answer = answers.pop(0)
+            if isinstance(answer, Exception):
+                raise answer
+            return answer
+        queue = push.DiscoveryQueue(self._ingest, probe, debounce=5.0, settle=4.0, timeout=100.0)
+        queue.submit("local", "p", 0.0)
+        queue.tick(5.0)
+        self.assertEqual((queue.snapshot()["pending"], queue.snapshot()["missing"]), (1, 0))
+        queue.tick(9.0)
+        queue.tick(13.0)
+        self.assertEqual(self.ingested, ["p"])
 
     def test_an_event_storm_beyond_the_ceiling_is_counted_not_queued(self):
         for index in range(5):
@@ -685,6 +744,141 @@ class IngestNotifiesTests(_ServiceCase):
         self.assertEqual(notified, [True])
 
 
+class _HangingObserver:
+    """`schedule` 卡住的 watchdog 监视器替身：`release` 放行之前一直停在那里。"""
+    entered = threading.Event()
+    release = threading.Event()
+    made: list = []
+
+    def __init__(self):
+        self.started = self.stopped = False
+        type(self).made.append(self)
+
+    def schedule(self, *_args, **_kwargs):
+        type(self).entered.set()
+        type(self).release.wait(30)
+
+    def start(self):
+        self.started = True
+
+    def stop(self):
+        self.stopped = True
+
+    def join(self, timeout=None):
+        pass
+
+
+class HungMountTests(_ServiceCase):
+    """来源挂载挂死时，推送发现的启动、保存、队列与登记都不能被它拖住。"""
+
+    def hanging_observer(self):
+        _HangingObserver.entered = threading.Event()
+        _HangingObserver.release = threading.Event()
+        _HangingObserver.made = []
+        self.addCleanup(lambda: _HangingObserver.release.set())
+        patcher = mock.patch("watchdog.observers.Observer", _HangingObserver)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_probing_a_hung_mount_does_not_hold_the_queue_thread(self):
+        (self.media / "a.mp4").write_bytes(b"0" * 4)
+        service = self.service()
+        with _hung_mount(self.media):
+            finished, size = _within(lambda: service._probe("local", self.ledger("local", "a.mp4")))
+        self.assertTrue(finished, "队列线程卡在了本进程的 stat 上")
+        self.assertEqual(size, 4)
+
+    def test_files_due_together_in_one_directory_are_probed_with_one_listing(self):
+        for name, size in (("a.mp4", 1), ("b.mp4", 2), ("c.mp4", 3)):
+            (self.media / name).write_bytes(b"0" * size)
+        (self.media / "sub").mkdir()
+        (self.media / "sub" / "d.mp4").write_bytes(b"0" * 4)
+        service = self.service()
+        items = [("local", self.ledger("local", name)) for name in ("a.mp4", "b.mp4", "c.mp4", "gone.mp4")]
+        items.append(("local", self.ledger("local", "sub", "d.mp4")))
+        listings, stats = mock.Mock(wraps=push.media_io.directory_entries), mock.Mock(wraps=push.media_io.file_stat)
+        with mock.patch.object(push.media_io, "directory_entries", listings), \
+                mock.patch.object(push.media_io, "file_stat", stats), _hung_mount(self.media):
+            finished, sizes = _within(lambda: service._probe_many(items))
+        self.assertTrue(finished, "批量探测卡在了本进程的读盘上")
+        self.assertEqual(sizes, [1, 2, 3, None, 4])
+        # 根目录四条列一次；按名字找不到的那条和单独一条的子目录各 stat 一次。
+        self.assertEqual((listings.call_count, stats.call_count), (1, 2))
+        from peach.os_errors import CodedTimeoutError
+        with mock.patch.object(push.media_io, "directory_entries",
+                               side_effect=CodedTimeoutError(errno.ETIMEDOUT, "errors.mediaIo.readTimedOut")):
+            answers = service._probe_many(items[:2])
+        self.assertTrue(all(isinstance(answer, TimeoutError) for answer in answers), answers)
+
+    def test_a_probe_that_times_out_is_not_taken_for_a_missing_file(self):
+        from peach.os_errors import CodedTimeoutError
+        service = self.service()
+        self.assertIsNone(service._probe("local", self.ledger("local", "没有这个文件.mp4")))
+        with mock.patch.object(push.media_io, "file_stat",
+                               side_effect=CodedTimeoutError(errno.ETIMEDOUT, "errors.mediaIo.readTimedOut")):
+            with self.assertRaises(OSError):
+                service._probe("local", self.ledger("local", "a.mp4"))
+
+    def test_starting_does_not_wait_for_a_hung_source_root(self):
+        service = self.service()
+        with _hung_mount(self.media):
+            finished, _ = _within(service.start, timeout=5)
+            self.assertTrue(finished, "服务启动卡在了来源目录上")
+        self.assertTrue(service.wait_local(30))
+
+    def test_a_watch_that_hangs_while_scheduling_holds_neither_start_nor_save(self):
+        self.hanging_observer()
+        service = self.service()
+        finished, _ = _within(service.start, timeout=5)
+        self.assertTrue(finished, "服务启动卡在了 observer.schedule 上")
+        self.assertTrue(_HangingObserver.entered.wait(15))
+        self.assertFalse(service.local_channel.running)
+        first = service._opening
+        with mock.patch.object(push, "LOCAL_START_WAIT_SECONDS", 0.2):
+            finished, state = _within(lambda: service.save({"enabled": True, "watch_local": True}), timeout=5)
+        self.assertTrue(finished, "设置页保存卡在了 observer.schedule 上")
+        self.assertFalse(state["local_running"])
+        _HangingObserver.release.set()
+        self.assertTrue(service.wait_local(15))
+        first.join(15)
+        self.assertTrue(service.local_channel.running)
+        # 保存前那一次起到一半被停掉：它起完的那一份要收掉，不能顶替现在的状态。
+        stale, current = _HangingObserver.made
+        self.assertEqual((stale.stopped, current.started, current.stopped), (True, True, False))
+
+    def test_registering_from_a_hung_mount_does_not_block(self):
+        (self.media / "a.mp4").write_bytes(b"0" * 4)
+        (self.media / "a.srt").write_text("1\n00:00:01,000 --> 00:00:02,000\nhi\n", encoding="utf-8")
+        (self.media / "poster.jpg").write_bytes(b"jpg")
+        with _hung_mount(self.media):
+            finished, results = _within(lambda: [scan.ingest_path(
+                self.db, "local", self.ledger("local", name), declared_roots=self.declared, mounts=self.mounts)
+                for name in ("a.mp4", "poster.jpg", "gone.mp4")], timeout=30)
+        self.assertTrue(finished, "登记卡在了本进程的 stat 或列目录上")
+        video, poster, gone = results
+        self.assertEqual((video.found, video.subtitles), (True, 1))
+        self.assertEqual((poster.found, poster.sidecar), (True, True))
+        self.assertFalse(gone.found)
+        self.assertEqual(self.rows()[self.ledger("local", "a.mp4")], ("video", 4))
+
+    def test_identity_and_code_checks_ask_a_hung_mount_through_the_reader(self):
+        from peach.file_identity import missing
+        from peach.os_errors import CodedTimeoutError
+        from peach.record_rehome import _gone
+        (self.media / "here.mp4").write_bytes(b"0")
+        with _hung_mount(self.media):
+            finished, answers = _within(lambda: [
+                missing(str(self.media / "gone.mp4")), missing(str(self.media / "here.mp4")),
+                _gone(self.media / "gone.mp4"), _gone(self.media / "here.mp4")], timeout=30)
+        self.assertTrue(finished, "判文件在不在卡在了本进程的 stat 上")
+        self.assertEqual(answers, [True, False, True, False])
+        # 没答上不算文件没了：不按「旧路径已消失」改指或接回。
+        with mock.patch("peach.media_io.file_stat",
+                        side_effect=CodedTimeoutError(errno.ETIMEDOUT, "errors.mediaIo.readTimedOut")):
+            self.assertEqual([missing(str(self.media / "gone.mp4")), _gone(self.media / "gone.mp4")],
+                             [False, False])
+
+
 class SettingsTests(_ServiceCase):
     def test_unsaved_settings_enable_only_local_discovery_and_preserve_saved_off(self):
         service = self.service()
@@ -809,9 +1003,10 @@ class LocalChannelTests(_ServiceCase):
     def test_default_native_watcher_is_idle_until_new_files_arrive(self):
         (self.media/'existing.mp4').write_bytes(b'old')
         service = self.service()
-        probe = mock.Mock(wraps=service.queue.probe)
-        service.queue.probe = probe
+        probe = mock.Mock(wraps=service.queue.probe_many)
+        service.queue.probe_many = probe
         service.start()
+        self.assertTrue(service.wait_local(15))
         if not service.local_channel.running:
             self.skipTest(f'本机起不了文件监视：{service.local_channel.message}')
         started, cpu = time.monotonic(), time.process_time()
@@ -832,6 +1027,7 @@ class LocalChannelTests(_ServiceCase):
     def test_a_file_landing_in_a_watched_root_reaches_the_ledger(self):
         service = self.service()
         service.save({"enabled": True, "watch_local": True, "cloud": False, "prefixes": []})
+        self.assertTrue(service.wait_local(15))
         if not service.local_channel.running:
             self.skipTest(f"本机起不了文件监视：{service.local_channel.message}")
         (self.media / "落地.mp4").write_bytes(b"0" * 8)

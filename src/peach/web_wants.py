@@ -376,10 +376,20 @@ def w_wants(contract, body) -> dict:
                                             [row["follow_item_id"]] if row["follow_item_id"] else [])
         return {"ok": True, "created": row["created"],
                 "want": _payload(contract, listed[0], date.today(), thumbs)}
+    if action == "restore":
+        # 撤销移除或重置：`rows` 是那一次回执里的 `previous`，原样写回。
+        rows = body.get("rows")
+        if not isinstance(rows, list) or not 0 < len(rows) <= 1000:
+            raise ValueError("rows must be the earlier receipt's previous rows")
+        with contract.database.write_transaction() as connection:
+            changed = wants.restore_rows(connection, rows)
+        contract.cache_bust()
+        return {"ok": True, "action": action, "affected": changed}
     if action not in ("remove", "reset"):
         raise ValueError(f"unknown want action: {action}")
     ids = _ids(body)
     with contract.database.write_transaction() as connection:
+        previous = wants.snapshot(connection, ids)
         changed = (wants.remove if action == "remove" else wants.reset_search)(connection, ids)
     contract.cache_bust()
-    return {"ok": True, "action": action, "affected": changed}
+    return {"ok": True, "action": action, "affected": changed, "previous": previous}

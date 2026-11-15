@@ -7,6 +7,7 @@ import shutil
 import sqlite3
 import struct
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -17,6 +18,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from peach import routes_media, timeline_sources as sources, web_timeline_thumbnails as web
+from support.stalls import stalled_mount
 
 
 class TimelineSourceTests(unittest.TestCase):
@@ -99,12 +101,12 @@ class TimelineSourceTests(unittest.TestCase):
         """网盘上每次 stat 都是一趟网络往返：没有预览的片子只列一次目录，不逐个候选 stat。"""
         self.image()
         listings = []
-        scandir = sources.os.scandir
+        entries = sources.media_io.directory_entries
 
         def counting(path):
             listings.append(path)
-            return scandir(path)
-        with patch.object(sources.os, 'scandir', side_effect=counting), \
+            return entries(path)
+        with patch.object(sources.media_io, 'directory_entries', side_effect=counting), \
                 patch.object(Path, 'stat', side_effect=AssertionError('逐个候选 stat')):
             self.assertIsNone(sources.discover(self.root / 'other.mp4', 10))
         self.assertEqual(len(listings), 1)
@@ -124,6 +126,23 @@ class TimelineSourceTests(unittest.TestCase):
             self.assertIsNone(web.external_timeline(contract, 1))
             self.assertIsNone(web.external_timeline(contract, 1))
         discover.assert_called_once()
+
+    def test_a_stuck_drive_answers_without_pairing_and_is_not_remembered(self):
+        """网盘答不上：这次按没有预览回，不挂住请求；也不把「没有」记进缓存，盘恢复后照常配对。"""
+        self.image()
+        self.vtt()
+        database = self.root / 'ledger.db'
+        with sqlite3.connect(database) as connection:
+            connection.execute('CREATE TABLE asset(id INTEGER PRIMARY KEY,path TEXT,duration REAL,medium TEXT,disposal TEXT)')
+            connection.execute('INSERT INTO asset VALUES(7,?,10,"video",NULL)', (str(self.video),))
+        contract = SimpleNamespace(read_connection=lambda: sqlite3.connect(f'file:{database}?mode=ro', uri=True))
+        web._SIDECARS.clear()
+        self.addCleanup(web._SIDECARS.clear)
+        with stalled_mount(self.root):
+            started = time.monotonic()
+            self.assertIsNone(web.external_timeline(contract, 7))
+            self.assertLess(time.monotonic() - started, 3)
+        self.assertEqual(web.external_timeline(contract, 7).source, 'webvtt')
 
     def hls(self, layout='2x1', duration=15, interval=10):
         return self.text('movie.m3u8', '#EXTM3U\n#EXT-X-VERSION:7\n#EXT-X-TARGETDURATION:20\n'

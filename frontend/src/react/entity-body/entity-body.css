@@ -38,7 +38,7 @@
 /* ── 格 ──
  * 图还没到的格子是一块空底，不是一行文件名。`alt` 留着给读屏，但格子已经按比例占好了位置，
  * 浏览器就有地方把它画出来——一屏几十格全在等图时，看到的是满屏 `118abp00325pl.jpg`。
- * 这块 `--sunk` 底本身就是这里的骨架。 */
+ * 这块占位底（`--media-placeholder`）本身就是这里的骨架；图自己不再垫一层，半透明叠两遍会深一档。 */
 .peach-react [data-photo-cell] {
   display: block;
   width: 100%;
@@ -48,7 +48,7 @@
   border: 0;
   border-radius: var(--surface-radius);
   overflow: hidden;
-  background: var(--sunk);
+  background: var(--media-placeholder);
   line-height: 0;
   cursor: zoom-in;
 }
@@ -57,10 +57,20 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  background: var(--sunk);
   color: transparent;
 }
 .peach-react [data-photo-cell]:hover img { filter: brightness(1.06); }
+/* 多选：勾的形状与作品卡同一副（`media-card.css` 的 `[data-media-check]`），选中的那格填满并描一圈。 */
+.peach-react [data-photo-cell] { position: relative; }
+.peach-react [data-photo-wall][data-select-mode] [data-photo-cell] { cursor: pointer; }
+.peach-react [data-photo-cell][data-selected] { outline: 2px solid var(--on-media); outline-offset: -2px; }
+.peach-react [data-photo-cell][data-selected] [data-media-check] {
+  display: grid;
+  border-color: var(--on-media);
+  background: var(--on-media);
+  color: var(--on-media-ink);
+  box-shadow: 0 3px 12px #0008;
+}
 /* 全站焦点环（`01-base.css`）把 React 子树排除在外，这里自己画同一副。 */
 .peach-react [data-photo-cell]:focus-visible {
   outline: 2px solid var(--tungsten);
@@ -73,7 +83,7 @@
 }
 .peach-react [data-photo-wall][data-layout="masonry"] > [data-photo-cell] img { height: auto; aspect-ratio: auto 1; }
 /* 样张取不到时摘掉的只是 <img>，格子留着。瀑布流里格高来自图，空格会塌成 0，所以按官方样张
- * 最常见的横幅比例撑住那块 `--sunk` 底。 */
+ * 最常见的横幅比例撑住那块占位底。 */
 .peach-react [data-photo-wall][data-layout="masonry"] > [data-photo-cell]:not(:has(img)) { aspect-ratio: 3 / 2; }
 
 /* ── 段头 ──

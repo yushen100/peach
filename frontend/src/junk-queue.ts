@@ -55,6 +55,16 @@ const glyph = (name: string) => `<svg viewBox="0 0 24 24" aria-hidden="true"><us
 
 /** 壳在 React 包加载之前铺的计数行：摘要面与分类条，读数与计数徽标留空。滑动玻璃由 island
  *  量着放，这一版里它收着，当前那一类自己垫一块同料的玻璃（`junk-queue.css`）。 */
+/** 网格上方「全选（N 个）」那一行的骨架：勾选框与字照 Board UI `Checkbox` 小号，个数等数据。
+ *  页面落地后这一行压在卡片上面，骨架不留这一行的话首张卡会在接管那一拍往下跳。 */
+export function junkSelectAllSkeletonHtml(): string {
+  return '<div class="peach-react"><div data-junk-select-all="" class="mb-3">'
+    + '<span class="group inline-flex items-center select-none gap-1.5">'
+    + '<span class="flex shrink-0 items-center justify-center rounded-sm size-3.5 border bg-background-primary-default shadow-xs border-border-checkbox-default"></span>'
+    + '<span class="text-body-2-medium text-text-primary"><span class="skeleton skeleton-text" style="width:5em"></span></span>'
+    + '</span></div></div>';
+}
+
 export function junkCountSkeletonHtml({ kind, view }: JunkRoute): string {
   const links = JUNK_KIND_OPTIONS.map(([key, label, icon]) =>
     `<a href="${junkPath(key, view)}" data-junk-kind-link="${key}"${key === kind ? ' aria-current="page"' : ''}>${glyph(icon)}${esc(label)}</a>`).join('');

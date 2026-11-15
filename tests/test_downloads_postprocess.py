@@ -144,6 +144,43 @@ class DownloadPostprocessTests(unittest.TestCase):
         self.assertEqual(ledger_backups.list_backups(folder, ledger_backups.ORGANIZE_PATTERN),
                          [*old[3:], backup])
 
+    def test_stuck_cloud_rename_leaves_other_ledger_writes_running(self):
+        import threading
+        entered, release = threading.Event(), threading.Event()
+        # 挂载上的存在判断与改名一起在 `_relocate` 里交给读取子进程，卡在这一步等同网盘改名卡住。
+        original = post.organize._relocate
+
+        def stuck(source, target, worker):
+            entered.set()
+            release.wait(10)
+            return original(source, target, worker)
+
+        outcome = {}
+
+        def organize():
+            try:
+                outcome['result'] = post._organize(self.contract, self.task, self.asset_id)
+            except BaseException as error:
+                outcome['error'] = error
+
+        with patch.object(post.organize, '_relocate', side_effect=stuck):
+            worker = threading.Thread(target=organize)
+            worker.start()
+            try:
+                self.assertTrue(entered.wait(10))
+                with self.database.write_transaction(timeout=1) as connection:
+                    connection.execute("UPDATE download_task SET postprocess_detail='other write' WHERE id=?",
+                                       (self.task.id,))
+            finally:
+                release.set()
+                worker.join(10)
+        self.assertNotIn('error', outcome)
+        self.assertEqual(outcome['result']['moved'], 1)
+        self.assertTrue(self.target.exists())
+        with self.database.read_connection() as connection:
+            self.assertEqual(connection.execute('SELECT path FROM asset WHERE id=?', (self.asset_id,)).fetchone()[0],
+                             str(self.target))
+
     def test_retry_uses_the_bound_asset_after_a_move(self):
         post._organize(self.contract, self.task, self.asset_id)
         main, path, _ = post._bind_main(self.contract, self.store.get(self.task.id))

@@ -2,7 +2,8 @@
 
 每个 `--apply` 脚本与 `peach migrate` 都在写入前留一份完整备份，每份和账本一样大
 （一百多 MB）。备份的价值只在「这次写入被复核之前」，之后它就是一份没人会再读的旧账本。
-三条规则任一成立就留：最近 `KEEP_RECENT` 份之内、还没满 `MIN_AGE`、或者比当前账本更新
+三条规则任一成立就留：最近 `KEEP_RECENT` 份之内（Peach 配置里能改，存在本机的
+`retention_settings`）、还没满 `MIN_AGE`、或者比当前账本更新
 （正常不会出现，出现了说明有事没弄清，先别删）。三条都不成立才删，连同 `-wal`／`-shm`
 一起删。当前账本 `integrity_check` 不是 `ok` 时拒绝清退任何一份：那正是要回滚的时候。
 
@@ -298,7 +299,8 @@ def _copy(live: Path, destination: Path, progress, stage: str) -> None:
         connection.execute("PRAGMA journal_mode=DELETE")
 
 
-def create(live: Path, *, purpose: str = MANUAL_PURPOSE, progress=None, now: datetime | None = None) -> Path:
+def create(live: Path, *, purpose: str = MANUAL_PURPOSE, progress=None, now: datetime | None = None,
+           keep_recent: int = KEEP_RECENT) -> Path:
     """写一份整库备份：先写 `.part`，完整性检查通过才改成正式文件名，再按保留规则清退。
 
     `.part` 不合 `BACKUP_PATTERN`，列表与清退都看不见它；没通过检查的那份当场删掉。
@@ -318,7 +320,7 @@ def create(live: Path, *, purpose: str = MANUAL_PURPOSE, progress=None, now: dat
     finally:
         _unlink_all(part)
     try:
-        prune(live, apply=True)
+        prune(live, apply=True, keep_recent=keep_recent)
     except Exception:
         log.warning("Ledger backup retention cleanup failed", exc_info=True)
     return target
@@ -471,7 +473,7 @@ def _carry_operational(live: Path, saved: Path) -> None:
 
 
 def restore(live: Path, backup: Path, *, migrations_dir: Path, progress=None,
-            now: datetime | None = None) -> RestoreOutcome:
+            now: datetime | None = None, keep_recent: int = KEEP_RECENT) -> RestoreOutcome:
     """用 `backup` 替换当前账本。
 
     顺序是先查后动：备份完整性 → 复制到暂存 → 迁到当前结构 → 暂存完整性；全部通过才另存当前
@@ -546,7 +548,7 @@ def restore(live: Path, backup: Path, *, migrations_dir: Path, progress=None,
     finally:
         _unlink_all(staging)
     try:
-        prune(live, apply=True)
+        prune(live, apply=True, keep_recent=keep_recent)
     except Exception:
         log.warning("Ledger backup retention cleanup failed", exc_info=True)
     return RestoreOutcome(backup, saved, tuple(migration.version for migration in pending))
@@ -633,6 +635,10 @@ class LedgerBackups:
         self.lock = threading.Lock()
         self._restoring = self.restore_job
 
+    def keep_recent(self) -> int:
+        from .retention_settings import backup_keep
+        return backup_keep(self.config.directory("state"))
+
     def _busy(self) -> bool:
         return any((job.snapshot() or {}).get("status") == "running"
                    for job in (self.backup_job, self._restoring))
@@ -661,7 +667,8 @@ class LedgerBackups:
             job = self.backup_job
 
             def work(identity):
-                path = create(self.live, progress=lambda **values: job.update(identity, **values))
+                path = create(self.live, progress=lambda **values: job.update(identity, **values),
+                              keep_recent=self.keep_recent())
                 job.update(identity, status="complete", **stage_fields('backup.backupDone'), name=path.name,
                            bytes=path.stat().st_size)
 
@@ -698,7 +705,8 @@ class LedgerBackups:
                         raise BackupRejected("errors.ledgerBackups.tasksRunningNotRestored",
                                              {"tasks": list(late)})
                     outcome = restore(self.live, backup, migrations_dir=migrations_dir or MIGRATIONS_DIR,
-                                      progress=lambda **values: job.update(identity, **values))
+                                      progress=lambda **values: job.update(identity, **values),
+                                      keep_recent=self.keep_recent())
                 finally:
                     update_tasks.release(self.live, token)
                 if self.after_restore is not None:

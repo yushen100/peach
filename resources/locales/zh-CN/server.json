@@ -596,7 +596,10 @@
     "keep-duplicates": "重复组标记都保留",
     "reconsider-duplicates": "重复组重新列出",
     "region": "批量判定产地",
-    "performer-delete": "按女优永久删除影片"
+    "performer-delete": "按女优永久删除影片",
+    "revert-like": "撤销批量喜欢",
+    "revert-seen": "撤销批量看过",
+    "revert-later": "撤销批量稍后看"
   },
   "outcome": {
     "semicolon": "；",
@@ -751,6 +754,7 @@
       "relocateBusy": "迁移请求正在处理",
       "relocateRejected": "无法迁移到这个位置",
       "restoreConfirmRequired": "恢复会替换当前账本，请先确认",
+      "retentionBusy": "保留期限正在保存，请稍后再试",
       "serverManagedByLaunch": "访问范围与名称由服务启动配置管理",
       "sessionsWriting": "设备记录正在写入，请稍后重试",
       "settingsChanged": "设置已变更，请刷新后再保存",
@@ -790,6 +794,7 @@
       "revealFailed": "打开文件管理器失败，请重试",
       "revealMissing": "这个位置已经不在了",
       "revealOutsideDataRoot": "这个位置不归 Peach 管，只能自己打开",
+      "revealUnreachable": "这个位置所在的盘没有及时响应，请稍后再试",
       "revealUnsupported": "这台机器上打不开文件管理器",
       "taskAlreadyRunning": "{{task}}已有一轮在进行，等它跑完再试",
       "taskCanceled": "任务已取消，已保存的结果保留",
@@ -797,6 +802,7 @@
       "taskOnOtherHost": "请在执行这轮任务的写入端操作"
     },
     "settings": {
+      "choiceInvalid": "{{key}} 只收 {{choices}}",
       "empty": "没有要写入的设置",
       "interfaceLanguageInvalid": "interfaceLanguage 只收 {{choices}}",
       "libraryOrderInvalid": "媒体库顺序须使用不重复的媒体库 ID",
@@ -925,6 +931,11 @@
       "planChanged": "影片清单已变化，请关闭确认窗口后重新查看",
       "nothingToDelete": "没有可删除的影片"
     },
+    "entityBatch": {
+      "selectionInvalid": "请选择有效的条目",
+      "selectionChanged": "所选条目已变化，请刷新后重试",
+      "operationInvalid": "不支持这项批量操作"
+    },
     "media": {
       "invalidPlaybackOrigin": "播放地址无效",
       "localPlaybackUnavailable": "请使用网络播放地址或 M3U 播放列表在此设备打开",
@@ -1041,6 +1052,9 @@
       "reorderIncomplete": "排序必须完整包含当前播放列表的所有视频",
       "progressOutsidePlaylist": "续播位置不在这个播放列表中"
     },
+    "tasteSignals": {
+      "chooseSubject": "请只给番号或女优 id 其中一个"
+    },
     "javBrowserPeople": {
       "snapshotTooLarge": "本地人物快照过大",
       "snapshotInvalid": "本地人物快照格式无效",
@@ -1086,6 +1100,9 @@
     }
   },
   "errors": {
+    "ledger": {
+      "writeBusy": "本地数据库正忙：这次写入排队超过 {{seconds}} 秒，没有保存，请稍后重试。"
+    },
     "hardwareTranscode": {
       "backendInvalid": "PEACH_TRANSCODE_BACKEND 必须为 {{backends}}"
     },
@@ -1451,7 +1468,12 @@
     "mediaProcessingPolicy": {
       "previewStateRequired": "请选择视频预览生成状态",
       "accelerationModeRequired": "请选择自动或仅软件模式",
-      "choiceRequired": "请选择媒体处理方式"
+      "choiceRequired": "请选择媒体处理方式",
+      "qualityRequired": "画质上限只收 {{choices}}"
+    },
+    "retentionSettings": {
+      "choiceInvalid": "{{key}} 只收 {{choices}}",
+      "empty": "没有要保存的保留期限"
     },
     "server": {
       "databaseMissing": "已有配置但缺少数据库，请恢复数据库后启动",
@@ -1822,6 +1844,28 @@
     },
     "fieldOwners": {
       "revisionConflict": "资产已被改过：期望 revision {{expected}}，数据库现值 {{current}}"
+    },
+    "coverArtwork": {
+      "userCoverKept": "这部片用的是你换上的封面，自动采集不替换"
+    },
+    "itemCover": {
+      "tooLarge": "图片太大，最多 32 MB",
+      "empty": "没有收到图片",
+      "unreadable": "读不出这张图片，请换一张 JPEG、PNG 或 WebP",
+      "tooSmall": "图片太小，至少要 200 × 200",
+      "nothingToRestore": "这部片用的不是换上的封面，没有可恢复的"
+    },
+    "itemEdit": {
+      "assetMissing": "这部影片已经不在馆藏里",
+      "malformed": "提交的编辑内容格式不对",
+      "unknownField": "不能编辑这些字段：{{fields}}",
+      "restoreAndEdit": "同一个字段不能既修改又恢复自动：{{fields}}",
+      "controlCharacters": "内容里不能有换行或控制字符",
+      "tooLong": "内容太长，最多 1000 个字",
+      "releaseDateFormat": "发行日期要写成 2025-11-04 这样的格式",
+      "regionUnknown": "认不出这个产地",
+      "entityMissing": "选中的档案已经不在了，请重新选择",
+      "entityNameInvalid": "名称不能为空，也不能超过 200 个字"
     },
     "folderPicker": {
       "busy": "已经有一个选择文件夹的窗口开着",
@@ -2969,6 +3013,7 @@
       "keptAfterDetails": "。已有图片保留。",
       "keptLocalNoBetter": "本机封面 {{localWidth}} × {{localHeight}}，来源可用封面 {{width}} × {{height}}；保留本机封面。没有找到更大或更合适的封面。",
       "keptLocalPartial": "本机封面 {{localWidth}} × {{localHeight}}，来源可用封面 {{width}} × {{height}}；保留本机封面。部分来源连接失败，未能完成全部来源比较。",
+      "keptUserCover": "这部片用的是你换上的封面，没有联网替换。要换回刮削封面，在编辑资料里恢复。",
       "period": "。",
       "reusedCover": "复用 24 小时内核验过的本机封面（{{width}} × {{height}}），没有再向来源请求。"
     },
@@ -4202,6 +4247,7 @@
       "watched": "观看与反馈",
       "collection": "馆藏积累",
       "browsing": "浏览记录",
+      "downloads": "主动下载",
       "bookmarks": "浏览器书签",
       "follows": "关注",
       "peach": "Peach"
@@ -4360,6 +4406,7 @@
       "external": "未同步：{{services}} 服务不归本托盘管理",
       "noOutput": "数据库同步没有输出",
       "startFailed": "数据库同步启动失败：{{error}}",
+      "timedOut": "数据库同步超过 {{seconds}} 秒没有结束，已终止",
       "notRecovered": "{{output}}；服务未能在 20 秒内恢复",
       "stoppingForSync": "正在安全停止服务并同步…",
       "stoppingForTakeover": "正在安全停止服务并接管写入…",
@@ -4373,6 +4420,7 @@
     },
     "prepare": {
       "noOutput": "退出码 {{code}}，没有输出",
+      "timedOut": "{{command}} 超过 {{seconds}} 秒没有结束，已终止",
       "frozen": "打包进程不加载项目 venv，依赖由重启脚本核对",
       "noLock": "没有 uv.lock：{{path}}",
       "noVenv": "没有项目 venv：{{path}}",
@@ -4465,6 +4513,7 @@
       "noPowerShell": "代码已快进，但找不到 PowerShell，未运行测试或重启服务。",
       "inputsKeptChanging": "测试期间代码或依赖持续变化，三次验证均未取得有效记录；请稍后重试。",
       "testsFailed": "代码已快进，但完整测试失败；服务与托盘均未重启，请查看日志。",
+      "testsTimedOut": "代码已快进，但完整测试超时未结束，已终止；服务与托盘均未重启，请查看日志。",
       "testsPassed": "代码与完整测试已通过。",
       "manualTray": "代码与完整测试已通过；当前不是打包托盘，托盘进程需手动重开。",
       "trayExeMissing": "代码与测试已通过，但找不到当前托盘 EXE，未执行替换。",

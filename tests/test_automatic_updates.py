@@ -1,6 +1,7 @@
 """自动更新的持久设置、跨服务互斥和安装边界。"""
 from pathlib import Path
 import tempfile
+from threading import Event
 import unittest
 from unittest.mock import patch
 
@@ -47,6 +48,49 @@ class AutomaticUpdateTests(unittest.TestCase):
             self.updates.tick()
             check.assert_called_once()
         self.assertEqual(self.updates.read()["result"]["state"], "error")
+
+    def test_tick_sleeps_until_the_due_time_without_touching_the_shared_lock(self):
+        self.updates.save({"mode": "check", "interval_hours": 6})
+        with patch("peach.release_updates.check", return_value={"state": "current"}) as check, \
+                patch("peach.automatic_updates.time.time", return_value=200000) as clock:
+            self.assertEqual(self.updates.tick(), 6 * 3600)
+            check.assert_called_once()
+            clock.return_value = 200000 + 3600
+            with FileLock(str(self.updates.path) + ".lock", timeout=0):
+                # 没到期时连锁都不碰：别的服务持锁也照样报剩余时间。
+                self.assertEqual(self.updates.tick(), 5 * 3600)
+            check.assert_called_once()
+            clock.return_value = 200000 + 6 * 3600
+            self.assertEqual(self.updates.tick(), 6 * 3600)
+            self.assertEqual(check.call_count, 2)
+        self.updates.save({"mode": "off", "interval_hours": 6})
+        self.assertIsNone(self.updates.tick())
+
+    def test_background_check_waits_for_settings_instead_of_waking_every_minute(self):
+        self.updates.save({"mode": "off", "interval_hours": 24})
+        checked = Event()
+        with patch("peach.release_updates.check",
+                   side_effect=lambda: checked.set() or {"state": "current"}) as check:
+            self.updates.start()
+            self.addCleanup(self.updates.stop)
+            self.assertFalse(checked.wait(0.3), "关闭时不该自己醒来检查")
+            self.updates.save({"mode": "check", "interval_hours": 24})
+            self.assertTrue(checked.wait(5), "改设置后应立即重排并检查")
+            Event().wait(0.3)
+            self.assertEqual(check.call_count, 1, "检查完排到下一个到期点，不再轮询")
+
+    def test_service_start_defers_the_first_check_and_stop_waits_for_the_thread(self):
+        """服务刚起不立即联网检查；关停等后台线程退出，文件锁随之放下。"""
+        self.updates.save({"mode": "check", "interval_hours": 24})
+        checked = Event()
+        with patch("peach.release_updates.check",
+                   side_effect=lambda: checked.set() or {"state": "current"}):
+            self.updates.start()
+            self.assertFalse(checked.wait(0.3), "启动后先等启动延迟再检查")
+            self.updates.stop()
+        self.assertFalse(self.updates._thread.is_alive())
+        with FileLock(str(self.updates.path) + ".lock", timeout=0):
+            pass
 
     def test_legacy_results_are_hidden_and_rechecked_without_waiting_the_old_interval(self):
         from peach import release_updates

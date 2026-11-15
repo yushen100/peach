@@ -206,6 +206,52 @@ class VersionManagerTests(unittest.TestCase):
                 self.assertFalse((repo / "feature.txt").exists())
 
 
+    def test_a_fetch_whose_helper_hangs_returns_a_failure_within_its_deadline(self):
+        """`git fetch` 起的传输进程还占着输出管道时，超时也要在期限内返回，并收掉整棵树。
+
+        远端用 `ext::` 换成一个不退出的 Python：它由 git 的 remote helper 拉起，继承 git 的 stderr，
+        与 `git-remote-https` 卡住时的进程关系一样。
+        """
+        import sys
+        import threading
+        import time
+
+        import psutil
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo, marker, helper = root / "repo", root / "helper.pid", root / "helper.py"
+            helper.write_text("import os, sys, time\n"
+                              f"open({str(marker)!r}, 'w').write(str(os.getpid()))\n"
+                              "time.sleep(60)\n", encoding="utf-8")
+            interpreter = Path(getattr(sys, "_base_executable", sys.executable))
+            config = root / "gitconfig"
+            config.write_text(f"[safe]\n\tdirectory = {repo.as_posix()}\n[protocol \"ext\"]\n\tallow = always\n",
+                              encoding="utf-8")
+
+            def cleanup():
+                try:
+                    psutil.Process(int(marker.read_text())).kill()
+                except (OSError, ValueError, psutil.Error):
+                    pass
+            self.addCleanup(cleanup)
+            with mock.patch.dict(os.environ, {"GIT_CONFIG_GLOBAL": str(config), "GIT_CONFIG_NOSYSTEM": "1"}):
+                initialize_repo(repo)
+                git(repo, "remote", "add", "origin", f"ext::{interpreter.as_posix()} {helper.as_posix()}")
+                outcome = {}
+                worker = threading.Thread(
+                    target=lambda: outcome.update(result=VersionManager(repo)._git("fetch", "origin", timeout=3)),
+                    daemon=True)
+                worker.start()
+                worker.join(30)
+                self.assertFalse(worker.is_alive(), "git 超时后还在等传输进程占着的管道")
+                self.assertNotEqual(outcome["result"].returncode, 0)
+                helper_pid = int(marker.read_text())
+                deadline = time.monotonic() + 10
+                while psutil.pid_exists(helper_pid) and time.monotonic() < deadline:
+                    time.sleep(0.1)
+                self.assertFalse(psutil.pid_exists(helper_pid), "传输进程还活着")
+
+
 class PackagedBuildAgeTests(unittest.TestCase):
     """打包托盘跑的是构建那一刻的代码副本；检出往前走了，它不会跟着变。
 

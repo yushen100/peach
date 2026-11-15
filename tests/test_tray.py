@@ -46,6 +46,7 @@ from peach.versioning import UpdateResult, VersionSnapshot
 from peach.windows_update import PendingWindowsUpdate, WindowsUpdatePreparation
 from peach.settings_file import SettingsFileError
 from peach.user_messages import UserValueError
+from support.processes import finishes_within, grandchild_alive, hanging_program, kill_grandchild
 
 
 class Response:
@@ -321,6 +322,24 @@ class ServiceStatusTests(unittest.TestCase):
         self.assertEqual(
             manager._run.call_args.kwargs["env"]["PYTHONIOENCODING"], "utf-8",
         )
+
+    @patch("peach.tray.DATABASE_PATH", Path("/local/ledger.db"))
+    @patch("peach.tray.SHARED_DATABASE_PATH", Path("/shared/ledger.db"))
+    def test_a_sync_that_never_returns_is_stopped_and_the_services_come_back(self):
+        """服务停着、操作锁占着时 `ledger-sync` 卡住：到期收掉整棵进程树，照常恢复服务。"""
+        directory = Path(self.enterContext(tempfile.TemporaryDirectory()))
+        self.addCleanup(kill_grandchild, directory)
+        program = hanging_program(directory)
+        manager = ServiceManager(tuple(), ledger_plan=lambda: SyncPlan("pull", "共享副本更新"))
+        with patch("peach.tray.LEDGER_SYNC_SECONDS", 2),                 patch.object(manager, "start_missing") as start,                 patch.object(manager, "wait_until_ready", return_value=True):
+            ok, message = finishes_within(lambda: manager.sync_ledger(program), 30)
+        self.assertFalse(ok)
+        self.assertIn("超过 2 秒没有结束", message)
+        start.assert_called_once_with(reason="restore after database sync")
+        deadline = time.monotonic() + 10
+        while grandchild_alive(directory) and time.monotonic() < deadline:
+            time.sleep(0.1)
+        self.assertFalse(grandchild_alive(directory), "ledger-sync 起的孙进程还活着")
 
     def test_take_ownership_is_an_explicit_ledger_command(self):
         manager = ServiceManager(
@@ -706,7 +725,8 @@ class LogRetentionAtStartupTests(unittest.TestCase):
     def check_log_sweep(self, root, platform, tray, settings_file):
         config = settings_file.PeachConfig(root, root / "config.toml")
         events = []
-        def sweep(_):
+        def sweep(_, *, retention):
+            self.assertEqual(retention, tray.log_retention.RETENTION)
             events.append("sweep")
             raise OSError("log busy")
         def manager(*args, **kwargs):
@@ -825,6 +845,13 @@ class SourceSyncTests(unittest.TestCase):
 
         self.assertFalse(launchd_owns_this_process(
             Mock(return_value=Mock(returncode=113, stdout="")), uid=501))
+
+    def test_launchctl_that_never_returns_counts_as_not_owned_and_a_failed_restart(self):
+        hung = Mock(side_effect=subprocess.TimeoutExpired(["launchctl"], 30))
+        self.assertFalse(launchd_owns_this_process(hung, uid=501))
+        self.assertEqual(hung.call_args.kwargs["timeout"], tray_module.LAUNCHCTL_SECONDS)
+        self.assertNotEqual(restart_tray_process(hung, uid=501).returncode, 0)
+        self.assertEqual(hung.call_args.kwargs["timeout"], tray_module.LAUNCHCTL_SECONDS)
 
     def test_windows_tray_lists_source_sync_next_to_ledger(self):
         source = inspect.getsource(PeachTray.__init__)

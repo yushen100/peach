@@ -131,3 +131,148 @@ describe('Video.js 10 播放会话', () => {
 });
 
 function videoMetadata(root: HTMLElement) { root.querySelector('video')!.dispatchEvent(new Event('loadedmetadata')) }
+
+describe('移动设备全屏方向', () => {
+  afterEach(() => { Reflect.deleteProperty(document, 'fullscreenElement'); Reflect.deleteProperty(document, 'webkitFullscreenElement') });
+  function environment(userAgent = 'Android', coarse = true, platform = 'Linux', touches = 5) {
+    const lock = vi.fn<(value: string) => Promise<void>>().mockResolvedValue(undefined);
+    const unlock = vi.fn();
+    vi.stubGlobal('screen', { orientation: { lock, unlock } });
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue(userAgent);
+    vi.spyOn(navigator, 'platform', 'get').mockReturnValue(platform);
+    vi.spyOn(navigator, 'maxTouchPoints', 'get').mockReturnValue(touches);
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: coarse })));
+    let fullscreen: Element | null = null;
+    Object.defineProperty(document, 'fullscreenElement', { configurable: true, get: () => fullscreen });
+    const enter = (element: Element | null) => {
+      fullscreen = element;
+      document.dispatchEvent(new Event('fullscreenchange'));
+    };
+    return { lock, unlock, enter };
+  }
+
+  it.each([
+    ['Android phone', true, 'Linux'],
+    ['Android tablet', false, 'Linux'],
+    ['iPhone', true, 'iPhone'],
+    ['Macintosh', false, 'MacIntel'],
+  ] as const)('%s 进入自己的全屏后请求横屏，重复事件不重复锁定，退出时释放', async (ua, coarse, platform) => {
+    const { lock, unlock, enter } = environment(ua, coarse, platform);
+    const { player } = mounted();
+    const changed = vi.fn(); player.on('fullscreenchange', changed);
+    try {
+      expect(lock).not.toHaveBeenCalled();
+      enter(document.body);
+      expect(player.isFullscreen()).toBe(false);
+      expect(lock).not.toHaveBeenCalled();
+      enter(player.el().querySelector('media-container'));
+      expect(player.isFullscreen()).toBe(true);
+      expect(player.el().classList.contains('vjs-fullscreen')).toBe(true);
+      expect(lock).toHaveBeenCalledWith('landscape');
+      document.dispatchEvent(new Event('fullscreenchange'));
+      expect(lock).toHaveBeenCalledOnce();
+      await Promise.resolve();
+      enter(null);
+      expect(player.isFullscreen()).toBe(false);
+      expect(player.el().classList.contains('vjs-fullscreen')).toBe(false);
+      expect(unlock).toHaveBeenCalledOnce();
+      expect(changed).toHaveBeenCalledTimes(4);
+    } finally { player.dispose() }
+  });
+
+  it('桌面浏览器全屏同步状态但不改变方向', () => {
+    const { lock, enter } = environment('Windows', false, 'Win32', 0);
+    const { player } = mounted();
+    try {
+      enter(player.el());
+      expect(player.isFullscreen()).toBe(true);
+      expect(lock).not.toHaveBeenCalled();
+    } finally { player.dispose() }
+  });
+
+  it.each(['missing', 'rejected', 'throws'] as const)('方向 API %s 时保持全屏且正常退出', async mode => {
+    const { lock, unlock, enter } = environment();
+    if (mode === 'missing') vi.stubGlobal('screen', {});
+    else if (mode === 'rejected') lock.mockRejectedValue(new DOMException('', 'NotSupportedError'));
+    else lock.mockImplementation(() => { throw new DOMException('', 'SecurityError') });
+    const { player } = mounted();
+    try {
+      enter(player.el()); await Promise.resolve();
+      expect(player.isFullscreen()).toBe(true);
+      enter(null);
+      expect(player.isFullscreen()).toBe(false);
+      expect(unlock).not.toHaveBeenCalled();
+    } finally { player.dispose() }
+  });
+
+  it.each(['exit', 'dispose'] as const)('锁定尚未完成时 %s 释放方向并清理迟到的成功回执', async action => {
+    const { lock, unlock, enter } = environment();
+    let resolve!: () => void;
+    lock.mockReturnValue(new Promise<void>(done => { resolve = done }));
+    const { player } = mounted();
+    try {
+      enter(player.el());
+      if (action === 'exit') enter(null); else player.dispose();
+      expect(unlock).toHaveBeenCalledOnce();
+      resolve(); await Promise.resolve();
+      expect(unlock).toHaveBeenCalledTimes(2);
+      expect(player.isFullscreen()).toBe(false);
+    } finally { player.dispose() }
+  });
+
+  it('快速切换播放器时旧请求的回执不释放新播放器的方向锁', async () => {
+    const { lock, unlock, enter } = environment();
+    let resolve!: () => void;
+    lock.mockReturnValueOnce(new Promise<void>(done => { resolve = done }));
+    const first = mounted().player, second = mounted().player;
+    try {
+      enter(first.el()); enter(second.el());
+      expect(unlock).toHaveBeenCalledOnce();
+      resolve(); await Promise.resolve();
+      expect(unlock).toHaveBeenCalledOnce();
+      expect(second.isFullscreen()).toBe(true);
+      enter(null);
+      expect(unlock).toHaveBeenCalledTimes(2);
+    } finally { first.dispose(); second.dispose() }
+  });
+
+  it('Safari 原生全屏进入和退出与 Peach 状态一致，销毁后不再处理事件', async () => {
+    const { lock, unlock } = environment('iPad');
+    const { video, player } = mounted();
+    video.dispatchEvent(new Event('webkitbeginfullscreen'));
+    expect(player.isFullscreen()).toBe(true);
+    expect(player.el().classList.contains('vjs-fullscreen')).toBe(true);
+    expect(lock).toHaveBeenCalledWith('landscape');
+    await Promise.resolve();
+    video.dispatchEvent(new Event('webkitendfullscreen'));
+    expect(player.isFullscreen()).toBe(false);
+    expect(unlock).toHaveBeenCalledOnce();
+    player.dispose();
+    video.dispatchEvent(new Event('webkitbeginfullscreen'));
+    expect(lock).toHaveBeenCalledOnce();
+  });
+
+  it('Safari 前缀全屏和 presentation mode 事件都同步状态', async () => {
+    const { lock, unlock } = environment('iPad');
+    const { video, player } = mounted();
+    try {
+      Object.defineProperty(document, 'webkitFullscreenElement', { configurable: true, value: player.el() });
+      document.dispatchEvent(new Event('webkitfullscreenchange'));
+      expect(player.isFullscreen()).toBe(true);
+      await Promise.resolve();
+      Reflect.deleteProperty(document, 'webkitFullscreenElement');
+      document.dispatchEvent(new Event('webkitfullscreenchange'));
+      expect(unlock).toHaveBeenCalledOnce();
+      Object.assign(video, { webkitPresentationMode: 'fullscreen' });
+      video.dispatchEvent(new Event('webkitbeginfullscreen'));
+      video.dispatchEvent(new Event('webkitpresentationmodechanged'));
+      expect(player.isFullscreen()).toBe(true);
+      expect(lock).toHaveBeenCalledTimes(2);
+      await Promise.resolve();
+      Object.assign(video, { webkitPresentationMode: 'inline' });
+      video.dispatchEvent(new Event('webkitpresentationmodechanged'));
+      expect(player.isFullscreen()).toBe(false);
+      expect(unlock).toHaveBeenCalledTimes(2);
+    } finally { player.dispose() }
+  });
+});

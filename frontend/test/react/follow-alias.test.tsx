@@ -30,13 +30,17 @@ const SUGGESTIONS: AliasSuggestion[] = [
 
 type Confirmation = { title: string; body: string; items?: readonly string[]; onConfirm(): Promise<unknown> };
 
-/** 确认框只记下参数不自己点：合并由人点这一条是这里要守住的东西。 */
+/** 确认框只记下参数不自己点：合并由人点这一条是这里要守住的东西。用例调 `onConfirm` 就是
+ * 人点了确认：写入成功时弹窗按确认关闭，失败时弹窗留着，和真实弹窗一样。 */
 function stubConfirm() {
   const asked: Confirmation[] = [];
-  vi.spyOn(legacyUi, 'confirmModal').mockImplementation((async (options: Confirmation) => {
-    asked.push(options);
-    return { confirmed: false };
-  }) as typeof legacyUi.confirmModal);
+  vi.spyOn(legacyUi, 'confirmModal').mockImplementation(((options: Confirmation) => new Promise((resolve) => {
+    asked.push({ ...options, onConfirm: async () => {
+      const result = await options.onConfirm();
+      resolve({ confirmed: true, result });
+      return result;
+    } });
+  })) as typeof legacyUi.confirmModal);
   return asked;
 }
 
@@ -177,7 +181,7 @@ it('全部合并一条一条发，顺序照着待合并列表', async () => {
     { action: 'add', canonical: '作者 A', alias: '别名 A' },
     { action: 'add', canonical: '作者 B', alias: '别名 B' },
   ]);
-  expect(toast).toHaveBeenCalledWith('已合并 2 组创作者别名');
+  expect(toast).toHaveBeenCalledWith('已合并 2 组创作者别名', { undo: expect.any(Function) });
 });
 
 it('合并半路断了，报出还剩几组没有合并', async () => {

@@ -8,7 +8,7 @@ import re
 import threading
 import time
 from collections import OrderedDict
-from concurrent.futures import Future
+from concurrent.futures import Future, TimeoutError as FutureTimeout
 from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from contextvars import ContextVar
@@ -47,6 +47,9 @@ MAX_REVIEW_PAGES = 8
 API_INTERVAL = 0.5
 #: 接口要求登录后，搜索与作品资料这么久内不再问接口，直接读网页；过后再试一次接口。
 LOGIN_SECONDS = 6 * 3600
+#: 同一键已有请求在途时最多等它多久。在途请求不过停点，最慢是几次 15 秒的接口请求加 30 秒的网页读取，
+#: 与快照文件锁的 120 秒同一量级；等满按来源暂不可用处理，不让 Web 请求和别的任务一直挂着。
+PENDING_WAIT_SECONDS = 120.0
 _UNAVAILABLE = "errors.javdbPublic.unavailable"
 _JS_IDENTIFIER = r'[A-Za-z_$][A-Za-z0-9_$]*'
 _CACHE_ROOT = ContextVar('jav_public_cache_root', default=None)
@@ -192,10 +195,11 @@ class PublicRequestBudget:
     started: float = 0
     stop_reason: str = ""
     paused_at_start: float = 0.0
+    control: object = None
 
     def check(self):
-        from .task_control import CURRENT
-        control = CURRENT.get()
+        # 用开始计时那一刻的任务控制：取数据时屏蔽了停点（`_settled`），这时再读 CURRENT 是空的。
+        control = self.control
         paused = control.paused_seconds - self.paused_at_start if control is not None else 0.0
         for reason, exhausted in (
                 ("request_budget", self.requests >= self.max_requests),
@@ -204,6 +208,25 @@ class PublicRequestBudget:
             if exhausted:
                 self.stop_reason = reason
                 raise PublicBudgetExceeded("errors.javdbPublic.budgetExceeded")
+
+
+@contextmanager
+def _settled():
+    """先过一次停点，之后到退出前任务暂停与馆藏处理暂停都不再响应。
+
+    里面只有带期限的请求（接口 15 秒、网页读取 30 秒），暂停在它们做完后的下一个停点生效。
+    """
+    from .processing_control import CURRENT as PROCESSING
+    from .task_control import committing
+    processing = PROCESSING.get()
+    if processing is not None:
+        processing.checkpoint('work')
+    with committing():
+        token = PROCESSING.set(None)
+        try:
+            yield
+        finally:
+            PROCESSING.reset(token)
 
 
 def actor_gender(actor: dict) -> str:
@@ -273,7 +296,7 @@ class PublicAPI:
     def request_budget(self, budget: PublicRequestBudget):
         budget.started = time.monotonic()
         from .task_control import CURRENT
-        control = CURRENT.get()
+        control = budget.control = CURRENT.get()
         budget.paused_at_start = control.paused_seconds if control is not None else 0.0
         token = self.request_context.set(budget)
         try:
@@ -422,12 +445,28 @@ class PublicAPI:
     def _cached(self, key, fetch, *, released=None, refresh=False):
         cache_key = self._cache_key(key)
         image = key.startswith('image:')
-        store = self._store()
+        found, result = self._remembered(key, cache_key, image=image, refresh=refresh)
+        if found:
+            return result
+        # 下面要占住同键的在途 Future、来源锁或图片名额。暂停只在这里响应：锁内的请求停在
+        # 暂停点上，别的任务和 Web 请求就会陪着它一直等到用户点继续。
+        with _settled():
+            return self._load(key, cache_key, image, fetch, released=released, refresh=refresh)
+
+    def _remembered(self, key, cache_key, *, image, refresh):
         with self.lock:
             memory = self._memory(cache_key, image=image, refresh=refresh)
-            if memory is not None:
-                result, snapshot, error = memory
-                _record_read(key, snapshot, error)
+        if memory is None:
+            return False, None
+        result, snapshot, error = memory
+        _record_read(key, snapshot, error)
+        return True, result
+
+    def _load(self, key, cache_key, image, fetch, *, released, refresh):
+        store = self._store()
+        with self.lock:
+            found, result = self._remembered(key, cache_key, image=image, refresh=refresh)
+            if found:
                 return result
             snapshot = self.snapshots.get(cache_key)
             future = self.pending.get(cache_key)
@@ -435,7 +474,10 @@ class PublicAPI:
             if owner:
                 future = self.pending[cache_key] = Future()
         if not owner:
-            result = future.result()
+            try:
+                result = future.result(timeout=PENDING_WAIT_SECONDS)
+            except FutureTimeout:
+                raise PublicSourceUnavailable(_UNAVAILABLE) from None
             failed = self.failures.get(cache_key)
             _record_read(key, self.snapshots.get(cache_key), failed[1] if failed else None)
             return result

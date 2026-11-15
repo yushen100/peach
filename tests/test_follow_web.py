@@ -204,6 +204,30 @@ class FollowContractTests(unittest.TestCase):
         self.assertEqual([row['source'] for row in scheduled['results']], [stale])
         self.assertEqual({row['source'] for row in manual['results']}, {stale, recent})
 
+    def test_a_round_that_stays_paused_does_not_hold_the_scheduler(self):
+        """这一轮在任务中心被暂停、一直不恢复：定时那一跳到期就回来，下一跳照常判忙，不再无限等。"""
+        source = self._seed()
+        entered, release = threading.Event(), threading.Event()
+        def paused(row, **kwargs):
+            entered.set()
+            release.wait(10)
+            return {'source': row['id'], 'ok': True, 'page': 0}
+        with mock.patch.object(web_follow, 'run_check', side_effect=paused), \
+                mock.patch.object(web_follow, '_check_payload', side_effect=lambda result: result), \
+                mock.patch.object(web_follow, 'CHECK_WAIT_SECONDS', 0.3):
+            try:
+                begun = time.monotonic()
+                scheduled = self._post('/api/follow/check', {'automatic': True})
+                self.assertLess(time.monotonic() - begun, 5, '定时那一跳一直等到这一轮跑完')
+                self.assertTrue(entered.is_set())
+                self.assertEqual(scheduled['status'], 'running')
+                self.assertTrue(self._post('/api/follow/check', {'automatic': True})['busy'])
+            finally:
+                release.set()
+                self.contract.follow_job.thread.join(5)
+        final = web_follow.q_follow_check(self.contract, {})
+        self.assertEqual((final['status'], [row['source'] for row in final['results']]), ('complete', [source]))
+
     def test_failed_numeric_source_has_a_readable_author(self):
         source = self._seed(ref='patreon/12387984', label='Pantsushi · patreon')
         with mock.patch.object(web_follow, 'build_connector') as factory:
@@ -1233,6 +1257,9 @@ class FollowContractTests(unittest.TestCase):
         result = self._post("/api/follow/status", {"items": items, "to": "seen"})
         self.assertEqual(result["items"], items)
         self.assertEqual(self._get(status="seen")["counts"]["seen"], 2)
+
+        self._post("/api/follow/status", {"items": items, "previous": result["previous"]})
+        self.assertEqual(self._get(status="seen")["counts"]["seen"], 0, "撤销按回执里的原状态写回")
 
     def test_direct_online_play_counts_without_saving_an_asset(self):
         self._seed()

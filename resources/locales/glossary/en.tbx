@@ -870,6 +870,28 @@
 <langSet xml:lang="zh-Hans"><tig><term>产地</term></tig></langSet>
 <langSet xml:lang="en"><tig><term>Country</term><termNote type="administrativeStatus">forbidden</termNote></tig></langSet>
 </termEntry>
+<termEntry id="concept.region.cn" weblate-flags="terminology">
+<descrip>产地之一（分区码 cn）：华语地区制作的片子，含大陆与港台厂牌。中文资源圈的固定叫法，不是「本国」。</descrip>
+<langSet xml:lang="zh-Hans"><tig><term>国产</term></tig></langSet>
+<langSet xml:lang="en"><tig><term>Chinese</term><note from="translator">产地各项都写形容词：Japanese、Korean、Chinese、Western、Other。「国产」字面是本国生产，直译成 Domestic 对非中国用户是错的；写 China 又把港台厂牌归进一个国名。以后加繁体中文时写「華語」，不要照搬「國產」，台湾读者会读成台湾本地片。</note></tig></langSet>
+</termEntry>
+<termEntry id="concept.region.cn.forbidden.0">
+<langSet xml:lang="zh-Hans"><tig><term>国产</term></tig></langSet>
+<langSet xml:lang="en"><tig><term>Domestic</term><termNote type="administrativeStatus">forbidden</termNote></tig></langSet>
+</termEntry>
+<termEntry id="concept.region.cn.forbidden.1">
+<langSet xml:lang="zh-Hans"><tig><term>国产</term></tig></langSet>
+<langSet xml:lang="en"><tig><term>China</term><termNote type="administrativeStatus">forbidden</termNote></tig></langSet>
+</termEntry>
+<termEntry id="concept.region.west" weblate-flags="terminology">
+<descrip>产地之一（分区码 west）：欧美及其他西方地区制作的片子，中文习惯上也含捷克、俄罗斯、拉美、澳洲。</descrip>
+<langSet xml:lang="zh-Hans"><tig><term>欧美</term></tig></langSet>
+<langSet xml:lang="en"><tig><term>Western</term><note from="translator">英文 JAV 与片库圈里和 JAV 对举的通用说法（JAV vs Western），覆盖范围与「欧美」一致。不写 American 或 US &amp; Europe：前者太窄，后者把拉美、澳洲排在名字之外。</note></tig></langSet>
+</termEntry>
+<termEntry id="concept.region.west.forbidden.0">
+<langSet xml:lang="zh-Hans"><tig><term>欧美</term></tig></langSet>
+<langSet xml:lang="en"><tig><term>American</term><termNote type="administrativeStatus">forbidden</termNote></tig></langSet>
+</termEntry>
 <termEntry id="concept.rollback.0" weblate-flags="terminology">
 <descrip>把上一批整理（改名、移动）过的文件整批退回原名和原位置。</descrip>
 <langSet xml:lang="zh-Hans"><tig><term>回滚</term></tig></langSet>

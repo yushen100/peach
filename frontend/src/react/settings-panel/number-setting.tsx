@@ -6,25 +6,30 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import { boundedPreference } from '../../number-setting';
+import { HOME_SHORTS_DEFAULT, HOME_SHORTS_MAX, HOME_SHORTS_MIN } from '../../appearance/settings';
 import { t } from '../../i18n';
 
-export type NumberUnit = 'items' | 'seconds' | 'videos' | 'entries' | 'minutes';
+export type NumberUnit = 'items' | 'seconds' | 'videos' | 'entries' | 'minutes' | 'percent';
 export interface NumberSpec { min: number; max: number; unit: NumberUnit; optional?: boolean; fallback: number }
 
 /** 数字框后面的单位文字。 */
 const UNIT_LABELS: Record<NumberUnit, string> = {
   items: t('settings:numberSetting.unitItems'), seconds: t('settings:numberSetting.unitSeconds'), videos: t('settings:numberSetting.unitVideos'),
   entries: t('settings:numberSetting.unitEntries'), minutes: t('settings:numberSetting.unitMinutes'),
+  percent: t('settings:numberSetting.unitPercent'),
 };
 
 export const NUMBER_SPECS = {
   batchSizeSetting: { min: 1, max: 200, unit: 'items', fallback: 60 },
   hoverDelaySetting: { min: 1, max: 60, unit: 'seconds', optional: true, fallback: 5 },
   seekSecondsSetting: { min: 1, max: 300, unit: 'seconds', fallback: 10 },
+  resumeRestartSetting: { min: 1, max: 20, unit: 'percent', optional: true, fallback: 5 },
   relatedLimitSetting: { min: 1, max: 60, unit: 'items', optional: true, fallback: 20 },
   /* 上限跟 `/api/feeds/discoveries` 一致，服务端多于 100 也只回 100 部。 */
   feedLimitSetting: { min: 1, max: 100, unit: 'videos', fallback: 12 },
   searchHistoryLimitSetting: { min: 1, max: 50, unit: 'entries', optional: true, fallback: 10 },
+  /* 关掉是 0：首页不插竖屏带，竖屏回主网格。上下限同 `appearance/settings.ts` 的归一化。 */
+  homeShortsSetting: { min: HOME_SHORTS_MIN, max: HOME_SHORTS_MAX, unit: 'items', optional: true, fallback: HOME_SHORTS_DEFAULT },
   followScheduleSetting: { min: 15, max: 10080, unit: 'minutes', optional: true, fallback: 60 },
 } as const satisfies Record<string, NumberSpec>;
 

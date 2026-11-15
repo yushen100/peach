@@ -1,4 +1,5 @@
 /* search 域控制器：本域状态与动作，启动由 Application 的生命周期统一安装。 */
+import { installHoldSpeed } from '../player/hold-speed';
 import { javImageKind } from './../jav-artwork';
 import { censorOn, preferencesState, setCensored, sfwShortcut } from './preferences.js';
 import { matchesShortcut } from '../keyboard-shortcut';
@@ -110,7 +111,8 @@ searchState.searchHelpers = {
   clearField:input=>catalogState.clearSearchField({text:input.value,scrollLeft:input.scrollLeft||catalogState.searchValueSnapshot.scrollLeft}),
 };
 void openManagedRoute('search',{
-  input:$('#q'),historyLimit:preferencesState.appSettings.searchHistoryLimit,actions:searchState.searchActions,helpers:searchState.searchHelpers,
+  input:$('#q'),historyLimit:preferencesState.appSettings.searchHistoryLimit,recommend:preferencesState.appSettings.searchRecommendations,
+  actions:searchState.searchActions,helpers:searchState.searchHelpers,
   expose:control=>{searchState.searchControl=control},
 },{container:$('#searchMenu'),isCurrent:()=>true});
 applicationEffects.listen($('#q'), 'beforeinput', e=>{if(!e.isComposing)catalogState.rememberSearchValue(e.currentTarget)});
@@ -119,6 +121,12 @@ applicationEffects.listen($('#q'), 'pointerdown', e=>{if(e.currentTarget.value)c
 }
 
 export function installSearch22() {
+applicationEffects.own(installHoldSpeed({
+  activeVideo:()=>!applicationEffects.isActive || settingsPanelApi()?.isOpen()
+    || document.querySelector('#stage[open] [data-media-carousel]:not([data-carousel-video-active])')
+    ? null : activeVideo(),
+  seek:video=>seekVideoBy(video,preferencesState.appSettings.seekSeconds),
+}));
 searchState.searchMorph = null;
 searchState.searchMorphViewport = innerWidth;
 applicationEffects.listen.bind(applicationEffects, window)('resize',()=>{
@@ -151,6 +159,9 @@ applicationEffects.listen(document, 'keydown', e=>{
     if(mediaState.immerseOpen()){immerseApi().close();return}
     /* 详情开着：Escape 归舞台。焦点在浮窗里时舞台自己已经收了这一下；里层弹层（标签搜索框、右键
        菜单）先收掉的会 `preventDefault`，那一下只关弹层。焦点落在浮窗外（body）时在这里转给舞台。 */
+    /* 详情上面又开了一层挂在 body 的模态框（编辑资料、确认框）：这一下由浏览器关那一层，舞台留着。 */
+    const modal=e.target instanceof Element?e.target.closest('dialog[open]'):null;
+    if(modal&&modal.id!=='stage'&&mediaState.stageOpen())return;
     if(mediaState.stageOpen()){if(!e.defaultPrevented){e.preventDefault();stageApi().requestEscape()}return}
     /* 这一下已经被浮窗或弹层用掉了：舞台可能在冒泡到这里之前就关完，不能再顺手收侧栏或退出多选。 */
     if(e.defaultPrevented)return;
@@ -163,7 +174,7 @@ applicationEffects.listen(document, 'keydown', e=>{
   // SFW 开关键（默认 Shift+S，可在设置里改）：有人走近时不必先打开设置（同 javm 的老板键
   // `2304ab2`）。绑定必带修饰键，所以要在下一行放过修饰键组合之前比对。
   if(!e.defaultPrevented&&matchesShortcut(e,sfwShortcut())){e.preventDefault();setCensored(!censorOn());return}
-  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  if(e.defaultPrevented||e.target.closest?.('select,[role="menu"],.vjs-peach-settings-menu,media-volume-slider')||e.ctrlKey||e.metaKey||e.altKey)return;
   if(e.key==='ArrowLeft'||e.key==='ArrowRight'){
     const imageStep=document.querySelector(`#stage[open] [data-media-carousel]:not([data-carousel-video-active]) [data-follow-image-step="${e.key==='ArrowRight'?1:-1}"]`);
     if(imageStep){e.preventDefault();imageStep.click();return}

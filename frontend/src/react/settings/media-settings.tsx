@@ -5,6 +5,7 @@
  *
  * 校验原因由服务端按字段给（400 的 `errors`），页面写回原位，不在前端复制一份路径与端口的判定。 */
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 import { Button } from '@/components/base/buttons/button';
 import { LinkButton } from '@/components/base/buttons/link-button';
@@ -23,6 +24,7 @@ import { RESTART_REDIRECT_MS } from '../restart-redirect';
 import { CloudDriveGuide } from './clouddrive-guide';
 import { CloudProxySettings } from './cloud-proxy-settings';
 import { CONFIGURATION_KEY, fetchConfiguration } from './configuration';
+import { MEDIA_PROCESSING_KEY, fetchMediaProcessing } from '../settings-panel/settings-data';
 import { groupRoot } from './configuration-panel';
 import {
   FolderField, FolderFieldLine, FolderRow, isCloudSource, MEDIA_SOURCES, MediaReadPolicy, MediaReadPolicyHelp, SourceSelect, sourceMark,
@@ -142,6 +144,9 @@ function MediaForm({ data, receipt }: ConfigurationGroupProps) {
     initial: () => initialRows(data), blank: () => blankRow(), pickFolder, describe: errorMessage,
   });
   const [scanNow, setScanNow] = useState(false);
+  /* 「视频预览」卡的开关和这里共用一份查询缓存：那边一关，自定义步骤里的九宫格当场变灰。 */
+  const processing = useQuery({ queryKey: MEDIA_PROCESSING_KEY, queryFn: ({ signal }) => fetchMediaProcessing(signal) }, queryClient);
+  const previewsOff = processing.data?.metadata_only === true;
   const [requireReadPolicy, setRequireReadPolicy] = useState(false);
   const [failure, setFailure] = useState('');
   const [smbResults, setSmbResults] = useState<Record<number, { message: string; directories: string[] }>>({});
@@ -269,7 +274,7 @@ function MediaForm({ data, receipt }: ConfigurationGroupProps) {
                     })} />
                 </div>
                 {preset === 'custom'
-                  ? <StageChooser name={name} value={stagesOf(library)}
+                  ? <StageChooser name={name} value={stagesOf(library)} previewsOff={previewsOff}
                     onChange={(value) => editLibrary(first, { library_stages: AUTO_STAGES.filter(stage => value.includes(stage)).join(',') })} />
                   : null}
                 <div data-library-folders="" role="group" aria-label={t('settings:mediaLibraries.directoriesLabel', { name })}>
@@ -318,16 +323,17 @@ function MediaForm({ data, receipt }: ConfigurationGroupProps) {
                     {row.transport === 'smb' ? <div className="flex w-full flex-col gap-2">
                       <FolderFieldLine>
                         <FolderField label={t('settings:smbShare.account')} className="w-full @lg:flex-1">
+                          {/* 勾了「移除账号」保存时只清凭据，账号、密码与加密都不读：一起禁用。 */}
                           <Input aria-label={t('settings:smbShare.accountLabel', { index: index + 1 })} value={row.smb_username || ''}
-                            autoComplete="off" onChange={value => edit(index, { smb_username: value })} />
+                            autoComplete="off" isDisabled={row.smb_clear} onChange={value => edit(index, { smb_username: value })} />
                         </FolderField>
                         <FolderField label={t('settings:smbShare.password')} className="w-full @lg:flex-1">
                           <Input aria-label={t('settings:smbShare.passwordLabel', { index: index + 1 })} type="password" value={row.smb_password || ''}
                             autoComplete="new-password" placeholder={row.smb_password_saved ? t('settings:smbShare.keepPassword') : ''}
-                            onChange={value => edit(index, { smb_password: value })} />
+                            isDisabled={row.smb_clear} onChange={value => edit(index, { smb_password: value })} />
                         </FolderField>
                       </FolderFieldLine>
-                      <Checkbox isSelected={row.smb_encrypt || false} onChange={value => edit(index, { smb_encrypt: value })}>{t('settings:smbShare.requireEncryption')}</Checkbox>
+                      <Checkbox isSelected={row.smb_encrypt || false} isDisabled={row.smb_clear} onChange={value => edit(index, { smb_encrypt: value })}>{t('settings:smbShare.requireEncryption')}</Checkbox>
                       <Checkbox isSelected={row.smb_clear || false} onChange={value => edit(index, { smb_clear: value })}>{t('settings:smbShare.removeAccount')}</Checkbox>
                       <Button className="self-start" variant="secondary" {...busyProps(action.busy === `smb-${index}`)}
                         onClick={() => void action.run(`smb-${index}`, signal => apiSend<{ readable: boolean; directories: string[] }>(

@@ -465,6 +465,22 @@ class CodeSiblingIdentityTests(unittest.TestCase):
         code_siblings.inherit(self.connection, [2], now="t1")
         self.assertEqual(self.links(2), [(11, "performer"), (20, "creator")])
 
+    def test_a_whole_library_pass_normalises_each_code_once(self):
+        from unittest import mock
+
+        from peach import code_siblings
+        for asset_id in range(100, 160):
+            path = rf"B:\JAV\ABC-{asset_id}.mp4"
+            self.connection.execute("INSERT INTO asset(id,location,path,name,medium,code) VALUES(?,'115',?,?,'video',?)",
+                                    (asset_id, path, path.rsplit("\\", 1)[1], f"ABC-{asset_id}"))
+        calls = []
+        real = code_siblings.normalise_code_key
+        with mock.patch.object(code_siblings, "normalise_code_key", side_effect=lambda code: calls.append(code) or real(code)):
+            result = code_siblings.inherit(self.connection, now="t1")
+        self.assertEqual(len(calls), 63, "整库只扫一遍番号；逐部去扫全部视频会让升级补修长时间占着写锁")
+        self.assertEqual([(link["asset_id"], link["role"]) for link in result["links"]],
+                         [(2, "performer"), (2, "creator")])
+
 
 if __name__ == "__main__":
     unittest.main()

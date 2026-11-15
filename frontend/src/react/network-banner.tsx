@@ -1,5 +1,7 @@
 /** 外网连不上时的通栏横幅：读服务端按 Peach 代理探测的快照，联网后自己消失。 */
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Button } from '@/components/base/buttons/button';
 import { useQuery } from '@tanstack/react-query';
 import { apiGet } from '../api';
 import { withBackoff } from '../polling';
@@ -36,12 +38,17 @@ export function NetworkBanner() {
     refetchInterval: withBackoff<NetworkStatus>((data) => networkPollInterval(data)),
     retry: false,
   });
+  /* 关掉只管这一段断网：快照离开 offline（恢复联网或探测结论变了）就撤销，下次再断照样出来。 */
+  const [dismissed, setDismissed] = useState(false);
+  const offline = query.data?.state === 'offline';
+  if (!offline && dismissed) setDismissed(false);
   const host = document.querySelector('[data-network-banner]');
-  if (query.data?.state !== 'offline' || !host) return null;
+  if (!offline || dismissed || !host) return null;
   return createPortal(
     <aside className="ui-project-banner ui-project-banner-warning" role="status" data-network-offline="">
       <div><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-alert" /></svg><p>{NETWORK_OFFLINE_TEXT}</p></div>
       <a href="/settings/network#peachProxy">{t('shell:networkBanner.checkProxy')}</a>
+      <Button variant="secondary" size="xs" onClick={() => setDismissed(true)}>{t('shell:networkBanner.dismiss')}</Button>
     </aside>,
     host,
   );

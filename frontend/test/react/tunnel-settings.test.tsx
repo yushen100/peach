@@ -22,14 +22,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-async function mount(initial: TunnelState, receipt = vi.fn()) {
+async function mount(initial: TunnelState, receipt = vi.fn(), blocked = false) {
   const host = document.createElement('div');
   host.className = 'peach-react';
   document.body.append(host);
   const root = createRoot(host);
   roots.push(root);
   await act(async () => root.render(
-    <TunnelSettings revision="rev" initial={initial} receipt={receipt} />,
+    <TunnelSettings revision="rev" initial={initial} receipt={receipt} blocked={blocked} />,
   ));
   return host;
 }
@@ -75,6 +75,15 @@ it('切到命名隧道才出现主机名与令牌，保存键是主按钮', asyn
     enabled: false, mode: 'named', hostname: 'peach.example.com', token: FAKE_TOKEN,
   });
   expect(receipt).toHaveBeenCalledWith('已保存配置');
+});
+
+it('没设访问密码时不能启动、不能改模式；运行中的隧道读成已停止', async () => {
+  const host = await mount({ ...STOPPED, enabled: true, state: 'running', url: 'https://example.trycloudflare.com' }, vi.fn(), true);
+  const start = [...host.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === '启动公网入口');
+  expect(start?.disabled).toBe(true);
+  expect(host.textContent).toContain('已停止');
+  expect(host.textContent).not.toContain('example.trycloudflare.com');
+  expect([...host.querySelectorAll<HTMLInputElement>('input[type="radio"]')].every((radio) => radio.disabled)).toBe(true);
 });
 
 it('保存后令牌不回显，只说已保存', async () => {

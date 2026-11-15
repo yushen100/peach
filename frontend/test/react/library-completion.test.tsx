@@ -6,6 +6,7 @@ import { LibraryCompletionPrompt, meteredPreviewIds, missingPreviewIds } from '.
 import { LIBRARY_PROCESSING_KEY } from '../../src/react/library-processing/library-processing';
 import type { MediaItem } from '../../src/react/catalog-grid/types';
 import { queryClient } from '../../src/react/query';
+import { appSettingsStore } from '../../src/appearance/settings';
 import { buttonNamed, click, mount, pending } from './render';
 
 vi.mock('@peach/legacy/ui', async (original) => ({
@@ -68,6 +69,20 @@ it('关闭视频预览生成时保留资料同步，并禁用单独抽帧', asyn
   await click(host.querySelector('[aria-haspopup="dialog"]'));
   expect(menuItem('仅补全预览图')?.disabled).toBe(true);
   expect(menuItem('仅补全影片资料')?.disabled).toBe(false);
+});
+
+it('关闭钮写本机偏好，同页的几条一起收起；设置里再打开就回来', async () => {
+  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ status: 'idle' }) })));
+  const settings = appSettingsStore();
+  const host = await mount(<QueryClientProvider client={queryClient}>
+    <LibraryCompletionPrompt assetIds={[7]} /><LibraryCompletionPrompt assetIds={[8]} /></QueryClientProvider>);
+  expect(host.querySelectorAll('[data-library-completion]')).toHaveLength(2);
+  await click(host.querySelector('[data-completion-dismiss]'));
+  expect(settings.value.completionPrompt).toBe(false);
+  expect(JSON.parse(localStorage.getItem('peach.settings.v1') || '{}').completionPrompt).toBe(false);
+  expect(host.querySelectorAll('[data-library-completion]')).toHaveLength(0);
+  await act(async () => { settings.value.completionPrompt = true; settings.save() });
+  expect(host.querySelectorAll('[data-library-completion]')).toHaveLength(2);
 });
 
 it('没有缺图影片时不显示入口也不查询任务', async () => {

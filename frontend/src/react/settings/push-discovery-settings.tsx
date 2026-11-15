@@ -131,10 +131,11 @@ export function PushDiscoveryForm({ initial, receipt }: {
           </div>
         </Stack>
       ) : null}
-      {state.enabled && state.cloud ? (
-        <Stack divided>
+      {/* 前缀表不只给云通知用：云下载按它推出网盘目标目录与落地路径，开关关着也在生效，所以一直摆出来。 */}
+      <Stack divided>
           <div className="flex flex-col gap-3">
             <FieldLabel>{t('settings:pushDiscovery.cloudPrefixes')}</FieldLabel>
+            <Help>{t('settings:pushDiscovery.cloudPrefixesHelp')}</Help>
             <div role="group" aria-label={t('settings:pushDiscovery.cloudPrefixes')} className="flex flex-col gap-3">
               {rows.map((row, index) => (
                 <div key={index} className="flex items-start gap-2">
@@ -157,10 +158,8 @@ export function PushDiscoveryForm({ initial, receipt }: {
               </Button>
             </div>
           </div>
-        </Stack>
-      ) : null}
-      {/* 保存失败的原因归这一块，不跟着前缀表一起收起：域名或前缀写坏时那张表可能正好
-          没在屏上，而失败的正是刚按下的那颗「保存配置」。 */}
+      </Stack>
+      {/* 保存失败的原因单独一块：域名或前缀写坏时，失败的正是刚按下的那颗「保存配置」。 */}
       {failure || action.error
         ? <Stack divided><ErrorText>{failure || action.error}</ErrorText></Stack> : null}
       <Footer>

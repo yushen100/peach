@@ -24,11 +24,13 @@ function storedPosition(key: string): number | null {
   } catch { return null }
 }
 
-export function playbackPosition(key: string, item: PlayerItem): number {
-  const stored = storedPosition(key);
-  if (stored !== null) return stored;
+/** 打开时从哪一秒接着播。离片尾不到 `restartPercent`% 的算看完，从头播：停在片尾字幕前关掉的，
+ *  下次不会落在片尾。时长未知时照原位置接。 */
+export function playbackPosition(key: string, item: PlayerItem, restartPercent = 0): number {
+  const duration = realDuration(item.duration);
   const ratio = Number(item.leave_ratio);
-  return ratio > 0 && ratio < 1 ? ratio * realDuration(item.duration) : 0;
+  const time = storedPosition(key) ?? (ratio > 0 && ratio < 1 ? ratio * duration : 0);
+  return restartPercent > 0 && duration > 0 && time >= duration * (1 - restartPercent / 100) ? 0 : time;
 }
 
 /** 元数据加载且定位完成后才登记，换源与销毁产生的零位置不覆盖续播状态。 */

@@ -16,21 +16,56 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Added / 新增
 
-- **Updates**: When an update is available, Check for updates lists each newer release's notes from GitHub in the interface language (#680). / **更新**：检查到新版本时，「检查更新」里按界面语言列出之后每一版在 GitHub 上的更新说明（#680）。
+- **Library**: Edit details next to the title changes the code, title, date, region, performers, label, series and tags; edited values aren't overwritten by collection (#187). / **馆藏**：详情标题旁新增「编辑资料」，可改番号、标题、日期、产地、演员、厂牌、系列与标签，改过的值不再被采集覆盖（#187）。
+- **Library**: Performers, labels and series not found in Edit details can be created on the spot and carry a Custom tag in rosters and details (#549). / **馆藏**：编辑资料里搜不到的演员、厂牌、系列可直接新建，名册与详情上带「自建」标记（#549）。
+- **Library**: Edit details can replace the cover with an upload, the player's current frame or a sample; it stays in place and the scraped cover can be restored (#187). / **馆藏**：编辑资料可换封面：上传图片、取播放器当前画面或选样张，换上的封面不再被替换，可恢复刮削封面（#187）。
+- **Updates**: When an update is available, Check for updates lists each newer release's highlights with linked issues, in the interface language (#680). / **更新**：检查到新版本时，「检查更新」按界面语言列出之后每一版的重点，附 issue 链接（#680）。
 - **Sourcing**: Wants checks for sources on a schedule; cards with no result show the check date, and found links are listed on the card (#650). / **采集**：「想要」清单定时给待找作品查资源，没查到的卡片注明日期，查到的链接直接列在卡片上（#650）。
+- **Playback**: Playlists and Mix move on to the next item; Settings > After playback can stop, loop the list, shuffle or repeat one (#659). / **播放**：播放列表和 Mix 播完一条自动接下一条，设置「播完之后」可改为停下、列表循环、随机或单片循环（#659）。
+- **Interface**: Settings can turn off new releases on home and person pages, the shorts strip, avatar rows, missing-art hints, empty-search picks and import notices (#660). / **界面**：设置里可分别关掉首页与人物页的新作、竖屏短片带、头像两排、缺图补全提示、空搜索推荐与入库通知，横幅关掉后不再反复出现（#660）。
+- **Settings**: Settings that depend on a switch collapse or gray out when it is off, and remote access cannot start without an access password (#660). / **配置**：上级开关关掉后，依赖它的设置随之收起或变灰；未设访问密码时远程访问不能启动（#660）。
+- **Settings**: Subscription feed fetching can be turned off or given its own interval, like automatic checks for follows (#661). / **配置**：Peach 配置里的「订阅源拉取」可以关掉或改间隔，和关注的自动检查一样（#661）。
+- **Settings**: Wants recheck interval and give-up count, ledger backup count, log retention days and the transcode quality cap are adjustable (#661). / **配置**：「想要」老片的再查间隔与放弃次数、账本备份份数、日志保留天数和播放转码的画质上限都能在 Peach 配置里调了（#661）。
+- **Playback**: On phones and tablets, tap shows controls, double-tap seeks or pauses, long-press plays at 2x, and dragging sideways previews a seek (#156). / **播放**：手机和平板上轻点显示控制条，双击两侧快进快退、中间暂停，长按临时 2 倍速，横向拖动预览后跳转（#156）。
+- **Playback**: Holding the Right arrow key plays at 2x until released (#275). / **播放**：按住右方向键临时 2 倍速，松开恢复原来的速度（#275）。
+- **Library**: Duplicates supports multi-select; kept groups no longer come back when a copy goes missing, and can be restored from Kept (#690). / **馆藏**：重复文件页支持多选，保留过的组不再因少一份而重新出现，可在「已保留」里取消（#690）。
+- **Interface**: Wants, HD upgrades, junk files, the profile online view, rosters and online tags support multi-select; the queue page gets the select toggle (#690). / **界面**：想要、高清升级、垃圾文件、资料页在线视图、名册与在线标签支持多选，处理队列页接入右上角多选开关（#690）。
+- **Sourcing**: With Browsing history checked in the userscript, works and performers you open count toward discovery recommendations, as do downloads you add (#691). / **采集**：用户脚本勾选「浏览记录」后，打开过的作品、女优计入发现页推荐，用户脚本加入下载的作品也算（#691）。
 
 ### Changed / 变更
 
+- **Library**: Tags in details and Following details are read-only; add or remove them in Edit details, or with Edit tags at the end of the tag row (#187). / **馆藏**：详情与关注详情的标签平时只读，增删分别移到「编辑资料」和标签行尾的「编辑标签」里（#187）。
+- **Interface**: Regions read Japanese, Korean, Chinese and Western in the English interface (#187). / **界面**：英文界面的产地统一写作 Japanese、Korean、Chinese、Western（#187）。
+- **Interface**: Batch actions ask for confirmation first, and the reversible ones offer Undo (#690). / **界面**：批量操作都先确认再执行，能撤回的带撤销（#690）。
+- **Playback**: Titles closed near the end start from the beginning next time; the threshold is in Settings > Restart near end (#659). / **播放**：接近片尾时关掉的作品，下次打开从头播；剩余比例在设置「片尾从头播」里调（#659）。
+- **Playback**: When the browser can decode HEVC, the original file plays directly instead of being transcoded first (#616). / **播放**：浏览器能解 HEVC 时直接播放原文件，不再先在服务端转码（#616）。
+- **Playback**: Immersive mode in the top bar picks videos from the current page and returns there when closed; Trash no longer plays trashed files (#669). / **播放**：顶栏的沉浸模式按当前页面抽片，关掉后回到原页；回收站页不再播回收站里的文件（#669）。
+- **Playback**: Software transcoding of a whole video uses at most half the CPU cores, so other playing videos are not slowed down (#174). / **播放**：服务端软件转码整部视频时最多占一半 CPU 核，同时在播的视频不再被拖慢（#174）。
+- **Playback**: New videos start at the volume last set in this browser instead of 100% (#161). / **播放**：新打开的视频从这台浏览器上次调过的音量起播，不再每次都是 100%（#161）。
 - **Updates**: The changelog and release pages put English first; Chinese notes and downloads are folded by language (#680). / **更新**：更新日志与发布页改为英文在前，中文说明和下载说明按语言折叠（#680）。
-- **Sourcing**: Bundled userscript 0.7.13 scrolls codes and performer names that don't fit back and forth within the panel row (peach-mitao/peach-userscript#34). / **采集**：随附用户脚本更新至 0.7.13，浮卡里放不下的番号、女优名改为在行内来回滚动（peach-mitao/peach-userscript#34）。
+- **Sourcing**: Bundled userscript 0.7.16 gives the main button its own row and pairs other actions with icons, two to a row (peach-mitao/peach-userscript#38). / **采集**：随附用户脚本更新至 0.7.16，浮卡主按钮单独一行，其余操作带图标两个一行（peach-mitao/peach-userscript#38）。
+- **Sourcing**: The userscript puts notices at the top of its floating cards and every button at the bottom (peach-mitao/peach-userscript#37). / **采集**：用户脚本浮卡里的提示统一排在最上方，按钮都在最下面（peach-mitao/peach-userscript#37）。
+- **Sourcing**: The userscript scrolls codes and performer names that don't fit back and forth within the panel row (peach-mitao/peach-userscript#34). / **采集**：用户脚本浮卡里放不下的番号、女优名改为在行内来回滚动（peach-mitao/peach-userscript#34）。
 
 ### Fixed / 修复
 
+- **Library**: The Keep dropdown in Merge tags under tag management shows its options again (#187). / **馆藏**：标签管理里「合并标签」的「保留」下拉能看到选项了（#187）。
+- **Playback**: When a cloud drive hangs, playback, thumbnails, subtitles, Show in folder and delete fail within 10 seconds instead of spinning or stalling the server (#689). / **播放**：网盘卡住时，播放、缩略图、字幕、打开所在位置和删除都在 10 秒内报错，不再一直转圈，也不再拖垮整个服务（#689）。
+- **Ledger**: Play counts, ratings and task progress keep updating when a cloud rename hangs, a writer stalls or a JavDB lookup's task is paused (#683). / **账本**：网盘改名卡住、写入方卡死或 JavDB 查询所在任务被暂停时，播放计数、评分和任务进度不再跟着停住（#683）。
+- **Desktop**: Tray startup, ledger sync, update checks and shutdown time out on a hung subprocess or drive instead of never starting or stopping (#687). / **桌面**：托盘启动、同步 Ledger、检查更新和服务关停遇到卡住的子进程或网盘时到期中止，不再一直起不来或停不下（#687）。
+- **Library**: With a hung drive, organize, rollback, batch intro fixes and timeline thumbnails fail the stuck title, finish the rest and honor cancel (#688). / **馆藏**：网盘挂死时整理、回滚、批量修复片头和时间轴缩略图不再一直停在运行中，卡住的那部记失败、其余照做，取消也能生效（#688）。
+- **Library**: Resource sync checks and runs no longer stay running; unreadable folders are skipped, progress moves per folder and cancel takes effect (#655, #668). / **馆藏**：资源同步的检查与执行不再卡在运行中，读不了的网盘目录记为读不了并跳过，进度按目录更新，取消能及时生效（#655、#668）。
+- **Library**: A scan or backfill cancelled from the recovery entry no longer makes a later Backfill library finish immediately (#668). / **馆藏**：在恢复入口取消过的扫描与补全，不再让之后的「补全已入库影片」一点就结束（#668）。
+- **Library**: A hung drive mount no longer stalls new-file discovery and cloud-download import, and a paused follow or feed round no longer blocks later checks (#685). / **馆藏**：网盘挂载卡住时新文件发现与云下载入库不再停摆，关注、订阅有一轮被暂停也不再挡住之后的定时检查（#685）。
+- **Library**: The post-upgrade repair that copies details between copies of a code scans the library once and no longer holds the ledger for long (#690). / **馆藏**：升级后的同番号照抄补修整库只扫一遍番号，不再长时间占住账本写入（#690）。
+- **Playback**: Fullscreen on phones and tablets rotates to landscape and restores on exit; iPhone native fullscreen stays in sync (#664). / **播放**：手机和平板点全屏后自动转成横屏，退出时恢复；iPhone 原生全屏的状态也能同步（#664）。
+- **Interface**: Cover, avatar and photo placeholders no longer match the surface they sit on in the dark theme (#690). / **界面**：封面、头像与照片格的占位底在暗色下不再和所在的面同色（#690）。
 - **Sourcing**: The userscript no longer reports words like File05 in titles, or uncensored codes on MISSAV and Jable, as conflicts (peach-mitao/peach-userscript#34). / **采集**：用户脚本不再把标题中 File05 这类词及 MISSAV、Jable 无码番号误报为冲突（peach-mitao/peach-userscript#34）。
 - **Sourcing**: MGStage codes with an extra numeric prefix and AIRAV codes carrying the source name are found; studio sites add director, plot and stills (#653). / **采集**：MGStage 番号前多一段数字、AIRAV 番号带来源名的作品能查到了，片商官网另取导演、剧情与剧照（#653）。
 - **Sourcing**: DMM titles sold in parts (such as SORA-613A) are searched and added by the full-title code, and codes with a trailing letter reach source search (#662). / **采集**：DMM 分段发售的作品（如 SORA-613A）按整片番号搜资源和添加，带尾字母的番号能进资源搜索（#662）。
 - **Updates**: For source, Docker and up-to-date installs, Check for updates no longer lists a Package it can't use, and the installer download note no longer crowds the line above (#663). / **更新**：源码运行、Docker 和已是最新时，检查更新不再列出用不上的「下载内容」，安装包的下载说明不再贴着上一行（#663）。
 - **Library**: TMA codes like `T28-612` and `T38-076` are recognized; such videos already in the library get their code and metadata on the next processing (#656). / **馆藏**：认出 TMA 的 `T28-612`、`T38-076` 这类番号，已入库的此类影片下次处理时补上番号和资料（#656）。
+- **Sourcing**: The userscript recognizes codes starting with T28 and T38 on pages such as JAVtiful (peach-mitao/peach-userscript#35). / **采集**：用户脚本能认出 JAVtiful 等页面上 T28、T38 开头的番号（peach-mitao/peach-userscript#35）。
 - **Library**: Later copies of the same title get its cast and creators, FC2 titles get their seller after metadata lands, and existing ones are filled on upgrade (#681). / **馆藏**：同一部片后入库的副本补上演员和创作者，FC2 作品资料落库后自动挂上卖家，已入库的升级后补一次（#681）。
 - **Review**: Performers written as "family given" on studio sites, and Western stage names, land automatically instead of holding the row in Review (#681). / **复核**：片商官网写成「姓 名」的演员与欧美艺名能自动落库，不再整行留在复核队列（#681）。
 - **Library**: Video enhancement model tags such as `_prob4` no longer become part of creator names, aliases or search terms (#681). / **馆藏**：视频增强软件的模型代号（如 `_prob4`）不再算进创作者名，也不再登记成别名和搜索词（#681）。

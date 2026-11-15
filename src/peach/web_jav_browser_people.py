@@ -105,15 +105,9 @@ def _page_person(connection, name: str) -> dict:
     return {'id': None, 'name': base}
 
 
-def cached_people(contract, preview, value: str, performers=()) -> dict:
-    raw = value.split(',')
-    if not 1 <= len(raw) <= 50:
-        raise UserValueError("api.javBrowserPeople.codesLimit")
-    codes = list(dict.fromkeys(code_key(code) for code in raw))
-    page_names = _page_names(performers)
-    if page_names and len(codes) != 1:
-        raise UserValueError("api.javBrowserPeople.performersNeedSingleCode")
-    items, avatars = {}, {}
+def local_people(contract, codes, page_names=()) -> dict[str, list[dict]]:
+    """每个番号本机认得的出演者：账本、发现资料快照，二者都空时才用详情页给的名字；不联网。"""
+    items = {}
     snapshots = _snapshots(contract, codes)
     with contract.database.read_connection() as connection:
         excluded = entities.male_performer_ids(connection)
@@ -141,15 +135,33 @@ def cached_people(contract, preview, value: str, performers=()) -> dict:
                 key = entities.normalize_entity_name(person['name'])
                 if key and key not in people and person['id'] not in excluded:
                     people[key] = person
-            for person in people.values():
-                entity_id = person['id']
-                if entity_id is None or not contract.has_entity_image('performer', entity_id):
-                    continue
-                if entity_id not in avatars:
-                    avatars[entity_id] = entity_avatar(contract, preview, entity_id)
-                    if avatars[entity_id] is None:
-                        person['avatar_unavailable'] = True
-                if avatars[entity_id]:
-                    person['avatar'] = avatars[entity_id]
             items[code] = list(people.values())
+    return items
+
+
+def local_names(contract, code: str) -> list[str]:
+    """浏览记录用的出演者名字：只读本机，不取头像。"""
+    return [person['name'] for person in local_people(contract, [code]).get(code, [])]
+
+
+def cached_people(contract, preview, value: str, performers=()) -> dict:
+    raw = value.split(',')
+    if not 1 <= len(raw) <= 50:
+        raise UserValueError("api.javBrowserPeople.codesLimit")
+    codes = list(dict.fromkeys(code_key(code) for code in raw))
+    page_names = _page_names(performers)
+    if page_names and len(codes) != 1:
+        raise UserValueError("api.javBrowserPeople.performersNeedSingleCode")
+    items, avatars = local_people(contract, codes, page_names), {}
+    for people in items.values():
+        for person in people:
+            entity_id = person['id']
+            if entity_id is None or not contract.has_entity_image('performer', entity_id):
+                continue
+            if entity_id not in avatars:
+                avatars[entity_id] = entity_avatar(contract, preview, entity_id)
+                if avatars[entity_id] is None:
+                    person['avatar_unavailable'] = True
+            if avatars[entity_id]:
+                person['avatar'] = avatars[entity_id]
     return {'ok': True, 'source': 'local-cache', 'items': items}

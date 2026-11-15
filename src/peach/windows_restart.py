@@ -17,7 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable, Protocol
 
-from . import interface_text
+from . import interface_text, process_job
 from .windows_update import replace_with_retry, swap_tray_binary
 from .tray_detached import launch_detached
 
@@ -27,6 +27,8 @@ WM_STOP = 0x0400 + 10  # pystray._util.win32.WM_STOP
 #: 停与起各一份的期限。正常一轮十来秒；机器忙着跑测试时新托盘光启动就可能过半分钟，
 #: 而成功时一就绪就返回，期限放宽只拖慢真失败的那一次。
 DEFAULT_TIMEOUT = 60.0
+#: 读进程命令行那一个 PowerShell 的期限；WMI 卡住时按「读不到」处理。
+COMMAND_LINE_SECONDS = 30.0
 
 
 @dataclass(frozen=True)
@@ -137,12 +139,15 @@ def _command_lines(process_ids: Iterable[int] = ()) -> dict[int, str]:
     if wanted:
         clause = " or ".join(f"ProcessId={pid}" for pid in wanted)
         query = f"{query} -Filter '{clause}'"
-    result = subprocess.run(
-        ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
-         f"{query} | ForEach-Object {{ \"$($_.ProcessId)|$($_.CommandLine)\" }}"],
-        capture_output=True, check=False,
-        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        encoding="utf-8", errors="replace")
+    try:
+        result = process_job.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+             f"{query} | ForEach-Object {{ \"$($_.ProcessId)|$($_.CommandLine)\" }}"],
+            stdin=subprocess.DEVNULL, capture_output=True, check=False, timeout=COMMAND_LINE_SECONDS,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            encoding="utf-8", errors="replace")
+    except subprocess.TimeoutExpired:
+        return {}
     lines: dict[int, str] = {}
     for raw in (result.stdout or "").splitlines():
         pid_text, _, command = raw.partition("|")

@@ -219,6 +219,17 @@ class InstallerHandoffTests(unittest.TestCase):
             self.assertTrue(desktop_installer.stop(self.root))
         post.assert_called_once_with(20)
 
+    def test_a_taskkill_that_never_returns_does_not_hold_the_installer(self):
+        running = [[7], [7], [7]]
+        hung = subprocess.TimeoutExpired(["taskkill"], desktop_installer.TASKKILL_SECONDS)
+        with patch("peach.windows_restart.find_tray_windows", return_value=()), \
+                patch.object(desktop_installer, "_running_from", side_effect=lambda _: running.pop(0)), \
+                patch.object(desktop_installer.subprocess, "run", side_effect=hung) as run, \
+                patch.object(desktop_installer.time, "sleep"), \
+                patch.object(desktop_installer.time, "monotonic", side_effect=[0, 100]):
+            self.assertFalse(desktop_installer.stop(self.root, timeout=1))
+        self.assertEqual(run.call_args.kwargs["timeout"], desktop_installer.TASKKILL_SECONDS)
+
     def test_the_uninstaller_that_called_us_is_not_a_stray(self):
         program = self.root / "Peach"
         paths = {1: str(program / "unins000.exe"), 2: str(self.root / "temp" / "_unins.tmp"),

@@ -1,8 +1,13 @@
 import json
+import os
 import pathlib
+import shutil
 import sqlite3
+import subprocess
+import sys
 import tempfile
 import threading
+import time
 import unittest
 from contextlib import ExitStack, closing, contextmanager
 from dataclasses import replace
@@ -10,11 +15,13 @@ from datetime import datetime
 from pathlib import Path
 from unittest import mock
 
-from peach import catalog_rules, interface_text, jav_poster_crop, web_batch, web_catalog, web_entity, web_playlists, web_search, web_stats
+from peach import catalog_rules, interface_text, jav_poster_crop, media_io, web_batch, web_catalog, web_entity, web_playlists, web_search, web_stats
 from peach import web_contract as rm_web
 from peach.previews import entity_image_key, logo_key
 from peach.web_catalog import q_editions, q_items, q_parts
 from support.ledger import fresh_ledger
+from support.processes import finishes_within
+from support.stalls import stalled_mount
 
 
 # 调用点继续走 `rm_web`（`web_contract` 现在只是再导出层），但 **patch 必须打在真的
@@ -741,10 +748,10 @@ class WebDataTests(unittest.TestCase):
                          [("Media", 1, 100), ("Media-more", 0, 0)])
 
     def test_stats_use_the_platform_system_volume_and_keep_the_old_alias(self):
-        usage = type("Usage", (), {"free": 20, "total": 100})
-        with mock.patch.object(web_stats, "system_volume", return_value=Path("X:/")), mock.patch(
-            "shutil.disk_usage", return_value=usage,
-        ):
+        def probe(root, *, system, timeout):
+            return {"online": True, "free": 20, "total": 100, "device": 0} if system else {"online": False}
+        with mock.patch.object(web_stats, "system_volume", return_value=Path("X:/")), \
+                mock.patch.object(web_stats, "volume_usage", side_effect=probe):
             stats = rm_web.q_stats(self.contract)
         # 断言的是「用了 platform 给的系统卷」，不是盘符的字符串写法：
         # `Path("X:/")` 在 Windows 上渲染成 `X:\`、在 POSIX 上渲染成 `X:/`，
@@ -755,15 +762,27 @@ class WebDataTests(unittest.TestCase):
         )
         self.assertIs(stats["disk_c"], stats["system_disk"])
 
+    @staticmethod
+    def _probe(device=None):
+        """子进程探测的替身：每个根都在线、读到同一份 20/100 容量；卷号默认按真实 `st_dev`，读不到为 0。"""
+        def probe(root, *, system, timeout):
+            if device is not None:
+                number = device(root)
+            else:
+                try:
+                    number = os.stat(root).st_dev
+                except OSError:
+                    number = 0
+            return {"online": True, "free": 20, "total": 100, "device": number}
+        return probe
+
     def test_stats_report_system_resource_and_cloud_volumes(self):
-        usage = type("Usage", (), {"free": 20, "total": 100})
         declarations = {"local": ("R:/media", "S:/more"), "115": ("B:/",), "pikpak": ("A:/",)}
         with mock.patch.object(web_stats, "LOCATION_ROOT_DECLARATIONS", declarations), \
                 mock.patch.object(web_stats, "system_volume", return_value=Path("X:/")), \
                 mock.patch.object(web_stats, "translate_ledger_path",
                                   side_effect=lambda value: Path(value)), \
-                mock.patch.object(web_stats, "root_online", return_value=True), \
-                mock.patch("shutil.disk_usage", return_value=usage):
+                mock.patch.object(web_stats, "volume_usage", side_effect=self._probe()):
             stats = rm_web.q_stats(self.contract)
 
         # 同一来源的几个根各占一行，用序号区分；单根来源不带序号。
@@ -783,18 +802,14 @@ class WebDataTests(unittest.TestCase):
             "free": 100, "used": 400, "total": 500,
         })
 
-    def _storage_stats_for(self, system, declarations, volume_key=None):
+    def _storage_stats_for(self, system, declarations, device=None):
         """按给定的系统卷与来源根算一次存储卷汇总；每个根都在线、读到同一份 20/100 容量。"""
-        usage = type("Usage", (), {"free": 20, "total": 100})
         with ExitStack() as stack:
             stack.enter_context(mock.patch.object(web_stats, "LOCATION_ROOT_DECLARATIONS", declarations))
             stack.enter_context(mock.patch.object(web_stats, "system_volume", return_value=system))
             stack.enter_context(mock.patch.object(
                 web_stats, "translate_ledger_path", side_effect=lambda value: Path(value)))
-            stack.enter_context(mock.patch.object(web_stats, "root_online", return_value=True))
-            stack.enter_context(mock.patch("shutil.disk_usage", return_value=usage))
-            if volume_key is not None:
-                stack.enter_context(mock.patch.object(web_stats, "_volume_key", side_effect=volume_key))
+            stack.enter_context(mock.patch.object(web_stats, "volume_usage", side_effect=self._probe(device)))
             stats = rm_web.q_stats(self.contract)
         for row in stats["storage_volumes"]:
             self.assertEqual(set(row), {"kind", "label", "label_code", "label_params",
@@ -831,12 +846,50 @@ class WebDataTests(unittest.TestCase):
         declarations = {"local": ("R:/media", "R:/more", "S:/media"), "115": ("B:/",)}
         stats = self._storage_stats_for(
             Path("X:/"), declarations,
-            volume_key=lambda root: ("device", str(root)[0]))
+            device=lambda root: str(root)[0])
         self.assertEqual(len(stats["storage_volumes"]), 5)
         self.assertEqual(stats["storage_summary"], {
             "volumes": 4, "online": 4, "measured": 4,
             "free": 80, "used": 320, "total": 400,
         })
+
+    def test_a_mount_that_hangs_in_process_does_not_hold_the_stats(self):
+        """探测在子进程里做：本进程里读这个根会卡住时，统计照样在期限内返回且读得到它。"""
+        import threading
+        release = threading.Event()
+        self.addCleanup(release.set)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            scandir, disk_usage = os.scandir, shutil.disk_usage
+
+            def hang(original):
+                def call(path, *args, **kwargs):
+                    if str(root).casefold() in os.fspath(path).casefold():
+                        release.wait(60)
+                    return original(path, *args, **kwargs)
+                return call
+            with mock.patch.object(web_stats, "LOCATION_ROOT_DECLARATIONS", {"local": (str(root),)}), \
+                    mock.patch.object(web_stats, "translate_ledger_path", side_effect=lambda value: Path(value)), \
+                    mock.patch("os.scandir", hang(scandir)), mock.patch("shutil.disk_usage", hang(disk_usage)):
+                rows = finishes_within(web_stats._storage_volumes, 40)
+        local = next(row for row in rows if row["kind"] == "local")
+        self.assertTrue(local["online"])
+        self.assertIsNotNone(local["total"])
+
+    def test_a_probe_that_never_returns_shows_the_root_offline_within_the_deadline(self):
+        def blocked(_command, **options):
+            return original_run([sys.executable, "-c", "import time; time.sleep(60)"], **options)
+        original_run = subprocess.run
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(web_stats, "LOCATION_ROOT_DECLARATIONS", {"local": (tmp, tmp + "-2")}), \
+                mock.patch.object(web_stats, "translate_ledger_path", side_effect=lambda value: Path(value)), \
+                mock.patch.object(web_stats, "VOLUME_PROBE_SECONDS", 1), \
+                mock.patch.object(media_io.subprocess, "run", side_effect=blocked):
+            started = time.monotonic()
+            rows = finishes_within(web_stats._storage_volumes, 30)
+        # 几个根并行探测，整页只等一个期限。
+        self.assertLess(time.monotonic() - started, 8)
+        self.assertEqual([row["online"] for row in rows], [False, False, False])
 
     def test_items_support_duration_range(self):
         result = rm_web.q_items(
@@ -1731,6 +1784,7 @@ class WebDataTests(unittest.TestCase):
             "/api/playlists", "/api/playlist",
             "/api/post-setup-tutorial",
             "/api/tutorial-progress", "/api/performer/delete-candidates", "/api/performer/delete-plan",
+            "/api/entity-batch/plan",
             "/api/library-shortcuts", "/api/folders",
             "/api/custom-metadata",
             "/api/follow", "/api/follow/credentials", "/api/follow/schedule",
@@ -1746,6 +1800,7 @@ class WebDataTests(unittest.TestCase):
             "/api/jav/detail", "/api/jav/reviews", "/api/jav/resources", "/api/jav/discoveries", "/api/jav/releases",
             "/api/jav/discoveries/metadata",
             "/api/result-updates",
+            "/api/taste/signals",
         })
         self.assertEqual(set(rm_web.POST_HANDLERS), {
             "/api/tag-management", "/api/tag-management/preview", "/api/follow/tag",
@@ -1757,10 +1812,10 @@ class WebDataTests(unittest.TestCase):
             "/api/scraping/amane-bridge/check", "/api/scraping/amane-bridge/rebuild",
             "/api/activity", "/api/play", "/api/feedback", "/api/watch-later",
             "/api/playlist",
-            "/api/tutorial-progress", "/api/performer/delete",
+            "/api/tutorial-progress", "/api/performer/delete", "/api/entity-batch",
             "/api/library-shortcuts", "/api/folders/preview", "/api/folders/rule",
             "/api/custom-metadata",
-            "/api/preference", "/api/quality-goal", "/api/item-tag", "/api/batch",
+            "/api/preference", "/api/quality-goal", "/api/item-tag", "/api/item-edit", "/api/batch",
             "/api/search-history", "/api/trash/empty",
             "/api/review/decision", "/api/review/genre", "/api/review/auto-landings/revert",
             "/api/purge-missing", "/api/orphan-records/attach",
@@ -1771,7 +1826,7 @@ class WebDataTests(unittest.TestCase):
             "/api/follow/play", "/api/follow/activity",
             "/api/follow/source", "/api/follow/resolve", "/api/follow/credential",
             "/api/follow/author-alias", "/api/follow/creator", "/api/follow/schedule",
-            "/api/follow/schedule/run", "/api/feeds/schedule/run",
+            "/api/follow/schedule/run", "/api/feeds/schedule", "/api/feeds/schedule/run",
             "/api/taste/refresh", "/api/taste/source", "/api/settings",
             "/api/entity-name", "/api/entity-alias",
             "/api/organize/preview", "/api/organize/apply", "/api/organize/rollback",
@@ -2197,6 +2252,48 @@ class WebDataTests(unittest.TestCase):
         self.assertTrue(kept.exists(), "不在回收站的媒体一个都不能碰")
         self.assertIsNotNone(self.row(2))
 
+    def test_empty_trash_finishes_within_the_deadline_when_the_drive_is_stuck(self):
+        """网盘答不上：这一条记删不了、文件和账本行都留着，整趟按期限做完，任务不停在运行中。"""
+        folder = Path(self.tmp.name).resolve() / "stuck"
+        folder.mkdir()
+        binned = folder / "binned.mp4"
+        binned.write_bytes(b"media")
+        with closing(sqlite3.connect(self.db_path)) as connection:
+            connection.execute("UPDATE asset SET path=?,snapshot_path=NULL WHERE id=1", (str(binned),))
+            connection.commit()
+        rm_web.w_feedback(self.contract, {"id": 1, "kind": "dispose"})
+        with stalled_mount(folder), mock.patch.object(media_io, "TIMEOUT_SECONDS", 0.2):
+            started = time.monotonic()
+            result = rm_web.w_empty_trash(self.contract)
+            self.assertLess(time.monotonic() - started, 3)
+        self.assertEqual(result["purged"], 0)
+        self.assertEqual([item["id"] for item in result["blocked"]], [1])
+        self.assertEqual(binned.read_bytes(), b"media")
+        self.assertIsNotNone(self.row(1))
+
+    def test_a_quarantine_that_lands_after_its_deadline_is_put_back(self):
+        """隔离改名卡住、过了期限才做成：请求已把这一行记成删不了，文件要回到原名，不落在隐藏的临时名下。"""
+        original = Path(self.tmp.name).resolve() / "late.mp4"
+        original.write_bytes(b"media")
+        release, landed = threading.Event(), []
+
+        def slow_quarantine():
+            release.wait(10)
+            moved = web_batch._quarantine_media(original, location="local")
+            landed.append(moved)
+            return moved
+        with mock.patch.object(media_io, "TIMEOUT_SECONDS", 0.1):
+            with self.assertRaises(TimeoutError):
+                web_batch._changed_within_deadline(
+                    f"late-{id(self)}", slow_quarantine, lambda moved: web_batch._restore_one(original, moved))
+        release.set()
+        deadline = time.monotonic() + 5
+        while (not landed or landed[0].exists()) and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertTrue(landed)
+        self.assertFalse(landed[0].exists())
+        self.assertEqual(original.read_bytes(), b"media")
+
     def test_empty_trash_moves_media_outside_the_write_lock_and_spares_rows_restored_meanwhile(self):
         """网盘上逐个 stat、改名不占写锁；这期间被还原出回收站的，事务里复核时留下、文件放回原处。"""
         binned = self.stage_media(1, "binned.mp4")
@@ -2404,6 +2501,24 @@ class WebDataTests(unittest.TestCase):
         result = rm_web.w_batch(self.contract, {"ids": [1, 2, 2], "operation": "like"})
         self.assertEqual(result["changed"], 2)
         self.assertEqual(rm_web.q_item(self.contract, 1)["like_reason"], "保留原文")
+
+    def test_batch_like_seen_and_later_revert_to_what_they_were(self):
+        rm_web.w_preference(self.contract, {"id": 1, "liked": False, "reason": "保留原文"})
+        rm_web.w_feedback(self.contract, {"id": 1, "kind": "dislike"})
+        rm_web.w_watch_later(self.contract, {"id": 1})
+        for operation in ("like", "seen", "later"):
+            receipt = rm_web.w_batch(self.contract, {"ids": [1, 2], "operation": operation})
+            rm_web.w_batch(self.contract, {"ids": [1, 2], "operation": f"revert-{operation}",
+                                           "previous": receipt["previous"]})
+        self.assertFalse(rm_web.q_item(self.contract, 1)["liked"])
+        self.assertEqual(rm_web.q_item(self.contract, 1)["like_reason"], "保留原文")
+        self.assertEqual((self.row(1)["feedback"], self.row(2)["feedback"]), ("dislike", None))
+        with closing(sqlite3.connect(self.db_path)) as con:
+            self.assertEqual([row[0] for row in con.execute("SELECT asset_id FROM watch_queue")], [1],
+                             "原本就在稍后看里的那条留下")
+            self.assertIsNone(con.execute("SELECT 1 FROM asset_preference WHERE asset_id=2").fetchone())
+        with self.assertRaises(ValueError):
+            rm_web.w_batch(self.contract, {"ids": [1], "operation": "revert-seen", "previous": {"2": None}})
 
     def test_better_version_goal_is_independent_and_reversible(self):
         saved = rm_web.w_quality_goal(self.contract, {
@@ -3907,6 +4022,44 @@ class DuplicateDetectionTests(unittest.TestCase):
         self.assertEqual(self.groups()["total"], 2, "撤销后这组回到列表")
         with self.assertRaises(ValueError):
             rm_web.w_batch(self.contract, {"ids": other[:1], "operation": "keep-duplicates"})
+
+    def test_kept_group_stays_hidden_after_a_member_leaves(self):
+        first = self.add("SSIS-057", 7200, 5_000_000_000, drive="A")
+        second = self.add("SSIS-057", 7200, 4_000_000_000, drive="B")
+        third = self.add("SSIS-057", 7200, 3_000_000_000, drive="C")
+        rm_web.w_batch(self.contract, {"ids": [first, second, third], "operation": "keep-duplicates"})
+        rm_web.w_batch(self.contract, {"ids": [third], "operation": "dispose"})
+        result = self.groups()
+        self.assertEqual((result["total"], result["kept"]), (0, 1), "少了一份不该让保留过的组回来")
+        kept = rm_web.q_duplicates(self.contract, {"view": "kept"})
+        self.assertEqual([{f["id"] for f in g["files"]} for g in kept["groups"]], [{first, second}])
+
+        rm_web.w_batch(self.contract, {"ids": [first, second], "operation": "reconsider-duplicates"})
+        self.assertEqual((self.groups()["total"], self.groups()["kept"]), (1, 0),
+                         "取消保留要撤掉藏住这组的那条更大的记录")
+
+    def test_a_new_copy_brings_a_kept_group_back_marked_as_new(self):
+        first = self.add("SSIS-057", 7200, 5_000_000_000, drive="A")
+        second = self.add("SSIS-057", 7200, 4_000_000_000, drive="B")
+        rm_web.w_batch(self.contract, {"ids": [first, second], "operation": "keep-duplicates"})
+        newcomer = self.add("SSIS-057", 7200, 3_000_000_000, drive="C")
+        group = self.groups()["groups"][0]
+        self.assertEqual(group["new_files"], 1)
+        self.assertEqual({f["id"]: f["is_new"] for f in group["files"]},
+                         {first: False, second: False, newcomer: True})
+
+    def test_several_groups_are_kept_and_released_in_one_request(self):
+        one = [self.add("SSIS-057", 7200, 5_000_000_000), self.add("SSIS-057", 7200, 4_000_000_000)]
+        two = [self.add("ABW-232", 7200, 5_000_000_000), self.add("ABW-232", 7200, 3_000_000_000)]
+        rm_web.w_batch(self.contract, {"groups": [one, two], "operation": "keep-duplicates"})
+        self.assertEqual((self.groups()["total"], self.groups()["kept"]), (0, 2))
+        rm_web.w_batch(self.contract, {"groups": [one, two], "operation": "reconsider-duplicates"})
+        self.assertEqual((self.groups()["total"], self.groups()["kept"]), (2, 0))
+        for bad in ([one[:1]], [one, one]):
+            with self.assertRaises(ValueError):
+                rm_web.w_batch(self.contract, {"groups": bad, "operation": "keep-duplicates"})
+        with self.assertRaises(ValueError):
+            rm_web.w_batch(self.contract, {"groups": [one], "operation": "dispose"})
 
     def test_duplicate_rows_keep_the_full_path_for_review(self):
         self.add("SSIS-057", 7200, 5_000_000_000, drive="A")

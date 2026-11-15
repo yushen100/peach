@@ -438,8 +438,9 @@ class FollowFaceIndex:
             self._worker.start()
 
     def _run(self) -> None:
+        # 入队后才 `_wake.set()`，队列空时没有要做的事，不定时醒。
         while True:
-            self._wake.wait(30)
+            self._wake.wait()
             self._wake.clear()
             self.drain()
 

@@ -79,7 +79,7 @@ function BrowserForm({ initial, receipt }: { initial: State; receipt(message: st
         ? <Help>{t('settings:browserAdd.channelUnavailable')}</Help> : null}
       <div><SettingsRow label={t('settings:browserAdd.wantOnNoMatch')} description={t('settings:browserAdd.wantOnNoMatchHelp')}>
         <Switch aria-label={t('settings:browserAdd.wantOnNoMatch')} isSelected={state.want_on_no_match}
-          isDisabled={Boolean(action.busy)} onChange={saveWant} />
+          isDisabled={Boolean(action.busy) || !state.enabled} onChange={saveWant} />
       </SettingsRow></div>
       <Input label={t('settings:browserAdd.peachUrl')} value={window.location.origin} isReadOnly autoComplete="off" />
       {token ? <>

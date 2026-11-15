@@ -318,6 +318,7 @@ it('勾选跨页也跨视图，批量发出去的是整个 ID 集合', async () 
   const many = Array.from({ length: 12 }, (_, at) => source({
     id: at + 1, author_key: `name:人${at}`, author_name: `人${at}`,
   }));
+  const { asked } = stubConfirm(true);
   const { host, fetcher } = await open({ data: follow({ sources: many }) }, { pageSize: 10 });
 
   await click(checkboxNamed(host, '全选本页来源'));
@@ -332,6 +333,7 @@ it('勾选跨页也跨视图，批量发出去的是整个 ID 集合', async () 
 
   await click([...host.querySelectorAll('button')].find((b) => b.textContent === '暂停'));
   await settle();
+  expect(asked[0]).toMatchObject({ title: '暂停所选来源', body: expect.stringContaining('将暂停选中的 11 个关注来源') });
   const writes = sentBody(fetcher, FOLLOW_SOURCE_URL);
   expect(writes).toHaveLength(11);
   expect(writes.map((body) => body.id).sort((a, b) => a - b))
@@ -353,6 +355,7 @@ it('换成表格视图时勾选还是那一批', async () => {
 });
 
 it('表格视图把每条来源摊成一行，勾的还是来源 ID', async () => {
+  stubConfirm(true);
   const { host, fetcher } = await open({}, { layout: 'table' });
 
   expect([...host.querySelectorAll('[role="columnheader"]:not([data-table-space])')].map((cell) => cell.textContent?.trim()))
@@ -374,6 +377,7 @@ it('关注表格分页和排序保留来源选择，批量操作覆盖跨页集�
   const many = Array.from({ length: 12 }, (_, at) => source({
     id: at + 1, label: `来源 ${String(at + 1).padStart(2, '0')}`,
   }));
+  stubConfirm(true);
   const { host, fetcher } = await open({ data: follow({ sources: many }) }, {
     layout: 'table', pageSize: 10, sort: 'source', dir: 'asc',
   });
@@ -625,6 +629,7 @@ const listReads = (fetcher: ReturnType<typeof serve>) => fetcher.mock.calls.filt
   String(input).startsWith(`${FOLLOW_URL}?`) && !(init as RequestInit | undefined)?.method).length;
 
 it('暂停只改那一条的状态，不把整张清单重取一遍', async () => {
+  stubConfirm(true);
   const { host, fetcher } = await open();
   const before = listReads(fetcher);
   await click(checkboxNamed(host, '选择 甲 · Kemono'));
@@ -802,7 +807,8 @@ it('关注列表首屏带着订阅源清单，开关、移除与立即拉取都�
     { action: 'enabled', id: 5, enabled: true }, { action: 'remove', id: 4 },
   ]);
   // 行尾的拉取键只点名这一条，停着的也拉；「立即拉取」才是全部启用的源。
-  expect(sentBody(fetcher, FEEDS_CHECK_URL)).toEqual([{ sources: [5] }, { all: true }]);
+  // 都在后台发起：服务端不占着线程等这一轮跑完。
+  expect(sentBody(fetcher, FEEDS_CHECK_URL)).toEqual([{ sources: [5], background: true }, { all: true, background: true }]);
   expect(feedReads(fetcher)).toBeGreaterThan(1);
 });
 
@@ -822,8 +828,9 @@ it('同一个人的两页各一行，旧艺名那页在名字旁写出站上的�
   expect(readings.slice(-2)).toEqual(['JAV 订阅2 位', '未看新作81 条']);
 });
 
-it('订阅源表里点一行的空白处就是选这一行，选中了底部浮出批量操作，暂停逐条写到订阅源接口', async () => {
-  const { host, fetcher } = await open({ feeds: FEEDS }, { tab: 'list' });
+it('订阅源表里点一行的空白处就是选这一行，选中了底部浮出批量操作，暂停先确认、只写状态要变的源', async () => {
+  const { asked } = stubConfirm(true);
+  const { host, fetcher, props } = await open({ feeds: FEEDS }, { tab: 'list' });
   const row = () => checkboxNamed(host, '选择 乙 的新作')!.closest('[role="row"]')!;
   const blank = () => [...row().querySelectorAll('[role="rowheader"],[role="gridcell"]')]
     .find((cell) => cell.textContent?.trim() === '每 30 分钟')!;
@@ -841,9 +848,10 @@ it('订阅源表里点一行的空白处就是选这一行，选中了底部浮�
   expect(host.textContent).toContain('已选 2 条订阅源');
   await click([...host.querySelectorAll('[data-selection-dock] button')].find((b) => b.textContent === '暂停'));
   await settle();
-  expect(sentBody(fetcher, FEED_SOURCE_URL)).toEqual([
-    { action: 'enabled', id: 4, enabled: false }, { action: 'enabled', id: 5, enabled: false },
-  ]);
+  expect(asked[0]).toMatchObject({ title: '暂停所选订阅源', body: expect.stringContaining('将暂停选中的 2 条订阅源') });
+  // 乙 本来就停着，只写真的要变的那条；撤销也只改回这一条。
+  expect(sentBody(fetcher, FEED_SOURCE_URL)).toEqual([{ action: 'enabled', id: 4, enabled: false }]);
+  expect(props.toast).toHaveBeenCalledWith('已暂停 2 条订阅源', { undo: expect.any(Function) });
   expect(host.querySelector('[data-selection-dock]')).toBeNull();
 });
 
@@ -1663,7 +1671,7 @@ it('全部标为已看：一页待处理之外的也标完，每批不超过批�
       has_more: unseen.size > MARK_BATCH }) } as Response;
   }));
   const result = await markAllPending('seen');
-  expect(result).toEqual({ total: 1500, failed: 0, error: undefined });
+  expect(result).toEqual({ total: 1500, failed: 0, error: undefined, marked: [...Array(1500).keys()].map((index) => index + 1) });
   expect(unseen.size).toBe(0);
   expect(batches.map((items) => items.length)).toEqual([1000, 500]);
 });

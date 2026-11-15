@@ -49,6 +49,7 @@ from .field_owners import (
 )
 from .genre_decisions import load_genre_decisions
 from .genre_taxonomy import UNMAPPED, genres_in_warning, resolve_genre
+from .item_edit import drop_removed_performers
 from .metadata import candidate_text_is_valid, identifies_code
 from .metadata_alias_resolve import (
     is_planning_alias as _is_planning_alias,
@@ -1640,6 +1641,9 @@ def _apply_performer_candidate(connection, asset_ids: list[int], candidate: dict
                     connection, entity_id, str(performer["planning_alias"]))
             if owner is not None and entity_id == int(owner["id"]):
                 _register_current_name(connection, entity_id, performer["name"])
+    # 用户在编辑框里从某部片删掉的人，整组重写之后再摘掉（ADR-0165）；用户加的人来源是
+    # `user:manual`，上面那两条 DELETE 本来就不碰。
+    drop_removed_performers(connection, asset_ids)
 
 
 #: 「现名（旧名）」挂到旧名那一位身上时，现名记成她的别名用的来源。
@@ -1783,18 +1787,26 @@ def _apply_metadata_candidate(
             connection, field, _approved_entity_name(candidate.get("value"), field))
         write_owned_fields(
             connection, asset_ids, {field: name}, owner)
-        connection.execute(
-            f"DELETE FROM asset_entity WHERE asset_id IN ({marks}) AND role=? "
-            "AND source LIKE 'javinizer:%'",
-            (*asset_ids, field),
-        )
-        for asset_id in asset_ids:
-            entity_id = upsert_asset_entity(
-                connection, kind=field, name=name, asset_id=asset_id, role=field,
-                source=f"javinizer:{source}:{field}", confidence=confidence,
-                metadata=metadata, now=now,
+        # 字段已归用户的片不挂刮来的这一个：列写不进去，关联却挂上，详情就会并排出现
+        # 用户选的和刮来的两个厂牌（ADR-0165）。
+        linked = asset_ids if is_protected(owner) else [
+            row[0] for row in connection.execute(
+                f"SELECT id,field_owners FROM asset WHERE id IN ({marks})", asset_ids)
+            if not is_protected(owner_of(row[1], field))]
+        if linked:
+            link_marks = ",".join("?" * len(linked))
+            connection.execute(
+                f"DELETE FROM asset_entity WHERE asset_id IN ({link_marks}) AND role=? "
+                "AND source LIKE 'javinizer:%'",
+                (*linked, field),
             )
-        _drop_superseded_links(connection, asset_ids, field, entity_id, name)
+            for asset_id in linked:
+                entity_id = upsert_asset_entity(
+                    connection, kind=field, name=name, asset_id=asset_id, role=field,
+                    source=f"javinizer:{source}:{field}", confidence=confidence,
+                    metadata=metadata, now=now,
+                )
+            _drop_superseded_links(connection, linked, field, entity_id, name)
         return len(asset_ids)
 
     if field == "performers":

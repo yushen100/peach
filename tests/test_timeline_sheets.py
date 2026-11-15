@@ -5,6 +5,7 @@ import json
 import shutil
 import sqlite3
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -12,6 +13,7 @@ from unittest.mock import MagicMock, patch
 from peach import timeline_sheets
 from peach.jobs import DiskSpaceDenied
 from support.ledger import fresh_ledger
+from test_organize import hung_mount
 
 
 class SheetGeometryTests(unittest.TestCase):
@@ -217,6 +219,22 @@ class GenerateLibraryTests(unittest.TestCase):
             state = self._run()
         self.assertEqual((state["total"], state["made"], state["failed"]), (3, 2, 1))
         self.assertEqual(state["stopped"], "")
+
+    def test_a_hung_video_fails_alone_after_the_deadline(self):
+        started = time.monotonic()
+        with patch.object(timeline_sheets, "build", lambda *a, **k: {"frames": 1}), \
+                hung_mount([self.media / '2.mp4'], 'os.stat', 'os.path.isfile'):
+            state = self._run()
+        self.assertLess(time.monotonic() - started, 15)
+        self.assertEqual((state["total"], state["made"], state["failed"]), (3, 1, 2))
+
+    def test_a_hung_directory_listing_only_hides_its_image_previews(self):
+        started = time.monotonic()
+        with patch.object(timeline_sheets, "build", lambda *a, **k: {"frames": 1}), \
+                hung_mount([self.media], 'os.scandir'):
+            state = self._run()
+        self.assertLess(time.monotonic() - started, 15)
+        self.assertEqual((state["total"], state["made"], state["failed"]), (3, 2, 1))
 
     def test_a_video_already_done_is_counted_as_skipped(self):
         with patch.object(timeline_sheets, "is_current", lambda *a: True):

@@ -184,6 +184,19 @@ class PlayerFramingE2ETests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
+class PlayerTouchE2ETests(unittest.TestCase):
+    def test_touch_gestures_without_library(self):
+        node, chrome = shutil.which("node"), chrome_executable()
+        if not node or not chrome or not (FRONTEND / "node_modules/playwright-core").is_dir():
+            missing_prerequisite("触摸手势测试需要 Node、playwright-core 与测试浏览器")
+        result = subprocess.run(
+            [node, "--test", "e2e/player-touch.test.ts"], cwd=FRONTEND,
+            env=dict(os.environ, PEACH_E2E_CHROME=chrome),
+            capture_output=True, text=True, encoding="utf-8", timeout=90,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+
 @windows_ledger_roots
 class WebE2ESmokeTests(unittest.TestCase):
     @classmethod

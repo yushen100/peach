@@ -18,6 +18,7 @@ import {
   DEFAULT_SORT, isSortKey, SORT_DEFAULT_DIR, SORT_OPTIONS, type SortDir, type SortKey,
 } from '../../follow-sort';
 import { clampPage, pageCount } from '../../pagination';
+import { pollUntil } from '../../polling';
 import { queryClient } from '../query';
 import { localTime } from '../time';
 import { t } from '../../i18n';
@@ -35,6 +36,8 @@ export const FOLLOW_STATUS_URL = '/api/follow/status';
 export const FEEDS_URL = '/api/feeds';
 export const FEED_SOURCE_URL = '/api/feeds/source';
 export const FEEDS_CHECK_URL = '/api/feeds/check';
+/** 订阅拉取在后台跑时，隔多久读一次进度。 */
+const FEED_CHECK_POLL_MS = 3000;
 export const FEEDS_LOOKUP_URL = '/api/feeds/lookup';
 
 /** 来源清单、创作者别名与推荐共用这一个键。 */
@@ -519,8 +522,9 @@ export const fetchPending = () =>
 
 /** 把未看条目全部标成 `to`：取一页待处理、按 `MARK_BATCH` 条一批写，写完再从第一页取，直到取不到为止。
  *  标过的离开 `status=new`，所以不按偏移翻页；写失败的那批不再重取，免得一直撞同一个错。 */
-export async function markAllPending(to: string): Promise<{ total: number; failed: number; error?: unknown }> {
+export async function markAllPending(to: string): Promise<{ total: number; failed: number; error?: unknown; marked: number[] }> {
   const tried = new Set<number>();
+  const marked: number[] = [];
   let failed = 0;
   let error: unknown;
   for (let round = 0; round < MARK_ROUNDS; round += 1) {
@@ -534,6 +538,7 @@ export async function markAllPending(to: string): Promise<{ total: number; faile
       for (const id of batch) tried.add(id);
       try {
         await markItems(batch, to);
+        marked.push(...batch);
       } catch (cause) {
         failed += batch.length;
         error ??= cause;
@@ -541,7 +546,12 @@ export async function markAllPending(to: string): Promise<{ total: number; faile
     }
     if (!pending.has_more) break;
   }
-  return { total: tried.size, failed, error };
+  return { total: tried.size, failed, error, marked };
+}
+
+/** 把这一批条目改回未看：「全部标记」的撤销，按批量接口的上限分批发。 */
+export async function unmarkItems(ids: readonly number[]): Promise<void> {
+  for (let start = 0; start < ids.length; start += MARK_BATCH) await markItems(ids.slice(start, start + MARK_BATCH), 'new');
 }
 
 /** 一条订阅源。字段以 `feeds.sources`（`src/peach/feeds.py`）为准。 */
@@ -590,9 +600,19 @@ export const setFeedEnabled = (id: number, enabled: boolean, signal?: AbortSigna
 export const removeFeed = (id: number, signal?: AbortSignal) =>
   apiSend(FEED_SOURCE_URL, { action: 'remove', id }, 'POST', signal);
 
-/** 拉取走的是和定时同一条路：不点名就是「全部启用的源」，点名几条就只拉那几条，停用的也拉。 */
-export const checkFeeds = (signal?: AbortSignal, ids?: number[]) =>
-  apiSend(FEEDS_CHECK_URL, ids?.length ? { sources: ids } : { all: true }, 'POST', signal);
+/** 拉取走的是和定时同一条路：不点名就是「全部启用的源」，点名几条就只拉那几条，停用的也拉。
+ *  在后台发起、再按进度读到这一轮结束：请求不占着服务端线程等，这一轮被暂停也只是页面这边停在忙态。 */
+export async function checkFeeds(signal?: AbortSignal, ids?: number[]): Promise<void> {
+  const started = await apiSend<{ status?: string }>(FEEDS_CHECK_URL,
+    { ...(ids?.length ? { sources: ids } : { all: true }), background: true }, 'POST', signal);
+  if (started?.status !== 'running') return;
+  await pollUntil<{ status?: string }>({
+    signal: signal ?? new AbortController().signal, everyMs: FEED_CHECK_POLL_MS,
+    read: (polling) => apiGet<{ status?: string }>(FEEDS_CHECK_URL, polling),
+    apply: () => {},
+    done: (job) => job.status !== 'running',
+  });
+}
 
 /** JavDB 搜出来的一张演员卡。字段以 `web_feeds.q_feed_lookup` 为准。 */
 export interface FeedCandidate {

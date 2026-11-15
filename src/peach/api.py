@@ -337,6 +337,9 @@ WARM_AGGREGATES = (("/api/entity/shapes", {}), ("/api/items", {"limit": "60"}), 
                    ("/api/search/recommendations", {}),
                    ("/api/taste", {"window": "all"}), ("/api/review", {}), ("/api/ads", {}),
                    ("/api/follow", {}))
+#: 关停时最多等在算的那份预热这么久（秒）：比存储卷探测的期限长一点，正常都等得到它放下连接；
+#: 等不到就不再等，免得一份卡住的预热让服务停不下来。
+WARMUP_STOP_SECONDS = 15.0
 
 
 def _start_ledger_services(settings: PeachSettings, contract, services, migration: LedgerMigration | None = None) -> bool:
@@ -399,6 +402,15 @@ async def _warm_ledger_aggregates(ledger_ready: bool, contract, stopping: asynci
         except Exception:
             # 预热失败不影响服务启动，这一页照旧在第一次打开时自己算。
             LOGGER.debug("aggregate warmup failed: %s", path, exc_info=True)
+
+
+async def _stop_warmup(warmup: asyncio.Task) -> None:
+    """关停时等预热收尾：to_thread 的查询在线程内释放连接后才算结束，最多等 `WARMUP_STOP_SECONDS`。"""
+    try:
+        await asyncio.wait_for(warmup, WARMUP_STOP_SECONDS)
+    except TimeoutError:
+        LOGGER.warning("Aggregate warmup still running after %ss at shutdown; not waiting for it",
+                       WARMUP_STOP_SECONDS)
 
 
 def _server_error_headers(request: Request, error: Exception, status_code=500):
@@ -766,10 +778,11 @@ def create_app(
             _app.state.ledger_background_ready = False
             aggregate_stop.set()
             warmup.cancel()
-            recovery_service.stop()
+            # 等在途接回收尾有上限，放在线程里等，不占事件循环。
+            await asyncio.to_thread(recovery_service.stop)
             follow_scheduler.stop()
             feed_scheduler.stop()
-            automatic_updates.stop()
+            await asyncio.to_thread(automatic_updates.stop)
             await asyncio.to_thread(upgrade_repairs.stop)
             await asyncio.to_thread(sharing.stop)
             push_discovery.stop()
@@ -777,8 +790,7 @@ def create_app(
             downloads.stop()
             mount_reachability.stop()
             await asyncio.to_thread(network_reachability.stop)
-            # to_thread 的查询在线程内释放连接后才算结束。
-            await aggregate_warmup
+            await _stop_warmup(aggregate_warmup)
             # 死链检查和资源对账的后台线程是 daemon，本来挡不住进程退出；这里显式收
             # 一下，免得在途的那一轮在解释器拆卸期间还继续查库、往没人读的状态里写。
             contract.stop_background_jobs()

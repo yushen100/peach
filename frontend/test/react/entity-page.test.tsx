@@ -246,6 +246,19 @@ describe('首屏', () => {
     expect(page.props.hosts.feed.querySelector('[data-feed-id="31"]')).not.toBeNull();
   });
 
+  it('设置关掉了新作行：不预取、不取数，宿主收着', async () => {
+    const { appSettingsStore } = await import('@peach/appearance');
+    appSettingsStore().value.feedNewRows = false;
+    try {
+      const page = await open({ feed: { items: [{ id: 31, has_cover: true }] } });
+      expect(page.calls('/api/feeds/discoveries')).toHaveLength(0);
+      expect(page.props.hosts.feed.hidden).toBe(true);
+      expect(page.props.hosts.feed.querySelector('[data-feed-id]')).toBeNull();
+    } finally {
+      appSettingsStore().value.feedNewRows = true;
+    }
+  });
+
   it('路由已经取得的实体资料直接用于首屏，作品和照片仍并行取齐', async () => {
     const page = await open({}, { resolvedEntity: entity() });
     expect(page.calls('/api/entity')).toHaveLength(0);

@@ -12,7 +12,7 @@ function Fixture({ data = items, run, label = '测试作品' }: { data?: Item[];
   const [selected, setSelected] = useState<string[]>([]);
   return <DataTable label={label} items={data} columns={columns} rowId={(item) => String(item.id)}
     rowLabel={(item) => item.name} selected={selected} onSelected={setSelected}
-    actions={(chosen) => <button onClick={() => run(chosen.map((item) => item.id))}>处理所选</button>} />;
+    actions={() => []} controls={(chosen) => <button onClick={() => run(chosen.map((item) => item.id))}>处理所选</button>} />;
 }
 
 describe('共用数据表', () => {

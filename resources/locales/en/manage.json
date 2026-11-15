@@ -116,6 +116,7 @@
     "afterCurrentTask": "They can be filled in after the current task ends.",
     "allMetered_one": "{{count, number}} video in this batch has no preview. It's in a data saver directory, so sync doesn't extract frames. {{tail}}",
     "allMetered_other": "{{count, number}} videos in this batch have no previews. They're all in data saver directories, so sync doesn't extract frames. {{tail}}",
+    "dismiss": "Don't show again",
     "done_one": "Fill-in complete: {{count, number}} cover fetched, {{previews}} previews generated.",
     "done_other": "Fill-in complete: {{count, number}} covers fetched, {{previews}} previews generated.",
     "failed": "Fill-in didn't finish",
@@ -307,12 +308,18 @@
     "title": "HD cover"
   },
   "hdUpgrades": {
+    "clearSelection": "Clear selection",
+    "dockLabel": "Actions for selected HD upgrades",
     "emptyBody": "All current editions already meet the criteria, or nothing has been added to tracking yet.",
     "emptyTitle": "No HD upgrade targets",
     "loadFailed": "Couldn't load HD upgrade targets",
     "noPreview": "No preview",
     "notFound": "HD upgrade targets not found. Refresh the page to try again.",
     "openVideo": "Open {{title}}",
+    "selectAll": "Select all",
+    "selectVideo": "Select {{title}}",
+    "selectedCount_one": "{{count, number}} video selected",
+    "selectedCount_other": "{{count, number}} videos selected",
     "showingFirst_one": "Showing the first {{shown}} of {{count, number}} video.",
     "showingFirst_other": "Showing the first {{shown}} of {{count, number}} videos.",
     "summaryLabel": "To upgrade",
@@ -598,7 +605,17 @@
     "selectGroup": "Select group",
     "sourceChosen": "Selected {{source}}. Click Approve selected to apply it.",
     "switchCategoryHint": "Switch categories to see other pending metadata.",
-    "viewOtherCategories": "View other categories"
+    "viewOtherCategories": "View other categories",
+    "confirm": {
+      "approved_one": "Approves the {{count, number}} selected item and writes the chosen source's details.",
+      "approved_other": "Approves the {{count, number}} selected items and writes the chosen sources' details.",
+      "rejected_one": "Ignores the {{count, number}} selected item and moves it to Ignored.",
+      "rejected_other": "Ignores the {{count, number}} selected items and moves them to Ignored.",
+      "restore_one": "Moves the {{count, number}} selected item back to Pending.",
+      "restore_other": "Moves the {{count, number}} selected items back to Pending.",
+      "skipped_one": "Moves the {{count, number}} selected item to Later.",
+      "skipped_other": "Moves the {{count, number}} selected items to Later."
+    }
   },
   "reviewQueue": {
     "approved": "Approved",

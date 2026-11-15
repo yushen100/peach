@@ -21,7 +21,7 @@ NEW_KEY_LIMIT = 20
 COUNT_KEY_LIMIT = 100
 RETENTION_DAYS = 7
 LOCK_TIMEOUT = 5
-# 掉盘时扫描里每个文件都会碰到同一条件；进程内先累计，定时检查或退出时再并入聚合文件。
+# 掉盘时扫描里每个文件都会碰到同一条件；进程内先累计，防抖后或退出时再并入聚合文件。
 _pending = {}
 _pending_lock = threading.Lock()
 
@@ -206,13 +206,25 @@ def _merge(state, path, revision, now, log):
             row["total"] += count
 
 
+def _next_due(state, now):
+    """下一次需要 `flush` 的时刻：最早到间隔的未提交计数，或下一个 UTC 日界（跨日提交、补传推迟的首次事件）。"""
+    due = datetime.combine(now.date() + timedelta(days=1), datetime.min.time(), timezone.utc).timestamp()
+    for row in state["records"].values():
+        if row["total"] > row["submitted"]:
+            due = min(due, row["last_logged"] + INTERVAL)
+    return due
+
+
 def flush(config, revision, emit, log, *, force=False):
-    """并入进程内累计、补传额度不足时推迟的首次事件，并按间隔提交计数日志；退出时可提前提交。"""
+    """并入进程内累计、补传额度不足时推迟的首次事件，并按间隔提交计数日志；退出时可提前提交。
+
+    返回下一次需要 `flush` 的时刻（UNIX 秒）；没有聚合文件时返回 None。
+    """
     path = _path(config)
     with _pending_lock:
         waiting = any(name == str(path) for name, _revision in _pending)
     if not waiting and not path.exists():
-        return
+        return None
     path.parent.mkdir(parents=True, exist_ok=True)
     with FileLock(str(path) + ".lock", timeout=LOCK_TIMEOUT):
         now = _now()
@@ -222,6 +234,7 @@ def flush(config, revision, emit, log, *, force=False):
             _emit_event(state, row, key, emit)
         _emit_counts(state["records"].items(), now, log, force=force)
         atomic_write_text(path, json.dumps(state))
+        return _next_due(state, now)
 
 
 def clear(config):

@@ -16,7 +16,7 @@ import type { CatalogGridProps, MediaItem, MediaPage } from './types';
 import { queryClient } from '../query';
 import { PORTRAIT } from '../../core/stored-values';
 
-/** 竖屏带一条放几张。 */
+/** 竖屏带一条默认放几张；设置里可改（`shortsLimit`），默认值同 `appearance/settings.ts`。 */
 export const SHORTS_BATCH = 18;
 /** Mix 卡插在每一页的这一位，也就是第 8 张。 */
 export const MIX_SLOT = 7;
@@ -229,11 +229,11 @@ export interface ShortsCut {
   items: MediaItem[];
 }
 
-/** 竖屏带的查询串：跟着主列表的筛选与排序走，换一批时它也一起换。 */
-export function shortsParams(filters: Readonly<Record<string, string>>, offset: number): string {
+/** 竖屏带的查询串：跟着主列表的筛选与排序走，换一批时它也一起换；一条取 `limit` 张。 */
+export function shortsParams(filters: Readonly<Record<string, string>>, offset: number, limit = SHORTS_BATCH): string {
   const params = new URLSearchParams(Object.entries(filters).filter(([, value]) => value));
   params.set('orient', PORTRAIT);
-  params.set('limit', String(SHORTS_BATCH));
+  params.set('limit', String(limit));
   params.set('offset', String(offset));
   return params.toString();
 }

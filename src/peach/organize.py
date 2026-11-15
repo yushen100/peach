@@ -27,7 +27,8 @@ from .content_words import UNCENSORED_FILENAME_WORD
 from .jobs import ACTIVE_ASSET_SQL
 from .task_retry import transient_delay
 from .organize_templates import MAX_PATH, TemplateError, clean_filename, example_path, render, validate_template
-from .platform import (is_windows_path, location_mounts, location_roots, resolve_root, root_online,
+from . import media_io
+from .platform import (is_windows_path, location_mounts, location_roots, resolve_root,
                        translate_ledger_path, within_root)
 from .review_csv import write_rows
 from .fsutil import atomic_write_text
@@ -243,7 +244,8 @@ def build_plan(connection: sqlite3.Connection, *, location: str,
     那几百行反而看不见了。
 
     存在性只用挂载判定（`root_online`），不逐行 `stat`：115 与 PikPak 的挂载上那是
-    一次网络往返。撞名在执行那一步 `rename` 之前当场判（ADR-0039）。
+    一次网络往返。撞名在执行那一步 `rename` 之前当场判（ADR-0039）。挂载判定放在
+    可终止的子进程里，到期没有回答的根按离线算。
     """
     file_template = validate_template(file_template)
     dir_template = validate_template(dir_template, directory=True)
@@ -370,6 +372,14 @@ def _media_path(raw):
     return resolve(raw) or translate_ledger_path(raw)
 
 
+def root_online(path) -> bool:
+    """挂载根在不在线；读取超时或读取进程失败按离线算，不让一个挂死的根卡住整份计划。"""
+    try:
+        return bool(media_io.root_online(path))
+    except OSError:
+        return False
+
+
 def _rename(source: str, target: str) -> None:
     """按账本路径改名，真正动盘时翻译成本机路径。
 
@@ -434,31 +444,69 @@ def _reason_fields(outcome: str) -> dict:
     return {"reason": outcome}
 
 
+def _on_mount(*paths) -> bool:
+    """这些路径都在本机挂载上（不是 SMB 直连）：存在判断与改名交给 `media_io.MountWorker`。"""
+    return all(isinstance(path, Path) for path in paths)
+
+
+def _relocate(source: str, target: str, worker: media_io.MountWorker) -> str:
+    """改名并当场判撞名：`ok` 改成了，`missing` 源不在，`taken` 目标被别的文件占着。
+
+    本机挂载上的判断与改名在 `worker` 的子进程里一次做完，挂死的挂载只让这一条超时；
+    SMB 直连带自己的连接期限，留在本进程。须核验来源的改名交给注入的官方改名。
+    """
+    local_source, local_target = _media_path(source), _media_path(target)
+    case_only = source.casefold() == target.casefold()
+    if _on_mount(local_source, local_target):
+        if _location_of(str(source)) not in VERIFIED_RENAME_LOCATIONS:
+            return worker.call('move', str(local_source), str(local_target), case_only)
+        checked = worker.call('move', str(local_source), str(local_target), case_only, False)
+        if checked != 'ready':
+            return checked
+    else:
+        if not local_source.exists():
+            return 'missing'
+        if local_target.exists() and not case_only:
+            return 'taken'
+    _rename(source, target)
+    return 'ok'
+
+
+def _landed(settled: str, previous: str, worker: media_io.MountWorker) -> bool:
+    """文件已经在 `settled`、`previous` 上没有了（只改大小写时两者是同一个文件）。"""
+    landed, left = _media_path(settled), _media_path(previous)
+    case_only = settled.casefold() == previous.casefold()
+    if _on_mount(landed, left):
+        (_exists, is_file), (still_there, _is_file) = worker.call('probe', [str(landed), str(left)])
+    else:
+        is_file, still_there = landed.is_file(), left.exists()
+    return is_file and (case_only or not still_there)
+
+
 def _move_one(connection: sqlite3.Connection, asset_id: int,
-              old_path: str, new_path: str) -> str:
+              old_path: str, new_path: str, worker: media_io.MountWorker | None = None) -> str:
     """动一个文件并同步账本；返回 `ok` 或跳过／失败原因。
 
     账本写失败就把文件改回去：反过来留下的是一条指向不存在路径的行，而它看起来
-    和正常的行没有任何区别。
+    和正常的行没有任何区别。挂载上的判断与改名超时只让这一条失败。
     """
     if ntpath.splitdrive(old_path)[0].casefold() != ntpath.splitdrive(new_path)[0].casefold():
         # 计划那一步已经拦过一次。这里再拦是因为执行接受的是一份计划数据，而计划可以
         # 来自命令行、来自一份被人编辑过的 CSV；跨盘「改名」在这台机器上会退化成
         # 拷贝加删除，中断就是半个文件。
         return _skipped(SKIP_CROSS_VOLUME)
-    local_source = _media_path(old_path)
-    local_target = _media_path(new_path)
-    if not local_source.exists():
-        return _failure("labels.organize.failure.sourceMissing")
-    case_only = old_path.casefold() == new_path.casefold()
-    if local_target.exists() and not (
-            case_only and isinstance(local_source, Path) and local_source.samefile(local_target)):
-        return _skipped(SKIP_TARGET_EXISTS)
+    if worker is None:
+        with media_io.MountWorker() as worker:
+            return _move_one(connection, asset_id, old_path, new_path, worker)
     try:
-        _rename(old_path, new_path)
+        moved = _relocate(old_path, new_path, worker)
     except OSError as error:
         return _failure("labels.organize.failure.renameFailed", {"error": str(error.strerror or error)},
                         retry_after=transient_delay(error))
+    if moved == 'missing':
+        return _failure("labels.organize.failure.sourceMissing")
+    if moved == 'taken':
+        return _skipped(SKIP_TARGET_EXISTS)
     try:
         if not _update_row(connection, asset_id, old_path, new_path):
             raise OrganizeError("errors.organize.rowChanged")
@@ -466,11 +514,26 @@ def _move_one(connection: sqlite3.Connection, asset_id: int,
     except Exception as error:
         connection.rollback()
         try:
-            _rename(new_path, old_path)
-            return _failure("labels.organize.failure.ledgerRolledBack", {"error": nested_message(error)})
+            if _relocate(new_path, old_path, worker) == 'ok':
+                return _failure("labels.organize.failure.ledgerRolledBack", {"error": nested_message(error)})
         except OSError:
-            return _failure("labels.organize.failure.ledgerStuck", {"error": nested_message(error)})
+            pass
+        return _failure("labels.organize.failure.ledgerStuck", {"error": nested_message(error)})
     return "ok"
+
+
+def _settle(connection: sqlite3.Connection, asset_id: int, ledger_path: str | None,
+            old_path: str, new_path: str, worker: media_io.MountWorker) -> str:
+    """一条要从 `old_path` 改到 `new_path` 的结果：账本与文件都已在新位置就算做完
+    （上一轮提交了账本、没来得及记日志），否则动一次。"""
+    if ledger_path == new_path:
+        try:
+            if _landed(new_path, old_path, worker):
+                return 'ok'
+        except OSError as error:
+            return _failure("labels.organize.failure.renameFailed", {"error": str(error.strerror or error)},
+                            retry_after=transient_delay(error))
+    return _move_one(connection, asset_id, old_path, new_path, worker)
 
 
 def apply_plan(connection: sqlite3.Connection, rows: Sequence[dict], *,
@@ -480,6 +543,10 @@ def apply_plan(connection: sqlite3.Connection, rows: Sequence[dict], *,
 
     调用方必须在拿到可写连接之前完成 SQLite 备份（`scripting.open_for_write` 与
     `web_organize` 都是这么做的）。这里只负责动盘、写账本和留下批次日志。
+
+    挂载上的存在判断与改名在一个可终止的子进程里逐条做，每条带期限：卡住的那一条
+    记失败，剩下的换新进程照做。每条做完先记日志再报进度，取消从进度回调抛出，
+    在两条之间生效。
     """
     movable = [row for row in rows if row.get("action") in {"rename", "move"}]
     refuse_unverified(path for row in movable for path in (row["current_path"], row["target_path"]))
@@ -495,29 +562,28 @@ def apply_plan(connection: sqlite3.Connection, rows: Sequence[dict], *,
             {'stamp': stamp or time.strftime('%Y%m%d-%H%M%S'), 'entries': entries, 'failures': failures},
             ensure_ascii=False, indent=1))
     try:
-        for index, row in enumerate(movable, 1):
-            if int(row['asset_id']) in completed:
-                continue
-            old_path, new_path = str(row["current_path"]), str(row["target_path"])
-            current = connection.execute('SELECT path,disposal FROM asset WHERE id=?', (int(row['asset_id']),)).fetchone()
-            landed = (current is not None and current[0] == new_path
-                      and _media_path(new_path).is_file()
-                      and (old_path.casefold() == new_path.casefold() or not _media_path(old_path).exists()))
-            if current is None or current[1] is not None:
-                outcome = _failure('labels.organize.failure.assetGone')
-            else:
-                outcome = 'ok' if landed else _move_one(connection, int(row["asset_id"]), old_path, new_path)
-            if outcome == "ok":
-                entries.append({"asset_id": int(row["asset_id"]),
-                                "old_path": old_path, "new_path": new_path})
-            else:
-                failures.append({"asset_id": int(row["asset_id"]),
-                                 "path": old_path, **_reason_fields(outcome),
-                                 "retryable": isinstance(outcome, MoveFailure) and outcome.retryable,
-                                 "retry_after": outcome.retry_after if isinstance(outcome, MoveFailure) else None})
-            save()
-            if progress:
-                progress(checked=index, total=len(movable))
+        with media_io.MountWorker() as worker:
+            for index, row in enumerate(movable, 1):
+                if int(row['asset_id']) in completed:
+                    continue
+                old_path, new_path = str(row["current_path"]), str(row["target_path"])
+                current = connection.execute('SELECT path,disposal FROM asset WHERE id=?',
+                                             (int(row['asset_id']),)).fetchone()
+                if current is None or current[1] is not None:
+                    outcome = _failure('labels.organize.failure.assetGone')
+                else:
+                    outcome = _settle(connection, int(row["asset_id"]), current[0], old_path, new_path, worker)
+                if outcome == "ok":
+                    entries.append({"asset_id": int(row["asset_id"]),
+                                    "old_path": old_path, "new_path": new_path})
+                else:
+                    failures.append({"asset_id": int(row["asset_id"]),
+                                     "path": old_path, **_reason_fields(outcome),
+                                     "retryable": isinstance(outcome, MoveFailure) and outcome.retryable,
+                                     "retry_after": outcome.retry_after if isinstance(outcome, MoveFailure) else None})
+                save()
+                if progress:
+                    progress(checked=index, total=len(movable))
     finally:
         save()
     return {"moved": len(entries), "failed": len(failures), "failures": failures[:50],
@@ -534,24 +600,21 @@ def rollback_batch(connection: sqlite3.Connection, log_path: Path | str, *,
     refuse_unverified(path for entry in entries for path in (entry["new_path"], entry["old_path"]))
     restored: list[dict] = []
     failures: list[dict] = []
-    for index, entry in enumerate(reversed(entries), 1):
-        current = connection.execute('SELECT path FROM asset WHERE id=?', (int(entry['asset_id']),)).fetchone()
-        landed = (current is not None and current[0] == entry['old_path']
-                  and _media_path(entry['old_path']).is_file()
-                  and (entry['old_path'].casefold() == entry['new_path'].casefold()
-                       or not _media_path(entry['new_path']).exists()))
-        outcome = 'ok' if landed else _move_one(connection, int(entry["asset_id"]),
-                                                str(entry["new_path"]), str(entry["old_path"]))
-        if outcome == "ok":
-            restored.append(entry)
-        else:
-            failures.append({"asset_id": int(entry["asset_id"]),
-                             "path": str(entry["new_path"]), **_reason_fields(outcome)})
-        payload['entries'] = [row for row in entries if row not in restored]
-        payload['restored_count'] = previous_restored + len(restored)
-        atomic_write_text(path, json.dumps(payload, ensure_ascii=False, indent=1))
-        if progress:
-            progress(checked=previous_restored + index, total=previous_restored + len(entries))
+    with media_io.MountWorker() as worker:
+        for index, entry in enumerate(reversed(entries), 1):
+            current = connection.execute('SELECT path FROM asset WHERE id=?', (int(entry['asset_id']),)).fetchone()
+            outcome = _settle(connection, int(entry["asset_id"]), current[0] if current else None,
+                              str(entry["new_path"]), str(entry["old_path"]), worker)
+            if outcome == "ok":
+                restored.append(entry)
+            else:
+                failures.append({"asset_id": int(entry["asset_id"]),
+                                 "path": str(entry["new_path"]), **_reason_fields(outcome)})
+            payload['entries'] = [row for row in entries if row not in restored]
+            payload['restored_count'] = previous_restored + len(restored)
+            atomic_write_text(path, json.dumps(payload, ensure_ascii=False, indent=1))
+            if progress:
+                progress(checked=previous_restored + index, total=previous_restored + len(entries))
     remaining = [entry for entry in entries
                  if entry not in restored]
     if remaining:

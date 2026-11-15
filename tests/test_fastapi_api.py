@@ -21,6 +21,7 @@ from peach import __version__, interface_text
 from support.amane import write_amane_metadata
 from support.ledger import fresh_ledger
 from support.mp4 import minimal_mp4
+from support.stalls import stalled_mount
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -2184,6 +2185,37 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(added.status_code, 200)
         self.assertIn("手动标签", added.json()["tags"])
 
+    async def test_item_edit_is_authenticated_and_returns_the_refreshed_item(self):
+        body = {"id": 1, "fields": {"title": "人工标题"}, "performers": {"add": [{"name": "自建艺人"}]}}
+        denied = await self.client.post("/api/item-edit", json=body)
+        self.assertEqual(denied.status_code, 401)
+        saved = await self.client.post("/api/item-edit?t=secret", json=body)
+        self.assertEqual(saved.status_code, 200, saved.text)
+        item = saved.json()["item"]
+        self.assertEqual(item["field_sources"]["title"]["owner"], "user")
+        self.assertEqual([ref["user_created"] for ref in item["entity_refs"]["performer"] if ref["name"] == "自建艺人"], [True])
+        stale = await self.client.post("/api/item-edit?t=secret", json={**body, "expected_revision": -1})
+        self.assertEqual(stale.status_code, 409)
+
+    async def test_item_cover_upload_and_restore_are_authenticated(self):
+        from io import BytesIO
+        from PIL import Image
+        picture = BytesIO()
+        Image.new("RGB", (640, 430), (120, 40, 40)).save(picture, "JPEG")
+        denied = await self.client.post("/api/item-cover?id=1", content=picture.getvalue(),
+                                        headers={"Content-Type": "image/jpeg"})
+        self.assertEqual(denied.status_code, 401)
+        saved = await self.client.post("/api/item-cover?id=1&origin=upload&t=secret", content=picture.getvalue(),
+                                       headers={"Content-Type": "image/jpeg"})
+        self.assertEqual(saved.status_code, 200, saved.text)
+        self.assertTrue(saved.json()["item"]["cover_user"])
+        refused = await self.client.post("/api/item-cover?id=1&t=secret", content=b"not an image",
+                                         headers={"Content-Type": "image/jpeg"})
+        self.assertEqual(refused.status_code, 400)
+        restored = await self.client.post("/api/item-cover/restore?t=secret", json={"id": 1})
+        self.assertEqual(restored.status_code, 200, restored.text)
+        self.assertFalse(restored.json()["item"]["cover_user"])
+
     async def test_tag_management_requires_auth_and_applies_the_preview(self):
         denied = await self.client.get('/api/tag-management')
         self.assertEqual(denied.status_code, 401)
@@ -3507,6 +3539,26 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(playlist.status_code, 200)
         self.assertEqual(playlist.text.count("#EXTINF:"), 3)
 
+    async def test_browser_reported_hevc_decoding_plays_the_original(self):
+        """浏览器报能解 HEVC：计划回 Range，`/stream` 地址带上同一份能力；只差音轨时标成换封装。"""
+        from peach.ffmpeg import BinaryChoice
+        from peach.transcodes import _MediaProfile
+        service = self.app.state.transcode_service
+        cases = (("aac", "standard-http-range"), ("ac3", "remux"))
+        for audio, reason in cases:
+            with self.subTest(audio=audio), \
+                    patch.object(service.resolver, "ffprobe", return_value=BinaryChoice(Path("ffprobe"), "test")), \
+                    patch.object(service, "_probe",
+                                 return_value=_MediaProfile("hevc", "yuv420p", audio, 13.5, codec_tag="hvc1")):
+                service._native_profiles.clear()
+                plan = (await self.client.get(
+                    "/api/stream-plan?id=1&session=s&decode=hevc,hevc10,bogus&t=secret")).json()
+                self.assertEqual((plan["protocol"], plan["reason"]), ("range", reason))
+                self.assertEqual(plan["src"], "/stream?id=1&session=s&decode=hevc,hevc10")
+                service._native_profiles.clear()
+                plain = (await self.client.get("/api/stream-plan?id=1&session=s&t=secret")).json()
+                self.assertEqual(plain["protocol"], "hls")
+
     async def test_unprobeable_file_without_duration_gets_range_and_a_404_playlist(self):
         """moov 缺失的文件 ffprobe 读不出、账本也没时长：计划回 Range，播放列表回 404，不是 500。"""
         con = sqlite3.connect(self.db)
@@ -3792,6 +3844,18 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
             )
         self.assertEqual(response.status_code, 200)
         reveal.assert_called_once_with(source)
+
+    async def test_reveal_answers_within_the_deadline_when_the_drive_is_stuck(self):
+        """文件所在的盘答不上：回 503 说明盘没响应，不当成文件已删，也不把请求挂住。"""
+        source = self._seed_photo()
+        with stalled_mount(source), patch("peach.routes_api.reveal_path", return_value=True) as reveal:
+            started = time.monotonic()
+            response = await self.client.post("/api/reveal", headers={"X-Token": "secret"}, json={"id": 9})
+            seconds = time.monotonic() - started
+        self.assertLess(seconds, 3)
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["message_code"], "api.routes.revealUnreachable")
+        reveal.assert_not_called()
 
     async def test_reveal_by_path_stays_inside_peach_own_data_root(self):
         """页面上印着全路径的那几处（凭据文件、问题日志、要删的数据目录）按 `path` 定位。
@@ -4329,6 +4393,27 @@ class UnconfiguredMachineTests(unittest.IsolatedAsyncioTestCase):
                 else:
                     await context.__aexit__(None, None, None)
                 await asyncio.to_thread(closed.wait, 5)
+
+    async def test_shutdown_stops_waiting_for_a_warmup_that_never_finishes(self):
+        """预热查询卡住（比如读一个挂死的网盘）时，关停最多等 `WARMUP_STOP_SECONDS` 就往下走。"""
+        parent = self.settings.db_path.parent
+        parent.mkdir(parents=True)
+        database = fresh_ledger(parent)
+        opened, release = threading.Event(), threading.Event()
+
+        def query(contract, path, args):
+            opened.set()
+            release.wait(60)
+
+        context = self.ledger_client(database)
+        with patch("peach.api.web_contract.dispatch_api_get", side_effect=query), \
+                patch("peach.api.WARMUP_STOP_SECONDS", 0.5):
+            try:
+                await context.__aenter__()
+                self.assertTrue(await asyncio.to_thread(opened.wait, 5))
+                await asyncio.wait_for(context.__aexit__(None, None, None), 20)
+            finally:
+                release.set()
 
     async def test_the_page_serves_the_first_run_shell(self):
         response = await self.client.get("/")

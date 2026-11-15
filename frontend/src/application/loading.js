@@ -4,7 +4,7 @@ import { managementSkeletonHtml, pageSkeletonHtml, skeletonKeyOf } from './../ma
 import { photoSize } from './../appearance/layout';
 import { $, ROUTE_ENTITIES } from '../core';
 import { activityStatusHtml, fitSkeleton, LOAD_MORE_STATUS, revealSkeleton } from '../ui-kit';
-import { junkCountSkeletonHtml, junkRoute } from './../junk-queue';
+import { junkCountSkeletonHtml, junkRoute, junkSelectAllSkeletonHtml } from './../junk-queue';
 import { state, presentedItem } from './../shell/index';
 import { homeRouteLabel, mediaRouteLabel, postRouteLabel } from '../history/page-title';
 import { subscribeNames } from '../core/entity-names';
@@ -46,9 +46,11 @@ export function renderCatalogLoading(label=t('shell:skeleton.loadingVideos')){
   $('#loadSentinel').hidden=true;
   /* 网格已经画着（或首屏在途）时骨架归它自己铺：`#grid` 是它的容器，壳往里写会把页面冲掉。 */
   if(gridTaken())return;
-  const grid=$('#grid'),placeholder=catalogSkeletonHtml(label);
+  /* 垃圾文件的网格上面压着一行「全选」：骨架连同它占满一整行，首张卡与落地同位。 */
+  const cards=catalogSkeletonHtml(label);
+  const grid=$('#grid'),placeholder=junk?`<div style="grid-column:1/-1;min-width:0">${junkSelectAllSkeletonHtml()}${cards}</div>`:cards;
   const skeleton=grid.querySelector('.catalog-skeleton');
-  if(skeleton?.dataset.skeleton===skeletonKeyOf(placeholder)
+  if(skeleton?.dataset.skeleton===skeletonKeyOf(placeholder)&&!!grid.querySelector('[data-junk-select-all]')===junk
     &&Number(skeleton.querySelector('[style]')?.style.getPropertyValue('--skeleton-card-ratio'))===catalogCardRatio())return;
   if(skeleton)grid.innerHTML=`<div class="grid">${placeholder}</div>`;
   else loadingState.setGridCards(placeholder);

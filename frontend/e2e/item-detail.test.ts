@@ -113,9 +113,13 @@ describe('作品详情岛', () => {
     const opened = await openItemPage(browser, `/assets/${ITEM.plain}`, viewport);
     try {
       const { page } = opened;
-      await page.locator('#stage [data-tag-plus]').evaluate(node => node.scrollIntoView({ block:'center', behavior:'instant' }));
-      await page.locator('#stage [data-tag-plus]').click();
-      const menu = page.locator('#stage [data-tag-picker]');
+      // 标签增删收进了「编辑资料」：选择器长在编辑框里。
+      await page.locator('#stage [data-item-edit-open]').click();
+      const editor = page.locator('dialog[data-item-edit-dialog]');
+      await editor.waitFor();
+      await editor.locator('[data-tag-plus]').evaluate(node => node.scrollIntoView({ block:'center', behavior:'instant' }));
+      await editor.locator('[data-tag-plus]').click();
+      const menu = editor.locator('[data-tag-picker]');
       await menu.waitFor({ state:'visible' });
       const scrollbar = await menu.locator('[data-tag-body]').evaluate(node => ({
         hidden:getComputedStyle(node).scrollbarWidth,
@@ -557,27 +561,32 @@ describe('作品详情岛', () => {
     }
   });
 
-  it('标签：删一枚再撤销回来；从选择器新建一枚', { timeout: 60_000 }, async () => {
+  it('编辑资料：侧栏标签只读；框里删一枚、新建一枚，保存时一次交出去', { timeout: 60_000 }, async () => {
     const opened = await openItemPage(browser, `/assets/${ITEM.plain}`, DESKTOP);
     try {
       const page = opened.page;
-      const tag = (name: string) => page.locator(`#detailTags [data-tag="${name}"]`);
-      await page.locator('#detailTags [data-remove-tag="剧情"]').click();
+      assert.equal(await page.locator('#detailTags [data-remove-tag], #detailTags [data-edit-tag], #detailTags #tagPlus').count(), 0,
+        '侧栏的标签还带着增删改键');
+      await page.locator('#stage [data-item-edit-open]').click();
+      const editor = page.locator('dialog[data-item-edit-dialog]');
+      await editor.waitFor();
+      const tag = (name: string) => editor.locator(`[data-detail-tag] [data-tag="${name}"]`);
+      await editor.locator('[data-remove-tag="剧情"]').click();
       await tag('剧情').waitFor({ state: 'detached' });
-      await undo(page);
-      await tag('剧情').waitFor();
-      await page.locator('#tagPlus').click();
-      await page.locator('#tagPicker:not([hidden])').waitFor();
-      await page.locator('#tagPickSearch').fill('新建的标签');
-      await page.locator('#tagPicker [data-pick="新建的标签"]', { hasText: '新建“新建的标签”' }).waitFor();
-      await page.locator('#tagPickSearch').press('Enter');
+      await editor.locator('#tagPlus').click();
+      await editor.locator('#tagPicker:not([hidden])').waitFor();
+      await editor.locator('#tagPickSearch').fill('新建的标签');
+      await editor.locator('#tagPicker [data-pick="新建的标签"]', { hasText: '新建“新建的标签”' }).waitFor();
+      await editor.locator('#tagPickSearch').press('Enter');
       await tag('新建的标签').waitFor();
-      assert.equal(await page.locator('#tagPicker').isHidden(), true, '加完标签选择器没有收起');
-      assert.deepEqual(opened.stub.writes.filter((write) => write.url === '/api/item-tag').map((write) => write.body), [
-        { id: ITEM.plain, operation: 'remove', tag: '剧情' },
-        { id: ITEM.plain, operation: 'add', tag: '剧情' },
-        { id: ITEM.plain, operation: 'add', tag: '新建的标签' },
-      ]);
+      assert.equal(await editor.locator('#tagPicker').isHidden(), true, '加完标签选择器没有收起');
+      assert.equal(await editor.count(), 1, '在选择器里按回车把整个编辑框提交了');
+      assert.deepEqual(opened.stub.writes.filter((write) => write.url === '/api/item-edit'), [], '保存之前就写了');
+      await editor.locator('[data-modal-confirm]').click();
+      await editor.waitFor({ state: 'detached' });
+      const [saved] = opened.stub.writes.filter((write) => write.url === '/api/item-edit').map((write) => write.body);
+      assert.deepEqual(saved?.tags, { add: ['新建的标签'], remove: ['剧情'] });
+      assert.equal(saved?.id, ITEM.plain);
       assert.deepEqual(withoutPlayer(opened.problems), []);
     } finally {
       await opened.close();

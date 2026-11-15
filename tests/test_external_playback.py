@@ -15,6 +15,7 @@ from unittest.mock import MagicMock, patch
 from peach.external_playback import TTL_SECONDS, issue, valid
 from peach import local_playback
 from peach import playback_tracking as tracking
+from support.stalls import stalled_mount
 
 
 class ExternalPlaybackTests(unittest.TestCase):
@@ -71,6 +72,21 @@ class ExternalPlaybackTests(unittest.TestCase):
                 launch.assert_called_once_with(str(media), 'open')
                 local_playback.open_media(media, 'potplayer')
                 self.assertEqual(selected.call_args.args[0], ['player.exe', str(media)])
+
+    def test_a_stuck_drive_fails_within_the_deadline_without_launching(self):
+        with tempfile.TemporaryDirectory() as directory:
+            media = Path(directory).resolve() / 'stuck' / 'movie.mp4'
+            media.parent.mkdir()
+            media.write_bytes(b'video')
+            with patch.object(local_playback.sys, 'platform', 'win32'), \
+                    patch.dict(os.environ, {'PEACH_HEADLESS_MANAGED': '0'}), \
+                    patch.object(os, 'startfile', create=True) as launch, \
+                    stalled_mount(media.parent):
+                started = time.monotonic()
+                with self.assertRaises(TimeoutError):
+                    local_playback.open_media(media)
+                self.assertLess(time.monotonic() - started, 3)
+            launch.assert_not_called()
 
     def test_headless_deployment_and_unknown_player_cannot_launch(self):
         with patch.dict(os.environ, {'PEACH_HEADLESS_MANAGED': '1'}):
@@ -190,6 +206,41 @@ class PlaybackTrackingTests(unittest.TestCase):
         reports = self._run(connect, **options)
         server.join(5)
         return reports
+
+    def test_an_mpv_that_only_sends_events_cannot_hold_a_question_past_its_deadline(self):
+        """mpv 活着却不答、事件照推：一次问答按总期限结束，跟踪线程不会一直占着名额。"""
+        ours, theirs = socket.socketpair()
+        self.addCleanup(ours.close)
+        self.addCleanup(theirs.close)
+
+        def chatter():
+            try:
+                for _ in range(100):
+                    theirs.sendall(b'{"event":"property-change","name":"x"}\n')
+                    time.sleep(0.05)
+            except OSError:
+                pass
+        threading.Thread(target=chatter, daemon=True).start()
+        probe = tracking.MpvProbe(tracking.SocketChannel(ours))
+        with patch.object(tracking, 'REQUEST_SECONDS', 0.3):
+            started = time.monotonic()
+            with self.assertRaises(TimeoutError):
+                probe.get('time-pos')
+            self.assertLess(time.monotonic() - started, 2)
+
+    def test_a_silent_named_pipe_read_ends_at_its_deadline(self):
+        """Windows 命名管道的同步句柄没有读超时：读取交给后台线程，`recv` 只等到期限。"""
+        release = threading.Event()
+        handle = MagicMock()
+        handle.read.side_effect = lambda size: (release.wait(10), b'')[1]
+        self.addCleanup(release.set)
+        channel = tracking.PipeChannel(handle)
+        started = time.monotonic()
+        with self.assertRaises(TimeoutError):
+            channel.recv(0.2)
+        self.assertLess(time.monotonic() - started, 2)
+        channel.close()
+        release.set()
 
     def test_mpv_counts_continuous_playback_and_seeks_until_exit(self):
         # 第一帧被连接探测吃掉；暂停期间的前进与大跳都不算观看。

@@ -91,7 +91,7 @@ def _validate_rename(rows, ids, name):
 
 def preview(connection, body: dict) -> dict:
     operation = body.get('operation')
-    if operation not in {'rename', 'merge', 'hide', 'restore', 'repair'}:
+    if operation not in {'rename', 'merge', 'hide', 'restore', 'repair', 'delete'}:
         raise ValueError('unknown tag operation')
     rows = tag_rows(connection)
     groups = duplicate_groups(rows)
@@ -134,6 +134,33 @@ def _merge(connection, source: dict, target: dict, stamp: str) -> None:
                  source_name=source['k'], alias_source='user:tag-management', now=stamp)
 
 
+#: 删一条标签实体时一起清掉的子表：引用它的行连接默认 `foreign_keys=OFF`，库自己不会级联。
+_ENTITY_CHILDREN = (('asset_entity', 'entity_id'), ('entity_alias', 'entity_id'), ('entity_link', 'entity_id'),
+                    ('entity_search_term', 'entity_id'), ('entity_external_ref', 'entity_id'),
+                    ('entity_classification', 'entity_id'), ('feed_discovery_entity', 'entity_id'),
+                    ('entity_redirect', 'target_id'), ('entity_identity_link', 'left_id'),
+                    ('entity_identity_link', 'right_id'))
+
+
+def _delete(connection, row: dict) -> None:
+    """删掉标签本身：标签实体、它挂在作品上的关联与扁平投影都去掉，作品留在库里。
+
+    来源原词（`pixiv_tag`）是证据不是投影，留着；用户对这个标签的隐藏偏好跟着标签一起没了。"""
+    names = [row['k'], *row['aliases']]
+    holes = ','.join('?' for _ in names)
+    connection.execute(f"DELETE FROM asset_tag WHERE tag IN ({holes}) AND COALESCE(source,'')<>'pixiv_tag'", names)
+    keys = sorted({normalize_entity_name(name) for name in names})
+    connection.execute(f"DELETE FROM asset_tag_preference WHERE normalized_tag IN ({','.join('?' for _ in keys)})", keys)
+    tables = {item[0] for item in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+    for table, column in _ENTITY_CHILDREN:
+        if table in tables:
+            connection.execute(f'DELETE FROM {table} WHERE {column}=?', (row['entity_id'],))
+    for table in ('follow_source', 'feed_source'):
+        if table in tables:
+            connection.execute(f'UPDATE {table} SET entity_id=NULL WHERE entity_id=?', (row['entity_id'],))
+    connection.execute("DELETE FROM entity WHERE id=? AND kind='tag'", (row['entity_id'],))
+
+
 def apply_plan(connection, body: dict) -> dict:
     plan = preview(connection, body)
     if body.get('token') != plan['token']:
@@ -160,6 +187,9 @@ def apply_plan(connection, body: dict) -> dict:
             for entity_id in group:
                 if entity_id != target['entity_id']:
                     _merge(connection, by_id[entity_id], target, stamp)
+    elif operation == 'delete':
+        for row in rows:
+            _delete(connection, row)
     else:
         for row in rows:
             connection.execute("UPDATE entity SET metadata_json=json_set(metadata_json,'$.user_tag_hidden',?),updated_at=? WHERE id=?",

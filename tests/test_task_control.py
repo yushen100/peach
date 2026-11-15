@@ -57,6 +57,28 @@ class TaskControlTests(unittest.TestCase):
         self.assertFalse(psutil.pid_exists(int(caught.exception.output.split()[1])))
         self.assertIsNotNone(self.children[-1].poll())
 
+    def test_reaping_returns_when_an_escaped_grandchild_still_holds_the_output_pipes(self):
+        marker = self.root / 'grandchild-pid'
+        command = [sys.executable, '-c',
+                   "import subprocess,sys; from pathlib import Path; "
+                   "child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(30)'],"
+                   "stdout=sys.stdout,stderr=sys.stderr); Path(sys.argv[1]).write_text(str(child.pid))",
+                   str(marker)]
+        process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.children.append(process)
+        self.wait_until(lambda: process.poll() is not None and marker.is_file(), '子进程没有派出孙进程')
+        grandchild = psutil.Process(int(marker.read_text()))
+        self.addCleanup(lambda: psutil.wait_procs([grandchild], timeout=5))
+        self.addCleanup(grandchild.kill)
+        started = time.monotonic()
+        with patch.object(task_control, 'REAP_SECONDS', .5), \
+                self.assertLogs('peach.task_control', 'WARNING') as logged:
+            output = task_control._reap_process(process, None)
+        self.assertLess(time.monotonic() - started, 5)
+        self.assertEqual(output, (b'', b''))
+        self.assertTrue(grandchild.is_running())
+        self.assertIn(str(process.pid), logged.output[0])
+
     def test_stderr_activity_does_not_extend_the_stdout_idle_timeout(self):
         command = [sys.executable, '-u', '-c',
                    "import sys,time; [(print('decode error', file=sys.stderr, flush=True), time.sleep(.1)) "

@@ -8,7 +8,9 @@ import unittest.mock
 from pathlib import Path
 from unittest.mock import Mock
 
+from peach import windows_update
 from peach.windows_update import sweep_onefile_extractions
+from support.processes import finishes_within, grandchild_alive, hanging_program, kill_grandchild
 
 from peach.windows_update import (
     BACKUP_GLOB,
@@ -126,6 +128,51 @@ class WindowsUpdateInstallerTests(unittest.TestCase):
             installer._run.assert_called_once()
             popen.assert_not_called()
             self.assertEqual(target.read_bytes(), b"old")
+
+    def test_a_test_run_that_never_returns_is_stopped_and_nothing_is_built(self):
+        """托盘「同步源码」跑完整测试：卡住时到期收掉整棵进程树，按失败返回，不构建不重启。"""
+        with tempfile.TemporaryDirectory() as directory, tempfile.TemporaryDirectory() as programs:
+            root, programs = Path(directory), Path(programs)
+            self.addCleanup(kill_grandchild, programs)
+            target, state, logs = self.make_tree(root)
+            popen = Mock()
+            installer = WindowsUpdateInstaller(
+                root, state_dir=state, log_dir=logs, current_executable=target, popen=popen,
+                powershell=str(hanging_program(programs)), frozen=True,
+            )
+            with unittest.mock.patch.object(windows_update, "TEST_SECONDS", 2):
+                result = finishes_within(lambda: installer.prepare("abc12345", ("src/peach/tray.py",)), 30)
+            self.assertEqual(result, windows_update.WindowsUpdatePreparation.of("failed", "tray.sourceSync.testsTimedOut"))
+            self.assertIn("timed out after 2s", installer.log_path.read_text(encoding="utf-8"))
+            popen.assert_not_called()
+            deadline = time.monotonic() + 10
+            while grandchild_alive(programs) and time.monotonic() < deadline:
+                time.sleep(0.1)
+            self.assertFalse(grandchild_alive(programs), "测试进程树还活着")
+
+    def test_every_step_has_a_deadline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target, state, logs = self.make_tree(root)
+            timeouts = []
+
+            def run(command, **kwargs):
+                timeouts.append((Path(command[0]).name if "migrate" in command else command[-1], kwargs["timeout"]))
+                if "build_windows.ps1" in " ".join(command):
+                    raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+                return subprocess.CompletedProcess(command, 0)
+
+            installer = WindowsUpdateInstaller(
+                root, state_dir=state, log_dir=logs, current_executable=target,
+                run=run, popen=Mock(), powershell="pwsh", frozen=True,
+            )
+            result = installer.prepare("abc12345", ("src/peach/tray.py",))
+            self.assertEqual(result, windows_update.WindowsUpdatePreparation.of("failed", "tray.sourceSync.buildFailed"))
+            self.assertEqual(timeouts, [("-Fresh", windows_update.TEST_SECONDS),
+                                        (str(installer.state_dir / "source-sync-build" / "abc12345"),
+                                         windows_update.BUILD_SECONDS)])
+            self.assertTrue(installer.packaged_migrations_pass(target))
+            self.assertEqual(timeouts[-1], ("Peach.exe", windows_update.MIGRATE_STATUS_SECONDS))
 
     def test_invalid_verification_retries_and_requires_a_valid_record(self):
         for exits, expected in (([4, 0], "services"), ([4, 4, 4], "failed"), ([4, 1], "failed")):

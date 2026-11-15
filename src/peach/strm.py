@@ -37,9 +37,14 @@ def validate_url(url: str) -> str:
 
 
 def read_target(path: Path) -> str:
-    try:
+    """读出指针里的地址。播放请求里调这里，读取带期限：网盘答不上按读不出处理。"""
+    from . import media_io
+
+    def read() -> bytes:
         with path.open('rb') as handle:
-            content = handle.read(MAX_BYTES + 1)
+            return handle.read(MAX_BYTES + 1)
+    try:
+        content = media_io.bounded(media_io.mount_key(path), read)
         if len(content) > MAX_BYTES:
             raise UserValueError('errors.strm.fileTooLarge')
         lines = [line.strip() for line in content.decode('utf-8-sig').splitlines()

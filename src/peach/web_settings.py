@@ -17,6 +17,7 @@ import json
 import time
 from typing import Protocol
 
+from . import wants
 from .catalog_rules import CodePatternError, compile_code_patterns
 from .feeds import DEFAULT_HIDDEN_COMPILATIONS, EXCERPT, GROUP_COMPILATION, SOLO_COMPILATION
 from .media_sources import SCANNABLE_LOCATIONS
@@ -61,12 +62,18 @@ INTERFACE_LANGUAGE_CHOICES = ("auto", *INTERFACE_LANGUAGES)
 #: 番号识别规则描述的是这套馆藏的命名，处理任务按它往账本里写番号，同样跟着账本走。
 #: 界面语言（ADR-0156）是用这套馆藏的那个人读的语言，每个部署只有一人，换台设备不该再选一遍。
 #: 浏览器入库没搜到资源时加不加入想要（ADR-0161）是服务端在入库队列里做的事，同样跟着账本走。
+#: 「想要」老片多久查一次、查几次放弃（`wants.cadence`）是定时查找读的，同样跟着账本走。
 SYNCED_SETTING_KEYS = frozenset({
     "sidebarOrder", "manageOrder", "navigationOrders", "libraryOrder", "followInitialDays", "postSetupTutorialDone",
     "organizeTemplates", "feedHideGroupCompilations", "feedHideSoloCompilations",
     "feedHideExcerpts", "searchHistoryLimit", "codePatterns", "performerNameLanguage", "taskSpeedMode",
-    "interfaceLanguage", "javBrowserWantOnNoMatch",
+    "interfaceLanguage", "javBrowserWantOnNoMatch", "wantStaleSearchDays", "wantStaleAttemptLimit",
 })
+#: 「想要」两项节奏设置的键、档位校验与报错 code。
+WANT_CADENCE_KEYS = (
+    ("wantStaleSearchDays", wants.normalise_stale_search_days, wants.STALE_SEARCH_DAY_CHOICES),
+    ("wantStaleAttemptLimit", wants.normalise_stale_attempt_limit, wants.STALE_ATTEMPT_LIMITS),
+)
 #: 三个收起开关的键与各自对应的那一类，缺省值取 `feeds.DEFAULT_HIDDEN_COMPILATIONS`。
 FEED_COMPILATION_SWITCHES = (
     ("feedHideGroupCompilations", GROUP_COMPILATION),
@@ -253,6 +260,7 @@ def _stored(contract: SettingsContract) -> dict:
 def q_settings(contract: SettingsContract, _args=None) -> dict:
     """读取跟人走的那部分设置。缺省时返回默认值，不返回空。"""
     payload = _stored(contract)
+    cadence = wants.cadence_from(payload)
     return {
         "sidebarOrder": normalise_sidebar_order(payload.get("sidebarOrder")),
         **({"manageOrder": normalise_manage_order(payload["manageOrder"])} if "manageOrder" in payload else {}),
@@ -271,7 +279,22 @@ def q_settings(contract: SettingsContract, _args=None) -> dict:
         "systemLanguage": system_language(),
         "taskSpeedMode": payload.get("taskSpeedMode", "standard"),
         "javBrowserWantOnNoMatch": payload.get("javBrowserWantOnNoMatch") is not False,
+        "wantStaleSearchDays": cadence.stale_every.days,
+        "wantStaleAttemptLimit": cadence.attempt_limit,
     }
+
+
+def _want_cadence_patch(body):
+    """「想要」两项节奏设置：只收列出的档位，不在档位里的值整次拒收。"""
+    patch = {}
+    for key, normalise, choices in WANT_CADENCE_KEYS:
+        if key in body:
+            value = normalise(body[key])
+            if value is None:
+                raise UserValueError("api.settings.choiceInvalid",
+                                     {"key": key, "choices": "/".join(map(str, choices))})
+            patch[key] = value
+    return patch
 
 
 def _navigation_patch(body):
@@ -304,6 +327,7 @@ def w_settings(contract: SettingsContract, body) -> dict:
 
     merged = _stored(contract)
     merged.update(_navigation_patch(body))
+    merged.update(_want_cadence_patch(body))
     if "taskSpeedMode" in body:
         from .processing_control import valid_mode
         merged["taskSpeedMode"] = valid_mode(body["taskSpeedMode"])

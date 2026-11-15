@@ -10,7 +10,7 @@ import type { GridPage } from '../../src/react/catalog-grid/catalog-grid';
 import type { MediaItem } from '../../src/react/catalog-grid/types';
 import {
   chooseItem, detailTags, identityGroups, itemKey, mediaGate, movedOrder, nextRating, pickerSections, prefetchItemDetail,
-  nextPart, queueCopy, queueKey, ratingText, withPartLabel,
+  nextPart, queueCopy, queueKey, queueNext, ratingText, withPartLabel,
   type DetailItem, type DetailQueue, type ItemDetailActions, type ItemDetailHelpers, type ItemDetailProps, type QueueItem,
 } from '../../src/react/item-detail/item-detail';
 import { ItemDetailPage } from '../../src/react/item-detail/item-detail-page';
@@ -106,33 +106,39 @@ describe('标签身份', () => {
       .toEqual(['OL制服', '秘书OL']);
   });
 
-  it('已有规范标签时添加同义词保持一枚标签且不撤销原标签', async () => {
-    const fetcher = serve((_url, body) => ({ ok: true, tag: body.operation === 'add' ? '秘书OL' : body.tag }));
-    const { host, actions: given } = await show(item(1, { tags: [{ k: '秘书OL' }] }));
-    await click(host.querySelector('#tagPlus'));
-    await type(host.querySelector('#tagPickSearch') as HTMLInputElement, 'OL');
-    await click(host.querySelector('[data-pick="OL"]'));
-    await settle();
-    expect([...host.querySelectorAll('[data-detail-tag] [data-tag]')].map((node) => node.textContent))
-      .toEqual(['秘书OL']);
-    expect(given.toast.mock.calls.at(-1)?.[1]?.undo).toBeUndefined();
-    expect(posts(fetcher).map(([, body]) => [body.operation, body.tag])).toEqual([['add', 'OL']]);
+  it('侧栏的标签只读：点开看同标签，没有添加、移除与改名键', async () => {
+    serve();
+    const { host, actions: given } = await show(item(1));
+    expect(host.querySelector('#detailTags #tagPlus')).toBeNull();
+    expect(host.querySelector('#detailTags [data-remove-tag]')).toBeNull();
+    expect(host.querySelector('#detailTags [data-edit-tag]')).toBeNull();
+    await click(host.querySelector('#detailTags [data-tag="剧情"]'));
+    expect(given.openTag).toHaveBeenCalledWith('剧情');
   });
 
-  it('添加同义标签使用服务端规范名并以相同身份撤销', async () => {
-    const fetcher = serve((_url, body) => ({ ok: true, tag: body.operation === 'add' ? '秘书OL' : body.tag }));
-    const { host, actions: given } = await show(item(1, { tags: [] }));
-    await click(host.querySelector('#tagPlus'));
-    await type(host.querySelector('#tagPickSearch') as HTMLInputElement, 'OL');
-    await click(host.querySelector('[data-pick="OL"]'));
+  it('编辑资料：删一枚、加一枚、新建一位演员，保存时一次交给 /api/item-edit', async () => {
+    const saved = item(1, { tags: [{ k: '高画质' }, { k: '新标签' }] });
+    const fetcher = serve(() => ({ ok: true, item: saved }));
+    const { host, actions: given } = await show(item(1, { mutation_revision: 7 }));
+    await click(host.querySelector('[data-item-edit-open]'));
+    const dialog = document.querySelector<HTMLDialogElement>('dialog[data-item-edit-dialog]')!;
+    expect(dialog.open).toBe(true);
+    await click(dialog.querySelector('[data-item-edit] [data-remove-tag="剧情"]'));
+    await click(dialog.querySelector('#tagPlus'));
+    await type(dialog.querySelector('#tagPickSearch') as HTMLInputElement, '新标签');
+    await act(async () => { dialog.querySelector('#tagPickSearch')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })) });
+    await type(dialog.querySelector('[data-entity-picker] input') as HTMLInputElement, '自建艺人');
     await settle();
-    expect([...host.querySelectorAll('[data-detail-tag] [data-tag]')].map((node) => node.textContent))
-      .toEqual(['秘书OL']);
-    const undo = given.toast.mock.calls.at(-1)?.[1]?.undo;
-    expect(undo).toBeTypeOf('function');
-    await act(async () => { await undo?.() });
-    expect(posts(fetcher).map(([, body]) => [body.operation, body.tag]))
-      .toEqual([['add', 'OL'], ['remove', '秘书OL']]);
+    await click(dialog.querySelector('[data-entity-option="new"]'));
+    expect(posts(fetcher)).toEqual([]);
+    await click(dialog.querySelector('[data-modal-confirm]'));
+    await settle();
+    const [[url, body]] = posts(fetcher);
+    expect(url).toBe('/api/item-edit');
+    expect(body).toMatchObject({ id: 1, expected_revision: 7, tags: { add: ['新标签'], remove: ['剧情'] },
+      performers: { add: [{ name: '自建艺人' }], remove: [] } });
+    expect(given.toast).toHaveBeenCalledWith('资料已保存');
+    expect([...host.querySelectorAll('#detailTags [data-tag]')].map((node) => node.textContent)).toEqual(['高画质', '新标签']);
   });
 });
 
@@ -151,6 +157,32 @@ describe('停在队列哪一条', () => {
     const media = host.querySelector('[data-item-media]')!;
     media.dispatchEvent(new Event('ended', { bubbles: false }));
     expect(acts.openQueueItem).toHaveBeenCalledWith({ kind: 'editions', seedId: 1, autoplay: true }, 3);
+  });
+  it('播完之后：播放列表按顺序、循环或随机接，跳过已消失的；停下与单片循环不接；分卷不看这一项', () => {
+    const list = queue('playlist', [1, 2, 3], {
+      items: [row(1), row(2, { disposal: 'vanished' }), row(3)],
+    });
+    expect(queueNext(list, 1, 'next')?.id).toBe(3);
+    expect(queueNext(list, 3, 'next')).toBeNull();
+    expect(queueNext(list, 3, 'repeat-all')?.id).toBe(1);
+    expect(queueNext(list, 1, 'stop')).toBeNull();
+    expect(queueNext(list, 1, 'repeat-one')).toBeNull();
+    expect(queueNext(list, 1, 'shuffle', () => 0.99)?.id).toBe(3);
+    expect(queueNext(queue('mix', [7]), 7, 'shuffle')).toBeNull();
+    expect(queueNext(queue('mix', [7]), 7, 'repeat-all')?.id).toBe(7);
+    const parts = queue('parts', [1, 2], { items: [row(1, { part_label: '1' }), row(2, { part_label: '2' })] });
+    expect(queueNext(parts, 1, 'stop')?.id).toBe(2);
+    expect(queueNext(parts, 2, 'repeat-all')).toBeNull();
+  });
+  it('播放列表里一条播完，按设置带着列表编号自动开下一条', async () => {
+    const { appSettingsStore } = await import('@peach/appearance');
+    appSettingsStore().value.afterPlayback = 'next';
+    serve();
+    const list = queue('playlist', [1, 2], { seedId: undefined, playlistId: 5 });
+    queryClient.setQueryData(queueKey({ kind: 'playlist', playlistId: 5 }), list);
+    const { host, actions: acts } = await show(item(1), { queue: { kind: 'playlist', playlistId: 5 } });
+    host.querySelector('[data-item-media]')!.dispatchEvent(new Event('ended', { bubbles: false }));
+    expect(acts.openQueueItem).toHaveBeenCalledWith({ kind: 'playlist', playlistId: 5, autoplay: true }, 2);
   });
   it('Mix 就是点的那一条；分卷与版本点的不在组里退到第一条；播放列表退到续播位置', () => {
     expect(chooseItem(queue('mix', [1, 2]), 9)).toBe(9);
@@ -403,19 +435,6 @@ describe('写完之后', () => {
     expect(done.toast.mock.calls[0]![0]).toBe('已移入回收站');
   });
 
-  it('删标签写进缓存；撤销加回来', async () => {
-    const fetcher = serve(() => ({ ok: true }));
-    const { host, actions: done } = await show(item(1));
-    await click(host.querySelector('[data-remove-tag="剧情"]'));
-    await settle();
-    expect(host.querySelector('[data-tag="剧情"]')).toBeNull();
-    expect(done.toast.mock.calls[0]![0]).toBe('已删除标签「剧情」');
-    await done.toast.mock.calls[0]![1]!.undo!();
-    await settle();
-    expect(host.querySelector('[data-tag="剧情"]')).not.toBeNull();
-    expect(posts(fetcher).map(([, body]) => [body.operation, body.tag])).toEqual([['remove', '剧情'], ['add', '剧情']]);
-  });
-
   it('写失败交给壳报出来，键态不变', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 500, json: async () => ({ detail: '写入失败' }) })));
     const { host, actions: done } = await show(item(1));
@@ -610,11 +629,13 @@ describe('侧栏怎么读', () => {
     expect(empty.host.querySelector('[data-item-related] [data-empty-state] p')?.textContent).toBe('可以回到列表挑选其他作品。');
   });
 
-  it('标签选择器：组字过程中不筛；上下键挑、回车加；Escape 收起；点外面也收起', async () => {
+  it('编辑框里的标签选择器：组字过程中不筛；上下键挑、回车加；Escape 收起；点外面也收起', async () => {
     Element.prototype.scrollIntoView ??= () => {};
     const fetcher = serve(() => ({ ok: true }));
     const candidates = [{ k: '巨乳', n: 3 }, { k: '中出', n: 2 }];
-    const { host } = await show(item(1), { helpers: helpers({ tagCandidates: () => candidates }) });
+    const { host: page } = await show(item(1), { helpers: helpers({ tagCandidates: () => candidates }) });
+    await click(page.querySelector('[data-item-edit-open]'));
+    const host = document.querySelector<HTMLDialogElement>('dialog[data-item-edit-dialog]')!;
     const picker = host.querySelector<HTMLElement>('#tagPicker')!;
     const input = host.querySelector<HTMLInputElement>('#tagPickSearch')!;
     const names = () => [...picker.querySelectorAll('[data-pick]')].map((pick) => pick.getAttribute('data-pick'));
@@ -631,7 +652,9 @@ describe('侧栏怎么读', () => {
     await key('Enter');
     await settle();
     await vi.waitFor(() => expect(picker.hidden).toBe(true));
-    expect(posts(fetcher).map(([, body]) => [body.operation, body.tag])).toEqual([['add', '中出']]);
+    // 编辑框里加的标签先进草稿，点保存才写。
+    expect([...host.querySelectorAll('[data-item-edit] [data-detail-tag] [data-tag]')].map((node) => node.textContent)).toContain('中出');
+    expect(posts(fetcher)).toEqual([]);
     await click(host.querySelector('#tagPlus'));
     await key('Escape');
     await vi.waitFor(() => expect(picker.hidden).toBe(true));

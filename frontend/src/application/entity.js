@@ -10,7 +10,7 @@ import { nextSortState, sortDirWord } from './../sort-preferences';
 import { barsContext, notifyShell, selectMode, selected, state, writeShell } from './../shell/index';
 import { $, ENTITY_ROUTES, api, esc, icon } from '../core';
 import { managedEntry, releaseManagedRoute, updateManagedRoute } from './../history/managed';
-import { javActive, scheduleStickySurfaces, setJavLayout, sortOptions } from './layout.js';
+import { javActive, scheduleStickySurfaces, setJavLayout, sortOptions, syncHeaderActions } from './layout.js';
 import { navigationState, openRoutedPage } from './navigation.js';
 import { releaseHoverPreviews } from './../card-art/hover';
 import { preferencesState, wireDrag } from './preferences.js';
@@ -21,6 +21,7 @@ import { JAV_LAYOUTS, PHOTO_LAYOUTS, javLayout, photoLayout, photoSize, storePho
 import { dropBars } from './../catalog-bars';
 import { indexState, openFollowAuthorFromIndex } from './index.js';
 import { followState, pushFollowFeed } from './follow.js';
+import { toggleFollowSelection } from './selection.js';
 import { applyDensity, paintPhotoSizeButton } from './../appearance/density';
 import { applicationEffects } from './effects';
 import { entitySkeletonHtml } from './../entity-skeleton';
@@ -177,7 +178,8 @@ export function syncEntitySkeletonParts(kind,name){
   const sync=(present,wanted,insert)=>{if(wanted&&!present)insert();else if(!wanted&&present)present.remove()};
   sync(skeleton.querySelector('.entityfoot'),kind!=='agency'&&feedState.hasEntityPart(kind,name,'costars'),
     ()=>skeleton.querySelector('.entityhero')?.insertAdjacentHTML('beforeend',feedState.costarSkeletonFoot()));
-  sync(skeleton.querySelector('.feednew'),feedState.hasEntityPart(kind,name,'feed'),
+  /* 设置关掉了新作行，骨架也不给它留位。 */
+  sync(skeleton.querySelector('.feednew'),preferencesState.appSettings.feedNewRows!==false&&feedState.hasEntityPart(kind,name,'feed'),
     ()=>skeleton.querySelector('.entitysection')?.insertAdjacentHTML('beforebegin',feedState.feedNewSkeletonSection()));
   sync(skeleton.querySelector('.entityfacts'),kind==='performer'&&feedState.hasEntityPart(kind,name,'facts'),
     ()=>skeleton.querySelector('.entityprofile')?.insertAdjacentHTML('beforeend',feedState.factsSkeleton()));
@@ -232,8 +234,9 @@ entityState.entityPageHelpers = {
   comboItems:filters=>comboItems(filters),
   sortKeys:(sort,dir,jav)=>sortKeys(sort,dir,jav),
 };
+/* 在线视图的多选认关注条目：和关注页同一份选择集（`followSelected`），和作品区的选择分开。 */
 entityState.entityFollowActions = {...followState.followFeedActions,
-  route:()=>{},shuffle:()=>{},loaded:()=>{},toggleSelection:()=>{}};
+  route:()=>{},shuffle:()=>{},loaded:()=>{},toggleSelection:(id,range)=>toggleFollowSelection(id,range)};
 entityState.SOURCE_HINTS = {
   'source offline':t('shell:sourceTools.libraryOffline'),
   'source not mapped':t('shell:sourceTools.notMapped'),
@@ -272,7 +275,8 @@ export function connectPhotoController(){
       changeFilter:commitContextFilter,rollSeed:()=>receiptsState.rollSeed(),
       writeSeed:seed=>{state.seed=seed;notifyShell()},
       setJavLayout,javLayout,setPhotoLayout:storePhotoLayout,syncPhotoWalls,openEntity,photoViewActive,
-      recordPainted:(view,wall)=>{entityState.entityPageView=view;entityState.entityPageWall=wall},
+      /* 换到名册、照片或在线视图时顶栏的多选、播放键跟着变，画完重排一次。 */
+      recordPainted:(view,wall)=>{const changed=view!==entityState.entityPageView;entityState.entityPageView=view;entityState.entityPageWall=wall;if(changed)syncHeaderActions()},
       syncDensity:syncDensityControl,scheduleSticky:scheduleStickySurfaces,
       releasePage:()=>releaseManagedRoute($('#index')),showMissing:showEntityMissing,dropBars,
     },

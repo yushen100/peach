@@ -29,6 +29,42 @@ _WINDOWS_ENCODER_OUTPUT = {
             "-pix_fmt", "nv12"),
     "qsv": ("-c:v", "h264_qsv", "-preset", "veryfast", "-global_quality", "23", "-pix_fmt", "nv12"),
 }
+#: 设置页「画质上限」每一档的目标码率与峰值；原画（0）不缩放、不限码率，命令和没有这项设置时一样。
+QUALITY_BITRATES = {1080: ("6M", "8M"), 720: ("3M", "4M"), 480: ("1500k", "2M")}
+
+
+def scale_size(max_height: int) -> str:
+    """缩放滤镜的宽高参数：短边超过上限才缩到上限，长边按比例取偶数；短边本来就不超的原样不动。
+
+    按短边算，竖屏片子的「720p」也是宽 720。逗号在单引号里，滤镜图不会把它当成滤镜分隔。
+    """
+    return (f"w='if(gt(iw,ih),-2,min(iw,{max_height}))'"
+            f":h='if(gt(iw,ih),min(ih,{max_height}),-2)'")
+
+
+def rate_limit(max_height: int) -> tuple[str, ...]:
+    """在质量优先的码控上再压一个峰值码率，libx264 的 CRF 与 NVENC 的 CQ 都认。"""
+    if max_height not in QUALITY_BITRATES:
+        return ()
+    _target, peak = QUALITY_BITRATES[max_height]
+    return ("-maxrate", peak, "-bufsize", f"{int(peak[:-1]) * 2}{peak[-1]}")
+
+
+def software_video_output(max_height: int = 0, *, threads: str = "") -> tuple[str, ...]:
+    """libx264 的视频参数；整片与分片共用，只差分片多一个线程上限。"""
+    scale = ("-vf", f"scale={scale_size(max_height)}") if max_height in QUALITY_BITRATES else ()
+    return (*scale, "-c:v", "libx264", "-preset", "veryfast", "-crf", "21", *rate_limit(max_height),
+            "-pix_fmt", "yuv420p", *(("-threads", threads) if threads else ()))
+
+
+def _capped_windows_output(backend: str, max_height: int) -> tuple[str, ...]:
+    """AMF 与 QSV 的恒定质量模式不认峰值码率，有上限时改成带峰值的 VBR，前面接软件缩放。"""
+    target, peak = QUALITY_BITRATES[max_height]
+    rate = ("-rc", "vbr_peak") if backend == "amf" else ()
+    encoder = ("-c:v", "h264_amf", "-quality", "speed") if backend == "amf" else (
+        "-c:v", "h264_qsv", "-preset", "veryfast")
+    return ("-vf", f"scale={scale_size(max_height)}", *encoder, *rate, "-b:v", target, "-maxrate", peak,
+            "-pix_fmt", "nv12")
 
 
 def videotoolbox_decode_options(codec: str) -> tuple[str, ...]:
@@ -142,47 +178,62 @@ class HardwareEncoder:
     backend: str
     device: str = ""
 
-    def attempts(self, codec: str) -> tuple[HardwareAttempt, ...]:
+    def attempts(self, codec: str, max_height: int = 0) -> tuple[HardwareAttempt, ...]:
         """依次尝试的命令片段；最后一项总是软件解码，探测靠它喂合成画面。
 
         `d3d11va` 只解码不编码，这里只给探测用的建设备命令，解码参数见
         `HardwareTranscoder.decode_options`。
+
+        `max_height` 是画质上限（`QUALITY_BITRATES` 的一档，0 为原画）：帧在显存里的路径
+        （CUDA、VAAPI）用各自的显卡缩放滤镜，其余解出的帧在内存里，接软件 `scale`；码率按档压峰值。
         """
+        capped = max_height in QUALITY_BITRATES
+        scale = f"scale={scale_size(max_height)}" if capped else ""
+        software_scale = ("-vf", scale) if capped else ()
         if self.backend == "d3d11va":
             return (HardwareAttempt("d3d11va", ("-init_hw_device", "d3d11va"), ()),)
         if self.backend in _WINDOWS_ENCODER_OUTPUT:
-            output = _WINDOWS_ENCODER_OUTPUT[self.backend]
+            output = (_capped_windows_output(self.backend, max_height) if capped
+                      else _WINDOWS_ENCODER_OUTPUT[self.backend])
             software_decode = HardwareAttempt(self.backend, (), output)
             decode = d3d11va_decode_options(codec, self.device) if self.device else ()
             if not decode:
                 return (software_decode,)
             return (HardwareAttempt(f"d3d11va-{self.backend}", decode, output), software_decode)
         if self.backend == "videotoolbox":
-            output = ("-c:v", "h264_videotoolbox", "-allow_sw", "0", "-b:v", "6M", "-pix_fmt", "yuv420p")
+            bitrate = QUALITY_BITRATES[max_height][0] if capped else "6M"
+            output = software_scale + ("-c:v", "h264_videotoolbox", "-allow_sw", "0", "-b:v", bitrate,
+                                       "-pix_fmt", "yuv420p")
             software_decode = HardwareAttempt("videotoolbox-encode", (), output)
             if codec not in VIDEOTOOLBOX_DECODE_CODECS:
                 return (software_decode,)
             return (HardwareAttempt("videotoolbox", videotoolbox_decode_options(codec), output), software_decode)
         if self.backend == "nvenc":
             output = ("-c:v", "h264_nvenc", "-preset", "p1", "-tune", "hq",
-                      "-rc", "vbr", "-cq", "21", "-b:v", "0")
-            software_decode = HardwareAttempt("nvenc", (), output + ("-pix_fmt", "yuv420p"))
+                      "-rc", "vbr", "-cq", "21", "-b:v", "0", *rate_limit(max_height))
+            software_decode = HardwareAttempt("nvenc", (), software_scale + output + ("-pix_fmt", "yuv420p"))
             if codec not in CUDA_DECODE_CODECS:
                 return (software_decode,)
+            cuda_scale = f"scale_cuda={scale_size(max_height)}:format=nv12" if capped else "scale_cuda=format=nv12"
             return (HardwareAttempt(
                 "cuda-nvenc", ("-hwaccel", "cuda", "-hwaccel_output_format", "cuda"),
-                ("-vf", "scale_cuda=format=nv12") + output,
+                ("-vf", cuda_scale) + output,
             ), software_decode)
         device = ("-vaapi_device", self.device)
-        output = ("-c:v", "h264_vaapi", "-qp", "21")
+        if capped:
+            target, peak = QUALITY_BITRATES[max_height]
+            output = ("-c:v", "h264_vaapi", "-rc_mode", "VBR", "-b:v", target, "-maxrate", peak)
+        else:
+            output = ("-c:v", "h264_vaapi", "-qp", "21")
+        vaapi_scale = f"scale_vaapi={scale_size(max_height)}:format=nv12" if capped else "scale_vaapi=format=nv12"
         return (
             HardwareAttempt(
                 "vaapi", device + ("-hwaccel", "vaapi", "-hwaccel_device", self.device,
                                     "-hwaccel_output_format", "vaapi"),
-                ("-vf", "scale_vaapi=format=nv12") + output,
+                ("-vf", vaapi_scale) + output,
             ),
             HardwareAttempt("vaapi-encode", device,
-                            ("-vf", "format=nv12,hwupload") + output),
+                            ("-vf", f"{scale + ',' if capped else ''}format=nv12,hwupload") + output),
         )
 
 
@@ -227,6 +278,11 @@ class HardwareTranscoder:
         if self.state_root is not None and acceleration(self.state_root) == "software":
             return False
         return self.enabled and self.backend != "software"
+
+    def max_height(self) -> int:
+        """设置页「画质上限」，0 为原画。整片与分片共用这一个实例，每次现读，改设置不用重启。"""
+        from .media_processing_policy import playback_max_height
+        return playback_max_height(self.state_root) if self.state_root is not None else 0
 
     def diagnostic_snapshot(self) -> dict:
         """读取当前硬件策略与已有探测结果，不启动新的硬件探测。"""

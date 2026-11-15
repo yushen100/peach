@@ -7,6 +7,7 @@
 import json
 import sqlite3
 import tempfile
+import time
 import unittest
 from pathlib import Path, PureWindowsPath
 from types import SimpleNamespace
@@ -20,6 +21,7 @@ from peach import mp4repair
 
 from support.ledger import fresh_ledger
 from test_mp4repair import tail_mp4
+from test_organize import hung_mount
 
 SEP = chr(92)
 #: 顶层只有 `ftyp` 和写到文件末尾的 `mdat`：下载没写完、缺整个索引的那一类。
@@ -36,13 +38,13 @@ class _Store:
         self.resolver = SimpleNamespace(ffmpeg=lambda: SimpleNamespace(path=Path("ffmpeg")),
                                         ffprobe=lambda: SimpleNamespace(path=Path("ffprobe")))
 
-    def lookup(self, asset_id, source):
+    def lookup(self, asset_id, source, stat=None):
         return "头" if asset_id in self.existing else None
 
-    def has_invalid_sidecar(self, asset_id, source):
+    def has_invalid_sidecar(self, asset_id, source, stat=None):
         return False
 
-    def repair_now(self, asset_id, source):
+    def repair_now(self, asset_id, source, **_reading):
         self.repaired.append(asset_id)
         if asset_id in self.failing:
             return False
@@ -57,7 +59,7 @@ class _Transcodes:
         self.affected = set(affected)
         self.asked: list[str] = []
 
-    def decode_order_timestamps(self, source):
+    def decode_order_timestamps(self, source, stat=None):
         self.asked.append(Path(source).name)
         return Path(source).name in self.affected
 
@@ -158,8 +160,9 @@ class MediaRepairRunTests(unittest.TestCase):
                 with self.contract.write_transaction() as connection:
                     connection.execute("UPDATE asset SET location=? WHERE id IN (1,2,3,6)", (location,))
                     connection.execute("UPDATE asset SET path=?,name=? WHERE id=6", (raw, source.name))
-                with mock.patch.object(rm_repair.mp4recover, 'recover', self.recover):
-                    self.assertTrue(rm_repair._recover(self.contract, 6, raw,
+                with mock.patch.object(rm_repair.mp4recover, 'recover', self.recover), \
+                        rm_repair.media_io.MountWorker() as worker:
+                    self.assertTrue(rm_repair._recover(self.contract, worker, 6, raw,
                         (Path('untrunc'), Path('ffmpeg'), Path('ffprobe'))))
                 self.assertEqual(source.read_bytes(), b'repaired')
 
@@ -319,6 +322,33 @@ class MediaRepairRunTests(unittest.TestCase):
         self.assertEqual(self.transcodes.asked, ['favourite.mp4'])
         self.assertEqual(self.store.repaired, [2])
         self.assertEqual(self.contract.media_repair_job.snapshot()['survey_cache_version'], 2)
+
+    def test_a_hung_stat_skips_only_that_file(self):
+        started = time.monotonic()
+        with hung_mount([self.media / 'favourite.mp4'], 'os.stat'):
+            state = self.run_once()
+        self.assertLess(time.monotonic() - started, 25)
+        self.assertEqual(self.store.repaired, [1])
+        self.assertEqual((self.media / 'cut.mp4').read_bytes(), b'repaired')
+        self.assertEqual(state['status'], 'complete')
+
+    def test_a_hung_box_read_skips_only_that_file(self):
+        started = time.monotonic()
+        with hung_mount([self.media / 'cut.mp4'], 'builtins.open'):
+            state = self.run_once()
+        self.assertLess(time.monotonic() - started, 25)
+        self.assertEqual(self.recovered, [])
+        self.assertEqual(self.store.repaired, [2, 1])
+        self.assertEqual((state['status'], state['found']), ('complete', 2))
+
+    def test_a_hung_swap_fails_that_file_and_keeps_the_original_in_place(self):
+        started = time.monotonic()
+        with hung_mount([self.media / 'cut.mp4'], 'os.replace'):
+            state = self.run_once()
+        self.assertLess(time.monotonic() - started, 25)
+        self.assertEqual((state['status'], state['repaired'], state['failed']), ('complete', 2, 1))
+        self.assertEqual((self.media / 'cut.mp4').read_bytes(), CUT_SHORT)
+        self.assertFalse((self.media / '.cut.mp4.peach-original').exists())
 
     def test_a_changed_file_is_judged_again(self):
         """结论跟着文件的大小和改动时间走：换了内容，上一轮的结论就不作数。"""

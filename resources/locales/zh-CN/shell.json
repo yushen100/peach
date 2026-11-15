@@ -42,9 +42,12 @@
   },
   "batchCatalog": {
     "addToWatchLater": "加入稍后看",
-    "confirmBody": "将处理选中的 {{count, number}} 项。",
-    "confirmDelete": "将处理选中的 {{count, number}} 项。文件和馆藏记录会永久删除，无法恢复。",
-    "confirmDispose": "将处理选中的 {{count, number}} 项。馆藏记录可在回收站还原。",
+    "confirmDelete": "将永久删除选中 {{count, number}} 项的文件和馆藏记录。",
+    "confirmDispose": "将选中的 {{count, number}} 项移入回收站，文件保留在原处。",
+    "confirmLater": "将选中的 {{count, number}} 项加入稍后看。",
+    "confirmLike": "将选中的 {{count, number}} 项标为喜欢，已写的喜欢理由保留。",
+    "confirmRestore": "将选中的 {{count, number}} 项从回收站还原到馆藏。",
+    "confirmSeen": "将选中的 {{count, number}} 项标为看过。",
     "deleteSelected": "永久删除所选项目",
     "doneDelete": "已彻底删除 {{count, number}} 项",
     "doneDispose": "已移入回收站 {{count, number}} 项",
@@ -57,15 +60,20 @@
     "restoreSelected": "还原所选项目"
   },
   "batchFollow": {
-    "confirmBody": "将处理选中的 {{count, number}} 项关注作品。",
+    "confirmIgnore": "将忽略选中的 {{count, number}} 项关注作品，已加入想要但未入库的会移出想要。",
+    "confirmSave": "将选中的 {{count, number}} 项关注作品保存到数据库。",
+    "confirmSeen": "将选中的 {{count, number}} 项关注作品标为已看。",
     "doneIgnored": "已忽略 {{count, number}} 项",
     "doneSave": "已保存到数据库 {{count, number}} 项",
     "doneSeen": "已标为已看 {{count, number}} 项",
+    "ignoreRecovery": "完成后可撤销，移出的想要不会加回。",
     "ignoreSelected": "忽略所选作品",
     "saveSelected": "保存所选作品"
   },
   "batchJunk": {
-    "confirmBody": "将处理选中的 {{count, number}} 个文件。",
+    "confirmDispose": "将选中的 {{count, number}} 个文件移入回收站，文件保留在原处。",
+    "confirmNotJunk": "将选中的 {{count, number}} 个文件标为不是垃圾，移出待判断。",
+    "confirmRecheck": "将选中的 {{count, number}} 个文件放回待判断。",
     "dismissed": "已标记为不是垃圾",
     "doneDispose": "已批量移入回收站：{{count, number}} 项",
     "doneNotJunk": "已批量标为不是垃圾：{{count, number}} 项",
@@ -163,10 +171,7 @@
     "hideTag": "从此内容隐藏该标签",
     "moreCount": "还有 {{count, number}} 个",
     "optionsLoadFailed": "无法读取标签候选",
-    "removeTagNamed": "删除标签 {{tag}}",
-    "renameTag": "修改标签名称",
-    "renameTagNamed": "修改标签 {{tag}}",
-    "tagChanged": "标签已变化，请重新打开详情"
+    "removeTagNamed": "删除标签 {{tag}}"
   },
   "documentTitle": {
     "fallback": "Peach · 蜜桃"
@@ -376,6 +381,7 @@
   },
   "networkBanner": {
     "checkProxy": "检查 Peach 代理",
+    "dismiss": "关闭",
     "offline": "Peach 连不上外网，资料采集、关注更新和在线来源暂不可用；本地媒体照常使用。"
   },
   "objectOrder": {
@@ -773,7 +779,7 @@
   "trash": {
     "blockedItem": "{{path}}（{{reason}}）",
     "empty": "清空回收站",
-    "emptyConfirm": "回收站里的文件和馆藏记录将永久删除，无法恢复。",
+    "emptyConfirm": "回收站里 {{count, number}} 项的文件和馆藏记录将永久删除。",
     "emptyHint": "删掉的内容会先放在这里，清空后才真正删除。",
     "emptyTitle": "回收站是空的",
     "movedToTrash": "已移入回收站",
@@ -824,5 +830,9 @@
     "locationField": "服务端文件位置",
     "mediaRoot": "媒体目录",
     "relativePath": "目录内位置"
+  },
+  "bulkAction": {
+    "canUndo": "完成后可在回执里撤销。",
+    "cannotUndo": "不能撤销。"
   }
 }

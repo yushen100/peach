@@ -1,6 +1,6 @@
 /* preferences 域控制器：本域状态与动作，启动由 Application 的生命周期统一安装。 */
 import { loadMediaSources } from './../query/media-sources';
-import { buildBars, catalogState, dropOfflineFromDefaultLoc, homePath, loadCatalog, paintCatalogFilter, repaintCatalogGrid } from './catalog.js';
+import { buildBars, catalogState, dropOfflineFromDefaultLoc, homePath, loadCatalog, paintCatalogFilter, repaintCatalogGrid, syncCatalogFilterScreen } from './catalog.js';
 import { appSettingsStore } from './../appearance/settings';
 import { interfaceLanguage, storedInterfaceLanguage, t } from '../i18n';
 import { entityDisplayName, setNameLanguage } from '../core/entity-names';
@@ -16,7 +16,7 @@ import { preferredDirection } from './../sort-preferences';
 import { releaseHoverPreviews, setHoverState } from './../card-art/hover';
 import { reloadCurrentSurface } from './layout.js';
 import { refreshPageNavigation } from '../history/page-navigation';
-import { refreshFeedRows, syncFeedAutoScroll } from './feed.js';
+import { refreshFeedRows, syncFeedAutoScroll, syncHomeFeedSetting } from './feed.js';
 import { stageApi } from '../react/application-residents';
 import { syncJavImages } from './../jav-artwork';
 import { coverAnchor } from './../card-art/framing';
@@ -223,6 +223,11 @@ preferencesState.settingsEffects = {
     repaintDetailPoster();
   },
   searchHistoryLimit:()=>updateManagedRoute($('#searchMenu'),{historyLimit:preferencesState.appSettings.searchHistoryLimit}),
+  searchRecommendations:()=>updateManagedRoute($('#searchMenu'),{recommend:preferencesState.appSettings.searchRecommendations}),
+  feedNewRows:()=>syncHomeFeedSetting(state.browse==='folders'),
+  /* 竖屏带的开关与张数都改了目录的请求口径（排不排除竖屏、一条取几张），按新口径重取一遍。 */
+  homeShorts:()=>{if(isCatalogPath(location.pathname))loadCatalog()},
+  homeTiers:()=>syncCatalogFilterScreen(),
 };
 preferencesState.syncGlassOptics = ()=>{};
 preferencesState.placeSidebarHead = ()=>{};

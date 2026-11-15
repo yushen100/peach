@@ -12,6 +12,7 @@ from .catalog_vocabulary import PERFORMER_TAG_PREFIX
 from .content_words import SELLER_FOLDER_EVIDENCE
 from .entity_classification import write_claim
 from .field_owners import owner_of, write_owned_fields
+from .item_edit import performer_removed
 from .media_folders import path_predicate, within
 from .profiles import DEFAULT_PROFILE_ID
 from . import interface_text
@@ -156,6 +157,11 @@ def _link(connection, asset, rule):
     entity_id = upsert_asset_entity(connection, kind=kind, name=rule['name'], asset_id=asset['id'], role=kind,
                                     source=own, metadata=metadata, update_entity_metadata=False)
     rule['entity_id'] = entity_id
+    if kind == 'performer' and entity_id is not None and performer_removed(connection, asset['id'], entity_id):
+        # 用户在编辑框里从这部片删过这个人，目录规则不再给它挂回去（ADR-0165）。
+        connection.execute('DELETE FROM asset_entity WHERE asset_id=? AND entity_id=? AND source=?',
+                           (asset['id'], entity_id, own))
+        return False
     if field and not asset[field]:
         write_owned_fields(connection, [asset['id']], {field: rule['name']}, own, require_empty=True)
     if kind == 'performer':

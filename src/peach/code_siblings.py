@@ -22,9 +22,19 @@ SOURCE = "auto:code-sibling"
 _WORK_CREATOR_SOURCES = ("script:fc2-seller@", "follow:")
 
 
-def _register(connection) -> None:
-    connection.create_function("normalise_code_key", 1, lambda value: normalise_code_key(value) if value else None,
-                               deterministic=True)
+def _code_groups(connection) -> dict[str, list[tuple[int, bool]]]:
+    """有番号、没判失效的视频按规范番号分组，每组 `(asset_id, 在库)` 按 id 排好；只留两份以上的组。
+
+    账本里的番号没有规范化，只能逐个过 `normalise_code_key`；整库只扫这一遍，再交给 SQL 按 id 查。
+    """
+    groups: dict[str, list[tuple[int, bool]]] = {}
+    for asset_id, code, disposal in connection.execute(
+            "SELECT id,code,disposal FROM asset WHERE medium='video' AND code IS NOT NULL"
+            " AND COALESCE(disposal,'')<>'vanished' ORDER BY id"):
+        key = normalise_code_key(code)
+        if key:
+            groups.setdefault(key, []).append((int(asset_id), disposal is None))
+    return {key: members for key, members in groups.items() if len(members) > 1}
 
 
 def _copyable(role: str, source: str) -> bool:
@@ -41,25 +51,16 @@ def inherit(connection, asset_ids: Iterable[int] | None = None, *, now: str | No
 
     返回 `{'batch', 'links': [...]}`，`links` 逐条记补上的关系，回执与测试都读它。不开不提交事务。
     """
-    _register(connection)
     moment = now or datetime.now(timezone.utc).isoformat()
     batch = f"{SOURCE}@{moment}"
-    if asset_ids is None:
-        targets = [tuple(row) for row in connection.execute(
-            "SELECT id,code FROM asset WHERE medium='video' AND disposal IS NULL AND code IS NOT NULL")]
-    else:
-        ids = sorted({int(value) for value in asset_ids})
-        targets = []
-        for start in range(0, len(ids), 500):
-            chunk = ids[start:start + 500]
-            targets += [tuple(row) for row in connection.execute(
-                f"SELECT id,code FROM asset WHERE id IN ({','.join('?' * len(chunk))}) AND medium='video' "
-                "AND disposal IS NULL AND code IS NOT NULL", chunk)]
+    wanted = None if asset_ids is None else {int(value) for value in asset_ids}
+    targets = sorted(
+        (asset_id, [other for other, _ in members if other != asset_id])
+        for members in _code_groups(connection).values()
+        for asset_id, live in members
+        if live and (wanted is None or asset_id in wanted))
     links = []
-    for asset_id, code in targets:
-        key = normalise_code_key(code)
-        if not key:
-            continue
+    for asset_id, siblings in targets:
         for role in ("performer", "creator"):
             if connection.execute("SELECT 1 FROM asset_entity WHERE asset_id=? AND role=? LIMIT 1",
                                   (asset_id, role)).fetchone():
@@ -67,10 +68,9 @@ def inherit(connection, asset_ids: Iterable[int] | None = None, *, now: str | No
             found = {}
             for sibling, entity_id, source, confidence, name in connection.execute(
                     "SELECT ae.asset_id,ae.entity_id,ae.source,ae.confidence,e.canonical_name FROM asset_entity ae"
-                    " JOIN asset a ON a.id=ae.asset_id JOIN entity e ON e.id=ae.entity_id"
-                    " WHERE ae.role=? AND a.id<>? AND a.medium='video' AND COALESCE(a.disposal,'')<>'vanished'"
-                    " AND a.code IS NOT NULL AND normalise_code_key(a.code)=? ORDER BY ae.asset_id",
-                    (role, asset_id, key)):
+                    " JOIN entity e ON e.id=ae.entity_id"
+                    f" WHERE ae.role=? AND ae.asset_id IN ({','.join('?' * len(siblings))}) ORDER BY ae.asset_id",
+                    (role, *siblings)):
                 if _copyable(role, source) and entity_id not in found:
                     found[entity_id] = (sibling, confidence, name)
             for entity_id, (sibling, confidence, name) in found.items():

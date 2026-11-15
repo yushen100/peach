@@ -21,6 +21,7 @@ from . import (
 )
 from .catalog_rules import normalise_code_key
 from .coded_text import Said, from_error
+from .follow_scheduler import CHECK_WAIT_SECONDS
 from .followups import Attempts, attempts_root
 from .jobs import TaskRunConflict
 from .http import HttpRequest, public_https_url
@@ -430,7 +431,8 @@ def w_feed_check(contract, body) -> dict:
         return started
     if started["request_id"] != request_id:
         return {"ok": False, "busy": True, "checked": 0, "results": []}
-    finished.wait()
+    # 到期还没跑完（多半在任务中心被暂停了）就先回现状，`status` 仍是 running；见 `CHECK_WAIT_SECONDS`。
+    finished.wait(CHECK_WAIT_SECONDS)
     return contract.feed_job.snapshot() or started
 
 
@@ -445,6 +447,17 @@ def q_feed_schedule(contract, _args) -> dict:
         return {"ok": True, "available": False, "enabled": False,
                 "interval_minutes": feeds.DEFAULT_INTERVAL_MINUTES, "running": False, "next_run_at": None}
     return scheduler.status()
+
+
+def w_feed_schedule(contract, body) -> dict:
+    """订阅源定时拉取的开关与每个源的间隔，校验与关注那一份同一套（15 分钟到一周）。"""
+    scheduler = contract.feed_scheduler
+    if scheduler is None:
+        raise UserValueError("api.feeds.scheduleDisabled")
+    return scheduler.update(
+        enabled=body.get("enabled", True),
+        interval_minutes=body.get("interval_minutes", feeds.DEFAULT_INTERVAL_MINUTES),
+    )
 
 
 def w_feed_schedule_run(contract, _body) -> dict:

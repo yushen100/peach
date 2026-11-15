@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { fmtDur, fmtSize, icon, requestErrorMessage } from '@peach/legacy/core';
+import { appSettingsStore } from '@peach/appearance';
 import {
   coverUrl, mixLabel, performerLabel, queueAvatarHtml, queueThumbHtml,
 } from '@peach/card-art';
@@ -43,14 +44,15 @@ import { CoverCrop } from '../cover-crop/cover-crop-page';
 import { queryClient } from '../query';
 import { LibraryCompletionPrompt, missingPreviewIds } from '../library-processing/library-completion';
 import {
-  CAST_SHOWN, FEEDBACK_URL, ITEM_TAG_URL, PLAYLIST_URL, PREFERENCE_URL, QUALITY_GOAL_URL,
+  CAST_SHOWN, FEEDBACK_URL, PLAYLIST_URL, PREFERENCE_URL, QUALITY_GOAL_URL,
   RELATED_URL, WATCH_LATER_URL, chooseItem, clampRating, detailTags, feedbackReceipt, fetchItem, fetchQueue,
-  hasTag, identityGroups, isVanished, itemKey, mediaGate, movedOrder, nextPart, nextRating, editionLabel, partLabel, partLabelHtml, playlistQueue,
-  queueCopy, queueKey, ratingStars, ratingText, realWatched, relatedKey, rememberTag, sameOrder,
-  withPartLabel, withTag, withoutTag,
-  type DetailEntityRef, type DetailItem, type DetailQueue, type DetailTag, type ItemDetailActions,
+  identityGroups, isVanished, itemKey, mediaGate, movedOrder, nextRating, editionLabel, partLabel, partLabelHtml, playlistQueue,
+  queueCopy, queueKey, queueNext, ratingStars, ratingText, realWatched, relatedKey, sameOrder,
+  withPartLabel,
+  type DetailEntityRef, type DetailItem, type DetailQueue, type ItemDetailActions,
   type ItemDetailHelpers, type ItemDetailProps, type MediaGate, type PlaylistPayload,
 } from './item-detail';
+import { ItemEditButton, applySavedItem } from './item-edit';
 import { t } from '../../i18n';
 
 /** 字形原样取壳那一份 `icon()`：骨架与遗留详情画的就是它，换成别的字形接管那一拍会跳。 */
@@ -103,7 +105,7 @@ const CloseStage = ({ onClose }: { onClose(): void }) => (
 
 function Detail(props: ItemDetailProps & { item: DetailItem; queue: DetailQueue | null }) {
   const { item, queue, actions, helpers } = props;
-  const write = useDetailWrite(item, actions, helpers.tagLabel);
+  const write = useDetailWrite(item, actions);
 
   /* 画出来的是哪一条只报一次：写完换进来的是同一条的新对象，不能因此重推地址、重画顶栏。 */
   const presented = useRef(item);
@@ -115,15 +117,21 @@ function Detail(props: ItemDetailProps & { item: DetailItem; queue: DetailQueue 
   }, []);
 
   const gate = isPlayerGuidePreview() ? '' : mediaGate(item, helpers.sourceOffline(String(item.root_id || item.location || '')));
-  const next = nextPart(queue, item.id);
-  const continuePart = () => {
-    if (next && queue) actions.openQueueItem({ kind: queue.kind, seedId: queue.seedId, autoplay: true }, next.id);
+  /* 播完按「播完之后」接：下一卷、队列下一条，或同一条从头再播。 */
+  const continueQueue = (video: HTMLVideoElement | null) => {
+    const next = queueNext(queue, item.id, appSettingsStore().value.afterPlayback);
+    if (!next || !queue) return;
+    if (next.id === item.id) {
+      if (video) { video.currentTime = 0; void video.play()?.catch(() => {}) }
+      return;
+    }
+    actions.openQueueItem({ kind: queue.kind, seedId: queue.seedId, playlistId: queue.playlistId, autoplay: true }, next.id);
   };
   return (
     <>
       <div data-stage-grid="" data-with-queue={queue ? '' : undefined} data-item-detail="">
         <MediaFrame item={item} gate={gate} helpers={helpers} actions={actions}
-          autoplay={props.queue?.autoplay} onEnded={continuePart} />
+          autoplay={props.queue?.autoplay} onEnded={continueQueue} />
         <Side item={item} queue={queue} write={write} helpers={helpers} actions={actions} />
       </div>
       <DetailContinuation queueCards={queue?.kind === 'parts' || queue?.kind === 'editions' ? queue.items.length : undefined}
@@ -139,7 +147,7 @@ function Detail(props: ItemDetailProps & { item: DetailItem; queue: DetailQueue 
 
 function MediaFrame({ item, gate, helpers, actions, autoplay, onEnded }: {
   item: DetailItem; gate: MediaGate; helpers: ItemDetailHelpers; actions: ItemDetailActions;
-  autoplay?: boolean; onEnded(): void;
+  autoplay?: boolean; onEnded(video: HTMLVideoElement | null): void;
 }) {
   /* 计费来源先挡一层说明，点了才拉流；没挂载与在线拦截的那两种不挂播放器。 */
   const [started, setStarted] = useState<'auto' | 'clicked' | ''>(gate ? '' : 'auto');
@@ -171,11 +179,17 @@ function MediaFrame({ item, gate, helpers, actions, autoplay, onEnded }: {
   useLayoutEffect(() => {
     const node = frameRef.current;
     if (!node || !started) return;
-    const complete = () => ended.current();
+    const complete = (event: Event) =>
+      ended.current(event.target instanceof HTMLVideoElement ? event.target : node.querySelector('video'));
+    /* 单片循环交给 `<video loop>`：播放器菜单里的「循环播放」读写的是同一个属性，两处对得上。 */
+    const loop = (event: Event) => {
+      if (event.target instanceof HTMLVideoElement && appSettingsStore().value.afterPlayback === 'repeat-one') event.target.loop = true;
+    };
     node.addEventListener('ended', complete, true);
+    node.addEventListener('loadedmetadata', loop, true);
     const unmount = actions.mountPlayer(node, mounting.current, null,
       started === 'clicked' || autoplay ? { autoplay: true } : undefined);
-    return () => { node.removeEventListener('ended', complete, true); unmount() };
+    return () => { node.removeEventListener('ended', complete, true); node.removeEventListener('loadedmetadata', loop, true); unmount() };
   }, [actions, started]);
   const badge = helpers.badgeHtml(item.location || '', item.cost || '', 'srcbig');
   return (
@@ -407,7 +421,7 @@ function Side({ item, queue, write, helpers, actions }: {
         {(item.medium || 'video') === 'video' && !online && !String(item.name || '').toLowerCase().endsWith('.iso')
           ? <ExternalPlayback key={item.id} id={item.id} onOpened={() => actions.toast(t('catalog:detailGate.externalPlayerRequested'))} /> : null}
         <Identity item={item} helpers={helpers} actions={actions} />
-        <Tags item={item} write={write} helpers={helpers} actions={actions} />
+        <Tags item={item} helpers={helpers} actions={actions} />
         <LibraryCompletionPrompt assetIds={missingPreviewIds([item], helpers.javImage())}
           onComplete={() => { void queryClient.invalidateQueries({ queryKey: itemKey(item.id) }) }} />
         <Trace item={item} />
@@ -474,6 +488,10 @@ function DetailTitle({ item, queue, helpers, actions, onStatus }: {
             </span>
           ) : null}
           {item.location === 'online' ? null : <SourceTools id={item.id} actions={actions} onStatus={onStatus} />}
+          <ItemEditButton item={item} helpers={helpers} onSaved={(saved) => {
+            applySavedItem(saved);
+            actions.toast(t('catalog:itemEdit.saved'));
+          }} />
         </span>
       </div>
     </div>
@@ -571,13 +589,11 @@ function Identity({ item, actions }: { item: DetailItem; helpers: ItemDetailHelp
 
 /* ── 标签 ── */
 
-function Tags({ item, write, helpers, actions }: {
-  item: DetailItem; write: DetailWrite; helpers: ItemDetailHelpers; actions: ItemDetailActions;
-}) {
+/* 侧栏只读：点开标签看同标签的片；增删在标题旁的「编辑资料」里做。 */
+function Tags({ item, helpers, actions }: { item: DetailItem; helpers: ItemDetailHelpers; actions: ItemDetailActions }) {
   return <div data-item-tags="">
     <DetailTags key={item.id} id="detailTags" tags={detailTags(item, helpers)} candidates={helpers.tagCandidates()} label={helpers.tagLabel}
-      adding={[...write.busy].some(key => key.startsWith('add:'))}
-      onOpen={actions.openTag} onAdd={write.addTag} onRemove={write.removeTag} busyAttrs={tag => write.busyAttrs(`tag:${tag}`)} />
+      onOpen={actions.openTag} />
   </div>;
 }
 
@@ -655,7 +671,7 @@ function Related(props: ItemDetailProps & { item: DetailItem }) {
 type DetailWrite = ReturnType<typeof useDetailWrite>;
 type Patch = Partial<DetailItem>;
 
-function useDetailWrite(item: DetailItem, actions: ItemDetailActions, label: (tag: string) => string) {
+function useDetailWrite(item: DetailItem, actions: ItemDetailActions) {
   const id = item.id;
   const key = itemKey(id);
   const [busy, setBusy] = useState<ReadonlySet<string>>(() => new Set());
@@ -765,40 +781,6 @@ function useDetailWrite(item: DetailItem, actions: ItemDetailActions, label: (ta
         const saved = current();
         actions.toast(saved.liked ? t('catalog:detailFeedback.likeSaved') : t('catalog:detailFeedback.likeRemoved'), {
           undo: async () => { paint(await post<Preference>(PREFERENCE_URL, before)) },
-        });
-      });
-    },
-
-    removeTag: (tag: DetailTag) => start(`tag:${tag.k}`, t('catalog:detailTags.remove'), async () => {
-      const result = await post<{ ok?: boolean }>(ITEM_TAG_URL, { operation: 'remove', tag: tag.k });
-      if (!result.ok) throw new Error(t('catalog:detailTags.notRemoved'));
-      apply((now) => withoutTag(now, tag.k));
-      actions.toast(t('catalog:detailTags.removed', { tag: label(tag.k) }), {
-        undo: async () => {
-          await post(ITEM_TAG_URL, { operation: 'add', tag: tag.k });
-          apply((now) => withTag(now, tag));
-        },
-      });
-    }),
-
-    addTag: (raw: string) => {
-      const tag = raw.trim();
-      if (!tag) return;
-      start(`add:${tag}`, t('catalog:detailTags.add'), async () => {
-        const result = await post<{ ok?: boolean; tag?: string }>(ITEM_TAG_URL, { operation: 'add', tag });
-        if (!result.ok) return;
-        const canonical = result.tag || tag;
-        if (hasTag(current(), canonical)) {
-          actions.toast(t('catalog:detailTags.alreadyTagged', { tag: label(canonical) }));
-          return;
-        }
-        apply((now) => withTag(now, { k: canonical, cat: 'general' }));
-        rememberTag(canonical);
-        actions.toast(t('catalog:detailTags.added', { tag: label(canonical) }), {
-          undo: async () => {
-            await post(ITEM_TAG_URL, { operation: 'remove', tag: canonical });
-            apply((now) => withoutTag(now, canonical));
-          },
         });
       });
     },

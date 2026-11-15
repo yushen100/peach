@@ -82,6 +82,8 @@ class MountReachability:
         self._states = {root.path: _Probe() for root in self.roots if root.path is not None}
         self._lock = threading.RLock()
         self._stop = threading.Event()
+        #: 探测完成或停止时叫醒调度线程；其余时间睡到最近的到期点或超时点。
+        self._wake = threading.Event()
         self._thread: threading.Thread | None = None
 
     def start(self) -> None:
@@ -93,14 +95,16 @@ class MountReachability:
 
     def stop(self) -> None:
         self._stop.set()
+        self._wake.set()
         thread = self._thread
         if thread is not None:
             thread.join(timeout=2)
 
     def _loop(self) -> None:
         while not self._stop.is_set():
-            self.tick()
-            self._stop.wait(0.5)
+            # 先清再算：计算期间完成的探测会让下面的等待立即返回。
+            self._wake.clear()
+            self._wake.wait(self.tick())
 
     def _read(self, path: Path, future: Future) -> None:
         try:
@@ -114,11 +118,14 @@ class MountReachability:
             # 未知异常不能直接作为两次文件系统失败的证据。
             future.set_result("checking")
 
-    def tick(self) -> None:
-        """收集完成的结果并启动到期探测；文件系统操作始终不占此线程。"""
+    def tick(self) -> float | None:
+        """收集完成的结果并启动到期探测；文件系统操作始终不占此线程。
+
+        返回距最近到期点或超时点的秒数；没有可等的时间点时返回 None，等探测完成叫醒。
+        """
         with self._lock:
             if self._stop.is_set():
-                return
+                return None
             now = self.clock()
             for entry in self._states.values():
                 if entry.pending is None:
@@ -139,6 +146,7 @@ class MountReachability:
                 if entry.pending is not None or now < entry.due:
                     continue
                 future = Future()
+                future.add_done_callback(lambda _future: self._wake.set())
                 entry.pending, entry.started = future, now
                 worker = threading.Thread(target=self._read, args=(path, future),
                                           name="PeachMountProbe", daemon=True)
@@ -149,6 +157,17 @@ class MountReachability:
                     entry.state = "checking"
                     entry.due = now + DEGRADED_INTERVAL
                 slots -= 1
+            wake = None
+            for entry in self._states.values():
+                if entry.pending is not None:
+                    # 已超时的探测只等它完成时的回调。
+                    moment = entry.started + self.timeout if entry.state != "timeout" else None
+                else:
+                    # 名额占满时，到期的根要等某个探测完成腾出名额，同样由回调叫醒。
+                    moment = entry.due if slots > 0 else None
+                if moment is not None and (wake is None or moment < wake):
+                    wake = moment
+            return None if wake is None else max(0.0, wake - now)
 
     def sources(self) -> list[dict]:
         """纯内存读取；来源接口保留数据库路径前缀，公开健康摘要不携带路径。"""

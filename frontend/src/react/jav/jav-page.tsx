@@ -30,18 +30,19 @@ import { activityKind } from '../../activity-kinds';
 import { DISCOVERY_SORTS, discoveryScore, recommendationScore, type DiscoverySort } from './discovery-sorts';
 import { jobText, serverLabelList } from '../../core/server-text';
 import { t } from '../../i18n';
+import type { Receipt } from '../components/bulk-action';
 
 const MetadataStopGlyph = spriteGlyph('x');
 const MetadataRefreshGlyph = spriteGlyph('refresh-cw');
 const SEARCH_LABELS: Record<string, string> = { releases: t('catalog:javSearch.filterReleases'), discover: t('catalog:javSearch.filterRecommended'), wants: t('catalog:javSearch.filterWants') };
 
 export function JavPage({ tab, readOnly, navigate, receipt }: {
-  tab: string; readOnly: boolean; navigate(path: string): void; receipt(message: string): void;
+  tab: string; readOnly: boolean; navigate(path: string): void; receipt: Receipt;
 }) {
   const [download, setDownload] = useState<DownloadPrefill | null>(null);
   const [text, changeText] = useState(() => new URLSearchParams(location.search).get('q') || '');
   const setText = (value: string) => { changeText(value); writeJavQuery({ q: value }) };
-  return <JavSelectionProvider key={tab} readOnly={readOnly} receipt={receipt}><div className="flex w-full flex-col gap-6">
+  return <JavSelectionProvider key={tab} readOnly={readOnly} receipt={receipt} dock={tab !== 'wants'}><div className="flex w-full flex-col gap-6">
     <JavHeader tab={tab} navigate={navigate} find={() => setDownload({})}
       search={<IndexSearch label={SEARCH_LABELS[tab] || t('catalog:javDiscover.filter')} value={text} onQuery={setText} />} />
     {tab === 'releases'

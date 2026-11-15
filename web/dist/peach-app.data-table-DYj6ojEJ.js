@@ -1,22 +1,22 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "a8bfba6c-21ed-4e83-b697-26a5c1900389", e._sentryDebugIdIdentifier = "sentry-dbid-a8bfba6c-21ed-4e83-b697-26a5c1900389");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "bd0b9919-f2c5-4495-beeb-0fbd327743fa", e._sentryDebugIdIdentifier = "sentry-dbid-bd0b9919-f2c5-4495-beeb-0fbd327743fa");
 	} catch {}
 })();
-import { $76d00c5a4edb230a$export$76ccd210b9029917 as e, $76d00c5a4edb230a$export$816b5d811295e6bc as t, $76d00c5a4edb230a$export$b59bdbef9ce70de2 as n, $76d00c5a4edb230a$export$f6f0c3fe4ec306ea as r, $76d00c5a4edb230a$export$f850895b287ef28e as i, Button as a, Checkbox as o, ChevronSortDown as s, DataTableFooter as c, DataTableFrame as l, DataTableSort as u, SelectionDock as d, Table as f, TableColumnControls as p, TableColumnResizer as m, TableSelectionHeader as h, __toESM as g, cardClass as _, columnVisibilityFeature as v, createColumnHelper as y, flexRender as b, require_jsx_runtime as x, require_react as S, rowPaginationFeature as C, rowSelectionFeature as w, rowSortingFeature as T, t as E, tableFeatures as D, useTable as O, useTablePreferences as k } from "./peach-app.js";
+import { $76d00c5a4edb230a$export$76ccd210b9029917 as e, $76d00c5a4edb230a$export$816b5d811295e6bc as t, $76d00c5a4edb230a$export$b59bdbef9ce70de2 as n, $76d00c5a4edb230a$export$f6f0c3fe4ec306ea as r, $76d00c5a4edb230a$export$f850895b287ef28e as i, Button as a, Checkbox as o, ChevronSortDown as s, DataTableFooter as ee, DataTableFrame as c, DataTableSort as l, SelectionDock as u, Table as d, TableColumnControls as f, TableColumnResizer as p, TableSelectionHeader as m, __toESM as h, cardClass as te, columnVisibilityFeature as g, createColumnHelper as _, enterPageSelection as v, exitPageSelection as y, flexRender as b, require_jsx_runtime as x, require_react as S, rowPaginationFeature as C, rowSelectionFeature as w, rowSortingFeature as T, t as E, tableFeatures as D, usePageSelection as O, useTable as k, useTablePreferences as ne } from "./peach-app.js";
 import { createPaginatedRowModel as A, createSortedRowModel as j, useTableSelection as M } from "./peach-app.use-table-selection-CnuGRvGn.js";
 // src/react/components/data-table.tsx
-var N = /* @__PURE__ */ g(S(), 1), P = x(), F = D({
+var N = /* @__PURE__ */ h(S(), 1), P = x(), F = D({
 	rowSortingFeature: T,
 	rowSelectionFeature: w,
 	rowPaginationFeature: C,
-	columnVisibilityFeature: v,
+	columnVisibilityFeature: g,
 	sortedRowModel: j(),
 	paginatedRowModel: A()
 });
-function I({ label: g, items: v, columns: x, rowId: S, rowLabel: C, selected: w, onSelected: T, actions: D, title: A = g, titleId: j, description: I, footerActions: L, toolbarActions: R, panel: z = !0, unit: B = E("shell:dataTable.recordUnit") }) {
-	let [V, H] = (0, N.useState)([]), U = (0, N.useMemo)(() => [{
+function I({ label: h, items: g, columns: x, rowId: S, rowLabel: C, selected: w, onSelected: T, actions: D, controls: A, title: j = h, titleId: I, description: L, footerActions: R, toolbarActions: z, panel: B = !0, unit: V = E("shell:dataTable.recordUnit") }) {
+	let [H, U] = (0, N.useState)([]), W = (0, N.useMemo)(() => [{
 		id: "select",
 		label: E("shell:dataTable.selectColumn"),
 		width: 48,
@@ -29,16 +29,20 @@ function I({ label: g, items: v, columns: x, rowId: S, rowLabel: C, selected: w,
 		min: e.min ?? (t === 0 ? 320 : 96),
 		flex: e.flex ?? t === 0,
 		required: t === 0
-	}))], [x]), W = k(`data:${g}`, U), [G, K] = (0, N.useState)({
+	}))], [x]), G = ne(`data:${h}`, W), [K, q] = (0, N.useState)({
 		pageIndex: 0,
 		pageSize: 20
-	}), q = M(() => T([])), J = Math.max(1, Math.ceil(v.length / G.pageSize)), Y = Math.min(G.pageIndex, J - 1), X = Object.fromEntries(w.map((e) => [e, !0])), Z = (0, N.useMemo)(() => {
-		let e = y();
+	}), J = M(() => T([]));
+	O(() => T([])), (0, N.useEffect)(() => {
+		w.length && v();
+	}, [w.length]);
+	let Y = Math.max(1, Math.ceil(g.length / K.pageSize)), X = Math.min(K.pageIndex, Y - 1), Z = Object.fromEntries(w.map((e) => [e, !0])), re = (0, N.useMemo)(() => {
+		let e = _();
 		return e.columns([e.display({
 			id: "select",
-			header: ({ table: e }) => /* @__PURE__ */ (0, P.jsx)(h, {
+			header: ({ table: e }) => /* @__PURE__ */ (0, P.jsx)(m, {
 				table: e,
-				label: E("shell:dataTable.selectAll", { label: g })
+				label: E("shell:dataTable.selectAll", { label: h })
 			}),
 			cell: ({ row: e }) => /* @__PURE__ */ (0, P.jsx)(o, {
 				slot: null,
@@ -58,39 +62,39 @@ function I({ label: g, items: v, columns: x, rowId: S, rowLabel: C, selected: w,
 		}))]);
 	}, [
 		x,
-		g,
+		h,
 		C
-	]), Q = O({
+	]), Q = k({
 		features: F,
-		data: v,
-		columns: Z,
+		data: g,
+		columns: re,
 		getRowId: S,
 		state: {
-			sorting: V,
-			rowSelection: X,
+			sorting: H,
+			rowSelection: Z,
 			pagination: {
-				...G,
-				pageIndex: Y
+				...K,
+				pageIndex: X
 			},
-			columnVisibility: W.visibility
+			columnVisibility: G.visibility
 		},
-		onColumnVisibilityChange: W.change,
+		onColumnVisibilityChange: G.change,
 		onSortingChange: (e) => {
-			H(e), K((e) => ({
+			U(e), q((e) => ({
 				...e,
 				pageIndex: 0
 			}));
 		},
-		onPaginationChange: K,
+		onPaginationChange: q,
 		enableRowSelection: !0,
 		onRowSelectionChange: (e) => {
-			let t = typeof e == "function" ? e(X) : e;
-			Object.values(t).some(Boolean) && q(), T(v.filter((e) => t[S(e)]).map(S));
+			let t = typeof e == "function" ? e(Z) : e;
+			Object.values(t).some(Boolean) && J(), T(g.filter((e) => t[S(e)]).map(S));
 		}
 	}), $ = Q.getSelectedRowModel().rows.map((e) => e.original);
 	return /* @__PURE__ */ (0, P.jsxs)("div", {
-		"data-data-table-panel": z || void 0,
-		className: z ? _({
+		"data-data-table-panel": B || void 0,
+		className: B ? te({
 			padding: "none",
 			className: "flex flex-col gap-4 px-6 py-5 max-sm:px-4"
 		}) : "flex min-w-0 flex-col gap-4",
@@ -98,34 +102,34 @@ function I({ label: g, items: v, columns: x, rowId: S, rowLabel: C, selected: w,
 			/* @__PURE__ */ (0, P.jsxs)("div", {
 				"data-responsive-toolbar": "",
 				role: "toolbar",
-				"aria-label": E("shell:dataTable.toolbar", { label: g }),
+				"aria-label": E("shell:dataTable.toolbar", { label: h }),
 				children: [/* @__PURE__ */ (0, P.jsxs)("div", {
 					"data-toolbar-heading": "",
 					children: [/* @__PURE__ */ (0, P.jsx)("h3", {
-						id: j,
+						id: I,
 						className: "text-title-2-medium text-text-primary",
-						children: A
+						children: j
 					}), /* @__PURE__ */ (0, P.jsx)("span", {
 						className: "text-body-2-regular tabular-nums text-text-secondary",
-						children: `${v.length.toLocaleString()} ${B}`
+						children: `${g.length.toLocaleString()} ${V}`
 					})]
 				}), /* @__PURE__ */ (0, P.jsxs)("div", {
 					"data-toolbar-actions": "",
 					children: [
-						R,
-						/* @__PURE__ */ (0, P.jsx)(p, {
-							preferences: W,
-							label: g
+						z,
+						/* @__PURE__ */ (0, P.jsx)(f, {
+							preferences: G,
+							label: h
 						}),
-						/* @__PURE__ */ (0, P.jsx)(u, {
-							label: g,
+						/* @__PURE__ */ (0, P.jsx)(l, {
+							label: h,
 							options: x.filter((e) => e.value).map((e) => ({
 								id: e.id,
 								label: e.label
 							})),
-							sorting: V,
+							sorting: H,
 							onChange: (e) => {
-								H(e), K((e) => ({
+								U(e), q((e) => ({
 									...e,
 									pageIndex: 0
 								}));
@@ -134,41 +138,44 @@ function I({ label: g, items: v, columns: x, rowId: S, rowLabel: C, selected: w,
 					]
 				})]
 			}),
-			I ? /* @__PURE__ */ (0, P.jsx)("p", {
+			L ? /* @__PURE__ */ (0, P.jsx)("p", {
 				className: "text-body-2-regular text-text-secondary",
-				children: I
+				children: L
 			}) : null,
-			/* @__PURE__ */ (0, P.jsxs)(d, {
-				label: E("shell:dataTable.bulkActions", { label: g }),
+			/* @__PURE__ */ (0, P.jsxs)(u, {
+				label: E("shell:dataTable.bulkActions", { label: h }),
 				visible: $.length > 0,
 				count: E("shell:dataTable.selectedCount", {
 					count: $.length,
-					unit: B
+					unit: V
 				}),
-				children: [D($, () => T([])), /* @__PURE__ */ (0, P.jsx)(a, {
+				actions: D($, () => T([])),
+				children: [A?.($, () => T([])), /* @__PURE__ */ (0, P.jsx)(a, {
 					variant: "ghost",
 					size: "small",
-					onClick: () => T([]),
+					onClick: () => {
+						T([]), y();
+					},
 					children: E("shell:dataTable.clearSelection")
 				})]
 			}),
-			/* @__PURE__ */ (0, P.jsx)(l, {
+			/* @__PURE__ */ (0, P.jsx)(c, {
 				follow: !0,
-				preferences: W,
+				preferences: G,
 				onRowClick: (e) => Q.getRow(e)?.toggleSelected(),
-				children: /* @__PURE__ */ (0, P.jsxs)(f, {
-					"aria-label": g,
+				children: /* @__PURE__ */ (0, P.jsxs)(d, {
+					"aria-label": h,
 					size: "sm",
-					sortDescriptor: V[0] ? {
-						column: V[0].id,
-						direction: V[0].desc ? "descending" : "ascending"
+					sortDescriptor: H[0] ? {
+						column: H[0].id,
+						direction: H[0].desc ? "descending" : "ascending"
 					} : void 0,
 					onSortChange: (e) => Q.getColumn(String(e.column))?.toggleSorting(e.direction === "descending"),
 					children: [/* @__PURE__ */ (0, P.jsxs)(i, { children: [Q.getHeaderGroups()[0].headers.map((e) => /* @__PURE__ */ (0, P.jsx)(t, {
 						id: e.id,
 						isRowHeader: e.id === x[0].id,
 						allowsSorting: e.column.getCanSort(),
-						...W.columnProps(e.id),
+						...G.columnProps(e.id),
 						children: ({ sortDirection: t }) => /* @__PURE__ */ (0, P.jsxs)(P.Fragment, { children: [/* @__PURE__ */ (0, P.jsxs)("span", {
 							className: "flex items-center gap-0.5",
 							children: [b(e.column.columnDef.header, e.getContext()), e.column.getCanSort() ? /* @__PURE__ */ (0, P.jsx)("span", {
@@ -176,15 +183,15 @@ function I({ label: g, items: v, columns: x, rowId: S, rowLabel: C, selected: w,
 								"data-direction": t || void 0,
 								children: /* @__PURE__ */ (0, P.jsx)(s, {})
 							}) : null]
-						}), /* @__PURE__ */ (0, P.jsx)(m, {
-							preferences: W,
+						}), /* @__PURE__ */ (0, P.jsx)(p, {
+							preferences: G,
 							id: e.id
 						})] })
 					}, e.id)), /* @__PURE__ */ (0, P.jsx)(t, {
 						id: "remaining-space",
 						"aria-label": E("shell:dataTable.spacerColumn"),
 						"data-table-space": "",
-						width: W.spaceWidth,
+						width: G.spaceWidth,
 						minWidth: 0
 					})] }), /* @__PURE__ */ (0, P.jsx)(e, {
 						renderEmptyState: () => E("shell:dataTable.empty"),
@@ -196,23 +203,23 @@ function I({ label: g, items: v, columns: x, rowId: S, rowLabel: C, selected: w,
 					})]
 				})
 			}),
-			/* @__PURE__ */ (0, P.jsx)(c, {
-				label: g,
-				total: v.length,
+			/* @__PURE__ */ (0, P.jsx)(ee, {
+				label: h,
+				total: g.length,
 				pagination: {
-					...G,
-					pageIndex: Y
+					...K,
+					pageIndex: X
 				},
-				onChange: K,
-				unit: B
+				onChange: q,
+				unit: V
 			}),
-			L ? /* @__PURE__ */ (0, P.jsx)("div", {
+			R ? /* @__PURE__ */ (0, P.jsx)("div", {
 				className: "flex flex-wrap items-center justify-end gap-2 border-t border-separator-border pt-4",
-				children: L
+				children: R
 			}) : null
 		]
 	});
 }
 export { I as DataTable };
 
-//# debugId=a8bfba6c-21ed-4e83-b697-26a5c1900389
+//# debugId=bd0b9919-f2c5-4495-beeb-0fbd327743fa

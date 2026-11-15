@@ -12,6 +12,8 @@ export interface PlayerSettings {
   seekSeconds: number;
   miniplayer: boolean;
   detailAutoplay: boolean;
+  /** 离片尾不到这个百分比就从头播（`progress.ts` 的 `playbackPosition`）；没给按 0，只有播完才从头。 */
+  resumeRestartPercent?: number;
   /** 番号作品开播前那层封面取官方封面还是预览图（`card-art` 的 `detailPosterUrl` 按它挑）。 */
   javImage: string;
 }

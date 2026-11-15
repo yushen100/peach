@@ -28,42 +28,48 @@ const LOST_AFTER_FAILURES = 7;
 /** 服务端没给发布页时的去处；检查到新版本后服务端给的是那一版自己的发布页。 */
 const RELEASES_URL = 'https://github.com/peach-mitao/peach/releases';
 
-/** 条目文字里反引号包住的片段显示成代码，其余原样。 */
-function InlineText({ text }: { text: string }) {
-  return <>{text.split('`').map((part, index) => index % 2 ? <code key={index}>{part}</code> : part)}</>;
+/** 条目里的 issue 或 PR 编号：`#123` 指本仓库，`owner/repo#123` 指别的仓库。 */
+const REFERENCE = /((?:[\w.-]+\/[\w.-]+)?#\d+)/;
+
+function referenceUrl(reference: string): string {
+  const [repo, number] = reference.split('#');
+  return `https://github.com/${repo || 'peach-mitao/peach'}/issues/${number}`;
 }
 
-/** 新版本的更新说明，取自 GitHub Release 正文：中文界面读折叠的简体中文段，其余语言读英文正文。默认收起。 */
+/** 条目文字里反引号包住的片段显示成代码，issue 与 PR 编号显示成链接（GitHub 会把 PR 的 issues 地址转到 PR）。 */
+function InlineText({ text }: { text: string }) {
+  return <>{text.split('`').map((part, index) => index % 2 ? <code key={index}>{part}</code>
+    : part.split(REFERENCE).map((piece, inner) => inner % 2
+      ? <a key={`${index}-${inner}`} href={referenceUrl(piece)} target="_blank" rel="noopener noreferrer"
+        className="text-accent-600 hover:underline">{piece}</a>
+      : piece))}</>;
+}
+
+/** 新版本的重点，取自 GitHub Release 正文的重点分组（即那一版的升级公告）：中文界面读折叠的简体中文段，
+ * 其余语言读英文正文；完整变更去发布页看。默认收起。 */
 export function ReleaseChangelog({ notes }: { notes: ReleaseNotes[] }) {
   const language = interfaceLanguage === 'zh-CN' ? 'zh-CN' : 'en';
   return (
     <Disclosure summary={t('settings:releaseUpdates.changelogTitle', { versions: joinList(notes.map(row => row.version)) })}>
       <div className="flex flex-col gap-5 pt-3">
-        {notes.map(row => {
-          const part = row[language];
-          return (
-            <section key={row.version} className="flex flex-col gap-3">
-              <div className="flex items-baseline justify-between gap-3">
-                <h3 className="text-body-2-medium text-text-primary">{row.version}</h3>
-                <ExternalLink href={row.url}>{t('settings:releaseUpdates.releasePage')}</ExternalLink>
-              </div>
-              {part.lead.map(line => <p key={line} className="text-body-2-regular text-text-secondary"><InlineText text={line} /></p>)}
-              {part.groups.map(group => (
-                <div key={group.title} className="flex flex-col gap-1.5">
-                  <h4 className="text-body-2-medium text-text-secondary">{group.title}</h4>
-                  <ul className="flex list-disc flex-col gap-1 ps-5 text-body-2-regular text-text-primary">
-                    {group.items.map((item, index) => (
-                      <li key={index}>
-                        {item.area ? <span className="text-text-secondary">{item.area} · </span> : null}
-                        <InlineText text={item.text} />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+        {notes.map(row => (
+          <section key={row.version} className="flex flex-col gap-2">
+            <div className="flex items-baseline justify-between gap-3">
+              <h3 className="text-body-2-medium text-text-primary">{row.version}</h3>
+              <ExternalLink href={row.url}>{t('settings:releaseUpdates.releasePage')}</ExternalLink>
+            </div>
+            <ul className="flex list-disc flex-col gap-1 ps-5 text-body-2-regular text-text-primary">
+              {row[language].map((item, index) => (
+                <li key={index}>
+                  {item.title
+                    ? <span className="text-body-2-medium">{t('settings:releaseUpdates.highlightTitle', { title: item.title })}</span>
+                    : null}
+                  <InlineText text={item.text} />
+                </li>
               ))}
-            </section>
-          );
-        })}
+            </ul>
+          </section>
+        ))}
       </div>
     </Disclosure>
   );

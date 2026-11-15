@@ -26,6 +26,7 @@ import json
 import logging
 import re
 import sqlite3
+import stat
 import threading
 import time
 from dataclasses import dataclass, field
@@ -512,6 +513,15 @@ class DownloadStore:
 
     def __init__(self, database: LedgerDatabase):
         self.database = database
+        self._listeners: list = []
+
+    def on_save(self, callback) -> None:
+        """每次 `save` 写完后在写入线程里调用 `callback(task)`。
+
+        同进程里关心任务状态的一方（浏览器入库）靠它知道状态变了，不必定时去扫。
+        任务状态只经 `save` 改；后处理字段的写入不通知。
+        """
+        self._listeners.append(callback)
 
     def get(self, task_id: int) -> DownloadTask | None:
         with self.database.read_connection() as connection:
@@ -607,6 +617,11 @@ class DownloadStore:
                 cursor = connection.execute(
                     f"INSERT INTO download_task({','.join(names)}) VALUES({marks})", values)
                 task.id = int(cursor.lastrowid)
+        for listener in list(self._listeners):
+            try:
+                listener(task)
+            except Exception:
+                LOGGER.exception("download task listener failed: %s", task.id)
         return task
 
     def record_submission(self, *, task: DownloadTask, outcome: str, now: float,
@@ -1344,14 +1359,17 @@ class Landing:
         except ValueError:
             return False
         local = local_parent / PureWindowsPath(ledger_path).name
+        # 判类型与列目录都交给可终止的读取子进程：对账线程不能卡在挂死的网盘挂载上，读超时按没找到算。
+        from . import media_io
         try:
-            if local.is_file():
+            mode = media_io.file_stat(local).st_mode
+            if stat.S_ISREG(mode):
                 return self.push_discovery.ingest_now(location, ledger_path)
-            if not local.is_dir() or system_directory(local.name):
+            if not stat.S_ISDIR(mode) or system_directory(local.name):
                 return False
             found = False
             count = 0
-            for directory, entries in _walk(local):
+            for directory, entries in _walk(local, read_directory=media_io.directory_entries):
                 for item in entries:
                     relative = (*_relative_directory(directory, local), item.name)
                     path = str(PureWindowsPath(ledger_path).joinpath(*relative))

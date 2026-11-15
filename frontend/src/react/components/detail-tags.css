@@ -1,7 +1,7 @@
 /* ── 标签 ──
-   标签文字用于筛选，右侧修改名称或删除；筛选没有选中态，照孤立按钮
-   的写法抬填充。 */
-.peach-react [data-detail-tags] [data-detail-tag] {
+   侧栏里标签文字用于筛选，没有选中态，照孤立按钮的写法抬填充；编辑框里文字只读，右侧一枚移除键。
+   编辑资料里的演员、厂牌、系列胶囊（`data-entity-chip`）是同一种控件，外框、文字与移除键共用这里的规则。 */
+.peach-react :is([data-detail-tags] [data-detail-tag], [data-entity-chips] [data-entity-chip]) {
   display: inline-flex;
   align-items: center;
   border: 1px solid var(--line);
@@ -17,17 +17,16 @@
   background:color-mix(in srgb,var(--tag-color) 10%,var(--surface));
 }
 /* 外框连边线取行内档，与旁边的添加键同高；里面的按钮撑满框内。 */
-.peach-react [data-detail-tags] [data-detail-tag] button { border: 0; background: transparent; color: var(--ink-2); cursor: pointer; height: 100%; }
+.peach-react :is([data-detail-tags] [data-detail-tag], [data-entity-chips] [data-entity-chip]) button { border: 0; background: transparent; color: var(--ink-2); cursor: pointer; height: 100%; }
 /* 长标签单行省略：按钮高度随外框定死，折成两行时第二行会被切掉一半。全名在 title 上。 */
-.peach-react [data-detail-tags] [data-detail-tag] [data-tag] { min-width: 0; padding: 3px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.peach-react [data-detail-tags] [data-detail-tag] :is([data-remove-tag],[data-edit-tag]) { flex:none; width: calc(var(--control-h-inline) - 2px); padding: 0; display: grid; place-items: center; color: var(--muted); }
-.peach-react [data-detail-tags] [data-detail-tag] [data-tag]:hover { background: var(--hover); color: var(--ink); }
-.peach-react [data-detail-tags] [data-detail-tag] [data-edit-tag]:hover { background:var(--hover);color:var(--ink); }
-.peach-react [data-detail-tags] [data-detail-tag] [data-remove-tag]:hover {
+.peach-react :is([data-detail-tags] [data-detail-tag] [data-tag], [data-entity-chips] [data-entity-chip] [data-entity-name]) { min-width: 0; padding: 3px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.peach-react :is([data-detail-tags] [data-detail-tag] [data-remove-tag], [data-entity-chips] [data-entity-chip] [data-entity-remove]) { flex:none; width: calc(var(--control-h-inline) - 2px); padding: 0; display: grid; place-items: center; color: var(--muted); }
+.peach-react [data-detail-tags] [data-detail-tag] button[data-tag]:hover { background: var(--hover); color: var(--ink); }
+.peach-react :is([data-detail-tags] [data-detail-tag] [data-remove-tag], [data-entity-chips] [data-entity-chip] [data-entity-remove]):hover {
   color: var(--drop);
   background: color-mix(in srgb, var(--drop) 12%, transparent);
 }
-.peach-react [data-detail-tags] [data-detail-tag] svg,
+.peach-react :is([data-detail-tags] [data-detail-tag], [data-entity-chips] [data-entity-chip]) svg,
 .peach-react [data-detail-tags] [data-tag-plus] svg { width: var(--icon-inline); height: var(--icon-inline); stroke: currentColor; fill: none; stroke-width: 2; }
 .peach-react [data-detail-tags] [data-tag-plus] {
   width: var(--control-h-inline);

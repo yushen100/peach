@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import logging
 import sqlite3
 import threading
+import time
 from contextlib import contextmanager, nullcontext
 from dataclasses import dataclass
 from functools import lru_cache
@@ -10,9 +12,28 @@ from pathlib import Path
 from .catalog_rules import is_jav_code, normalise_code_key, sql_is_local_extra
 from .entities import normalize_entity_name
 from .regions import infer_region
+from .user_messages import UserFacingError
+
+LOGGER = logging.getLogger(__name__)
+
+#: 没给 `timeout` 的写入在进程内写锁上最多排队多久。正常事务都是毫秒到秒级；
+#: 等满还没轮到，说明持有者卡在锁里做了不该做的事（比如网盘 IO），排下去只会让全进程写入陪着停。
+WRITE_LOCK_SECONDS = 120.0
 
 #: 当前线程是不是后台写入者，见 `in_background`。
 _WRITER = threading.local()
+
+
+class LedgerWriteBusy(UserFacingError, sqlite3.OperationalError):
+    """进程内写锁等到期限仍没轮到。仍是 `sqlite3.OperationalError` 且标成 `SQLITE_BUSY`：
+    任务重试、结算重试和诊断分类都按「数据库忙」接住它。"""
+
+    status_code = 503
+
+    def __init__(self, seconds: float):
+        super().__init__("errors.ledger.writeBusy", {"seconds": round(seconds)})
+        self.sqlite_errorcode = sqlite3.SQLITE_BUSY
+        self.sqlite_errorname = "SQLITE_BUSY"
 
 
 def in_background(target):
@@ -37,6 +58,7 @@ class LedgerDatabase:
         self.db_path = Path(db_path)
         self.media_roots = tuple(media_roots)
         self.write_lock = threading.Lock()
+        self._holder = ("", time.monotonic())
         self.after_commit = lambda: None
         self._sql_rules = (
             ('is_jav_code', 1, lru_cache(maxsize=32768)(is_jav_code)),
@@ -83,9 +105,10 @@ class LedgerDatabase:
         `task_run`，它和馆藏数据没有任何关系；跟着清一次缓存，等于让首页、统计和
         复核页在每个长任务运行期间全程失去缓存。
 
-        `timeout` 给可以放弃的写入用：进程内的写锁与 SQLite 的写锁各最多等这么久，
-        等不到抛 `sqlite3.OperationalError`，与 SQLite 自己等超时是同一种异常。不传则
-        进程内一直排队、SQLite 等 30 秒。
+        `timeout` 给可以放弃的写入用：进程内的写锁与 SQLite 的写锁各最多等这么久。
+        不传则进程内最多排队 `WRITE_LOCK_SECONDS`、SQLite 等 30 秒。进程内等不到抛
+        `LedgerWriteBusy`，它也是 `sqlite3.OperationalError`，与 SQLite 自己等超时按同一种
+        暂时故障处理；超时发生在拿连接之前，这次写入一行都不会落。
         """
         from .task_control import operation
         with operation() if notify else nullcontext():
@@ -94,8 +117,15 @@ class LedgerDatabase:
 
     @contextmanager
     def _write_transaction(self, *, notify: bool, timeout: float | None):
-        if not self.write_lock.acquire(timeout=-1 if timeout is None else timeout):
-            raise sqlite3.OperationalError("database is locked")
+        wait = WRITE_LOCK_SECONDS if timeout is None else timeout
+        if not self.write_lock.acquire(timeout=wait):
+            if timeout is None:
+                # 自定期限的调用方（任务进度）自己决定记不记；默认期限等满说明持有者卡住了，记下是谁。
+                holder, since = self._holder
+                LOGGER.warning("Ledger write lock still held by thread %s after %.0f s (held for %.0f s); "
+                               "this write was not applied", holder, wait, time.monotonic() - since)
+            raise LedgerWriteBusy(wait)
+        self._holder = (threading.current_thread().name, time.monotonic())
         try:
             connection = (self.connect(write=True) if timeout is None
                           else self.connect(write=True, timeout=timeout))

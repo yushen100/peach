@@ -22,9 +22,11 @@ from .web_activity import (
     w_watch_later,
 )
 from .web_batch import q_ads, q_duplicates, w_batch, w_empty_trash
+from .web_entity_batch import q_entity_batch_plan, w_entity_batch
 from .web_performer_delete import q_performer_delete_candidates, q_performer_delete_plan, w_performer_delete
 from .web_tags import q_tag_management, w_tag_management, w_tag_preview
 from .taste_history import history_source_count
+from .taste_browsing import q_taste_signals
 from .web_catalog import (
     FACETS_TABLES,
     catalog_filter,
@@ -37,6 +39,7 @@ from .web_catalog import (
     q_tops,
     w_item_tag,
 )
+from .web_item_edit import w_item_edit
 from .web_entity import (
     FEED_SHAPE_TABLES,
     SUGGEST_GROUP_LIMIT,
@@ -69,6 +72,7 @@ from .web_feeds import (
     q_feeds,
     w_feed_check,
     w_feed_discovery,
+    w_feed_schedule,
     w_feed_schedule_run,
     w_feed_source,
 )
@@ -375,6 +379,7 @@ GET_HANDLERS = {
     "/api/jav/discoveries": q_jav_discoveries,
     "/api/jav/discoveries/metadata": q_jav_discovery_metadata,
     "/api/jav/releases": q_jav_releases,
+    "/api/taste/signals": q_taste_signals,
     "/api/library-processing": q_library_processing,
     "/api/library-processing/issues": q_library_processing_issues,
     "/api/thumbnail-jobs": q_thumbnail_jobs,
@@ -412,6 +417,7 @@ GET_HANDLERS = {
     "/api/editions": q_editions,
     "/api/entity": q_entity,
     "/api/performer/delete-plan": q_performer_delete_plan,
+    "/api/entity-batch/plan": q_entity_batch_plan,
     "/api/performer/delete-candidates": q_performer_delete_candidates,
     "/api/entity/shapes": _get_entity_shapes,
     "/api/entity/latest": q_entity_latest,
@@ -463,6 +469,7 @@ POST_HANDLERS = {
     "/api/feeds/check": w_feed_check,
     "/api/feeds/source": w_feed_source,
     "/api/feeds/discovery": w_feed_discovery,
+    "/api/feeds/schedule": w_feed_schedule,
     "/api/feeds/schedule/run": w_feed_schedule_run,
     "/api/follow/check": w_follow_check,
     "/api/follow/schedule": w_follow_schedule,
@@ -489,6 +496,7 @@ POST_HANDLERS = {
     "/api/quality-goal": w_quality_goal,
     "/api/wants": w_wants,
     "/api/item-tag": w_item_tag,
+    "/api/item-edit": w_item_edit,
     "/api/batch": w_batch,
     "/api/search-history": w_search_history,
     "/api/taste/refresh": w_taste_refresh,
@@ -512,6 +520,7 @@ POST_HANDLERS = {
     "/api/tutorial-progress": w_tutorial_progress,
     "/api/entity-name": w_entity_name,
     "/api/performer/delete": w_performer_delete,
+    "/api/entity-batch": w_entity_batch,
     "/api/entity-alias": w_entity_alias,
     "/api/face-models": _post_face_models,
 }

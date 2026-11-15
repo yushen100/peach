@@ -482,15 +482,66 @@ class RemoteReportingTests(unittest.TestCase):
         client = mock.Mock()
         with mock.patch.object(reporting, '_new_client', return_value=client), \
                 mock.patch.object(reporting.threading, 'Timer') as timer, \
+                mock.patch.object(reporting, 'datetime', wraps=datetime) as wall, \
                 mock.patch.object(frequency, '_now', return_value=now) as clock:
+            wall.now.return_value = now
             reporting.save({"usage": True, "errors": True})
             for _ in range(4):
                 reporting.capture('unhandled-main', ValueError('private'))
             callback = timer.call_args.args[1]
-            clock.return_value = now + timedelta(seconds=frequency.INTERVAL)
+            clock.return_value = wall.now.return_value = now + timedelta(seconds=frequency.INTERVAL)
             callback()
             self.assertEqual(client.capture_event.call_count, 1)
             self.assertEqual([count['occurrence_count'] for count in self._counts(client)], [4])
+
+    def test_frequency_timer_sleeps_until_the_next_day_or_count_interval(self):
+        """不再每分钟取锁读写状态文件：排到日界或计数到期点，新计数防抖后落盘。"""
+        from peach import diagnostic_frequency as frequency
+        timers = []
+
+        class FakeTimer:
+            def __init__(self, delay, callback):
+                self.delay, self.callback, self.cancelled, self.daemon = delay, callback, False, False
+                timers.append(self)
+
+            def start(self):
+                pass
+
+            def cancel(self):
+                self.cancelled = True
+
+        def fire(at):
+            wall.now.return_value = clock.return_value = at
+            active = [timer for timer in timers if not timer.cancelled]
+            self.assertEqual(len(active), 1)
+            active[0].cancelled = True
+            active[0].callback()
+
+        start = datetime(2026, 11, 1, 12, tzinfo=timezone.utc)
+        midnight = datetime(2026, 11, 2, tzinfo=timezone.utc)
+        client = mock.Mock()
+        with mock.patch.object(reporting, '_new_client', return_value=client), \
+                mock.patch.object(reporting.threading, 'Timer', FakeTimer), \
+                mock.patch.object(reporting, 'datetime', wraps=datetime) as wall, \
+                mock.patch.object(frequency, '_now', return_value=start) as clock, \
+                mock.patch.object(frequency, 'flush', wraps=frequency.flush) as flush:
+            wall.now.return_value = start
+            reporting.save({'usage': True, 'errors': True})
+            self.assertEqual(timers[-1].delay, reporting.FREQUENCY_DEBOUNCE)
+            fire(start + timedelta(seconds=60))
+            self.assertEqual(client.transport.capture_envelope.call_count, 1)
+            self.assertEqual(reporting._frequency_due, midnight.timestamp())
+            self.assertEqual(timers[-1].delay, reporting.WALL_CLOCK_RECHECK)
+            calls = flush.call_count
+            fire(start + timedelta(seconds=60 + reporting.WALL_CLOCK_RECHECK))
+            self.assertEqual(flush.call_count, calls, "分段等待的中途不读写状态文件")
+            self.assertEqual(client.transport.capture_envelope.call_count, 1)
+            fire(midnight)
+            self.assertEqual(client.transport.capture_envelope.call_count, 2, "过了日界报当天的活跃")
+            reporting.capture('unhandled-main', ValueError('private'))
+            self.assertEqual(timers[-1].delay, reporting.FREQUENCY_DEBOUNCE, "新计数把定时器提前到防抖点")
+            fire(midnight + timedelta(seconds=60))
+            self.assertEqual(reporting._frequency_due, midnight.timestamp() + frequency.INTERVAL)
 
     def test_daily_activity_is_reported_after_midnight_without_restarting(self):
         client = mock.Mock()

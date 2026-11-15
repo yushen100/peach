@@ -25,7 +25,14 @@ export const THEME_CHOICES: readonly string[] = ['system', 'light', 'dark'];
 export const FOLLOW_INITIAL_DAYS: readonly number[] = [0, 7, 30, 90];
 /* 新作那一行收不收合集由服务端按数据库里的设置筛（列表、未读数、补封面同一份），这里只是
    镜像：开关的真相在 `/api/settings`。默认收起大合集与切片、单人合集照列。 */
+/** 首页竖屏带一条放几张：默认与上下限，设置面板的数值框同一组数。 */
+export const HOME_SHORTS_DEFAULT = 18;
+export const HOME_SHORTS_MIN = 6;
+export const HOME_SHORTS_MAX = 60;
 export const FEED_COMPILATION_KEYS = ['feedHideGroupCompilations', 'feedHideSoloCompilations', 'feedHideExcerpts'] as const;
+/** 播完一条之后怎么接：停下、顺序、列表循环、随机、单片循环。顺序与循环、随机只在播放列表和 Mix 队列里有下一条可接。 */
+export const AFTER_PLAYBACK_CHOICES = ['stop', 'next', 'repeat-all', 'shuffle', 'repeat-one'] as const;
+export type AfterPlayback = typeof AFTER_PLAYBACK_CHOICES[number];
 
 /** 归一化之后一定在的那几项。对象上还有别的字段（壳与各岛按需写入），这里不一一列出。 */
 export interface AppSettings {
@@ -57,8 +64,23 @@ export interface AppSettings {
   theme: string;
   groupCollapse: boolean;
   detailAutoplay: boolean;
+  afterPlayback: AfterPlayback;
+  /** 离片尾不到这个百分比就当看完，下次从头播；0 表示只有播完才从头。 */
+  resumeRestartPercent: number;
   uiSounds: boolean;
   feedAutoScroll: boolean;
+  /** 首页的新作那一行；人物页的那一行不归它管。 */
+  feedNewRows: boolean;
+  /** 首页竖屏带一条放几张；0 是不插带子，竖屏回到主网格里。 */
+  homeShortsLimit: number;
+  /** 首页顶上女优、厂牌两排头像。 */
+  homeTiers: boolean;
+  /** 网格、列表与详情里的缺图补全提示条；条上的关闭钮把它写成 false。 */
+  completionPrompt: boolean;
+  /** 聚焦空搜索框时的推荐栏、推荐词与轮换的占位字。 */
+  searchRecommendations: boolean;
+  /** 新文件入库、下载完成时的 toast。 */
+  ingestNotices: boolean;
   feedHideGroupCompilations: boolean;
   feedHideSoloCompilations: boolean;
   feedHideExcerpts: boolean;
@@ -110,9 +132,18 @@ export function normalizeAppSettings(raw: unknown): { settings: AppSettings; mig
   settings.theaterMode = settings.theaterMode === true;
   settings.groupCollapse = settings.groupCollapse !== false;
   settings.detailAutoplay = settings.detailAutoplay !== false;
+  settings.afterPlayback = allowedSetting(settings.afterPlayback, AFTER_PLAYBACK_CHOICES, 'next');
+  settings.resumeRestartPercent = boundedPreference(+(settings.resumeRestartPercent as number), 0, 20, 5);
   settings.miniplayer = settings.miniplayer !== false;
   settings.uiSounds = settings.uiSounds !== false;
   settings.feedAutoScroll = settings.feedAutoScroll !== false;
+  settings.feedNewRows = settings.feedNewRows !== false;
+  settings.homeShortsLimit = settings.homeShortsLimit === 0 ? 0
+    : boundedPreference(+(settings.homeShortsLimit as number), HOME_SHORTS_MIN, HOME_SHORTS_MAX, HOME_SHORTS_DEFAULT);
+  settings.homeTiers = settings.homeTiers !== false;
+  settings.completionPrompt = settings.completionPrompt !== false;
+  settings.searchRecommendations = settings.searchRecommendations !== false;
+  settings.ingestNotices = settings.ingestNotices !== false;
   settings.feedHideGroupCompilations = settings.feedHideGroupCompilations !== false;
   settings.feedHideSoloCompilations = settings.feedHideSoloCompilations === true;
   settings.feedHideExcerpts = settings.feedHideExcerpts !== false;

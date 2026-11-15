@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { unfilteredWallAddress, wallAddress } from '../../src/react/video-wall/wall-route';
+import { pagePlaybackParams, unfilteredWallAddress, wallAddress } from '../../src/react/video-wall/wall-route';
 import { registerEntityLink } from '../../src/core/entity-links';
 
 describe('播放墙独立入口', () => {
@@ -30,7 +30,7 @@ describe('播放墙独立入口', () => {
     expect(target.searchParams.get('returnTo')).toBe('/?q=%E6%B5%8B%E8%AF%95&tag=%E9%A3%8E%E6%99%AF&loc=local');
   });
   it('实体资料页转换为同一实体的作品范围', () => {
-    for (const [section, kind] of [['performers','performer'],['studios','studio'],['creators','creator'],['series','series']]) {
+    for (const [section, kind] of [['performers','performer'],['studios','studio'],['creators','creator'],['series','series'],['agencies','agency']]) {
       const target = new URL(wallAddress(`/${section}/Alice?jav=1`), location.origin);
       expect(target.searchParams.get(kind!)).toBe('Alice');
       expect(target.searchParams.get('jav')).toBe('1');
@@ -55,5 +55,21 @@ describe('播放墙独立入口', () => {
     const target = new URL(wallAddress('/tags/72?tag=口交'), location.origin);
     expect(target.searchParams.get('tag')).toBe('巨乳,口交');
     expect(target.searchParams.get('tag_match')).toBe('all');
+  });
+});
+
+describe('顶栏沉浸与播放墙按页取片', () => {
+  it('沉浸与播放墙共用同一套范围，沉浸不带返回地址', () => {
+    const params = pagePlaybackParams('/performers/Alice?tag=风景', { jav: '1' });
+    expect(Object.fromEntries(params)).toEqual({ tag: '风景', jav: '1', performer: 'Alice' });
+    const wall = new URL(wallAddress('/performers/Alice?tag=风景', { jav: '1' }), location.origin).searchParams;
+    wall.delete('returnTo');
+    expect(Object.fromEntries(wall)).toEqual(Object.fromEntries(params));
+  });
+  it('回收站、关注与其它没有自己视频的页按全部馆藏，不带回收站状态', () => {
+    for (const path of ['/trash', '/follow', '/settings', '/junk-files']) {
+      expect(Object.fromEntries(pagePlaybackParams(path, { state: 'trash', tag: '风景', jav: '', loc: 'local' })))
+        .toEqual({ loc: 'local' });
+    }
   });
 });

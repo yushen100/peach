@@ -273,15 +273,21 @@ def discover_sidecars(video: Path, video_suffixes: set[str]) -> list[dict]:
     def wanted(name: str) -> bool:
         return Path(name).suffix.lower() in video_suffixes or bool(subtitle_format(name))
 
-    try:
+    def listing() -> list[str]:
         if isinstance(video, SmbResource):
             # SMB 共享上的作品不是操作系统路径，经共享列目录；传输层错误已映射为 OSError。
-            names = [entry.name for entry in video.parent.scandir()
-                     if wanted(entry.name) and not entry.is_dir and not entry.is_symlink]
-        else:
-            with os.scandir(video.parent) as entries:
-                names = [entry.name for entry in entries
-                         if wanted(entry.name) and entry.is_file(follow_symlinks=False)]
+            return [entry.name for entry in video.parent.scandir()
+                    if wanted(entry.name) and not entry.is_dir and not entry.is_symlink]
+        with os.scandir(video.parent) as entries:
+            return [entry.name for entry in entries
+                    if wanted(entry.name) and entry.is_file(follow_symlinks=False)]
+
+    from . import media_io
+    try:
+        # 打开片子时在请求里列目录：网盘答不上按期限抛超时，交调用方决定，不当成「没有字幕」缓存。
+        names = media_io.bounded(media_io.mount_key(video), listing)
+    except TimeoutError:
+        raise
     except OSError:
         return []
     videos = [name for name in names if Path(name).suffix.lower() in video_suffixes]

@@ -17,6 +17,7 @@ import { useQuery } from '@tanstack/react-query';
 import { requestErrorMessage } from '@peach/legacy/core';
 import { activityStatusHtml, LOAD_MORE_STATUS, popBadges } from '@peach/legacy/ui';
 import { ButtonLink } from '@/components/base/buttons/button';
+import { Checkbox } from '@/components/base/checkbox/checkbox';
 
 import { EmptyState } from '../components/empty-state';
 import { LOAD_MORE_MARGIN, RetryNote, useSkeletonReveal } from '../components/grid-reveal';
@@ -112,8 +113,14 @@ function JunkBody({ props, data, pending, error, retry }: {
         </EmptyState>
       );
     }
+    const loaded = items.map((item) => item.id);
+    const picked = loaded.filter((id) => props.selected.has(id)).length;
     return (
       <>
+        <div data-junk-select-all="" className="mb-3">
+          <Checkbox size="sm" isSelected={picked > 0 && picked === loaded.length} isIndeterminate={picked > 0 && picked < loaded.length}
+            onChange={(on) => props.actions.selectAll(loaded, on)}>{t('cleanup:junk.selectAll', { count: loaded.length })}</Checkbox>
+        </div>
         <div data-media-grid="" data-junk-grid="" data-select-mode={props.selectMode ? '' : undefined}>
           {shown.map((item) => (
             <JunkCard key={item.id} item={item} view={props.view} selected={props.selected.has(item.id)}

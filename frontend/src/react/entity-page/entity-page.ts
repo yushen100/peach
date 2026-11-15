@@ -9,6 +9,7 @@
  *
  * 首屏由壳铺骨架，身份资料就绪后挂载页面；作品、照片与新作各自替换对应区域的骨架。 */
 import { api } from '@peach/legacy/core';
+import { appSettingsStore } from '@peach/appearance';
 
 import type { CatalogGridProps, MediaPage } from '../catalog-grid/types';
 import type { EntityBodyActions, EntityBodyHelpers, EntityCodeSet, EntityLocalPhoto, PhotoLayout, PhotoSize } from '../entity-body/entity-body';
@@ -157,9 +158,11 @@ export interface EntityPageProps extends SharedGridProps {
   hosts: EntityPageHosts;
   /** 卡片上的助手与动作就是目录那一份；照片墙多一枚定位源文件。 */
   card: { helpers: EntityBodyHelpers; actions: Omit<EntityBodyActions, 'loadMorePhotos'> };
-  /** 在线视图里的关注卡：骨架、拖动与进度同关注页那一份；动作是资料页语境的一份，换筛选、侧栏、
-   *  多选与图片偏好都不接（这一页不画关注页的侧栏，多选认的是本地作品）。 */
+  /** 在线视图里的关注卡：骨架、拖动与进度同关注页那一份；动作是资料页语境的一份，换筛选、侧栏与
+   *  图片偏好都不接（这一页不画关注页的侧栏）。多选认关注条目，选择集是 `followSelected`。 */
   follow: { helpers: FollowFeedHelpers; actions: FollowFeedActions };
+  /** 在线视图里选中的关注条目，和作品区的 `selected` 分开。 */
+  followSelected?: ReadonlySet<number>;
   helpers: EntityPageHelpers;
   actions: EntityPageActions;
 }
@@ -281,5 +284,7 @@ export async function prefetchEntityPage(props: EntityPageProps): Promise<void> 
   const entity = await queryClient.fetchQuery(entityOptions(kind, name));
   if (!entity || entity.error || !entity.id) return;
   if (!props.restoreNavigation) queryClient.removeQueries({ queryKey: feedNewKey(Number(entity.id)) });
+  /* 设置关掉了新作行就不预取。 */
+  if (appSettingsStore().value.feedNewRows === false) return;
   void queryClient.prefetchQuery(feedNewOptions(Number(entity.id), props.helpers.feedRowHtml));
 }

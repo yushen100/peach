@@ -373,9 +373,17 @@ def _layout(source: Path) -> _Layout:
                        after[start:stop], moov[2] - moov[1], None)
 
 
-def repaired_header(source: Path, ffprobe: Path, *, progress=None) -> RepairedHeader:
-    """算出修好的头。修不了就抛 `RepairUnavailable`。"""
-    layout = _layout(source)
+def read_layout(path) -> _Layout:
+    """`_layout` 的子进程入口：路径按本机文件读。"""
+    return _layout(Path(path))
+
+
+def repaired_header(source: Path, ffprobe: Path, *, progress=None, read_layout=None) -> RepairedHeader:
+    """算出修好的头。修不了就抛 `RepairUnavailable`。
+
+    `read_layout` 代替本进程读片头（批量修复交给带期限的子进程读）。
+    """
+    layout = (read_layout or _layout)(source)
     mdat = layout.mdat
     tree = _parse(layout.moov_box, layout.moov_body, len(layout.moov_box))
     root = _Box(b"moov", None, tree)
@@ -433,11 +441,14 @@ def repaired_header(source: Path, ffprobe: Path, *, progress=None) -> RepairedHe
     return RepairedHeader(prefix=prefix, payload_start=mdat[2], payload_end=mdat[3], suffix=layout.suffix)
 
 
-def has_tail_moov(source: Path) -> bool:
-    """只读顶层盒子位置，识别旧布局判据会跳过的尾部索引。"""
-    from .smb_media import SmbResource
-    with (source.open() if isinstance(source, SmbResource) else open(source, 'rb')) as handle:
-        boxes = _top_level(handle)
+def top_level_boxes(path) -> list[tuple[bytes, int, int, int]]:
+    """本机文件的顶层盒子；`media_io.MountWorker` 在子进程里调用。"""
+    with open(path, 'rb') as handle:
+        return _top_level(handle)
+
+
+def tail_moov(boxes) -> bool:
+    """顶层只有一个 `moov` 与一个 `mdat`，且索引在媒体之后：旧布局判据会跳过的尾部索引。"""
     moovs = [box for box in boxes if box[0] == b'moov']
     mdats = [box for box in boxes if box[0] == b'mdat']
     return len(moovs) == len(mdats) == 1 and moovs[0][1] > mdats[0][1]
@@ -569,8 +580,9 @@ class HeaderRepairStore:
 
     def _name(self, asset_id: int, source: Path, stat=None) -> str | None:
         if stat is None:
+            from . import media_io
             try:
-                stat = source.stat()
+                stat = media_io.bounded(media_io.mount_key(source), source.stat)
             except OSError:
                 return None
         return f"{asset_id}-{stat.st_size}-{stat.st_mtime_ns}{SIDECAR_SUFFIX}"
@@ -592,9 +604,9 @@ class HeaderRepairStore:
                 self._cached[name] = header
         return header
 
-    def has_invalid_sidecar(self, asset_id: int, source: Path) -> bool:
-        """已有损坏边车仍可重建；区别于没有产物的既有解码失败。"""
-        name = self._name(asset_id, source)
+    def has_invalid_sidecar(self, asset_id: int, source: Path, *, stat=None) -> bool:
+        """已有损坏边车仍可重建；区别于没有产物的既有解码失败。`stat` 同 `lookup`。"""
+        name = self._name(asset_id, source, stat)
         if not name:
             return False
         path = self.root / name
@@ -633,9 +645,12 @@ class HeaderRepairStore:
         for job in jobs:
             job.stop()
 
-    def repair_now(self, asset_id: int, source: Path, *, progress=None) -> bool:
-        """当场算一份头并存下来。已经有、正在算或上次算不出来都返回 False。"""
-        name = self._name(asset_id, source)
+    def repair_now(self, asset_id: int, source: Path, *, progress=None, stat=None, read_layout=None) -> bool:
+        """当场算一份头并存下来。已经有、正在算或上次算不出来都返回 False。
+
+        `stat` 同 `lookup`；`read_layout` 见 `repaired_header`。
+        """
+        name = self._name(asset_id, source, stat)
         ffprobe = self.resolver.ffprobe()
         if not name or ffprobe is None or read_sidecar(self.root / name) is not None:
             return False
@@ -649,8 +664,9 @@ class HeaderRepairStore:
                 checkpoint()
             try:
                 checkpoint()
-                header = (repaired_header(source, ffprobe.path) if progress is None else
-                          repaired_header(source, ffprobe.path, progress=progress))
+                options = {key: value for key, value in (('progress', progress), ('read_layout', read_layout))
+                           if value is not None}
+                header = repaired_header(source, ffprobe.path, **options)
                 write_sidecar(self.root / name, header)
             finally:
                 self._slots.release()

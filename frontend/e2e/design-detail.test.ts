@@ -306,7 +306,13 @@ describe('设计决定：关注详情、作品详情、播放器与侧栏', () =
       assert.deepEqual([await chips.count(), (await more.innerText()).trim()], [30, '收起']);
       await more.click();
       assert.equal(await chips.count(), 20);
-      assert.equal(await page.locator('#stage [data-detail-tags] [data-tag-plus]').isVisible(), true, '收起时加号照样在');
+      assert.equal(await page.locator('#stage [data-detail-tags] [data-tag-plus]').count(), 0, '侧栏标签只读，不该有加号');
+      // 增删收进了「编辑资料」：框里同样先露 20 个，收起时加号照样在。
+      await page.locator('#stage [data-item-edit-open]').click();
+      const editor = page.locator('dialog[data-item-edit-dialog]');
+      await editor.waitFor();
+      assert.equal(await editor.locator('[data-detail-tags] [data-detail-tag]').count(), 20);
+      assert.equal(await editor.locator('[data-detail-tags] [data-tag-plus]').isVisible(), true, '收起时加号照样在');
       assert.deepEqual(withoutPlayer(opened.problems), []);
     } finally {
       await opened.close();
@@ -444,7 +450,10 @@ describe('设计决定：关注详情、作品详情、播放器与侧栏', () =
     const opened = await openItemPage(browser, `/assets/${ITEM.plain}`, DESKTOP);
     try {
       const page = opened.page;
-      const picker = page.locator('#stage [data-tag-picker]');
+      // 标签增删收进了「编辑资料」：选择器长在编辑框里。
+      await page.locator('#stage [data-item-edit-open]').click();
+      await page.locator('dialog[data-item-edit-dialog]').waitFor();
+      const picker = page.locator('dialog[data-item-edit-dialog] [data-tag-picker]');
       /* 关闭动效只有 150ms，点完再读计算样式会在负载高时读到已收起；改记选择器上真正开播过的动效。 */
       await page.evaluate(() => {
         const played: string[] = [];
@@ -460,7 +469,7 @@ describe('设计决定：关注详情、作品详情、播放器与侧栏', () =
         if (await page.evaluate(() => !matchMedia('(prefers-reduced-motion: reduce)').matches)) {
           await page.waitForFunction(() => (window as unknown as { pickerMotion: string[] }).pickerMotion.includes('board-menu-in'));
         }
-        await page.locator('#stage [data-rating-value]').click();
+        await page.locator('dialog[data-item-edit-dialog] [data-edit-section] h4').first().click();
         await picker.waitFor({ state: 'hidden' });
         return played();
       };
@@ -545,7 +554,7 @@ describe('设计决定：关注详情、作品详情、播放器与侧栏', () =
       const node = document.querySelector(selector);
       return node ? [getComputedStyle(node).touchAction, getComputedStyle(node).userSelect] : null;
     }), selectors);
-    const controls = ['#closeStage', '#likeBtn', '#stage [data-stage-action]', '#stage [data-title-fold]', '#tagPlus',
+    const controls = ['#closeStage', '#likeBtn', '#stage [data-stage-action]', '#stage [data-title-fold]', '#stage [data-item-edit-open]',
       '#stage [data-detail-tag] [data-tag]'];
     const stage = await openItemPage(browser, `/assets/${ITEM.plain}`, MOBILE);
     try {

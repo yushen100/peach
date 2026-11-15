@@ -99,6 +99,9 @@ def preview(connection, body, rows):
     operation = body.get('operation')
     if operation not in {'rename', 'merge', 'hide', 'restore', 'block', 'unblock'}:
         raise ValueError('unknown online tag operation')
+    if operation == 'block' and 'name' in body and not body.get('ids'):
+        rows, group_id = _with_named_row(connection, rows, body.get('name'))
+        body = {**body, 'ids': [group_id]}
     ids = body.get('ids')
     if not isinstance(ids, list) or not 0 < len(ids) <= 2000 or any(not isinstance(value, str) or not value for value in ids):
         raise UserValueError('errors.onlineTagManagement.selectionInvalid')
@@ -123,6 +126,19 @@ def preview(connection, body, rows):
             'assets': len(releases), 'overlap': sum(row['n'] for row in selected) - len(releases), 'token': token}
 
 
+def _with_named_row(connection, rows, raw):
+    """按名字屏蔽：词表里已有的就是那一条，没有的（还没抓到过）先记一条空的，以后抓到同名标签
+    就落进这一组。返回补过的词表和要屏蔽的那一条的 id。"""
+    name = unicodedata.normalize('NFKC', str(raw or '')).strip()
+    if not 0 < len(name) <= 80 or ',' in name or any(ord(char) < 32 for char in name):
+        raise UserValueError('errors.onlineTagManagement.nameInvalid')
+    group_id = OnlineTagPolicy(connection).identity(name)[0]
+    if any(row['id'] == group_id for row in rows):
+        return rows, group_id
+    return [*rows, {'id': group_id, 'k': name, 'n': 0, 'cat': 'general', 'hidden': False, 'blocked': False,
+                    'aliases': [], 'members': [tag_key(name)], '_releases': [], 'named': True}], group_id
+
+
 def apply_plan(connection, body, rows):
     plan = preview(connection, body, rows)
     if plan['token'] != body.get('token'):
@@ -131,7 +147,8 @@ def apply_plan(connection, body, rows):
     groups = settings.setdefault(SETTINGS_KEY, {})
     rows = {row['id']: row for row in plan['tags']}
     for group_id, row in rows.items():
-        groups.setdefault(group_id, {'name': row['k'], 'hidden': row['hidden'], 'members': row['members'], 'aliases': row['aliases'], 'cat': row['cat'], 'blocked': row.get('blocked', False)})
+        groups.setdefault(group_id, {'name': row['k'], 'hidden': row['hidden'], 'members': row['members'], 'aliases': row['aliases'], 'cat': row['cat'], 'blocked': row.get('blocked', False),
+                                     **({'named': True} if row.get('named') else {})})
     if plan['operation'] == 'rename':
         group = groups[plan['ids'][0]]
         group['aliases'] = sorted(set([*group['aliases'], group['name']]))
@@ -148,6 +165,10 @@ def apply_plan(connection, body, rows):
     elif plan['operation'] in {'block', 'unblock'}:
         for group_id in plan['ids']:
             groups[group_id]['blocked'] = plan['operation'] == 'block'
+            # 按名字记下、一条内容都还没抓到的那一组，解除屏蔽后不再留一条空标签。
+            group = groups[group_id]
+            if plan['operation'] == 'unblock' and group.get('named') and not group['hidden'] and not rows[group_id]['n']:
+                groups.pop(group_id)
     else:
         for group_id in plan['ids']:
             groups[group_id]['hidden'] = plan['operation'] == 'hide'

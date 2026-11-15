@@ -26,6 +26,10 @@ MAX_INTERVAL_MINUTES = 7 * 24 * 60
 #: 断网；按原间隔继续敲只会把同一个错误重复几十遍，还白耗流量额度。第一次失败不
 #: 退避（可能只是抖动），从第二次起翻倍，到这个倍数为止。
 MAX_BACKOFF_FACTOR = 8
+#: 同步发起的检查（定时那一跳、登记来源时顺带的首次检查）最多等这一轮这么久。这一轮在任务中心
+#: 被暂停后会一直停着；调度线程 `max_instances=1`，一直等下去之后每一跳都被跳过。
+#: 到期就先回「还在跑」，这一轮照常跑完、记在任务中心。取最短间隔：等得更久也只是多跳过一跳。
+CHECK_WAIT_SECONDS = MIN_INTERVAL_MINUTES * 60
 
 
 def _stamp(moment: datetime | None = None) -> str:
@@ -302,6 +306,13 @@ class FollowUpdateScheduler:
                 skipped = True
                 with self._state_lock:
                     self._last_started_at = started_before
+                    self._last_error, self._last_error_code, self._last_error_params = error_before
+                return
+            if result.get("status") == "running":
+                # 等满 `CHECK_WAIT_SECONDS` 这一轮还没跑完（多半被暂停了）：它开始了，但还没有结论。
+                # 不按成功结算掉上一轮的失败，也不退避；这一轮的结果记在任务中心。
+                skipped = True
+                with self._state_lock:
                     self._last_error, self._last_error_code, self._last_error_params = error_before
                 return
             rows = result.get("results") or []

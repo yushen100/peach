@@ -42,6 +42,14 @@ def normalized_path(path: Path | str) -> Path:
         return Path(os.path.abspath(os.fspath(candidate)))
 
 
+def bounded_normalized_path(path: Path | str) -> Path:
+    """请求路径上用的 `normalized_path`：POSIX 上 `resolve()` 要逐级问盘，带期限，到期抛超时。"""
+    if os.name == "nt":
+        return normalized_path(path)
+    from . import media_io
+    return media_io.bounded(media_io.mount_key(absolute_path(path)), normalized_path, path)
+
+
 CASE_MATCH_TTL_SECONDS = 5.0
 
 
@@ -120,7 +128,11 @@ class MediaOffline(MediaUnavailable):
 
 
 class FilesystemBackend:
-    """原生文件 backend；路径授权和存在性检查集中在这里。"""
+    """原生文件 backend；路径授权和存在性检查集中在这里。
+
+    请求路径上碰挂载的每一步（POSIX 上的 `resolve()`、存在判断、大小写兜底、在线判断）都经
+    `media_io.bounded` 带期限：网盘答不上时按脱盘回 503，不把请求线程一直挂着。
+    """
 
     name = "filesystem"
 
@@ -129,8 +141,38 @@ class FilesystemBackend:
         allowed_roots: Sequence[Path],
         snapshot_root: Path,
     ):
-        self.allowed_roots = tuple(normalized_path(root) for root in allowed_roots)
-        self.snapshot_root = normalized_path(snapshot_root)
+        # 构造时不碰盘：POSIX 上授权根的 `resolve()` 要逐级 stat，挂死的挂载会让服务起不来。
+        # 先只取绝对路径，第一次用到时再带期限地解析软链（见 `_root`）。
+        self._declared_roots = tuple(absolute_path(root) for root in allowed_roots)
+        self._declared_snapshot = absolute_path(snapshot_root)
+        self._resolved_roots: dict[object, Path] = {}
+
+    @property
+    def allowed_roots(self) -> tuple[Path, ...]:
+        return tuple(self._root(root) for root in self._declared_roots)
+
+    @allowed_roots.setter
+    def allowed_roots(self, roots: Sequence[Path]) -> None:
+        self._declared_roots = tuple(absolute_path(root) for root in roots)
+
+    @property
+    def snapshot_root(self) -> Path:
+        return self._root(self._declared_snapshot)
+
+    def _root(self, root):
+        """授权根与请求路径同样经 `normalized_path`，字面比较才对得上；解析不出就先用绝对路径。"""
+        if os.name == "nt" or not isinstance(root, Path):
+            return root
+        known = self._resolved_roots.get(root)
+        if known is not None:
+            return known
+        from . import media_io
+        try:
+            resolved = media_io.bounded(media_io.mount_key(root), normalized_path, root)
+        except OSError:
+            return root
+        self._resolved_roots[root] = resolved
+        return resolved
 
     def file_for(self, asset: MediaAsset, thumbnail: bool = False) -> Path:
         return self.located(asset, thumbnail=thumbnail)[0]
@@ -140,6 +182,7 @@ class FilesystemBackend:
 
         片源在网盘上时每次 stat 都是一趟网络往返；一个 Range 请求原先在这里、头修复查询、
         ffprobe 画像缓存和 `FileResponse` 各 stat 一次。SMB 资源与大小写兜底匹配到的路径给 None。
+        挂载在期限内答不上时报 `MediaOffline`。
         """
         raw = asset.snapshot_path if thumbnail else asset.path
         if not raw:
@@ -155,47 +198,73 @@ class FilesystemBackend:
             except OSError:
                 raise MediaOffline(asset.id, remote.root_id) from None
             raise MediaUnavailable(asset.id)
-        path = normalized_path(raw)
+        from . import media_io
+        path = self._normalized(asset.id, raw, thumbnail)
         roots = (self.snapshot_root,) if thumbnail else self.allowed_roots
-        if not any(within_root(path, root) for root in roots):
+        root = next((root for root in roots if within_root(path, root)), None)
+        if root is None:
             self._raise_unavailable(asset.id, raw, thumbnail)
+        key = media_io.mount_key(root)
         try:
-            found = os.stat(path)
+            found = media_io.bounded(key, os.stat, path)
+        except TimeoutError:
+            raise self._offline(asset.id, raw) from None
         except (OSError, ValueError):
             found = None
         if found is not None and S_ISREG(found.st_mode):
             return path, found
-        matched = _case_insensitive_match(str(path.parent), path.name)
+        try:
+            matched = media_io.bounded(key, _case_insensitive_match, str(path.parent), path.name)
+        except TimeoutError:
+            raise self._offline(asset.id, raw) from None
         if matched is not None:
             return path.parent / matched, None
         self._raise_unavailable(asset.id, raw, thumbnail)
+
+    def _normalized(self, asset_id: int, raw: str, thumbnail: bool) -> Path:
+        """请求路径的本机绝对路径；POSIX 上 `resolve()` 要问盘，带期限。"""
+        try:
+            return bounded_normalized_path(raw)
+        except TimeoutError:
+            raise self._offline(asset_id, raw if not thumbnail else "") from None
+
+    def _offline(self, asset_id: int, raw: str) -> MediaOffline:
+        source, root_id = "", ""
+        if raw and is_windows_path(raw):
+            source = PureWindowsPath(raw).drive
+            from . import media_identity, settings_file
+            root_id = media_identity.ownership(settings_file.active(), raw).get("root_id", "")
+        error = MediaOffline(asset_id, source)
+        error.root_id = root_id
+        return error
 
     def _raise_unavailable(self, asset_id: int, raw: str, thumbnail: bool) -> None:
         """来源盘整体不可达时报 MediaOffline，单个文件缺失仍报 MediaUnavailable。"""
         if not thumbnail and is_windows_path(raw):
             translated = translate_ledger_path(raw)
-            source = PureWindowsPath(raw).drive
-            from . import media_identity, settings_file
-            root_id = media_identity.ownership(settings_file.active(), raw).get("root_id", "")
-            def offline():
-                error = MediaOffline(asset_id, source)
-                error.root_id = root_id
-                return error
             if is_unmapped(translated):
-                raise offline()
-            candidate = normalized_path(raw)
+                raise self._offline(asset_id, raw)
+            from . import media_io
+            candidate = self._normalized(asset_id, raw, thumbnail)
             for root in self.allowed_roots:
                 if within_root(candidate, root):
-                    if not root_online(root):
-                        raise offline()
+                    try:
+                        online = media_io.bounded(media_io.mount_key(root), root_online, root)
+                    except TimeoutError:
+                        online = False
+                    if not online:
+                        raise self._offline(asset_id, raw)
                     break
         raise MediaUnavailable(asset_id)
 
-    def source_status(self) -> tuple[dict[str, object], ...]:
-        """当前授权根的在线状态；脱盘模式的判据只有这一份。"""
-        return tuple(
-            {"root": str(root), "online": root_online(root)} for root in self.allowed_roots
-        )
+
+def absolute_path(path):
+    """不碰盘的绝对路径：SMB 资源原样，账本路径先翻译成本机路径。"""
+    from .smb_media import resolve
+    remote = resolve(path)
+    if remote is not None:
+        return remote
+    return Path(os.path.abspath(os.fspath(translate_ledger_path(path))))
 
 
 class MediaEngine:

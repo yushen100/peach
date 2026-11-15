@@ -10,7 +10,7 @@ import time
 from collections import OrderedDict
 from pathlib import Path
 
-from . import timeline_sheets, timeline_sources
+from . import media_io, timeline_sheets, timeline_sources
 from .coded_text import coded
 from .config import FFMPEG_DIR, STATE_DIR
 from .ffmpeg import FFmpegResolver
@@ -44,10 +44,11 @@ def write_mode(mode: str, path: Path | None = None) -> None:
 
 
 def q_media_processing(contract, _args):
-    from .media_processing_policy import acceleration
+    from .media_processing_policy import acceleration, playback_max_height
     return {'metadata_only': metadata_only(contract.follow_state_root),
             'preview_acceleration': acceleration(contract.follow_state_root, purpose='preview'),
-            'playback_acceleration': acceleration(contract.follow_state_root)}
+            'playback_acceleration': acceleration(contract.follow_state_root),
+            'playback_max_height': playback_max_height(contract.follow_state_root)}
 
 
 def w_media_processing(contract, body):
@@ -129,15 +130,25 @@ def external_timeline(contract, asset_id: int) -> timeline_sources.Timeline | No
         return None
     raw, duration = str(row[0]), float(row[1] or 0)
 
+    def pair():
+        from .media import normalized_path
+        source = normalized_path(raw)
+        # SMB 来源没有本机目录可列，旁边的预览文件读不到。
+        return timeline_sources.discover(source, duration) if isinstance(source, Path) else None
+
     def read():
+        from .media import absolute_path
         try:
-            from .media import normalized_path
-            source = normalized_path(raw)
-            # SMB 来源没有本机目录可列，旁边的预览文件读不到。
-            return timeline_sources.discover(source, duration) if isinstance(source, Path) else None
+            return media_io.bounded(media_io.mount_key(absolute_path(raw)), pair)
+        except TimeoutError:
+            # 网盘答不上不记进缓存：记了这段时间里就一直当作没有预览。
+            raise
         except (OSError, TypeError, ValueError):
             return None
-    result = _SIDECARS.get((asset_id, raw, duration), read)
+    try:
+        result = _SIDECARS.get((asset_id, raw, duration), read)
+    except TimeoutError:
+        return None
     return result if isinstance(result, timeline_sources.Timeline) else None
 
 
@@ -147,7 +158,11 @@ def external_frame(contract, timeline: timeline_sources.Timeline, number: int) -
         return None
     frame = timeline.frames[number]
     key = (str(frame.path), frame.start, frame.box, frame.bif_number)
-    return _FRAMES.get(key, lambda: timeline_sources.frame_bytes(timeline, number))
+    try:
+        return _FRAMES.get(key, lambda: media_io.bounded(
+            media_io.mount_key(frame.path), timeline_sources.frame_bytes, timeline, number))
+    except TimeoutError:
+        return None
 
 
 def q_thumbnail_jobs(contract, _args):

@@ -6,6 +6,7 @@
 import { act } from 'react';
 import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, expect, it, vi } from 'vitest';
+import * as legacyUi from '@peach/legacy/ui';
 
 import { queryClient } from '../../src/react/query';
 import {
@@ -25,6 +26,18 @@ afterEach(() => queryClient.clear());
 /* Query 派发更新用的是它自己抓住的那个真 `setTimeout(0)`，假时钟推不动它：推完时钟
    断言到的还是上一帧的 DOM。用例里改成当场派发。 */
 notifyManager.setScheduler((notify) => notify());
+
+type Confirmation = Parameters<typeof legacyUi.confirmModal>[0];
+
+/** 批量判定先弹确认：这里替人点主按钮，记下弹窗写了什么。 */
+function acceptConfirm() {
+  const asked: Confirmation[] = [];
+  vi.spyOn(legacyUi, 'confirmModal').mockImplementation((async (options: Confirmation) => {
+    asked.push(options);
+    return { confirmed: true, result: await options.onConfirm?.() };
+  }) as typeof legacyUi.confirmModal);
+  return asked;
+}
 
 const candidate = (source: string, value: string): ReviewCandidate =>
   ({ candidate_key: `${source}:${value}`, source, display_value: value });
@@ -288,7 +301,8 @@ it('服务端拒绝这次判定时说出原因，那一行留在屏幕上', asyn
   expect(queueOf().sections.metadata_fields).toHaveLength(QUEUE.length);
 });
 
-it('批量判定把成功的摘掉，没写成的留下来等重试', async () => {
+it('批量判定先确认，成功的摘掉，没写成的留下来等重试', async () => {
+  const asked = acceptConfirm();
   const { host, props } = await open({
     decisions: [{ ok: true }, { ok: false, error: '来源已失效' }, { ok: true }],
   });
@@ -299,6 +313,8 @@ it('批量判定把成功的摘掉，没写成的留下来等重试', async () =
     .toEqual(['忽略所选', '稍后处理所选', '通过所选', '取消选择']);
   await click(buttonIn(host, '通过所选'));
   await settle();
+  // 通过写进真相字段，撤不回：弹窗写明，回执不带撤销。
+  expect(asked[0]?.body).toBe('将通过选中的 3 项，按所选来源写入资料。不能撤销。');
   expect(props.toast).toHaveBeenCalledWith('已通过 2 项，1 项未完成');
   expect(queueOf().sections.metadata_fields).toHaveLength(QUEUE.length - 2);
   expect(keys(host)).toEqual(['row-101']);
@@ -329,6 +345,7 @@ it('逐项通过使用同资产最近一次批准的版本，已过期的候选�
 });
 
 it('批量通过逐条沿用服务端版本回执，并保留其他写入造成的冲突', async () => {
+  acceptConfirm();
   const { host, fetcher } = await open({
     data: review({ sections: { metadata_fields: sameAssetRows() } }),
     decisions: [receipt(1, 4), receipt(4, 5), { ok: false, error: '资产资料已更改' }],
@@ -439,14 +456,16 @@ it('批量状态移动只采用成功项，失败行和其他类别保持不变'
 });
 
 it('批量稍后处理失败的行留在待处理，成功行进入独立队列', async () => {
+  acceptConfirm();
   const rows = [row(0, ['nfo']), row(1, ['nfo']), row(2, ['nfo'])];
-  const { host } = await open({
+  const { host, props } = await open({
     data: review({ sections: { metadata_fields: rows }, counts: { metadata_fields: 3 } }),
     decisions: [{ ok: true }, { ok: false, error: '候选已变更' }, { ok: true }],
   });
   await click(buttonIn(host, '全选本页'));
   await click(buttonIn(host, '稍后处理所选'));
   await settle();
+  expect(props.toast).toHaveBeenCalledWith('已移至稍后处理 2 项，1 项未完成', { undo: expect.any(Function) });
   expect(keys(host)).toEqual(['row-1']);
   expect(cards(host)[0]?.textContent).toContain('候选已变更');
   expect(queueOf().counts.metadata_fields).toBe(1);

@@ -237,6 +237,37 @@ class TaskRunStoreTests(unittest.TestCase):
             self.assertFalse(self.store.progress(run.id, current=3, throttle=0))
         self.assertTrue(self.store.progress(run.id, current=3, throttle=0))
 
+    def test_a_stuck_writer_in_the_same_process_fails_other_writes_instead_of_freezing_them(self):
+        import threading
+        from peach.task_retry import transient_delay
+        from peach.user_messages import UserFacingError
+        run = self.store.start("demo", trigger="manual")
+        holding, release = threading.Event(), threading.Event()
+
+        def stuck():
+            with self.database.write_transaction(notify=False):
+                holding.set()
+                release.wait(10)
+
+        holder = threading.Thread(target=stuck, name="stuck-writer")
+        holder.start()
+        self.addCleanup(holder.join, 10)
+        self.addCleanup(release.set)
+        self.assertTrue(holding.wait(10))
+        with mock.patch("peach.repository.WRITE_LOCK_SECONDS", 0.05), \
+                self.assertLogs("peach.repository", "WARNING") as logs, \
+                self.assertRaises(sqlite3.OperationalError) as caught:
+            with self.database.write_transaction() as connection:
+                connection.execute("UPDATE task_run SET progress_current=9 WHERE id=?", (run.id,))
+        self.assertIn("stuck-writer", logs.output[0])
+        # 超时发生在拿连接之前，这次写入一行都没有落；错误给人看得懂，重试分类按暂时故障处理。
+        self.assertIsInstance(caught.exception, UserFacingError)
+        self.assertEqual(caught.exception.code, "errors.ledger.writeBusy")
+        self.assertEqual(transient_delay(caught.exception), 0.0)
+        release.set()
+        holder.join(10)
+        self.assertNotEqual(self.store.get(run.id).progress_current, 9)
+
     def test_finish_retries_a_locked_ledger_and_then_lands(self):
         run = self.store.start("demo", trigger="manual", mutex_key="demo")
         real = self.store._update_active

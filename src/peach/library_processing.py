@@ -380,10 +380,16 @@ class CoverKept(NotFound):
 
 
 def cover_settled(path):
-    """网络封面按 1600px 判断高清；用户提供的本地图片和 FC2 商品图保留尺寸门槛。"""
+    """网络封面按 1600px 判断高清；用户提供的本地图片和 FC2 商品图保留尺寸门槛。
+
+    编辑资料里换上的封面一律算定稿（ADR-0165）：后台不再为它去找更好的。
+    """
     size = measure_image_file(path)
     if size is None:
         return False
+    from .cover_artwork import is_user_cover
+    if is_user_cover(Path(path)):
+        return True
     try:
         evidence = json.loads(Path(path).with_suffix('.scraping.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
@@ -975,6 +981,7 @@ def _processing_lock(config, *, background, active):
             raise
         finally:
             lock.release()
+            _processing_released()
         return
     with _waiting_guard:
         _waiting_foreground += 1
@@ -994,6 +1001,13 @@ def _processing_lock(config, *, background, active):
     finally:
         with _waiting_guard:
             _waiting_foreground -= 1
+        _processing_released()
+
+
+def _processing_released() -> None:
+    """锁放开或前台处理结束：叫醒因 `ProcessingBusy` 让路的后继通道，不让它们定时来问。"""
+    from .followups import deferrals_changed
+    deferrals_changed()
 
 
 def issues_path(config, job_id):

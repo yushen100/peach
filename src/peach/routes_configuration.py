@@ -836,6 +836,28 @@ def restore_ledger(request: Request, body: dict[str, Any] = Body(default_factory
         raise HTTPException(409, error_detail(exc)) from exc
 
 
+@router.get("/api/configuration/retention")
+def read_retention(request: Request, _args=Depends(require_auth)):
+    """「保留期限」：写入前自动备份留几份、日志留多少天，存在本机状态目录。"""
+    from . import retention_settings
+    local_only(request)
+    return retention_settings.read(_storage_config().directory("state"))
+
+
+@router.post("/api/configuration/retention")
+def save_retention(request: Request, body: dict[str, Any] = Body(default_factory=dict),
+                   _args=Depends(require_auth)):
+    from . import retention_settings
+    local_only(request)
+    same_origin(request)
+    try:
+        return retention_settings.save(_storage_config().directory("state"), body)
+    except Timeout as exc:
+        raise HTTPException(409, message_fields("api.configuration.retentionBusy")) from exc
+    except ValueError as exc:
+        raise HTTPException(400, error_detail(exc)) from exc
+
+
 @router.get("/api/configuration/updates")
 def check_updates(request: Request, _args=Depends(require_auth)):
     local_only(request)

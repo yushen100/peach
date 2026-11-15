@@ -38,6 +38,13 @@ REVISION = f'{CATALOG_REVISION}:text-{upgrade_rules.PROVIDER_TEXT}'
 RETRY_BASE_SECONDS = 600
 RETRY_CAP_SECONDS = 86400
 MAX_AUTO_RETRIES = 5
+#: 派发线程的兜底复查。派出的后继跑完会回调叫醒、重派排在最早的 `retry_at`；文件换过、
+#: 种子包更新、延后来源的费用设置改了这些没有本进程通知，靠它补上。
+IDLE_RECHECK_SECONDS = 20 * 60
+#: 两轮派发之间至少隔这么久：后继接连跑完时攒成一轮，不一条一轮。
+ACTIVE_GAP_SECONDS = 30.0
+#: 回执锁被占、更新闸门忙或派发出错时，隔这么久再试。
+BUSY_RETRY_SECONDS = 60.0
 #: 挂载不可达、来源冷却时这部片延后多久再派；不算失败，不计次数。
 MOUNT_RETRY_SECONDS = 1800
 COOLDOWN_RETRY_SECONDS = 3600
@@ -861,6 +868,10 @@ class UpgradeRepairs:
         self.stopping = threading.Event()
         self.root = Path(contract.follow_state_root) / 'upgrade-repairs'
         self.scheduler = BackgroundScheduler(timezone='UTC', daemon=True)
+        self._wake = threading.Event()
+        #: 回执队列里派出、还没结算的后继任务 id；其中一条跑完就叫醒派发线程。
+        self._watched: frozenset[int] = frozenset()
+        self._listening = False
         #: 上一次判过「种子包不用派」时的指纹（`_seed_fingerprint`）；没变就不再整包读、算摘要。
         self._quiet_seed = None
 
@@ -1789,48 +1800,92 @@ class UpgradeRepairs:
         receipt['deferred'] = deferred
         return planned[:MAX_FOLLOWUPS]
 
-    def tick(self) -> None:
+    def tick(self) -> float | None:
+        """结算跑完的后继并派出到期的补修。
+
+        返回距最早一条自动重派的秒数；没有可等的时刻时返回 None，等派出的后继跑完回调或兜底复查。
+        """
         if not self.available or not self.receipt.is_file():
-            return
+            return None
         try:
             with FileLock(str(self.receipt) + '.lock', timeout=0):
                 receipt = _read(self.receipt)
-                settled_rows = self._settle_queue(receipt)
-                if settled_rows is not None:
-                    self._save_receipt(receipt, [('settle', settled_rows)])
-                if receipt.get('dispatch_complete'):
-                    with self.contract.database.read_connection() as connection:
-                        seed = self._seed_pending(connection)
-                    if (not receipt.get('deferred') and not self._display_due(receipt) and not self._retry_due()
-                            and not any(row.key not in receipt.get('queued', {}) for row in seed)):
-                        return
-                    receipt['dispatch_complete'] = False
-                # 影片补全只有一条通道、一次一条；不等前面那批跑下去就每分钟再派一批，
-                # 整个库会在一两个小时里全堆进队列，任务中心满屏都是「已处理 0 / 64」。
-                # 配额按片数算：处理规则的补全合批派出（`BATCH_SIZE`），排着的最多 64 部。
-                available = MAX_FOLLOWUPS - self._media_backlog()
-                media = not receipt.get('media_paused') and available > 0
-                planned = self._plan(receipt, media=media, media_limit=max(0, available))
-                if not planned and not media:
-                    return
-                dispatched = []
-                if not planned:
-                    receipt['dispatch_complete'] = True
-                else:
-                    dispatched = self._dispatch(planned, receipt)
-                    if dispatched is None:
-                        return
-                self._save_receipt(receipt, [('dispatch', dispatched)])
-                self.error, self.error_phrase = '', ''
-            self.contract.followups.wake()
+                try:
+                    dispatched = self._dispatch_round(receipt)
+                finally:
+                    self._watched = frozenset(int(run_id) for run_id in receipt.get('queued', {}).values())
+            if dispatched:
+                self.contract.followups.wake()
+            return self._next_retry()
         except Timeout:
-            return
+            return BUSY_RETRY_SECONDS
         except UpdateBusy:
-            # 装更新或闸门正忙：这一轮不派，下一分钟再看，不算派发失败。
-            return
+            # 装更新或闸门正忙：这一轮不派，过一会儿再看，不算派发失败。
+            return BUSY_RETRY_SECONDS
         except Exception as exc:
             self.error, self.error_phrase = str(exc), nested_message(exc)
             LOGGER.exception('Upgrade repair dispatch failed')
+            return BUSY_RETRY_SECONDS
+
+    def _dispatch_round(self, receipt) -> bool:
+        """持回执锁做一轮结算与派发；存了回执、要叫醒后继通道时返回 True。"""
+        settled_rows = self._settle_queue(receipt)
+        if settled_rows is not None:
+            self._save_receipt(receipt, [('settle', settled_rows)])
+        if receipt.get('dispatch_complete'):
+            with self.contract.database.read_connection() as connection:
+                seed = self._seed_pending(connection)
+            if (not receipt.get('deferred') and not self._display_due(receipt) and not self._retry_due()
+                    and not any(row.key not in receipt.get('queued', {}) for row in seed)):
+                return False
+            receipt['dispatch_complete'] = False
+        # 影片补全只有一条通道、一次一条；不等前面那批跑下去就每分钟再派一批，
+        # 整个库会在一两个小时里全堆进队列，任务中心满屏都是「已处理 0 / 64」。
+        # 配额按片数算：处理规则的补全合批派出（`BATCH_SIZE`），排着的最多 64 部。
+        available = MAX_FOLLOWUPS - self._media_backlog()
+        media = not receipt.get('media_paused') and available > 0
+        planned = self._plan(receipt, media=media, media_limit=max(0, available))
+        if not planned and not media:
+            return False
+        dispatched = []
+        if not planned:
+            receipt['dispatch_complete'] = True
+        else:
+            dispatched = self._dispatch(planned, receipt)
+            if dispatched is None:
+                return False
+        self._save_receipt(receipt, [('dispatch', dispatched)])
+        self.error, self.error_phrase = '', ''
+        return True
+
+    def _next_retry(self) -> float | None:
+        """距下一条自动重派（`retry_at` 还没到的失败与延后）的秒数；没有时返回 None。
+
+        已过 `retry_at` 却没派出的行是被配额或暂停挡着，等后继跑完的回调，不按它定时。
+        """
+        now = time.time()
+        with self.contract.database.read_connection() as connection:
+            row = connection.execute(
+                "SELECT min(item.retry_at) FROM ledger_upgrade_item item JOIN asset ON asset.id=item.asset_id "
+                "WHERE item.state IN ('failed','deferred') AND item.retry_at>? AND asset.disposal IS NULL",
+                (now,)).fetchone()
+        return None if row is None or row[0] is None else float(row[0]) - now
+
+    def _followup_finished(self, run) -> None:
+        """后继通道的回调：本回执派出的那一批里有一条跑完了，叫醒派发线程结算、补派。"""
+        if run.id in self._watched:
+            self._wake.set()
+
+    def _run(self) -> None:
+        while not self.stopping.is_set():
+            # 先清再算：这一轮期间跑完的后继会让下面的等待立即返回。
+            self._wake.clear()
+            started = time.monotonic()
+            delay = self.tick()
+            self._wake.wait(IDLE_RECHECK_SECONDS if delay is None else min(delay, IDLE_RECHECK_SECONDS))
+            rest = ACTIVE_GAP_SECONDS - (time.monotonic() - started)
+            if rest > 0:
+                self.stopping.wait(rest)
 
     def _settle_queue(self, receipt) -> list[dict] | None:
         """已结束的影片补全移出回执队列，结论记进状态表；没有要结算的返回 None。
@@ -2044,10 +2099,12 @@ class UpgradeRepairs:
 
     def start(self) -> None:
         if self.available and not self.scheduler.running:
-            # 首轮由调度器立即跑，不挡服务启动：同步跑完首轮才返回，HTTPS 要晚一分钟才监听。
-            from datetime import datetime, timezone
-            self.scheduler.add_job(self.tick, 'interval', seconds=60, max_instances=1, coalesce=True,
-                                   next_run_time=datetime.now(timezone.utc))
+            on_finished = getattr(self.contract.followups, 'on_finished', None)
+            if not self._listening and on_finished is not None:
+                on_finished(self._followup_finished)
+                self._listening = True
+            # 派发线程由调度器起，首轮立即跑、不挡服务启动：同步跑完首轮才返回，HTTPS 要晚一分钟才监听。
+            self.scheduler.add_job(self._run, max_instances=1)
             self.scheduler.add_job(self._settle_verification, max_instances=1)
             self.scheduler.add_job(self._settle_spaced_performers, max_instances=1)
             self.scheduler.add_job(self._settle_enhancement_names, max_instances=1)
@@ -2060,6 +2117,7 @@ class UpgradeRepairs:
 
     def stop(self) -> None:
         self.stopping.set()
+        self._wake.set()
         if self.scheduler.running:
             self.scheduler.shutdown(wait=True)
         if self.available:

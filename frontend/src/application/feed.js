@@ -7,7 +7,8 @@ import { javTitleHtml } from '../core/jav-title';
 import { COVER_FRONT_RATIO } from './../appearance/layout';
 import { catalogState } from './catalog.js';
 import { feedNewSkeletonHtml } from '../feed-new-skeleton';
-import { managedTaken, openManagedRoute, updateManagedRoute } from './../history/managed';
+import { managedTaken, openManagedRoute, releaseManagedRoute, updateManagedRoute } from './../history/managed';
+import { appSettingsStore } from './../appearance/settings';
 import { noteHtml, stopAutoScroll, wireAutoScroll } from '../ui-kit';
 import { preferencesState, wireDrag } from './preferences.js';
 import { pushEntityPage } from './entity.js';
@@ -114,7 +115,8 @@ export function wireFeedNewRow(row){
   if(preferencesState.appSettings.feedAutoScroll)wireAutoScroll(row);
 }
 
-export function isFeedNewPath(path){return isCatalogPath(path)&&path!=='/junk-files'}
+/* 首页这一行在不在场：设置里关掉「在首页显示新作」就哪条目录路径上都没有它，骨架也不铺。人物页那一行另走资料页。 */
+export function isFeedNewPath(path){return appSettingsStore().value.feedNewRows!==false&&isCatalogPath(path)&&path!=='/junk-files'}
 
 
 export function renderHomeFeed(){
@@ -130,6 +132,13 @@ export function clearHomeFeed(){
   const host=$('#feedNew');
   host.querySelectorAll('.feednewrow').forEach(stopAutoScroll);
   host.hidden=true;
+}
+
+/* 设置里切了「在首页显示新作」：关掉就把画着的那一行连同它的查询一起卸掉，之后不再取数；打开时人正在目录上就当场画。 */
+export function syncHomeFeedSetting(folders){
+  const host=$('#feedNew');
+  if(appSettingsStore().value.feedNewRows===false){releaseManagedRoute(host);clearHomeFeed();return}
+  if(isFeedNewPath(location.pathname)&&!folders)renderHomeFeed();
 }
 
 export function refreshFeedRows(){

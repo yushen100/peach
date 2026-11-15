@@ -9,6 +9,7 @@ import threading
 import time
 import os
 from peach import dev_copy
+from support.processes import finishes_within, grandchild_alive, hanging_program, kill_grandchild
 
 
 class DevCopyTests(unittest.TestCase):
@@ -100,7 +101,7 @@ class DevCopyTests(unittest.TestCase):
             served = root / 'web/dist/peach-app.js'
             served.write_text('有效产物', encoding='utf-8')
             candidate, = dev_copy.candidates(root, '说明')
-            with patch('peach.dev_copy_runtime.subprocess.run', return_value=CompletedProcess([], 1, '', '语法错误')):
+            with patch('peach.dev_copy_runtime.process_job.run', return_value=CompletedProcess([], 1, '', '语法错误')):
                 result = runtime.submit(root, {'original': '说明', 'replacement': '新说明', 'candidate': candidate})
                 self._wait_for_state(runtime, root, 'error')
             self.assertEqual(served.read_text(encoding='utf-8'), '有效产物')
@@ -166,7 +167,7 @@ class DevCopyTests(unittest.TestCase):
                     (stage / name).write_text('有效产物', encoding='utf-8')
                 self.assertEqual((root / 'web/dist/peach-app.js').read_text(encoding='utf-8'), '现有产物')
                 return CompletedProcess(argv, 0, stdout='构建完成', stderr='')
-            with patch('peach.dev_copy_runtime.subprocess.run', side_effect=build):
+            with patch('peach.dev_copy_runtime.process_job.run', side_effect=build):
                 dev_copy_runtime.build_frontend(root)
             self.assertEqual((root / 'web/dist/peach-app.js').read_text(encoding='utf-8'), '有效产物')
 
@@ -185,12 +186,32 @@ class DevCopyTests(unittest.TestCase):
                     (stage / name).write_text(name, encoding='utf-8')
                 (stage / 'peach-app.stats-page-New11111.js.map').write_text('{}', encoding='utf-8')
                 return CompletedProcess(argv, 0, stdout='构建完成', stderr='')
-            with patch('peach.dev_copy_runtime.subprocess.run', side_effect=build):
+            with patch('peach.dev_copy_runtime.process_job.run', side_effect=build):
                 dev_copy_runtime.build_frontend(root)
             self.assertEqual(sorted(path.name for path in dist.iterdir()),
                              sorted([*dev_copy_runtime.BUNDLES, 'peach-app.stats-page-New11111.js']))
             self.assertEqual((dist / 'peach-app.stats-page-New11111.js').read_text(encoding='utf-8'),
                              'peach-app.stats-page-New11111.js')
+
+    def test_a_build_that_never_returns_is_stopped_and_keeps_the_served_files(self):
+        """npm 再起 node 占着输出管道：到期收掉整棵进程树，按构建失败报，现有产物不动。"""
+        from peach import dev_copy_runtime
+        from peach.user_messages import UserValueError
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as programs:
+            root, programs = Path(tmp).resolve(), Path(programs)
+            self.addCleanup(kill_grandchild, programs)
+            (root / 'web/dist').mkdir(parents=True)
+            (root / 'web/dist/peach-app.js').write_text('现有产物', encoding='utf-8')
+            npm = hanging_program(programs)
+            with patch('peach.dev_copy_runtime.shutil.which', return_value=str(npm)), \
+                    patch.object(dev_copy_runtime, 'BUILD_SECONDS', 2):
+                with self.assertRaisesRegex(UserValueError, 'timed out after 2s'):
+                    finishes_within(lambda: dev_copy_runtime.build_frontend(root), 30)
+            self.assertEqual((root / 'web/dist/peach-app.js').read_text(encoding='utf-8'), '现有产物')
+            deadline = time.monotonic() + 10
+            while grandchild_alive(programs) and time.monotonic() < deadline:
+                time.sleep(0.1)
+            self.assertFalse(grandchild_alive(programs), '构建进程树还活着')
 
     def test_processing_template_keeps_live_values_and_validates_placeholders(self):
         with tempfile.TemporaryDirectory() as tmp:

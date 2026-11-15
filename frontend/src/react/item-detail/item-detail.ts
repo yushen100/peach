@@ -9,6 +9,7 @@
 import type { QueryKey } from '@tanstack/react-query';
 import { esc, foldName } from '@peach/legacy/core';
 import { mixLabel, type FaceRef } from '@peach/card-art';
+import type { AfterPlayback } from '@peach/appearance';
 
 import { apiGet } from '../../api';
 import type { MediaCardActions, MediaCardHelpers, MediaCardLayout, MediaItem } from '../catalog-grid/types';
@@ -31,6 +32,8 @@ export interface DetailEntityRef extends FaceRef {
   logo_version?: string;
   /** 厂牌是某家片商旗下的 label 时（ADR-0049），从近到远的上级片商链。 */
   makers?: DetailEntityRef[];
+  /** 用户在编辑资料里新建的档案（ADR-0165），名字旁带一枚小标记。 */
+  user_created?: boolean;
 }
 
 /** 卡片条目里声明过的那些字段。`MediaItem` 带着 `[field: string]: unknown`，直接 `Omit` 会把
@@ -67,6 +70,8 @@ export interface DetailItem extends Omit<CardFields, 'tags'> {
   tags?: DetailTag[];
   entity_refs?: Partial<Record<'performer' | 'studio' | 'creator' | 'series', DetailEntityRef[]>>;
   sample_images?: { n: number }[];
+  /** 现在这张封面是编辑资料里换上的（ADR-0165）。 */
+  cover_user?: boolean;
 }
 
 /** 卷标：数字、字母卷标原样给；FC2 的本篇与特典是服务端按 zh-CN 写好的原文，旁边带 code 与参数。 */
@@ -113,7 +118,6 @@ export const ITEM_URL = (id: number) => `/api/item?id=${id}`;
 export const RELATED_URL = (id: number, limit: number) => `/api/related?id=${id}&limit=${limit}`;
 export const PLAYLIST_URL = '/api/playlist';
 export const FEEDBACK_URL = '/api/feedback';
-export const ITEM_TAG_URL = '/api/item-tag';
 export const WATCH_LATER_URL = '/api/watch-later';
 export const QUALITY_GOAL_URL = '/api/quality-goal';
 export const PREFERENCE_URL = '/api/preference';
@@ -191,6 +195,23 @@ export function nextPart(queue: DetailQueue | null, id: number): QueueItem | nul
   const next = queue.items[index + 1];
   if (!current?.part_label || !next?.part_label) return null;
   return queue.kind === 'parts' || (current.version_id != null && current.version_id === next.version_id) ? next : null;
+}
+
+/** 一条播完之后接哪一条，按「播完之后」那一项。分卷不看这一项，总是接同一版本的下一卷；
+ *  播放列表与 Mix 队列按顺序、列表循环或随机接，已消失的条目跳过。返回当前这一条表示从头再播一遍，
+ *  null 表示停下。单片循环由播放器自己循环，到不了这里。 */
+export function queueNext(queue: DetailQueue | null, id: number, mode: AfterPlayback,
+  random: () => number = Math.random): QueueItem | null {
+  const part = nextPart(queue, id);
+  if (part) return part;
+  if (!queue || (queue.kind !== 'playlist' && queue.kind !== 'mix') || mode === 'stop' || mode === 'repeat-one') return null;
+  const items = queue.items.filter((item) => !isVanished(item));
+  if (mode === 'shuffle') {
+    const others = items.filter((item) => item.id !== id);
+    return others.length ? others[Math.floor(random() * others.length)]! : null;
+  }
+  const next = items[items.findIndex((item) => item.id === id) + 1];
+  return next ?? (mode === 'repeat-all' ? items[0] ?? null : null);
 }
 
 /** 首屏：先定队列（这一下要不要重取由壳说），再定停在哪一条，最后取那一条。要转走的几种情形
@@ -398,12 +419,6 @@ export function detailTags(item: DetailItem, helpers: Pick<ItemDetailHelpers, 't
   });
   return [...byDisplay.values()].slice(0, 40);
 }
-
-export const hasTag = (item: DetailItem, tag: string) => (item.tags || []).some((own) => foldName(own.k) === foldName(tag));
-export const withoutTag = (item: DetailItem, tag: string): DetailItem =>
-  ({ ...item, tags: (item.tags || []).filter((own) => foldName(own.k) !== foldName(tag)) });
-export const withTag = (item: DetailItem, tag: DetailTag): DetailItem =>
-  (hasTag(item, tag.k) ? item : { ...item, tags: [...(item.tags || []), tag] });
 
 const RECENT_TAGS = 'peach.recentTags';
 export function recentTags(): string[] {

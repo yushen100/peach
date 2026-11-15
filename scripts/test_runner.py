@@ -59,7 +59,7 @@ SCOPES: dict[str, tuple[str, ...]] = {
                "test_complexity_ratchet.py", "test_source_assertion_ratchet.py", "test_python_lint.py"),
     "follow": ("test_follow*.py", "test_http.py", "test_migrations.py", "test_wants_web.py"),
     "catalog": ("test_ad_judgement.py", "test_composite_name_split.py", "test_media_libraries.py", "test_media_folders.py",
-                "test_content_region.py", "test_performer_delete.py",
+                "test_content_region.py", "test_performer_delete.py", "test_entity_batch.py",
                 "test_duplicate_identity_merge.py",
                 "test_entity_classification.py", "test_company_profiles.py", "test_fc2_sellers.py",
                 "test_entity_merge.py", "test_entity_redirect.py", "test_fastapi_api.py", "test_field_owners.py",

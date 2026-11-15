@@ -57,6 +57,8 @@ export interface AccessSettingsProps {
   devices?(state: AccessState): import('react').ReactNode;
   /** 不论访问方式都跟在后面的分区（访问口令）；确认文案随当前访问方式变。 */
   after?(state: AccessState): import('react').ReactNode;
+  /** 保存成功后报新的访问状态：远程访问卡按它判断能不能开。 */
+  onSaved?(state: AccessState): void;
 }
 
 export interface StartupState {
@@ -334,17 +336,14 @@ export interface ReleaseState {
   steps?: { id?: string; text: string; command: string }[];
   /** Docker 镜像检查到新镜像时才有：能否经 Watchtower 一键更新（ADR-0140），不能时 `reason` 说明为什么。 */
   one_click?: { available: boolean; reason: string; reason_code?: string; reason_params?: Record<string, unknown> };
-  /** 有新版本时，本机之后每一版 GitHub Release 的更新说明，新的在前；`en` 与 `zh-CN` 两份按界面语言取。 */
+  /** 有新版本时，本机之后每一版 GitHub Release 的重点，新的在前；`en` 与 `zh-CN` 两份按界面语言取。 */
   notes?: ReleaseNotes[];
 }
 
-/** 一种语言的更新说明：开头的说明段与各分组；条目的 `text` 里反引号包住的是代码。 */
-export interface ReleaseNotesPart {
-  lead: string[];
-  groups: { title: string; items: { area: string; text: string }[] }[];
-}
+/** 一条重点：`text` 里反引号包住的是代码，`#123`、`owner/repo#123` 是 issue 或 PR 编号。 */
+export interface ReleaseHighlight { title: string; text: string }
 
-export interface ReleaseNotes { version: string; url: string; en: ReleaseNotesPart; 'zh-CN': ReleaseNotesPart }
+export interface ReleaseNotes { version: string; url: string; en: ReleaseHighlight[]; 'zh-CN': ReleaseHighlight[] }
 
 export interface UpdateJob {
   state: string; progress: number; message?: string; downloaded?: number; total?: number; version?: string;
@@ -502,7 +501,7 @@ export interface FollowManageProps {
   /** 偏好改了：存储归壳（`appSettings`），页面不自己写一份。 */
   savePreference(patch: { pageSize?: number; layout?: string }): void;
   /** 写操作在服务端落地之后的过去时回执。 */
-  toast(message: string): void;
+  toast(message: string, options?: { undo?: () => Promise<void> }): void;
   /** 去「看更新」那一页（`/follow`）。整页换成哪一屏仍归遗留壳。 */
   openFollow(): void;
   /** 数据库只读：这台机器只能浏览，写操作全部不给点。 */
@@ -529,8 +528,8 @@ export interface ReviewProps {
   openEntity(kind: string, name: string): void;
   /** 在资源管理器里显示这个文件。成功由遗留层自己发回执，失败回一句原因。 */
   revealSource(id: number): Promise<string>;
-  /** 写操作在服务端落地之后的过去时回执。 */
-  toast(message: string): void;
+  /** 写操作在服务端落地之后的过去时回执；给了 `undo` 就带一颗撤销键。 */
+  toast(message: string, options?: { undo?: () => Promise<void> }): void;
   /** 数据库只读：这台机器只能浏览，判定与收录全部不给点，进页面也不发那一次自动落库。 */
   readOnly: boolean;
   readOnlyMessage: string;
@@ -581,7 +580,7 @@ export type DataCleanupSection = 'review' | 'quality' | 'duplicates' | 'ads' | '
 export interface DataCleanupProps {
   navigate(path: string): void;
   /** 操作回执（遗留层 `actionReceipt`）。`warning` 是做完了但有一部分要留意，走警告音效。 */
-  toast(message: string, options?: { warning?: boolean }): void;
+  toast(message: string, options?: { warning?: boolean; undo?: () => Promise<void> }): void;
   /** 失败回执（遗留层 `actionFailure`）：`action` 是没做成的那件事。 */
   failure(action: string, error: unknown): void;
   /** 点一张读数卡：换到那一页。 */

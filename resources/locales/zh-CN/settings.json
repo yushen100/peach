@@ -239,7 +239,7 @@
     "backupProgress": "备份进度",
     "count": "共 {{count, number}} 份可恢复的备份",
     "empty": "还没有备份",
-    "help": "账本保存全部资料、观看记录与复核结论。手动和写入前的自动备份保留最近 5 份及 24 小时内的。",
+    "help": "账本保存全部资料、观看记录与复核结论；自动备份留几份见下方「保留期限」。",
     "jobIncomplete": "任务没有完成",
     "loading": "正在读取备份列表",
     "manual": "手动",
@@ -405,16 +405,14 @@
     "avatarRefresh": "每 3 个月",
     "checking": "正在检查来源更新",
     "consecutiveFailures": "已连续失败 {{count, number}} 次",
-    "everyHours": "每 {{count, number}} 小时",
-    "everyMinutes": "每 {{count, number}} 分钟",
     "faviconRefresh": "每年",
-    "feedOff": "已关闭",
+    "feedScheduleHelp": "每个订阅源按这个间隔拉取新作，「想要」也在这一轮里查资源",
+    "feedScheduleInterval": "订阅源拉取间隔",
     "fetchingFeeds": "正在拉取订阅源",
     "initialRangeSaved": "已保存首次采集范围",
     "invalidInterval": "请输入 15–10080 的整数（分钟）。",
     "lastCheckFailed": "上次自动检查失败",
     "lastFetchFailed": "上次自动拉取失败",
-    "loadingFeedInterval": "正在读取订阅源拉取间隔",
     "nextRun": "下一轮 {{time}}",
     "primaryOnly": "只在写入端可用",
     "retryFailed": "没有重试：{{error}}"
@@ -648,6 +646,7 @@
     "mode": "处理方式",
     "modeLabel": "{{name}} 处理方式",
     "notIncluded": "不做",
+    "previewsOff": "已关闭视频预览生成，九宫格这一步不会执行。",
     "step": "步骤",
     "stepAvatars": "联网补人物图片",
     "stepContactSheet": "生成九宫格预览",
@@ -743,6 +742,7 @@
     "unitEntries": "条",
     "unitItems": "个",
     "unitMinutes": "分钟",
+    "unitPercent": "%",
     "unitSeconds": "秒",
     "unitVideos": "部"
   },
@@ -789,7 +789,18 @@
     "waiting": "等待登录",
     "waitingBrowser": "等你在浏览器窗口里登录 PikPak"
   },
+  "playbackEnd": {
+    "next": "顺序播放",
+    "repeatAll": "列表循环",
+    "repeatOne": "单片循环",
+    "restart": "片尾从头播",
+    "restartHelp": "离片尾不到这个比例，下次打开从头播。",
+    "shuffle": "随机播放",
+    "stop": "停下",
+    "title": "播完之后"
+  },
   "playbackTranscode": {
+    "qualitySaved": "已保存画质上限",
     "saved": "已保存转码方式",
     "software": "软件编解码"
   },
@@ -798,15 +809,21 @@
     "batchSize": "每批加载作品",
     "batchSizeInput": "每批作品",
     "close": "关闭设置",
+    "completionPrompt": "缺图补全提示",
     "defaultImage": "默认图片",
     "defaultSort": "默认排序",
     "defaultSortDirection": "默认排序方向",
     "detailAutoplay": "打开详情自动播放",
     "feedLimit": "显示数量",
     "feedLimitInput": "新作显示数量",
+    "feedNewRows": "首页与人物页显示新作",
     "groupEditions": "合并分卷与版本",
+    "homeShorts": "首页竖屏短片带",
+    "homeTiers": "首页显示女优与厂牌头像",
     "hoverDelay": "悬停预览延迟",
+    "hoverDelaySfw": "SFW 模式下不预览。",
     "increaseContrast": "增加对比度",
+    "ingestNotices": "入库通知",
     "interfaceSounds": "界面音效",
     "miniPlayer": "离开详情后小窗播放",
     "navCaption": "设置",
@@ -820,6 +837,7 @@
     "relatedLimit": "相关推荐数量",
     "searchHistoryInput": "搜索记录",
     "searchHistoryLimit": "搜索记录数量",
+    "searchRecommendations": "空搜索时显示推荐",
     "sectionsLabel": "设置分区",
     "seekStep": "快进 / 快退步长",
     "seekStepInput": "快进 / 快退",
@@ -836,6 +854,7 @@
   "pushDiscovery": {
     "addPrefix": "添加前缀",
     "cloudPrefixes": "云端路径前缀",
+    "cloudPrefixesHelp": "云通知和云下载都按这张表把网盘路径对应到媒体目录。",
     "configCopied": "已复制 CloudDrive2 配置",
     "configLabel": "CloudDrive2 配置",
     "copyConfig": "复制配置",
@@ -860,7 +879,7 @@
   "releaseUpdates": {
     "appAndTools": "应用与工具",
     "appUpdatePackage": "应用更新包",
-    "changelogTitle": "{{versions}} 更新内容",
+    "changelogTitle": "{{versions}} 更新重点",
     "channel": "更新通道",
     "check": "检查更新",
     "checkDone": "检查完成",
@@ -871,6 +890,7 @@
     "dockerUpdateBody": "Watchtower 会拉取 Peach {{version}} 的镜像并重建容器，/data 数据卷保留，进行中的任务在启动后续跑。",
     "downloadAndInstall": "下载并安装",
     "downloadNewVersion": "下载新版本",
+    "highlightTitle": "{{title}}：",
     "includesMediaTools": "本次更新包含媒体工具。",
     "installAfterRestart": "Peach {{version}} 将在重启后安装。",
     "installation": "安装方式",
@@ -930,6 +950,17 @@
     "preRepairBackup": "修复前的账本备份",
     "queued": "等待执行",
     "reclaimable": "可回收 {{size}}"
+  },
+  "retention": {
+    "backups": "账本自动备份",
+    "backupsHelp": "写入前留下的整库备份保留最近几份，24 小时内的都留。",
+    "copies": "{{count, number}} 份",
+    "days": "{{count, number}} 天",
+    "halfYear": "半年",
+    "logs": "日志",
+    "logsHelp": "多久没再写入的日志会被删除。",
+    "oneYear": "1 年",
+    "title": "保留期限"
   },
   "runtimeInfo": {
     "logDirectory": "日志目录",
@@ -1183,6 +1214,10 @@
   "transcoding": {
     "mode": "转码方式",
     "modeHelp": "用于播放时的视频转码。",
+    "original": "原画",
+    "quality": "画质上限",
+    "qualityHeight": "{{height}}p",
+    "qualityHelp": "只管需要重新编码的片子，网络慢时调低。",
     "title": "视频播放"
   },
   "uninstall": {
@@ -1246,5 +1281,16 @@
   },
   "videoProcessing": {
     "autoHardwareFirst": "自动（硬件优先）"
+  },
+  "wantSearch": {
+    "attempts": "{{count, number}} 次",
+    "daily": "每天",
+    "everyDays": "每 {{count, number}} 天",
+    "giveUp": "查不到就放弃",
+    "giveUpHelp": "老片连续这么多次没查到就暂时放弃，可在清单上重新查。",
+    "interval": "老片再查间隔",
+    "intervalHelp": "发售超过 90 天、上次没查到的作品隔多久再查。",
+    "never": "一直查",
+    "title": "想要查资源"
   }
 }

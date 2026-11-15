@@ -203,11 +203,12 @@ def index_scope(connection, kind: str) -> str:
     return "e.kind='" + kind + "'"
 
 
-def counts(connection, kind, query, visible_clause):
-    """对搜索范围中的有效实体独立计数，不受所选分类及分页限制。"""
+def counts(connection, kind, query, visible_clause, entity_clause='1'):
+    """对搜索范围中的有效实体独立计数，不受所选分类及分页限制。`entity_clause` 是名册
+    另外排除的那部分（从名册隐藏的），分类计数和列出来的格数要对得上。"""
     predicates = category_predicates(connection=connection)
     sql = ('SELECT ' + ','.join(f'COALESCE(SUM(({value})),0)' for value in predicates.values()) + ' '
-           'FROM entity e WHERE ' + index_scope(connection, kind) + ' AND EXISTS ('
+           'FROM entity e WHERE ' + index_scope(connection, kind) + ' AND ' + entity_clause + ' AND EXISTS ('
            'SELECT 1 FROM asset_entity ae CROSS JOIN asset a ON a.id=ae.asset_id '
            'WHERE ae.entity_id=e.id AND ' + visible_clause + ') ')
     params = []

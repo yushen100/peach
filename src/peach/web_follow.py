@@ -26,6 +26,7 @@ from . import avatar_face, follow_assets, follow_creators, follow_providers, int
 from .follow import FollowSourceError
 from .follow_faces import annotate_group
 from .follow_check import plan_check, run_check
+from .follow_scheduler import CHECK_WAIT_SECONDS
 from .follow_covers import fanbox_video_indexes
 from .web_settings import follow_initial_days
 from .follow_discovery import (
@@ -2126,16 +2127,30 @@ def w_follow_tag(contract, body) -> dict:
 
 
 def w_follow_status(contract, body) -> dict:
+    """改条目状态，回执带上每一条原来的状态（`previous`），撤销时原样带回来写回去。"""
     item_ids = _write_item_ids(body)
+    restore = body.get("previous")
     status = str(body.get("to") or "")
+    marks = ",".join("?" * len(item_ids))
     with contract.database.write_transaction() as connection:
         store = _store(contract, connection)
+        before = {str(row[0]): row[1] for row in connection.execute(
+            f"SELECT id,status FROM follow_item WHERE id IN ({marks})", item_ids)}
+        if restore is not None:
+            # 撤销：只写回这一批交回来的原状态，`saved` 也照原样，不经 `save_asset`。
+            if not isinstance(restore, dict) or {int(key) for key in restore} - set(item_ids):
+                raise ValueError("previous must map this batch's items to their earlier status")
+            for key, value in restore.items():
+                if value not in ("new", "seen", "saved", "ignored"):
+                    raise ValueError(f"unknown follow status: {value}")
+                connection.execute("UPDATE follow_item SET status=? WHERE id=?", (value, int(key)))
+            return {"ok": True, "items": item_ids, "previous": before}
         for item_id in item_ids:
             store.set_status(item_id, status)
         if status == "ignored":
             # 忽略与「想要」互斥：忽略了的条目撤掉还没入库的想要。
             wants.drop_follow_items(connection, item_ids)
-    result = {"ok": True, "items": item_ids, "status": status}
+    result = {"ok": True, "items": item_ids, "status": status, "previous": before}
     if len(item_ids) == 1:
         result["item"] = item_ids[0]
     return result
@@ -2282,7 +2297,10 @@ def w_follow_check(contract, body) -> dict:
         return started
     if started["request_id"] != request_id:
         return {"ok": False, "busy": True, "checked": 0, "results": []}
-    finished.wait()
+    if not finished.wait(CHECK_WAIT_SECONDS):
+        # 这一轮到期还没跑完，多半在任务中心被暂停了：先回现状（`status` 仍是 running），
+        # 这一轮照常跑完、记在任务中心。定时那一跳不能一直等，否则之后每一跳都被跳过。
+        return contract.follow_job.snapshot() or started
     # `finished` 只说正文跑完了；线程回到 `BackgroundJob` 之后还要给这一轮结算。
     # 同步调用等它落完再回话：否则端点已经答复而账本还在写，紧跟着读活动页会看到
     # 一轮停在「进行中」的检查，关停时也会误判成被打断。

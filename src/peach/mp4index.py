@@ -156,12 +156,26 @@ def _read_moov(handle, limit: int) -> bytes | None:
         offset += size
 
 
+#: 读一份 `moov` 最多等这么久。要从网盘读几 MB，比单次 stat 的期限宽。
+MOOV_READ_TIMEOUT = 30.0
+
+
 def _moov_of(path: Path | str, probe_bytes: int) -> bytes | None:
-    try:
-        from .smb_media import resolve
-        remote = resolve(path)
+    """读文件头里的 `moov`；读不出或网盘在期限内答不上都是 None。
+
+    起播判定在请求里调这里，读取经 `media_io.bounded` 带期限，按「读文件头」单独分组，
+    读得慢只拖住同一挂载上的其它文件头读取，不连带播放与缩略图。
+    """
+    from . import media_io
+    from .smb_media import resolve
+    remote = resolve(path)
+
+    def read():
         with (remote.open() if remote is not None else open(path, "rb")) as handle:
             return _read_moov(handle, probe_bytes)
+    try:
+        return media_io.bounded(("mp4-header", media_io.mount_key(remote or path)), read,
+                                timeout=MOOV_READ_TIMEOUT)
     except OSError:
         return None
 

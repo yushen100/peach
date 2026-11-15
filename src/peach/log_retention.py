@@ -1,11 +1,13 @@
-"""`<Peach 数据目录>/logs` 里的日志统一保留半年，大小不设限。
+"""`<Peach 数据目录>/logs` 里的日志默认保留半年，大小不设限。
+
+保留天数在 Peach 配置里能改，存在本机的 `retention_settings`；调用方读出来传给 `sweep`。
 
 托盘子服务、首次扫描和源码同步都把 stdout 直接追加进各自的 `.log`，不经 `logging`，
 所以 `RotatingFileHandler` 用不上；这里只看文件本身的修改时间：
 
-- 半年没再写过的文件整份删掉——它里面没有一行是半年内的。
+- 超过保留期没再写过的文件整份删掉——它里面没有一行是保留期内的。
 - 还在写的文件按自然月切段：托盘启动时发现上次写入落在更早的月份，就把它改名成
-  `<名字>.until-<最后写入日期>.log`，下一次写入从空文件开始。切下来的段再等半年被第一条
+  `<名字>.until-<最后写入日期>.log`，下一次写入从空文件开始。切下来的段再过保留期被第一条
   规则收走。
 
 只用修改时间，不用创建时间：Windows 上追加写的文件 `st_ctime` 是创建时间，macOS 是
@@ -21,7 +23,7 @@ from pathlib import Path
 
 __all__ = ["RETENTION", "idle_process_log", "sweep"]
 
-#: 半年。
+#: 默认保留期，约半年。
 RETENTION = timedelta(days=183)
 
 #: 切下来的段名里的标记；带它的文件不再二次切段。
@@ -69,7 +71,8 @@ def _remove_idle_process_logs(log_dir: Path, alive) -> list[str]:
     return actions
 
 
-def sweep(log_dir: Path, *, now: datetime | None = None, alive=_pid_alive) -> list[str]:
+def sweep(log_dir: Path, *, now: datetime | None = None, alive=_pid_alive,
+          retention: timedelta = RETENTION) -> list[str]:
     """按上面两条规则整理一个日志目录，返回做过的事（供日志与测试）。先收走空进程日志。"""
     if not log_dir.is_dir():
         return []
@@ -80,7 +83,7 @@ def sweep(log_dir: Path, *, now: datetime | None = None, alive=_pid_alive) -> li
             modified = datetime.fromtimestamp(path.stat().st_mtime)
         except OSError:
             continue
-        if moment - modified > RETENTION:
+        if moment - modified > retention:
             try:
                 path.unlink()
             except OSError as error:

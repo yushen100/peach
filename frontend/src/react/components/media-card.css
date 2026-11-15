@@ -131,6 +131,17 @@ body[data-surface="/trash"] .peach-react [data-media-card] [data-media-meta] {
   padding: 10px 12px 12px;
 }
 body[data-surface="/trash"] .peach-react [data-media-card] [data-media-title] { min-height: 2.7em; align-content: start; }
+/* 回收站的紧凑档：列宽收窄、标题一行，署名、标签与归入原因照留（回收站里归入原因是要看的）。
+ * 元信息区的估高按少掉的那一行标题同步减，屏外卡与骨架仍用这份预算。 */
+body[data-density="dense"][data-surface="/trash"] .peach-react [data-media-grid] {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
+  gap: 14px;
+}
+body[data-density="dense"][data-surface="/trash"] .peach-react [data-media-card] [data-media-meta] {
+  --card-meta-block: calc(var(--fs-md) * 1.35 + 3px + var(--card-meta-byline) + var(--card-meta-tags) + 23px);
+}
+body[data-density="dense"][data-surface="/trash"] .peach-react [data-media-card] [data-media-title] { min-height: 1.35em; }
+body[data-density="dense"][data-surface="/trash"] .peach-react [data-media-card] [data-media-title-text] { max-height: 1.35em; -webkit-line-clamp: 1; }
 body[data-surface="/trash"] .peach-react [data-media-card] [data-media-text] { gap: 3px; }
 body[data-surface="/trash"] .peach-react [data-media-text] > [data-media-tags] { margin-top: 0; }
 body[data-surface="/trash"] .peach-react button[data-media-title] {
@@ -440,7 +451,16 @@ body:not([data-surface="/trash"]) .peach-react [data-media-card]:not([data-follo
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-.peach-react [data-media-check] svg { width: 16px; height: 16px; }
+/* 勾在作品卡以外（照片墙、名册格）也用同一副线稿。 */
+.peach-react [data-media-check] svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .peach-react [data-media-trash-mark] svg { width: 14px; height: 14px; }
 
 /* ── 悬停工具 ──
@@ -540,7 +560,7 @@ body:not([data-surface="/trash"]) .peach-react [data-media-card]:not([data-follo
   overflow: hidden;
   border: 0;
   border-radius: 50%;
-  background: var(--sunk);
+  background: var(--media-placeholder);
   color: inherit;
   cursor: pointer;
 }

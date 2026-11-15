@@ -55,6 +55,23 @@ class CertificateTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'test failure'):
                 certs._openssl('version')
 
+    def test_openssl_never_waits_on_a_prompt_or_forever(self):
+        """不给输入时 stdin 是 DEVNULL，要口令的提示立刻读到 EOF；卡住到期按失败报。"""
+        from peach import certs
+        result = subprocess.CompletedProcess(['openssl'], 0, 'ok', '')
+        with mock.patch.object(certs.subprocess, 'run', return_value=result) as run:
+            certs._openssl('version')
+        self.assertIs(run.call_args.kwargs['stdin'], subprocess.DEVNULL)
+        self.assertEqual(run.call_args.kwargs['timeout'], certs.OPENSSL_SECONDS)
+        with mock.patch.object(certs.subprocess, 'run', return_value=result) as run:
+            certs._openssl('x509', stdin=b'pem')
+        self.assertIsNone(run.call_args.kwargs['stdin'])
+        self.assertEqual(run.call_args.kwargs['input'], b'pem')
+        hung = subprocess.TimeoutExpired(['openssl'], certs.OPENSSL_SECONDS)
+        with mock.patch.object(certs.subprocess, 'run', side_effect=hung):
+            with self.assertRaisesRegex(RuntimeError, 'timed out'):
+                certs._openssl('version')
+
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.tls = (Path(self._tmp.name) / "tls").resolve()

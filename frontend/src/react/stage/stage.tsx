@@ -146,6 +146,9 @@ function StageDialog({ view: current }: { view: View }) {
       onKeyDown={(event) => {
         /* 里层弹层（标签搜索框、右键菜单）先处理 Escape 并 `preventDefault`，这一下就不再关浮窗。 */
         if (event.key !== 'Escape' || event.defaultPrevented) return;
+        /* React 事件按组件树冒泡：详情里开出、挂在 body 的模态框（编辑资料）按 Escape 也会冒到这里，
+           那一下归浏览器关那一层，舞台不接。 */
+        if (!event.currentTarget.contains(event.target as Node)) return;
         event.preventDefault();
         requestEscape();
       }}

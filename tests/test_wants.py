@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import importlib.util
 import io
+import json
 import sqlite3
 import tempfile
 import unittest
@@ -287,6 +288,33 @@ class SearchStateTests(WantFixture):
         with closing(sqlite3.connect(self.db)) as connection:
             due = wants.due_targets(connection, now=now, today=TODAY)
         self.assertEqual([target.id for target in due], [never, fresh_yesterday, old_last_week, failed])
+
+    def test_stored_cadence_changes_spacing_and_give_up_count(self):
+        def configure(connection):
+            changed = connection.execute(
+                "UPDATE profile SET settings_json=? WHERE id='local-default'",
+                (json.dumps({"wantStaleSearchDays": 3, "wantStaleAttemptLimit": 0}),)).rowcount
+            self.assertEqual(changed, 1)
+        self.write(configure)
+        now = datetime(2026, 10, 1, 12, tzinfo=timezone.utc)
+        recent, older = self.want("ABP-130", "2025-01-01"), self.want("ABP-131", "2025-01-01")
+        for want_id, days in ((recent, 2), (older, 3)):
+            self.write(lambda connection, want_id=want_id, days=days: connection.execute(
+                "UPDATE want_item SET last_search_at=?,last_search_outcome='none' WHERE id=?",
+                (wants.stamp(now - timedelta(days=days)), want_id)))
+        with closing(sqlite3.connect(self.db)) as connection:
+            self.assertEqual(wants.cadence(connection), wants.Cadence(timedelta(days=3), 0))
+            self.assertEqual([target.id for target in wants.due_targets(connection, now=now, today=TODAY)], [older])
+        self.assertEqual({self.record(recent, "none") for _ in range(12)}, {wants.SEARCHING})
+        self.assertEqual(self.query("SELECT state,search_count FROM want_item WHERE id=?", (recent,)),
+                         [("wanted", 12)])
+
+    def test_a_broken_stored_cadence_falls_back_to_the_defaults(self):
+        self.write(lambda connection: connection.execute(
+            "UPDATE profile SET settings_json=? WHERE id='local-default'",
+            (json.dumps({"wantStaleSearchDays": 2, "wantStaleAttemptLimit": True}),)))
+        with closing(sqlite3.connect(self.db)) as connection:
+            self.assertEqual(wants.cadence(connection), wants.Cadence())
 
     def test_the_list_carries_the_follow_provider(self):
         self.add_follow_item()

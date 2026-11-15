@@ -16,9 +16,11 @@ import { t } from '../i18n';
    返回值里的 `dialog` 交给调用方接自己的行事件，`done` 在弹层关掉时兑现。 */
 let formModalSeq=0;
 export function formModal({title,description='',body='',confirmLabel,cancelLabel=t('shell:shared.cancel'),
-                           onConfirm=null,confirmDisabled=false}:{
+                           onConfirm=null,confirmDisabled=false,backdropCloses=true}:{
   title?: string; description?: string; body?: string; confirmLabel?: string; cancelLabel?: string;
   onConfirm?: (()=>unknown)|null; confirmDisabled?: boolean;
+  /** 表单长、填了一半点空处就丢的，传 false：只有取消键和 Escape 关得掉。 */
+  backdropCloses?: boolean;
 }={}):{dialog:HTMLDialogElement;confirmButton:any;done:Promise<{confirmed:boolean;result?:unknown}>;close:()=>void}{
   const trigger=document.activeElement;
   const dialog=document.createElement('dialog');
@@ -51,7 +53,7 @@ export function formModal({title,description='',body='',confirmLabel,cancelLabel
   cancel.onclick=()=>{if(!busy)dialog.close()};
   dialog.addEventListener('cancel',event=>{if(busy)event.preventDefault()});
   // 遮罩上的点击落在 <dialog> 自己身上；这里没有不可逆的动作，允许点外面关掉。
-  dialog.addEventListener('click',event=>{if(event.target===dialog&&!busy)dialog.close()});
+  dialog.addEventListener('click',event=>{if(backdropCloses&&event.target===dialog&&!busy)dialog.close()});
   dialog.querySelector('form')!.onsubmit=async event=>{
     event.preventDefault();
     if(busy||accept.disabled)return;

@@ -145,8 +145,8 @@ const cleanupRoutes = CLEANUP_TOOLS.reduce((routes, tool) => {
     page: (_open: Record<string, never>, actions: ShellActions) => {
       const { DataCleanupToolPage } = dataCleanupPage.get();
       return <DataCleanupToolPage tool={tool.key} failure={actions.failure}
-        toast={(message, { warning = false } = {}) => (
-          warning ? actions.toast({ text: message }, { sound: 'warning' }) : actions.receipt(message))} />;
+        toast={(message, { warning = false, undo } = {}) => (
+          warning ? actions.toast({ text: message }, { sound: 'warning' }) : actions.receipt(message, undo ? { undo } : {}))} />;
     },
   };
   return routes;
@@ -159,7 +159,7 @@ export const MANAGED_ROUTES: ManagedRouteTable = {
     prefetch: (open, signal) => withPage(javPage, prefetchJav(open.tab, signal)),
     page: (open, actions) => {
       const { JavPage } = javPage.get();
-      return <JavPage {...open} navigate={actions.navigate} receipt={message => actions.receipt(message)} />;
+      return <JavPage {...open} navigate={actions.navigate} receipt={(message, { undo } = {}) => actions.receipt(message, undo ? { undo } : {})} />;
     },
   },
   '/stats': {
@@ -189,7 +189,7 @@ export const MANAGED_ROUTES: ManagedRouteTable = {
     page: (open, actions) => {
       const { ReviewPage } = reviewPage.get();
       return <ReviewPage {...open} route={actions.routeReview} openItem={actions.openItem} openEntity={actions.openEntity}
-        revealSource={actions.revealSource} toast={(message) => actions.receipt(message)} />;
+        revealSource={actions.revealSource} toast={(message, { undo } = {}) => actions.receipt(message, undo ? { undo } : {})} />;
     },
   },
   /* 首页只展开日常扫描；维护工具各自预取自己的二级页数据。 */
@@ -199,8 +199,8 @@ export const MANAGED_ROUTES: ManagedRouteTable = {
     page: (_open, actions, go) => {
       const { DataCleanupPage } = dataCleanupPage.get();
       return <DataCleanupPage navigate={go} failure={actions.failure} open={(section) => openCleanupSection(section, actions, go)}
-        toast={(message, { warning = false } = {}) => (
-          warning ? actions.toast({ text: message }, { sound: 'warning' }) : actions.receipt(message))} />;
+        toast={(message, { warning = false, undo } = {}) => (
+          warning ? actions.toast({ text: message }, { sound: 'warning' }) : actions.receipt(message, undo ? { undo } : {}))} />;
     },
   },
   '/duplicates': {
@@ -260,7 +260,7 @@ export const MANAGED_ROUTES: ManagedRouteTable = {
     page: (open, actions) => {
       const { FollowManagePage } = followManagePage.get();
       return <FollowManagePage {...open} route={actions.routeFollowManage} savePreference={actions.saveFollowPreference}
-        toast={(message) => actions.receipt(message)} openFollow={actions.openFollow} />;
+        toast={(message, { undo } = {}) => actions.receipt(message, undo ? { undo } : {})} openFollow={actions.openFollow} />;
     },
   },
 };

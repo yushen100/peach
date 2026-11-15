@@ -14,6 +14,7 @@ import { cardClass } from '../components/card';
 import { spriteGlyph } from '../components/sprite-glyph';
 import type { OnlineAuthor } from '../follow/online-vocab';
 import { ENTITY_KINDS, isCompany, personReadout, type IndexKind, type IndexPerson, type IndexProps, type PeopleLayout } from './index-data';
+import type { RosterPicks } from './roster-selection';
 import { serverLabels } from '../../core/server-text';
 import { t } from '../../i18n';
 
@@ -38,18 +39,21 @@ function Ring({ html, face, company, big }: { html: string; face?: string; compa
 const CELL = 'relative flex cursor-pointer flex-col gap-2 p-3 text-inherit';
 const Rss = spriteGlyph('rss');
 
+/* 多选模式下 `selected` 有值：点一格切换选中，勾的形状与作品卡同一副（`media-card.css` 的 `[data-media-check]`）。 */
 function Cell(
-  { name, readout, big, children, following, onPress, ...data }:
-  { name: string; readout: string; big: boolean; children: ReactNode; following?: boolean; onPress(): void }
+  { name, readout, big, children, following, selected, onPress, ...data }:
+  { name: string; readout: string; big: boolean; children: ReactNode; following?: boolean; selected?: boolean; onPress(): void }
     & Record<`data-${string}`, string>,
 ) {
   return (
     <button type="button" {...data} data-index-cell="" onClick={onPress}
+      aria-pressed={selected} data-selected={selected ? '' : undefined}
       className={cardClass({
         radius: 'plain', padding: 'none', interactive: true,
         className: `${CELL} ${big ? 'items-stretch text-left' : 'items-center text-center'}`,
       })}>
       {children}
+      {selected === undefined ? null : <span data-media-check="" aria-hidden><svg viewBox="0 0 24 24"><use href="#i-check" /></svg></span>}
       {following ? <span data-index-feed="" role="img" aria-label={t('catalog:entityHero.newReleasesOn')} className="index-feed-mark absolute top-4 right-4 z-2 inline-flex">
         <Chip variant="caption" color="soft"><Rss /></Chip>
       </span> : null}
@@ -61,10 +65,12 @@ function Cell(
 
 /** 本地名册。资料页的名册（事务所旗下艺人、片商旗下厂牌）摆的也是这一格，只借取图与去处两样。 */
 export function PeopleGrid(
-  { kind, items, layout, props }:
+  { kind, items, layout, props, picks }:
   {
     kind: Exclude<IndexKind, 'tags'>; items: IndexPerson[]; layout: PeopleLayout;
     props: Pick<IndexProps, 'personAvatar' | 'openEntity'>;
+    /** 多选模式下才有：点一格切换选中，不进资料页。 */
+    picks?: RosterPicks;
   },
 ) {
   const company = isCompany(kind) || kind === 'series';
@@ -72,13 +78,23 @@ export function PeopleGrid(
   const big = layout === 'big';
   return (
     <div data-index-grid="" data-layout={layout} data-cells={company ? 'company' : 'people'}
+      data-select-mode={picks ? '' : undefined}
       className={`${company ? 'index-grid-company' : 'index-grid-person'} gap-3`}>
       {items.map((item) => {
         const entityKind = item.entity_kind || ENTITY_KINDS[kind];
         const avatar = props.personAvatar(item, entityKind, big);
+        /* 读数一行：作品数、身份分类，编辑资料里新建的档案（ADR-0165）再接一个「自建」。 */
+        const readout = [
+          personReadout(kind, item),
+          ...(item.identity_labels?.length ? [serverLabels('identity.category', item.identity_categories, item.identity_labels).join(' / ')] : []),
+          ...(item.user_created ? [t('catalog:itemEdit.userCreated')] : []),
+        ].join(' · ');
         return (
-          <Cell key={`${entityKind}:${item.entity_id || item.k}`} data-k={item.k} data-kind={entityKind} name={entityDisplayName(entityKind, item.k, item.entity_id)} readout={`${personReadout(kind, item)}${item.identity_labels?.length ? ' · ' + serverLabels('identity.category', item.identity_categories, item.identity_labels).join(' / ') : ''}`}
-            big={big} following={item.following} onPress={() => props.openEntity(entityKind, item.k)}>
+          <Cell key={`${entityKind}:${item.entity_id || item.k}`} data-k={item.k} data-kind={entityKind} name={entityDisplayName(entityKind, item.k, item.entity_id)} readout={readout}
+            {...(item.user_created ? { 'data-user-created': '' } : {})}
+            big={big} following={item.following} selected={picks ? picks.picked.has(item.entity_id ?? item.id ?? 0) : undefined}
+            onPress={() => picks ? picks.toggle(item.entity_id ?? item.id ?? 0) : props.openEntity(entityKind, item.k)}>
+
             <Ring html={avatar.html} face={avatar.face} company={company} big={big} />
           </Cell>
         );
