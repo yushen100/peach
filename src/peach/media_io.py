@@ -53,7 +53,7 @@ def mount_key(path):
         pure = PureWindowsPath(text)
         return (pure.drive or pure.anchor or text).casefold()
     from pathlib import PurePosixPath
-    return '/'.join(PurePosixPath(text).parts[:3])
+    return str(PurePosixPath(*PurePosixPath(text).parts[:3]))
 
 
 def _release(key, box):
