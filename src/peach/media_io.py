@@ -1,4 +1,4 @@
-"""在可终止的只读子进程中访问媒体挂载；账本与任务状态由调用方保存。"""
+"""在可终止的子进程中访问媒体挂载；账本与任务状态由调用方保存。"""
 from __future__ import annotations
 
 import argparse
@@ -6,12 +6,14 @@ import base64
 import errno
 import json
 import os
+import pickle
 import stat
 from pathlib import Path
 import queue
 import subprocess
 import sys
 import threading
+import time
 from types import SimpleNamespace
 
 from .os_errors import CodedOSError, CodedTimeoutError
@@ -19,7 +21,7 @@ from .os_errors import CodedOSError, CodedTimeoutError
 #: 单项读取的期限。目录枚举按「多久没有新条目」计：挂死的挂载一条也不返回，到期判失败；
 #: 网络盘上的大目录逐条返回得慢，只要还在返回就不按总时长判死。
 TIMEOUT_SECONDS = 20.0
-OPERATIONS = ('directory', 'files', 'nfo', 'art', 'online', 'resolve', 'stat', 'browse')
+OPERATIONS = ('directory', 'files', 'nfo', 'art', 'online', 'resolve', 'stat', 'browse', 'serve')
 
 
 def _request(operation, path, *, value='', timeout=None):
@@ -255,12 +257,180 @@ def _read(operation, path, value):
     return _attributes(path.stat())
 
 
+
+class MountWorker:
+    """一个常驻子进程，按父进程一问一答逐条执行媒体盘上的操作（`SERVED`），每条带期限。
+
+    整理、片头修复一批要动几千个文件：每条起一个进程开销太大，放在本进程里做又会被挂死的
+    挂载一直卡住、取消也解不开。某一条超过期限没有回答，就结束这个子进程、这一条报超时，
+    下一条换一个新的子进程接着做。一问一答而不是整批交给子进程，是为了让调用方在两条
+    之间同步账本、检查取消：子进程不会跑在账本前面。
+    """
+
+    def __init__(self):
+        self._process = None
+        self._replies = None
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        self.close()
+
+    def _start(self):
+        if self._process is None:
+            command = ([sys.executable, 'media-read'] if getattr(sys, 'frozen', False)
+                       else [sys.executable, '-m', 'peach.media_io'])
+            try:
+                process = subprocess.Popen([*command, 'serve', '-'],
+                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                    creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+            except OSError as error:
+                raise CodedOSError(errno.EIO, 'errors.mediaIo.readerFailed') from error
+            replies = queue.SimpleQueue()
+
+            def pump():
+                try:
+                    for line in process.stdout:
+                        replies.put(line)
+                except (OSError, ValueError):
+                    pass
+                finally:
+                    replies.put(None)
+            threading.Thread(target=pump, name='PeachMountWorker', daemon=True).start()
+            self._process, self._replies = process, replies
+        return self._process, self._replies
+
+    def call(self, operation, *args, timeout=None, interruptible=False):
+        """执行一条操作并返回结果；操作自己抛的异常原样抛出。
+
+        `timeout` 按「多久没有回音」计，操作中途报进度会重新计时。`interruptible` 的操作
+        在等待期间响应任务的暂停与取消（取消时结束子进程）；改名这类做到一半不能丢下的
+        操作保持默认，取消在它答完之后生效。
+        """
+        limit = TIMEOUT_SECONDS if timeout is None else timeout
+        process, replies = self._start()
+        subject = str(args[0]) if args and isinstance(args[0], str) else None
+        try:
+            process.stdin.write((json.dumps({'op': operation, 'args': args}) + '\n').encode('utf-8'))
+            process.stdin.flush()
+        except OSError as error:
+            self.close()
+            raise CodedOSError(errno.EIO, 'errors.mediaIo.readerFailed', filename=subject) from error
+        deadline = time.monotonic() + limit
+        while True:
+            if interruptible:
+                from .task_control import checkpoint
+                paused = time.monotonic()
+                try:
+                    checkpoint(None)
+                except BaseException:
+                    self.close()
+                    raise
+                deadline += time.monotonic() - paused
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                self.close()
+                raise CodedTimeoutError(errno.ETIMEDOUT, 'errors.mediaIo.readTimedOut', filename=subject)
+            try:
+                line = replies.get(timeout=min(remaining, .2) if interruptible else remaining)
+            except queue.Empty:
+                continue
+            if line is None:
+                self.close()
+                raise CodedOSError(errno.EIO, 'errors.mediaIo.readerFailed', filename=subject)
+            message = json.loads(line)
+            if 'progress' in message:
+                deadline = time.monotonic() + limit
+                continue
+            if 'error' in message:
+                # 回答来自本进程刚起的子进程，异常按原类型还原。
+                raise pickle.loads(base64.b64decode(message['error']))
+            return message['value']
+
+    def close(self):
+        """结束子进程，不等它退出：卡在挂载上的进程可能要等那次读写返回才真正退出。"""
+        process, self._process, self._replies = self._process, None, None
+        if process is None:
+            return
+        try:
+            process.stdin.close()
+        except OSError:
+            pass
+        process.kill()
+        try:
+            process.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            pass
+
+
+def probe(paths):
+    """每个路径答 `[在不在, 是不是普通文件]`，口径同 `os.path.exists` 与 `os.path.isfile`。"""
+    return [[os.path.exists(path), os.path.isfile(path)] for path in paths]
+
+
+def move(source, target, case_only=False, rename=True):
+    """把 `source` 改名成 `target`：源不在答 `missing`，目标已被别的文件占着答 `taken`，改成了答 `ok`；
+    `rename` 为假时只判不改，可以改答 `ready`。
+
+    只改大小写时两个名字可能指向同一个文件，按 stat 的设备号与文件号判是不是同一个。
+    """
+    try:
+        source_stat = os.stat(source)
+    except FileNotFoundError:
+        return 'missing'
+    try:
+        target_stat = os.stat(target)
+    except FileNotFoundError:
+        target_stat = None
+    if target_stat is not None and not (case_only and (source_stat.st_dev, source_stat.st_ino)
+                                        == (target_stat.st_dev, target_stat.st_ino)):
+        return 'taken'
+    if not rename:
+        return 'ready'
+    Path(target).parent.mkdir(parents=True, exist_ok=True)
+    os.rename(source, target)
+    return 'ok'
+
+
+#: `MountWorker` 能执行的操作：名字 → (模块, 函数)，在子进程里用到时才导入。
+#: 带 `progress` 参数的操作中途报进度，父进程据此重新计时。
+SERVED = {
+    'probe': ('peach.media_io', 'probe'),
+    'move': ('peach.media_io', 'move'),
+}
+
+
+def _serve():
+    """`MountWorker` 的子进程一端：一行一条请求，一行一条回答；异常连同类型一起交回。"""
+    import importlib
+    import inspect
+    for line in sys.stdin:
+        request = json.loads(line)
+        module, name = SERVED[request['op']]
+        function = getattr(importlib.import_module(module), name)
+        options = ({'progress': lambda value: _emit({'progress': value})}
+                   if 'progress' in inspect.signature(function).parameters else {})
+        try:
+            reply = {'value': function(*request['args'], **options)}
+        except Exception as error:
+            reply = {'error': base64.b64encode(pickle.dumps(error)).decode('ascii')}
+        try:
+            _emit(reply)
+        except OSError:
+            # 父进程已超时离开、管道关闭时，结果没有读取方，不算故障。
+            return 0
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description='Read media directories and companion files with a time limit')
     parser.add_argument('operation', choices=OPERATIONS)
     parser.add_argument('path', type=Path)
     parser.add_argument('value', nargs='?', default='')
     args = parser.parse_args(argv)
+    if args.operation == 'serve':
+        return _serve()
     if args.operation == 'directory':
         return _stream_directory(args.path, args.value)
     try:
