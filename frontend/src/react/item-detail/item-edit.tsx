@@ -1,7 +1,7 @@
 /* 详情标题旁的「编辑资料」：一个弹层改完这部片的字段、归属和标签，点保存一次写进账本（ADR-0165）。
  *
  * 弹层沿用 `formModal`：遮罩、焦点、Escape 和失败时原因留在原位都由它给，这里只画字段。
- * 改了一半点空处不关（`backdropCloses: false`），丢掉的是用户刚敲的一整份。
+ * 没改动时点空处就关；改了一半点空处不关，丢掉的是用户刚敲的一整份。
  * 草稿只在本地：保存时与打开那一刻比出差异交给 `/api/item-edit`，带上打开时读到的版本，
  * 这期间后台改过这一部就整份拒收。 */
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
@@ -16,6 +16,9 @@ import { Input } from '@/components/base/input/input';
 import { Select, SelectItem } from '../components/select';
 import { DetailTags } from '../components/detail-tags';
 import { overlayHost } from '../components/overlay-host';
+import { ScrapeSourceLabel } from '../components/source-label';
+import { CollapseRegion } from '../components/collapse-region';
+import { useHorizontalScroller } from '../components/use-horizontal-scroller';
 import { composingKey } from '../components/ime';
 import { apiGet, apiSend, apiSendBytes } from '../../api';
 import { queryClient } from '../query';
@@ -32,7 +35,7 @@ type EntityKind = 'performer' | 'studio' | 'series';
 const REGIONS = ['', 'jp', 'kr', 'cn', 'west', 'other'] as const;
 
 export interface Choice { id: number | null; name: string; user_created?: boolean }
-interface FieldSource { owner: string; source: string; source_code?: string }
+interface FieldSource { owner: string; source: string; source_code?: string; site?: string }
 /** 封面这一项：不动、换成一张图（上传、播放器画面或样张）、换回刮削封面。 */
 export type CoverDraft = { kind: 'keep' } | { kind: 'image'; blob: Blob; url: string; origin: 'upload' | 'frame' | 'sample' } | { kind: 'restore' };
 interface Draft {
@@ -108,6 +111,13 @@ function sourceText(source: FieldSource | undefined): string {
   return name;
 }
 
+/** 控件下面那行来源：采集来的带站标与站名，其余（你改过、文件名）只有字。 */
+function sourceNote(source: FieldSource | undefined): ReactNode {
+  const text = sourceText(source);
+  if (!text) return null;
+  return source?.site && source.owner !== 'user' ? <ScrapeSourceLabel source={source.site} label={text} /> : text;
+}
+
 export function ItemEditButton({ item, helpers, onSaved }: {
   item: DetailItem; helpers: ItemDetailHelpers; onSaved(item: DetailItem): void;
 }) {
@@ -133,7 +143,8 @@ function ItemEditDialog({ item, helpers, close, onSaved }: {
   useEffect(() => {
     const { item: opened, close: done, onSaved: saved, before: start } = given.current;
     const dialog = formModal({
-      title: t('catalog:itemEdit.title'), confirmLabel: t('catalog:itemEdit.save'), backdropCloses: false,
+      title: t('catalog:itemEdit.title'), confirmLabel: t('catalog:itemEdit.save'), deferShow: true,
+      backdropCloses: () => draft.current.cover.kind === 'keep' && !editBody(opened, start, draft.current),
       body: '<div class="peach-react" data-item-edit-fields></div>',
       onConfirm: async () => {
         /* 封面先写：它不推这一部的版本号，后面字段那一份带的打开时版本仍然有效。封面写成、字段被拒时
@@ -158,6 +169,8 @@ function ItemEditDialog({ item, helpers, close, onSaved }: {
     });
     return () => dialog.close();
   }, []);
+  /* 表单整张渲染好再弹出：先弹出再渲染，那一下主线程卡住会把进场动效吃掉。 */
+  useEffect(() => { view?.dialog.show() }, [view]);
   /* 下拉、提示这些弹层挂进编辑框自己的 dialog：经 portal 挂过来的子树仍继承舞台那一层的容器，
      弹层会落进舞台，被压在这个后开的模态框底下，看起来就是一个空下拉。 */
   return view ? createPortal(<UNSAFE_PortalProvider getContainer={() => overlayHost(view.dialog.dialog)}>
@@ -178,16 +191,18 @@ function EditFields({ item, helpers, initial, update }: {
   const row = (key: string, label: string, control: ReactNode) => {
     const source = sources[key];
     const user = source?.owner === 'user';
+    const note = restoring(key) ? <>{t('catalog:itemEdit.restorePending')}
+      <Button variant="ghost" size="xs" data-edit-restore="" onClick={() => toggleRestore(key)}>{t('catalog:itemEdit.undoRestore')}</Button></>
+      : sourceNote(source) && <>{sourceNote(source)}{user ? <Button variant="ghost" size="xs" data-edit-restore="" title={t('catalog:itemEdit.restoreTip')}
+        onClick={() => toggleRestore(key)}>{t('catalog:itemEdit.restore')}</Button> : null}</>;
+    /* 来源写在控件下面一行，没有来源的字段不占位置：弹层不必为一列多半空着的来源留宽。 */
     return (
       <div data-edit-row={key} key={key}>
         <span data-edit-label="" id={`item-edit-${key}`}>{label}</span>
-        <div data-edit-control="">{control}</div>
-        <span data-edit-source="" data-owner={source?.owner || undefined}>
-          {restoring(key) ? <>{t('catalog:itemEdit.restorePending')}
-            <Button variant="ghost" size="small" data-edit-restore="" onClick={() => toggleRestore(key)}>{t('catalog:itemEdit.undoRestore')}</Button></>
-            : <>{sourceText(source)}{user ? <Button variant="ghost" size="small" data-edit-restore="" title={t('catalog:itemEdit.restoreTip')}
-              onClick={() => toggleRestore(key)}>{t('catalog:itemEdit.restore')}</Button> : null}</>}
-        </span>
+        <div data-edit-control="">
+          {control}
+          {note ? <span data-edit-source="" data-owner={source?.owner || undefined}>{note}</span> : null}
+        </div>
       </div>
     );
   };
@@ -197,9 +212,9 @@ function EditFields({ item, helpers, initial, update }: {
   const regionLabel = (value: string) => t(`server:labels.regions.${value || 'none'}`);
   return (
     <div data-item-edit="">
-      <CoverSection item={item} value={draft.cover} onChange={cover => set({ cover })} />
       <section data-edit-section="">
         <h4>{t('catalog:itemEdit.sectionBasic')}</h4>
+        <CoverRow item={item} value={draft.cover} onChange={cover => set({ cover })} />
         {text('code', t('catalog:itemEdit.fieldCode'), { maxLength: 80 })}
         {text('title', t('catalog:itemEdit.fieldTitle'))}
         {text('original_title', t('catalog:itemEdit.fieldOriginalTitle'))}
@@ -243,12 +258,15 @@ function playerFrame(): Promise<Blob> {
   return new Promise((resolve, reject) => canvas.toBlob(blob => (blob ? resolve(blob) : reject(new Error(t('catalog:itemEdit.coverNoFrame')))), 'image/jpeg', 0.95));
 }
 
-/* 封面：现在这张（或选好待保存的那张）的缩略图，旁边几种换法。选好只在本地预览，点保存才写。
+/* 封面是「基本」里的第一行，与下面的字段同一套两列：缩略图（或选好待保存的那张），状态与几种换法
+   贴着缩略图底边排。选好只在本地预览，点保存才写。
    换上的封面后台不再替换；「恢复刮削封面」放回第一次替换前的那张。 */
-function CoverSection({ item, value, onChange }: { item: DetailItem; value: CoverDraft; onChange(value: CoverDraft): void }) {
+function CoverRow({ item, value, onChange }: { item: DetailItem; value: CoverDraft; onChange(value: CoverDraft): void }) {
   const file = useRef<HTMLInputElement>(null);
   const [failure, setFailure] = useState('');
   const [picking, setPicking] = useState(false);
+  /* 样张一排：指针在上面时竖向滚轮也横着滚，两头有渐隐提示，与站内横向导航同一套。 */
+  const samplesRef = useHorizontalScroller<HTMLDivElement>();
   /* 账本里登记了样张、本机却没缓存到的那几张取图会失败：失败的格子直接收掉，不留空框。 */
   const [missing, setMissing] = useState<ReadonlySet<number>>(() => new Set());
   const samples = (item.sample_images || []).filter(sample => sample.n > 0);
@@ -270,37 +288,41 @@ function CoverSection({ item, value, onChange }: { item: DetailItem; value: Cove
     : value.kind === 'restore' ? t('catalog:itemEdit.coverRestorePending')
       : item.cover_user ? t('catalog:itemEdit.sourceUser') : item.has_cover ? '' : t('catalog:itemEdit.coverNone');
   return (
-    <section data-edit-section="" data-edit-cover="">
-      <h4>{t('catalog:itemEdit.sectionCover')}</h4>
-      <div data-cover-row="">
-        <span data-cover-preview="" data-empty={current ? undefined : ''} data-pending={value.kind === 'image' ? '' : undefined}>{current ? <img src={current} alt="" /> : <Glyph name="image-off" />}</span>
-        <div data-cover-actions="">
-          <div data-cover-buttons="">
-            <Button variant="secondary" size="small" data-cover-upload="" onClick={() => file.current?.click()}>{t('catalog:itemEdit.coverUpload')}</Button>
-            <Button variant="secondary" size="small" data-cover-frame="" onClick={() => {
-              playerFrame().then(blob => image(blob, 'frame'), error => setFailure(error instanceof Error ? error.message : String(error)));
-            }}>{t('catalog:itemEdit.coverFrame')}</Button>
-            {samples.length ? <Button variant="secondary" size="small" data-cover-samples="" aria-expanded={picking}
-              onClick={() => setPicking(!picking)}>{t('catalog:itemEdit.coverSample')}</Button> : null}
-            {item.cover_user && value.kind !== 'restore' ? <Button variant="ghost" size="small" data-cover-restore=""
-              onClick={() => { setFailure(''); onChange({ kind: 'restore' }) }}>{t('catalog:itemEdit.coverRestore')}</Button> : null}
-            {value.kind !== 'keep' ? <Button variant="ghost" size="small" data-cover-undo=""
-              onClick={() => { setFailure(''); onChange({ kind: 'keep' }) }}>{t('catalog:itemEdit.undoRestore')}</Button> : null}
+    <div data-edit-row="cover" data-edit-cover="">
+      <span data-edit-label="" id="item-edit-cover">{t('catalog:itemEdit.sectionCover')}</span>
+      <div data-edit-control="">
+        <div data-cover-row="">
+          <span data-cover-preview="" data-empty={current ? undefined : ''} data-pending={value.kind === 'image' ? '' : undefined}>{current ? <img src={current} alt="" /> : <Glyph name="image-off" />}</span>
+          <div data-cover-actions="">
+            <div data-cover-buttons="">
+              <Button variant="secondary" size="small" data-cover-upload="" onClick={() => file.current?.click()}>{t('catalog:itemEdit.coverUpload')}</Button>
+              <Button variant="secondary" size="small" data-cover-frame="" onClick={() => {
+                playerFrame().then(blob => image(blob, 'frame'), error => setFailure(error instanceof Error ? error.message : String(error)));
+              }}>{t('catalog:itemEdit.coverFrame')}</Button>
+              {samples.length ? <Button variant="secondary" size="small" data-cover-samples="" aria-expanded={picking}
+                onClick={() => setPicking(!picking)}>{t('catalog:itemEdit.coverSample')}</Button> : null}
+              {item.cover_user && value.kind !== 'restore' ? <Button variant="ghost" size="small" data-cover-restore=""
+                onClick={() => { setFailure(''); onChange({ kind: 'restore' }) }}>{t('catalog:itemEdit.coverRestore')}</Button> : null}
+              {value.kind !== 'keep' ? <Button variant="ghost" size="small" data-cover-undo=""
+                onClick={() => { setFailure(''); onChange({ kind: 'keep' }) }}>{t('catalog:itemEdit.undoRestore')}</Button> : null}
+            </div>
+            {state ? <span data-edit-source="" data-owner={item.cover_user && value.kind === 'keep' ? 'user' : undefined}>{state}</span> : null}
+            {failure ? <span data-cover-failure="" role="alert">{failure}</span> : null}
           </div>
-          <span data-edit-source="" data-owner={item.cover_user && value.kind === 'keep' ? 'user' : undefined}>{state}</span>
-          {failure ? <span data-cover-failure="" role="alert">{failure}</span> : null}
         </div>
+        {samples.length ? <CollapseRegion open={picking} data-cover-samples-region="">
+          {shownSamples.length ? <div ref={samplesRef} data-cover-samples-grid="">
+            {shownSamples.map(entry => <button type="button" key={entry.n} data-cover-sample={entry.n}
+              aria-label={t('catalog:detailMedia.sampleNumber', { number: entry.n })} onClick={() => void sample(entry.n)}>
+              <img src={`/sample-thumb?code=${encodeURIComponent(item.code || '')}&n=${entry.n}`} alt="" loading="lazy"
+                onError={() => setMissing(now => new Set([...now, entry.n]))} />
+            </button>)}
+          </div> : <span data-edit-source="">{t('catalog:catalogPicture.previewNotFound')}</span>}
+        </CollapseRegion> : null}
+        <input ref={file} type="file" accept="image/jpeg,image/png,image/webp" hidden data-cover-file=""
+          onChange={event => { const chosen = event.target.files?.[0]; event.target.value = ''; if (chosen) image(chosen, 'upload') }} />
       </div>
-      {picking ? shownSamples.length ? <div data-cover-samples-grid="">
-        {shownSamples.map(entry => <button type="button" key={entry.n} data-cover-sample={entry.n}
-          aria-label={t('catalog:detailMedia.sampleNumber', { number: entry.n })} onClick={() => void sample(entry.n)}>
-          <img src={`/sample-thumb?code=${encodeURIComponent(item.code || '')}&n=${entry.n}`} alt="" loading="lazy"
-            onError={() => setMissing(now => new Set([...now, entry.n]))} />
-        </button>)}
-      </div> : <span data-edit-source="">{t('catalog:catalogPicture.previewNotFound')}</span> : null}
-      <input ref={file} type="file" accept="image/jpeg,image/png,image/webp" hidden data-cover-file=""
-        onChange={event => { const chosen = event.target.files?.[0]; event.target.value = ''; if (chosen) image(chosen, 'upload') }} />
-    </section>
+    </div>
   );
 }
 

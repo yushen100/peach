@@ -16,12 +16,16 @@ import { t } from '../i18n';
    返回值里的 `dialog` 交给调用方接自己的行事件，`done` 在弹层关掉时兑现。 */
 let formModalSeq=0;
 export function formModal({title,description='',body='',confirmLabel,cancelLabel=t('shell:shared.cancel'),
-                           onConfirm=null,confirmDisabled=false,backdropCloses=true}:{
+                           onConfirm=null,confirmDisabled=false,backdropCloses=true,deferShow=false}:{
   title?: string; description?: string; body?: string; confirmLabel?: string; cancelLabel?: string;
   onConfirm?: (()=>unknown)|null; confirmDisabled?: boolean;
-  /** 表单长、填了一半点空处就丢的，传 false：只有取消键和 Escape 关得掉。 */
-  backdropCloses?: boolean;
-}={}):{dialog:HTMLDialogElement;confirmButton:any;done:Promise<{confirmed:boolean;result?:unknown}>;close:()=>void}{
+  /** 表单长、填了一半点空处就丢的，传 false：只有取消键和 Escape 关得掉；
+   *  传函数则每次点空处问一次（没改动才关）。 */
+  backdropCloses?: boolean|(()=>boolean);
+  /** 正文由调用方事后渲染（React 挂进 `fields`）的传 true，渲染好再调返回的 `show()`：
+   *  先弹出再渲染，那一下主线程卡住会把进场动效吃掉。 */
+  deferShow?: boolean;
+}={}):{dialog:HTMLDialogElement;confirmButton:any;done:Promise<{confirmed:boolean;result?:unknown}>;close:()=>void;show:()=>void}{
   const trigger=document.activeElement;
   const dialog=document.createElement('dialog');
   dialog.className='ui-geist-modal';
@@ -53,7 +57,10 @@ export function formModal({title,description='',body='',confirmLabel,cancelLabel
   cancel.onclick=()=>{if(!busy)dialog.close()};
   dialog.addEventListener('cancel',event=>{if(busy)event.preventDefault()});
   // 遮罩上的点击落在 <dialog> 自己身上；这里没有不可逆的动作，允许点外面关掉。
-  dialog.addEventListener('click',event=>{if(backdropCloses&&event.target===dialog&&!busy)dialog.close()});
+  dialog.addEventListener('click',event=>{
+    if(event.target!==dialog||busy)return;
+    if(typeof backdropCloses==='function'?backdropCloses():backdropCloses)dialog.close();
+  });
   dialog.querySelector('form')!.onsubmit=async event=>{
     event.preventDefault();
     if(busy||accept.disabled)return;
@@ -67,11 +74,17 @@ export function formModal({title,description='',body='',confirmLabel,cancelLabel
       setActionBusy(accept,false);
     }finally{busy=false}
   };
-  dialog.showModal();
-  attachOverlayScrollbar(dialog.querySelector<HTMLElement>('.ui-geist-modal-body'));
-  playUiSound('pop');
-  (dialog.querySelector<HTMLElement>('.ui-geist-modal-fields input:not([type="checkbox"])')||accept).focus();
-  return {dialog,confirmButton:accept,done,close:()=>dialog.close()};
+  let shown=false;
+  const show=()=>{
+    if(shown)return;shown=true;
+    dialog.showModal();
+    attachOverlayScrollbar(dialog.querySelector<HTMLElement>('.ui-geist-modal-body'));
+    playUiSound('pop');
+    (dialog.querySelector<HTMLElement>('.ui-geist-modal-fields input:not([type="checkbox"])')||accept).focus();
+  };
+  if(!deferShow)show();
+  // 还没弹出就被收回（调用方提前卸载）的那一份不会触发 close，直接拆掉。
+  return {dialog,confirmButton:accept,done,show,close:()=>{if(dialog.open)dialog.close();else if(!shown)dialog.remove()}};
 }
 
 /* Geist Modal：一次写操作落库前的确认。

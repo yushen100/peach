@@ -78,6 +78,15 @@ class ItemEditLedgerTests(unittest.TestCase):
         write_owned_fields(self.con, [1], {"catalog_title": "刮来的标题"}, auto_owner("r18dev"))
         self.assertEqual(self.con.execute("SELECT catalog_title FROM asset WHERE id=1").fetchone()[0], "刮来的标题")
 
+    def test_field_source_uses_the_registered_site_name_and_mark(self):
+        owners = json.dumps({"catalog_title": auto_owner("javdb"), "release_date": auto_owner("local_nfo"),
+                             "code": "scan:filename"})
+        sources = field_sources(owners)
+        self.assertEqual(sources["title"], {"owner": "auto", "source": "JavDB", "site": "javdb"})
+        self.assertNotIn("site", sources["release_date"])
+        self.assertIn("source_code", sources["release_date"])
+        self.assertEqual(sources["series"], {"owner": "", "source": ""})
+
     def test_a_stale_form_is_refused_before_anything_is_written(self):
         revision = self.con.execute("SELECT mutation_revision FROM asset WHERE id=1").fetchone()[0]
         self.edit({"expected_revision": revision, "fields": {"title": "第一次"}})

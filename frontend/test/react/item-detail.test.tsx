@@ -140,6 +140,40 @@ describe('标签身份', () => {
     expect(given.toast).toHaveBeenCalledWith('资料已保存');
     expect([...host.querySelectorAll('#detailTags [data-tag]')].map((node) => node.textContent)).toEqual(['高画质', '新标签']);
   });
+
+  it('编辑资料的来源写在控件下面，采集来的带站标；没有来源的字段不留这一行', async () => {
+    serve();
+    const { host } = await show(item(1, { field_sources: {
+      title: { owner: 'auto', source: 'JavDB', site: 'javdb' },
+      release_date: { owner: 'user', source: 'manual' },
+      code: { owner: '', source: '' },
+    } }));
+    await click(host.querySelector('[data-item-edit-open]'));
+    const dialog = document.querySelector<HTMLDialogElement>('dialog[data-item-edit-dialog]')!;
+    const note = (key: string) => dialog.querySelector(`[data-edit-row="${key}"] [data-edit-control] [data-edit-source]`);
+    expect(note('title')?.textContent).toBe('JavDB');
+    expect(note('title')?.querySelector('img')?.getAttribute('src')).toBe('/site-mark?source=javdb');
+    expect(note('release_date')?.textContent).toContain('你改过');
+    expect(note('release_date')?.querySelector('[data-edit-restore]')).not.toBeNull();
+    expect(note('code')).toBeNull();
+  });
+
+  it('编辑资料点空处：没改动就关，改了一半不关', async () => {
+    serve();
+    const { host } = await show(item(1));
+    const backdrop = (dialog: HTMLDialogElement) => act(async () => { dialog.dispatchEvent(new MouseEvent('click', { bubbles: true })) });
+    await click(host.querySelector('[data-item-edit-open]'));
+    let dialog = document.querySelector<HTMLDialogElement>('dialog[data-item-edit-dialog]')!;
+    await backdrop(dialog);
+    await settle();
+    expect(document.querySelector('dialog[data-item-edit-dialog]')).toBeNull();
+    await click(host.querySelector('[data-item-edit-open]'));
+    dialog = document.querySelector<HTMLDialogElement>('dialog[data-item-edit-dialog]')!;
+    await type(dialog.querySelector('[data-edit-row="title"] input') as HTMLInputElement, '新标题');
+    await backdrop(dialog);
+    await settle();
+    expect(dialog.open).toBe(true);
+  });
 });
 
 describe('停在队列哪一条', () => {
