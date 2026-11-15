@@ -333,8 +333,9 @@ function useShortsStrips(
   tiles: readonly Tile[], pageStarts: readonly number[], body: RefObject<HTMLElement | null>,
 ): ShortsCut[] {
   type Saved = { cuts: ShortsCut[]; offset: number; handled: number };
-  const cacheKey = ['catalog-short-layout', catalogParams(props.filters || {}, !!props.excludeVertical)];
-  const stamp = `${cacheKey[1]}:${props.revision}`;
+  const limit = props.shortsLimit || SHORTS_BATCH;
+  const cacheKey = ['catalog-short-layout', catalogParams(props.filters || {}, !!props.excludeVertical), limit];
+  const stamp = `${cacheKey[1]}:${limit}:${props.revision}`;
   const create = () => {
     const saved = props.restoreNavigation ? queryClient.getQueryData<Saved>(cacheKey) : undefined;
     const groups = { parts: new Set<string>(), editions: new Set<string>() };
@@ -361,7 +362,7 @@ function useShortsStrips(
     const controller = new AbortController();
     own.controllers.push(controller);
     const page = pages - 1;
-    apiGet<MediaPage>(`/api/items?${shortsParams(props.filters || {}, own.offset)}`, controller.signal)
+    apiGet<MediaPage>(`/api/items?${shortsParams(props.filters || {}, own.offset, limit)}`, controller.signal)
       .then((strip) => {
         if (run.current !== own || controller.signal.aborted) return;
         const items = strip.items || [];
@@ -383,7 +384,7 @@ function useShortsStrips(
     if (!boundaries.length) return;
     /* 落点定了才折叠：剪不出落点的这一批下次照原偏移量重取，不能先记成已出现。 */
     const items = collapseGroups(arrived.items, own.groups, props.groupCollapse !== false);
-    own.offset = arrived.more ? own.offset + SHORTS_BATCH : 0;
+    own.offset = arrived.more ? own.offset + limit : 0;
     if (!items.length) return;
     const at = start + (boundaries[Math.floor(Math.random() * boundaries.length)] ?? 0);
     const next = [...cuts, { at, total: arrived.total, items }];

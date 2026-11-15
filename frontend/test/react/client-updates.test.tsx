@@ -1,5 +1,5 @@
 import { act } from 'react';
-import { expect, it, vi } from 'vitest';
+import { beforeEach, expect, it, vi } from 'vitest';
 
 import { ClientUpdateBanner, CLIENT_UPDATES_INTERVAL, PROGRESS_INTERVAL, RECOVERY_DELAYS, RELEASE_UPDATES_PATH,
   useClientUpdates, type ClientUpdates } from '../../src/react/client-updates';
@@ -14,6 +14,10 @@ const current: ClientUpdates = {
   userscript: { version: '0.8.0', minimum_version: '0.7.0', install_url: '/peach.user.js' },
   repairs: { state: 'ready', items: [] },
 };
+
+/* 横幅关掉的那个状态记在本机，换页刷新也算数；每条用例从没关过开始。 */
+const DISMISSED_KEY = 'peach.client-update.dismissed.v1';
+beforeEach(() => localStorage.removeItem(DISMISSED_KEY));
 
 function available(version = '0.10.0'): ClientUpdates {
   return { ...current, release: { ...current.release, latest_version: version, state: 'available' } };
@@ -114,6 +118,19 @@ it('稍后隐藏相同更新，发行版本和准备状态变化时重新提示'
   await tick();
   expect(slot.querySelector('[data-client-update="ready"]')).not.toBeNull();
   expect(slot.textContent).toContain('可重启安装');
+});
+
+it('同一版本关掉后重开页面也不再提示，出了新版本再提示', async () => {
+  const first = await render(available());
+  await click(buttonNamed('稍后', first.slot));
+  await first.unmount();
+  vi.useRealTimers();
+  first.slot.remove();
+  const again = await render(available());
+  expect(again.slot.childElementCount).toBe(0);
+  again.fetcher.mockResolvedValue(response(available('0.11.0')));
+  await tick();
+  expect(again.slot.textContent).toContain('Peach 0.11.0');
 });
 
 it('刷新提示稍后保持关闭，新运行标记重新提示', async () => {

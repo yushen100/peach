@@ -24,11 +24,13 @@ const slots = (html: string): string => html.repeat(EMPTY_SLOTS);
 export const tierPlaceholdersHtml = (kind: 'performer' | 'studio'): string =>
   slots(`<span data-catalog-placeholder="${kind}" aria-hidden="true"><span></span><span>&nbsp;</span></span>`);
 
-export function catalogFilterSkeletonHtml(views: readonly CatalogView[], state: string, head?: Pick<CatalogFilterProps, 'sorts' | 'layout'>): string {
+/** `tiers` 为假是设置里关掉了首页两排头像：骨架也不铺那两排，岛挂上时不跳。 */
+export function catalogFilterSkeletonHtml(views: readonly CatalogView[], state: string, head?: Pick<CatalogFilterProps, 'sorts' | 'layout'>,
+  tiers = true): string {
   const viewHtml = views.map((view) => `<a href="${esc(view.href)}" data-catalog-view="${esc(view.k)}"`
     + ` data-entity-press="" aria-pressed="${state === view.k}">${esc(view.label)}</a>`).join('');
   /* 两排照本机上次画好时的结构：上次没人的那排取回后也是收起的。 */
-  const shape = rememberedTiers();
+  const shape = tiers ? rememberedTiers() : { performers: false, studios: false };
   return `<div class="peach-react"><div class="contents" data-catalog-root="" data-loading="">`
     + `<div data-catalog-tiers="" aria-busy="true"${shape.performers || shape.studios ? '' : ' hidden'}>`
     + (shape.performers ? `<div data-catalog-tier="performers" data-skeleton="tiers">${tierPlaceholdersHtml('performer')}</div>` : '')

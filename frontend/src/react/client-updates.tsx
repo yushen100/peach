@@ -216,11 +216,15 @@ function bannerActivity(kind: BannerKind, snapshot: ClientUpdates): ActivityKind
   return 'linear-dots';
 }
 
+/** 横幅关掉时记下的那个状态（种类与版本）：刷新后同一状态不再出，出了新版本或换了状态再出。 */
+const DISMISSED_KEY = 'peach.client-update.dismissed.v1';
+const readDismissed = (): string => { try { return localStorage.getItem(DISMISSED_KEY) || '' } catch { return '' } };
+
 /** 横幅复用项目 Banner，动作用 BoardUI 的小号描边按钮，和横幅里的文字一眼分得开；关闭只作用于当前状态。进行中有确定百分比时左侧换成小环形进度，
  *  没有百分比时换成那一步的语义动画（`bannerActivity`）；完成、可更新、已就绪是信息图标。 */
 export function ClientUpdateBanner({ navigate }: { navigate(path: string): void }) {
   const { snapshot, refresh } = useClientUpdates();
-  const [dismissed, setDismissed] = useState('');
+  const [dismissed, setDismissed] = useState(readDismissed);
   const host = document.querySelector('[data-network-banner]');
   if (!snapshot || !host) return null;
   const { release, update_job: job, runtime } = snapshot;
@@ -253,7 +257,10 @@ export function ClientUpdateBanner({ navigate }: { navigate(path: string): void 
         {/* 迁移、更新进行中是几秒到几分钟的过程，横幅在解释页面为什么暂时不正常，不给收起；
             其余状态是用户可以晚点再处理的事。 */}
         {kind === 'migrating' || kind === 'preparing' ? null
-          : <Button variant="secondary" size="xs" onClick={() => setDismissed(identity)}
+          : <Button variant="secondary" size="xs" onClick={() => {
+            setDismissed(identity);
+            try { localStorage.setItem(DISMISSED_KEY, identity) } catch { /* 存不下就只管这一页。 */ }
+          }}
             data-copy-key={`clientUpdates.${kind}.later`}>{t('shell:clientUpdate.later')}</Button>}
       </div>
     </aside>, host,

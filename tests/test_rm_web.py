@@ -1824,7 +1824,7 @@ class WebDataTests(unittest.TestCase):
             "/api/follow/play", "/api/follow/activity",
             "/api/follow/source", "/api/follow/resolve", "/api/follow/credential",
             "/api/follow/author-alias", "/api/follow/creator", "/api/follow/schedule",
-            "/api/follow/schedule/run", "/api/feeds/schedule/run",
+            "/api/follow/schedule/run", "/api/feeds/schedule", "/api/feeds/schedule/run",
             "/api/taste/refresh", "/api/taste/source", "/api/settings",
             "/api/entity-name", "/api/entity-alias",
             "/api/organize/preview", "/api/organize/apply", "/api/organize/rollback",

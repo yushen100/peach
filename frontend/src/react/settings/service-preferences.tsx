@@ -15,9 +15,8 @@ import { boundedPreference } from '../../number-setting';
 import { momentText } from '../activity/tasks';
 import { Note } from '../components/note';
 import {
-  FEED_SCHEDULE_KEY, FOLLOW_SCHEDULE_KEY, SCHEDULE_RUNS, SETTINGS_KEY, THUMBNAIL_JOBS_KEY, fetchFeedSchedule,
-  fetchFollowSchedule, fetchSettings, fetchThumbnailJobs, schedulePollInterval, useRunSchedule,
-  useSaveFollowSchedule, useSaveSettings, useSaveThumbnailMode, type FollowScheduleStatus,
+  SCHEDULE_RUNS, SCHEDULES, SETTINGS_KEY, THUMBNAIL_JOBS_KEY, fetchSettings, fetchThumbnailJobs, schedulePollInterval,
+  useRunSchedule, useSaveSchedule, useSaveSettings, useSaveThumbnailMode, type FollowScheduleStatus,
 } from '../settings-panel/settings-data';
 import { ErrorText, Rows, Section, Stack, TaskCenterLink } from './section';
 import { TaskProgress } from '../components/task-progress';
@@ -87,8 +86,8 @@ export function FollowPreferenceRows({ receipt }: { receipt(message: string): vo
   return (
     <Section guide="follow-options" title={t('settings:followFetch.title')}>
       <Rows>
-        <FollowScheduleRow />
-        <FeedScheduleRow />
+        <ScheduleRow kind="follow" />
+        <ScheduleRow kind="feed" />
         <SettingsRow label={t('settings:followFetch.initialRange')} description={t('settings:followFetch.initialRangeHelp')}>
           <div id="followInitialDaysSetting" className="shrink-0">
             <Select aria-label={t('settings:followFetch.initialRange')} selectedKey={String(initialDays)}
@@ -113,13 +112,31 @@ export function FollowPreferenceRows({ receipt }: { receipt(message: string): vo
   );
 }
 
-function FollowScheduleRow() {
-  const status = useQuery({ queryKey: FOLLOW_SCHEDULE_KEY, queryFn: ({ signal }) => fetchFollowSchedule(signal),
+/* 关注与订阅源两份定时共用的一行：开关加间隔分钟数。间隔框只在开着时出现；关掉再开填回关掉前的那个数，
+   记在 `peach.number.<id>`，跟着这台浏览器走。 */
+const SCHEDULE_ROWS = {
+  follow: {
+    id: 'followScheduleSetting', label: () => t('settings:followFetch.autoCheck'), help: () => t('settings:followSchedule.autoCheckHelp'),
+    input: () => t('settings:followSchedule.autoCheckInterval'), name: 'follow-interval',
+    running: () => t('settings:followSchedule.checking'), activity: 'follow-check', failure: () => t('settings:followSchedule.lastCheckFailed'),
+  },
+  feed: {
+    id: 'feedScheduleSetting', label: () => t('settings:followFetch.feedSchedule'), help: () => t('settings:followSchedule.feedScheduleHelp'),
+    input: () => t('settings:followSchedule.feedScheduleInterval'), name: 'feed-interval',
+    running: () => t('settings:followSchedule.fetchingFeeds'), activity: 'feed-check', failure: () => t('settings:followSchedule.lastFetchFailed'),
+  },
+} as const;
+
+function ScheduleRow({ kind }: { kind: keyof typeof SCHEDULES }) {
+  const row = SCHEDULE_ROWS[kind];
+  const { key, fetch, fallback } = SCHEDULES[kind];
+  const status = useQuery({ queryKey: key, queryFn: ({ signal }) => fetch(signal),
     refetchOnMount: 'always', refetchInterval: schedulePollInterval });
-  const save = useSaveFollowSchedule();
+  const save = useSaveSchedule(kind);
   const data = status.data;
-  const remembered = useRef(boundedPreference(Number(localStorage.getItem('peach.number.followScheduleSetting')), 15, 10080, 60));
-  const [draft, setDraft] = useState('60');
+  const storage = `peach.number.${row.id}`;
+  const remembered = useRef(boundedPreference(Number(localStorage.getItem(storage)), 15, 10080, fallback));
+  const [draft, setDraft] = useState(String(fallback));
   const [invalid, setInvalid] = useState(false);
   useEffect(() => {
     if (data?.enabled) {
@@ -134,24 +151,26 @@ function FollowScheduleRow() {
     setInvalid(false);
     if (!data?.enabled || blocked || minutes === data.interval_minutes) return;
     remembered.current = minutes;
-    localStorage.setItem('peach.number.followScheduleSetting', String(minutes));
+    localStorage.setItem(storage, String(minutes));
     save.mutate(minutes);
   };
   const error = save.error || status.error;
+  /* 只读端没有定时：说一句「只在主设备上运行」，不画开关。 */
+  const description = data && !data.available ? t('settings:followSchedule.primaryOnly') : row.help();
   return (
     <>
-      <SettingsRow label={t('settings:followFetch.autoCheck')} description={t('settings:followSchedule.autoCheckHelp')}>
+      <SettingsRow label={row.label()} description={description}>
         {/* 间隔框只在开着时出现；这一行按有框的高度留位，读回状态时下面几行不跟着动。
             控件这一侧不收缩：窄屏上让左边的说明换行，不让开关与间隔框压到说明上。 */}
-        <div id="followScheduleSetting" className="flex min-h-9 shrink-0 flex-wrap items-center justify-end gap-2">
-          <Switch aria-label={t('settings:followFetch.autoCheck')} isSelected={data?.enabled === true} isDisabled={blocked}
+        <div id={row.id} className="flex min-h-9 shrink-0 flex-wrap items-center justify-end gap-2">
+          <Switch aria-label={row.label()} isSelected={data?.enabled === true} isDisabled={blocked}
             onChange={(on) => {
-              localStorage.setItem('peach.number.followScheduleSetting', String(remembered.current));
+              localStorage.setItem(storage, String(remembered.current));
               save.mutate(on ? remembered.current : 0);
             }} />
           {data?.enabled ? <div className="flex items-center gap-2">
-            <Input type="number" inputMode="numeric" name="follow-interval" autoComplete="off"
-              aria-label={t('settings:followSchedule.autoCheckInterval')} className="w-21 sm:w-24"
+            <Input type="number" inputMode="numeric" name={row.name} autoComplete="off"
+              aria-label={row.input()} className="w-21 sm:w-24"
               value={draft} onChange={(value) => { setDraft(value); setInvalid(false) }} onBlur={commit}
               onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); commit() } }}
               isDisabled={blocked} isInvalid={invalid} />
@@ -162,34 +181,9 @@ function FollowScheduleRow() {
       {invalid ? <Stack><ErrorText>{t('settings:followSchedule.invalidInterval')}</ErrorText></Stack> : null}
       {save.isPending || data?.running
         ? <Stack>{save.isPending ? <TaskProgress embedded kind="gather" label={t('settings:shared.saving')} />
-          : <TaskProgress embedded kind={activityKind('follow-check')} label={t('settings:followSchedule.checking')} />}</Stack> : null}
-      <ScheduleFailure kind="follow" status={data} title={t('settings:followSchedule.lastCheckFailed')} />
+          : <TaskProgress embedded kind={activityKind(row.activity)} label={row.running()} />}</Stack> : null}
+      <ScheduleFailure kind={kind} status={data} title={row.failure()} />
       {error ? <Stack><ErrorText>{errorMessage(error)}</ErrorText></Stack> : null}
-    </>
-  );
-}
-
-/* 订阅源定时拉取没有可调的档位，这一行只读出间隔与上一轮的失败。 */
-function FeedScheduleRow() {
-  const status = useQuery({ queryKey: FEED_SCHEDULE_KEY, queryFn: ({ signal }) => fetchFeedSchedule(signal),
-    refetchOnMount: 'always', refetchInterval: schedulePollInterval });
-  const data = status.data;
-  /* 首次读取时先占住这一行：读数回来再填字，下面的行不往下跳。 */
-  if (!data) {
-    return status.isPending ? <SettingsRow label={t('settings:followFetch.feedSchedule')}>
-      <span data-skeleton aria-busy="true" aria-label={t('settings:followSchedule.loadingFeedInterval')}
-        className="block h-4 w-16 rounded-2lg bg-background-tertiary-default" />
-    </SettingsRow> : null;
-  }
-  const minutes = data.interval_minutes;
-  const interval = minutes % 60 ? t('settings:followSchedule.everyMinutes', { count: minutes }) : t('settings:followSchedule.everyHours', { count: minutes / 60 });
-  return (
-    <>
-      <SettingsRow label={t('settings:followFetch.feedSchedule')}>
-        <span id="feedScheduleSetting">{!data.available ? t('settings:followSchedule.primaryOnly') : data.enabled ? interval : t('settings:followSchedule.feedOff')}</span>
-      </SettingsRow>
-      {data.running ? <Stack><TaskProgress embedded kind={activityKind('feed-check')} label={t('settings:followSchedule.fetchingFeeds')} /></Stack> : null}
-      <ScheduleFailure kind="feed" status={data} title={t('settings:followSchedule.lastFetchFailed')} />
     </>
   );
 }
