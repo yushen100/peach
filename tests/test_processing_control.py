@@ -528,6 +528,8 @@ class ProcessingControlTests(unittest.TestCase):
         run = store.start('library-processing', trigger='manual')
         job_recovery.save(self.db, 'library-processing', 'one', {'stage':'metadata'},
                           run_id=run.id, waiting=True)
+        job_recovery.checkpoint(self.db, 'library-processing', 'one',
+                                {'job_id': 'one', 'status': 'running', 'stage': '准备处理'})
         control = control_for(self.config)
         control.select_job('one')
         control.request('cancel', 'one')
@@ -535,7 +537,57 @@ class ProcessingControlTests(unittest.TestCase):
         self.assertEqual(job_recovery.resume(self.db, {'library-processing':handler}), [])
         handler.assert_not_called()
         self.assertEqual(store.get(run.id).status, 'cancelled')
-        self.assertEqual(job_recovery.read(self.db, 'library-processing')['status'], 'cancelled')
+        saved = job_recovery.read(self.db, 'library-processing')
+        self.assertEqual((saved['status'], saved['checkpoint']['status']), ('cancelled', 'cancelled'))
+        from peach.jobs import BackgroundJob
+        self.assertEqual(BackgroundJob('library-processing', runs=store).snapshot()['status'], 'cancelled',
+                         '再启动后的页面状态是终态，不是挡住新任务的 running')
+
+    def test_a_cancelled_recovery_left_by_a_dead_process_does_not_block_a_new_job(self):
+        """恢复记录已取消、进度快照还停在 running 时，重启后的新请求要能另起一趟。"""
+        from peach.jobs import BackgroundJob
+        from peach.library_processing import _save, state_path
+        from peach.task_runs import TaskRunStore
+        from peach.update_tasks import state_for
+        from peach.web_library_processing import q_library_processing
+        root = self.config.directory('database')
+        root.mkdir(parents=True)
+        db = fresh_ledger(root)
+        store = TaskRunStore(db)
+        run = store.start('library-processing', trigger='manual')
+        store.finish(run.id, 'cancelled', error='用户停止任务')
+        dead = 2 ** 30
+        stale = {'job_id': 'stale', 'status': 'running', 'run_id': run.id, 'started_at': time.time() - 8 * 86400,
+                 'stage': '准备处理', 'requested_stage': 'all', 'speed_mode': 'high'}
+        recovery = state_for(db).parent / 'job-recovery' / 'library-processing.json'
+        recovery.parent.mkdir(parents=True)
+        recovery.write_text(json.dumps({'job_id': 'stale', 'pid': dead, 'status': 'cancelled',
+                                        'request': {'stage': 'all'}, 'run_id': run.id,
+                                        'checkpoint': stale}, ensure_ascii=False), encoding='utf-8')
+        (state_for(db) / 'active').mkdir(parents=True)
+        (state_for(db) / 'active' / 'dead.json').write_text(
+            json.dumps({'pid': dead, 'label': 'library-processing'}), encoding='utf-8')
+        (self.config.directory('state') / 'library-processing-control.json').write_text(json.dumps(
+            {'speed_mode': 'high', 'job_id': 'stale', 'paused': False, 'cancelled': True,
+             'skip_asset_id': None}), encoding='utf-8')
+        _save(state_path(self.config), {**stale, 'status': 'failed', 'stage': '扫描文件',
+                                        'error': '处理被中断，可重试未完成的部分。'})
+        job = BackgroundJob('library-processing', runs=store)
+        self.addCleanup(job.stop, timeout=None)
+        contract = SimpleNamespace(db_path=db, library_processing_job=job, database=store.database,
+            task_runs=store, candidate_root=self.root/'candidates', cover_root=self.root/'covers',
+            cache_bust=lambda: None)
+        def process(*_args, **kwargs):
+            return {'status': 'complete', 'stage': '完成'}
+        with patch('peach.web_library_processing.settings_file.active', return_value=self.config), patch(
+                'peach.web_library_processing.process_library', side_effect=process):
+            self.assertEqual(q_library_processing(contract, {})['status'], 'cancelled')
+            started = w_library_processing(contract, {'stage': 'collect'})
+            self.assertNotEqual(started['job_id'], 'stale')
+            job.thread.join(5)
+            state = self.assert_processing_status(contract, 'complete')
+            self.assertEqual(state['job_id'], started['job_id'])
+            self.assertEqual(job_recovery.read(db, 'library-processing')['job_id'], started['job_id'])
 
     def test_cancel_waits_for_inflight_work_and_retains_results(self):
         from peach.jobs import BackgroundJob

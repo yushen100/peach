@@ -151,6 +151,115 @@ class MediaIoTests(unittest.TestCase):
         self.assertEqual(len(children), 1)
         self.assertIsNotNone(children[0].poll())
 
+    def _spawned(self, script=None):
+        """数读取子进程；给了 `script` 时用它换掉子进程的入口（真的 media_io，只改一处行为）。"""
+        children, original_popen = [], subprocess.Popen
+
+        def spawn(command, **options):
+            if script is not None and command[-3] == 'directories':
+                command = [sys._base_executable, '-c', script, *command[-3:]]
+            child = original_popen(command, **options)
+            children.append(child)
+            return child
+        return children, patch.object(media_io.subprocess, 'Popen', side_effect=spawn)
+
+    def test_one_reader_walks_the_whole_tree(self):
+        """几千个目录各起一个进程，起进程比读目录还慢；整棵树由一个读取子进程连续读完。"""
+        for name in ('a/1', 'a/2', 'b'):
+            (self.root / name).mkdir(parents=True)
+        (self.root / 'a' / '1' / 'x.mp4').write_bytes(b'x')
+        children, spawning = self._spawned()
+        with spawning:
+            listings = dict(media_io.read_directories([self.root], walk=True))
+        names = {Path(directory).relative_to(self.root).as_posix(): sorted(entry.name for entry in listing)
+                 for directory, listing in listings.items()}
+        self.assertEqual(names, {'.': ['a', 'b'], 'a': ['1', '2'], 'a/1': ['x.mp4'], 'a/2': [], 'b': []})
+        self.assertEqual(len(children), 1)
+        missing = dict(media_io.read_directories([self.root / 'gone']))[os.fspath(self.root / 'gone')]
+        self.assertIsInstance(missing, FileNotFoundError)
+        self.assertFalse(missing.hollow, '真找不到的目录不是 CloudDrive 空目录')
+
+    def test_a_stuck_directory_times_out_alone_and_the_rest_are_read_by_a_new_reader(self):
+        for name in ('a', 'stuck', 'z'):
+            (self.root / name).mkdir()
+            (self.root / name / 'x.mp4').write_bytes(b'x')
+        stuck = os.fspath(self.root / 'stuck')
+        script = ('import sys, time\nimport peach.media_io as m\nread = m._local_directory\n'
+                  'def slow(path, value):\n'
+                  f'    if path == {stuck!r}: time.sleep(60)\n'
+                  '    return read(path, value)\n'
+                  'm._local_directory = slow\nsys.exit(m.main(sys.argv[1:]))\n')
+        children, spawning = self._spawned(script)
+        with patch.object(media_io, 'TIMEOUT_SECONDS', 1.0), spawning:
+            listings = dict(media_io.read_directories([self.root], walk=True))
+        self.assertIsInstance(listings.pop(stuck), TimeoutError)
+        self.assertEqual({Path(directory).name: [entry.name for entry in listing] for directory, listing in listings.items()
+                          if Path(directory) != self.root}, {'a': ['x.mp4'], 'z': ['x.mp4']})
+        self.assertEqual(len(children), 2)
+        self.assertTrue(all(child.poll() is not None for child in children))
+
+    def test_one_remover_deletes_in_order_and_a_stuck_directory_times_out_alone(self):
+        for name in ('a', 'stuck', 'z', 'full'):
+            (self.root / name).mkdir()
+        (self.root / 'full' / 'x.mp4').write_bytes(b'x')
+        stuck = os.fspath(self.root / 'stuck')
+        script = ('import os, sys, time\nimport peach.media_io as m\nrmdir = os.rmdir\n'
+                  'def slow(path):\n'
+                  f'    if path == {stuck!r}: time.sleep(60)\n'
+                  '    return rmdir(path)\n'
+                  'os.rmdir = slow\nsys.exit(m.main(sys.argv[1:]))\n')
+        children, original_popen = [], subprocess.Popen
+
+        def spawn(command, **options):
+            if command[-2] == 'rmdirs':
+                command = [sys._base_executable, '-c', script, *command[-2:]]
+            child = original_popen(command, **options)
+            children.append(child)
+            return child
+        names = ('a', 'stuck', 'z', 'full', 'gone')
+        with patch.object(media_io, 'TIMEOUT_SECONDS', 1.0), \
+                patch.object(media_io.subprocess, 'Popen', side_effect=spawn):
+            results = list(media_io.remove_directories([self.root / name for name in names]))
+        self.assertEqual([Path(path).name for path, _result in results], list(names))
+        verdicts = dict((Path(path).name, result) for path, result in results)
+        self.assertIsInstance(verdicts.pop('stuck'), TimeoutError)
+        self.assertEqual(verdicts, {'a': 'removed', 'z': 'removed', 'full': 'kept', 'gone': 'gone'})
+        self.assertTrue((self.root / 'stuck').is_dir())
+        self.assertEqual(len(children), 2)
+        self.assertTrue(all(child.poll() is not None for child in children))
+
+    def test_closing_the_listing_early_reaps_the_reader(self):
+        """取消在两个目录之间生效：调用方不读了，读取子进程不能留着。"""
+        for name in ('a', 'b', 'c'):
+            (self.root / name).mkdir()
+        children, spawning = self._spawned()
+        with spawning:
+            listings = media_io.read_directories([self.root], walk=True)
+            next(listings)
+            listings.close()
+        self.assertEqual(len(children), 1)
+        self.assertIsNotNone(children[0].poll())
+
+    def test_presence_answers_each_path_and_a_stalled_answer_is_unknown_not_gone(self):
+        """复核失效候选：卡住的那一条答 None（照旧保留），换一个读取进程接着问后面的。"""
+        here = self.root / 'here.mp4'
+        here.write_bytes(b'x')
+        children, original_popen = [], subprocess.Popen
+
+        def first_stalls(command, **options):
+            if not children:
+                command = [sys._base_executable, '-c', 'import time; time.sleep(60)']
+            child = original_popen(command, **options)
+            children.append(child)
+            return child
+        paths = [self.root / 'stuck.mp4', here, self.root / 'gone.mp4']
+        with patch.object(media_io, 'TIMEOUT_SECONDS', 1.0), \
+                patch.object(media_io.subprocess, 'Popen', side_effect=first_stalls):
+            answers = media_io.paths_present(paths)
+        self.assertEqual(answers, [None, True, False])
+        self.assertEqual(len(children), 2)
+        self.assertTrue(all(child.poll() is not None for child in children))
+
     @staticmethod
     def _entry_line(name):
         entry = dict(name=name, path=name, directory=False, symlink=False, attributes={'st_size': 1}, error='')

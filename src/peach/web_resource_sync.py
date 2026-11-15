@@ -15,25 +15,26 @@
 """
 from __future__ import annotations
 
-import errno
 import os
 import re
 import shutil
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 from contextvars import copy_context
 from .task_control import controlled
 from pathlib import Path, PureWindowsPath
 from typing import Callable, Protocol, Sequence
 
-from . import jav_poster_crop
+from . import jav_poster_crop, media_io
 from .catalog_rules import dir_expr, normalise_code_key
 from .config import LOCATION_ROOT_DECLARATIONS
 from .jobs import BackgroundJob
 from .media import normalized_path
 from .media_sources import SCANNABLE_LOCATIONS
 from .personal_records import VANISHED, mark_vanished, record_holders
-from .platform import is_unmapped, root_online, translate_ledger_path, within_root
+from .platform import is_unmapped, translate_ledger_path, within_root
 from .record_rehome import reattach_vanished
 from .user_messages import UserInterruptedError, UserValueError, message_fields
 from .web_entity import photo_set_heading
@@ -64,19 +65,58 @@ class ResourceSyncContract(Protocol):
 
 
 def source_is_online(location: str) -> bool:
-    """这个来源整体在不在线。对账前的唯一闸门。"""
+    """这个来源整体在不在线。对账前的唯一闸门；根目录读取超时同样算不在线。"""
     declared = LOCATION_ROOT_DECLARATIONS.get(location)
     if not declared:
         return False
     # 几个根都在才算在线：少一块盘就对账，那块盘上的文件会被整批判成丢失。
     for root in declared:
         resolved = translate_ledger_path(root)
-        if is_unmapped(resolved) or not root_online(resolved):
+        if is_unmapped(resolved):
+            return False
+        try:
+            if not media_io.root_online(resolved):
+                return False
+        except OSError:
             return False
     return True
 
 
 RESOURCE_SCAN_WORKERS = 8
+#: 复核候选时一个读取子进程问的条数；每批之间过一次停点。
+CONFIRM_BATCH = 200
+#: 对账本目录时一个读取子进程连续读的目录数；几个读取线程各领一批。
+SCAN_BATCH = 64
+#: 扫描进度（当前目录、已读目录数）写进任务状态的最短间隔。
+PROGRESS_SECONDS = 1.0
+
+#: 读完一个目录后报一次：目录、这一段已读几个、这一段一共几个（不知道时为 None）。
+Visited = Callable[[Path, int, int | None], None]
+
+
+def _read_directories(paths: Sequence[Path], *, walk: bool = False):
+    """依次列出这些目录（`walk` 时连同各级子目录），逐个产出 `(目录, 条目列表或 OSError)`。
+
+    一个可终止的只读子进程连续读一串目录（`media_io.read_directories`）：网盘目录一直不返回
+    条目时按期限判超时，只记这一个目录读不了，剩下的换一个子进程接着读。
+    """
+    return media_io.read_directories(paths, walk=walk)
+
+
+def _counter(visited: Visited | None, total: int | None) -> Callable[[Path], None]:
+    """给并发的目录读取计数并转给 `visited`；没有 `visited` 时什么都不做。"""
+    lock = threading.Lock()
+    done = 0
+
+    def count(directory: Path) -> None:
+        nonlocal done
+        if visited is None:
+            return
+        with lock:
+            done += 1
+            value = done
+        visited(directory, value, total)
+    return count
 
 
 def configured_resource_locations() -> tuple[str, ...]:
@@ -85,34 +125,25 @@ def configured_resource_locations() -> tuple[str, ...]:
                  if location in SCANNABLE_LOCATIONS and roots)
 
 
-@controlled
-def _scan_resource_directory(
-    item: tuple[Path, dict[str, list[int]]],
-) -> tuple[list[int], int]:
-    from .task_control import checkpoint
-    checkpoint()
-    parent, expected = item
+def _compare_listing(expected: dict[str, list[int]], listing) -> tuple[list[int], int]:
+    """一个目录的列举结果对账本：返回已不在的行，和读不出来、只能保留的行数。"""
+    if isinstance(listing, FileNotFoundError):
+        return [asset_id for ids in expected.values() for asset_id in ids], 0
+    if isinstance(listing, OSError):
+        # 读不了或超时：保留账本行、记成读不了，不当成用户删掉了这个目录。
+        return [], sum(len(ids) for ids in expected.values())
     present: set[str] = set()
     unreadable = 0
-    try:
-        with os.scandir(parent) as entries:
-            for entry in entries:
-                checkpoint()
-                key = entry.name.casefold()
-                if key not in expected:
-                    continue
-                try:
-                    if entry.is_file():
-                        present.add(key)
-                except OSError:
-                    # The name was returned but its type could not be read.  Preserve the
-                    # ledger row and report it as unreadable instead of declaring deletion.
-                    present.add(key)
-                    unreadable += len(expected[key])
-    except FileNotFoundError:
-        return [asset_id for ids in expected.values() for asset_id in ids], 0
-    except OSError:
-        return [], sum(len(ids) for ids in expected.values())
+    for entry in listing:
+        key = entry.name.casefold()
+        if key not in expected:
+            continue
+        if entry.error:
+            # 名字列出来了、类型或属性读不出：保留账本行，记成读不了。
+            present.add(key)
+            unreadable += len(expected[key])
+        elif not entry.directory:
+            present.add(key)
     return (
         [asset_id for key, ids in expected.items() if key not in present for asset_id in ids],
         unreadable,
@@ -125,7 +156,7 @@ def _directory_key(path: str | os.PathLike[str]) -> str:
 
 
 def _missing_resource_ids(
-    rows: Sequence, unreadable_dirs: set[str] | None = None,
+    rows: Sequence, unreadable_dirs: set[str] | None = None, visited: Visited | None = None,
 ) -> tuple[list[int], int]:
     """Compare ledger paths one directory listing at a time.
 
@@ -134,38 +165,53 @@ def _missing_resource_ids(
     case-insensitive Windows path semantics.  An unreadable directory is skipped rather than
     being mistaken for a directory that the user deleted; ``unreadable_dirs`` collects it.
     """
-    directories: dict[Path, dict[str, list[int]]] = {}
+    directories: dict[str, tuple[Path, dict[str, list[int]]]] = {}
     for row in rows:
         path = translate_ledger_path(row["path"])
-        expected = directories.setdefault(path.parent, {})
+        _parent, expected = directories.setdefault(_directory_key(path.parent), (path.parent, {}))
         expected.setdefault(path.name.casefold(), []).append(int(row["id"]))
 
-    directory_items = list(directories.items())
-    if len(directory_items) <= 1:
-        results = [_scan_resource_directory(item) for item in directory_items]
+    items = list(directories.items())
+    batches = [items[offset:offset + SCAN_BATCH] for offset in range(0, len(items), SCAN_BATCH)]
+    count = _counter(visited, len(directories))
+
+    @controlled
+    def scan(batch: list) -> list[tuple[str, list[int], int]]:
+        # 停点放在目录边界，不逐条目过：逐条目的停点按速度档节流，几万个条目就要几个小时，
+        # 看上去和卡死一样（#655）。
+        from .task_control import checkpoint
+        checkpoint('scan')
+        expected = dict(batch)
+        results = []
+        with closing(_read_directories([parent for parent, _expected in expected.values()])) as listings:
+            for directory, listing in listings:
+                key = _directory_key(directory)
+                results.append((key, *_compare_listing(expected[key][1], listing)))
+                count(Path(directory))
+                checkpoint('scan')
+        return results
+    if len(batches) <= 1:
+        results = [row for batch in batches for row in scan(batch)]
     else:
         # CloudDrive directory reads are latency-bound metadata requests.  Keep concurrency
         # deliberately small: enough to hide round trips without turning a scan into a media
         # download or overwhelming either mounted provider.
         with ThreadPoolExecutor(
-            max_workers=min(RESOURCE_SCAN_WORKERS, len(directory_items)),
+            max_workers=min(RESOURCE_SCAN_WORKERS, len(batches)),
             thread_name_prefix="PeachResourceScan",
         ) as executor:
-            futures = [executor.submit(copy_context().run, _scan_resource_directory, item)
-                       for item in directory_items]
-            results = [future.result() for future in futures]
-    missing = [asset_id for ids, _unreadable in results for asset_id in ids]
-    unreadable = sum(count for _ids, count in results)
+            futures = [executor.submit(copy_context().run, scan, batch) for batch in batches]
+            results = [row for future in futures for row in future.result()]
+    missing = [asset_id for _key, ids, _unreadable in results for asset_id in ids]
+    unreadable = sum(count for _key, _ids, count in results)
     if unreadable_dirs is not None:
-        unreadable_dirs.update(_directory_key(parent)
-                               for (parent, _expected), (_ids, count) in zip(directory_items, results)
-                               if count)
+        unreadable_dirs.update(key for key, _ids, count in results if count)
     return missing, unreadable
 
 
 def vanished_asset_rows(
     contract: ResourceSyncContract, location: str, *,
-    unreadable_dirs: set[str] | None = None,
+    unreadable_dirs: set[str] | None = None, visited: Visited | None = None,
 ) -> list:
     """这个来源上文件已经不在的行，回收站里的也算，已标「已消失」的不算。
 
@@ -184,12 +230,12 @@ def vanished_asset_rows(
             "WHERE path IS NOT NULL AND location=? AND COALESCE(disposal,'')<>? ORDER BY id",
             (location, VANISHED),
         ).fetchall()
-    missing, _unreadable = _missing_resource_ids(rows, unreadable_dirs)
+    missing, _unreadable = _missing_resource_ids(rows, unreadable_dirs, visited)
     gone = set(missing)
-    return _confirm_vanished([row for row in rows if int(row["id"]) in gone])
+    return _confirm_vanished([row for row in rows if int(row["id"]) in gone], visited)
 
 
-def _confirm_vanished(rows: Sequence) -> list:
+def _confirm_vanished(rows: Sequence, visited: Visited | None = None) -> list:
     """逐条单独问一次「这个文件在不在」，只留还是答不在的。
 
     目录枚举在网盘挂载上会静默漏报。
@@ -202,68 +248,74 @@ def _confirm_vanished(rows: Sequence) -> list:
     """
     if not rows:
         return []
+    batches = [rows[offset:offset + CONFIRM_BATCH] for offset in range(0, len(rows), CONFIRM_BATCH)]
+    count = _counter(visited, len(batches))
 
     @controlled
-    def present(row) -> bool:
+    def gone(batch: Sequence) -> list:
         from .task_control import checkpoint
-        checkpoint()
-        try:
-            return translate_ledger_path(row["path"]).exists()
-        except OSError:
-            # 读不出来不等于不存在；答不上来的一律留着。
-            return True
+        checkpoint('scan')
+        paths = [translate_ledger_path(row["path"]) for row in batch]
+        # 一批交给一个可终止的读取子进程问；卡住超过期限的那条答 None。
+        answers = media_io.paths_present(paths)
+        count(paths[-1].parent)
+        # 读不出来、没答上不等于不存在；只有明确答「不在」的才算。
+        return [row for row, answer in zip(batch, answers) if answer is False]
 
     with ThreadPoolExecutor(
-        max_workers=min(RESOURCE_SCAN_WORKERS, len(rows)),
+        max_workers=min(RESOURCE_SCAN_WORKERS, len(batches)),
         thread_name_prefix="PeachVanishedCheck",
     ) as executor:
-        futures = [executor.submit(copy_context().run, present, row) for row in rows]
-        verdicts = [future.result() for future in futures]
-    return [row for row, here in zip(rows, verdicts) if not here]
+        futures = [executor.submit(copy_context().run, gone, batch) for batch in batches]
+        return [row for future in futures for row in future.result()]
 
 
 def _source_roots(location: str) -> list[Path]:
     return [translate_ledger_path(root) for root in LOCATION_ROOT_DECLARATIONS.get(location, ())]
 
 
-def _hollow_directory(path: Path) -> bool:
-    """CloudDrive 上的空目录：`scandir` 报找不到，`listdir` 却说目录在、里面是空的。
-
-    挂载层给空目录列不出 `.` 与 `..`，`FindFirstFileW` 于是回 `ERROR_FILE_NOT_FOUND`；
-    `os.listdir` 把它当成空目录，`os.scandir`（`os.walk` 走的就是它）当成错误。2026-09-27
-    """
-    try:
-        return path.is_dir() and not path.is_symlink() and not os.listdir(path)
-    except OSError:
-        return False
-
-
-def _empty_directories(roots: Sequence[Path], unreadable_dirs: set[str]) -> list[Path]:
+def _empty_directories(
+    roots: Sequence[Path], unreadable_dirs: set[str], visited: Visited | None = None,
+) -> list[Path]:
     """自底向上找出来源根下的空目录；删掉子目录后会变空的父目录也算，来源根本身不算。
 
-    判空只用 `os.walk` 已经列出来的名字，不再逐个目录多列一次：网盘挂载上每列一次
-    就是一次网络往返。目录链接不跟进，也不算空。读不了的目录记进 `unreadable_dirs`。
+    每个目录只列一次，判空只用列出来的名字：网盘挂载上每列一次就是一次网络往返。整棵树由
+    一个读取子进程连续读（`_read_directories`），读不了或超时的目录记进 `unreadable_dirs`、
+    不算空，它的上级也就不算空。CloudDrive 上列目录报找不到的空目录（错误带 `hollow`）算空。
+    目录链接不跟进，也不算空。每读完一个目录过一次停点，取消在下一个目录前生效。
     """
-    empty: set[str] = set()
+    from .task_control import checkpoint
     found: list[Path] = []
+    count = _counter(visited, None)
     for root in roots:
-        # 自底向上时子目录的 onerror 先于父目录产出，空目录在这里记下，父目录照常判空。
-        def on_walk_error(error: OSError, root: Path = root) -> None:
-            path = Path(error.filename) if isinstance(error, FileNotFoundError) and error.filename else None
-            if path is not None and path != root and _hollow_directory(path):
-                empty.add(_directory_key(path))
-                found.append(path)
-            else:
-                unreadable_dirs.add(_directory_key(error.filename or root))
-
-        for directory, subdirectories, files in os.walk(
-                root, topdown=False, onerror=on_walk_error, followlinks=False):
-            candidate = Path(directory)
-            if files or candidate == root or candidate.is_symlink():
+        root_key = _directory_key(root)
+        empty: set[str] = set()
+        listed: list[tuple[Path, bool, list[Path]]] = []
+        with closing(_read_directories([root], walk=True)) as listings:
+            for directory, listing in listings:
+                directory = Path(directory)
+                key = _directory_key(directory)
+                count(directory)
+                if isinstance(listing, OSError):
+                    if (isinstance(listing, FileNotFoundError) and key != root_key
+                            and getattr(listing, "hollow", False)):
+                        empty.add(key)
+                        found.append(directory)
+                    else:
+                        unreadable_dirs.add(key)
+                else:
+                    subdirectories = [Path(entry.path) for entry in listing
+                                      if entry.directory and not entry.symlink and not entry.error]
+                    # 文件、目录链接、读不出类型的条目都让这个目录不空。
+                    listed.append((directory, len(subdirectories) < len(listing), subdirectories))
+                checkpoint('scan')
+        # 自顶向下的次序倒过来，每个目录都排在它所有下级之后。
+        for directory, occupied, subdirectories in reversed(listed):
+            if occupied or _directory_key(directory) == root_key:
                 continue
-            if all(_directory_key(os.path.join(directory, name)) in empty for name in subdirectories):
-                empty.add(_directory_key(candidate))
-                found.append(candidate)
+            if all(_directory_key(path) in empty for path in subdirectories):
+                empty.add(_directory_key(directory))
+                found.append(directory)
     return found
 
 
@@ -282,7 +334,7 @@ def _keeps_records(contract: ResourceSyncContract, rows: Sequence) -> set[int]:
 def _scan_sources(
     contract: ResourceSyncContract,
     progress: Callable[[dict], None] | None = None,
-    *, resume_state=None, checkpoint=None,
+    *, resume_state=None, checkpoint=None, visited: Visited | None = None,
 ) -> dict:
     """只读核对每个在线来源：文件已不在盘上的行（分删除与标已消失两档）、空文件夹、读不了的目录。"""
     with contract.read_connection() as connection:
@@ -302,8 +354,8 @@ def _scan_sources(
         part = dict(source=source, vanished_ids=[], keep_ids=[], empty_dirs=[])
         if online:
             unreadable: set[str] = set()
-            gone = vanished_asset_rows(contract, location, unreadable_dirs=unreadable)
-            empties = _empty_directories(_source_roots(location), unreadable)
+            gone = vanished_asset_rows(contract, location, unreadable_dirs=unreadable, visited=visited)
+            empties = _empty_directories(_source_roots(location), unreadable, visited)
             part['vanished_ids'] = [int(row['id']) for row in gone]
             keep = _keeps_records(contract, gone)
             part['keep_ids'] = sorted(keep)
@@ -610,8 +662,23 @@ def _run_resource_scan(contract: ResourceSyncContract, scan_id: str) -> None:
                 state['sources'] = [row for row in state['sources'] if row['location'] != source['location']]
                 state["sources"].append(dict(source))
 
+    lock = threading.Lock()
+    reported = 0.0
+
+    def visited(directory: Path, done: int, total: int | None) -> None:
+        # 读完一个目录就可能来一次，几个读取线程共用节流：心跳与当前目录约一秒一更。
+        nonlocal reported
+        now = time.monotonic()
+        with lock:
+            if now - reported < PROGRESS_SECONDS:
+                return
+            reported = now
+        job.update(scan_id, checked=done, total=total,
+                   current={"label": getattr(directory, "name", "") or os.fspath(directory)})
+
     scan = _scan_sources(contract, progress, resume_state=job.snapshot(),
-                         checkpoint=lambda **fields: job.checkpoint(scan_id, **fields))
+                         checkpoint=lambda **fields: job.checkpoint(scan_id, **fields),
+                         visited=visited)
     # 候选名单和空目录路径只留在任务状态里，不进 `result`：公开投影整个下发 `result`，
     # 物理路径不出服务端。
     job.update(scan_id, status="complete", result=_scan_result(contract, scan),
@@ -704,26 +771,28 @@ def _recheck_vanished(contract: ResourceSyncContract, asset_ids: Sequence[int]) 
     return [row for row in confirmed if row["location"] in still_online]
 
 
-def _remove_empty_directories(paths: Sequence[Path], roots: Sequence[Path]) -> tuple[int, int]:
+def _remove_empty_directories(paths: Sequence[Path], roots: Sequence[Path],
+                              progress: Callable[[int, int], None] | None = None) -> tuple[int, int]:
     """按深度从深到浅删检查报出的空目录；来源根和根外的路径一律不碰。
 
-    `rmdir` 只删得掉空目录：检查之后又放进东西的目录照样留着，不算失败。
+    `rmdir` 只删得掉空目录：检查之后又放进东西的目录、目录链接照样留着，不算失败。删除交给
+    可终止的子进程连续做（`media_io.remove_directories`），网盘上卡住的那个只记一次失败，
+    剩下的照删；每删完一个过一次停点，取消在下一个目录前生效。
     """
-    removed = errors = 0
-    for path in sorted(paths, key=lambda item: len(item.parts), reverse=True):
-        if (path in roots or path.is_symlink()
-                or not any(within_root(path, root) for root in roots)):
-            continue
-        try:
-            path.rmdir()
-        except FileNotFoundError:
-            # CloudDrive 会在最后一个子项消失时自己收掉空的一层；删文件那一步也会顺手清空父目录。
-            continue
-        except OSError as error:
-            if error.errno not in {errno.ENOTEMPTY, errno.EEXIST}:
+    from .task_control import checkpoint
+    targets = [path for path in sorted(paths, key=lambda item: len(item.parts), reverse=True)
+               if path not in roots and any(within_root(path, root) for root in roots)]
+    removed = errors = done = 0
+    with closing(media_io.remove_directories(targets)) as results:
+        for _path, result in results:
+            done += 1
+            if result == "removed":
+                removed += 1
+            elif isinstance(result, OSError):
                 errors += 1
-            continue
-        removed += 1
+            if progress is not None:
+                progress(done, len(targets))
+            checkpoint(None)
     return removed, errors
 
 
@@ -808,11 +877,18 @@ def w_resource_sync_apply(contract: ResourceSyncContract, body, *, progress=None
         contract, state, report, checkpoint, resume_state)
     report(checked=0, total=None, **message_fields("jobMessage.webResourceSync.removingEmptyFolders"))
     dirs_removed, dir_errors = 0, 0
+    reported = 0.0
+
+    def removing(done: int, total: int) -> None:
+        nonlocal reported
+        if time.monotonic() - reported >= PROGRESS_SECONDS:
+            reported = time.monotonic()
+            report(checked=done, total=total, **message_fields("jobMessage.webResourceSync.removingEmptyFolders"))
     for location, paths in state["empty_dirs"].items():
         if location not in configured_resource_locations() or not source_is_online(location):
             continue
         removed, errors = _remove_empty_directories([Path(path) for path in paths],
-                                                    _source_roots(location))
+                                                    _source_roots(location), removing)
         dirs_removed += removed
         dir_errors += errors
     contract.cache_bust()
