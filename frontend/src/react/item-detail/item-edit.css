@@ -3,6 +3,8 @@
    每行两列：字段名、控件。来源是控件下面一行小字，没有来源的字段不占这一行。
    演员一行选多人、展开候选后会长高，两列按顶对齐，字段名按首行（输入框外框 36px）居中。 */
 .ui-geist-modal[data-item-edit-dialog] { width: min(560px, calc(100vw - 20px)); max-width: min(560px, calc(100vw - 20px)); }
+/* 从详情浮窗里开出来，进场与浮窗同一条（缩放、模糊、淡入），不用确认框那条只有透明度的淡入。 */
+.ui-geist-modal[data-item-edit-dialog][open] { animation: board-dialog-in var(--board-dialog-motion) backwards; }
 .peach-react [data-item-edit] { display: flex; flex-direction: column; gap: 18px; --edit-line: 36px; }
 .peach-react [data-item-edit] [data-edit-section] { display: flex; flex-direction: column; gap: 10px; }
 .peach-react [data-item-edit] [data-edit-section] h4 { margin: 0; font-size: var(--fs-xs); font-weight: 600; color: var(--muted); }
@@ -112,10 +114,12 @@
    横向滚动条不起作用。从挂载点往下每一层都得能缩。 */
 .ui-geist-modal [data-item-edit-fields] { min-width: 0; }
 .peach-react [data-item-edit] [data-edit-cover] { min-width: 0; }
-/* 横向滚动会把格子外的悬停描边（2px）裁掉：四周留 3px 装下它，再用负外边距抵回，样张左端仍与上面对齐。 */
+/* 横向滚动会把格子外的悬停描边（2px）裁掉：四周留 3px 装下它，左右再用负外边距抵回，样张左端仍与
+   上面对齐。上边不往回抵：展开过渡时外层折叠区裁边，抵上去的那 3px 会被裁掉。滚动条由共用横滚 hook
+   换成两头渐隐。 */
 .peach-react [data-item-edit] [data-cover-samples-grid] {
   display: flex; gap: 6px; min-width: 0; max-width: calc(100% + 6px); overflow-x: auto;
-  padding: 3px 3px 7px; margin: -3px -3px 0;
+  padding: 3px; margin-inline: -3px;
 }
 .peach-react [data-item-edit] [data-cover-sample] {
   flex: none;

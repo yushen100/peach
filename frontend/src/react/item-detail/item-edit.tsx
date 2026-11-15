@@ -17,6 +17,8 @@ import { Select, SelectItem } from '../components/select';
 import { DetailTags } from '../components/detail-tags';
 import { overlayHost } from '../components/overlay-host';
 import { ScrapeSourceLabel } from '../components/source-label';
+import { CollapseRegion } from '../components/collapse-region';
+import { useHorizontalScroller } from '../components/use-horizontal-scroller';
 import { composingKey } from '../components/ime';
 import { apiGet, apiSend, apiSendBytes } from '../../api';
 import { queryClient } from '../query';
@@ -141,7 +143,7 @@ function ItemEditDialog({ item, helpers, close, onSaved }: {
   useEffect(() => {
     const { item: opened, close: done, onSaved: saved, before: start } = given.current;
     const dialog = formModal({
-      title: t('catalog:itemEdit.title'), confirmLabel: t('catalog:itemEdit.save'),
+      title: t('catalog:itemEdit.title'), confirmLabel: t('catalog:itemEdit.save'), deferShow: true,
       backdropCloses: () => draft.current.cover.kind === 'keep' && !editBody(opened, start, draft.current),
       body: '<div class="peach-react" data-item-edit-fields></div>',
       onConfirm: async () => {
@@ -167,6 +169,8 @@ function ItemEditDialog({ item, helpers, close, onSaved }: {
     });
     return () => dialog.close();
   }, []);
+  /* 表单整张渲染好再弹出：先弹出再渲染，那一下主线程卡住会把进场动效吃掉。 */
+  useEffect(() => { view?.dialog.show() }, [view]);
   /* 下拉、提示这些弹层挂进编辑框自己的 dialog：经 portal 挂过来的子树仍继承舞台那一层的容器，
      弹层会落进舞台，被压在这个后开的模态框底下，看起来就是一个空下拉。 */
   return view ? createPortal(<UNSAFE_PortalProvider getContainer={() => overlayHost(view.dialog.dialog)}>
@@ -261,6 +265,8 @@ function CoverRow({ item, value, onChange }: { item: DetailItem; value: CoverDra
   const file = useRef<HTMLInputElement>(null);
   const [failure, setFailure] = useState('');
   const [picking, setPicking] = useState(false);
+  /* 样张一排：指针在上面时竖向滚轮也横着滚，两头有渐隐提示，与站内横向导航同一套。 */
+  const samplesRef = useHorizontalScroller<HTMLDivElement>();
   /* 账本里登记了样张、本机却没缓存到的那几张取图会失败：失败的格子直接收掉，不留空框。 */
   const [missing, setMissing] = useState<ReadonlySet<number>>(() => new Set());
   const samples = (item.sample_images || []).filter(sample => sample.n > 0);
@@ -304,13 +310,15 @@ function CoverRow({ item, value, onChange }: { item: DetailItem; value: CoverDra
             {failure ? <span data-cover-failure="" role="alert">{failure}</span> : null}
           </div>
         </div>
-        {picking ? shownSamples.length ? <div data-cover-samples-grid="">
-          {shownSamples.map(entry => <button type="button" key={entry.n} data-cover-sample={entry.n}
-            aria-label={t('catalog:detailMedia.sampleNumber', { number: entry.n })} onClick={() => void sample(entry.n)}>
-            <img src={`/sample-thumb?code=${encodeURIComponent(item.code || '')}&n=${entry.n}`} alt="" loading="lazy"
-              onError={() => setMissing(now => new Set([...now, entry.n]))} />
-          </button>)}
-        </div> : <span data-edit-source="">{t('catalog:catalogPicture.previewNotFound')}</span> : null}
+        {samples.length ? <CollapseRegion open={picking} data-cover-samples-region="">
+          {shownSamples.length ? <div ref={samplesRef} data-cover-samples-grid="">
+            {shownSamples.map(entry => <button type="button" key={entry.n} data-cover-sample={entry.n}
+              aria-label={t('catalog:detailMedia.sampleNumber', { number: entry.n })} onClick={() => void sample(entry.n)}>
+              <img src={`/sample-thumb?code=${encodeURIComponent(item.code || '')}&n=${entry.n}`} alt="" loading="lazy"
+                onError={() => setMissing(now => new Set([...now, entry.n]))} />
+            </button>)}
+          </div> : <span data-edit-source="">{t('catalog:catalogPicture.previewNotFound')}</span>}
+        </CollapseRegion> : null}
         <input ref={file} type="file" accept="image/jpeg,image/png,image/webp" hidden data-cover-file=""
           onChange={event => { const chosen = event.target.files?.[0]; event.target.value = ''; if (chosen) image(chosen, 'upload') }} />
       </div>
