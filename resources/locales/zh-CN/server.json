@@ -2509,6 +2509,7 @@
     },
     "javOfficialPreview": {
       "dmmUnavailable": "DMM 视频预览未取得，请稍后重试",
+      "dmmUnrecognized": "DMM 给出的视频预览地址无法识别（{{host}}），重试不会好转",
       "javdbUnavailable": "JavDB 视频预览未取得，请稍后重试",
       "officialUnavailable": "官方视频预览未取得，请稍后重试"
     },
