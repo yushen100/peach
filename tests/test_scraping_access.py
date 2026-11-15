@@ -561,6 +561,27 @@ class ScrapingAccessTests(unittest.TestCase):
         self.assertEqual(direct(request, 1, 100).status, 200)
         self.assertFalse(cooldown.exists())
 
+    def test_the_javdb_account_cookie_rides_only_on_requests_the_user_opened(self):
+        """后台任务匿名取 JavDB，用户点开的页面才带登录账号；JavBus 年龄门的会话照带。"""
+        from peach import scraping_access
+        save(self.root, "javdb", {"cookie": "_jdb_session=private"})
+        self.assertFalse(scraping_access.sends_cookie("javdb"))
+        self.assertTrue(scraping_access.sends_cookie("javbus"))
+        with scraping_access.with_account():
+            self.assertTrue(scraping_access.sends_cookie("javdb"))
+        self.assertFalse(scraping_access.sends_cookie("javdb"))
+        with patch.object(scraping_access, "client_for", wraps=scraping_access.client_for) as made:
+            SourceTransport(self.root)._transport_for("javdb").close()
+            with scraping_access.with_account():
+                SourceTransport(self.root)._transport_for("javdb").close()
+        self.assertEqual([call.kwargs["session"] for call in made.call_args_list], [False, True])
+        # 匿名那次撞上 403，不让人去换 Cookie：这次根本没带。
+        transport = SourceTransport(self.root)
+        transport.transports["javdb"] = lambda *args: HttpResponse(403, {}, b"")
+        with self.assertRaises(scraping_access.SourcePaused) as caught:
+            transport(HttpRequest("GET", "https://javdb.com/search?q=ABP-616&f=all", {}), 1, 100)
+        self.assertNotIn("Cookie", str(caught.exception))
+
     def test_a_suspended_account_pauses_until_the_page_says_it_resumes(self):
         """账号被临时停用与出口被拦分开：按页面写的恢复时刻停，提示里说停的是账号、换出口没用。"""
         from peach.scraping_access import SourceRefused, cooldown_state

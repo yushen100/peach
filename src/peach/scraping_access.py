@@ -12,6 +12,8 @@ from pathlib import Path
 import tempfile
 import threading
 import time
+from contextlib import contextmanager
+from contextvars import ContextVar
 from email.utils import parsedate_to_datetime
 from datetime import datetime, timezone
 from urllib.parse import urlsplit, urljoin
@@ -76,7 +78,7 @@ SOURCES = {
     # `session`：公开采集也带上用户在采集设置里贴的 Cookie。javdb 有登录墙，JavBus 有年龄门，
     # 不带只回确认页；Cookie 由用户在浏览器里过门或登录后贴进来，Peach 不读浏览器的 Cookie 库。
     "javdb": {"label": "JavDB", "domains": ("javdb.com", "jdbstatic.com", "jdbimgs.com"), "login": "https://javdb.com/",
-              "cookie": True, "session": True, "blocked_pause": 6 * 3600},
+              "cookie": True, "session": True, "account": True, "blocked_pause": 6 * 3600},
     "javbus": {"label": "JavBus", "domains": ("javbus.com",), "login": "https://www.javbus.com/", "cookie": True,
                "session": True, "blocked_pause": 6 * 3600},
     # 磁力候选链。manko.fun 的页面数据来自同一产品使用的 healertanker API；Sukebei
@@ -132,6 +134,31 @@ class SourceRefused(SourcePaused):
     def __init__(self, code: str, params: dict, reason: str) -> None:
         super().__init__(code, params)
         self.reason = reason
+
+
+#: 用户亲手打开的页面（库外详情、查找资源、按名字搜演员）才带登录账号的 Cookie；见 `with_account`。
+_WITH_ACCOUNT: ContextVar[bool] = ContextVar("peach_scraping_with_account", default=False)
+
+
+@contextmanager
+def with_account():
+    """这一段里的请求带上 `account` 来源的登录 Cookie。
+
+    登录账号会被站方按浏览速度停用（2026-11-16 JavDB 停了一天），后台任务一个接一个地取页正是那种速度。
+    所以账号 Cookie 默认不带：浏览器添加队列、想要定时查找、资料处理与订阅源抓取都匿名取页，只有用户
+    在页面上点开的那一次请求进这一段。
+    """
+    token = _WITH_ACCOUNT.set(True)
+    try:
+        yield
+    finally:
+        _WITH_ACCOUNT.reset(token)
+
+
+def sends_cookie(source: str | None) -> bool:
+    """这次请求带不带这个来源的 Cookie：年龄门一类会话照带；登录账号（`account`）只在 `with_account` 里带。"""
+    entry = SOURCES.get(source or "", {})
+    return bool(entry.get("session")) and (not entry.get("account") or _WITH_ACCOUNT.get())
 
 
 def _paused(source: str | None, kind: str, until: float) -> "SourcePaused":
@@ -549,9 +576,10 @@ class SourceTransport:
             until = time.time() + min(FIRST_BLOCKED_PAUSE * 2 ** (blocks - 1), blocked_pause)
             _pause(cooldown, until, blocks, via)
             # 裸 403 分不清原因：请求太频繁、出口被拦，或贴过的 Cookie（`cf_clearance`）过期都会这样回。
-            # 只在贴过 Cookie 时把它列为可能之一，没贴过就不让人去贴；要登录、要过验证各有自己的报错。
+            # 只在这次真带了 Cookie 时把它列为可能之一，没带就不让人去贴；要登录、要过验证各有自己的报错。
             values = values_for(self.root, source)
-            raise _paused(source, "refusedCookie" if values.get("cookie") or values.get("cookies_text") else "refused", until)
+            sent = sends_cookie(source) and bool(values.get("cookie") or values.get("cookies_text"))
+            raise _paused(source, "refusedCookie" if sent else "refused", until)
         if blocks and response.status < 400:
             # 这一趟通了，封已经解除：清掉记录，下次撞上从最短的一档重新起算。
             cooldown.unlink(missing_ok=True)
@@ -654,8 +682,7 @@ class SourceTransport:
             if browser is not None:
                 return browser
         if source:
-            client = client_for(self.root, source, session=bool(SOURCES[source].get("session")),
-                                follow_redirects=False)
+            client = client_for(self.root, source, session=sends_cookie(source), follow_redirects=False)
         else:
             client = httpx.Client(**peach_proxy.client_options(self.root), follow_redirects=False,
                                   headers={"User-Agent": USER_AGENT})
