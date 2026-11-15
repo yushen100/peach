@@ -918,6 +918,39 @@ class BrowserTests(unittest.TestCase):
         self.downloads.store.save(task)
         self.assertEqual(listed(), {})
 
+    def test_dismiss_all_keeps_failures_listed_until_each_is_dismissed(self):
+        """「全部标为已读」只收起已完成的；失败与未找到资源留到逐条确认。"""
+        def listed():
+            return {item["code"]: item for item in self.client.get(
+                "/api/jav-browser/active", headers=self.script_headers).json()["items"]}
+
+        def dismiss(body):
+            response = self.client.post("/api/jav-browser/dismiss", json=body, headers=self.script_headers)
+            self.assertEqual(response.status_code, 200, response.text)
+            return response
+
+        self.service.ended["since"] = "2026-01-01T00:00:00+00:00"
+        self.add()
+        self.service.process_one()
+        task = self.downloads.store.get(self.status().json()["task_id"])
+        task.state, task.postprocess_state = dl.INGESTED, dl.POSTPROCESS_COMPLETE
+        task.updated_at = task.postprocessed_at = "2026-06-02T00:00:00+00:00"
+        self.downloads.store.save(task)
+        self.service.search.return_value = {"items": []}
+        self.add("ABP-616")
+        self.service.process_one()
+        self.service.rows["ABP-616"]["ended_at"] = "2026-06-01T00:00:00+00:00"
+        self.assertEqual({code: (item["state"], item["dismissed"]) for code, item in listed().items()},
+                         {"ABC-123": ("ingested", False), "ABP-616": ("no_match", False)})
+        dismiss({"all": True})
+        self.assertEqual(set(listed()), {"ABP-616"})
+        self.assertFalse(listed()["ABP-616"]["dismissed"])
+        # 失败项逐条确认后才收起；之后再「全部标为已读」分界点回到此刻。
+        dismiss({"keys": [listed()["ABP-616"]["ended_key"]]})
+        self.assertEqual(listed(), {})
+        dismiss({"all": True})
+        self.assertGreater(self.service.ended["since"], "2026-06-02")
+
     def test_disable_and_rotation_revoke_tokens(self):
         rotated = self.configure("rotate").json()["token"]
         self.assertEqual(self.status().status_code, 401)
