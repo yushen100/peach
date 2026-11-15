@@ -265,18 +265,9 @@ class TranscodeService:
         `decode` 是浏览器报的解码能力：报了能解 HEVC，原片直放；只差音轨或 `hev1` 标签时
         整片换封装（视频不重编码），产物文件名带 `-copy`，和转成 H.264 的那份分开存。
         """
-        profile = None
-        if not self.needs_transcode(source):
-            if self.resolver.ffprobe() is None:
-                return source, False
-            try:
-                profile = self._profile_for(source, session, registry, stat)
-            except OSError as exc:
-                raise TranscodeUnavailable("source unavailable") from exc
-            if profile is not None and self._decodes_in_browser(source, profile, decode):
-                return source, False
-        # 只有起播前就知道画像的 MP4 才按能力换封装：MKV 这类要转码时才探测，文件名得先定。
-        copy = profile is not None and profile.video_codec == "hevc" and video_decodes(profile, decode)
+        direct, profile, copy = self._passthrough(source, session, registry, stat, decode)
+        if direct:
+            return source, False
 
         choice = self.resolver.ffmpeg()
         if choice is None:
@@ -353,6 +344,25 @@ class TranscodeService:
                 if stale != target:
                     stale.unlink(missing_ok=True)
             return target, True
+
+    def _passthrough(self, source: Path, session: str, registry, stat,
+                     decode: frozenset[str]) -> tuple[bool, _MediaProfile | None, bool]:
+        """原片能不能直放：返回（直放、起播前探到的画像、只换封装）。
+
+        只有起播前就知道画像的 MP4 才按能力换封装：MKV 这类要转码时才探测，文件名得先定。"""
+        if self.needs_transcode(source):
+            return False, None, False
+        if self.resolver.ffprobe() is None:
+            return True, None, False
+        try:
+            profile = self._profile_for(source, session, registry, stat)
+        except OSError as exc:
+            raise TranscodeUnavailable("source unavailable") from exc
+        if profile is None:
+            return False, None, False
+        if self._decodes_in_browser(source, profile, decode):
+            return True, profile, False
+        return False, profile, profile.video_codec == "hevc" and video_decodes(profile, decode)
 
     def _cache_target(self, asset_id: int, stat, max_height: int, *, copy: bool = False) -> Path:
         """整片缓存的位置。只换封装的产物带 `-copy`，和转成 H.264 的那份分开存，也不受画质上限影响；

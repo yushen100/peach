@@ -1002,35 +1002,13 @@ def w_batch(contract: WebContract, body):
                         if not valid_ids:
                             raise ValueError("assets not found")
                         _reject_ineligible_targets(operation, found)
-                        now = time.time()
-                        state_receipt = _snapshot_marks(connection, operation, valid_ids)
-                        if operation in REVERTS:
-                            _write_revert(connection, operation, previous)
-                        elif operation in {"restore", "seen", "dispose"}:
-                            state_receipt.update(_write_batch_state(connection, found, operation, now, disposal_reason))
-                        elif operation in REVIEW_MARKS:
-                            if groups and len(valid_ids) != len(ids):
-                                raise ValueError("duplicate decisions need a whole group of active assets")
-                            _write_review_mark(connection, operation, valid_ids, now, groups)
-                        elif operation == "region":
-                            # 走 `write_owned_fields` 而不是直接 UPDATE：产地是真相字段，用户这一
-                            # 笔要压得住后面每一轮刮削与推断，归属列是它唯一的凭据。
-                            write_owned_fields(connection, valid_ids,
-                                               {"region": region_value}, USER_MANUAL)
-                        elif operation == "later":
-                            connection.executemany(
-                                "INSERT OR IGNORE INTO watch_queue(profile_id,asset_id,added_at,source) "
-                                f"VALUES('{DEFAULT_PROFILE_ID}',?,strftime('%Y-%m-%dT%H:%M:%fZ','now'),'web-batch')",
-                                [(asset_id,) for asset_id in valid_ids],
-                            )
-                        else:
-                            connection.executemany(
-                                "INSERT INTO asset_preference(profile_id,asset_id,liked,reason,source,updated_at) "
-                                f"VALUES('{DEFAULT_PROFILE_ID}',?,1,'','web-batch',strftime('%Y-%m-%dT%H:%M:%fZ','now')) "
-                                "ON CONFLICT(profile_id,asset_id) DO UPDATE SET liked=1,source='web-batch',"
-                                "updated_at=excluded.updated_at",
-                                [(asset_id,) for asset_id in valid_ids],
-                            )
+                        if groups and operation in REVIEW_MARKS and len(valid_ids) != len(ids):
+                            raise ValueError("duplicate decisions need a whole group of active assets")
+                        state_receipt = _write_batch_operation(
+                            connection, operation, found, valid_ids,
+                            groups=groups, previous=previous,
+                            region_value=region_value, disposal_reason=disposal_reason,
+                        )
             except BaseException as error:
                 handle.finish("cancelled" if isinstance(error, Cancelled) else "failed",
                               error="" if isinstance(error, Cancelled) else f"{type(error).__name__}: {error}")
@@ -1046,6 +1024,38 @@ def w_batch(contract: WebContract, body):
     except Cancelled:
         handle.finish('cancelled', summary={'cancelled_by_user': True})
         raise
+
+
+def _write_batch_operation(connection, operation: str, found, valid_ids: list[int], *,
+                           groups, previous, region_value, disposal_reason) -> dict:
+    """在写事务里按操作写入选中的行，返回撤销要用的状态回执。"""
+    now = time.time()
+    state_receipt = _snapshot_marks(connection, operation, valid_ids)
+    if operation in REVERTS:
+        _write_revert(connection, operation, previous)
+    elif operation in {"restore", "seen", "dispose"}:
+        state_receipt.update(_write_batch_state(connection, found, operation, now, disposal_reason))
+    elif operation in REVIEW_MARKS:
+        _write_review_mark(connection, operation, valid_ids, now, groups)
+    elif operation == "region":
+        # 走 `write_owned_fields` 而不是直接 UPDATE：产地是真相字段，用户这一
+        # 笔要压得住后面每一轮刮削与推断，归属列是它唯一的凭据。
+        write_owned_fields(connection, valid_ids, {"region": region_value}, USER_MANUAL)
+    elif operation == "later":
+        connection.executemany(
+            "INSERT OR IGNORE INTO watch_queue(profile_id,asset_id,added_at,source) "
+            f"VALUES('{DEFAULT_PROFILE_ID}',?,strftime('%Y-%m-%dT%H:%M:%fZ','now'),'web-batch')",
+            [(asset_id,) for asset_id in valid_ids],
+        )
+    else:
+        connection.executemany(
+            "INSERT INTO asset_preference(profile_id,asset_id,liked,reason,source,updated_at) "
+            f"VALUES('{DEFAULT_PROFILE_ID}',?,1,'','web-batch',strftime('%Y-%m-%dT%H:%M:%fZ','now')) "
+            "ON CONFLICT(profile_id,asset_id) DO UPDATE SET liked=1,source='web-batch',"
+            "updated_at=excluded.updated_at",
+            [(asset_id,) for asset_id in valid_ids],
+        )
+    return state_receipt
 
 
 def _batch_purge(contract: WebContract, ids: list[int]):
