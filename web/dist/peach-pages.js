@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "84ff1303-202f-45eb-ac9a-43bb5d6503f6", e._sentryDebugIdIdentifier = "sentry-dbid-84ff1303-202f-45eb-ac9a-43bb5d6503f6");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "783991dd-5f33-47b7-8001-ad39b30b2c1e", e._sentryDebugIdIdentifier = "sentry-dbid-783991dd-5f33-47b7-8001-ad39b30b2c1e");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -6603,7 +6603,7 @@ var He = {
 		software: "Software codec"
 	},
 	preferencesPanel: {
-		autoChineseSubtitles: "Turn on Chinese subtitles from the video's folder until you pick one",
+		autoChineseSubtitles: "Turn on Chinese subtitles from the video's directory until you pick one",
 		autoScroll: "Auto-scroll",
 		batchSize: "Videos per batch",
 		batchSizeInput: "Videos per batch",
@@ -39157,4 +39157,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=84ff1303-202f-45eb-ac9a-43bb5d6503f6
+//# debugId=783991dd-5f33-47b7-8001-ad39b30b2c1e
