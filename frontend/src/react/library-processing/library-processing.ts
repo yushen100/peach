@@ -138,7 +138,7 @@ export interface LibraryProcessingCommand {
   library_id?: string;
   incremental?: boolean;
   scope?: 'new';
-  stage?: 'scan' | 'collect' | 'previews' | 'metadata';
+  stage?: 'scan' | 'collect' | 'previews' | 'metadata' | 'covers';
   asset_ids?: number[];
   job_id?: string;
   retry?: number[];
@@ -339,6 +339,10 @@ export function announceCompletion(
   } catch { /* 存储不可用时照常提示，最多重复一次 */ }
   if (state.requested_stage === 'previews') {
     toast(t('manage:scanFetch.previewsToast', { count: state.previews || 0 }));
+    return;
+  }
+  if (state.requested_stage === 'covers') {
+    toast(t('manage:scanFetch.coversToast', { count: state.covers || 0 }));
     return;
   }
   toast(t('manage:scanFetch.doneToast', { count: state.identified || 0, candidates: state.candidates || 0, autoApplied: state.auto_applied || 0 })

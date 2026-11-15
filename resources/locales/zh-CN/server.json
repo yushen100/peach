@@ -3440,7 +3440,8 @@
         "checkCompanions": "检查配套文件",
         "makePreviews": "生成视频预览",
         "checkPreviewSettings": "检查媒体预览设置",
-        "fetchMetadataAndCovers": "采集外部资料与封面"
+        "fetchMetadataAndCovers": "采集外部资料与封面",
+        "fetchCovers": "采集缺失封面"
       },
       "source": {
         "onePondo": "一本道",

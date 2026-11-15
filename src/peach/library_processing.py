@@ -89,7 +89,9 @@ ISSUE_PREVIEW_LIMIT = 20
 #: 扫描、资料与预览共用的阶段名，同时用于接口和页面。
 SCAN_STAGE, COLLECT_STAGE, ALL_STAGES = 'scan', 'collect', 'all'
 METADATA_STAGE, PREVIEWS_STAGE = 'metadata', 'previews'
-STAGES = (ALL_STAGES, SCAN_STAGE, COLLECT_STAGE, METADATA_STAGE, PREVIEWS_STAGE)
+#: 只补封面：本地检查照做（认番号、装本地海报），联网只走封面那一步，资料一项不问，配额全用在图上。
+COVERS_STAGE = 'covers'
+STAGES = (ALL_STAGES, SCAN_STAGE, COLLECT_STAGE, METADATA_STAGE, PREVIEWS_STAGE, COVERS_STAGE)
 
 #: 没有动作截止时间的阶段（本地读取）超过这么久没有心跳就在页面上预警。
 STALL_AFTER_SECONDS = 120.0
@@ -372,6 +374,56 @@ COLUMN_OF = {'title': 'catalog_title'}
 MAX_SOURCE_REQUESTS = 6000
 MAX_SOURCE_BYTES = 1024 * 1024 * 1024
 MAX_SOURCE_SECONDS = 4 * 3600
+#: 三条闸门在 Peach 配置里能选的档位，键是 `/api/settings` 里跟着账本走的设置名；
+#: 上面三个常量就是默认档。夜里挂机可以放宽，白天网络差可以收窄。
+SOURCE_BUDGET_CHOICES = {
+    'sourceBudgetRequests': (1500, 3000, 6000, 12000, 24000, 48000),
+    'sourceBudgetHours': (1, 2, 4, 8, 12, 24),
+    'sourceBudgetGigabytes': (1, 2, 4, 8, 16),
+}
+SOURCE_BUDGET_DEFAULTS = {'sourceBudgetRequests': MAX_SOURCE_REQUESTS, 'sourceBudgetHours': MAX_SOURCE_SECONDS // 3600,
+                          'sourceBudgetGigabytes': MAX_SOURCE_BYTES // 1024 ** 3}
+
+
+@dataclass(frozen=True)
+class SourceBudget:
+    """一趟任务向外部来源要的总量：请求次数、下载字节、秒数，谁先到谁生效。"""
+    requests: int = MAX_SOURCE_REQUESTS
+    bytes: int = MAX_SOURCE_BYTES
+    seconds: float = MAX_SOURCE_SECONDS
+
+    def transport(self, secrets_root):
+        from .scraping_access import SourceTransport
+        return SourceTransport(secrets_root, max_requests=self.requests, max_bytes=self.bytes,
+                               max_seconds=self.seconds)
+
+
+def source_budget_settings(settings):
+    """设置里的三档；没设过、存坏了或不在档位里的按默认。"""
+    settings = settings if isinstance(settings, dict) else {}
+    return {key: value if not isinstance(value := settings.get(key), bool) and value in choices
+            else SOURCE_BUDGET_DEFAULTS[key] for key, choices in SOURCE_BUDGET_CHOICES.items()}
+
+
+def source_budget(database):
+    """按账本设置算出本趟的采集预算；`database` 是 `LedgerDatabase` 或账本路径。"""
+    if database is None:
+        return SourceBudget()
+    try:
+        if hasattr(database, 'read_connection'):
+            with database.read_connection() as connection:
+                settings = read_settings(connection)
+        elif Path(database).is_file():
+            with closing(sqlite3.connect(database, timeout=30)) as connection:
+                settings = read_settings(connection)
+        else:
+            settings = {}
+    except sqlite3.Error:
+        # 读不出设置只是按默认档跑，不让整趟任务因此失败。
+        settings = {}
+    chosen = source_budget_settings(settings)
+    return SourceBudget(requests=chosen['sourceBudgetRequests'], bytes=chosen['sourceBudgetGigabytes'] * 1024 ** 3,
+                        seconds=chosen['sourceBudgetHours'] * 3600)
 
 
 class CoverKept(NotFound):
@@ -456,8 +508,7 @@ class LibraryMetadataProvider:
     `public_cache` 是匿名 JavDB 资料的快照目录（`<生成目录>/jav-public`），与新作页、发现共用；
     不给就只在本进程内存里复用。
     """
-    def __init__(self, secrets_root, *, tools_root=None, public_cache=None, wiki_root=None):
-        from .scraping_access import SourceTransport
+    def __init__(self, secrets_root, *, tools_root=None, public_cache=None, wiki_root=None, budget=None):
         from .jav_cover_fetch import HostLimitedTransport
         self.secrets_root = Path(secrets_root)
         #: amane 桥的 venv 所在的工具区（`<Peach 数据目录>/tools`）；不给就用配置里的默认位置。
@@ -467,10 +518,9 @@ class LibraryMetadataProvider:
         #: 凭据根是数据目录下的 `secrets`。
         self.wiki_root = (Path(wiki_root) if wiki_root is not None
                           else self.secrets_root.parent / 'sources' / 'library-metadata' / 'seesaa-pages')
-        self.transport = HostLimitedTransport(
-            SourceTransport(secrets_root, max_requests=MAX_SOURCE_REQUESTS,
-                            max_bytes=MAX_SOURCE_BYTES, max_seconds=MAX_SOURCE_SECONDS),
-            2.0, limiter=SOURCE_LIMITER)
+        #: 本趟采集预算（`SourceBudget`）；不给按默认档。
+        self.transport = HostLimitedTransport((budget or SourceBudget()).transport(secrets_root),
+                                              2.0, limiter=SOURCE_LIMITER)
 
     #: 匿名 JavDB 资料的快照目录；没有时只在进程内存里复用。
     public_cache = None
@@ -914,7 +964,7 @@ class LibraryMetadataProvider:
         self.transport.renew()
 
     def budget_spent(self):
-        """本趟采集预算（`MAX_SOURCE_*`）到顶时的说明，没到顶是空串。"""
+        """本趟采集预算（`SourceBudget`）到顶时的说明，没到顶是空串。"""
         return self.transport.exhausted()
 
     def close(self):
@@ -1733,8 +1783,10 @@ class _RemoteSession:
     """一个任务共用的外部来源连接，加上来源说过「没有」的记忆。"""
 
     def __init__(self, config, provider_factory, misses, *, retrying, recheck_existing=False, routes=None,
-                 database=None):
+                 database=None, budget=None):
         self._config = config
+        #: 本趟采集预算（`SourceBudget`），补人物资料那一步同样按它开连接。
+        self.budget = budget or SourceBudget()
         self._factory = provider_factory
         self._provider = None
         self.misses = misses
@@ -1752,7 +1804,8 @@ class _RemoteSession:
                               else LibraryMetadataProvider(
                                   self._config.directory('secrets'), tools_root=self._config.directory('tools'),
                                   public_cache=self._config.directory('generated') / 'jav-public',
-                                  wiki_root=self._config.directory('sources') / 'library-metadata' / 'seesaa-pages'))
+                                  wiki_root=self._config.directory('sources') / 'library-metadata' / 'seesaa-pages',
+                                  budget=self.budget))
         return self._provider
 
     def reset(self):
@@ -2205,13 +2258,11 @@ def _enrich_finished_performers(database, groups, config, candidate_root, remote
         return empty
     from .metadata_performer_profiles import enrich_performer_profiles
     from .jav_cover_fetch import HostLimitedTransport
-    from .scraping_access import SourceTransport
+    budget = getattr(remote, 'budget', None) or SourceBudget()
 
     def profile_transport():
-        return HostLimitedTransport(
-            SourceTransport(config.directory('secrets'), max_requests=MAX_SOURCE_REQUESTS,
-                            max_bytes=MAX_SOURCE_BYTES, max_seconds=MAX_SOURCE_SECONDS),
-            2.0, limiter=SOURCE_LIMITER)
+        return HostLimitedTransport(budget.transport(config.directory('secrets')),
+                                    2.0, limiter=SOURCE_LIMITER)
     # 问题清单要的是这条资产的 id 和路径，候选行上都有。
     rows = {int(group['asset_id']): {'id': int(group['asset_id']),
                                      'path': group.get('asset_path') or ''}
@@ -2502,7 +2553,7 @@ class _NetworkGate:
 
 
 class _SourceBudget:
-    """整趟采集预算（`MAX_SOURCE_*`）到顶后，后面要出网的行一家都不问。
+    """整趟采集预算（`SourceBudget`）到顶后，后面要出网的行一家都不问。
 
     预算按任务算，换连接、暂停再继续都不重置。到顶之后每一问都只会回同一句「本趟已用完」，
     逐行再问只是空转，还把这一句按来源各记一遍，几千条问题项盖住了真正的原因。
@@ -2962,6 +3013,8 @@ class _LibraryCheckpoints:
                 key for key in self.completed['completed_metadata'] if key.partition(':')[0] not in newly_coded}
         state['filename_code_rule'] = upgrade_rules.FILENAME_CODES
         self.pending_metadata = set()
+        #: 收进完成断点的影片同时从「新入库待补全」名单里去掉；只补封面的任务不去。
+        self.settles_new = True
         self.entity_watermark = previous.get('entity_watermark')
         if self.entity_watermark is None:
             self.entity_watermark = _entity_watermark(database)
@@ -2986,8 +3039,9 @@ class _LibraryCheckpoints:
         self.pending_metadata.clear()
         self.state['completed_metadata'] = sorted(self.completed['completed_metadata'])
         flush(force=True)
-        from .library_new_assets import remember
-        remember(self.db_path, completed=completed_ids)
+        if self.settles_new:
+            from .library_new_assets import remember
+            remember(self.db_path, completed=completed_ids)
 
     def remaining_metadata(self, rows):
         return ((index, row) for index, row in enumerate(rows)
@@ -3104,7 +3158,7 @@ def _processing_steps(stage, asset_ids, *, metadata_only_enabled):
     """按本趟真实处理范围构造有序阶段清单。"""
     scanning = asset_ids is None and stage in (ALL_STAGES, SCAN_STAGE)
     steps = [('sources', 'scanFiles' if scanning else 'checkFolders')]
-    steps.append(('inspect', 'checkJunk' if stage in (SCAN_STAGE, PREVIEWS_STAGE, METADATA_STAGE)
+    steps.append(('inspect', 'checkJunk' if stage in (SCAN_STAGE, PREVIEWS_STAGE, METADATA_STAGE, COVERS_STAGE)
                   else 'probeAndCheckJunk'))
     if stage not in (SCAN_STAGE, PREVIEWS_STAGE):
         steps.append(('local', 'checkCompanions'))
@@ -3112,7 +3166,7 @@ def _processing_steps(stage, asset_ids, *, metadata_only_enabled):
         steps.append(('media', 'makePreviews' if stage == PREVIEWS_STAGE or not metadata_only_enabled
                       else 'checkPreviewSettings'))
     if stage not in (SCAN_STAGE, PREVIEWS_STAGE):
-        steps.append(('collect', 'fetchMetadataAndCovers'))
+        steps.append(('collect', 'fetchCovers' if stage == COVERS_STAGE else 'fetchMetadataAndCovers'))
     return [dict(id=key, label=interface_text.text(f'server:{STEP_PREFIX}{name}'), label_code=STEP_PREFIX + name,
                  status='current' if index == 0 else 'pending')
             for index, (key, name) in enumerate(steps)]
@@ -3121,7 +3175,7 @@ def _processing_steps(stage, asset_ids, *, metadata_only_enabled):
 #: 处理步骤名的 code 前缀；`label` 存按 zh-CN 渲染的原文。
 STEP_PREFIX = 'labels.libraryProcessing.step.'
 STEP_NAMES = ('scanFiles', 'checkFolders', 'checkJunk', 'probeAndCheckJunk', 'checkCompanions', 'makePreviews',
-              'checkPreviewSettings', 'fetchMetadataAndCovers')
+              'checkPreviewSettings', 'fetchMetadataAndCovers', 'fetchCovers')
 
 
 def _complete_processing_step(steps, key):
@@ -3434,10 +3488,16 @@ def process_library(config, db_path, candidate_root, cover_root, *, location='co
         estimate = ProcessingEstimate(config, state, control)
         # 实体表的水位在开工前记一次：比它大的实体就是这一轮建出来的（`_entity_followups`）。
         checkpoints = _LibraryCheckpoints(state, resume_state, database, db_path)
+        # 只补封面没问资料：新入库的影片照旧算「待补全」。
+        checkpoints.settles_new = stage != COVERS_STAGE
         entity_watermark = checkpoints.entity_watermark
         # 每行这一轮换上了几张封面，`(asset_id, 张数)`：换上了的作品，女优可能截得出更清楚的脸。
         covered = []
         stages_of = _library_stages(config)
+        if stage == COVERS_STAGE:
+            # 只补封面：每个媒体库都按「不补资料、不补人物资料」问，联网只剩封面那一步。
+            library_stages = stages_of
+            stages_of = lambda path: library_stages(path) - {'metadata', 'people'}
         log_path = _processing_issue_log(config, path, state['job_id'], state_file is not None,
                                          resume=bool(resume_state))
         # 界面只展示前 20 条，完整清单在这个文件里；地址跟着状态一起给出，
@@ -3476,7 +3536,7 @@ def process_library(config, db_path, candidate_root, cover_root, *, location='co
         update()
         remote = _RemoteSession(config, provider_factory, _MissCache(misses_path(config)),
                                 retrying=retrying, recheck_existing=recheck_existing, routes=routes,
-                                database=judgement_database)
+                                database=judgement_database, budget=source_budget(judgement_database))
         flush_candidates = lambda force=False: None
         local_evidence = None
 
@@ -3685,7 +3745,7 @@ def process_library(config, db_path, candidate_root, cover_root, *, location='co
             summary = _finish_collection(
                 config, database, candidate_root, cover_root, groups, remote, asset_ids=scope_ids,
                 active=active, update=update, issue=issue, watermark=entity_watermark, covered=covered,
-                people=_people_allowed(config), offline=gate.offline())
+                people=stage != COVERS_STAGE and _people_allowed(config), offline=gate.offline())
             finish_step('collect')
             _settle_collection_state(state, summary, rows, update)
         except Exception:
@@ -3706,7 +3766,8 @@ def process_library(config, db_path, candidate_root, cover_root, *, location='co
                 except OSError:
                     LOGGER.warning('Could not save the local evidence index', exc_info=True)
             remote.close()
-        from .library_new_assets import remember
-        unfinished = set(state['retryable_asset_ids'])
-        remember(db_path, completed=[row['id'] for row in rows if row['id'] not in unfinished])
+        if checkpoints.settles_new:
+            from .library_new_assets import remember
+            unfinished = set(state['retryable_asset_ids'])
+            remember(db_path, completed=[row['id'] for row in rows if row['id'] not in unfinished])
         return state

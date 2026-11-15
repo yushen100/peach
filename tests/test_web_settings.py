@@ -139,7 +139,8 @@ class SettingsRoundTripTests(unittest.TestCase):
                           "feedHideSoloCompilations": False, "feedHideExcerpts": True,
                           "searchHistoryLimit": None, "performerNameLanguage": "zh-CN", "taskSpeedMode": "standard",
                           "interfaceLanguage": "auto", "systemLanguage": None, "javBrowserWantOnNoMatch": True,
-                          "wantStaleSearchDays": 7, "wantStaleAttemptLimit": 3})
+                          "wantStaleSearchDays": 7, "wantStaleAttemptLimit": 3,
+                          "sourceBudgetRequests": 6000, "sourceBudgetHours": 4, "sourceBudgetGigabytes": 1})
 
     def test_code_patterns_are_checked_when_saved(self):
         """写错的规则在保存那一刻报出来；存下的规则去掉空行，读回来是同一份。"""
@@ -248,6 +249,18 @@ class SettingsRoundTripTests(unittest.TestCase):
         self.assertEqual((saved["wantStaleSearchDays"], saved["wantStaleAttemptLimit"]), (14, 0))
         self.assertEqual(self._stored_json(), {"wantStaleSearchDays": 14, "wantStaleAttemptLimit": 0})
 
+    def test_the_source_budget_takes_only_listed_choices(self):
+        """每趟采集预算三项只收列出的档位；拒收时整次不写。"""
+        for body in ({"sourceBudgetRequests": 7000}, {"sourceBudgetHours": True}, {"sourceBudgetGigabytes": "2"},
+                     {"sourceBudgetHours": 8, "sourceBudgetRequests": 1}):
+            with self.assertRaises(ValueError, msg=repr(body)):
+                w_settings(self.contract, body)
+        self.assertEqual(self._stored_json(), {})
+        saved = w_settings(self.contract, {"sourceBudgetRequests": 24000, "sourceBudgetHours": 12})
+        self.assertEqual((saved["sourceBudgetRequests"], saved["sourceBudgetHours"], saved["sourceBudgetGigabytes"]),
+                         (24000, 12, 1))
+        self.assertEqual(self._stored_json(), {"sourceBudgetRequests": 24000, "sourceBudgetHours": 12})
+
     def test_avatar_and_favicon_periods_are_read_only(self):
         settings = q_settings(self.contract)
         self.assertEqual(settings["avatarRefreshDays"], 90)
@@ -268,7 +281,8 @@ class SettingsRoundTripTests(unittest.TestCase):
                           "feedHideSoloCompilations": False, "feedHideExcerpts": True,
                           "searchHistoryLimit": None, "performerNameLanguage": "zh-CN", "taskSpeedMode": "standard",
                           "interfaceLanguage": "auto", "systemLanguage": None, "javBrowserWantOnNoMatch": True,
-                          "wantStaleSearchDays": 7, "wantStaleAttemptLimit": 3})
+                          "wantStaleSearchDays": 7, "wantStaleAttemptLimit": 3,
+                          "sourceBudgetRequests": 6000, "sourceBudgetHours": 4, "sourceBudgetGigabytes": 1})
         self.assertEqual(q_settings(self.contract)["sidebarOrder"], order)
         self.assertEqual(self._stored_json()["sidebarOrder"], order)
 

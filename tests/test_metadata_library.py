@@ -3658,6 +3658,43 @@ class LibraryWatchdogTests(unittest.TestCase):
         self.assertEqual(reads, 1)
 
     @windows_ledger_roots
+    def test_the_covers_stage_asks_only_for_covers(self):
+        """「只补封面」不问资料与人物资料，配额都用在封面上；新入库的影片照旧算待补全。"""
+        from peach.library_new_assets import pending, remember
+        media = self.root / 'media'
+        media.mkdir()
+        (media / 'ABW-215.mp4').write_bytes(b'video')
+        db = fresh_ledger(self.root)
+        process_library(self._config(media), db, self.root / 'generated', self.root / 'covers', stage='scan')
+        with closing(sqlite3.connect(db)) as connection:
+            asset_id = connection.execute('SELECT id FROM asset').fetchone()[0]
+        remember(db, [asset_id])
+        provider = self._provider()
+        provider.cover.return_value = True
+        state = process_library(self._config(media), db, self.root / 'generated', self.root / 'covers',
+                                stage='covers', provider_factory=lambda: provider)
+        self.assertEqual((state['status'], state['requested_stage'], state['covers']), ('complete', 'covers', 1))
+        provider.query.assert_not_called()
+        provider.community.assert_not_called()
+        self.assertEqual(provider.cover.call_args.args[0], 'ABW-215')
+        self.assertEqual([step['label_code'] for step in state['steps']][-1],
+                         'labels.libraryProcessing.step.fetchCovers')
+        self.assertEqual(pending(db), [asset_id])
+
+    def test_the_source_budget_follows_the_settings_and_defaults_stay(self):
+        """每趟采集预算三项按设置走，没设过、不在档位里的按默认（6000 次、4 小时、1 GiB）。"""
+        from peach.library_processing import LibraryMetadataProvider, SourceBudget, source_budget
+        db = fresh_ledger(self.root)
+        self.assertEqual(source_budget(db), SourceBudget(6000, 1024 ** 3, 4 * 3600))
+        with closing(sqlite3.connect(db)) as connection, connection:
+            connection.execute("UPDATE profile SET settings_json=? WHERE id='local-default'", (json.dumps(
+                {'sourceBudgetRequests': 24000, 'sourceBudgetHours': 12, 'sourceBudgetGigabytes': 3}),))
+        budget = source_budget(LedgerDatabase(db))
+        self.assertEqual(budget, SourceBudget(24000, 1024 ** 3, 12 * 3600))
+        transport = LibraryMetadataProvider(self.root / 'secrets', budget=budget).transport.inner
+        self.assertEqual((transport.max_requests, transport.max_bytes), (24000, 1024 ** 3))
+
+    @windows_ledger_roots
     def test_local_evidence_is_not_reused_after_the_code_patterns_change(self):
         """番号识别规则改了，旧的读法可能认出别的番号：跨任务的本地证据整份不用。"""
         media = self.root / 'media'

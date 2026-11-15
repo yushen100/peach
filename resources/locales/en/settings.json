@@ -1318,5 +1318,16 @@
     "intervalHelp": "How often to search again for releases over 90 days old that weren't found.",
     "never": "Never",
     "title": "Wants search"
+  },
+  "sourceBudget": {
+    "gigabyteCount": "{{count, number}} GB",
+    "gigabytes": "Downloads per run",
+    "hourCount_one": "{{count, number}} hour",
+    "hourCount_other": "{{count, number}} hours",
+    "hours": "Time per run",
+    "requestCount": "{{count, number}} requests",
+    "requests": "Requests per run",
+    "requestsHelp": "How much one scan and collection run asks of online sources; it stops at whichever limit comes first and the next run picks up the rest.",
+    "saved": "Per-run collection limits saved"
   }
 }

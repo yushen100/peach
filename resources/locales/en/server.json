@@ -3440,7 +3440,8 @@
         "checkCompanions": "Check companion files",
         "makePreviews": "Generate previews",
         "checkPreviewSettings": "Check preview settings",
-        "fetchMetadataAndCovers": "Fetch metadata and covers"
+        "fetchMetadataAndCovers": "Fetch metadata and covers",
+        "fetchCovers": "Fetch missing covers"
       },
       "source": {
         "onePondo": "1pondo",

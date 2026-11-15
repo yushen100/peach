@@ -250,7 +250,7 @@ class ScrapingAccessTests(unittest.TestCase):
 
         「请求预算」是这个类内部的词：看到它的人在问题清单里只能读出「有个数用完了」，
         既不知道那个数归谁管，也不知道自己还要不要动手。一趟任务的用量见
-        `library_processing.MAX_SOURCE_*`。
+        `library_processing.SourceBudget`。
         """
         from peach.scraping_access import SourcePaused
         request = HttpRequest("GET", "https://javdb.com/search?q=ABW-358", {})
@@ -276,9 +276,13 @@ class ScrapingAccessTests(unittest.TestCase):
         三家并行也要 4 小时才用得完，时间不会先掐断请求数。每次约 250 KB，1 GiB 装得下。
         """
         from peach import library_processing
-        self.assertEqual(library_processing.MAX_SOURCE_REQUESTS, 6000)
-        self.assertEqual(library_processing.MAX_SOURCE_BYTES, 1024 * 1024 * 1024)
-        self.assertEqual(library_processing.MAX_SOURCE_SECONDS, 4 * 3600)
+        self.assertEqual(library_processing.SourceBudget(), library_processing.SourceBudget(
+            requests=6000, bytes=1024 * 1024 * 1024, seconds=4 * 3600))
+        # 设置里能选的档位要包含默认档：没调过的人看到的就是现在这一档。
+        self.assertEqual(library_processing.source_budget_settings({}), {
+            'sourceBudgetRequests': 6000, 'sourceBudgetHours': 4, 'sourceBudgetGigabytes': 1})
+        for key, value in library_processing.SOURCE_BUDGET_DEFAULTS.items():
+            self.assertIn(value, library_processing.SOURCE_BUDGET_CHOICES[key])
 
     def test_a_community_source_that_refuses_is_paused_as_a_whole(self):
         """javdb 超配额回 403 不带 Retry-After，接着问只会每条都再撞一次、把封期拖长。"""
