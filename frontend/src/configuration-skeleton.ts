@@ -264,6 +264,8 @@ const subscriptions = () => `<div>${button(t('settings:sourceSettings.sourcesLin
   + section(t('settings:followFetch.title'), controlRow(t('settings:followFetch.autoCheck'), '', `<span class="flex items-center gap-2"><span class="skeleton ui-configuration-skeleton-toggle"></span><span class="skeleton ui-configuration-skeleton-input" style="width:96px"></span></span>`)
     + valueRow(t('settings:followFetch.feedSchedule')) + row(t('settings:followFetch.initialRange'), t('settings:followFetch.initialRangeHelp'), 'ui-configuration-skeleton-select')
     + valueRow(t('settings:followFetch.avatarRefresh'), t('settings:followFetch.avatarRefreshHelp')) + valueRow(t('settings:followFetch.faviconRefresh'), t('settings:followFetch.faviconRefreshHelp')))
+  + section(t('settings:wantSearch.title'), row(t('settings:wantSearch.interval'), t('settings:wantSearch.intervalHelp'), 'ui-configuration-skeleton-select')
+    + row(t('settings:wantSearch.giveUp'), t('settings:wantSearch.giveUpHelp'), 'ui-configuration-skeleton-select'))
   + indexersSkeleton()
   + section(t('settings:entryLinks.title'), stack(`<p class="text-body-2-regular text-text-secondary">${ENTRY_LINKS_HELP}</p>${inputField(marked(t('settings:entryLinks.siteAddress', { site: 'JavDB' })), ENTRY_LINKS_HINT)}${inputField(marked(t('settings:entryLinks.siteAddress', { site: 'MISSAV' })), ENTRY_LINKS_HINT)}`), button(t('settings:shared.saveSettings')));
 
@@ -365,7 +367,8 @@ const maintenance = () => {
     + section(t('settings:autoUpdate.title'), row(t('settings:autoUpdate.autoCheck')) + row(t('settings:autoUpdate.autoDownload'), t('settings:autoUpdate.autoDownloadHelp')) +row(t('settings:autoUpdate.frequency'), on(shape?.autoUpdateHelp) ? text('12em') : '', 'ui-configuration-skeleton-select'), button(t('settings:shared.saveSettings')))
     + section(t('settings:startup.title'), row(t('settings:startup.launchAtStartup')) + row(t('settings:startup.trayOnly'), t('settings:startup.trayOnlyHelp')) +row(t('settings:startup.desktopShortcut'), on(shape?.desktopNote) ? text('12em') : '')
       + (on(shape?.startupNote) ? stack(help(text('60%')), true) : ''), button(t('settings:shared.saveSettings')))
-    + section(t('settings:transcoding.title'), row(t('settings:transcoding.mode'), t('settings:transcoding.modeHelp'), 'ui-configuration-skeleton-select'))
+    + section(t('settings:transcoding.title'), row(t('settings:transcoding.mode'), t('settings:transcoding.modeHelp'), 'ui-configuration-skeleton-select')
+      + row(t('settings:transcoding.quality'), t('settings:transcoding.qualityHelp'), 'ui-configuration-skeleton-select'))
     + section(t('settings:diskUsage.title'), facts([t('settings:shared.dataDirectory'), t('settings:diskUsage.disk')])
       + (storageRows ? Array.from({ length: storageRows }, () => controlRow(text('6em'), '', text('4em'))).join('') : stack(help(t('settings:diskUsage.emptyHelp')), true))
       + (storageNotes ? stack(help(text('80%')).repeat(storageNotes), true) : ''),

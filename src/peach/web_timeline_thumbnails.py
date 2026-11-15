@@ -44,10 +44,11 @@ def write_mode(mode: str, path: Path | None = None) -> None:
 
 
 def q_media_processing(contract, _args):
-    from .media_processing_policy import acceleration
+    from .media_processing_policy import acceleration, playback_max_height
     return {'metadata_only': metadata_only(contract.follow_state_root),
             'preview_acceleration': acceleration(contract.follow_state_root, purpose='preview'),
-            'playback_acceleration': acceleration(contract.follow_state_root)}
+            'playback_acceleration': acceleration(contract.follow_state_root),
+            'playback_max_height': playback_max_height(contract.follow_state_root)}
 
 
 def w_media_processing(contract, body):

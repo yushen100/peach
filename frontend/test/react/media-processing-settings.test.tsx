@@ -2,8 +2,8 @@ import { QueryClientProvider, notifyManager } from '@tanstack/react-query';
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { queryClient } from '../../src/react/query';
-import { MediaProcessingSettings } from '../../src/react/settings/media-processing-settings';
-import { click, mount, pending, settle } from './render';
+import { MediaProcessingSettings, PlaybackTranscodeSettings } from '../../src/react/settings/media-processing-settings';
+import { choose, click, mount, pending, settle } from './render';
 
 notifyManager.setScheduler((notify) => notify());
 afterEach(() => queryClient.clear());
@@ -48,4 +48,25 @@ it('保存失败保留当前模式并显示可恢复的错误', async () => {
   expect(control?.checked).toBe(false);
   expect(host.textContent).toContain('设置未能保存');
   expect(receipt).not.toHaveBeenCalled();
+});
+
+it('视频播放的画质上限读出已存档位，选一档后按数字保存', async () => {
+  const requests: unknown[] = [];
+  vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+    if (init?.method === 'POST') {
+      requests.push(JSON.parse(String(init.body)));
+      return { ok: true, json: async () => ({ metadata_only: false, playback_max_height: 720 }) };
+    }
+    return { ok: true, json: async () => ({ metadata_only: false, playback_max_height: 0 }) };
+  }));
+  const receipt = vi.fn();
+  const host = await mount(<QueryClientProvider client={queryClient}><PlaybackTranscodeSettings receipt={receipt} /></QueryClientProvider>);
+  await settle();
+  const trigger = host.querySelector('#playbackQualitySetting button');
+  expect(trigger?.textContent).toContain('原画');
+  await choose(trigger, '720p');
+  await settle();
+  expect(requests).toEqual([{ playback_max_height: 720 }]);
+  expect(receipt).toHaveBeenCalledWith('已保存画质上限');
+  expect(host.querySelector('#playbackQualitySetting button')?.textContent).toContain('720p');
 });

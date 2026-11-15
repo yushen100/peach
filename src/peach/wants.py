@@ -15,14 +15,16 @@
 
 **查找状态。** 查资源的是 `want_search` 的定时任务与浏览器添加队列；这里留状态与计数，给它们
 一个记账入口 `record_search`。照 SakuraMedia 的口径：发售 90 天内的新片查不到也不计数，一直待找；老片
-（发行日缺失也按老片算）查满 `STALE_ATTEMPT_LIMIT` 次无果标「暂时放弃」，`reset_search` 手动重置。
+（发行日缺失也按老片算）查满放弃次数无果标「暂时放弃」，`reset_search` 手动重置。老片多久再查一次、
+查几次放弃（0 表示一直查）是跟着账本走的设置，由 `cadence` 读出，缺省为每周一次、三次放弃。
 还没发售的不催：`phase` 按发行日现算出「未发售」，`pending_targets` 不交出它。`due_targets`
-在待找里挑出到了再查时间的：新片每天、老片每周、上次来源失败的隔几小时。
+在待找里挑出到了再查时间的：新片每天、老片按设置的间隔、上次来源失败的隔几小时。
 
 调用方负责事务：这里的函数只在给定连接上写，不提交。
 """
 from __future__ import annotations
 
+import sqlite3
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -36,12 +38,16 @@ AUTO_SOURCE = "auto:want-acquired"
 
 #: 发售多少天之内算新片：查不到也不计数，持续待找。
 FRESH_DAYS = 90
-#: 老片查满几次无果就暂时放弃。
+#: 老片查满几次无果就暂时放弃；0 表示一直查。设置里的 `wantStaleAttemptLimit` 从这几档里选。
 STALE_ATTEMPT_LIMIT = 3
-#: 待找的多久再查一次。新片每天查：刚发售的资源一两天内就会出现；老片每周查，
+STALE_ATTEMPT_LIMITS = (0, 1, 3, 5, 10)
+#: 老片多久再查一次（天）。设置里的 `wantStaleSearchDays` 从这几档里选。
+STALE_SEARCH_DAYS = 7
+STALE_SEARCH_DAY_CHOICES = (1, 3, 7, 14, 30)
+#: 待找的多久再查一次。新片每天查：刚发售的资源一两天内就会出现；老片默认每周查，
 #: 查满 `STALE_ATTEMPT_LIMIT` 次约三周后暂时放弃。上次是来源失败的，隔几小时再试。
 FRESH_SEARCH_EVERY = timedelta(days=1)
-STALE_SEARCH_EVERY = timedelta(days=7)
+STALE_SEARCH_EVERY = timedelta(days=STALE_SEARCH_DAYS)
 ERROR_SEARCH_EVERY = timedelta(hours=6)
 
 #: 三种状态，含义见迁移 0042。
@@ -60,6 +66,51 @@ _COLUMNS = ("id,code,code_key,follow_item_id,origin,title,link,cover_url,release
             "performers,scraped_at,scrape_error,state,search_count,last_search_at,"
             "last_search_outcome,last_search_note,given_up_at,acquired_asset_id,acquired_at,"
             "acquired_source,acquired_batch,created_at,updated_at")
+
+
+def _choice(raw, choices: tuple[int, ...]) -> int | None:
+    if isinstance(raw, bool) or not isinstance(raw, (int, str)):
+        return None
+    try:
+        value = int(raw)
+    except ValueError:
+        return None
+    return value if value in choices else None
+
+
+def normalise_stale_search_days(raw) -> int | None:
+    """老片再查间隔的一档；不在档位里就是 None，由调用方决定报错还是用默认。"""
+    return _choice(raw, STALE_SEARCH_DAY_CHOICES)
+
+
+def normalise_stale_attempt_limit(raw) -> int | None:
+    """放弃前查几次的一档，0 表示一直查；不在档位里就是 None。"""
+    return _choice(raw, STALE_ATTEMPT_LIMITS)
+
+
+@dataclass(frozen=True)
+class Cadence:
+    """老片的查找节奏：多久再查一次、查满几次无果暂时放弃（0 表示一直查）。"""
+
+    stale_every: timedelta = STALE_SEARCH_EVERY
+    attempt_limit: int = STALE_ATTEMPT_LIMIT
+
+
+def cadence(connection) -> Cadence:
+    """账本设置（`profile.settings_json`）里的节奏。"""
+    from .profiles import read_settings
+    try:
+        return cadence_from(read_settings(connection))
+    except sqlite3.Error:
+        return Cadence()
+
+
+def cadence_from(stored: dict) -> Cadence:
+    """一份设置载荷里的节奏，没设过或存坏了的项用默认值。"""
+    days = normalise_stale_search_days(stored.get("wantStaleSearchDays"))
+    limit = normalise_stale_attempt_limit(stored.get("wantStaleAttemptLimit"))
+    return Cadence(stale_every=timedelta(days=days) if days is not None else STALE_SEARCH_EVERY,
+                   attempt_limit=STALE_ATTEMPT_LIMIT if limit is None else limit)
 
 
 def stamp(moment: datetime | None = None) -> str:
@@ -340,7 +391,7 @@ def record_search(connection, want_id: int, outcome: str, *, note: str = "",
     """下载模块查了一次资源，记一笔，返回这一条现在的段（`phase`）。
 
     `found` 清零计数、取消暂时放弃；`error` 只记下这次失败，不算查过；`none` 只给老片计数，
-    满 `STALE_ATTEMPT_LIMIT` 次标暂时放弃。已入库的不再记。
+    满设置的放弃次数（`cadence`，0 表示一直查）标暂时放弃。已入库的不再记。
     """
     if outcome not in SEARCH_OUTCOMES:
         raise ValueError(f"unknown search outcome: {outcome}")
@@ -356,7 +407,8 @@ def record_search(connection, want_id: int, outcome: str, *, note: str = "",
         count, state, given_up = 0, WANTED, None
     elif outcome == "none" and not is_fresh(row["release_date"], day):
         count += 1
-        if count >= STALE_ATTEMPT_LIMIT and state != GIVEN_UP:
+        limit = cadence(connection).attempt_limit
+        if limit and count >= limit and state != GIVEN_UP:
             state, given_up = GIVEN_UP, moment
     connection.execute(
         "UPDATE want_item SET search_count=?,state=?,given_up_at=?,last_search_at=?,"
@@ -438,13 +490,13 @@ def _moment(value: str | None) -> datetime | None:
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
 
-def search_due(target: WantTarget, now: datetime) -> bool:
+def search_due(target: WantTarget, now: datetime, stale_every: timedelta = STALE_SEARCH_EVERY) -> bool:
     """这一条到没到再查的时间：没查过的马上查，其余按上次结果与新旧隔开。"""
     last = _moment(target.last_search_at)
     if last is None:
         return True
     every = (ERROR_SEARCH_EVERY if target.last_search_outcome == "error"
-             else FRESH_SEARCH_EVERY if target.fresh else STALE_SEARCH_EVERY)
+             else FRESH_SEARCH_EVERY if target.fresh else stale_every)
     return now - last >= every
 
 
@@ -455,8 +507,9 @@ def due_targets(connection, *, now: datetime | None = None,
     关注条目没有番号，资源查询认不了，交给用户在清单上手动处理。
     """
     moment = now or datetime.now(timezone.utc)
+    every = cadence(connection).stale_every
     due = [target for target in pending_targets(connection, today=today)
-           if target.code and search_due(target, moment)]
+           if target.code and search_due(target, moment, every)]
     return sorted(due, key=lambda target: (target.last_search_at is not None, not target.fresh))
 
 

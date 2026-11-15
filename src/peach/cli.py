@@ -96,11 +96,13 @@ def _serve(args: argparse.Namespace) -> int:
         _run_uvicorn(create_redirect_app(args.redirect_origin), host=args.host, port=args.port)
         return 0
     if distribution.docker():
-        # Docker 没有托盘，日志的半年保留、按月切段与空进程日志清理在这里做；子进程还没起。
+        # Docker 没有托盘，日志的保留、按月切段与空进程日志清理在这里做；子进程还没起。
         import logging
-        from . import log_retention
+        from . import log_retention, retention_settings
         try:
-            log_retention.sweep(settings_file.active().directory("logs"))
+            config = settings_file.active()
+            log_retention.sweep(config.directory("logs"),
+                                retention=retention_settings.log_retention(config.directory("state")))
         except Exception:
             logging.getLogger(__name__).warning("Log maintenance failed", exc_info=True)
     if bool(args.ssl_certfile) != bool(args.ssl_keyfile):

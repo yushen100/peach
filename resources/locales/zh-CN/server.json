@@ -751,6 +751,7 @@
       "relocateBusy": "迁移请求正在处理",
       "relocateRejected": "无法迁移到这个位置",
       "restoreConfirmRequired": "恢复会替换当前账本，请先确认",
+      "retentionBusy": "保留期限正在保存，请稍后再试",
       "serverManagedByLaunch": "访问范围与名称由服务启动配置管理",
       "sessionsWriting": "设备记录正在写入，请稍后重试",
       "settingsChanged": "设置已变更，请刷新后再保存",
@@ -798,6 +799,7 @@
       "taskOnOtherHost": "请在执行这轮任务的写入端操作"
     },
     "settings": {
+      "choiceInvalid": "{{key}} 只收 {{choices}}",
       "empty": "没有要写入的设置",
       "interfaceLanguageInvalid": "interfaceLanguage 只收 {{choices}}",
       "libraryOrderInvalid": "媒体库顺序须使用不重复的媒体库 ID",
@@ -1455,7 +1457,12 @@
     "mediaProcessingPolicy": {
       "previewStateRequired": "请选择视频预览生成状态",
       "accelerationModeRequired": "请选择自动或仅软件模式",
-      "choiceRequired": "请选择媒体处理方式"
+      "choiceRequired": "请选择媒体处理方式",
+      "qualityRequired": "画质上限只收 {{choices}}"
+    },
+    "retentionSettings": {
+      "choiceInvalid": "{{key}} 只收 {{choices}}",
+      "empty": "没有要保存的保留期限"
     },
     "server": {
       "databaseMissing": "已有配置但缺少数据库，请恢复数据库后启动",

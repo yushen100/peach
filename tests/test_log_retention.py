@@ -7,7 +7,7 @@ import unittest
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from peach import log_retention
+from peach import log_retention, retention_settings
 
 NOW = datetime(2026, 9, 5, 12, 0, 0)
 
@@ -70,6 +70,27 @@ class SweepTests(unittest.TestCase):
 
     def test_the_retention_is_half_a_year(self):
         self.assertEqual(log_retention.RETENTION, timedelta(days=183))
+        self.assertEqual(retention_settings.log_retention(Path(self.tmp.name) / "state"), log_retention.RETENTION)
+
+    def test_a_shorter_retention_from_this_computer_deletes_sooner(self):
+        state = Path(self.tmp.name) / "state"
+        self.assertEqual(retention_settings.save(state, {"log_days": 30}), {"backup_keep": 5, "log_days": 30})
+        touch(self.logs / "tray.log", NOW - timedelta(days=31))
+        touch(self.logs / "sync.log", NOW - timedelta(days=29))
+        actions = log_retention.sweep(self.logs, now=NOW, retention=retention_settings.log_retention(state))
+        self.assertEqual([action for action in actions if action.startswith("deleted")], ["deleted tray.log"])
+
+    def test_retention_settings_take_only_listed_choices_and_survive_a_broken_file(self):
+        state = Path(self.tmp.name) / "state"
+        for body in ({"log_days": 7}, {"backup_keep": True}, {"backup_keep": "5"}, {}):
+            with self.assertRaises(ValueError):
+                retention_settings.save(state, body)
+        self.assertFalse((state / retention_settings.FILENAME).exists())
+        state.mkdir()
+        (state / retention_settings.FILENAME).write_text('{"backup_keep": 3, "log_days": 365}', encoding="utf-8")
+        self.assertEqual(retention_settings.read(state), {"backup_keep": 5, "log_days": 365})
+        (state / retention_settings.FILENAME).write_text("not json", encoding="utf-8")
+        self.assertEqual(retention_settings.read(state), {"backup_keep": 5, "log_days": 183})
 
     def test_idle_logs_of_finished_processes_go_and_the_rest_stay(self):
         entry = b'{"stage": "entry", "pid": 1}\n'

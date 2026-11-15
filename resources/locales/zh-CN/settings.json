@@ -239,7 +239,7 @@
     "backupProgress": "备份进度",
     "count": "共 {{count, number}} 份可恢复的备份",
     "empty": "还没有备份",
-    "help": "账本保存全部资料、观看记录与复核结论。手动和写入前的自动备份保留最近 5 份及 24 小时内的。",
+    "help": "账本保存全部资料、观看记录与复核结论；自动备份留几份见下方「保留期限」。",
     "jobIncomplete": "任务没有完成",
     "loading": "正在读取备份列表",
     "manual": "手动",
@@ -790,6 +790,7 @@
     "waitingBrowser": "等你在浏览器窗口里登录 PikPak"
   },
   "playbackTranscode": {
+    "qualitySaved": "已保存画质上限",
     "saved": "已保存转码方式",
     "software": "软件编解码"
   },
@@ -930,6 +931,17 @@
     "preRepairBackup": "修复前的账本备份",
     "queued": "等待执行",
     "reclaimable": "可回收 {{size}}"
+  },
+  "retention": {
+    "backups": "账本自动备份",
+    "backupsHelp": "写入前留下的整库备份保留最近几份，24 小时内的都留。",
+    "copies": "{{count, number}} 份",
+    "days": "{{count, number}} 天",
+    "halfYear": "半年",
+    "logs": "日志",
+    "logsHelp": "多久没再写入的日志会被删除。",
+    "oneYear": "1 年",
+    "title": "保留期限"
   },
   "runtimeInfo": {
     "logDirectory": "日志目录",
@@ -1183,6 +1195,10 @@
   "transcoding": {
     "mode": "转码方式",
     "modeHelp": "用于播放时的视频转码。",
+    "original": "原画",
+    "quality": "画质上限",
+    "qualityHeight": "{{height}}p",
+    "qualityHelp": "只管需要重新编码的片子，网络慢时调低。",
     "title": "视频播放"
   },
   "uninstall": {
@@ -1246,5 +1262,16 @@
   },
   "videoProcessing": {
     "autoHardwareFirst": "自动（硬件优先）"
+  },
+  "wantSearch": {
+    "attempts": "{{count, number}} 次",
+    "daily": "每天",
+    "everyDays": "每 {{count, number}} 天",
+    "giveUp": "查不到就放弃",
+    "giveUpHelp": "老片连续这么多次没查到就暂时放弃，可在清单上重新查。",
+    "interval": "老片再查间隔",
+    "intervalHelp": "发售超过 90 天、上次没查到的作品隔多久再查。",
+    "never": "一直查",
+    "title": "想要查资源"
   }
 }

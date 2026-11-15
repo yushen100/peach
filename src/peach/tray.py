@@ -25,7 +25,7 @@ import pystray
 from PIL import Image
 
 from . import (desktop_startup, error_reporting, interface_text, ledger_backups, log_retention, onboarding,
-               runtime_prepare, settings_file, sparkle_update)
+               retention_settings, runtime_prepare, settings_file, sparkle_update)
 from .appid import MACOS_LAUNCH_AGENT_LABEL
 from .certs import ensure_certificate
 from .distribution import standalone
@@ -1623,7 +1623,8 @@ class PeachTray:
         # 账本备份同理：每个 --apply 都留一份整库，复核过后就没人再读。规则与拒绝条件在
         # `peach.ledger_backups`；这里失败只记日志，不能因为清退不了而不起托盘。
         try:
-            ledger_backups.prune(DATABASE_PATH, apply=True)
+            ledger_backups.prune(DATABASE_PATH, apply=True,
+                                 keep_recent=retention_settings.backup_keep(STATE_DIR))
         except Exception:
             logging.getLogger(__name__).warning("Database backup retention cleanup failed", exc_info=True)
         self._startup_warning = None
@@ -2053,10 +2054,12 @@ def _main(argv: list[str] | None = None) -> int:
             webbrowser.open(setup_url(config) if waiting else normal_url(config))
         return 0
     try:
-        # 日志按半年保留、按月切段，必须排在任何子进程打开日志之前：Windows 上被占着的
+        # 日志按设置的天数保留、按月切段，必须排在任何子进程打开日志之前：Windows 上被占着的
         # 文件改不了名也删不掉。整理不了只记日志，不能因此不起托盘。
         try:
-            for action in log_retention.sweep(config.directory("logs")):
+            for action in log_retention.sweep(
+                    config.directory("logs"),
+                    retention=retention_settings.log_retention(config.directory("state"))):
                 logging.getLogger(__name__).info("Log maintenance: %s", action)
         except Exception:
             logging.getLogger(__name__).warning("Log maintenance failed", exc_info=True)

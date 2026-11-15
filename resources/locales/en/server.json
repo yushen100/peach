@@ -751,6 +751,7 @@
       "relocateBusy": "A migration request is already being processed.",
       "relocateRejected": "Can't move data to this location.",
       "restoreConfirmRequired": "Restoring replaces the current database. Confirm first.",
+      "retentionBusy": "Retention settings are being saved. Try again shortly.",
       "serverManagedByLaunch": "Access scope and name are managed by the service startup configuration.",
       "sessionsWriting": "Device records are being written. Try again later.",
       "settingsChanged": "Settings have changed. Refresh, then save again.",
@@ -798,6 +799,7 @@
       "taskOnOtherHost": "Do this on the primary computer running this task."
     },
     "settings": {
+      "choiceInvalid": "{{key}} only accepts {{choices}}.",
       "empty": "No preferences to save.",
       "interfaceLanguageInvalid": "interfaceLanguage only accepts {{choices}}",
       "libraryOrderInvalid": "Library order must use unique library IDs.",
@@ -1455,7 +1457,12 @@
     "mediaProcessingPolicy": {
       "previewStateRequired": "Choose whether to generate previews",
       "accelerationModeRequired": "Choose automatic or software-only mode",
-      "choiceRequired": "Choose a media processing mode"
+      "choiceRequired": "Choose a media processing mode",
+      "qualityRequired": "Quality limit only accepts {{choices}}"
+    },
+    "retentionSettings": {
+      "choiceInvalid": "{{key}} only accepts {{choices}}.",
+      "empty": "No retention settings to save."
     },
     "server": {
       "databaseMissing": "Settings exist but the database is missing; restore the database, then start Peach",

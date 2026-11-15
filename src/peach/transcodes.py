@@ -13,7 +13,7 @@ from pathlib import Path
 from .smb_media import input_url
 
 from .ffmpeg import FFmpegResolver
-from .hardware_transcode import HardwareTranscoder
+from .hardware_transcode import QUALITY_BITRATES, HardwareTranscoder, software_video_output
 from .mp4index import composition_offsets_present
 
 
@@ -238,7 +238,8 @@ class TranscodeService:
         except OSError as exc:
             raise TranscodeUnavailable("source unavailable") from exc
 
-        target = self.cache_root / f"{asset_id}-{stat.st_size}-{stat.st_mtime_ns}.mp4"
+        max_height = self.hardware.max_height()
+        target = self._cache_target(asset_id, stat, max_height)
         if target.is_file() and target.stat().st_size:
             _touch(target)
             return target, True
@@ -261,7 +262,7 @@ class TranscodeService:
                     if profile is None:
                         profile = self._probe(source, session, registry, deadline)
                     for attempt in self._attempts(
-                        choice.path, source, temporary, profile,
+                        choice.path, source, temporary, profile, max_height,
                     ):
                         temporary.unlink(missing_ok=True)
                         try:
@@ -302,6 +303,12 @@ class TranscodeService:
                 if stale != target:
                     stale.unlink(missing_ok=True)
             return target, True
+
+    def _cache_target(self, asset_id: int, stat, max_height: int) -> Path:
+        """整片缓存的位置。画质上限进文件名：改了档位就转一份新的，原画沿用加这项之前的名字，
+        已有缓存照常命中。"""
+        quality = f"-{max_height}p" if max_height in QUALITY_BITRATES else ""
+        return self.cache_root / f"{asset_id}-{stat.st_size}-{stat.st_mtime_ns}{quality}.mp4"
 
     @staticmethod
     def _browser_compatible(source: Path, profile: _MediaProfile) -> bool:
@@ -404,7 +411,10 @@ class TranscodeService:
         source: Path,
         temporary: Path,
         profile: _MediaProfile | None,
+        max_height: int = 0,
     ):
+        """依次尝试的转码命令。画质上限（`max_height`，0 为原画）只管重编码：直接换封装的
+        `video-copy` 不缩放，和能直接播放的片子一样保持原画。"""
         prefix = (
             str(ffmpeg), "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
         )
@@ -430,16 +440,13 @@ class TranscodeService:
         )
         codec = profile.video_codec if profile else ""
         for encoder in self.hardware.encoders(ffmpeg):
-            for attempt in encoder.attempts(codec):
+            for attempt in encoder.attempts(codec, max_height):
                 yield _TranscodeAttempt(
                     attempt.name, prefix + attempt.before_input + ("-i", input_url(source))
                     + mapping + attempt.output + fast_audio + finish,
                 )
 
-        software = (
-            "-c:v", "libx264", "-preset", "veryfast", "-crf", "21",
-            "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "160k",
-        )
+        software = software_video_output(max_height) + ("-c:a", "aac", "-b:a", "160k")
         decode = self.hardware.decode_options(ffmpeg, codec)
         if decode:
             yield _TranscodeAttempt(

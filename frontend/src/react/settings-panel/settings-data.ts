@@ -35,6 +35,8 @@ export interface MediaProcessingPolicy {
   metadata_only: boolean;
   preview_acceleration?: 'auto' | 'software';
   playback_acceleration?: 'auto' | 'software';
+  /** 播放转码的画质上限（短边像素），0 为原画。 */
+  playback_max_height?: number;
 }
 export const fetchMediaProcessing = (signal?: AbortSignal) =>
   apiGet<MediaProcessingPolicy>(MEDIA_PROCESSING_URL, signal);
@@ -58,6 +60,9 @@ export interface SyncedSettings {
   searchHistoryLimit?: number | null;
   /** 番号识别规则，一条一个正则；配置页「媒体库与入库」里编辑。 */
   codePatterns?: string[];
+  /** 「想要」老片多久再查一次（天），以及查几次没找到就暂时放弃（0 表示一直查）。 */
+  wantStaleSearchDays?: number;
+  wantStaleAttemptLimit?: number;
 }
 
 export interface FollowScheduleStatus {

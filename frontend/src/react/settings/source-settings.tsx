@@ -13,6 +13,7 @@ import { EntryLinksForm } from './entry-links-settings';
 import { IndexerSettings } from './indexer-settings';
 import { SectionSkeleton } from './section';
 import { FollowPreferenceRows } from './service-preferences';
+import { WantSearchSettings } from './want-search-settings';
 import { t } from '../../i18n';
 
 export function SourceSettings({ data, receipt, panel, issues }: ConfigurationGroupProps) {
@@ -27,6 +28,7 @@ export function SourceSettings({ data, receipt, panel, issues }: ConfigurationGr
         ? <Note tone="error" title={t('settings:sourceSettings.credentialsFailed')}>{errorMessage(credentials.error)}</Note>
         : panel?.active !== false ? <SectionSkeleton label={t('settings:sourceSettings.loadingCredentials')} html={credentialsSkeleton} /> : null}
     <FollowPreferenceRows receipt={receipt} />
+    <WantSearchSettings receipt={receipt} />
     <IndexerSettings receipt={receipt} />
     {data.entry_links ? <EntryLinksForm initial={data.entry_links} receipt={receipt} /> : null}
   </div>;

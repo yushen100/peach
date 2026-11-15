@@ -327,12 +327,15 @@ class StrmPlaybackTests(unittest.TestCase):
             self.assertEqual(client.post('/api/media-processing', json={'playback_acceleration': 'software'}).status_code, 200)
             self.assertEqual(client.get('/api/media-processing').json()['playback_acceleration'], 'software')
             saved = client.post('/api/media-processing', json={'metadata_only': True}).json()
-            self.assertEqual(saved, {'metadata_only': True, 'preview_acceleration': 'auto', 'playback_acceleration': 'software'})
+            self.assertEqual(saved, {'metadata_only': True, 'preview_acceleration': 'auto', 'playback_acceleration': 'software',
+                                     'playback_max_height': 0})
             self.assertEqual(client.post('/api/media-processing', json={'playback_acceleration': 'invalid'}).status_code, 400)
             self.assertEqual(client.post('/api/media-processing', json={'preview_acceleration': 'software'}).json(),
-                             {'metadata_only': True, 'preview_acceleration': 'software', 'playback_acceleration': 'software'})
+                             {'metadata_only': True, 'preview_acceleration': 'software', 'playback_acceleration': 'software',
+                              'playback_max_height': 0})
             self.assertEqual(client.post('/api/media-processing', json={'playback_acceleration': 'auto'}).json(),
-                             {'metadata_only': True, 'preview_acceleration': 'software', 'playback_acceleration': 'auto'})
+                             {'metadata_only': True, 'preview_acceleration': 'software', 'playback_acceleration': 'auto',
+                              'playback_max_height': 0})
 
 
 class StrmPlaylistTests(unittest.TestCase):

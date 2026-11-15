@@ -725,7 +725,8 @@ class LogRetentionAtStartupTests(unittest.TestCase):
     def check_log_sweep(self, root, platform, tray, settings_file):
         config = settings_file.PeachConfig(root, root / "config.toml")
         events = []
-        def sweep(_):
+        def sweep(_, *, retention):
+            self.assertEqual(retention, tray.log_retention.RETENTION)
             events.append("sweep")
             raise OSError("log busy")
         def manager(*args, **kwargs):

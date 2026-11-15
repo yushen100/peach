@@ -242,7 +242,7 @@
     "count_one": "{{count, number}} backup available",
     "count_other": "{{count, number}} backups available",
     "empty": "No backups yet",
-    "help": "The database stores all metadata, watch history, and review decisions. Manual and automatic pre-write backups are kept: the 5 most recent plus any from the last 24 hours.",
+    "help": "The database stores all metadata, watch history, and review decisions. Set how many backups to keep under Retention below.",
     "jobIncomplete": "The task didn't finish.",
     "loading": "Loading backups",
     "manual": "Manual",
@@ -803,6 +803,7 @@
     "waitingBrowser": "Waiting for you to sign in to PikPak in the browser window"
   },
   "playbackTranscode": {
+    "qualitySaved": "Quality limit saved",
     "saved": "Transcoding mode saved",
     "software": "Software codec"
   },
@@ -949,6 +950,19 @@
     "preRepairBackup": "Pre-repair database backup",
     "queued": "Queued",
     "reclaimable": "{{size}} reclaimable"
+  },
+  "retention": {
+    "backups": "Automatic database backups",
+    "backupsHelp": "Keeps this many recent pre-write backups; anything from the last 24 hours stays.",
+    "copies_one": "{{count, number}} copy",
+    "copies_other": "{{count, number}} copies",
+    "days_one": "{{count, number}} day",
+    "days_other": "{{count, number}} days",
+    "halfYear": "6 months",
+    "logs": "Logs",
+    "logsHelp": "Logs not written to for this long are deleted.",
+    "oneYear": "1 year",
+    "title": "Retention"
   },
   "runtimeInfo": {
     "logDirectory": "Log directory",
@@ -1206,6 +1220,10 @@
   "transcoding": {
     "mode": "Transcoding",
     "modeHelp": "Used to transcode videos during playback.",
+    "original": "Original",
+    "quality": "Quality limit",
+    "qualityHeight": "{{height}}p",
+    "qualityHelp": "Applies only to videos that need re-encoding; lower it on slow networks.",
     "title": "Playback"
   },
   "uninstall": {
@@ -1270,5 +1288,18 @@
   },
   "videoProcessing": {
     "autoHardwareFirst": "Auto (hardware first)"
+  },
+  "wantSearch": {
+    "attempts_one": "{{count, number}} search",
+    "attempts_other": "{{count, number}} searches",
+    "daily": "Daily",
+    "everyDays_one": "Every {{count, number}} day",
+    "everyDays_other": "Every {{count, number}} days",
+    "giveUp": "Give up after",
+    "giveUpHelp": "Older releases pause after this many empty searches; resume them from the list.",
+    "interval": "Recheck older releases",
+    "intervalHelp": "How often to search again for releases over 90 days old that weren't found.",
+    "never": "Never",
+    "title": "Wants search"
   }
 }
