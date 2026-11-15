@@ -27,6 +27,7 @@ from .metadata import relay_args
 from .javdb_public import (_CACHE_ROOT, PUBLIC_API, PublicIdentityAmbiguous, PublicNotFound, PublicRequestBudget,
                            PublicSourceUnavailable, public_cache_scope)
 from .resource_search import qualities
+from .source_page_words import JAVBUS_SUBTITLES
 from .scraping_access import SourcePaused, SourceTransport, paused_until
 from .sources import FailureReason, Session, SourceFailure
 from .sources.base import PERMANENT_REASONS
@@ -252,6 +253,44 @@ class Fetcher:
         return rank_candidates([candidate for item in result["items"] if (candidate := _normalise(
             {**item, "file_count": int(item["files"]) if item["files"].isdigit() else 0}, source, code))])
 
+    def javbus(self, code: str) -> list[dict]:
+        """JavBus 作品页带 `gid`／`img`／`uc`，磁链表由站内接口按它们返回（2026-11-16 实测 SSIS-001 有 43 条）。
+
+        作品页与资料刮削同一页、同一份年龄门 Cookie；页面番号与问的对不上（JavBus 会给近似命中）就当站上没有。
+        表格每行三列：名称（带「高清」「字幕」标签）、大小、日期。
+        """
+        from .sources.javbus import JAVBUS, JavBusSource
+        source = Source("javbus", "JavBus")
+        site = JavBusSource(JAVBUS)
+        page = site.fetch(code, session=self.session)
+        site.parse(page, code)
+        values = {key: (re.search(rf"var\s+{key}\s*=\s*['\"]?([^'\";\s]+)", page.text) or [None, ""])[1]
+                  for key in ("gid", "uc", "img")}
+        if not values["gid"].isdigit():
+            return []
+        query = urllib.parse.urlencode({"gid": values["gid"], "lang": "zh", "img": values["img"],
+                                        "uc": values["uc"] or "0", "floor": int(time.time() * 1000) % 1000})
+        table = self.session.get(f"{JAVBUS.base_url}/ajax/uncledatoolsbyajax.php?{query}", config=JAVBUS,
+                                 referer=page.url, headers={"X-Requested-With": "XMLHttpRequest"})
+        found = []
+        for row in BeautifulSoup(table.text, "html.parser").select("tr"):
+            link = row.select_one('a[href^="magnet:"]')
+            cells = row.select("td")
+            if link is None or len(cells) < 2:
+                continue
+            labels = [tag.get_text(strip=True) for tag in cells[0].select("a.btn")]
+            name = cells[0].get_text(" ", strip=True)
+            for label in labels:
+                name = name.replace(label, " ")
+            item = {"uri": html.unescape(str(link.get("href") or "")), "name": " ".join(name.split()),
+                    "size": cells[1].get_text(" ", strip=True), "attributes": labels,
+                    "chinese": JAVBUS_SUBTITLES in labels,
+                    "date": cells[2].get_text(" ", strip=True) if len(cells) > 2 else "", "source_url": page.url}
+            candidate = _normalise(item, source, code)
+            if candidate:
+                found.append(candidate)
+        return rank_candidates(found)
+
     def sukebei(self, code: str) -> list[dict]:
         from .sources.base import SiteConfig
         source = CHAIN[2]
@@ -293,8 +332,12 @@ class Fetcher:
 
 
 def search(root: Path, code: str, *, transport=None, min_size: int = 0,
-           max_size: int = 1024 ** 4, goal: str = "quality", stop_on_preferred: bool = True) -> dict:
-    """有界查询三个可直连来源；直接添加允许在 manko 高清命中时结束。
+           max_size: int = 1024 ** 4, goal: str = "quality", stop_on_preferred: bool = True,
+           skip_javdb_after_preferred: bool = False) -> dict:
+    """有界查询四个可直连来源（manko.fun、JavDB、sukebei、JavBus），结果按 infohash 去重合并。
+
+    直接添加允许在 manko 高清命中时结束；`skip_javdb_after_preferred`（想要定时查找）在 manko 已有高清时
+    只跳过 JavDB，其余来源照查，少花 JavDB 的请求。
 
     `unfetched_sources` 列出这一轮没给出答复的来源：站上没有这个番号、身份对不上属于答复，不算在内。
     来源在冷却时，`retry_after` 至少等到冷却结束。"""
@@ -302,7 +345,11 @@ def search(root: Path, code: str, *, transport=None, min_size: int = 0,
     trace, warnings, found, retry_delays, unfetched = [], [], [], [], []
     try:
         for source, collect in ((CHAIN[0], fetcher.manko), (CHAIN[1], fetcher.javdb),
-                                (CHAIN[2], fetcher.sukebei)):
+                                (CHAIN[2], fetcher.sukebei), (CHAIN[3], fetcher.javbus)):
+            if (skip_javdb_after_preferred and source.key == "javdb"
+                    and any(item["resolution"] >= HIGH_QUALITY for item in found)):
+                trace.append(f"{source.label}: skipped, manko.fun already had 1080p/2160p")
+                continue
             try:
                 items = collect(code)
             except SourceFailure as error:
@@ -334,7 +381,7 @@ def search(root: Path, code: str, *, transport=None, min_size: int = 0,
             'retry_after': max(retry_delays) if retry_delays else None, "unfetched_sources": unfetched,
             'state': 'error' if incomplete else 'ready',
             **coded('error', Said('labels.magnetChain.incomplete') if incomplete else ''),
-            "next_sources": [source.label for source in CHAIN[3:]],
+            "next_sources": [source.label for source in CHAIN[4:]],
             "reference_only": list(REFERENCE_ONLY)}
     if not stop_on_preferred:
         linked = getattr(fetcher, 'resource_result', {})

@@ -194,7 +194,7 @@ def _search_one(contract, code: str, release_date: str | None,
         for _attempt in range(_BUSY_TRIES):
             result = searcher.query(code, released=release_date)
             if result.get("state") != "busy" and _searched_at(result) < time.time() - SEARCH_REUSE.total_seconds():
-                result = searcher.query(code, refresh=True, released=release_date)
+                result = searcher.query(code, refresh=True, released=release_date, quick=True)
             if result.get("state") != "busy":
                 break
             sleep(_BUSY_WAIT)

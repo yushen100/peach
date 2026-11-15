@@ -49,15 +49,24 @@ class MagnetChainTests(unittest.TestCase):
         with patch.object(Fetcher, '__init__', return_value=None), patch.object(Fetcher, 'close'), \
                 patch.object(Fetcher, 'manko', side_effect=lambda _: [dict(preferred)]), \
                 patch.object(Fetcher, 'javdb', side_effect=lambda _: [dict(alternate)]) as javdb, \
-                patch.object(Fetcher, 'sukebei', return_value=[]) as sukebei:
+                patch.object(Fetcher, 'sukebei', return_value=[]) as sukebei, \
+                patch.object(Fetcher, 'javbus', return_value=[]) as javbus:
             self.assertEqual(len(search(Path('.'), 'ABC-123')['items']), 1)
             javdb.assert_not_called()
             sukebei.assert_not_called()
+            javbus.assert_not_called()
             found = fetch(Path('.'), 'ABC-123')['items']
             self.assertEqual({row['source'] for row in found}, {'manko.fun', 'JavDB'})
             self.assertEqual(found[0]['resolution'], 2160)
             javdb.assert_called_once()
             sukebei.assert_called_once()
+            javbus.assert_called_once()
+            # 想要定时查找：manko 已有高清时只跳过 JavDB，sukebei 与 JavBus 照查。
+            quick = fetch(Path('.'), 'ABC-123', quick=True)
+            self.assertEqual({row['source'] for row in quick['items']}, {'manko.fun'})
+            javdb.assert_called_once()
+            self.assertEqual((sukebei.call_count, javbus.call_count), (2, 2))
+            self.assertIn('JavDB: skipped, manko.fun already had 1080p/2160p', quick['trace'])
 
     def test_wishlist_candidates_have_display_and_download_fields(self):
         from peach.wants_magnets import fetch
@@ -80,7 +89,8 @@ class MagnetChainTests(unittest.TestCase):
         with patch.object(Fetcher, '__init__', return_value=None), patch.object(Fetcher, 'close'), \
                 patch.object(Fetcher, 'manko', side_effect=RuntimeError), \
                 patch.object(Fetcher, 'javdb', return_value=[]), \
-                patch.object(Fetcher, 'sukebei', return_value=[]):
+                patch.object(Fetcher, 'sukebei', return_value=[]), \
+                patch.object(Fetcher, 'javbus', return_value=[]):
             calls = []
             def fetcher(root, code):
                 calls.append(code)
@@ -108,11 +118,40 @@ class MagnetChainTests(unittest.TestCase):
         self.assertEqual(found[0]['source_url'], 'https://javdb.com/v/Exact')
         self.assertEqual([row['protocol'] for row in fetcher.resource_result['items']], ['magnet', 'ed2k'])
 
+    def test_javbus_step_reads_the_magnet_table_behind_the_work_page(self):
+        """2026-11-16 实测形态：作品页带 gid／img／uc，磁链表三列（名称带「高清」「字幕」、大小、日期）。"""
+        from types import SimpleNamespace
+        from peach.magnet_chain import Fetcher
+        work = ('<html><h3>ABC-123 タイトル</h3><p><span class="header">識別碼:</span> <span>ABC-123</span></p>'
+                "<script>var gid = 45622883496;\nvar uc = 0;\nvar img = '/pics/cover/83ie_b.jpg';</script></html>")
+        table = (f'<tr><td><a href="magnet:?xt=urn:btih:{HASH_A}&amp;dn=ABC-123">ABC-123-C '
+                 '<a class="btn btn-mini-new btn-primary disabled">高清</a>'
+                 '<a class="btn btn-mini-new btn-warning disabled">字幕</a></a></td>'
+                 f'<td><a href="magnet:?xt=urn:btih:{HASH_A}">4.12GB</a></td><td><a>2025-10-28</a></td></tr>'
+                 f'<tr><td><a href="magnet:?xt=urn:btih:{HASH_B}&amp;dn=XYZ-999">XYZ-999</a></td>'
+                 f'<td><a href="magnet:?xt=urn:btih:{HASH_B}">1.00GB</a></td><td><a>2025-10-27</a></td></tr>')
+        asked = []
+
+        def get(url, *, config, referer="", headers=None):
+            asked.append((url, referer, dict(headers or {})))
+            return SimpleNamespace(url=url, text=table if "uncledatoolsbyajax" in url else work)
+
+        fetcher = Fetcher(Path('.'), transport=object())
+        fetcher.session = SimpleNamespace(get=get)
+        found = fetcher.javbus('ABC-123')
+        self.assertEqual([row['info_hash'] for row in found], [HASH_A], "番号对不上的那一行不收")
+        self.assertEqual((found[0]['size_text'], found[0]['chinese'], found[0]['source']), ('4.12GB', True, 'JavBus'))
+        self.assertEqual(found[0]['attributes'], ['高清', '字幕'])
+        url, referer, headers = asked[1]
+        self.assertIn('gid=45622883496', url)
+        self.assertEqual((referer, headers), ('https://www.javbus.com/ABC-123', {'X-Requested-With': 'XMLHttpRequest'}))
+
     def test_javdb_identity_ambiguity_is_reported_with_source_ids(self):
         from peach.javdb_public import PublicIdentityAmbiguous
         from peach.magnet_chain import Fetcher, search
         ambiguous = PublicIdentityAmbiguous('errors.javdbPublic.identityAmbiguous', {'identities': 'Aa1、Bb2'})
         with patch.object(Fetcher, 'manko', return_value=[]), patch.object(Fetcher, 'sukebei', return_value=[]), \
+                patch.object(Fetcher, 'javbus', return_value=[]), \
                 patch('peach.magnet_chain.PUBLIC_API.movie', side_effect=ambiguous):
             result = search(Path('.'), 'ABC-123', transport=object(), stop_on_preferred=False)
         self.assertEqual(result['warnings'], ['JavDB：同番号对应多个作品，请核对来源身份：Aa1、Bb2'])
@@ -126,11 +165,13 @@ class MagnetChainTests(unittest.TestCase):
         root = Path(temporary.name).resolve()
         pause_source(root, 'javdb', retry_after=600)
         with patch.object(Fetcher, 'manko', return_value=[]), patch.object(Fetcher, 'sukebei', return_value=[]), \
+                patch.object(Fetcher, 'javbus', return_value=[]), \
                 patch.object(Fetcher, 'javdb', side_effect=SourcePaused('errors.scrapingAccess.coolingDown')):
             paused = search(root, 'ABC-123', transport=object())
         self.assertEqual((paused['state'], paused['unfetched_sources']), ('error', ['JavDB']))
         self.assertGreater(paused['retry_after'], 590)
         with patch.object(Fetcher, 'manko', return_value=[]), patch.object(Fetcher, 'sukebei', return_value=[]), \
+                patch.object(Fetcher, 'javbus', return_value=[]), \
                 patch('peach.magnet_chain.PUBLIC_API.movie', side_effect=PublicNotFound('errors.javdbPublic.notFound')):
             unlisted = search(root, 'ABC-123', transport=object())
         self.assertEqual((unlisted['unfetched_sources'], unlisted['retry_after']), ([], None))

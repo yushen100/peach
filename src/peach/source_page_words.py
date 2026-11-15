@@ -85,6 +85,8 @@ FANZA_PHOTO_BONUS_TITLE = r"【FANZA限定】(.+) 生写真[1-9]\d?枚付き"
 
 # ---- JavBus ----
 
+#: JavBus 磁链表里标在名称后的「字幕」按钮：这条磁力带中文字幕。
+JAVBUS_SUBTITLES = "字幕"
 #: 作品页 `<span class="header">` 的栏名（繁体原词）。
 JAVBUS_FIELDS = {
     "code": "識別碼",
