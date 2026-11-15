@@ -221,6 +221,20 @@ class MediaEngineTests(unittest.TestCase):
         self.assertEqual(plan.protocol, "hls")
         self.assertEqual(plan.segment_seconds, 6)
 
+    def test_on_request_hls_follows_the_registered_cloud_capability(self):
+        """按需 HLS 看来源登记的能力：每个登记为网盘的来源都给分片，本地盘仍走 Range。"""
+        from peach.media_sources import SOURCE_REGISTRY
+        repository = unittest.mock.Mock()
+        engine = MediaEngine(repository, FilesystemBackend([Path("B:/")], Path("snapshots")))
+        for source in SOURCE_REGISTRY:
+            with self.subTest(location=source.id):
+                repository.media_asset.return_value = MediaAsset(
+                    1, r"B:\video\one.mp4", None, source.id, "one.mp4", 31.5, 100,
+                )
+                self.assertEqual(engine.stream_plan(1, mode="hls").protocol,
+                                 "hls" if source.cloud else "range")
+                self.assertEqual(engine.stream_plan(1).protocol, "range")
+
     def test_hls_stays_unavailable_where_it_never_applied(self):
         """按需模式不是万能开关：本地来源和时长未知的片源仍然只能走 Range。"""
         repository = unittest.mock.Mock()
