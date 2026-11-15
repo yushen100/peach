@@ -174,10 +174,14 @@ class SettingsRoundTripTests(unittest.TestCase):
         w_settings(other_device, {'performerNameLanguage': 'zh-CN'})
         self.assertEqual(q_settings(self.contract)['performerNameLanguage'], 'zh-CN')
         self.assertEqual(self._stored_json(), {'sidebarOrder': order, 'performerNameLanguage': 'zh-CN'})
+        for value in ('en', 'ja-local', 'local-ja'):
+            with self.subTest(value=value):
+                w_settings(other_device, {'performerNameLanguage': value})
+                self.assertEqual(q_settings(self.contract)['performerNameLanguage'], value)
 
     def test_invalid_name_languages_leave_the_stored_preference_unchanged(self):
         w_settings(self.contract, {'performerNameLanguage': 'ja'})
-        for value in ('en', 'ja ', None, True, 1, [], {}):
+        for value in ('en-US', 'ja ', 'local', None, True, 1, [], {}):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 w_settings(self.contract, {'performerNameLanguage': value})
             self.assertEqual(self._stored_json(), {'performerNameLanguage': 'ja'})

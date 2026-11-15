@@ -313,7 +313,7 @@
     "imageTitle": "默认图片",
     "limitBody": "控制新作区域一次展示的数量。",
     "limitTitle": "新作显示数量",
-    "namesBody": "选择中文或日文名称。",
+    "namesBody": "选择译名、原文、罗马音或两种并列。",
     "namesTitle": "女优名称",
     "scrollBody": "控制新作区域是否自动滚动。",
     "scrollTitle": "自动滚动",

@@ -214,6 +214,6 @@ def variants(connection) -> list[dict]:
         names = writing(person["canonical_name"], page_names({"raw": raw}), profile.get("source_url", ""))
         romaji = _romaji_names(connection, person["id"], person["canonical_name"], profile)
         result.append({"id": person["id"], "kind": person["kind"],
-                       "canonical_name": person["canonical_name"], "en": ", ".join(romaji) or None,
+                       "canonical_name": person["canonical_name"], "en": romaji[0] if romaji else None,
                        **names})
     return result

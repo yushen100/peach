@@ -768,9 +768,12 @@
     "url": "Proxy URL"
   },
   "performerNameLanguage": {
-    "chinese": "Chinese",
-    "help": "Names and aliases show only in the selected language. If a name has no version in that language, the current name is kept.",
+    "chinese": "Chinese (translated)",
+    "help": "Local language follows the interface language; names without that writing show the original.",
     "japanese": "Original Japanese",
+    "japaneseThenLocal": "Japanese (local language)",
+    "localThenJapanese": "Local language (Japanese)",
+    "romaji": "English (romanized)",
     "saveFailed": "Save name language",
     "saved": "Name language saved",
     "title": "Actress names",

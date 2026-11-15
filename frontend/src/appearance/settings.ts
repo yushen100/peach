@@ -15,6 +15,7 @@ import { DEFAULT_SIDEBAR_ORDER, normalizeSidebarOrder } from '../sidebar';
 import { normalizeNavigationOrders, type NavigationOrders } from '../navigation-order';
 import { SORT_ALIASES, SORT_KEYS } from '../sort-preferences';
 import { DEFAULT_ACCENT, DEFAULT_HOME_GLOW, normalizeAccent, normalizeHomeGlow, type HomeGlow } from './home-glow';
+import { NAME_LANGUAGES, type NameLanguage } from '../core/entity-names';
 
 export { SETTINGS_KEY };
 /* 主题三档，键名与 <html> 上的 data-theme 同一套写法：web/css/01-base.css 的色板
@@ -49,7 +50,7 @@ export interface AppSettings {
   javLayout: string;
   homeLayout: string;
   javImage: string;
-  performerNameLanguage: 'zh-CN' | 'ja';
+  performerNameLanguage: NameLanguage;
   interfaceLanguage: InterfaceLanguageChoice;
   /** 运行 Peach 的电脑的系统语言（服务端报来，缓存在本地）；「自动」时浏览器语言都对不上才看它。 */
   systemLanguage: InterfaceLanguage | null;
@@ -155,7 +156,7 @@ export function normalizeAppSettings(raw: unknown): { settings: AppSettings; mig
   settings.feedLimit = boundedPreference(+(settings.feedLimit as number), 1, 100, 12);
   Object.assign(settings, normalizeJavPreferences(settings));
   settings.theme = allowedSetting(settings.theme, THEME_CHOICES, 'system');
-  settings.performerNameLanguage = allowedSetting(settings.performerNameLanguage, ['zh-CN', 'ja'], 'zh-CN');
+  settings.performerNameLanguage = allowedSetting(settings.performerNameLanguage, NAME_LANGUAGES, 'zh-CN');
   settings.interfaceLanguage = isInterfaceLanguageChoice(settings.interfaceLanguage) ? settings.interfaceLanguage : 'auto';
   settings.systemLanguage = matchInterfaceLanguage(settings.systemLanguage);
   settings.homeGlow = normalizeHomeGlow(settings.homeGlow);
@@ -213,8 +214,8 @@ export function applySyncedSettings(
 ): void {
   const settings = target.value;
   const language = remote?.performerNameLanguage;
-  if ((language === 'zh-CN' || language === 'ja') && language !== settings.performerNameLanguage) {
-    settings.performerNameLanguage = language;
+  if (NAME_LANGUAGES.includes(language as NameLanguage) && language !== settings.performerNameLanguage) {
+    settings.performerNameLanguage = language as NameLanguage;
     target.save();
     changed('performerNameLanguage');
   }

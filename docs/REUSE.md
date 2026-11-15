@@ -916,7 +916,7 @@ A 盘垃圾隔离使用短名称 `peach-purge-<32 位 UUID>.peach-quarantine`，
 - 本地与在线详情标签共用 `components/detail-tags.tsx` 与样式：同一标签外观、最近使用、搜索与新建、改名预览及单条删除入口。写入仍由各自的数据层负责；在线来源标签的单条隐藏保存在用户设置，来源原词保留。关注管理的标签页签复用 `TagManager`，支持集中屏蔽和恢复内容。未新增依赖。
 - 详情底部共用 `DetailContinuation`：分集队列在左、接着看在右，手机上下排列，两区独立横滚并共用底色。封面共用宽度与 16:9 比例；宽屏标题区通过 CSS subgrid 共用行高，摘要与操作键参与排版。`RelatedSection` 给卡片的 8px 悬停面留出滚动内距；分卷与版本的推荐按队列种子缓存。队列头像共用 `cardIdentity`、`avatarInner`，同时读取列表投影与详情 `entity_refs`，保留图片版本及人脸取景。
 - 艺人、卖家名册的 RSS 标记读取 `/api/index` 的 `following`：按实体 ID 汇总已启用的 JAV 新作订阅与关注来源，停用、移除及未确认绑定的同名来源不计入。标记复用 `PeopleGrid`、BoardUI `Chip` 与现有 RSS 字形，不增加取数请求或依赖。
-- 名称语言复用 `profile.settings_json`、女优资料原文及 `kanji.JP_KANJI_TO_SIMPLIFIED`；形状接口下发同一字形表，前端不另存转换词表。纯汉字原始署名可只读换字形，假名与字母名只采用已核对的同艺名对应；日文原文读取来源，不从中文逆推。显示名称与人物身份、查询值、作品署名分开，未取得唯一身份的共享写法不选中其他人。
+- 名称语言复用 `profile.settings_json`、女优资料原文及 `kanji.JP_KANJI_TO_SIMPLIFIED`；形状接口下发同一字形表，前端不另存转换词表。纯汉字原始署名可只读换字形，假名与字母名只采用已核对的同艺名对应；日文原文读取来源，不从中文逆推。罗马音复用 `performer_profile` 的资料罗马字（没有时取登记的拉丁别名），随形状接口的 `en` 下发；两种写法并列的显示方式只在前端拼接。显示名称与人物身份、查询值、作品署名分开，未取得唯一身份的共享写法不选中其他人。
 - 统计与口味两页按登录态 Vercel Analytics／Speed Insights 的当前页面重做，排行与数据源共用父网格的引导线。
 - 口味页顶部给出结论与可点入口：浏览与 Peach 两侧的共同信号、可探索标签、待补证据的下一步动作。
 - 操作回执复用 Toast（Sonner 的栈，`frontend/src/react/toaster.tsx`；壳里只调 `toast()`／`actionReceipt()`）；按钮以 Spinner 和 `aria-busy` 标明忙态。后台任务显示可恢复进度，断线自动重连。

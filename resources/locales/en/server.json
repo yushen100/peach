@@ -809,7 +809,7 @@
       "libraryOrderInvalid": "Library order must use unique library IDs.",
       "navigationOrderUnknownEntry": "Navigation order contains invalid items.",
       "navigationOrdersInvalid": "Navigation order needs known groups and order arrays.",
-      "performerNameLanguageInvalid": "performerNameLanguage only accepts zh-CN or ja.",
+      "performerNameLanguageInvalid": "performerNameLanguage only accepts zh-CN, ja, en, ja-local or local-ja.",
       "profileMissing": "profile {{profile}} doesn't exist.",
       "searchHistoryLimitInvalid": "searchHistoryLimit only accepts integers from 0 to {{max}}.",
       "switchNotBoolean": "{{key}} only accepts true or false.",

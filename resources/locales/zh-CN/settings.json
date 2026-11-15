@@ -757,9 +757,12 @@
     "url": "代理地址"
   },
   "performerNameLanguage": {
-    "chinese": "中文",
-    "help": "名称与别名只显示所选语言的写法；缺少对应时保留当前名称。",
-    "japanese": "日文原文",
+    "chinese": "中文化（译名）",
+    "help": "本地语言跟界面语言走；缺少对应写法时显示原文。",
+    "japanese": "日语原文",
+    "japaneseThenLocal": "日语原文（本地语言）",
+    "localThenJapanese": "本地语言（日语原文）",
+    "romaji": "英文（罗马音）",
     "saveFailed": "保存名称显示偏好",
     "saved": "已保存名称显示偏好",
     "title": "女优名称",

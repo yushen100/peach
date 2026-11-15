@@ -158,7 +158,7 @@ class HeaderTests(Case):
                          [(entity_id, '枫花恋', '枫花恋', '楓カレン')])
 
     def test_variants_carry_the_profile_romaji_as_english_display(self):
-        """资料罗马字与登记的拉丁别名合成 `en`；没有资料的人明确留空。"""
+        """`en` 取资料罗马字，资料没有时取登记的拉丁别名；都没有的人明确留空。"""
         named = self.entity('楓カレン', ('Kaede Karen', 'user:alias'))
         plain = self.entity('篠田ゆう')
         with self.connection:
@@ -172,7 +172,7 @@ class HeaderTests(Case):
                     "VALUES(?,'javdb','performer',?)", (person, f'sample{person}'))
         self.connection.row_factory = sqlite3.Row
         variants = {row['id']: row for row in performer_name_display.variants(self.connection)}
-        self.assertEqual(variants[named]['en'], 'Karen Kaide, Kaede Karen')
+        self.assertEqual(variants[named]['en'], 'Karen Kaide')
         self.assertIsNone(variants[plain]['en'])
 
     def test_missing_translation_keeps_current_spelling_and_latin_stage_names(self):

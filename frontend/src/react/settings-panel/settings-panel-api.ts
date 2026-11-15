@@ -6,6 +6,7 @@
  * 侧栏顺序不经它，侧栏自己订阅这一份 store。跟数据库走的那几项（侧栏顺序、合集开关、首次采集范围、头像刷新、搜索记录
  * 条数）由面板经 `/api/settings` 写，成功后同样落进这一份对象。 */
 import type { InterfaceLanguage, InterfaceLanguageChoice } from '../../i18n';
+import type { NameLanguage } from '../../core/entity-names';
 import type { AfterPlayback, HomeGlow } from '@peach/appearance';
 
 import type { SettingsStore } from '../../settings-store';
@@ -25,7 +26,7 @@ export interface PanelSettings {
   defaultSortDirection: string;
   groupCollapse: boolean;
   javImage: string;
-  performerNameLanguage: 'zh-CN' | 'ja';
+  performerNameLanguage: NameLanguage;
   interfaceLanguage: InterfaceLanguageChoice;
   systemLanguage: InterfaceLanguage | null;
   feedAutoScroll: boolean;
