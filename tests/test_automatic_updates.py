@@ -79,6 +79,19 @@ class AutomaticUpdateTests(unittest.TestCase):
             Event().wait(0.3)
             self.assertEqual(check.call_count, 1, "检查完排到下一个到期点，不再轮询")
 
+    def test_service_start_defers_the_first_check_and_stop_waits_for_the_thread(self):
+        """服务刚起不立即联网检查；关停等后台线程退出，文件锁随之放下。"""
+        self.updates.save({"mode": "check", "interval_hours": 24})
+        checked = Event()
+        with patch("peach.release_updates.check",
+                   side_effect=lambda: checked.set() or {"state": "current"}):
+            self.updates.start()
+            self.assertFalse(checked.wait(0.3), "启动后先等启动延迟再检查")
+            self.updates.stop()
+        self.assertFalse(self.updates._thread.is_alive())
+        with FileLock(str(self.updates.path) + ".lock", timeout=0):
+            pass
+
     def test_legacy_results_are_hidden_and_rechecked_without_waiting_the_old_interval(self):
         from peach import release_updates
 

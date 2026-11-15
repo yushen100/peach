@@ -22,6 +22,10 @@ LOGGER = logging.getLogger(__name__)
 LOCK_RETRY_SECONDS = 60.0
 #: 长等待按墙钟复核：Windows 的等待超时不计睡眠时间，睡醒后最晚这么久补上到期的检查。
 WALL_CLOCK_RECHECK = 3600.0
+#: 服务启动后先等这么久再做第一次检查，不和启动抢网络；改设置或手动检查会提前叫醒。
+STARTUP_DELAY_SECONDS = 60.0
+#: 关停时最多等在途的一轮检查这么久，让它放下文件锁；网络卡住时不再等。
+STOP_JOIN_SECONDS = 5.0
 
 
 class AutomaticUpdates:
@@ -144,6 +148,7 @@ class AutomaticUpdates:
             return LOCK_RETRY_SECONDS
 
     def _run(self) -> None:
+        self._wake.wait(STARTUP_DELAY_SECONDS)
         while not self._stop.is_set():
             # 先清再算：算的过程中改了设置，下面的等待会立即返回。
             self._wake.clear()
@@ -160,5 +165,8 @@ class AutomaticUpdates:
             self._thread.start()
 
     def stop(self) -> None:
+        """叫停后台线程并等在途的一轮收尾，最多 `STOP_JOIN_SECONDS`。"""
         self._stop.set()
         self._wake.set()
+        if self._thread is not None:
+            self._thread.join(STOP_JOIN_SECONDS)

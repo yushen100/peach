@@ -782,7 +782,7 @@ def create_app(
             await asyncio.to_thread(recovery_service.stop)
             follow_scheduler.stop()
             feed_scheduler.stop()
-            automatic_updates.stop()
+            await asyncio.to_thread(automatic_updates.stop)
             await asyncio.to_thread(upgrade_repairs.stop)
             await asyncio.to_thread(sharing.stop)
             push_discovery.stop()
