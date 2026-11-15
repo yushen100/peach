@@ -1117,6 +1117,28 @@ def item_pending_work(contract: WebContract, asset_id: int) -> list[dict]:
     return processing_work([busy] if busy else [])
 
 
+def _user_created_ids(c, canonical) -> set[int]:
+    """详情里的人物与公司哪些是编辑框里新建的档案：带个小标记，和刮来的放在一起时认得出来（ADR-0165）。"""
+    identity_ids = sorted({int(row[0]) for row in canonical if row[1] != "tag"})
+    if not identity_ids:
+        return set()
+    return {int(row[0]) for row in c.execute(
+        "SELECT id FROM entity WHERE id IN (" + ",".join("?" * len(identity_ids)) + ") "
+        "AND json_extract(metadata_json,'$.user_created')=1", identity_ids)}
+
+
+def _official_tag_names(legacy_rows) -> set[str]:
+    """扁平标签里来自官方来源的那几个，详情给它们标「官方」。"""
+    return {
+        normalize_entity_name(tag)
+        for tag, source in legacy_rows
+        if str(source or "").startswith("javinizer:")
+        and str(source or "").endswith(":tag")
+        and SOURCE_SPECS.get(str(source).split(":", 2)[1], None)
+        and SOURCE_SPECS[str(source).split(":", 2)[1]].official
+    }
+
+
 def q_item(contract: WebContract, aid):
     """按 id 直取。
     ⚠️ 没有这个接口时，前端只能用「带筛选条件再查一遍然后 find」的绕法：
@@ -1173,20 +1195,9 @@ def q_item(contract: WebContract, aid):
         ))
         canonical, legacy_rows = visible_identity_data(c, canonical, legacy_rows)
         makers = label_makers(contract, c, aid)
-        identity_ids = sorted({int(row[0]) for row in canonical if row[1] != "tag"})
-        # 编辑框里新建的档案带个小标记，和刮来的放在一起时认得出来（ADR-0165）。
-        user_created = {int(row[0]) for row in c.execute(
-            "SELECT id FROM entity WHERE id IN (" + ",".join("?" * len(identity_ids)) + ") "
-            "AND json_extract(metadata_json,'$.user_created')=1", identity_ids)} if identity_ids else set()
+        user_created = _user_created_ids(c, canonical)
     legacy = [row[0] for row in legacy_rows]
-    official_tag_names = {
-        normalize_entity_name(tag)
-        for tag, source in legacy_rows
-        if str(source or "").startswith("javinizer:")
-        and str(source or "").endswith(":tag")
-        and SOURCE_SPECS.get(str(source).split(":", 2)[1], None)
-        and SOURCE_SPECS[str(source).split(":", 2)[1]].official
-    }
+    official_tag_names = _official_tag_names(legacy_rows)
     canonical_tags = [name for _, kind, name in canonical if kind == "tag"]
     canonical_performers = [name for _, kind, name in canonical if kind == "performer"]
     canonical_creators = {
