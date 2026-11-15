@@ -231,6 +231,27 @@ class FeedWebTest(FeedWebFixture):
         self.assertEqual(errors, [])
         self.assertFalse(self.contract.feed_job.thread.is_alive())
 
+    def test_a_round_that_stays_paused_does_not_hold_the_caller(self):
+        """这一轮在任务中心被暂停、一直不恢复：同步发起的一方（定时那一跳也是）到期就回来。"""
+        self._add()
+        entered, release = threading.Event(), threading.Event()
+        def paused(contract, body, job_id):
+            entered.set()
+            release.wait(10)
+            return {"ok": True, "checked": 0, "total": 0, "results": [], "added": 0, "stock": False}
+        with patch.object(web_feeds, "_execute_check", side_effect=paused), \
+                patch.object(web_feeds, "CHECK_WAIT_SECONDS", 0.3):
+            try:
+                begun = time.monotonic()
+                result = dispatch_api_post(self.contract, "/api/feeds/check", {"all": True})
+                self.assertLess(time.monotonic() - begun, 5, "同步发起的一方一直等到这一轮跑完")
+                self.assertTrue(entered.is_set())
+                self.assertEqual(result["status"], "running")
+            finally:
+                release.set()
+                self.contract.feed_job.thread.join(5)
+        self.assertEqual(dispatch_api_get(self.contract, "/api/feeds/check", {})["status"], "complete")
+
     def test_schedule_route_reports_feed_scheduler_failures(self):
         from peach.follow_scheduler import FEED_JOB_ID, FollowScheduleConfig, FollowUpdateScheduler
         idle = dispatch_api_get(self.contract, "/api/feeds/schedule", {})

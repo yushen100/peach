@@ -802,7 +802,8 @@ it('关注列表首屏带着订阅源清单，开关、移除与立即拉取都�
     { action: 'enabled', id: 5, enabled: true }, { action: 'remove', id: 4 },
   ]);
   // 行尾的拉取键只点名这一条，停着的也拉；「立即拉取」才是全部启用的源。
-  expect(sentBody(fetcher, FEEDS_CHECK_URL)).toEqual([{ sources: [5] }, { all: true }]);
+  // 都在后台发起：服务端不占着线程等这一轮跑完。
+  expect(sentBody(fetcher, FEEDS_CHECK_URL)).toEqual([{ sources: [5], background: true }, { all: true, background: true }]);
   expect(feedReads(fetcher)).toBeGreaterThan(1);
 });
 
