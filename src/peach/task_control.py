@@ -27,6 +27,9 @@ _LIVE = {}
 _LOCK = threading.RLock()
 #: 暂停期间多久重读一次控制文件。本进程的请求会立刻叫醒停点，这个间隔只管命令行等别的进程发来的继续。
 PAUSED_POLL_SECONDS = 1.0
+#: 终止进程树之后等输出管道关闭的上限。逃出进程树的孙进程还占着管道时，到期就不再等它。
+REAP_SECONDS = 10.0
+LOGGER = logging.getLogger(__name__)
 
 
 class Cancelled(KeyboardInterrupt):
@@ -544,7 +547,18 @@ def _reap_process(process, job):
                 if sys.platform != 'darwin':
                     raise
         close_job(job)
-    output = process.communicate()
+    try:
+        output = process.communicate(timeout=REAP_SECONDS)
+    except subprocess.TimeoutExpired:
+        # 进程树已经终止，管道却还有别的持有者（逃出 Job 或进程组的孙进程）。任务照常收尾；
+        # Windows 上读取线程随持有者退出自己关闭管道，POSIX 上由本线程读，这里直接关掉。
+        LOGGER.warning('Task child process %s left descendants holding its output pipes', process.pid)
+        pipes = (process.stdout, process.stderr)
+        output = tuple(None if pipe is None else '' if process.text_mode else b'' for pipe in pipes)
+        if os.name != 'nt':
+            for pipe in pipes:
+                if pipe is not None:
+                    pipe.close()
     # Windows 的 kill 和关闭 Job 只发起终止；后代退出后，才能清理它继承的输出文件。
     psutil.wait_procs(children, timeout=5)
     return output

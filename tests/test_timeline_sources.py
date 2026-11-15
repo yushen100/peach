@@ -99,12 +99,12 @@ class TimelineSourceTests(unittest.TestCase):
         """网盘上每次 stat 都是一趟网络往返：没有预览的片子只列一次目录，不逐个候选 stat。"""
         self.image()
         listings = []
-        scandir = sources.os.scandir
+        entries = sources.media_io.directory_entries
 
         def counting(path):
             listings.append(path)
-            return scandir(path)
-        with patch.object(sources.os, 'scandir', side_effect=counting), \
+            return entries(path)
+        with patch.object(sources.media_io, 'directory_entries', side_effect=counting), \
                 patch.object(Path, 'stat', side_effect=AssertionError('逐个候选 stat')):
             self.assertIsNone(sources.discover(self.root / 'other.mp4', 10))
         self.assertEqual(len(listings), 1)

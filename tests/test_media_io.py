@@ -151,6 +151,37 @@ class MediaIoTests(unittest.TestCase):
         self.assertEqual(len(children), 1)
         self.assertIsNotNone(children[0].poll())
 
+    def test_one_worker_answers_in_turn_and_returns_errors_with_their_type(self):
+        source, target = self.root / 'a.mp4', self.root / 'sub' / 'b.mp4'
+        source.write_bytes(b'x')
+        with media_io.MountWorker() as worker:
+            self.assertEqual(worker.call('stat', str(source)).st_size, 1)
+            self.assertEqual(worker.call('move', str(source), str(target)), 'ok')
+            self.assertEqual(worker.call('probe', [str(source), str(target)]), [[False, False], [True, True]])
+            self.assertEqual(worker.call('move', str(source), str(target)), 'missing')
+            with self.assertRaises(FileNotFoundError):
+                worker.call('stat', str(source))
+            process = worker._process
+        self.assertIsNotNone(process.poll())
+
+    def test_a_cancel_during_an_interruptible_call_ends_the_worker_at_once(self):
+        from peach.task_control import Cancelled
+        from test_organize import hung_mount
+        stuck = self.root / 'stuck.mp4'
+        polls = []
+
+        def cancel_on_third_poll(kind=None):
+            polls.append(kind)
+            if len(polls) == 3:
+                raise Cancelled()
+        started = time.monotonic()
+        with hung_mount([stuck], 'os.stat') as children, media_io.MountWorker() as worker, \
+                patch('peach.task_control.checkpoint', cancel_on_third_poll), self.assertRaises(Cancelled):
+            worker.call('stat', str(stuck), timeout=30, interruptible=True)
+        self.assertLess(time.monotonic() - started, 10)
+        self.assertEqual(len(children), 1)
+        self.assertIsNotNone(children[0].poll())
+
     @staticmethod
     def _entry_line(name):
         entry = dict(name=name, path=name, directory=False, symlink=False, attributes={'st_size': 1}, error='')

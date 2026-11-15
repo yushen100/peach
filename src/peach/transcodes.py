@@ -135,15 +135,15 @@ class TranscodeService:
         profile = self._profile_for(source, session, registry)
         return profile is None or not self._browser_compatible(source, profile)
 
-    def decode_order_timestamps(self, source: Path, *, session: str = "", registry=None) -> bool:
+    def decode_order_timestamps(self, source: Path, *, session: str = "", registry=None, stat=None) -> bool:
         """是不是只有时间戳错乱的那一类：有 B 帧却没有 ctts，码流本身浏览器解得出来。
 
         这类片源不必重编码，重建一份头就够了；其余不兼容的原因（编码、像素格式、容器）
-        换不掉，只能转码。
+        换不掉，只能转码。`stat` 是调用方刚取过的片源 stat，给了就不再问网盘。
         """
         if self.needs_transcode(source) or self.resolver.ffprobe() is None:
             return False
-        profile = self._profile_for(source, session, registry)
+        profile = self._profile_for(source, session, registry, stat)
         return bool(profile and profile.decode_order_timestamps
                     and self._decodes_in_browser(source, profile))
 
