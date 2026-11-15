@@ -34,7 +34,8 @@ AVBase、JavBus 与 JavDB，封面先求两个图源比对一致；JavDB 只作�
 为省流量，先用 Range 只取前 64 KiB 量尺寸，只有胜出的那张才整张下载。
 
 存原图不裁：4:3 与 16:9 两种版式在界面上靠 `object-fit` / `object-position` 取景，
-切版式零成本也不重新下载。官方那张独立正封 `ps.jpg` 只有 147x200，比裁出来的还小。
+切版式零成本也不重新下载。同目录的竖版图 `ps.jpg` 只在装封面时另取（`dmm_portrait`），用来判定
+横图是不是封套；老片的只有 147x200，2020 年后的高清横图配 1000～2184 高的竖版图。
 """
 from __future__ import annotations
 
@@ -456,6 +457,38 @@ def official_image_candidates(url: str) -> list[Candidate]:
     if urlparse(clean).netloc.lower().endswith("mgstage.com"):
         return [candidate_for(clean)]
     return []
+
+
+_DMM_PORTRAIT = re.compile(r"pl\.jpg$", re.I)
+#: 竖版图只取这么大：高清那张 1536×2184 约 1 MB。
+PORTRAIT_LIMIT = 8 * 1024 * 1024
+
+
+def dmm_portrait_url(url: str) -> str:
+    """DMM 横版大图 `…pl.jpg` 同目录的竖版图 `…ps.jpg`；不是 DMM 横图地址是空串。
+
+    FANZA 页面上的正封就是这张。老片只有 147×200，2020 年后的高清横图配 1000～2184 高的竖版图。
+    """
+    clean = (url or "").split("?", 1)[0].strip()
+    host = urlparse(clean).netloc.lower()
+    if not (host.endswith("dmm.co.jp") or host.endswith("dmm.com")) or not _DMM_PORTRAIT.search(clean):
+        return ""
+    return _DMM_PORTRAIT.sub("ps.jpg", clean)
+
+
+def dmm_portrait(transport: HttpTransport, url: str, *, deadline: float | None = None) -> bytes | None:
+    """取 DMM 横图配套的竖版图；不是 DMM 横图、来源说没有或网络失败都是 None。
+
+    它只用来判定版式（`cover_artwork.install_cover`），取不到时照原有判据取景，不让装封面失败。
+    """
+    portrait = dmm_portrait_url(url)
+    if not portrait:
+        return None
+    try:
+        return _fetch(transport, portrait, referer=_referer_for(portrait), limit=PORTRAIT_LIMIT,
+                      deadline=deadline)
+    except (Unavailable, DeadlineExceeded, SourcePaused, SourceBudgetExhausted, httpx.TransportError):
+        return None
 
 
 #: 库外卡片经 `/cover-image` 取图时放行的主机后缀，与 `official_image_candidates` 认的两家一致；

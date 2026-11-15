@@ -550,6 +550,18 @@ class ContentIdTests(unittest.TestCase):
             urls,
         )
 
+    def test_only_a_dmm_landscape_has_a_portrait_beside_it(self):
+        from peach.jav_cover_fetch import dmm_portrait_url
+
+        self.assertEqual(dmm_portrait_url("https://awsimgsrc.dmm.com/dig/digital/video/vrkm01896/vrkm01896pl.jpg?w=1"),
+                         "https://awsimgsrc.dmm.com/dig/digital/video/vrkm01896/vrkm01896ps.jpg")
+        self.assertEqual(dmm_portrait_url("https://pics.dmm.co.jp/mono/movie/adult/118abw232/118abw232pl.jpg"),
+                         "https://pics.dmm.co.jp/mono/movie/adult/118abw232/118abw232ps.jpg")
+        for other in ("https://image.mgstage.com/images/prestige/pb_e_abc-001.jpg",
+                      "https://example.test/dig/abc00001pl.jpg", ""):
+            with self.subTest(url=other):
+                self.assertEqual(dmm_portrait_url(other), "")
+
     def test_an_address_from_elsewhere_counts_only_on_an_official_image_path(self):
         dmm = "https://pics.dmm.co.jp/digital/video/dazd00308/dazd00308pl.jpg"
         self.assertEqual({candidate.url for candidate in covers.official_image_candidates(dmm)},

@@ -832,21 +832,30 @@ def timeline(request: Request, id: int, s: int = 0, source: str = '', args: dict
 
 
 @router.api_route("/cover", methods=["GET", "HEAD"])
-def cover(request: Request, code: str = "", thumb: int = 0,
+def cover(request: Request, code: str = "", thumb: int = 0, front: int = 0,
           args: dict[str, str] = Depends(require_auth)):
     """官方封套原图。存原图不裁：4:3 与 16:9 两种版式在界面上按比例取景。
 
     `thumb` 是派生档的档次：`1` 是长边 1600 那一档（`COVER_THUMB_EDGE`），`2` 是卡片网格
     的起始档、长边 800（`COVER_SMALL_THUMB_EDGE`）；不带就是原件，详情与裁切取原件。
     档次而不是像素数，理由同 `/entity-image`：尺寸由服务端定死，页面只挑档。
+
+    `front=1` 取封面旁装好的 DMM 竖版正封（`jav_poster_crop.front_path`），卡片大图位用它；
+    没装就是 404，页面只在取景提示带 `front` 时才来取。
     """
     path = request.app.state.web_contract.cover_path(code)
     if path is None:
         return JSONResponse({"error": "no cover"}, status_code=404)
+    key = path.stem
+    if front:
+        path = jav_poster_crop.front_path(path)
+        key = f"{key}.{jav_poster_crop.FRONT_DIRECTORY}"
+        if not path.is_file():
+            return JSONResponse({"error": "no cover"}, status_code=404)
     if thumb:
         state = request.app.state
         service = state.cover_small_thumb_service if thumb == 2 else state.cover_thumb_service
-        derived = service.thumbnail(path.stem, path)
+        derived = service.thumbnail(key, path)
         if derived is not None:
             return _image_response(request, derived, media_type=ENTITY_THUMB_TYPE)
     return _image_response(request, path, media_type="image/jpeg")
@@ -887,11 +896,17 @@ def _apply_cover_crop(state, payload: dict):
                 return {}
         face = read_evidence('.face.json')
         current_face = face.get('px') == list(size)
-        title = (jav_poster_crop.read_sidecar(path) or {}).get('title') or read_evidence('.scraping.json').get('title', '')
+        saved = jav_poster_crop.read_sidecar(path) or {}
+        title = saved.get('title') or read_evidence('.scraping.json').get('title', '')
+        # 竖版图的比对结论与装好的竖版正封描述的是这张图本身，换框、撤框都不作废它们。
+        same_image = saved.get('px') == list(size)
+        portrait = jav_poster_crop.portrait_of(saved) if same_image else None
+        front = (jav_poster_crop.front_size(saved)
+                 if same_image and jav_poster_crop.front_path(path).is_file() else None)
         record = jav_poster_crop.crop_record(
             code, size[0], size[1], jav_poster_crop.file_gradient(path), title=title,
-            face=face.get('face') if current_face else None)
-        if current_face and face.get('layout') == 'still':
+            face=face.get('face') if current_face else None, portrait=portrait, front=front)
+        if portrait is None and current_face and face.get('layout') == 'still':
             record['box'] = dict(x0=0, y0=0, x1=size[0], y1=size[1], method=jav_poster_crop.NONE)
     else:
         record = jav_poster_crop.manual_record(size[0], size[1], payload.get("box"))

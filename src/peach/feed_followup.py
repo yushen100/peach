@@ -310,6 +310,22 @@ def fetch_cover(contract, code: str,
     return data, size, evidence
 
 
+def fetch_portrait(contract, cover_url: str) -> bytes | None:
+    """装封面前顺带取 DMM 配套的竖版图，交给 `install_cover` 判定版式；不是 DMM 横图或取不到是 None。"""
+    from .jav_cover_fetch import HostLimitedTransport, PORTRAIT_LIMIT, dmm_portrait, dmm_portrait_url
+    from .scraping_access import SourceTransport
+
+    if not dmm_portrait_url(cover_url):
+        return None
+    raw = SourceTransport(contract.follow_secrets_root, max_requests=4,
+                          max_bytes=PORTRAIT_LIMIT, max_seconds=COVER_SECONDS)
+    transport = HostLimitedTransport(raw, 1.0)
+    try:
+        return dmm_portrait(transport, cover_url, deadline=time.monotonic() + COVER_SECONDS)
+    finally:
+        transport.close()
+
+
 def _recorded_cover_url(cover_root: Path, code: str) -> str:
     try:
         evidence = json.loads((Path(cover_root) / f"{normalise_code_key(code)}.scraping.json")
@@ -501,7 +517,8 @@ def ensure_cover(contract, code: str, cover_url: str | None = None) -> bool:
         if kept and incoming_community and size[0] * size[1] <= kept[0] * kept[1]:
             record_cover_attempt(contract, key, ok=True)
             return True
-        install_cover(target, key, data, size, evidence=evidence)
+        install_cover(target, key, data, size, evidence=evidence,
+                      portrait=fetch_portrait(contract, str(evidence.get('source_url') or '')))
     except Exception as error:
         record_cover_attempt(contract, key, ok=False, error=error)
         raise

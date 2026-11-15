@@ -291,5 +291,78 @@ class CoverArtworkTests(unittest.TestCase):
         self.assertEqual(evidence["raw_sha256"], str(winner))
 
 
+def textured(size, seed):
+    """有纹理的 JPEG 字节与像素：竖版图比对要在纹理上做。"""
+    import numpy
+
+    pixels = numpy.random.default_rng(seed).integers(0, 256, (size[1], size[0], 3), dtype=numpy.uint8)
+    image = Image.fromarray(pixels)
+    output = io.BytesIO()
+    image.save(output, "JPEG", quality=95)
+    return output.getvalue(), image
+
+
+class PortraitInstallTests(unittest.TestCase):
+    """装封面时带上 DMM 竖版图：它决定横图是不是封套，独立海报装成竖版正封。"""
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+        self.target = self.root / "START-404.jpg"
+        self.cover, self.image = textured((1100, 776), 1)
+        self.front = jav_poster_crop.front_path(self.target)
+
+    def portrait(self, image):
+        output = io.BytesIO()
+        image.save(output, "JPEG", quality=95)
+        return output.getvalue()
+
+    def test_a_separately_designed_poster_is_installed_as_the_front_image(self):
+        poster, _ = textured((546, 776), 2)
+        cover_artwork.install_cover(self.target, "START-404", self.cover, (1100, 776),
+                                    detector=Detector(), portrait=poster)
+        record = jav_poster_crop.read_sidecar(self.target)
+        self.assertEqual(self.front.read_bytes(), poster)
+        self.assertEqual(record["box"]["method"], jav_poster_crop.NONE)
+        self.assertEqual((record["layout"], record["front"], record["portrait"]["verdict"]),
+                         ("still", [546, 776], jav_poster_crop.POSTER))
+        face = json.loads(self.target.with_suffix(".face.json").read_text(encoding="utf-8"))
+        self.assertEqual(face["layout"], "still", "整幅画面按全图找脸")
+
+    def test_a_shorter_poster_is_judged_but_not_installed(self):
+        """比横图矮的竖版图装上去就是降清晰度：只拿它判版式，大图位按人脸铺满横图。"""
+        poster, _ = textured((147, 200), 3)
+        cover_artwork.install_cover(self.target, "START-404", self.cover, (1100, 776),
+                                    detector=Detector(), portrait=poster)
+        record = jav_poster_crop.read_sidecar(self.target)
+        self.assertFalse(self.front.exists())
+        self.assertEqual((record["layout"], record["portrait"]["verdict"]), ("still", jav_poster_crop.POSTER))
+        self.assertNotIn("front", record)
+
+    def test_a_portrait_cut_from_the_sleeve_frames_the_front_panel(self):
+        portrait = self.portrait(self.image.crop((554, 0, 1100, 776)))
+        cover_artwork.install_cover(self.target, "START-404", self.cover, (1100, 776),
+                                    detector=Detector(), portrait=portrait)
+        record = jav_poster_crop.read_sidecar(self.target)
+        self.assertFalse(self.front.exists(), "封套的正封按折痕切，DMM 那块会带进书脊")
+        self.assertEqual(record["portrait"]["verdict"], jav_poster_crop.SLEEVE)
+        self.assertLessEqual(abs(record["box"]["x0"] - 554), 22)
+        self.assertNotIn("layout", record)
+
+    def test_a_later_cover_without_a_poster_removes_the_old_front_image(self):
+        poster, _ = textured((546, 776), 4)
+        cover_artwork.install_cover(self.target, "START-404", self.cover, (1100, 776),
+                                    detector=Detector(), portrait=poster)
+        cover_artwork.install_cover(self.target, "START-404", jpeg((20, 20, 20)), (840, 472),
+                                    detector=Detector())
+        self.assertFalse(self.front.exists())
+        self.assertNotIn("front", jav_poster_crop.read_sidecar(self.target))
+
+    def test_the_group_lists_the_front_image_with_the_sidecars(self):
+        self.assertEqual([path.name for path in cover_artwork.cover_group(self.target)],
+                         ["START-404.jpg", "START-404.face.json", "START-404.poster.json",
+                          "START-404.scraping.json", "START-404.jpg"])
+        self.assertEqual(cover_artwork.cover_group(self.target)[-1], self.front)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -3944,6 +3944,29 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
         full = await self.client.get("/cover?code=ABC-123", headers=headers)
         self.assertEqual(full.content, source.read_bytes())
 
+    async def test_the_front_image_is_served_beside_the_cover_with_its_own_tiers(self):
+        """装好的 DMM 竖版正封走 `/cover?front=1`，派生档不和横图那一份共用文件。"""
+        from PIL import Image
+
+        front = self.cover_root / "front" / "ABC-125.jpg"
+        front.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (2400, 1620), (200, 120, 90)).save(self.cover_root / "ABC-125.jpg", "JPEG")
+        Image.new("RGB", (1536, 2184), (20, 120, 190)).save(front, "JPEG")
+        headers = {"X-Token": "secret"}
+        original = await self.client.get("/cover?front=1&code=ABC-125", headers=headers)
+        self.assertEqual(original.content, front.read_bytes())
+        tier = await self.client.get("/cover?front=1&code=ABC-125&thumb=2", headers=headers)
+        cover_tier = await self.client.get("/cover?code=ABC-125&thumb=2", headers=headers)
+        with Image.open(io.BytesIO(tier.content)) as derived:
+            self.assertEqual(derived.size, (563, 800))
+        with Image.open(io.BytesIO(cover_tier.content)) as derived:
+            self.assertEqual(derived.size, (800, 540))
+        missing = await self.client.get("/cover?front=1&code=ABC-126", headers=headers)
+        self.assertEqual(missing.status_code, 404)
+        Image.new("RGB", (800, 540)).save(self.cover_root / "ABC-127.jpg", "JPEG")
+        unfronted = await self.client.get("/cover?front=1&code=ABC-127", headers=headers)
+        self.assertEqual(unfronted.status_code, 404)
+
     async def test_the_card_start_tier_is_an_800_edge_webp_next_to_the_grid_tier(self):
         """卡片起始档 `/cover?thumb=2` 长边 800，和 1600 那一档同目录、按长边各成一个文件。
 

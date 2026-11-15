@@ -18,6 +18,8 @@ FRONT_START = 0.468
 MIN_FACE_Y, MAX_FACE_Y = 0.05, 0.60
 FACE_ALGORITHM_VERSION = 'cover-face-v4'
 PROMOTIONAL_ASPECTS = (4 / 3, 2 ** .5)
+#: 正封框找不到书脊时的两种结果：标准封套比例按先验切（`ratio`），其余比例整幅显示（`none`）。
+NO_SPINE = (jav_poster_crop.RATIO, jav_poster_crop.NONE)
 _INSTALL_LOCK = threading.RLock()
 
 
@@ -60,7 +62,7 @@ def _dominant_left_face(image, largest, faces, *, code, title):
     if front and largest.width * largest.height < 2 * front.width * front.height:
         return False
     box = jav_poster_crop.front_panel_box(width, height, lambda: jav_poster_crop.column_gradient(image), code, title)
-    return box['method'] == jav_poster_crop.RATIO
+    return box['method'] in NO_SPINE
 
 
 def _promotional_canvas(image, *, code, title):
@@ -70,7 +72,7 @@ def _promotional_canvas(image, *, code, title):
             or not jav_poster_crop.crops_to_portrait(code, title)):
         return False
     box = jav_poster_crop.front_panel_box(width, height, lambda: jav_poster_crop.column_gradient(image), code, title)
-    return box['method'] == jav_poster_crop.RATIO
+    return box['method'] in NO_SPINE
 
 
 def _full_picture_face(faces):
@@ -82,12 +84,15 @@ def _full_picture_face(faces):
     return largest if largest.score >= .7 and largest.area >= 4 * strong.area else strong
 
 
-def face_record(image, detector, *, code: str, title: str = '') -> dict | None:
+def face_record(image, detector, *, code: str, title: str = '', verdict: str = '') -> dict | None:
     """已解码的封面 → 页面取景记录；无法解码时不生成记录。
 
     脸框宽高与源图尺寸 `px` 也记下，形状与头像边车（`avatar_face.face_record_of`）
     一致：卡片取景只用脸心，换头像要按脸宽在封面上框出一块方图
     （`avatar_cover_face.face_square`），而 `px` 对不上当前这张图时那一块不作数。
+
+    `verdict` 是 DMM 竖版图的比对结论（`jav_poster_crop.portrait_match`）：证实是封套就按封套
+    找正封上的脸，证实不是就按整幅画面找，不再靠脸的位置与画布比例去猜版式。
     """
     if image is None or not getattr(image, "size", 0):
         return None
@@ -96,14 +101,17 @@ def face_record(image, detector, *, code: str, title: str = '') -> dict | None:
     faces = detector.detect(image)
     portraits = [face for face in faces if MIN_FACE_Y <= face.cy <= MAX_FACE_Y]
     largest = main_face(portraits)
-    full_cover = jav_poster_crop.face_crosses_spine(width, height, {
-        'cx': largest.cx, 'w': largest.width, 'h': largest.height,
-        'score': largest.score} if largest else None) or _dominant_left_face(
-            image, largest, portraits, code=code, title=title) or _promotional_canvas(image, code=code, title=title)
-    if full_cover:
+    if verdict:
+        full_cover = verdict == jav_poster_crop.POSTER
+    else:
+        full_cover = jav_poster_crop.face_crosses_spine(width, height, {
+            'cx': largest.cx, 'w': largest.width, 'h': largest.height,
+            'score': largest.score} if largest else None) or _dominant_left_face(
+                image, largest, portraits, code=code, title=title) or _promotional_canvas(image, code=code, title=title)
+    if full_cover and not verdict:
         panel = jav_poster_crop.front_panel_box(width, height, lambda: jav_poster_crop.column_gradient(image), code, title)
         full_cover = panel['method'] != jav_poster_crop.CENTER
-    if (not full_cover and jav_poster_crop.crops_to_portrait(code, title)
+    if (not full_cover and (verdict == jav_poster_crop.SLEEVE or jav_poster_crop.crops_to_portrait(code, title))
             and (jav_poster_crop.SLEEVE_RATIO_MIN <= ratio < jav_poster_crop.SLEEVE_RATIO_MAX
                  or (jav_poster_crop.is_wide_sleeve_label(code, title)
                      and jav_poster_crop.WIDE_SLEEVE_RATIO_MIN <= ratio < jav_poster_crop.WIDE_SLEEVE_RATIO_MAX))):
@@ -117,32 +125,74 @@ def face_record(image, detector, *, code: str, title: str = '') -> dict | None:
          "score": best.score} if best else None)}
 
 
-def _sidecars(code: str, payload: bytes, size: tuple[int, int], detector=None, evidence=None) -> dict[str, bytes]:
+#: 竖版正封至少要有横图这么高的这个比例才装：页面大图位按高铺满，比横图矮就是降了清晰度。
+FRONT_MIN_HEIGHT_RATIO = 0.95
+
+
+def _portrait_verdict(image, portrait: bytes | None):
+    """DMM 竖版图与横图的比对结果，加上值得装成竖版正封的那张图的尺寸。"""
+    if not portrait or image is None:
+        return None, None
+    try:
+        decoded = decode(portrait)
+    except (ImportError, ValueError):
+        return None, None
+    match = jav_poster_crop.portrait_match(image, decoded)
+    if match is None or match.verdict != jav_poster_crop.POSTER:
+        return match, None
+    front_h, front_w = decoded.shape[:2]
+    if front_h < image.shape[0] * FRONT_MIN_HEIGHT_RATIO:
+        return match, None
+    return match, (int(front_w), int(front_h))
+
+
+def _sidecars(code: str, payload: bytes, size: tuple[int, int], detector=None, evidence=None,
+              portrait: bytes | None = None) -> dict[str, bytes]:
     title = str((evidence or {}).get('title') or '')
     image = None
     try:
         image = decode(payload)
     except ImportError:
         pass
+    match, front = _portrait_verdict(image, portrait)
     try:
         active = detector if detector is not None else _default_detector()
-        face = face_record(image, active, code=code, title=title)
+        face = face_record(image, active, code=code, title=title, verdict=match.verdict if match else '')
     except (FaceModelUnavailable, ImportError):
         face = None
     poster = jav_poster_crop.crop_record(
         code, size[0], size[1],
         (lambda: jav_poster_crop.column_gradient(image)) if image is not None else None,
         title=title, face=(face or {}).get('face'), layout=(face or {}).get('layout', ''),
+        portrait=match, front=front,
     )
-    if (face is None and min(abs(size[0] / size[1] - ratio) for ratio in PROMOTIONAL_ASPECTS) < .015
-            and poster['box']['method'] == jav_poster_crop.RATIO):
+    if (match is None and face is None and min(abs(size[0] / size[1] - ratio) for ratio in PROMOTIONAL_ASPECTS) < .015
+            and poster['box']['method'] in NO_SPINE):
         face = {'px': list(size), 'layout': 'still', 'face': None}
         poster = jav_poster_crop.crop_record(code, *size, title=title, layout='still')
     records = {jav_poster_crop.SIDECAR_SUFFIX: poster}
     if face is not None:
         records[".face.json"] = face
-    return {suffix: json.dumps(record, ensure_ascii=False).encode("utf-8")
-            for suffix, record in records.items()}
+    prepared = {suffix: json.dumps(record, ensure_ascii=False).encode("utf-8")
+                for suffix, record in records.items()}
+    if front is not None:
+        prepared[FRONT] = portrait
+    return prepared
+
+
+#: `_sidecars` 结果里竖版正封那一项的键。它不是封面同目录的后缀，落在 `jav_poster_crop.front_path`。
+FRONT = "front"
+
+
+def cover_group(target: Path) -> list[Path]:
+    """一张封面连同它的边车与竖版正封：安装、撤回、换图时一起处理的整组文件。"""
+    target = Path(target)
+    return [target, *(target.with_suffix(suffix) for suffix in (
+        ".face.json", jav_poster_crop.SIDECAR_SUFFIX, ".scraping.json")), jav_poster_crop.front_path(target)]
+
+
+def _group_member(target: Path, key: str) -> Path:
+    return jav_poster_crop.front_path(target) if key == FRONT else target.with_suffix(key)
 
 
 #: 编辑资料里换上的封面在 `.scraping.json` 的来源（ADR-0165）。
@@ -163,8 +213,12 @@ def is_user_cover(target: Path) -> bool:
 
 
 def install_cover(target: Path, code: str, payload: bytes, size: tuple[int, int], *,
-                  evidence: dict | None = None, detector=None) -> None:
+                  evidence: dict | None = None, detector=None, portrait: bytes | None = None) -> None:
     """准备完成后安装整组文件；失败时还原旧组，避免图片与取景跨版本。
+
+    `portrait` 是同一部作品的 DMM 竖版图（`jav_cover_fetch.dmm_portrait`）：用来判定横图是不是
+    封套，判定为另外设计的竖版海报且不比横图矮时，一起装成竖版正封。组里没有新竖版正封时，
+    旧的那张随旧封面一起撤掉。
 
     用户换上的封面只有用户自己能换（ADR-0165）：调用方各自先比过本机那张，这里是最后一道。
     """
@@ -174,22 +228,23 @@ def install_cover(target: Path, code: str, payload: bytes, size: tuple[int, int]
         raise Unavailable('errors.communityCatalog.noUnwatermarked')
     target = Path(target)
     target.parent.mkdir(parents=True, exist_ok=True)
-    prepared = _sidecars(code, payload, size, detector, evidence)
+    prepared = _sidecars(code, payload, size, detector, evidence, portrait)
     if evidence is not None:
         prepared[".scraping.json"] = json.dumps(evidence, ensure_ascii=False).encode("utf-8")
     token = uuid.uuid4().hex
-    managed = [target, *(target.with_suffix(suffix) for suffix in (
-        ".face.json", jav_poster_crop.SIDECAR_SUFFIX, ".scraping.json"))]
+    managed = cover_group(target)
     staged: dict[Path, Path] = {}
     backups: dict[Path, Path] = {}
     try:
         image_temp = target.with_name(f".{target.name}.{token}.tmp")
         image_temp.write_bytes(payload)
         staged[target] = image_temp
-        for suffix, data in prepared.items():
-            temporary = target.with_name(f".{target.stem}{suffix}.{token}.tmp")
+        for key, data in prepared.items():
+            member = _group_member(target, key)
+            member.parent.mkdir(parents=True, exist_ok=True)
+            temporary = member.with_name(f".{member.name}.{token}.tmp")
             temporary.write_bytes(data)
-            staged[target.with_suffix(suffix)] = temporary
+            staged[member] = temporary
         with _INSTALL_LOCK, FileLock(
                 str(target.parent / ".cover-install.lock"), thread_local=False):
             try:

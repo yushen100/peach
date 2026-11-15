@@ -59,12 +59,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import (code_siblings, company_profiles, fc2_sellers, follow_creators, jav_poster_crop, metadata_text_repair,
+from . import (code_siblings, company_profiles, fc2_sellers, follow_creators, metadata_text_repair,
                record_rehome, sample_images, seed_pack, wants, western_artwork)
+from .cover_artwork import cover_group
 from .metadata_auto_apply import UNION_TAGS_SOURCE, planned_verified_revert, revert_verified
 
 SIDECARS = (".ct", ".provenance.json")
-COVER_SIDECARS = (".face.json", jav_poster_crop.SIDECAR_SUFFIX, ".scraping.json")
 
 
 def matches(record: dict, source: str, batch: str) -> bool:
@@ -398,8 +398,7 @@ def remove_files(planned: dict) -> int:
     """删掉标识文件与作品封面，连同各自的同组边车；返回删掉的文件数。"""
     targets = [target for path in planned["files"]
                for target in (path, *(path.with_name(path.name + suffix) for suffix in SIDECARS))]
-    targets += [target for path in planned["covers"]
-                for target in (path, *(path.with_suffix(suffix) for suffix in COVER_SIDECARS))]
+    targets += [target for path in planned["covers"] for target in cover_group(path)]
     removed = 0
     for target in targets:
         if target.exists():

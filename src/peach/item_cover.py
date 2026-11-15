@@ -14,8 +14,7 @@ from pathlib import Path
 
 from PIL import Image, UnidentifiedImageError
 
-from . import jav_poster_crop
-from .cover_artwork import USER_COVER_SOURCE, install_cover, is_user_cover
+from .cover_artwork import USER_COVER_SOURCE, cover_group, install_cover, is_user_cover
 from .user_messages import UserValueError
 from .western_artwork import artwork_key
 
@@ -23,11 +22,15 @@ MAX_BYTES = 32 * 1024 * 1024
 MAX_PIXELS = 80_000_000
 MIN_SIDE = 200
 ORIGINALS = ".user-cover-originals"
-SIDECARS = (".face.json", jav_poster_crop.SIDECAR_SUFFIX, ".scraping.json")
 
 
 def _group(target: Path) -> list[Path]:
-    return [target, *(target.with_suffix(suffix) for suffix in SIDECARS)]
+    return cover_group(target)
+
+
+def _kept(backup: Path, target: Path, current: Path) -> Path:
+    """整组文件在备份目录里的位置：保留相对封面目录的路径，竖版正封与封面同名、不能落在同一层。"""
+    return backup / current.relative_to(target.parent)
 
 
 def cover_target(contract, asset_id: int) -> tuple[Path, str]:
@@ -84,8 +87,10 @@ def set_user_cover(contract, asset_id: int, data: bytes, *, origin: str = "uploa
         backup.mkdir(parents=True, exist_ok=True)
         for current in _group(target):
             if current.exists():
-                os.replace(current, backup / current.name)
-                moved.append((backup / current.name, current))
+                kept = _kept(backup, target, current)
+                kept.parent.mkdir(parents=True, exist_ok=True)
+                os.replace(current, kept)
+                moved.append((kept, current))
     evidence = {"source": USER_COVER_SOURCE, "origin": origin if origin in {"upload", "frame", "sample"} else "upload",
                 "width": size[0], "height": size[1], "asset_id": int(asset_id),
                 "raw_sha256": hashlib.sha256(payload).hexdigest(), "checked_at": time.time()}
@@ -105,12 +110,13 @@ def restore_user_cover(contract, asset_id: int) -> dict:
     if not is_user_cover(target):
         raise UserValueError("errors.itemCover.nothingToRestore")
     backup = _backup_dir(target)
-    saved = [backup / current.name for current in _group(target)]
+    saved = [_kept(backup, target, current) for current in _group(target)]
     for current in _group(target):
         current.unlink(missing_ok=True)
     restored = False
     for kept, current in zip(saved, _group(target)):
         if kept.exists():
+            current.parent.mkdir(parents=True, exist_ok=True)
             os.replace(kept, current)
             restored = restored or current == target
     return {"key": key, "restored": restored}

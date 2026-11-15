@@ -9,9 +9,11 @@ JAV 的官方封套是「背面 | 书脊 | 正面」拼成的一整张横图，�
 正封整块摆进卡片。框里不另取固定形状的子区域，因为卡片的容器比例是页面的事，
 源图这一侧无从知道；在这里先按某个形状切一刀，只会把正封两侧各削掉一圈。
 
-五种取景方式，写在框的 `method` 里：
+六种取景方式，写在框的 `method` 里：
 
 - `fold`：Sobel 找到了书脊折痕那道竖直峭壁，正面从折痕右侧开始。
+- `match`：DMM 的竖版图在横图右缘对上了，证明是封套，但折痕找不到或离得太远，按 DMM
+  那一块的左缘切（`portrait_match`）。竖版图对不上时横图是整幅画面，框是 `none`。
 - `ratio`：没找到折痕，按正封宽高比的先验从右缘量回去。
 - `center`：拼图或模糊补边正中的正封，框在两条拼接缝之间。
 - `none`：这张图不该裁。整图框原样返回，页面维持现有的封面取景。
@@ -105,6 +107,10 @@ FOLD_EDGE_SPAN = 0.005
 FOLD_SETTLE_LIMIT = 0.01
 #: 没找到折痕时按这个宽高比从右缘量回去，也是候选之间定夺用的形状。
 PANEL_ASPECT = 0.704
+#: 只有标准 DVD 封套比例才按上面的先验切。DMM 封套实测 1.479～1.505；没有书脊的整幅图落在 1.55、
+#: 1.6（BITU-001、XVT-076、KIWVRL-011）这些比例上，找不到折痕时整幅显示。
+RATIO_FALLBACK_MIN = 1.46
+RATIO_FALLBACK_MAX = 1.52
 
 #: 宽封套与剧照比例接近，按厂牌与比例共同判定：厂牌在名单里且比例落在这个区间才按宽封套切；同一
 #: 厂牌换成 DVD 比例的封面照旧走上面那一档，比例更宽的照旧当剧照。别的 `*BD` 厂牌
@@ -150,6 +156,7 @@ RATIO = "ratio"
 CENTER = "center"
 NONE = "none"
 MANUAL = "manual"
+MATCH = "match"
 
 #: 手工框的来路，落在 sidecar 的 `source` 上。写死一个串是为了事后能一眼分清
 #: 「这张图的取景是算出来的还是人定的」：算出来的那几档没有 `source`。
@@ -269,6 +276,71 @@ def file_gradient(path: Path | str) -> Callable[[], ColumnProfile | None]:
     return source
 
 
+#: DMM 每部作品除了横版 `pl.jpg` 还有一张竖版 `ps.jpg`，FANZA 页面上的正封就是它。它有两种来路：
+#: 普通封套的 `ps` 是横图右侧按固定宽度裁出的一块，逐像素对得上；VR、配信限定合集与 SOD 双栏
+#: 这类没有书脊的整幅图，`ps` 是另外设计的竖版海报，在横图里找不到。比对在两张图都缩到这个
+#: 高度后进行：老片的 `ps` 只有 147×200，再高就要放大它。
+PORTRAIT_MATCH_HEIGHT = 200
+#: 灰度、轻微模糊后的归一化相关系数达到这个数才算对上。实测 22 张封套 0.61～1.00（老片 800 宽
+#: 横图配 147×200 小图，重压缩后偏低），贴右缘的独立海报 0.09～0.18。
+PORTRAIT_MATCH_MIN = 0.45
+#: 对上的那一块还得贴着横图右缘：独立海报常和横图某一段长得像（STARS-260 落在中段 0.78、
+#: STCV-530 落在左段 0.74），封套的正封永远顶着右缘。容差是横图宽的这个比例。
+PORTRAIT_EDGE_TOLERANCE = 0.02
+#: 竖版图要比这个宽高比更竖才算竖版。有些素人作品的 `ps` 和 `pl` 是同一张横图，说明不了什么。
+PORTRAIT_MAX_ASPECT = 1.0
+SLEEVE = "sleeve"
+POSTER = "poster"
+
+
+class PortraitMatch(NamedTuple):
+    """竖版图在横图里对上的位置：`verdict` 是 `SLEEVE` 或 `POSTER`，`x0`／`x1` 是横图像素列。"""
+
+    verdict: str
+    score: float
+    x0: int
+    x1: int
+
+
+def portrait_match(cover, portrait) -> PortraitMatch | None:
+    """DMM 横版大图与竖版小图（都是 BGR 数组）→ 这张横图是不是封套；判不出返回 None。
+
+    竖版图满高、只在横向滑动：先把两张都缩到 `PORTRAIT_MATCH_HEIGHT` 高，转灰度并轻微模糊，
+    抹掉 `ps` 单独重压缩带来的块效应，再做归一化相关模板匹配。对上且贴右缘的是封套，
+    `x0` 就是 DMM 认定的正封左缘；对不上的竖版图是另外设计的正封海报。
+    """
+    try:
+        import cv2
+    except ImportError:                         # pragma: no cover - 缺 vision 依赖组
+        return None
+    if cover is None or portrait is None or not getattr(cover, "size", 0) or not getattr(portrait, "size", 0):
+        return None
+    cover_h, cover_w = cover.shape[:2]
+    portrait_h, portrait_w = portrait.shape[:2]
+    if not (cover_h and portrait_h) or portrait_w / portrait_h >= PORTRAIT_MAX_ASPECT:
+        return None
+    height = min(PORTRAIT_MATCH_HEIGHT, portrait_h, cover_h)
+    scaled_cover_w = round(cover_w * height / cover_h)
+    scaled_portrait_w = round(portrait_w * height / portrait_h)
+    # 竖版图和本机封面差不多宽：本机装的就是竖版正封（CLO-350、KCKC-211），没有横图可判。
+    if scaled_portrait_w < 8 or scaled_portrait_w >= scaled_cover_w * (1 - PORTRAIT_EDGE_TOLERANCE):
+        return None
+
+    def prepare(image, width):
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if image.ndim == 3 else image
+        small = cv2.resize(gray, (width, height), interpolation=cv2.INTER_AREA)
+        return cv2.GaussianBlur(small, (3, 3), 0)
+
+    result = cv2.matchTemplate(prepare(cover, scaled_cover_w), prepare(portrait, scaled_portrait_w),
+                               cv2.TM_CCOEFF_NORMED)
+    _, score, _, (left, _) = cv2.minMaxLoc(result)
+    x0 = round(left * cover_h / height)
+    x1 = min(cover_w, round((left + scaled_portrait_w) * cover_h / height))
+    sleeve = (score >= PORTRAIT_MATCH_MIN
+              and cover_w - x1 <= cover_w * PORTRAIT_EDGE_TOLERANCE)
+    return PortraitMatch(SLEEVE if sleeve else POSTER, round(float(score), 3), x0, x1)
+
+
 def front_panel_box(width: int, height: int,
                     gradient_source: GradientSource = None,
                     code: str | None = None, title: str = '') -> dict:
@@ -318,8 +390,14 @@ def padded_center_panel(width: int, height: int, profile) -> dict | None:
 
 def _sleeve(width: int, height: int, gradient_source: GradientSource,
             shape: PanelShape) -> dict:
-    """一张封套的正封框：找到折痕从折痕起，找不到按这一档的先验从右缘量回去。"""
+    """一张封套的正封框：找到折痕从折痕起，找不到按这一档的先验从右缘量回去。
+
+    先验只给标准 DVD 封套比例（`RATIO_FALLBACK_MIN`～`RATIO_FALLBACK_MAX`）：比例不标准又找不到
+    折痕的，多半是没有书脊的整幅宣传图，按先验切会把画面拦腰截断，整幅显示。
+    """
     fold = fold_column(width, height, gradient_source, shape)
+    if fold is None and shape is DVD_PANEL and not RATIO_FALLBACK_MIN <= width / height <= RATIO_FALLBACK_MAX:
+        return _whole(width, height)
     start = fold if fold is not None else round(width - shape.prior * height)
     return _panel(width, height, start, FOLD if fold is not None else RATIO)
 
@@ -561,20 +639,60 @@ def _panel(width: int, height: int, start: int, method: str) -> dict:
     return {"x0": start, "y0": 0, "x1": width, "y1": height, "method": method}
 
 
+def portrait_of(record: dict | None) -> PortraitMatch | None:
+    """sidecar 里记着的竖版图比对结果；没有或形状不对是 None。"""
+    found = (record or {}).get("portrait") if isinstance(record, dict) else None
+    if not isinstance(found, dict) or found.get("verdict") not in (SLEEVE, POSTER):
+        return None
+    try:
+        return PortraitMatch(found["verdict"], float(found["score"]), int(found["x0"]), int(found["x1"]))
+    except (KeyError, TypeError, ValueError):
+        return None
+
+
+def _matched_sleeve(width: int, height: int, gradient_source: GradientSource,
+                    portrait: PortraitMatch, code: str | None, title: str) -> dict:
+    """竖版图证实是封套：折痕找得到、且离 DMM 的左缘不远就用折痕，否则用 DMM 的左缘。
+
+    DMM 的 `ps` 按固定宽度从右缘量回去，厚书脊时会带进一条书脊，折痕更准；但折痕离它太远时，
+    说明梯度认错了边，DMM 那一块至少是这部作品的正封。
+    """
+    wide = is_wide_sleeve_label(code, title) and WIDE_SLEEVE_RATIO_MIN <= width / height < WIDE_SLEEVE_RATIO_MAX
+    fold = fold_column(width, height, gradient_source, WIDE_PANEL if wide else DVD_PANEL)
+    if fold is not None and abs(fold - portrait.x0) <= width * PORTRAIT_EDGE_TOLERANCE:
+        return _panel(width, height, fold, FOLD)
+    return _panel(width, height, portrait.x0, MATCH)
+
+
 def crop_record(code: str | None, width: int, height: int,
                 gradient_source: GradientSource = None, *, title: str = '', face: dict | None = None,
-                layout: str = '') -> dict:
+                layout: str = '', portrait: PortraitMatch | None = None,
+                front: Sequence[int] | None = None) -> dict:
     """可直接落盘的 sidecar 内容：算法版本、源图尺寸、框。
+
+    有 DMM 竖版图的比对结果（`portrait_match`）时以它为准：对上的是封套，按折痕或 DMM 的左缘切；
+    对不上的是独立设计的竖版海报，横图整幅显示，不再从中间切一刀。`front` 是装在封面旁的那张
+    竖版图的尺寸，页面大图位改用它。没有比对结果的走原有判据。
 
     番号形态先判：不该裁的图连梯度都不算，`gradient_source` 是惰性的就一次都不解码。
     """
     width, height = int(width or 0), int(height or 0)
-    box = (front_panel_box(width, height, gradient_source, code, title)
-           if layout != 'still' and crops_to_portrait(code, title) else _whole(width, height))
-    if box['method'] != CENTER and face_crosses_spine(width, height, face):
-        box = _whole(width, height)
+    if portrait is not None and width > 0 and height > 0:
+        box = (_matched_sleeve(width, height, gradient_source, portrait, code, title)
+               if portrait.verdict == SLEEVE else _whole(width, height))
+    else:
+        box = (front_panel_box(width, height, gradient_source, code, title)
+               if layout != 'still' and crops_to_portrait(code, title) else _whole(width, height))
+        if box['method'] != CENTER and face_crosses_spine(width, height, face):
+            box = _whole(width, height)
+    # 封套比例的番号封面判成不裁时，页面也不能再按右缘先验切：记成整幅画面交给卡片。
+    still = (box['method'] == NONE and height > 0 and SLEEVE_RATIO_MIN <= width / height < SLEEVE_RATIO_MAX
+             and (portrait is not None or crops_to_portrait(code, title)))
     return {"version": ALGORITHM_VERSION, "px": [width, height], "box": box,
-            **({'title': title} if title else {})}
+            **({'title': title} if title else {}),
+            **({'layout': 'still'} if still else {}),
+            **({'portrait': portrait._asdict()} if portrait is not None else {}),
+            **({'front': [int(front[0]), int(front[1])]} if front else {})}
 
 
 def manual_record(width: int, height: int, box: object) -> dict | None:
@@ -603,6 +721,27 @@ def is_manual(record: dict | None) -> bool:
 
 def sidecar_path(image_path: Path | str) -> Path:
     return Path(image_path).with_suffix(SIDECAR_SUFFIX)
+
+
+#: 竖版正封装在封面目录的这个子目录里、与封面同名。不和封面放同一层：`cover_index` 与各批处理
+#: 脚本按 `*.jpg` 认封面，同层多一张 `.front.jpg` 会被当成另一个番号。
+FRONT_DIRECTORY = "front"
+
+
+def front_path(image_path: Path | str) -> Path:
+    """封面旁那张竖版正封的位置：`covers/ABW-232.jpg` → `covers/front/ABW-232.jpg`。"""
+    image_path = Path(image_path)
+    return image_path.parent / FRONT_DIRECTORY / image_path.name
+
+
+def front_size(record: dict | None) -> tuple[int, int] | None:
+    """sidecar 记着的竖版正封尺寸；没有装竖版正封是 None。"""
+    size = record.get("front") if isinstance(record, dict) else None
+    try:
+        width, height = int(size[0]), int(size[1])
+    except (TypeError, IndexError, ValueError):
+        return None
+    return (width, height) if width > 0 and height > 0 else None
 
 
 def read_sidecar(image_path: Path | str) -> dict | None:
