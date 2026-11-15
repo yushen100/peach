@@ -2509,6 +2509,7 @@
     },
     "javOfficialPreview": {
       "dmmUnavailable": "DMM preview not found. Try again later",
+      "dmmUnrecognized": "DMM returned a preview address Peach doesn't recognize ({{host}}); retrying won't help",
       "javdbUnavailable": "JavDB preview not found. Try again later",
       "officialUnavailable": "Official preview not found. Try again later"
     },

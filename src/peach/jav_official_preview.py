@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 import time
 from urllib.parse import quote, urljoin, urlsplit
@@ -22,22 +23,38 @@ _UUID = re.compile(r'[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}')
 _MOVIE_PATH = re.compile(r'[a-f0-9]/[a-f0-9]/[a-f0-9-]{36}\.mp4')
 DMM_PREVIEW_QUERY = ('query PeachPreview($id: ID!) { ppvContent(id: $id) '
                      '{ id makerContentId sample2DMovie { highestMovieUrl } } }')
-DMM_PREVIEW_HOST = 'cc3001.dmm.co.jp'
+#: DMM 预告所在的域名。具体主机由 DMM 分配、会换：2026-11 起 `highestMovieUrl` 从 `cc3001.dmm.co.jp`
+#: 换成了 `tencc3001.dmm.co.jp`，按单个主机写死就会让全部预告失效，所以只认 DMM 自己域名下的主机。
+DMM_PREVIEW_DOMAIN = 'dmm.co.jp'
+
+log = logging.getLogger(__name__)
 
 
 def dmm_preview_url(value):
-    """只接受来源明确声明的公开 DMM MP4。"""
+    """只接受来源明确声明、放在 DMM 自己域名下的公开 MP4。"""
     if not isinstance(value, str) or any(char.isspace() for char in value):
         return ''
     try:
         parts = urlsplit(value)
-        allowed = (parts.scheme == 'https' and parts.hostname == DMM_PREVIEW_HOST
+        host = (parts.hostname or '').casefold()
+        allowed = (parts.scheme == 'https' and host.endswith('.' + DMM_PREVIEW_DOMAIN)
                    and not parts.username and not parts.password and parts.port in (None, 443)
-                   and not parts.fragment and '..' not in parts.path.split('/')
-                   and re.fullmatch(r'/(?:pv|litevideo)/[A-Za-z0-9/_-]+\.mp4', parts.path))
+                   and not parts.fragment and re.fullmatch(r'(?:/[A-Za-z0-9_-]+)+\.mp4', parts.path))
     except ValueError:
         return ''
     return value if allowed else ''
+
+
+def _unrecognized(value):
+    """DMM 声明了预告、地址却不认：多半是 DMM 换了主机或路径，原样写进日志，界面说明不是网络问题。"""
+    host = ''
+    if isinstance(value, str):
+        try:
+            host = urlsplit(value).hostname or ''
+        except ValueError:
+            pass
+    log.warning('DMM trailer URL not recognized: %r', value)
+    return PublicSourceUnavailable('errors.javOfficialPreview.dmmUnrecognized', {'host': host or '-'})
 
 
 class _DmmPreviewSource(DmmSource):
@@ -75,10 +92,13 @@ def dmm_preview(code, secrets_root, *, transport=None):
         movie = item['sample2DMovie']
         if movie is None:
             return ''
-        url = dmm_preview_url(movie.get('highestMovieUrl')) if isinstance(movie, dict) else ''
+        declared = movie.get('highestMovieUrl') if isinstance(movie, dict) else None
+        url = dmm_preview_url(declared)
         if not url:
-            raise ValueError('DMM public trailer URL not recognized')
+            raise _unrecognized(declared)
         return url
+    except PublicSourceUnavailable:
+        raise
     except SourceFailure as error:
         if error.reason == FailureReason.NOT_FOUND:
             return ''

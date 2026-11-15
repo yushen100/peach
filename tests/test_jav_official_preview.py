@@ -58,12 +58,30 @@ class OfficialPreviewTests(unittest.TestCase):
             200, {}, json.dumps({'data': {'ppvContent': {**item, 'sample2DMovie': None}}}).encode()))), '')
 
     def test_dmm_media_boundary_rejects_credentials_fragments_and_other_hosts(self):
-        self.assertEqual(dmm_preview_url(DMM_VIDEO), DMM_VIDEO)
+        # DMM 换过预告主机（cc3001 → tencc3001）：DMM 自己域名下的主机都认。
+        for url in [DMM_VIDEO, DMM_VIDEO.replace('cc3001.', 'tencc3001.'),
+                    'https://tencc3001.dmm.co.jp/pv/TXIzJDkq45zQjNREbc2UuietOP16/sqte738hhb.mp4']:
+            with self.subTest(url=url):
+                self.assertEqual(dmm_preview_url(url), url)
         for url in [DMM_VIDEO.replace('https:', 'http:'), DMM_VIDEO + '#fragment',
-                    DMM_VIDEO.replace('cc3001.', 'cc3001.evil.'), DMM_VIDEO.replace('https://', 'https://user:pass@'),
-                    DMM_VIDEO.replace('/pv/', '/private/'), DMM_VIDEO.replace('.mp4', '.jpg')]:
+                    DMM_VIDEO.replace('dmm.co.jp', 'dmm.co.jp.evil.test'), DMM_VIDEO.replace('cc3001.dmm', 'evildmm'),
+                    DMM_VIDEO.replace('cc3001.dmm.co.jp', 'dmm.co.jp'), DMM_VIDEO.replace('https://', 'https://user:pass@'),
+                    DMM_VIDEO.replace('/pv/', '/pv/../'), DMM_VIDEO.replace('.mp4', '.jpg')]:
             with self.subTest(url=url):
                 self.assertEqual(dmm_preview_url(url), '')
+
+    def test_an_unrecognised_dmm_address_says_so_instead_of_asking_to_retry(self):
+        """DMM 声明了预告、地址却不认时，原因不是网络：界面写出主机，日志留下原地址。"""
+        item = {'id': 'rctd00764', 'makerContentId': 'RCTD-764',
+                'sample2DMovie': {'highestMovieUrl': 'https://private.invalid/sample.mp4'}}
+        transport = Mock(return_value=HttpResponse(200, {}, json.dumps({'data': {'ppvContent': item}}).encode()))
+        with self.assertLogs('peach.jav_official_preview', 'WARNING') as logs, \
+                self.assertRaises(PublicSourceUnavailable) as raised:
+            dmm_preview('RCTD-764', Path('unused'), transport=transport)
+        self.assertEqual((raised.exception.code, raised.exception.params),
+                         ('errors.javOfficialPreview.dmmUnrecognized', {'host': 'private.invalid'}))
+        self.assertIn('private.invalid', str(raised.exception))
+        self.assertIn('https://private.invalid/sample.mp4', logs.output[0])
 
     def test_dmm_response_without_product_field_is_unavailable(self):
         with self.assertRaises(PublicSourceUnavailable):
