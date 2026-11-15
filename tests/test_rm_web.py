@@ -1784,6 +1784,7 @@ class WebDataTests(unittest.TestCase):
             "/api/playlists", "/api/playlist",
             "/api/post-setup-tutorial",
             "/api/tutorial-progress", "/api/performer/delete-candidates", "/api/performer/delete-plan",
+            "/api/entity-batch/plan",
             "/api/library-shortcuts", "/api/folders",
             "/api/custom-metadata",
             "/api/follow", "/api/follow/credentials", "/api/follow/schedule",
@@ -1810,7 +1811,7 @@ class WebDataTests(unittest.TestCase):
             "/api/scraping/amane-bridge/check", "/api/scraping/amane-bridge/rebuild",
             "/api/activity", "/api/play", "/api/feedback", "/api/watch-later",
             "/api/playlist",
-            "/api/tutorial-progress", "/api/performer/delete",
+            "/api/tutorial-progress", "/api/performer/delete", "/api/entity-batch",
             "/api/library-shortcuts", "/api/folders/preview", "/api/folders/rule",
             "/api/custom-metadata",
             "/api/preference", "/api/quality-goal", "/api/item-tag", "/api/batch",
@@ -2499,6 +2500,24 @@ class WebDataTests(unittest.TestCase):
         result = rm_web.w_batch(self.contract, {"ids": [1, 2, 2], "operation": "like"})
         self.assertEqual(result["changed"], 2)
         self.assertEqual(rm_web.q_item(self.contract, 1)["like_reason"], "保留原文")
+
+    def test_batch_like_seen_and_later_revert_to_what_they_were(self):
+        rm_web.w_preference(self.contract, {"id": 1, "liked": False, "reason": "保留原文"})
+        rm_web.w_feedback(self.contract, {"id": 1, "kind": "dislike"})
+        rm_web.w_watch_later(self.contract, {"id": 1})
+        for operation in ("like", "seen", "later"):
+            receipt = rm_web.w_batch(self.contract, {"ids": [1, 2], "operation": operation})
+            rm_web.w_batch(self.contract, {"ids": [1, 2], "operation": f"revert-{operation}",
+                                           "previous": receipt["previous"]})
+        self.assertFalse(rm_web.q_item(self.contract, 1)["liked"])
+        self.assertEqual(rm_web.q_item(self.contract, 1)["like_reason"], "保留原文")
+        self.assertEqual((self.row(1)["feedback"], self.row(2)["feedback"]), ("dislike", None))
+        with sqlite3.connect(self.db_path) as con:
+            self.assertEqual([row[0] for row in con.execute("SELECT asset_id FROM watch_queue")], [1],
+                             "原本就在稍后看里的那条留下")
+            self.assertIsNone(con.execute("SELECT 1 FROM asset_preference WHERE asset_id=2").fetchone())
+        with self.assertRaises(ValueError):
+            rm_web.w_batch(self.contract, {"ids": [1], "operation": "revert-seen", "previous": {"2": None}})
 
     def test_better_version_goal_is_independent_and_reversible(self):
         saved = rm_web.w_quality_goal(self.contract, {
@@ -4002,6 +4021,44 @@ class DuplicateDetectionTests(unittest.TestCase):
         self.assertEqual(self.groups()["total"], 2, "撤销后这组回到列表")
         with self.assertRaises(ValueError):
             rm_web.w_batch(self.contract, {"ids": other[:1], "operation": "keep-duplicates"})
+
+    def test_kept_group_stays_hidden_after_a_member_leaves(self):
+        first = self.add("SSIS-057", 7200, 5_000_000_000, drive="A")
+        second = self.add("SSIS-057", 7200, 4_000_000_000, drive="B")
+        third = self.add("SSIS-057", 7200, 3_000_000_000, drive="C")
+        rm_web.w_batch(self.contract, {"ids": [first, second, third], "operation": "keep-duplicates"})
+        rm_web.w_batch(self.contract, {"ids": [third], "operation": "dispose"})
+        result = self.groups()
+        self.assertEqual((result["total"], result["kept"]), (0, 1), "少了一份不该让保留过的组回来")
+        kept = rm_web.q_duplicates(self.contract, {"view": "kept"})
+        self.assertEqual([{f["id"] for f in g["files"]} for g in kept["groups"]], [{first, second}])
+
+        rm_web.w_batch(self.contract, {"ids": [first, second], "operation": "reconsider-duplicates"})
+        self.assertEqual((self.groups()["total"], self.groups()["kept"]), (1, 0),
+                         "取消保留要撤掉藏住这组的那条更大的记录")
+
+    def test_a_new_copy_brings_a_kept_group_back_marked_as_new(self):
+        first = self.add("SSIS-057", 7200, 5_000_000_000, drive="A")
+        second = self.add("SSIS-057", 7200, 4_000_000_000, drive="B")
+        rm_web.w_batch(self.contract, {"ids": [first, second], "operation": "keep-duplicates"})
+        newcomer = self.add("SSIS-057", 7200, 3_000_000_000, drive="C")
+        group = self.groups()["groups"][0]
+        self.assertEqual(group["new_files"], 1)
+        self.assertEqual({f["id"]: f["is_new"] for f in group["files"]},
+                         {first: False, second: False, newcomer: True})
+
+    def test_several_groups_are_kept_and_released_in_one_request(self):
+        one = [self.add("SSIS-057", 7200, 5_000_000_000), self.add("SSIS-057", 7200, 4_000_000_000)]
+        two = [self.add("ABW-232", 7200, 5_000_000_000), self.add("ABW-232", 7200, 3_000_000_000)]
+        rm_web.w_batch(self.contract, {"groups": [one, two], "operation": "keep-duplicates"})
+        self.assertEqual((self.groups()["total"], self.groups()["kept"]), (0, 2))
+        rm_web.w_batch(self.contract, {"groups": [one, two], "operation": "reconsider-duplicates"})
+        self.assertEqual((self.groups()["total"], self.groups()["kept"]), (2, 0))
+        for bad in ([one[:1]], [one, one]):
+            with self.assertRaises(ValueError):
+                rm_web.w_batch(self.contract, {"groups": bad, "operation": "keep-duplicates"})
+        with self.assertRaises(ValueError):
+            rm_web.w_batch(self.contract, {"groups": [one], "operation": "dispose"})
 
     def test_duplicate_rows_keep_the_full_path_for_review(self):
         self.add("SSIS-057", 7200, 5_000_000_000, drive="A")

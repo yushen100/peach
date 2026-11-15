@@ -31,7 +31,7 @@ export interface PerformerDeleteResult {
 export const fetchDeletePerformers = (signal: AbortSignal) =>
   apiGet<{ items: DeletePerformer[] }>('/api/performer/delete-candidates', signal);
 
-export const fetchDeletePlan = (ids: number[], signal: AbortSignal) =>
+export const fetchDeletePlan = (ids: number[], signal?: AbortSignal) =>
   apiGet<PerformerDeletePlan>(`/api/performer/delete-plan?${new URLSearchParams({ ids: ids.join(',') })}`, signal);
 
 export const deletePerformerVideos = (plan: PerformerDeletePlan) =>

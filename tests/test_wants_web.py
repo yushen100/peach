@@ -365,6 +365,22 @@ class WantListTests(WantWebFixture):
         self.assertEqual([(item["id"], item["phase"], item["search_count"]) for item in self.get()["items"]],
                          [(second, wants.SEARCHING, 0)])
 
+    def test_remove_and_reset_are_undone_from_the_receipt(self):
+        first = self.post("/api/wants", {"action": "add", "code": "ABP-100"})["want"]["id"]
+        second = self.post("/api/wants", {"action": "add", "code": "ABP-101"})["want"]["id"]
+        self.settle()
+        self.execute("UPDATE want_item SET state='given_up',search_count=3,given_up_at='x' WHERE id=?",
+                     (second,))
+        reset = self.post("/api/wants", {"action": "reset", "ids": [second]})
+        removed = self.post("/api/wants", {"action": "remove", "ids": [first]})
+        for receipt in (removed, reset):
+            self.post("/api/wants", {"action": "restore", "rows": receipt["previous"]})
+        listed = {item["id"]: item for item in self.get()["items"]}
+        self.assertEqual(set(listed), {first, second}, "移除的那条按原 id 回来")
+        self.assertEqual(listed[second]["search_count"], 3, "重置的计数原样写回")
+        with self.assertRaises(ValueError):
+            self.post("/api/wants", {"action": "restore", "rows": [{"code": "ABP-102"}]})
+
 
 class ScheduledSearchTests(WantWebFixture):
     """定时查资源：按到期挑条目，查到与否按浏览器添加的番号判据，逐条记账，来源连续失败就歇。"""

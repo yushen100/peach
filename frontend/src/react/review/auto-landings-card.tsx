@@ -5,17 +5,15 @@
  * 标签和之后被人改过、不动的作品，确认后才写账本。撤回的回执留在表上方，被跳过的作品可以
  * 点开核对。没有自动写入也没有回执时整块不出现。 */
 import { useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { VisuallyHidden } from 'react-aria-components';
-import { confirmModal } from '@peach/legacy/ui';
 
-import { Button } from '@/components/base/buttons/button';
 import { LinkButton } from '@/components/base/buttons/link-button';
 import { errorMessage } from '../../api';
+import type { BulkAction } from '../components/bulk-action';
 import { DataTable, type DataColumn } from '../components/data-table';
 import { Note } from '../components/note';
 import { queryClient } from '../query';
-import { busyProps } from '../settings/use-action';
 import {
   AUTO_LANDINGS_KEY, fetchAutoLandings, fieldName, previewAutoLandings, previewBody, previewLines, previousText,
   resultText, revertAutoLandings, ruleName, workLabel, writeTime, writtenText,
@@ -68,24 +66,26 @@ export function AutoLandingsCard(
   const [receipt, setReceipt] = useState<AutoLandingResult | null>(null);
   const query = useQuery({ queryKey: AUTO_LANDINGS_KEY, queryFn: ({ signal }) => fetchAutoLandings(signal) });
   const items = query.data?.items ?? [];
-  const revert = useMutation({
-    mutationFn: async (keys: string[]) => {
-      const preview = await previewAutoLandings(keys);
-      const { confirmed, result } = await confirmModal({
-        title: t('manage:autoLandings.revertTitle'), body: previewBody(preview), items: previewLines(preview),
-        confirmLabel: t('manage:shared.revert'), onConfirm: () => revertAutoLandings(preview.items, preview.token),
-      });
-      return confirmed ? result as AutoLandingResult : null;
-    },
-    onSuccess: (result) => {
-      if (!result) return;
-      setReceipt(result);
-      setSelected([]);
-      toast(resultText(result));
-      void queryClient.invalidateQueries({ queryKey: REVIEW_KEY });
-    },
-    onError: (error) => toast(errorMessage(error)),
-  });
+  /* 撤回自动落库：先取预览再弹窗。撤回本身没有「重做」入口（改动前的账本另有备份），弹窗写明不能撤销。 */
+  const revert = (count: number): BulkAction<AutoLandingWrite> => {
+    let preview: Awaited<ReturnType<typeof previewAutoLandings>> | null = null;
+    let outcome: AutoLandingResult | null = null;
+    return {
+      key: 'revert', label: t('manage:autoLandings.revertSelected', { count }), reversal: 'irreversible',
+      confirm: async (chosen) => {
+        preview = await previewAutoLandings(chosen.map((item) => item.item_key));
+        return { title: t('manage:autoLandings.revertTitle'), body: previewBody(preview), items: previewLines(preview),
+          confirmLabel: t('manage:shared.revert') };
+      },
+      run: async () => {
+        outcome = await revertAutoLandings(preview!.items, preview!.token);
+        setReceipt(outcome);
+        void queryClient.invalidateQueries({ queryKey: REVIEW_KEY });
+      },
+      receipt: () => outcome ? resultText(outcome) : '',
+    };
+  };
+  const host = { receipt: toast, failure: (error: unknown) => toast(errorMessage(error)) };
   if (!items.length && !receipt && !query.isError) return null;
   const columns: DataColumn<AutoLandingWrite>[] = [
     { id: 'work', label: t('manage:shared.video'), width: 300, min: 240, value: (item) => workLabel(item),
@@ -128,12 +128,8 @@ export function AutoLandingsCard(
           description={DESCRIPTION}
           rowId={(item) => item.item_key} rowLabel={(item) => `${workLabel(item)} ${fieldName(item)}`}
           selected={selected} onSelected={setSelected}
-          actions={(chosen) => (
-            <Button variant="secondary" size="small" disabled={locked || !chosen.length}
-              {...busyProps(revert.isPending)} onClick={() => revert.mutate(chosen.map((item) => item.item_key))}>
-              {t('manage:autoLandings.revertSelected', { count: chosen.length })}
-            </Button>
-          )} />
+          actions={(chosen) => [{ action: revert(chosen.length), items: chosen, host, disabled: locked,
+            done: () => setSelected([]) }]} />
       ) : null}
     </section>
   );

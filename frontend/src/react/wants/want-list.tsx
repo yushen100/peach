@@ -1,11 +1,12 @@
 /* JAV 想要：按状态分组的作品卡，复用资源链接查询与查找资源弹层。 */
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Radio } from 'react-aria-components';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { RiStarLine, RiExternalLinkLine, RiDeleteBinLine } from '@remixicon/react';
 
 import { Button, ButtonLink } from '@/components/base/buttons/button';
+import { Checkbox } from '@/components/base/checkbox/checkbox';
 import { Input } from '@/components/base/input/input';
 
 import { apiGet, errorMessage } from '../../api';
@@ -13,7 +14,12 @@ import { javContentSkeleton } from '../../jav-skeleton';
 import type { DownloadsSnapshot } from '../bundle';
 import { CloudDownloadDialog, type DownloadPrefill } from '../activity/cloud-download-dialog';
 import { DOWNLOADS_KEY, DOWNLOADS_URL } from '../activity/downloads-panel';
+import type { BulkAction, Receipt } from '../components/bulk-action';
 import { cardClass } from '../components/card';
+import { SelectionDock } from '../components/selection-dock';
+import { JavBatchResources } from '../jav/jav-batch-resources';
+import { useJavSelection } from '../jav/jav-selection';
+import type { Discovery } from '../jav/jav';
 import { EmptyState, EmptyFocusButton } from '../components/empty-state';
 import { Note } from '../components/note';
 import { DataTableFooter } from '../components/table-controls';
@@ -27,7 +33,7 @@ import { SEGMENT, SEGMENTED_TRACK, SegmentedRadioGroup } from '../components/seg
 import { busyProps, useAction } from '../settings/use-action';
 import { composingKey } from '../components/ime';
 import {
-  addWant, fetchWants, invalidateWants, lastSearchNote, PHASES, removeWants, resetWants, searchNote, wantName,
+  addWant, fetchWants, invalidateWants, lastSearchNote, PHASES, removeWants, resetWants, restoreWants, searchNote, wantName,
   WANTS_KEY, wantsInterval, type Want,
 } from './wants';
 import { t } from '../../i18n';
@@ -54,9 +60,11 @@ function Cover({ want }: { want: Want }) {
   );
 }
 
-function WantRow({ want, readOnly, busy, onReset, onRemove, onCloudDownload, downloads, provider, toast }: {
+function WantRow({ want, readOnly, busy, onReset, onRemove, onCloudDownload, downloads, provider, toast, picked }: {
   want: Want; readOnly: boolean; busy: string; downloads?: DownloadsSnapshot; provider: string; toast(message: string): void;
   onReset(): void; onRemove(): void; onCloudDownload(): void;
+  /** 多选模式下这一条的勾选；不在多选模式时为空，不画勾选框。 */
+  picked?: { on: boolean; toggle(on: boolean): void };
 }) {
   const [resolvedSource, setResolvedSource] = useState('');
   const source = want.link || resolvedSource || (want.code ? `https://javdb.com/search?q=${encodeURIComponent(want.code)}&f=all` : '');
@@ -66,6 +74,8 @@ function WantRow({ want, readOnly, busy, onReset, onRemove, onCloudDownload, dow
     <li data-want-id={want.id}
       className={cardClass({ className: 'flex flex-col gap-4 max-sm:p-4' })}>
       <div className="flex min-w-0 items-start gap-4 max-sm:gap-3">
+      {picked ? <Checkbox slot={null} className="mt-1 shrink-0 self-start" aria-label={t('catalog:wants.selectRow', { name: wantName(want) })}
+        isSelected={picked.on} onChange={picked.toggle} /> : null}
       <Cover want={want} />
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <p className="flex min-w-0 flex-wrap items-baseline gap-x-2">
@@ -140,7 +150,7 @@ function WantPhase({ phase, label, rows, row }: {
 
 export interface WantListProps {
   readOnly: boolean;
-  toast(message: string): void;
+  toast: Receipt;
   query?: string;
   clearQuery?(): void;
 }
@@ -183,6 +193,37 @@ export function WantList({ readOnly, toast, query = '', clearQuery }: WantListPr
   const data = wants.data;
   const items = (data?.items || []).filter(want => !query || [want.code, want.title, want.performers]
     .join(' ').toLocaleLowerCase().includes(query.toLocaleLowerCase()));
+
+  /* 多选：右上角开关（JAV 页的多选外壳）打开后每条显示勾选框，浮条给移除、重新查找与查找资源。 */
+  const selection = useJavSelection();
+  const selecting = Boolean(selection?.mode);
+  const [picked, setPicked] = useState<ReadonlySet<number>>(new Set());
+  const [resources, setResources] = useState<Discovery[] | null>(null);
+  useEffect(() => { if (!selecting) setPicked(new Set()) }, [selecting]);
+  const chosen = items.filter((want) => picked.has(want.id));
+  const allPicked = items.length > 0 && chosen.length === items.length;
+  const host = { receipt: toast };
+  const removeMany: BulkAction<Want> = {
+    key: 'remove', label: t('catalog:shared.remove'), reversal: 'undo', danger: true,
+    confirm: (rows) => ({ title: t('catalog:wants.removeMany'), body: t('catalog:wants.removeManyBody', { count: rows.length }) }),
+    run: async (rows) => {
+      const { previous } = await removeWants(rows.map((want) => want.id));
+      await invalidateWants();
+      return async () => { await restoreWants(previous); await invalidateWants() };
+    },
+    receipt: (rows) => t('catalog:wants.removedMany', { count: rows.length }),
+  };
+  const resetMany: BulkAction<Want> = {
+    key: 'reset', label: t('catalog:wants.searchAgain'), reversal: 'undo',
+    confirm: (rows) => ({ title: t('catalog:wants.searchAgainMany'), body: t('catalog:wants.searchAgainManyBody', { count: rows.length }) }),
+    run: async (rows) => {
+      const { previous } = await resetWants(rows.map((want) => want.id));
+      await invalidateWants();
+      return async () => { await restoreWants(previous); await invalidateWants() };
+    },
+    receipt: (rows) => t('catalog:wants.searchAgainDone', { count: rows.length }),
+  };
+  const searchable = chosen.filter((want) => want.code && (want.phase === 'searching' || want.phase === 'given_up'));
   const downloads = useQuery({
     queryKey: DOWNLOADS_KEY,
     queryFn: ({ signal }) => apiGet<DownloadsSnapshot>(`${DOWNLOADS_URL}?limit=100`, signal),
@@ -228,6 +269,11 @@ export function WantList({ readOnly, toast, query = '', clearQuery }: WantListPr
           <WantPhase key={phase} phase={phase} label={label} rows={rows} row={(want) => (
             <WantRow key={want.id} want={want} readOnly={readOnly} busy={action.busy}
               downloads={downloads.data} provider={selected} toast={toast}
+              picked={selecting ? { on: picked.has(want.id), toggle: (on) => setPicked((current) => {
+                const next = new Set(current);
+                if (on) next.add(want.id); else next.delete(want.id);
+                return next;
+              }) } : undefined}
               onReset={() => reset(want)} onRemove={() => remove(want)}
               onCloudDownload={() => setDownload({
                 code: want.code || '', title: want.title || '', origin: `wishlist:${want.id}`,
@@ -237,6 +283,20 @@ export function WantList({ readOnly, toast, query = '', clearQuery }: WantListPr
         );
       })}
       <CloudDownloadDialog prefill={download} close={() => setDownload(null)} receipt={toast} provider={selected} />
+      <SelectionDock visible={selecting} label={t('catalog:wants.dockLabel')} count={t('catalog:javSelection.selectedCount', { count: chosen.length })}
+        actions={[
+          { action: removeMany, items: chosen, host, disabled: readOnly, done: () => setPicked(new Set()) },
+          { action: resetMany, items: chosen.filter((want) => want.phase === 'given_up'), host, disabled: readOnly, done: () => setPicked(new Set()) },
+        ]}
+        leading={<Button size="small" variant="secondary" disabled={!items.length}
+          onClick={() => setPicked(allPicked ? new Set() : new Set(items.map((want) => want.id)))}>
+          {allPicked ? t('catalog:javSelection.deselectPage') : t('catalog:wants.selectAll')}</Button>}>
+        <Button size="small" variant="secondary" disabled={!searchable.length}
+          onClick={() => setResources(searchable.map((want) => ({ id: want.id, code: want.code!, title: want.title || '',
+            release_date: want.release_date || undefined }) as Discovery))}>{t('catalog:shared.searchTorrents')}</Button>
+        <Button size="small" variant="ghost" onClick={() => selection?.close()}>{t('catalog:javSelection.exit')}</Button>
+      </SelectionDock>
+      <JavBatchResources items={resources} close={() => setResources(null)} readOnly={readOnly} receipt={toast} />
     </div>
   );
 }

@@ -43,6 +43,8 @@ import { EmptyState } from '../components/empty-state';
 import { LEGACY_AVATAR_IMG } from '../components/legacy-avatar';
 import { SiteLabel } from '../components/source-label';
 import { Note } from '../components/note';
+import type { BulkAction, Receipt } from '../components/bulk-action';
+import { exitPageSelection } from '../components/page-selection';
 import { SelectionDock } from '../components/selection-dock';
 import { queryClient } from '../query';
 import { ErrorText, Help } from '../settings/section';
@@ -169,7 +171,7 @@ function confirmRemove(sources: FeedSource[], write: () => Promise<unknown>) {
 }
 
 export function FeedSources({ readOnly, toast, onAdd, selection }: {
-  readOnly: boolean; toast(message: string): void; onAdd(): void;
+  readOnly: boolean; toast: Receipt; onAdd(): void;
   selection?: {
     ids: ReadonlySet<number>;
     onChange: Dispatch<SetStateAction<ReadonlySet<number>>>;
@@ -209,10 +211,8 @@ export function FeedSources({ readOnly, toast, onAdd, selection }: {
     },
     onSuccess: (result) => {
       const failed = result.results.filter((row) => !row.ok);
-      const done = result.ids.length - failed.length;
       setSelected(new Set());
       void reload();
-      if (result.action === 'remove' && done) toast(t('follow:feedSources.removedMany', { count: done }));
       if (failed.length) {
         const first = failed[0]!;
         action.setError(t('follow:feedSources.writeFailed', { count: failed.length, error: first.ok ? '' : errorMessage(first.error) }));
@@ -220,6 +220,31 @@ export function FeedSources({ readOnly, toast, onAdd, selection }: {
     },
     onError: (cause) => action.setError(errorMessage(cause)),
   });
+
+  /* 启用与暂停的撤销把这一批里状态真的变了的那几个改回去；移除撤不回，弹窗写明。 */
+  const host = { receipt: toast, failure: (cause: unknown) => action.setError(errorMessage(cause)) };
+  const toggleMany = (enable: boolean): BulkAction<FeedSource> => ({
+    key: enable ? 'enable' : 'pause', label: enable ? t('follow:shared.enable') : t('follow:shared.pause'), reversal: 'undo',
+    confirm: (rows) => ({ title: enable ? t('follow:feedSources.enableMany') : t('follow:feedSources.pauseMany'),
+      body: t(enable ? 'follow:feedSources.enableManyBody' : 'follow:feedSources.pauseManyBody', { count: rows.length }) }),
+    run: async (rows) => {
+      const flipped = rows.filter((row) => row.enabled !== enable);
+      const { results } = await bulk.mutateAsync({ ids: flipped.map((row) => row.id), action: enable ? 'enabled' : 'paused' });
+      const changed = flipped.filter((_row, index) => results[index]?.ok);
+      return async () => {
+        await mapLimit(changed.map((row) => row.id), 4, (id: number) => setFeedEnabled(id, !enable));
+        await reload();
+      };
+    },
+    receipt: (rows) => t(enable ? 'follow:feedSources.enabledMany' : 'follow:feedSources.pausedMany', { count: rows.length }),
+  });
+  const removeMany: BulkAction<FeedSource> = {
+    key: 'remove', label: t('follow:shared.remove'), reversal: 'irreversible', danger: true,
+    confirm: (rows) => ({ title: t('follow:feedSources.removeMany', { count: rows.length }), danger: true,
+      body: t('follow:feedSources.removeManyBody'), confirmLabel: t('follow:feedSources.removeSelected') }),
+    run: async (rows) => { await bulk.mutateAsync({ ids: rows.map((row) => row.id), action: 'remove' }) },
+    receipt: (rows) => t('follow:feedSources.removedMany', { count: rows.length }),
+  };
 
   /* 列定义只建一次，行里的控件到点击那一刻再从这里取最新的处理器与只读态。 */
   const shared = useMemo(() => sharedEntities(sources), [sources]);
@@ -413,15 +438,10 @@ export function FeedSources({ readOnly, toast, onAdd, selection }: {
         </div>
       ) : null}
 
-        <SelectionDock visible={chosen.length > 0} label={t('follow:feedSources.bulkActions')} count={t('follow:feedSources.selectedCount', { count: chosen.length })}>
-          <Button variant="secondary" size="small" disabled={readOnly} {...busyProps(bulk.isPending)}
-            onClick={() => bulk.mutate({ ids: chosen.map((row) => row.id), action: 'enabled' })}>{t('follow:shared.enable')}</Button>
-          <Button variant="secondary" size="small" disabled={readOnly} {...busyProps(bulk.isPending)}
-            onClick={() => bulk.mutate({ ids: chosen.map((row) => row.id), action: 'paused' })}>{t('follow:shared.pause')}</Button>
-          <Button variant="danger" size="small" disabled={readOnly} {...busyProps(bulk.isPending)}
-            onClick={() => void confirmRemove(chosen,
-              () => bulk.mutateAsync({ ids: chosen.map((row) => row.id), action: 'remove' }))}>{t('follow:shared.remove')}</Button>
-          <Button variant="ghost" size="small" onClick={() => setSelected(new Set())}>{t('follow:shared.clearSelection')}</Button>
+        <SelectionDock visible={chosen.length > 0} label={t('follow:feedSources.bulkActions')} count={t('follow:feedSources.selectedCount', { count: chosen.length })}
+          actions={[toggleMany(true), toggleMany(false), removeMany].map((bulkAction) => ({
+            action: bulkAction, items: chosen, host, disabled: readOnly || bulk.isPending }))}>
+          <Button variant="ghost" size="small" onClick={exitPageSelection}>{t('follow:shared.clearSelection')}</Button>
         </SelectionDock>
 
       {sources.length ? (

@@ -42,12 +42,18 @@
   },
   "batchCatalog": {
     "addToWatchLater": "Add to watch later",
-    "confirmBody_one": "This applies to the {{count, number}} selected item.",
-    "confirmBody_other": "This applies to the {{count, number}} selected items.",
-    "confirmDelete_one": "Files and collection records for the {{count, number}} selected item will be deleted permanently. This can't be undone.",
-    "confirmDelete_other": "Files and collection records for the {{count, number}} selected items will be deleted permanently. This can't be undone.",
-    "confirmDispose_one": "The {{count, number}} selected item will move to the trash, where you can restore it.",
-    "confirmDispose_other": "The {{count, number}} selected items will move to the trash, where you can restore them.",
+    "confirmDelete_one": "Deletes the files and collection records of the {{count, number}} selected item permanently.",
+    "confirmDelete_other": "Deletes the files and collection records of the {{count, number}} selected items permanently.",
+    "confirmDispose_one": "Moves the {{count, number}} selected item to the trash. The file stays where it is.",
+    "confirmDispose_other": "Moves the {{count, number}} selected items to the trash. The files stay where they are.",
+    "confirmLater_one": "Adds the {{count, number}} selected item to watch later.",
+    "confirmLater_other": "Adds the {{count, number}} selected items to watch later.",
+    "confirmLike_one": "Likes the {{count, number}} selected item. Existing like reasons are kept.",
+    "confirmLike_other": "Likes the {{count, number}} selected items. Existing like reasons are kept.",
+    "confirmRestore_one": "Restores the {{count, number}} selected item from the trash to the collection.",
+    "confirmRestore_other": "Restores the {{count, number}} selected items from the trash to the collection.",
+    "confirmSeen_one": "Marks the {{count, number}} selected item as watched.",
+    "confirmSeen_other": "Marks the {{count, number}} selected items as watched.",
     "deleteSelected": "Delete selected permanently",
     "doneDelete_one": "Deleted {{count, number}} item permanently",
     "doneDelete_other": "Deleted {{count, number}} items permanently",
@@ -66,20 +72,29 @@
     "restoreSelected": "Restore selected"
   },
   "batchFollow": {
-    "confirmBody_one": "This applies to the {{count, number}} selected video from Following.",
-    "confirmBody_other": "This applies to the {{count, number}} selected videos from Following.",
+    "confirmIgnore_one": "Ignores the {{count, number}} selected video from Following. If it's on your wants and not in the collection yet, it's removed from wants.",
+    "confirmIgnore_other": "Ignores the {{count, number}} selected videos from Following. Any on your wants that aren't in the collection yet are removed from wants.",
+    "confirmSave_one": "Saves the {{count, number}} selected video from Following to the database.",
+    "confirmSave_other": "Saves the {{count, number}} selected videos from Following to the database.",
+    "confirmSeen_one": "Marks the {{count, number}} selected video from Following as seen.",
+    "confirmSeen_other": "Marks the {{count, number}} selected videos from Following as seen.",
     "doneIgnored_one": "Ignored {{count, number}} item",
     "doneIgnored_other": "Ignored {{count, number}} items",
     "doneSave_one": "Saved {{count, number}} item to the database",
     "doneSave_other": "Saved {{count, number}} items to the database",
     "doneSeen_one": "Marked {{count, number}} item as seen",
     "doneSeen_other": "Marked {{count, number}} items as seen",
+    "ignoreRecovery": " You can undo this, but removed wants won't come back.",
     "ignoreSelected": "Ignore selected videos",
     "saveSelected": "Save selected videos"
   },
   "batchJunk": {
-    "confirmBody_one": "This applies to the {{count, number}} selected file.",
-    "confirmBody_other": "This applies to the {{count, number}} selected files.",
+    "confirmDispose_one": "Moves the {{count, number}} selected file to the trash. The file stays where it is.",
+    "confirmDispose_other": "Moves the {{count, number}} selected files to the trash. The files stay where they are.",
+    "confirmNotJunk_one": "Marks the {{count, number}} selected file as not junk and takes it out of the queue.",
+    "confirmNotJunk_other": "Marks the {{count, number}} selected files as not junk and takes them out of the queue.",
+    "confirmRecheck_one": "Sends the {{count, number}} selected file back to the junk queue.",
+    "confirmRecheck_other": "Sends the {{count, number}} selected files back to the junk queue.",
     "dismissed": "Set as not junk",
     "doneDispose_one": "Moved {{count, number}} item to trash",
     "doneDispose_other": "Moved {{count, number}} items to trash",
@@ -828,7 +843,8 @@
   "trash": {
     "blockedItem": "{{path}} ({{reason}})",
     "empty": "Empty trash",
-    "emptyConfirm": "Files and collection records in the trash will be deleted permanently. This can't be undone.",
+    "emptyConfirm_one": "The file and collection record of {{count, number}} item in the trash will be deleted permanently.",
+    "emptyConfirm_other": "Files and collection records of {{count, number}} items in the trash will be deleted permanently.",
     "emptyHint": "Deleted items stay here until you empty the trash.",
     "emptyTitle": "Trash is empty",
     "movedToTrash": "Moved to trash",
@@ -881,5 +897,9 @@
     "locationField": "File location on the server",
     "mediaRoot": "Media directory",
     "relativePath": "Location in the directory"
+  },
+  "bulkAction": {
+    "canUndo": " You can undo this from the receipt.",
+    "cannotUndo": " This can't be undone."
   }
 }

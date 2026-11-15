@@ -31,6 +31,8 @@ export interface DuplicateFile {
   duration: number | null;
   is_largest: boolean;
   is_longest: boolean;
+  /** 这组保留过、这一份是之后才加入的。 */
+  is_new?: boolean;
 }
 
 export interface DuplicateGroup {
@@ -44,6 +46,8 @@ export interface DuplicateGroup {
   drives: string[];
   cross_drive: boolean;
   reclaimable: number;
+  /** 保留过的组又加入了几份；为 0 或缺省时这组从没保留过。 */
+  new_files?: number;
 }
 
 export interface DuplicatesData {
@@ -52,16 +56,46 @@ export interface DuplicatesData {
   reclaimable: number;
   groups: DuplicateGroup[];
   has_more?: boolean;
-  /** 标过「都保留」、组员没变的组数，不计入上面各项。 */
+  /** 标过「都保留」、当前组员都在保留记录里的组数；待处理那一份的各项不含它们。 */
   kept?: number;
 }
 
-/** 整组标记都保留，或撤销这个标记。服务端按组员 id 集合记，组员变了这组会自己回来。 */
+/** 整组标记都保留，或撤销这个标记。服务端按组员 id 集合记：当前组员都在记录里就算已保留，
+ *  少一份不会回来，只有新文件加入才重新列出。 */
 export const keepGroup = (ids: readonly number[], keep: boolean) =>
   apiSend(BATCH_URL, { ids, operation: keep ? 'keep-duplicates' : 'reconsider-duplicates' });
 
+/** 几组一起标都保留或取消保留。按整组装进请求，一次不超过 200 个文件。 */
+export async function keepGroups(groups: readonly DuplicateGroup[], keep: boolean): Promise<void> {
+  let batch: number[][] = [];
+  let size = 0;
+  const send = async () => {
+    if (!batch.length) return;
+    await apiSend(BATCH_URL, { groups: batch, operation: keep ? 'keep-duplicates' : 'reconsider-duplicates' });
+    batch = [];
+    size = 0;
+  };
+  for (const group of groups) {
+    const ids = group.files.map((file) => file.id);
+    if (size + ids.length > BATCH_LIMIT) await send();
+    batch.push(ids);
+    size += ids.length;
+  }
+  await send();
+}
+
+/** 已保留的那几组：「已保留」视图读它，能逐组或成批取消保留。 */
+export const KEPT_DUPLICATES_URL = '/api/duplicates?limit=120&view=kept';
+export const KEPT_DUPLICATES_KEY = ['duplicates', 'kept'] as const;
+
 export const fetchDuplicates = (signal?: AbortSignal) =>
   apiGet<DuplicatesData>(DUPLICATES_URL, signal);
+
+export const fetchKeptDuplicates = (signal?: AbortSignal) =>
+  apiGet<DuplicatesData>(KEPT_DUPLICATES_URL, signal);
+
+/** 一组的文件 id 连起来，当作这组在选择集里的键。 */
+export const groupKey = (group: DuplicateGroup) => group.files.map((file) => file.id).join(',');
 
 /* 名字之间在哪里断开算一个词：空格、连字符、下划线、点、括号与路径分隔符。 */
 const NAME_BREAK = /[\s\-_.()[\]【】/\\]/;

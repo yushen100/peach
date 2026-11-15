@@ -61,6 +61,17 @@
   color: transparent;
 }
 .peach-react [data-photo-cell]:hover img { filter: brightness(1.06); }
+/* 多选：勾的形状与作品卡同一副（`media-card.css` 的 `[data-media-check]`），选中的那格填满并描一圈。 */
+.peach-react [data-photo-cell] { position: relative; }
+.peach-react [data-photo-wall][data-select-mode] [data-photo-cell] { cursor: pointer; }
+.peach-react [data-photo-cell][data-selected] { outline: 2px solid var(--on-media); outline-offset: -2px; }
+.peach-react [data-photo-cell][data-selected] [data-media-check] {
+  display: grid;
+  border-color: var(--on-media);
+  background: var(--on-media);
+  color: var(--on-media-ink);
+  box-shadow: 0 3px 12px #0008;
+}
 /* 全站焦点环（`01-base.css`）把 React 子树排除在外，这里自己画同一副。 */
 .peach-react [data-photo-cell]:focus-visible {
   outline: 2px solid var(--tungsten);

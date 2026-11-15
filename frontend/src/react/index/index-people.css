@@ -23,3 +23,13 @@
   color: var(--muted);
 }
 .peach-react .index-feed-mark>span{color:var(--feed-mark);background:color-mix(in srgb,var(--feed-mark) 16%,var(--ground))}
+/* 多选：勾放在左上角，右上角留给订阅新作的标记。格底是页面色不是图，选中态用主文字色描边、填勾，
+ * 明暗两档都看得出来；作品卡那套 `--on-media` 白色在浅色格底上看不见。 */
+.peach-react [data-index-grid] [data-index-cell] [data-media-check] { right: auto; left: 10px; }
+.peach-react [data-index-grid][data-select-mode] [data-index-cell] [data-media-check] { display: grid; }
+.peach-react [data-index-grid] [data-index-cell][data-selected] { outline: 2px solid var(--ink); outline-offset: -2px; }
+.peach-react [data-index-grid] [data-index-cell][data-selected] [data-media-check] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--ground);
+}

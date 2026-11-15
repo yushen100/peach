@@ -2,7 +2,7 @@
  *
  * 两套词表共用这三块，区别在颜色和去处：本地是 ledger 里的中文标签，按 ledger 的九类着色，
  * 点开回目录按它筛选，选择模式下拼成多标签筛选；在线是关注来源上的 booru 标签，按上游
- * tag_type 着色，点开去「关注 · 这个标签」，并且不进多选——多选拼的是目录筛选，拿在线标签
+ * tag_type 着色，点开去「关注 · 这个标签」；选择模式下做隐藏与屏蔽，不拼目录筛选——拿在线标签
  * 去筛目录必然一条不中。 */
 import { Radio, RadioGroup } from 'react-aria-components';
 import type { ReactNode } from 'react';
@@ -10,6 +10,7 @@ import type { ReactNode } from 'react';
 import { Button } from '@/components/base/buttons/button';
 import { Checkbox } from '@/components/base/checkbox/checkbox';
 
+import { AsyncText } from '../components/async-text';
 import { TabCount } from '../components/board-tabs';
 import { cardClass } from '../components/card';
 import { FilterGlassRows, FilterPill } from '../components/filter-glass';
@@ -111,19 +112,30 @@ const VIEWS: readonly (readonly [TagView, string, string])[] = [
   ['cloud', t('catalog:peopleIndex.tagCloud'), 'tags'], ['alphabet', t('catalog:peopleIndex.alphabetical'), 'text-aa'],
 ];
 
+/** 状态药丸上的字：不带数量就是名字；数量在取时名字后面跟一小块骨架，取到了换成带数量的那句。 */
+function statusLabel(name: string, count: number | null | undefined, counted: (count: number) => string): ReactNode {
+  if (count === undefined) return name;
+  if (count === null) return <>{name}<span aria-hidden className="skeleton-sheen ml-1.5 inline-block h-3.5 w-4 rounded-md align-middle" /></>;
+  return counted(count);
+}
+
 /** 筛选浮层：上排类型药丸，下排读数、按首字跳转与视图切换。只摆数得到的那几类。 */
 export function TagFilters(
   { categories, category, online, readout, letters, view, onCategory, onJump, onView, status, actions }: {
     categories: readonly (readonly [string, string])[];
     category: string;
     online: boolean;
-    readout: string;
+    /** 还没取到时是 `undefined`，原位摆骨架；取失败是空串。 */
+    readout: string | undefined;
     letters: string[];
     view: TagView;
     onCategory(key: string): void;
     onJump(at: number): void;
     onView(view: TagView): void;
-    status?: { hidden: boolean; blocked?: boolean; onChange(hidden: boolean): void; onBlocked?(): void };
+    /** 使用中、已隐藏、已屏蔽内容三档；带上数量时药丸上写出来（标签页平时那一排就靠它让人看见挡掉了几个），
+     *  `null` 是数量还在取，原位摆骨架。 */
+    status?: { hidden: boolean; blocked?: boolean; hiddenCount?: number | null; blockedCount?: number | null;
+      onChange(hidden: boolean): void; onBlocked?(): void };
     actions?: ReactNode;
   },
 ) {
@@ -132,10 +144,12 @@ export function TagFilters(
     <FilterGlassRows label={t('catalog:tagFilters.label')} topLabel={t('catalog:tagFilters.tagType')}
       top={<>
         {status ? <div role="group" aria-label={t('catalog:tagFilters.tagStatus')} className="flex flex-none items-center gap-1.75 border-r border-(--glass-low) pr-3">
-          {[[false, t('catalog:tagFilters.inUse')], [true, t('catalog:tagFilters.hidden')]].map(([hidden, label]) => <FilterPill key={String(hidden)}
+          {([[false, t('catalog:tagFilters.inUse')], [true, statusLabel(t('catalog:tagFilters.hidden'), status.hiddenCount,
+            (count) => t('catalog:tagFilters.hiddenCount', { count }))]] as const).map(([hidden, label]) => <FilterPill key={String(hidden)}
             data-tag-pill="" data-tag-cat="all" pressed={!status.blocked && status.hidden === hidden} onPress={() => status.onChange(Boolean(hidden))}>{label}</FilterPill>)}
           {status.onBlocked ? <FilterPill data-tag-pill="" data-tag-cat="all" pressed={!!status.blocked}
-            onPress={status.onBlocked}>{t('catalog:tagFilters.blockedContent')}</FilterPill> : null}
+            onPress={status.onBlocked}>{statusLabel(t('catalog:tagFilters.blockedContent'), status.blockedCount,
+              (count) => t('catalog:tagFilters.blockedCount', { count }))}</FilterPill> : null}
         </div> : null}
         {categories.map(([key, label]) => (
         <FilterPill key={key} data-tag-pill="" data-tag-cat={key === 'all' ? 'all' : tagColorKey(online, key)}
@@ -145,7 +159,8 @@ export function TagFilters(
       ))}</>}
       bottom={<>
         <span data-index-readout="" className="flex-none text-caption-1-regular leading-5 whitespace-nowrap text-text-secondary tabular-nums">
-          {readout}
+          <AsyncText text={readout} busy={readout === undefined}
+            placeholder={<span aria-hidden className="skeleton-sheen inline-block h-3.5 w-20 rounded-md" />} />
         </span>
         {actions}
         {letters.length > 1 ? (
@@ -182,7 +197,7 @@ export function TagDock(
   { count: number; match: 'any' | 'all'; onMatch(match: 'any' | 'all'): void; onClear(): void; onApply(): void },
 ) {
   return (
-    <SelectionDock visible={count > 0} label={t('catalog:tagFilters.selectionActions')} count={t('catalog:tagFilters.selectedCount', { count: count })}>
+    <SelectionDock visible={count > 0} label={t('catalog:tagFilters.selectionActions')} count={t('catalog:tagFilters.selectedCount', { count: count })} actions={[]}>
       <Checkbox isSelected={match === 'any'} onChange={(on) => onMatch(on ? 'any' : 'all')}>
         <span className="flex flex-col">
           <span className="text-body-medium">{t('catalog:tagFilters.matchAny')}</span>

@@ -16,6 +16,7 @@ import {
   junkDecision, junkKindMeta,
   type JunkItem, type JunkOperation, type JunkQueueActions, type JunkQueueHelpers, type JunkView,
 } from './junk-queue';
+import { Checkbox } from '@/components/base/checkbox/checkbox';
 import { suppressShiftTextSelection } from '../components/row-click';
 import { t } from '../../i18n';
 import { partsLabel } from '../../core/server-text';
@@ -104,6 +105,11 @@ function JunkCardView({ item, view, selected, selectMode, helpers, actions }: Ju
         <span data-media-check=""><Icon name="check" /></span>
       </div>
       <div data-junk-meta="">
+        {/* 勾选框常驻：点它只切换这一张，不冒泡到卡片那层的多选切换。 */}
+        <span data-junk-pick="" onClick={(event) => event.stopPropagation()}>
+          <Checkbox slot={null} size="sm" aria-label={t('cleanup:junk.selectFile', { name: name || t('cleanup:junk.untitled') })}
+            isSelected={selected} onChange={() => actions.toggleSelection(item.id, false)} />
+        </span>
         {title}
         <div data-junk-facts="">
           <span data-junk-who="">{label}</span>

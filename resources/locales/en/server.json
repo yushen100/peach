@@ -596,7 +596,10 @@
     "keep-duplicates": "Keep all in duplicate groups",
     "reconsider-duplicates": "List duplicate groups again",
     "region": "Bulk set region",
-    "performer-delete": "Delete actresses' videos permanently"
+    "performer-delete": "Delete actresses' videos permanently",
+    "revert-like": "Undo bulk like",
+    "revert-seen": "Undo bulk mark watched",
+    "revert-later": "Undo bulk watch later"
   },
   "outcome": {
     "semicolon": ". ",
@@ -927,6 +930,11 @@
       "planRequired": "Review the video deletion list first",
       "planChanged": "The video list changed. Close the confirmation and review it again",
       "nothingToDelete": "No videos to delete"
+    },
+    "entityBatch": {
+      "selectionInvalid": "Select valid items",
+      "selectionChanged": "The selection changed. Refresh and try again",
+      "operationInvalid": "This bulk action isn't supported"
     },
     "media": {
       "invalidPlaybackOrigin": "Invalid playback address.",

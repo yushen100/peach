@@ -302,6 +302,32 @@ def remove(connection, want_ids: Iterable[int]) -> int:
     return removed
 
 
+def snapshot(connection, want_ids: Iterable[int]) -> list[dict]:
+    """移除或重置之前这几条的整行，回执交给前端，撤销时原样写回。"""
+    ids = sorted({int(value) for value in want_ids})
+    rows: list[dict] = []
+    for batch in _chunks(ids):
+        rows.extend(dict(row) for row in connection.execute(
+            f"SELECT * FROM want_item WHERE id IN ({','.join('?' * len(batch))})", batch))
+    return rows
+
+
+def restore_rows(connection, rows: Iterable[dict]) -> int:
+    """撤销移除或重置：按 `snapshot` 交回的整行写回，已存在的按 id 覆盖。只认表里有的列。"""
+    columns = [row[1] for row in connection.execute("PRAGMA table_info(want_item)")]
+    restored = 0
+    for row in rows:
+        if not isinstance(row, dict) or type(row.get("id")) is not int:
+            raise ValueError("each restored want needs its integer id")
+        keys = [column for column in columns if column in row]
+        updates = ",".join(f"{column}=excluded.{column}" for column in keys if column != "id")
+        connection.execute(
+            f"INSERT INTO want_item({','.join(keys)}) VALUES({','.join('?' * len(keys))}) "
+            f"ON CONFLICT(id) DO UPDATE SET {updates}", [row[column] for column in keys])
+        restored += 1
+    return restored
+
+
 def drop_codes(connection, codes: Iterable[str]) -> int:
     """屏蔽了这几个番号（Feed 卡上「不想看」）：撤掉还没入库的想要。"""
     keys = sorted({normalise_code_key(code) for code in codes if code} - {""})

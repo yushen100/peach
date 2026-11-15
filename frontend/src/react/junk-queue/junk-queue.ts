@@ -82,6 +82,8 @@ export interface JunkQueueActions {
   navigate(path: string): void;
   /** 切换一张的选中；`range` 是按住 Shift 连选。 */
   toggleSelection(id: number, range: boolean): void;
+  /** 「全选」：这一批已取到的全部选上或全部取消。垃圾文件是处理队列，勾选框不经右上角开关，直接显示。 */
+  selectAll(ids: readonly number[], on: boolean): void;
   /** 点标题打开：视频进详情，本地图片在新标签页看原图。 */
   open(item: JunkItem, anchor: HTMLElement): void;
   /** 「打开位置」：在资源管理器里显示。回话是要写在卡片状态行里的一句，成功为空。 */

@@ -133,7 +133,7 @@ function IndexOpen({ epoch }: { epoch: number }) {
   return null;
 }
 
-/** 索引五页共用的元素。选择键归壳：开关一变就推给画着的标签页，页面关掉时随之清空所选。 */
+/** 索引五页共用的元素。选择键归壳：开关一变就推给画着的索引页，页面关掉时随之清空所选。 */
 export function IndexMatch() {
   const epoch = useOpenEpoch();
   const on = useSyncExternalStore(subscribeShell, readSelectMode);
@@ -141,7 +141,7 @@ export function IndexMatch() {
   useEffect(() => {
     if (last.current === on) return;
     last.current = on;
-    if (window.location.pathname === '/tags') updateManagedRoute(indexHost(), { selectMode: on });
+    updateManagedRoute(indexHost(), { selectMode: on });
   }, [on]);
   return <IndexOpen key={epoch} epoch={epoch} />;
 }

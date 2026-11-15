@@ -8,10 +8,11 @@ import { RiCheckDoubleLine } from '@remixicon/react';
 
 import { Button } from '@/components/base/buttons/button';
 import { Select, SelectItem } from '../components/select';
-import { SelectionDock } from '../components/selection-dock';
+import { exitPageSelection } from '../components/page-selection';
+import { SelectionDock, type DockAction } from '../components/selection-dock';
 import { FilterGlassRows } from '../components/filter-glass';
 import { useViewGlide } from '../components/use-view-glide';
-import type { DecisionStatus, ReviewGroup, ReviewGrouping, ReviewQueue, ReviewRow } from './review';
+import type { ReviewGroup, ReviewGrouping, ReviewQueue, ReviewRow } from './review';
 import { commonReviewSources, REVIEW_QUEUES, REVIEW_QUEUE_LABELS } from './review';
 import { t } from '../../i18n';
 
@@ -36,18 +37,17 @@ export interface BulkToolbarProps {
   /** 选中的那些行，用来算共同来源。 */
   selectedRows: ReviewRow[];
   metadata: boolean;
-  /** 所选项目里还能不能按下「通过所选」。 */
-  approvable: boolean;
   busy: boolean;
   feedback: string;
   onUnifySource(source: string): void;
-  onRun(status: DecisionStatus): void;
+  /** 所选行上的判定键（忽略、稍后、放回待处理、通过），每颗都声明确认与撤销。 */
+  actions: readonly DockAction[];
 }
 
 export function BulkToolbar(props: BulkToolbarProps) {
   const {
     groupOptions, groupBy, onGroupBy, groups, filter, onFilter, pageKeys, selected, onSelected,
-    selectedRows, metadata, approvable, busy, feedback, onUnifySource, onRun, queueView = 'pending',
+    selectedRows, metadata, busy, feedback, onUnifySource, actions, queueView = 'pending',
     queueCounts, onQueueChange, locked, fields, fieldFilter, onFieldFilter,
   } = props;
   const shown = pageKeys.filter((key) => selected.has(key));
@@ -131,25 +131,18 @@ export function BulkToolbar(props: BulkToolbarProps) {
         </Button>}
         </> : null} />
 
-        <SelectionDock label={t('manage:reviewToolbar.selectedDock')} visible={!locked && selected.size > 0} count={t('manage:reviewToolbar.selectedCount', { count: selected.size })}>
-          {needsSource && queueView !== 'ignored' ? (
+        <SelectionDock label={t('manage:reviewToolbar.selectedDock')} visible={!locked && selected.size > 0} count={t('manage:reviewToolbar.selectedCount', { count: selected.size })}
+          actions={actions}
+          leading={needsSource && queueView !== 'ignored' ? (
             <Select aria-label={t('manage:reviewToolbar.sourceForAll')} size="sm" selectedKey=""
               isDisabled={busy || !sources.length}
               onSelectionChange={(key) => { if (key !== null && key !== '') onUnifySource(String(key)) }}>
               <SelectItem id="">{sourceLabel}</SelectItem>
               {sources.map((source) => <SelectItem key={source} id={source}>{source}</SelectItem>)}
             </Select>
-          ) : null}
-          {queueView !== 'ignored' ? <Button variant="ghost" size="small" disabled={busy || !selected.size}
-            onClick={() => onRun('rejected')}>{t('manage:reviewToolbar.ignoreSelected')}</Button> : null}
-          {queueView === 'pending' ? <Button variant="secondary" size="small" disabled={busy || !selected.size}
-            onClick={() => onRun('skipped')}>{t('manage:reviewToolbar.laterSelected')}</Button> : <Button
-            variant={queueView === 'ignored' ? 'primary' : 'secondary'} size="small" disabled={busy || !selected.size}
-            onClick={() => onRun('restore')}>{t('manage:reviewToolbar.restoreSelected')}</Button>}
-          {queueView !== 'ignored' ? <Button variant="primary" size="small" disabled={busy || !selected.size || !approvable}
-            onClick={() => onRun('approved')}>{t('manage:reviewToolbar.approveSelected')}</Button> : null}
+          ) : null}>
           <Button variant="ghost" size="small" disabled={busy}
-            onClick={() => onSelected(new Set())}>{t('manage:reviewToolbar.deselect')}</Button>
+            onClick={exitPageSelection}>{t('manage:reviewToolbar.deselect')}</Button>
           {feedback
             ? <p role="status" className="w-full text-body-2-regular text-text-secondary">{feedback}</p>
             : null}
