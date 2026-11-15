@@ -148,6 +148,29 @@ class ScrapingAccessTests(unittest.TestCase):
                 self.assertEqual(shared.call_args.kwargs["direct"], direct)
                 self.assertEqual(shared.call_args.kwargs["proxy"], proxy)
 
+    def test_the_background_browser_mode_defaults_to_a_window_and_is_read_at_launch(self):
+        """后台采集浏览器默认保留窗口；设置成无窗口后，浏览器下次拉起时读到的是新模式。"""
+        from peach.scraping_access import browser_mode, save_browser_mode
+        self.assertEqual(browser_mode(self.root), "window")
+        transport = SourceTransport(self.root)
+        self.addCleanup(transport.close)
+        with patch("peach.browser_transport.shared") as shared:
+            transport._browser_for("javten")
+        headless = shared.call_args.kwargs["headless"]
+        self.assertFalse(headless())
+        self.assertEqual(save_browser_mode(self.root, "headless"), "headless")
+        self.assertTrue(headless())
+        with self.assertRaises(ValueError):
+            save_browser_mode(self.root, "minimized")
+        self.assertEqual(browser_mode(self.root), "headless")
+        from peach.web_scraping import w_scraping_settings
+        contract = SimpleNamespace(follow_secrets_root=self.root)
+        self.assertEqual(w_scraping_settings(contract, {"browser_mode": "window"}),
+                         {"ok": True, "browser_mode": "window"})
+        self.assertEqual(q_scraping(contract, {})["browser_mode"], "window")
+        (self.root / "scraping-browser.json").write_text("{broken", encoding="utf-8")
+        self.assertEqual(browser_mode(self.root), "window", "存坏了按默认")
+
     def test_switching_networks_releases_the_previous_exit_cooldown(self):
         from peach.scraping_access import pause_source, paused_until
         pause_source(self.root, 'airav', refused=True)

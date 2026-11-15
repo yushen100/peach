@@ -170,6 +170,8 @@ class BrowserTransportTests(unittest.TestCase):
             self.processes.append(process)
             return process
 
+        # 多数用例按无窗口模式验；窗口模式的用例显式传 `headless=lambda: False`。
+        options.setdefault("headless", lambda: True)
         transport = BrowserTransport(executable, self.profile, ("--no-proxy-server",), popen=popen,
                                      targets=server.targets, clock=self.clock, sleep=self.clock.sleep,
                                      auto_seconds=40, idle_seconds=600, **options)
@@ -451,6 +453,93 @@ class BrowserTransportTests(unittest.TestCase):
         browser.place(visible=False)
         self.assertFalse(any(method in {"Page.bringToFront", "Browser.setWindowBounds"}
                              for method, _ in server.calls))
+
+    def test_the_window_mode_keeps_the_window_off_screen_and_waits_for_a_click_without_taking_focus(self):
+        """默认的窗口模式：窗口开在屏幕外；自动过不了就登记等人点，但不把窗口挪上屏、不顶到前台。
+        等满还没过就报，同一站下一次不再等，页面正常打开后才恢复等人。"""
+        passes = {"through": False}
+
+        def handler(method, params):
+            if method == "Runtime.evaluate" and is_document(params):
+                return {"result": {"value": document_reply("https://javten.com/x")}}
+            if method == "Runtime.evaluate":
+                if passes["through"]:
+                    return {"result": {"value": state_reply("JAVten", url="https://javten.com/x")}}
+                if self.clock.now - started >= 20:
+                    seen.append(list(browser_transport.attention()))
+                return {"result": {"value": state_reply("Just a moment...")}}
+            return self.generic(method, params)
+
+        seen = []
+        transport, server = self.make(handler, headless=lambda: False, click_seconds=120)
+        request = HttpRequest("GET", "https://javten.com/x", {})
+        started = self.clock.now
+        with self.assertRaises(ChallengeUnsolved):
+            transport(request, 10, 4096)
+        command = self.launches[0]
+        self.assertNotIn("--headless=new", command)
+        self.assertIn("--window-position=-32000,-32000", command)
+        self.assertEqual(self.clock.now - started, 20 + 120, "自动时限之后再等人点两分钟")
+        self.assertTrue(any(entries and "javten.com" in entries[0] for entries in seen), "等人点时登记在 attention")
+        self.assertEqual(browser_transport.attention(), [], "放弃后撤掉登记")
+        self.assertFalse(any(method in {"Page.bringToFront", "Browser.setWindowBounds"} for method, _ in server.calls),
+                         "窗口留在屏幕外，不上屏、不抢前台")
+        started = self.clock.now
+        with self.assertRaises(ChallengeUnsolved) as caught:
+            transport(request, 10, 4096)
+        self.assertEqual(self.clock.now - started, 20, "上次没人点，这次只等自动时限")
+        self.assertIn("does not wait again", str(caught.exception))
+        passes["through"] = True
+        self.assertEqual(transport(request, 10, 4096).status, 200)
+
+    def test_opening_the_off_screen_window_from_the_taskbar_brings_it_on_screen_without_forcing_focus(self):
+        """窗口模式下用户点任务栏（屏幕外的窗口只会被最小化）：放回屏幕内给人点，不调 `Page.bringToFront`；
+        过了之后收起来。"""
+        state = {"minimized": False, "placed": False}
+
+        def handler(method, params):
+            if method == "Browser.getWindowBounds":
+                return {"bounds": {"windowState": "minimized" if state["minimized"] else "normal"}}
+            if method == "Browser.setWindowBounds" and params["bounds"].get("windowState") == "normal":
+                state["minimized"], state["placed"] = False, True
+            if method == "Runtime.evaluate" and is_document(params):
+                return {"result": {"value": document_reply("https://javten.com/x")}}
+            if method == "Runtime.evaluate":
+                if state["placed"] and self.clock.now - started >= 8:
+                    return {"result": {"value": state_reply("JAVten", url="https://javten.com/x")}}
+                if self.clock.now - started >= 3:
+                    state["minimized"] = not state["placed"]
+                return {"result": {"value": state_reply("Just a moment...")}}
+            return self.generic(method, params)
+
+        transport, server = self.make(handler, headless=lambda: False)
+        started = self.clock.now
+        self.assertEqual(transport(HttpRequest("GET", "https://javten.com/x", {}), 10, 4096).status, 200)
+        windows = [params["bounds"] for method, params in server.calls if method == "Browser.setWindowBounds"]
+        self.assertEqual(windows[0], {"windowState": "normal"})
+        self.assertEqual((windows[1]["left"], windows[1]["top"]), browser_transport.ONSCREEN)
+        self.assertEqual(windows[-1], {"windowState": "minimized"}, "过了就收起来")
+        self.assertFalse(any(method == "Page.bringToFront" for method, _ in server.calls))
+        self.assertEqual(browser_transport.attention(), [])
+
+    def test_changing_the_mode_relaunches_the_browser_for_the_next_request(self):
+        """采集设置里换了模式，下一条请求就按新模式重开浏览器。"""
+        mode = {"headless": False}
+
+        def handler(method, params):
+            if method == "Runtime.evaluate" and is_document(params):
+                return {"result": {"value": document_reply("https://javten.com/x")}}
+            if method == "Runtime.evaluate":
+                return {"result": {"value": state_reply("JAVten", url="https://javten.com/x")}}
+            return self.generic(method, params)
+
+        transport, _server = self.make(handler, headless=lambda: mode["headless"])
+        request = HttpRequest("GET", "https://javten.com/x", {})
+        transport(request, 10, 4096)
+        transport(request, 10, 4096)
+        mode["headless"] = True
+        transport(request, 10, 4096)
+        self.assertEqual(["--headless=new" in command for command in self.launches], [False, True])
 
     def test_a_site_gate_is_clicked_and_the_page_it_returns_to_is_read(self):
         """FC2PPV-DB 的年龄门：落到 `/age-verify` 就点匹配的按钮，等地址离开那个路径再读文档。"""

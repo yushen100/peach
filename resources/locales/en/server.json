@@ -1571,7 +1571,8 @@
       "rateLimitedNamed": "{{label}} is rate limiting. Try again in about {{minutes}} min",
       "refusedNamed": "{{label}} refused requests from the current exit, most likely too many requests or a blocked exit. Paused for about {{minutes}} min; you can also give it another exit in the proxy",
       "refusedCookieNamed": "{{label}} refused the request: too many requests, a blocked exit, or the saved cookie has expired. Paused for about {{minutes}} min; try another exit or paste a fresh cookie",
-      "refused": "The source refused access, so requests to it are paused for a while. Existing images are kept"
+      "refused": "The source refused access, so requests to it are paused for a while. Existing images are kept",
+      "browserModeInvalid": "The collection browser mode must be one of {{choices}}"
     },
     "downloadPostprocess": {
       "noLandingPath": "The download task has no landing path",

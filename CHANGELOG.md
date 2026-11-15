@@ -52,6 +52,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Fixed / 修复
 
+- **Sourcing**: The background collection browser no longer jumps to the front; Sources settings can switch it to no window, where a failed check pauses that source (#309). / **采集**：后台采集浏览器不再跳到前台；「来源与采集」里可改为无窗口，验证过不了就暂停该来源（#309）。
 - **Interface**: Wide or edge-to-edge site icons in round slots keep their whole mark instead of losing both ends or the corners (#576). / **界面**：横向或顶到边的站点图标放进圆形位置时完整显示，不再被裁掉两头或四角（#576）。
 - **Sourcing**: Background jobs no longer use your JavDB account, so it isn't suspended for browsing too fast; a suspension shows its resume time (#702). / **采集**：后台任务读 JavDB 不再带登录账号，免得账号被判浏览过快停用；账号被停时提示停的是账号和恢复时间（#702）。
 - **Sourcing**: Refused sources show who and for how long instead of asking for a new cookie, and one paused source no longer stalls a browser batch (#702). / **采集**：来源被拒时点名并写明暂停多久，不再一律让人更新 Cookie；某个来源暂停时浏览器添加不再整批干等一天（#702）。

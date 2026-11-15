@@ -191,8 +191,10 @@ def _fetch_cover(contract, code):
 
 
 def q_scraping(contract, _args):
+    from .scraping_access import browser_mode
     return {"sources": [describe(contract.follow_secrets_root, source) for source in SOURCES
                         if source != "instagram"],
+            "browser_mode": browser_mode(contract.follow_secrets_root),
             "instagram_status": interface_text.text(f"server:{INSTAGRAM_STATUS_CODE}"),
             "instagram_status_code": INSTAGRAM_STATUS_CODE}
 
@@ -202,6 +204,11 @@ INSTAGRAM_STATUS_CODE = "labels.webScraping.instagramPending"
 
 
 def w_scraping_settings(contract, body):
+    """一个来源的连接方式与 Cookie；只带 `browser_mode` 时改后台采集浏览器的模式（窗口／无窗口）。"""
+    if "browser_mode" in body and "source" not in body:
+        from .scraping_access import save_browser_mode
+        return {"ok": True, "browser_mode": save_browser_mode(contract.follow_secrets_root,
+                                                              str(body.get("browser_mode") or ""))}
     return {"ok": True, "saved": save(contract.follow_secrets_root, str(body.get("source", "")), body)}
 
 
