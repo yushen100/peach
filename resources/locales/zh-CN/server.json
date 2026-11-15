@@ -936,6 +936,9 @@
       "selectionChanged": "所选条目已变化，请刷新后重试",
       "operationInvalid": "不支持这项批量操作"
     },
+    "entityMerge": {
+      "thirdParty": "这些名字还属于另一份档案：{{names}}；请先处理那份档案"
+    },
     "media": {
       "invalidPlaybackOrigin": "播放地址无效",
       "localPlaybackUnavailable": "请使用网络播放地址或 M3U 播放列表在此设备打开",

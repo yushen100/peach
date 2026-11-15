@@ -229,6 +229,13 @@
     "removeNamed": "Remove alias {{alias}}",
     "removed": "Removed alias {{alias}}"
   },
+  "entityMerge": {
+    "title": "Merge duplicate profiles",
+    "bodyPerformer": "“{{alias}}” is already another actress profile. Merging keeps “{{keep}}” ({{keepWorks}} titles) and moves in the titles and aliases of “{{absorb}}” ({{absorbWorks}} titles). This can't be undone; the database is backed up first.",
+    "bodyStudio": "“{{alias}}” is already another label profile. Merging keeps “{{keep}}” ({{keepWorks}} titles) and moves in the titles and aliases of “{{absorb}}” ({{absorbWorks}} titles). This can't be undone; the database is backed up first.",
+    "confirm": "Merge",
+    "done": "Merged “{{source}}” into “{{target}}”"
+  },
   "entityMissing": {
     "agency": "This agency couldn't be found",
     "backToList": "Back to {{title}}",

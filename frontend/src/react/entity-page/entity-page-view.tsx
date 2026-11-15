@@ -293,20 +293,19 @@ function EntityLoaded(props: EntityPageProps & { entity: EntityPageData }) {
         const keepCurrent = conflict.current.works >= conflict.other.works;
         const keep = keepCurrent ? conflict.current : conflict.other;
         const absorb = keepCurrent ? conflict.other : conflict.current;
-        const label = kind === 'studio' ? '厂牌' : '女优';
-        const kept = keepCurrent ? '当前档案' : '作品更多的那条档案';
         void confirmModal({
-          title: '合并重复实体',
-          body: `「${conflict.alias}」已经是另一条${label}档案。合并后保留${kept}「${keep.canonical_name}」`
-            + `（${keep.works} 部作品），把「${absorb.canonical_name}」（${absorb.works} 部作品）的作品、别名和关系迁入。`
-            + '旧名称和旧地址会继续指向保留档案；合并无法在界面撤销，操作前会备份整个账本。',
-          confirmLabel: '合并重复实体',
+          title: t('shell:entityMerge.title'),
+          body: t(kind === 'studio' ? 'shell:entityMerge.bodyStudio' : 'shell:entityMerge.bodyPerformer', {
+            alias: conflict.alias, keep: keep.canonical_name, keepWorks: keep.works,
+            absorb: absorb.canonical_name, absorbWorks: absorb.works,
+          }),
+          confirmLabel: t('shell:entityMerge.confirm'),
           danger: true,
           onConfirm: () => merge.mutateAsync({ target_id: keep.id, source_id: absorb.id }),
         }).then(({ confirmed, result }) => {
           const done = result as EntityMergeResult | undefined;
           if (!confirmed || !done) return;
-          helpers.receipt(`已把「${done.source.canonical_name}」合并到「${done.target.canonical_name}」`);
+          helpers.receipt(t('shell:entityMerge.done', { source: done.source.canonical_name, target: done.target.canonical_name }));
           actions.openEntity(kind, done.target.canonical_name, true);
         });
       })();

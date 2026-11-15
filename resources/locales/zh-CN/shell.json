@@ -196,6 +196,13 @@
     "removeNamed": "撤销别名 {{alias}}",
     "removed": "已撤销别名 {{alias}}"
   },
+  "entityMerge": {
+    "title": "合并重复档案",
+    "bodyPerformer": "「{{alias}}」已是另一份女优档案。合并后保留「{{keep}}」（{{keepWorks}} 部作品），并入「{{absorb}}」（{{absorbWorks}} 部作品）的作品与别名；不能撤销，合并前会备份账本。",
+    "bodyStudio": "「{{alias}}」已是另一份厂牌档案。合并后保留「{{keep}}」（{{keepWorks}} 部作品），并入「{{absorb}}」（{{absorbWorks}} 部作品）的作品与别名；不能撤销，合并前会备份账本。",
+    "confirm": "合并",
+    "done": "已把「{{source}}」合并到「{{target}}」"
+  },
   "entityMissing": {
     "agency": "找不到这个事务所",
     "backToList": "返回{{title}}列表",

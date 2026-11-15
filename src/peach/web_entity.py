@@ -33,6 +33,7 @@ from .entities import (
 from .field_owners import write_owned_fields
 from .migrations import sqlite_backup
 from .social_links import ARCHIVE_HOSTS, is_archive
+from .user_messages import UserValueError
 from .media_sources import cost_for
 from .web_catalog import (
     JAV_ASSET_PREDICATE,
@@ -1494,7 +1495,7 @@ def w_entity_merge(contract: WebContract, body):
     if target_id <= 0 or source_id <= 0:
         raise ValueError("target_id and source_id are required")
     if source_id == target_id:
-        raise ValueError("不能合并到同一份档案")
+        raise ValueError("cannot merge a profile into itself")
 
     with contract.write_transaction() as connection:
         # 备份与合并共用同一把数据库写锁；备份看到的是这次合并前的确定状态。
@@ -1507,15 +1508,14 @@ def w_entity_merge(contract: WebContract, body):
         }
         target, source = rows.get(target_id), rows.get(source_id)
         if target is None or source is None:
-            raise ValueError("待合并的档案不存在")
+            raise ValueError("entity not found")
         if str(target["kind"]) != kind or str(source["kind"]) != kind:
-            raise ValueError("只能合并同一类实体")
+            raise ValueError("only entities of the same kind can be merged")
         source_names = _entity_identity_names(connection, source_id)
         third_party = _third_party_names(
             connection, kind, target_id, source_id, source_names)
         if third_party:
-            names = "、".join(third_party[:3])
-            raise ValueError(f"这些名字还属于第三条档案：{names}；请先处理该档案")
+            raise UserValueError("api.entityMerge.thirdParty", {"names": " / ".join(third_party[:3])})
 
         before_foreign_keys = {tuple(row) for row in connection.execute(
             "PRAGMA foreign_key_check")}
@@ -1547,7 +1547,7 @@ def w_entity_merge(contract: WebContract, body):
                   if tuple(row) not in before_foreign_keys]
         if broken:
             raise RuntimeError(
-                f"合并实体 {source_id} 进 {target_id} 后外键校验多出 {len(broken)} 条违规")
+                f"merging entity {source_id} into {target_id} added {len(broken)} foreign key violations")
 
     contract.cache_bust()
     return {

@@ -3050,7 +3050,7 @@ class WebDataTests(unittest.TestCase):
         with self.contract.write_transaction() as connection:
             connection.executemany(
                 "INSERT INTO asset_tag(asset_id,tag,source) VALUES(?,?,'performer')",
-                [(1, "演员:有岡みう"), (2, "演员:有冈みう")],
+                [(1, "performer:有岡みう"), (2, "performer:有冈みう")],
             )
         conflict = rm_web.w_entity_alias(self.contract, {
             "kind": "performer", "name": "有岡みう", "alias": "有冈みう"})
@@ -3078,9 +3078,9 @@ class WebDataTests(unittest.TestCase):
             self.assertEqual(
                 connection.execute(
                     "SELECT DISTINCT tag FROM asset_tag WHERE asset_id IN (1,2)"
-                    " AND tag IN ('演员:有岡みう','演员:有冈みう')"
+                    " AND tag IN ('performer:有岡みう','performer:有冈みう')"
                 ).fetchall(),
-                [("演员:有岡みう",)])
+                [("performer:有岡みう",)])
             self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
         self.assertEqual(
             rm_web.q_entity(self.contract, {
@@ -3124,12 +3124,14 @@ class WebDataTests(unittest.TestCase):
             )
             connection.execute(
                 "INSERT INTO entity_alias VALUES(38,'旧名','旧名','test',1.0)")
-        with self.assertRaisesRegex(ValueError, "同一类"):
+        with self.assertRaisesRegex(ValueError, "same kind"):
             rm_web.w_entity_merge(self.contract, {
                 "kind": "performer", "target_id": 34, "source_id": 35})
-        with self.assertRaisesRegex(ValueError, "第三条"):
+        with self.assertRaises(ValueError) as caught:
             rm_web.w_entity_merge(self.contract, {
                 "kind": "performer", "target_id": 36, "source_id": 37})
+        self.assertEqual(caught.exception.code, "api.entityMerge.thirdParty")
+        self.assertEqual(caught.exception.params, {"names": "丁"})
         self.assertEqual(list(Path(self.db_path).parent.glob("ledger.pre-entity-merge-*.db")), [])
 
     def test_entity_merge_backup_failure_leaves_both_entities_untouched(self):

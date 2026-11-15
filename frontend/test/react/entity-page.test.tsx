@@ -541,9 +541,9 @@ describe('写操作', () => {
     await settle();
 
     expect(legacyUi.confirmModal).toHaveBeenCalledWith(expect.objectContaining({
-      title: '合并重复实体',
-      confirmLabel: '合并重复实体',
-      body: expect.stringContaining('保留作品更多的那条档案「有冈みう」（5 部作品）'),
+      title: '合并重复档案',
+      confirmLabel: '合并',
+      body: expect.stringContaining('合并后保留「有冈みう」（5 部作品）'),
     }));
     expect(page.writes).toEqual([{
       url: '/api/entity-merge',
