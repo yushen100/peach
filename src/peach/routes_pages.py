@@ -627,9 +627,12 @@ async def setup_submit_json(request: Request):
         resolved, _broken = onboarding.resolve_config(answers.data_root)
         if resolved.path.exists():
             raise HTTPException(status_code=409, detail="settings file already exists")
+        # 源码部署在 Windows 上，或别的系统对局域网监听时，完成后要去 HTTPS 固定入口（`_normal_url`）；
+        # 签发工具缺了就只能一次次回到设置页（#395）：先核对并报给用户，设置不落盘，装好后可以重试。
+        require_tls = not standalone and not distribution.docker() and (windows or answers.host not in _LOOPBACK)
         try:
             applied = onboarding.apply(resolved, answers, windows=windows, access_password=password,
-                                       peach_proxy_values=proxy_values, require_tls=windows and not standalone)
+                                       peach_proxy_values=proxy_values, require_tls=require_tls)
             settings_file.remember_data_root(settings_file.active(), applied.config)
         except (OSError, RuntimeError) as exc:
             errors = {"data_root": exc}

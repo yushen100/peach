@@ -511,6 +511,28 @@ class SetupJsonContractTests(_SetupHttpCase):
             response = self._send('POST', self.SUBMIT, json=self._body(scan_now=False))
             self.assertEqual(response.status_code, 200, response.text)
 
+    def test_lan_source_setup_on_any_system_checks_openssl_before_saving(self):
+        """#395：源码部署对局域网监听时完成页去 HTTPS 入口，缺 OpenSSL 先报出来，不再回到设置页打转。"""
+        with mock.patch.object(distribution, 'standalone', return_value=False), \
+                mock.patch.object(distribution, 'docker', return_value=False), \
+                mock.patch.object(onboarding.certs, 'require_openssl',
+                                  side_effect=UserRuntimeError('errors.certs.opensslMissing')) as require:
+            response = self._send('POST', self.SUBMIT, json=self._body(scan_now=False, host="2"))
+            self.assertEqual(response.status_code, 400, response.text)
+            self.assertIn('OpenSSL', response.json()['errors']['data_root'])
+            self.assertFalse((self.data_root / 'config.toml').exists())
+            require.assert_called_once_with()
+
+    @unittest.skipIf(NATIVE_WINDOWS, 'Windows 源码首设一律需要 TLS')
+    def test_loopback_source_setup_off_windows_does_not_need_openssl(self):
+        with mock.patch.object(distribution, 'standalone', return_value=False), \
+                mock.patch.object(distribution, 'docker', return_value=False), \
+                mock.patch.object(onboarding.certs, 'require_openssl',
+                                  side_effect=UserRuntimeError('errors.certs.opensslMissing')) as require:
+            response = self._send('POST', self.SUBMIT, json=self._body(scan_now=False))
+        self.assertEqual(response.status_code, 200, response.text)
+        require.assert_not_called()
+
     def _rows(self, *paths, location="local"):
         return [{"path": str(path), "location": location,
                  "root": "" if NATIVE_WINDOWS else "R:\\media" + (str(index + 1) if index else "")}
