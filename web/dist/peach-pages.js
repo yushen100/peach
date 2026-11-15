@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "ee73934a-7978-4620-bd29-da0350370dbf", e._sentryDebugIdIdentifier = "sentry-dbid-ee73934a-7978-4620-bd29-da0350370dbf");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "93b0c3bd-d724-4c6e-9d50-d524ee85a9b9", e._sentryDebugIdIdentifier = "sentry-dbid-93b0c3bd-d724-4c6e-9d50-d524ee85a9b9");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -6270,6 +6270,7 @@ var He = {
 		mode: "Processing",
 		modeLabel: "{{name}} processing mode",
 		notIncluded: "Not included",
+		previewsOff: "Video previews are turned off, so contact sheets are skipped.",
 		step: "Step",
 		stepAvatars: "Fetch avatars online",
 		stepContactSheet: "Generate contact sheets",
@@ -13128,6 +13129,7 @@ var He = {
 		mode: "处理方式",
 		modeLabel: "{{name}} 处理方式",
 		notIncluded: "不做",
+		previewsOff: "已关闭视频预览生成，九宫格这一步不会执行。",
 		step: "步骤",
 		stepAvatars: "联网补人物图片",
 		stepContactSheet: "生成九宫格预览",
@@ -37652,24 +37654,25 @@ function _b({ name: e, value: t, onChange: n }) {
 		}, e))
 	});
 }
-function vb({ name: e, value: t, onChange: n }) {
-	return /* @__PURE__ */ (0, V.jsx)(Hg, {
+function vb({ name: e, value: t, onChange: n, previewsOff: r = !1 }) {
+	return /* @__PURE__ */ (0, V.jsxs)(Hg, {
 		defaultOpen: !0,
 		summary: F("settings:libraryPolicy.stepsSummary", {
 			name: e,
 			selected: t.length,
 			total: mb.length
 		}),
-		children: /* @__PURE__ */ (0, V.jsx)("div", {
+		children: [/* @__PURE__ */ (0, V.jsx)("div", {
 			className: "flex flex-wrap gap-x-6 gap-y-2",
 			role: "group",
 			"aria-label": F("settings:libraryPolicy.stepsLabel", { name: e }),
-			children: mb.map(([e, r]) => /* @__PURE__ */ (0, V.jsx)(Zh, {
+			children: mb.map(([e, i]) => /* @__PURE__ */ (0, V.jsx)(Zh, {
 				isSelected: t.includes(e),
+				isDisabled: r && e === "preview",
 				onChange: (r) => n(r ? [...t, e] : t.filter((t) => t !== e)),
-				children: r
+				children: i
 			}, e))
-		})
+		}), r ? /* @__PURE__ */ (0, V.jsx)(Lg, { children: F("settings:libraryPolicy.previewsOff") }) : null]
 	});
 }
 function yb({ id: e, name: t, value: n, onChange: r }) {
@@ -38717,4 +38720,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=ee73934a-7978-4620-bd29-da0350370dbf
+//# debugId=93b0c3bd-d724-4c6e-9d50-d524ee85a9b9

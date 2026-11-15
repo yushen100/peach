@@ -646,6 +646,7 @@
     "mode": "处理方式",
     "modeLabel": "{{name}} 处理方式",
     "notIncluded": "不做",
+    "previewsOff": "已关闭视频预览生成，九宫格这一步不会执行。",
     "step": "步骤",
     "stepAvatars": "联网补人物图片",
     "stepContactSheet": "生成九宫格预览",

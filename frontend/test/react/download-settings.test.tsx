@@ -211,6 +211,20 @@ it('在账号框里填了 PikPak 账号或已登录时，检查才问 PikPak 根
   expect(sentBody(fetcher, 1)).toMatchObject({ pikpak_account: true });
 });
 
+it('PikPak 没登录、也没填账号时根目录变灰，填了账号或已登录就能选；目标目录始终可填', async () => {
+  vi.stubGlobal('fetch', fetchMock(200, report()));
+  const root = (host: HTMLElement) => host.querySelector<HTMLButtonElement>('button[aria-haspopup="listbox"][aria-label*="PikPak"]');
+  const disabled = (button: HTMLButtonElement | null) => !!button && (button.disabled || button.hasAttribute('data-disabled'));
+  const host = await mount(<DownloadSettings initial={state()} receipt={vi.fn()} />);
+  expect(disabled(root(host))).toBe(true);
+  expect(field(host, 'PikPak 目标目录')?.disabled).toBe(false);
+  await type(field(host, '账号'), 'me@example.com');
+  expect(disabled(root(host))).toBe(false);
+  const signedIn = await mount(<DownloadSettings receipt={vi.fn()}
+    initial={state({ pikpak: { logged_in: true, username: 'me@example.com', remember: false, method: 'password' } })} />);
+  expect(disabled(root(signedIn))).toBe(false);
+});
+
 it('推出的目录不存在时标成无效，点了「新建这个目录」才去建，建好后解除', async () => {
   const fetcher = fetchMock(200, report({ suggested_target: { path: '/115open/云下载', exists: false } }));
   vi.stubGlobal('fetch', fetcher);

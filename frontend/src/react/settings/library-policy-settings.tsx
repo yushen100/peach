@@ -70,17 +70,21 @@ export function PresetSelect({ name, value, onChange }: { name: string; value: P
   );
 }
 
-export function StageChooser({ name, value, onChange }: { name: string; value: readonly Stage[]; onChange(value: readonly Stage[]): void }) {
+/** `previewsOff`：「视频预览」卡关掉了预览生成，服务端跳过九宫格这一步，这一格变灰并说明。勾选值照旧保留，打开预览后按原样生效。 */
+export function StageChooser({ name, value, onChange, previewsOff = false }: {
+  name: string; value: readonly Stage[]; onChange(value: readonly Stage[]): void; previewsOff?: boolean;
+}) {
   return (
     <Disclosure defaultOpen summary={t('settings:libraryPolicy.stepsSummary', { name, selected: value.length, total: STAGES.length })}>
       <div className="flex flex-wrap gap-x-6 gap-y-2" role="group" aria-label={t('settings:libraryPolicy.stepsLabel', { name })}>
         {STAGES.map(([key, label]) => (
-          <Checkbox key={key} isSelected={value.includes(key)}
+          <Checkbox key={key} isSelected={value.includes(key)} isDisabled={previewsOff && key === 'preview'}
             onChange={(on) => onChange(on ? [...value, key] : value.filter(stage => stage !== key))}>
             {label}
           </Checkbox>
         ))}
       </div>
+      {previewsOff ? <Help>{t('settings:libraryPolicy.previewsOff')}</Help> : null}
     </Disclosure>
   );
 }
