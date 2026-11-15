@@ -1,8 +1,13 @@
 import json
+import os
 import pathlib
+import shutil
 import sqlite3
+import subprocess
+import sys
 import tempfile
 import threading
+import time
 import unittest
 from contextlib import ExitStack, closing, contextmanager
 from dataclasses import replace
@@ -11,10 +16,12 @@ from pathlib import Path
 from unittest import mock
 
 from peach import catalog_rules, interface_text, jav_poster_crop, web_batch, web_catalog, web_entity, web_playlists, web_search, web_stats
+from peach import media_io
 from peach import web_contract as rm_web
 from peach.previews import entity_image_key, logo_key
 from peach.web_catalog import q_editions, q_items, q_parts
 from support.ledger import fresh_ledger
+from support.processes import finishes_within
 
 
 # 调用点继续走 `rm_web`（`web_contract` 现在只是再导出层），但 **patch 必须打在真的
@@ -741,10 +748,10 @@ class WebDataTests(unittest.TestCase):
                          [("Media", 1, 100), ("Media-more", 0, 0)])
 
     def test_stats_use_the_platform_system_volume_and_keep_the_old_alias(self):
-        usage = type("Usage", (), {"free": 20, "total": 100})
-        with mock.patch.object(web_stats, "system_volume", return_value=Path("X:/")), mock.patch(
-            "shutil.disk_usage", return_value=usage,
-        ):
+        def probe(root, *, system, timeout):
+            return {"online": True, "free": 20, "total": 100, "device": 0} if system else {"online": False}
+        with mock.patch.object(web_stats, "system_volume", return_value=Path("X:/")), \
+                mock.patch.object(web_stats, "volume_usage", side_effect=probe):
             stats = rm_web.q_stats(self.contract)
         # 断言的是「用了 platform 给的系统卷」，不是盘符的字符串写法：
         # `Path("X:/")` 在 Windows 上渲染成 `X:\`、在 POSIX 上渲染成 `X:/`，
@@ -755,15 +762,27 @@ class WebDataTests(unittest.TestCase):
         )
         self.assertIs(stats["disk_c"], stats["system_disk"])
 
+    @staticmethod
+    def _probe(device=None):
+        """子进程探测的替身：每个根都在线、读到同一份 20/100 容量；卷号默认按真实 `st_dev`，读不到为 0。"""
+        def probe(root, *, system, timeout):
+            if device is not None:
+                number = device(root)
+            else:
+                try:
+                    number = os.stat(root).st_dev
+                except OSError:
+                    number = 0
+            return {"online": True, "free": 20, "total": 100, "device": number}
+        return probe
+
     def test_stats_report_system_resource_and_cloud_volumes(self):
-        usage = type("Usage", (), {"free": 20, "total": 100})
         declarations = {"local": ("R:/media", "S:/more"), "115": ("B:/",), "pikpak": ("A:/",)}
         with mock.patch.object(web_stats, "LOCATION_ROOT_DECLARATIONS", declarations), \
                 mock.patch.object(web_stats, "system_volume", return_value=Path("X:/")), \
                 mock.patch.object(web_stats, "translate_ledger_path",
                                   side_effect=lambda value: Path(value)), \
-                mock.patch.object(web_stats, "root_online", return_value=True), \
-                mock.patch("shutil.disk_usage", return_value=usage):
+                mock.patch.object(web_stats, "volume_usage", side_effect=self._probe()):
             stats = rm_web.q_stats(self.contract)
 
         # 同一来源的几个根各占一行，用序号区分；单根来源不带序号。
@@ -783,18 +802,14 @@ class WebDataTests(unittest.TestCase):
             "free": 100, "used": 400, "total": 500,
         })
 
-    def _storage_stats_for(self, system, declarations, volume_key=None):
+    def _storage_stats_for(self, system, declarations, device=None):
         """按给定的系统卷与来源根算一次存储卷汇总；每个根都在线、读到同一份 20/100 容量。"""
-        usage = type("Usage", (), {"free": 20, "total": 100})
         with ExitStack() as stack:
             stack.enter_context(mock.patch.object(web_stats, "LOCATION_ROOT_DECLARATIONS", declarations))
             stack.enter_context(mock.patch.object(web_stats, "system_volume", return_value=system))
             stack.enter_context(mock.patch.object(
                 web_stats, "translate_ledger_path", side_effect=lambda value: Path(value)))
-            stack.enter_context(mock.patch.object(web_stats, "root_online", return_value=True))
-            stack.enter_context(mock.patch("shutil.disk_usage", return_value=usage))
-            if volume_key is not None:
-                stack.enter_context(mock.patch.object(web_stats, "_volume_key", side_effect=volume_key))
+            stack.enter_context(mock.patch.object(web_stats, "volume_usage", side_effect=self._probe(device)))
             stats = rm_web.q_stats(self.contract)
         for row in stats["storage_volumes"]:
             self.assertEqual(set(row), {"kind", "label", "label_code", "label_params",
@@ -831,12 +846,50 @@ class WebDataTests(unittest.TestCase):
         declarations = {"local": ("R:/media", "R:/more", "S:/media"), "115": ("B:/",)}
         stats = self._storage_stats_for(
             Path("X:/"), declarations,
-            volume_key=lambda root: ("device", str(root)[0]))
+            device=lambda root: str(root)[0])
         self.assertEqual(len(stats["storage_volumes"]), 5)
         self.assertEqual(stats["storage_summary"], {
             "volumes": 4, "online": 4, "measured": 4,
             "free": 80, "used": 320, "total": 400,
         })
+
+    def test_a_mount_that_hangs_in_process_does_not_hold_the_stats(self):
+        """探测在子进程里做：本进程里读这个根会卡住时，统计照样在期限内返回且读得到它。"""
+        import threading
+        release = threading.Event()
+        self.addCleanup(release.set)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            scandir, disk_usage = os.scandir, shutil.disk_usage
+
+            def hang(original):
+                def call(path, *args, **kwargs):
+                    if str(root).casefold() in os.fspath(path).casefold():
+                        release.wait(60)
+                    return original(path, *args, **kwargs)
+                return call
+            with mock.patch.object(web_stats, "LOCATION_ROOT_DECLARATIONS", {"local": (str(root),)}), \
+                    mock.patch.object(web_stats, "translate_ledger_path", side_effect=lambda value: Path(value)), \
+                    mock.patch("os.scandir", hang(scandir)), mock.patch("shutil.disk_usage", hang(disk_usage)):
+                rows = finishes_within(web_stats._storage_volumes, 40)
+        local = next(row for row in rows if row["kind"] == "local")
+        self.assertTrue(local["online"])
+        self.assertIsNotNone(local["total"])
+
+    def test_a_probe_that_never_returns_shows_the_root_offline_within_the_deadline(self):
+        def blocked(_command, **options):
+            return original_run([sys.executable, "-c", "import time; time.sleep(60)"], **options)
+        original_run = subprocess.run
+        with tempfile.TemporaryDirectory() as tmp, \
+                mock.patch.object(web_stats, "LOCATION_ROOT_DECLARATIONS", {"local": (tmp, tmp + "-2")}), \
+                mock.patch.object(web_stats, "translate_ledger_path", side_effect=lambda value: Path(value)), \
+                mock.patch.object(web_stats, "VOLUME_PROBE_SECONDS", 1), \
+                mock.patch.object(media_io.subprocess, "run", side_effect=blocked):
+            started = time.monotonic()
+            rows = finishes_within(web_stats._storage_volumes, 30)
+        # 几个根并行探测，整页只等一个期限。
+        self.assertLess(time.monotonic() - started, 8)
+        self.assertEqual([row["online"] for row in rows], [False, False, False])
 
     def test_items_support_duration_range(self):
         result = rm_web.q_items(

@@ -12,10 +12,10 @@ from __future__ import annotations
 import json
 import os
 import re
-import shutil
 import threading
 import time
 
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 
 from .catalog_rules import tag_cat
@@ -23,7 +23,8 @@ from .catalog_vocabulary import LENGTH_BANDS, QUALITY_BANDS
 from . import media_libraries, settings_file
 from .config import LOCATION_ROOT_DECLARATIONS
 from .fsutil import atomic_write_text
-from .platform import is_unmapped, root_online, system_volume, translate_ledger_path
+from .media_io import volume_usage
+from .platform import is_unmapped, system_volume, translate_ledger_path
 from .taste_history import (
     analyze_history,
     build_taste_dashboard,
@@ -376,6 +377,8 @@ def w_search_history(contract: WebContract, body):
 #: 有显示名的存储卷种类：`taste.volume.<种类>.name`，一个来源有几个根时用 `.numbered` 带序号。
 #: 不在这里的来源代号原样显示。
 STORAGE_KINDS = ("system", "local", "115", "pikpak")
+#: 每个根的在线与容量探测期限（秒）；网盘挂载卡住时这一行按离线显示。
+VOLUME_PROBE_SECONDS = 10.0
 REFRESH_WARNING_CODE = "taste.refreshWarning"
 #: 书签来源的资料名：「资料名 · 书签」，按界面语言写。
 BOOKMARK_PROFILE_CODE = "taste.bookmarkProfile"
@@ -390,17 +393,21 @@ def _volume_label(kind: str, index: int | None = None) -> dict:
     return phrase_fields("label", code=f"taste.volume.{kind}.numbered", params={"index": index})
 
 
-def _volume_key(root) -> tuple[object, ...]:
+def _volume_key(root, device) -> tuple[object, ...]:
     """根目录所在的那块卷：同一块卷上的几个根读到的是同一份容量，汇总时只算一次。
 
-    `st_dev` 在 Windows 上是卷序列号，网盘挂载没有卷 GUID 也有它；POSIX 上是设备号。
+    `device` 是 `st_dev`：Windows 上是卷序列号，网盘挂载没有卷 GUID 也有它；POSIX 上是设备号。
     读不到或为 0（有的挂载不报序列号）就认不出是哪块卷，按根各算一卷。
     """
-    try:
-        device = os.stat(root).st_dev
-    except OSError:
-        device = 0
     return ("device", device) if device else ("root", os.path.normcase(str(root)))
+
+
+def _probe_volume(root, is_system: bool) -> dict:
+    """在可终止的子进程里判在线、读容量；卡住或读不到都按离线，统计页和启动预热不跟着卡。"""
+    try:
+        return volume_usage(root, system=is_system, timeout=VOLUME_PROBE_SECONDS)
+    except OSError:
+        return {"online": False}
 
 
 def _storage_volumes() -> list[dict[str, object]]:
@@ -415,9 +422,14 @@ def _storage_volumes() -> list[dict[str, object]]:
         for location, roots in LOCATION_ROOT_DECLARATIONS.items()
         for index, root in enumerate(roots)
     ]
+    probing = [(root, is_system) for _kind, _label, root, is_system in declarations if not is_unmapped(root)]
+    # 各根并行探测，整页最多等一个期限。
+    with ThreadPoolExecutor(max_workers=max(len(probing), 1), thread_name_prefix="peach-volume") as pool:
+        probes = dict(zip(probing, pool.map(lambda item: _probe_volume(*item), probing)))
     volumes: list[dict[str, object]] = []
     for kind, label, root, is_system in declarations:
-        mounted = not is_unmapped(root) and (is_system or root_online(root))
+        probe = probes.get((root, is_system), {"online": False})
+        mounted = bool(probe.get("online"))
         row: dict[str, object] = {
             "kind": kind,
             **label,
@@ -427,17 +439,13 @@ def _storage_volumes() -> list[dict[str, object]]:
             "used": None,
             "total": None,
         }
-        if mounted:
-            try:
-                usage = shutil.disk_usage(root)
-                row.update(
-                    free=usage.free,
-                    used=max(usage.total - usage.free, 0),
-                    total=usage.total,
-                    _volume=_volume_key(root),
-                )
-            except OSError:
-                pass
+        if mounted and probe.get("total") is not None:
+            row.update(
+                free=probe["free"],
+                used=max(probe["total"] - probe["free"], 0),
+                total=probe["total"],
+                _volume=_volume_key(root, probe.get("device")),
+            )
         volumes.append(row)
     return volumes
 

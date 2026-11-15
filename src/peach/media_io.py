@@ -6,6 +6,7 @@ import base64
 import errno
 import json
 import os
+import shutil
 import stat
 from pathlib import Path
 import queue
@@ -19,7 +20,7 @@ from .os_errors import CodedOSError, CodedTimeoutError
 #: 单项读取的期限。目录枚举按「多久没有新条目」计：挂死的挂载一条也不返回，到期判失败；
 #: 网络盘上的大目录逐条返回得慢，只要还在返回就不按总时长判死。
 TIMEOUT_SECONDS = 20.0
-OPERATIONS = ('directory', 'files', 'nfo', 'art', 'online', 'resolve', 'stat', 'browse')
+OPERATIONS = ('directory', 'files', 'nfo', 'art', 'online', 'resolve', 'stat', 'browse', 'volume')
 
 
 def _request(operation, path, *, value='', timeout=None):
@@ -161,6 +162,29 @@ def root_online(path):
     return _request('online', path)
 
 
+def volume_usage(path, *, system=False, timeout=None):
+    """根目录在不在线、所在卷的容量与卷号：`{'online', 'free', 'total', 'device'}`，后三项可能缺。
+
+    `system` 的根不判在线，直接读容量。卷号读不到时是 0。"""
+    return _request('volume', path, value='system' if system else '', timeout=timeout)
+
+
+def _volume(path, *, system):
+    from .platform import root_online
+    online = system or root_online(path)
+    if not online or not isinstance(path, Path):
+        return dict(online=online)
+    try:
+        usage = shutil.disk_usage(path)
+    except OSError:
+        return dict(online=True)
+    try:
+        device = os.stat(path).st_dev
+    except OSError:
+        device = 0
+    return dict(online=True, free=usage.free, total=usage.total, device=device)
+
+
 def resolve_case_insensitive(path):
     from .platform import translate_ledger_path
     from .smb_media import resolve
@@ -249,6 +273,8 @@ def _read(operation, path, value):
     if operation == 'online':
         from .platform import root_online
         return root_online(path)
+    if operation == 'volume':
+        return _volume(path, system=value == 'system')
     if operation == 'resolve':
         from .media import resolve_case_insensitive
         return str(resolve_case_insensitive(str(path)))
