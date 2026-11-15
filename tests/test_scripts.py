@@ -13,7 +13,7 @@ import sys
 import tempfile
 import tomllib
 import unittest
-from contextlib import closing, redirect_stderr, redirect_stdout
+from contextlib import closing, contextmanager, redirect_stderr, redirect_stdout
 from pathlib import Path, PureWindowsPath
 from types import SimpleNamespace
 from unittest import mock
@@ -5622,6 +5622,67 @@ class GitGudPackageMirrorTests(unittest.TestCase):
             command = run.call_args.args[0]
             self.assertEqual(json.loads(command[command.index('--assets-links') + 1]), [link])
             self.assertNotIn('--use-package-registry', command)
+
+    @staticmethod
+    def github_release(files):
+        assets = [{'name': name, 'size': len(body), 'browser_download_url': 'https://github.example/' + name,
+                   'digest': 'sha256:' + hashlib.sha256(body).hexdigest()} for name, body in files.items()]
+        bodies = {asset['browser_download_url']: body for asset, body in zip(assets, files.values())}
+
+        @contextmanager
+        def client(**_options):
+            session = mock.MagicMock()
+
+            @contextmanager
+            def stream(_method, url, headers=None):
+                response = mock.MagicMock()
+                response.iter_bytes.return_value = [bodies[url]]
+                yield response
+            session.stream.side_effect = stream
+            yield session
+        return json.dumps({'assets': assets}).encode(), client
+
+    def test_github_release_download_keeps_artifacts_and_signed_sums_checked_against_github_digests(self):
+        from scripts import publish_gitlab_release as module
+        files = {'app.zip': b'zip', 'Setup.exe': b'exe', 'SHA256SUMS.txt': b'sums', 'SHA256SUMS.txt.sig': b'sig',
+                 'appcast.xml': b'feed'}
+        listing, client = self.github_release(files)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            with mock.patch.object(module, 'read_url', return_value=listing), \
+                    mock.patch.object(module, 'http_client', client):
+                names = module.download_github_release('v1.2.3', root)
+            self.assertEqual(names, ['app.zip', 'Setup.exe', 'SHA256SUMS.txt', 'SHA256SUMS.txt.sig'])
+            self.assertEqual((root / 'SHA256SUMS.txt.sig').read_bytes(), b'sig')
+            self.assertFalse((root / 'appcast.xml').exists())
+
+    def test_github_release_download_stops_when_bytes_differ_from_the_github_digest(self):
+        from scripts import publish_gitlab_release as module
+        listing, client = self.github_release({'app.zip': b'zip'})
+        tampered = json.loads(listing)
+        tampered['assets'][0]['digest'] = 'sha256:' + '0' * 64
+        with tempfile.TemporaryDirectory() as directory:
+            with mock.patch.object(module, 'read_url', return_value=json.dumps(tampered).encode()), \
+                    mock.patch.object(module, 'http_client', client), self.assertRaises(ValueError):
+                module.download_github_release('v1.2.3', Path(directory))
+
+    def test_backup_from_github_publishes_the_downloaded_tag_through_the_gitgud_backend(self):
+        from scripts import publish_gitlab_release as module
+        sha = '2' * 40
+        with tempfile.TemporaryDirectory() as directory, mock.patch.dict(os.environ, {}, clear=False):
+            root = Path(directory)
+            with mock.patch.object(module, 'download_github_release') as download, \
+                    mock.patch.object(module.subprocess, 'run') as run, \
+                    mock.patch.object(module.subprocess, 'check_output', return_value=sha + '\n'), \
+                    mock.patch.object(module, 'publish') as publish:
+                module.backup_from_github('v1.2.3', root)
+                environment = {key: os.environ[key] for key in ('CI_COMMIT_TAG', 'CI_COMMIT_SHA', 'PEACH_DOWNLOAD_BACKEND')}
+            download.assert_called_once_with('v1.2.3', root)
+            self.assertEqual(run.call_args.args[0][1:], ['scripts/changelog.py', '--notes', '1.2.3',
+                                                         '--to', str(root / 'RELEASE_NOTES.md')])
+            self.assertEqual(environment, {'CI_COMMIT_TAG': 'v1.2.3', 'CI_COMMIT_SHA': sha,
+                                           'PEACH_DOWNLOAD_BACKEND': 'gitgud'})
+            publish.assert_called_once_with(root)
 
 
 class MainlineScopeTests(unittest.TestCase):

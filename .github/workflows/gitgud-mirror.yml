@@ -1,7 +1,7 @@
 name: GitGud 备份
 
 # GitGud 只保存代码与发布制品，不跑 CI：master 与版本标签推上来后原样推过去，推送带 ci.skip，不触发 GitGud 流水线。
-# 版本发布后由 release.yml 按标签手动触发本工作流，把 GitHub Release 的制品存进 GitGud 包仓库并登记 Release；
+# 版本发布后由 release.yml 按标签手动触发本工作流，让 GitGud 自己的 runner 把 GitHub Release 的制品存进包仓库并登记 Release；
 # 旧版本也用手动触发补存。R2 只留最近三个版本，GitGud 保留全部已备份版本。
 on:
   push:
@@ -60,44 +60,44 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     needs: code
     runs-on: ubuntu-latest
-    # 一个版本约 1.4 GB：从 GitHub 下载，再逐个上传并等 GitGud 核对摘要。
-    timeout-minutes: 60
+    # 一个版本约 1.4 GB：GitGud 的 runner 从 GitHub 下载，再逐个上传并核对摘要。
+    timeout-minutes: 90
+    # 所有版本共用 GitGud 上的同一个配置分支，一次只备份一版。
     concurrency:
-      group: gitgud-release-${{ inputs.tag }}
+      group: gitgud-release
       cancel-in-progress: false
     env:
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
-      GITLAB_TOKEN: ${{ secrets.GITGUD_MIRROR_TOKEN }}
-      GITLAB_HOST: gitgud.io
+      GITGUD_TOKEN: ${{ secrets.GITGUD_MIRROR_TOKEN }}
+      GITGUD_API: https://gitgud.io/api/v4/projects/peach-mitao%2Fpeach
       TAG: ${{ inputs.tag }}
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.14'
-      - uses: astral-sh/setup-uv@v10.3.3
-        with:
-          enable-cache: true
-          cache-dependency-glob: uv.lock
-      - name: 取得 glab
-        run: |
-          uv sync --locked --python python
-          .venv/bin/python scripts/fetch_release_tools.py
-          echo "PEACH_GLAB=$PWD/build/release-tools/glab" >> "$GITHUB_ENV"
-      - name: 转存 Release 制品并登记 GitGud Release
+      - name: 在 GitGud 的 runner 上转存制品并登记 Release
         run: |
           set -euo pipefail
-          project="$(printf '%s' "${GITGUD_PROJECT#https://gitgud.io/}" | sed 's#/#%2F#g')"
-          if "$PEACH_GLAB" api --hostname gitgud.io "projects/$project/releases/$TAG" > /dev/null 2>&1; then
-            echo "GitGud 上已有 $TAG 的 Release，跳过"
-            exit 0
-          fi
-          gh release download "$TAG" --dir release \
-            --pattern '*.zip' --pattern '*.exe' --pattern '*.dmg' --pattern 'SHA256SUMS.txt*'
-          .venv/bin/python scripts/changelog.py --notes "${TAG#v}" --to release/RELEASE_NOTES.md
-          CI_COMMIT_TAG="$TAG" CI_COMMIT_SHA="$(git rev-parse "refs/tags/$TAG^{commit}")" \
-            CI_PROJECT_URL="$GITGUD_PROJECT" PEACH_DOWNLOAD_BACKEND=gitgud \
-            .venv/bin/python scripts/publish_gitlab_release.py
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "标签格式不对：$TAG"; exit 1; }
+          # 从这里直接上传超过 100 MB 的文件会被 GitGud 前面的 Cloudflare 以 413 拒绝，所以交给 GitGud 自己的 runner。
+          # 配置分支只含一个 .gitlab-ci.yml；固定提交时间，内容不变时提交也不变，推送就是空操作。
+          blob="$(git hash-object -w .github/gitgud-backup.gitlab-ci.yml)"
+          tree="$(printf '100644 blob %s\t.gitlab-ci.yml\n' "$blob" | git mktree)"
+          commit="$(GIT_AUTHOR_NAME=peach GIT_AUTHOR_EMAIL=peach@users.noreply.github.com \
+            GIT_COMMITTER_NAME=peach GIT_COMMITTER_EMAIL=peach@users.noreply.github.com \
+            GIT_AUTHOR_DATE=2026-01-01T00:00:00Z GIT_COMMITTER_DATE=2026-01-01T00:00:00Z \
+            git commit-tree "$tree" -m "GitGud 制品备份流水线")"
+          auth="$(printf 'oauth2:%s' "$GITGUD_TOKEN" | base64 -w0)"
+          echo "::add-mask::$auth"
+          git -c "http.$GITGUD_PROJECT.git/.extraheader=Authorization: Basic $auth" \
+            push -f -o ci.skip "$GITGUD_PROJECT.git" "$commit:refs/heads/release-backup"
+          body="$(jq -n --arg tag "$TAG" '{ref: "release-backup", variables: [{key: "PEACH_BACKUP_TAG", value: $tag}]}')"
+          pipeline="$(curl -fsS -X POST -H "PRIVATE-TOKEN: $GITGUD_TOKEN" -H 'Content-Type: application/json' \
+            -d "$body" "$GITGUD_API/pipeline")"
+          id="$(jq -r .id <<<"$pipeline")"
+          echo "GitGud 流水线：$(jq -r .web_url <<<"$pipeline")"
+          while :; do
+            sleep 30
+            status="$(curl -fsS -H "PRIVATE-TOKEN: $GITGUD_TOKEN" "$GITGUD_API/pipelines/$id" | jq -r .status)"
+            case "$status" in
+              success) echo "$TAG 已备份到 GitGud"; break ;;
+              failed|canceled|skipped) echo "GitGud 流水线结束于 $status"; exit 1 ;;
+            esac
+          done
