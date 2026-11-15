@@ -1,25 +1,26 @@
 /* ── 编辑资料（ADR-0165）──
-   弹层沿用 `.ui-geist-modal`，表单比确认框多一列来源，放宽到 640px；窄屏仍贴两侧 10px。
-   每行三列：字段名、控件、来源。来源一列窄屏折到控件下面。
-   演员一行选多人、展开候选后会长高，三列按顶对齐，字段名与来源按首行（输入框外框 36px）居中。 */
-.ui-geist-modal[data-item-edit-dialog] { width: min(640px, calc(100vw - 20px)); max-width: min(640px, calc(100vw - 20px)); }
+   弹层沿用 `.ui-geist-modal`，放宽到 560px 装下长标题；窄屏仍贴两侧 10px。
+   每行两列：字段名、控件。来源是控件下面一行小字，没有来源的字段不占这一行。
+   演员一行选多人、展开候选后会长高，两列按顶对齐，字段名按首行（输入框外框 36px）居中。 */
+.ui-geist-modal[data-item-edit-dialog] { width: min(560px, calc(100vw - 20px)); max-width: min(560px, calc(100vw - 20px)); }
 .peach-react [data-item-edit] { display: flex; flex-direction: column; gap: 18px; --edit-line: 36px; }
 .peach-react [data-item-edit] [data-edit-section] { display: flex; flex-direction: column; gap: 10px; }
 .peach-react [data-item-edit] [data-edit-section] h4 { margin: 0; font-size: var(--fs-xs); font-weight: 600; color: var(--muted); }
 .peach-react [data-item-edit] [data-edit-row] {
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr) 112px;
+  grid-template-columns: 72px minmax(0, 1fr);
   align-items: start;
   gap: 10px;
 }
 .peach-react [data-item-edit] [data-edit-label] { display: flex; align-items: center; min-height: var(--edit-line); font-size: var(--fs-sm); color: var(--ink-2); }
-.peach-react [data-item-edit] [data-edit-control] { min-width: 0; }
+.peach-react [data-item-edit] [data-edit-control] { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .peach-react [data-item-edit] [data-edit-source] {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  align-content: center;
-  min-height: var(--edit-line);
+  min-height: 20px;
+  /* 与输入框里的文字左端对齐（BoardUI 中号输入框左右各 12px）。 */
+  padding-inline: 12px;
   gap: 2px 6px;
   font-size: var(--fs-xs);
   color: var(--muted);
@@ -103,7 +104,6 @@
 .peach-react [data-item-edit] [data-cover-preview] svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.5; }
 .peach-react [data-item-edit] [data-cover-actions] { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .peach-react [data-item-edit] [data-cover-buttons] { display: flex; flex-wrap: wrap; gap: 6px; }
-.peach-react [data-item-edit] [data-cover-actions] [data-edit-source] { min-height: 0; }
 .peach-react [data-item-edit] [data-cover-failure] { font-size: var(--fs-xs); color: var(--drop); }
 /* 弹层的字段区是 grid，弹性盒与 grid 的子项最小宽度默认都是内容宽：一排十几张样张会把弹层撑宽，
    横向滚动条不起作用。从挂载点往下每一层都得能缩。 */

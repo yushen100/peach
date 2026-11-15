@@ -304,16 +304,23 @@ def field_sources(owners_json: object) -> dict[str, dict]:
     """编辑框每个字段旁边那句来源，按编辑框的字段名给出。
 
     `owner` 是写入者类别（`user`、`review`、`auto`、`scan`、`script`，无主为空串）；
-    `source` 是来源的显示名，要随界面语言换写法的那几个另给 `source_code`。
+    `source` 是来源的显示名，按采集来源登记的站名写（`JavDB`，不写成键名 `javdb`），
+    要随界面语言换写法的那几个另给 `source_code`；登记过的采集来源再给 `site`，
+    前端凭它经 `/site-mark?source=` 取站标。
     """
     from .library_processing import SOURCE_LABELS, SOURCE_NAME_CODES
+    from .scraping_access import SOURCES
     owners = parse_owners(owners_json)
     result = {}
     for name in EDITABLE_FIELDS:
         kind, _, identifier = owners.get(TEXT_FIELDS.get(name, name), "").partition(":")
         key = identifier.replace("-", "_")
-        entry = {"owner": kind, "source": SOURCE_LABELS.get(key, identifier)}
+        site = identifier if identifier in SOURCES else key if key in SOURCES else ""
+        label = SOURCES[site]["label"] if site else None
+        entry = {"owner": kind, "source": label if isinstance(label, str) else SOURCE_LABELS.get(key, identifier)}
         if key in SOURCE_NAME_CODES:
             entry["source_code"] = SOURCE_NAME_CODES[key]
+        if site:
+            entry["site"] = site
         result[name] = entry
     return result

@@ -1,7 +1,7 @@
 /* 详情标题旁的「编辑资料」：一个弹层改完这部片的字段、归属和标签，点保存一次写进账本（ADR-0165）。
  *
  * 弹层沿用 `formModal`：遮罩、焦点、Escape 和失败时原因留在原位都由它给，这里只画字段。
- * 改了一半点空处不关（`backdropCloses: false`），丢掉的是用户刚敲的一整份。
+ * 没改动时点空处就关；改了一半点空处不关，丢掉的是用户刚敲的一整份。
  * 草稿只在本地：保存时与打开那一刻比出差异交给 `/api/item-edit`，带上打开时读到的版本，
  * 这期间后台改过这一部就整份拒收。 */
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
@@ -16,6 +16,7 @@ import { Input } from '@/components/base/input/input';
 import { Select, SelectItem } from '../components/select';
 import { DetailTags } from '../components/detail-tags';
 import { overlayHost } from '../components/overlay-host';
+import { ScrapeSourceLabel } from '../components/source-label';
 import { composingKey } from '../components/ime';
 import { apiGet, apiSend, apiSendBytes } from '../../api';
 import { queryClient } from '../query';
@@ -32,7 +33,7 @@ type EntityKind = 'performer' | 'studio' | 'series';
 const REGIONS = ['', 'jp', 'kr', 'cn', 'west', 'other'] as const;
 
 export interface Choice { id: number | null; name: string; user_created?: boolean }
-interface FieldSource { owner: string; source: string; source_code?: string }
+interface FieldSource { owner: string; source: string; source_code?: string; site?: string }
 /** 封面这一项：不动、换成一张图（上传、播放器画面或样张）、换回刮削封面。 */
 export type CoverDraft = { kind: 'keep' } | { kind: 'image'; blob: Blob; url: string; origin: 'upload' | 'frame' | 'sample' } | { kind: 'restore' };
 interface Draft {
@@ -108,6 +109,13 @@ function sourceText(source: FieldSource | undefined): string {
   return name;
 }
 
+/** 控件下面那行来源：采集来的带站标与站名，其余（你改过、文件名）只有字。 */
+function sourceNote(source: FieldSource | undefined): ReactNode {
+  const text = sourceText(source);
+  if (!text) return null;
+  return source?.site && source.owner !== 'user' ? <ScrapeSourceLabel source={source.site} label={text} /> : text;
+}
+
 export function ItemEditButton({ item, helpers, onSaved }: {
   item: DetailItem; helpers: ItemDetailHelpers; onSaved(item: DetailItem): void;
 }) {
@@ -133,7 +141,8 @@ function ItemEditDialog({ item, helpers, close, onSaved }: {
   useEffect(() => {
     const { item: opened, close: done, onSaved: saved, before: start } = given.current;
     const dialog = formModal({
-      title: t('catalog:itemEdit.title'), confirmLabel: t('catalog:itemEdit.save'), backdropCloses: false,
+      title: t('catalog:itemEdit.title'), confirmLabel: t('catalog:itemEdit.save'),
+      backdropCloses: () => draft.current.cover.kind === 'keep' && !editBody(opened, start, draft.current),
       body: '<div class="peach-react" data-item-edit-fields></div>',
       onConfirm: async () => {
         /* 封面先写：它不推这一部的版本号，后面字段那一份带的打开时版本仍然有效。封面写成、字段被拒时
@@ -178,16 +187,18 @@ function EditFields({ item, helpers, initial, update }: {
   const row = (key: string, label: string, control: ReactNode) => {
     const source = sources[key];
     const user = source?.owner === 'user';
+    const note = restoring(key) ? <>{t('catalog:itemEdit.restorePending')}
+      <Button variant="ghost" size="xs" data-edit-restore="" onClick={() => toggleRestore(key)}>{t('catalog:itemEdit.undoRestore')}</Button></>
+      : sourceNote(source) && <>{sourceNote(source)}{user ? <Button variant="ghost" size="xs" data-edit-restore="" title={t('catalog:itemEdit.restoreTip')}
+        onClick={() => toggleRestore(key)}>{t('catalog:itemEdit.restore')}</Button> : null}</>;
+    /* 来源写在控件下面一行，没有来源的字段不占位置：弹层不必为一列多半空着的来源留宽。 */
     return (
       <div data-edit-row={key} key={key}>
         <span data-edit-label="" id={`item-edit-${key}`}>{label}</span>
-        <div data-edit-control="">{control}</div>
-        <span data-edit-source="" data-owner={source?.owner || undefined}>
-          {restoring(key) ? <>{t('catalog:itemEdit.restorePending')}
-            <Button variant="ghost" size="small" data-edit-restore="" onClick={() => toggleRestore(key)}>{t('catalog:itemEdit.undoRestore')}</Button></>
-            : <>{sourceText(source)}{user ? <Button variant="ghost" size="small" data-edit-restore="" title={t('catalog:itemEdit.restoreTip')}
-              onClick={() => toggleRestore(key)}>{t('catalog:itemEdit.restore')}</Button> : null}</>}
-        </span>
+        <div data-edit-control="">
+          {control}
+          {note ? <span data-edit-source="" data-owner={source?.owner || undefined}>{note}</span> : null}
+        </div>
       </div>
     );
   };
