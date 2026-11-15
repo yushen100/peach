@@ -70,6 +70,8 @@
 [data-async-text-value][aria-hidden="true"] { opacity: 0; }
 [data-async-text-skeleton] { opacity: 0; }
 [data-async-text][aria-busy="true"] > [data-async-text-skeleton] { opacity: 1; }
+/* 不忙时骨架只是透明，微光不扫：WebKit 对透明元素的动画照样逐帧重绘，满屏卡片的文字骨架会让手机持续发热。 */
+[data-async-text]:not([aria-busy="true"]) > [data-async-text-skeleton]::after { animation: none; }
 /* 独立页面包（`pages/`）有自己的产物 `peach-pages.css`，它用到的工具类不进这一份。 */
 @source not "./pages";
 @source "../management-skeletons.ts";
