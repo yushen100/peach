@@ -18,7 +18,7 @@ if not __package__:
     __package__ = "scripts"
 from peach.interface_text import dev as t
 from peach.user_agent import USER_AGENT
-from peach.peach_proxy import read_url
+from peach.peach_proxy import http_client, read_url
 
 
 def verify_local_assets(root: Path, assets: list[dict]) -> None:
@@ -145,5 +145,47 @@ def publish(root: Path = Path('release')) -> None:
     subprocess.run(command, check=True)
 
 
+def download_github_release(tag: str, root: Path, repo: str = 'peach-mitao/peach') -> list[str]:
+    """把 GitHub Release 的安装包、工具包、对应源码与签名摘要原样下到 `root`，逐个按 GitHub 记下的 SHA-256 核对。"""
+    if not re.fullmatch(r'v\d+\.\d+\.\d+', tag):
+        raise ValueError(t("publish_gitlab_release.mirrorNeedsTag"))
+    release = json.loads(read_url(f'https://api.github.com/repos/{repo}/releases/tags/{tag}', timeout=60,
+                                  headers={'Accept': 'application/vnd.github+json', 'User-Agent': USER_AGENT}))
+    root.mkdir(parents=True, exist_ok=True)
+    names = []
+    for asset in release['assets']:
+        name = asset['name']
+        if not name.endswith(('.zip', '.exe', '.dmg')) and not name.startswith('SHA256SUMS.txt'):
+            continue
+        if not re.fullmatch(r'[A-Za-z0-9_.-]+', name) or not str(asset.get('digest') or '').startswith('sha256:'):
+            raise ValueError(t("publish_gitlab_release.assetMismatch"))
+        checksum, size = hashlib.sha256(), 0
+        with http_client(follow_redirects=True, timeout=120) as client, \
+                client.stream('GET', asset['browser_download_url'], headers={'User-Agent': USER_AGENT}) as response, \
+                (root / name).open('wb') as target:
+            response.raise_for_status()
+            for chunk in response.iter_bytes(1024 * 1024):
+                size += len(chunk)
+                checksum.update(chunk)
+                target.write(chunk)
+        if size != asset['size'] or 'sha256:' + checksum.hexdigest() != asset['digest']:
+            raise ValueError(t("publish_gitlab_release.assetDigestMismatch"))
+        names.append(name)
+    return names
+
+
+def backup_from_github(tag: str, root: Path = Path('release')) -> None:
+    """在 GitGud 自己的 runner 上备份一个已发布版本：从外面上传超过 100 MB 的文件会被 GitGud 前面的 Cloudflare 以 413 拒绝。"""
+    download_github_release(tag, root)
+    subprocess.run([sys.executable, 'scripts/changelog.py', '--notes', tag[1:], '--to', str(root / 'RELEASE_NOTES.md')],
+                   check=True)
+    sha = subprocess.check_output(['git', 'rev-parse', f'refs/tags/{tag}^{{commit}}'], text=True, encoding='utf-8').strip()
+    os.environ.update(CI_COMMIT_TAG=tag, CI_COMMIT_SHA=sha, PEACH_DOWNLOAD_BACKEND='gitgud')
+    publish(root)
+
+
 if __name__ == "__main__":
-    publish()
+    if sys.argv[1:2] == ['--github-release'] and len(sys.argv) == 3:
+        backup_from_github(sys.argv[2])
+    else:
+        publish()

@@ -1,0 +1,31 @@
+# GitGud 上 `release-backup` 分支只有这一份配置：`gitgud-mirror.yml` 把它推过去，再用 API 带上版本标签触发。
+# 上传放在 GitGud 自己的 runner 上做：从 GitHub Actions 上传超过 100 MB 的文件会被 GitGud 前面的 Cloudflare 以 413 拒绝。
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "api" && $PEACH_BACKUP_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+$/'
+
+backup-release:
+  tags: [docker]
+  image: ghcr.io/astral-sh/uv:0.13.3-python3.14-trixie-slim
+  timeout: 1h
+  variables:
+    GIT_STRATEGY: none
+    PYTHONUTF8: "1"
+    PYTHONIOENCODING: utf-8
+    UV_LINK_MODE: copy
+    GLAB_ENABLE_CI_AUTOLOGIN: "true"
+  script:
+    - apt-get update
+    - apt-get install -y --no-install-recommends ca-certificates git
+    # 这个分支只有配置；脚本、CHANGELOG 与版本标签取自已同步过来的 master。
+    - git clone --quiet "$CI_PROJECT_URL.git" peach
+    - cd peach
+    - uv sync --locked --python 3.14
+    - .venv/bin/python scripts/fetch_release_tools.py
+    - export PEACH_GLAB="$PWD/build/release-tools/glab"
+    - |
+      if "$PEACH_GLAB" api "projects/$CI_PROJECT_ID/releases/$PEACH_BACKUP_TAG" > /dev/null 2>&1; then
+        echo "GitGud 上已有 $PEACH_BACKUP_TAG 的 Release，跳过"
+        exit 0
+      fi
+    - .venv/bin/python scripts/publish_gitlab_release.py --github-release "$PEACH_BACKUP_TAG"
