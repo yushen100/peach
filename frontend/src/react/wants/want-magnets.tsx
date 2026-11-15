@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button, ButtonLink } from '@/components/base/buttons/button';
 import { Chip } from '@/components/base/badges/chip';
 import { apiGet, apiSend, errorMessage } from '../../api';
+import { withBackoff } from '../../polling';
 import type { DownloadsSnapshot, DownloadSubmitResult } from '../bundle';
 import { DOWNLOADS_KEY, DOWNLOADS_URL } from '../activity/downloads-panel';
 import { ActivityStatus } from '../components/activity-motion';
@@ -38,6 +39,9 @@ export interface MagnetResult {
   cache_stale?: boolean;
   complete?: boolean;
 }
+
+/** 资源搜索在跑时隔 3 秒读一次，搜完就停；读失败按连续失败次数退避。 */
+export const magnetsInterval = withBackoff<MagnetResult>((data) => (data?.state === 'busy' ? 3000 : false));
 
 /** 服务端资源的取值（`catalog_vocabulary`）：评论区链接的来源，与列表里不单列的高清属性。 */
 const COMMENT_SOURCE = 'javdb-comments';
@@ -88,7 +92,7 @@ export function WantMagnets({ want, readOnly, downloads, provider, toast, onSour
     refetchOnMount: (state) => resourcesFresh(state.state.data,
       Date.parse(state.state.data?.checked_at || '') || state.state.dataUpdatedAt, want.release_date) ? false : 'always',
     refetchOnWindowFocus: false,
-    refetchInterval: (state) => state.state.data?.state === 'busy' ? 3000 : false,
+    refetchInterval: magnetsInterval,
   });
   useEffect(() => {
     if (query.data?.source_url) onSource?.(query.data.source_url);

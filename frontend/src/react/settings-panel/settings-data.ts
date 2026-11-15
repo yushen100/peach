@@ -14,6 +14,7 @@ import type { InterfaceLanguageChoice } from '../../i18n';
 import { useMutation, type QueryClient } from '@tanstack/react-query';
 
 import { apiGet, apiSend } from '../../api';
+import { withBackoff } from '../../polling';
 import { queryClient } from '../query';
 import type { NavigationOrders } from '../../navigation-order';
 
@@ -124,8 +125,9 @@ export function useRunSchedule(kind: keyof typeof SCHEDULE_RUNS) {
   });
 }
 
-/** 调度正在跑时三秒重取一次，跑完就停，失败原因随之出现或消失。 */
-export const schedulePollInterval = (data: FollowScheduleStatus | undefined) => data?.running ? 3_000 : false;
+/** 调度正在跑时三秒重取一次，跑完就停，失败原因随之出现或消失；读失败按连续失败次数退避。
+ *  直接作 `refetchInterval`。 */
+export const schedulePollInterval = withBackoff<FollowScheduleStatus>((data) => (data?.running ? 3_000 : false));
 
 export function useSaveThumbnailMode() {
   return useMutation({

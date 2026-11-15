@@ -2383,6 +2383,7 @@
     "uvMissing": "uv not found: neither on PATH nor in the WinGet install directory.",
     "syncing": "Syncing the test environment from uv.lock: {{path}}",
     "syncFailed": "Syncing test dependencies failed (exit code {{code}}); tests were not started.",
+    "frontendDrift": "Frontend dependencies do not match frontend/package-lock.json ({{package}}); tests were not started. Run first: {{command}}",
     "description": "Dependency preparation for the formal test entry; syncs the environment automatically only in isolated worktrees."
   },
   "test_evidence": {

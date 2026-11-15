@@ -2383,6 +2383,7 @@
     "uvMissing": "未取得 uv：PATH 与 WinGet 安装目录里都没有。",
     "syncing": "按 uv.lock 同步测试环境：{{path}}",
     "syncFailed": "测试依赖同步失败（退出码 {{code}}）；未启动测试。",
+    "frontendDrift": "前端依赖与 frontend/package-lock.json 不一致（{{package}}）；未启动测试。先执行：{{command}}",
     "description": "正式测试入口的依赖准备，只在隔离工作树自动同步环境。"
   },
   "test_evidence": {

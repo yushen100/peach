@@ -115,7 +115,7 @@ export function FollowPreferenceRows({ receipt }: { receipt(message: string): vo
 
 function FollowScheduleRow() {
   const status = useQuery({ queryKey: FOLLOW_SCHEDULE_KEY, queryFn: ({ signal }) => fetchFollowSchedule(signal),
-    refetchOnMount: 'always', refetchInterval: (query) => schedulePollInterval(query.state.data) });
+    refetchOnMount: 'always', refetchInterval: schedulePollInterval });
   const save = useSaveFollowSchedule();
   const data = status.data;
   const remembered = useRef(boundedPreference(Number(localStorage.getItem('peach.number.followScheduleSetting')), 15, 10080, 60));
@@ -172,7 +172,7 @@ function FollowScheduleRow() {
 /* 订阅源定时拉取没有可调的档位，这一行只读出间隔与上一轮的失败。 */
 function FeedScheduleRow() {
   const status = useQuery({ queryKey: FEED_SCHEDULE_KEY, queryFn: ({ signal }) => fetchFeedSchedule(signal),
-    refetchOnMount: 'always', refetchInterval: (query) => schedulePollInterval(query.state.data) });
+    refetchOnMount: 'always', refetchInterval: schedulePollInterval });
   const data = status.data;
   /* 首次读取时先占住这一行：读数回来再填字，下面的行不往下跳。 */
   if (!data) {

@@ -1,7 +1,11 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "ea0dc74e-997e-4fdb-b94c-7f0c0cbaea5c", e._sentryDebugIdIdentifier = "sentry-dbid-ea0dc74e-997e-4fdb-b94c-7f0c0cbaea5c");
+========
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "eab3e1a4-216e-455b-8d88-9efca63e87b2", e._sentryDebugIdIdentifier = "sentry-dbid-eab3e1a4-216e-455b-8d88-9efca63e87b2");
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	} catch {}
 })();
 import { $2ec61d1d4f780267$export$a8a3e93435678ff9 as e, $3a442827418ebe87$export$eb2fcfdbd7ba97d4 as t, $542a13ca2fa5b484$export$5b6b19405a83ff9d as n, $72abaeab4d80592f$export$78efe591171d7d45 as r, $bd263d78e9bf3c56$export$f5c9f3c2c4054eec as i, $ea3928288112382f$export$439d29a4e110a164 as a, $f2ff30fde7b014be$export$3ddf2d174ce01153 as o, $fe21c36db05242bb$export$a98f0dcb43a68a25 as s, $fe21c36db05242bb$export$d7b12c4107be0d61 as c, ACCENTS as l, ActivityStatus as u, ApiError as d, Button as f, ButtonLink as p, CLOUD_LOCATIONS as m, CLOUD_PROXY_HELP as h, CONFIGURATION_KEY as g, CONFIGURATION_SECTIONS as _, CONFIGURATION_URL as v, CREDENTIAL_STATE as y, Checkbox as b, Chip as x, CommandSteps as S, Disclosure as C, ENTRY_LINKS_HELP as ee, ENTRY_LINKS_HINT as te, EmptyState as w, ErrorText as T, Eu as ne, ExternalLink as E, FEED_SCHEDULE_KEY as D, FOLLOW_CREDENTIALS_KEY as re, FOLLOW_INITIAL_RANGE_OPTIONS as ie, FOLLOW_SCHEDULE_KEY as ae, Fact as O, FactList as k, FieldLabel as oe, Footer as A, Help as j, HintText as se, Input as M, L1 as ce, LIBRARY_FOLDER_HELP as le, LIBRARY_PROCESSING_KEY as ue, Label as de, LinkButton as fe, M6 as pe, MEDIA_PROCESSING_KEY as me, MEDIA_PROCESSING_URL as he, MEDIA_SOURCE_ICONS as ge, MENU_POPOVER_SURFACE as _e, Note as N, PICK_FOLDER_URL as ve, POLICY_COLUMNS as ye, POLICY_COVER_NOTE as be, POLICY_MATRIX as xe, POLICY_SUMMARY as Se, PathLine as Ce, ProcessingMode as we, Progress as Te, RELEASE_NOTICE_EVENT as Ee, REPAIR_CENTER_PATH as De, Rows as P, SEGMENT as Oe, SEGMENTED_TRACK as ke, SETTINGS_KEY as Ae, SETTINGS_URL as je, Section as F, SectionSkeleton as Me, SegmentedRadioGroup as Ne, Select as Pe, Select$1 as Fe, SelectItem as I, SettingsCard as Ie, SettingsRow as L, SiteLabel as Le, SortableBoardTabs as Re, SourceLabel as ze, SourceMark as Be, Stack as R, StatusLabel as z, Switch as B, THUMBNAIL_JOBS_KEY as Ve, TaskCenterLink as He, TaskProgress as Ue, TextField as We, TextFieldContext as Ge, Uz as Ke, __toESM as qe, _p as Je, activityKind as Ye, animate as Xe, apiGet as V, apiSend as H, appSettingsStore as Ze, bodyFieldErrors as Qe, boundedPreference as $e, busyProps as U, cardClass as et, checkClientUpdates as tt, cloudProxySkeleton as nt, clsx as rt, cn as it, codedText as W, confirmModal as at, credentialDone as ot, credentialsSkeleton as st, cx as ct, d6 as lt, devicesSkeleton as ut, errorMessage as G, fetchConfiguration as dt, fetchCredentials as ft, fetchFeedSchedule as pt, fetchFollowSchedule as mt, fetchLibraryProcessing as ht, fetchMediaProcessing as gt, fetchSettings as _t, fetchThumbnailJobs as vt, fmtSize as K, i2 as yt, indexersSkeleton as bt, interfaceLanguage as xt, javBrowserSkeleton as St, jobText as Ct, joinList as wt, l1 as Tt, ledgerBackupsSkeleton as Et, localizedFact as Dt, momentText as Ot, motion as kt, overlayHost as At, peachHistory$1 as jt, pickServerFolder as Mt, pollUntil as Nt, previewLibraryColor as Pt, processingActive as Ft, providerIcon as It, queryClient as Lt, randomId as Rt, rememberShape as zt, require_jsx_runtime as Bt, require_react as Vt, restartEffectText as Ht, saveCredential as Ut, schedulePollInterval as Wt, sectionTitle as Gt, serverLabel as q, serverLabelList as Kt, serverText as qt, settingsPath as Jt, shellNavigate as Yt, sortCx as Xt, sourceDefaultCost as Zt, stageText as Qt, t as J, translateWithNodes as $t, useAction as Y, useClientUpdates as en, useLibraryTints as tn, useMutation as nn, useOrderedLibraries as rn, useQuery as X, useQueryClient as an, useReducedMotion as on, useRunSchedule as sn, useSaveFollowSchedule as cn, useSaveSettings as ln, useSaveThumbnailMode as un, we as dn, z3 as fn } from "./peach-app.js";
@@ -2729,26 +2733,32 @@ function go({ uninstall: e, receipt: t }) {
 }
 // src/react/settings/docker-update.tsx
 var _o = 3e3, vo = 9e5;
-function yo(e) {
+async function yo(e, t, n) {
+	let r = "";
+	return await Nt({
+		read: n.read || ((e) => V("/api/client-updates", e)),
+		apply: (t) => {
+			let n = t.runtime?.version;
+			n && n !== e && (r = n);
+		},
+		done: () => !!r,
+		signal: t,
+		everyMs: _o,
+		limitMs: Math.max(1, n.limitMs),
+		pause: n.pause
+	}), t.aborted ? null : r ? {
+		state: "done",
+		version: r
+	} : { state: "timeout" };
+}
+function bo(e) {
 	let [t, n] = (0, Z.useState)({ state: "idle" }), r = Y(), i = (0, Z.useRef)(0);
 	return (0, Z.useEffect)(() => {
 		if (t.state !== "updating") return;
-		let r = new AbortController(), a, o = async () => {
-			try {
-				let t = (await V("/api/client-updates", r.signal)).runtime?.version;
-				if (!r.signal.aborted && t && t !== e) {
-					n({
-						state: "done",
-						version: t
-					});
-					return;
-				}
-			} catch {}
-			r.signal.aborted || (Date.now() - i.current > vo ? n({ state: "timeout" }) : a = setTimeout(o, _o));
-		};
-		return a = setTimeout(o, _o), () => {
-			r.abort(), clearTimeout(a);
-		};
+		let r = new AbortController();
+		return yo(e, r.signal, { limitMs: vo - (Date.now() - i.current) }).then((e) => {
+			e && n(e);
+		}), () => r.abort();
 	}, [t.state, e]), {
 		job: t,
 		run: () => r.run("docker-update", (e) => H("/api/configuration/docker-update", {}, "POST", e), () => {
@@ -2758,7 +2768,7 @@ function yo(e) {
 		error: r.error
 	};
 }
-function bo({ job: e }) {
+function xo({ job: e }) {
 	return e.state === "updating" ? /* @__PURE__ */ (0, Q.jsx)(Ue, {
 		embedded: !0,
 		kind: "clock",
@@ -2778,17 +2788,18 @@ function bo({ job: e }) {
 	})] }) : null;
 }
 // src/react/settings/release-updates.tsx
-var xo = /* @__PURE__ */ new Set([
+var So = /* @__PURE__ */ new Set([
 	"downloading",
 	"verifying",
 	"extracting",
 	"preparing",
 	"restarting",
 	"installing"
-]), So = [
+]), Co = [
 	65,
 	75,
 	90
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 ], Co = 7, wo = "https://github.com/peach-mitao/peach/releases";
 function To({ text: e }) {
 	return /* @__PURE__ */ (0, Q.jsx)(Q.Fragment, { children: e.split("`").map((e, t) => t % 2 ? /* @__PURE__ */ (0, Q.jsx)("code", { children: e }, t) : e) });
@@ -2838,10 +2849,14 @@ function Eo({ notes: e }) {
 	});
 }
 function Do({ initial: e, initialJob: t }) {
+========
+], wo = 7, To = "https://github.com/peach-mitao/peach/releases";
+function Eo({ initial: e, initialJob: t }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let [n, r] = (0, Z.useState)(e), [i, a] = (0, Z.useState)(t || {
 		state: "idle",
 		progress: 0
-	}), { snapshot: o, failures: s } = en(), c = (0, Z.useRef)(o), l = Y(), u = (0, Z.useRef)(!1), d = (0, Z.useRef)(!0), m = xo.has(i.state), h = yo(e.current_version), g = n.state === "available" && !!n.one_click?.available, _ = h.job.state === "updating", v = n.installation_code === "standalone", y = () => void at({
+	}), { snapshot: o, failures: s } = en(), c = (0, Z.useRef)(o), l = Y(), u = (0, Z.useRef)(!1), d = (0, Z.useRef)(!0), m = So.has(i.state), h = bo(e.current_version), g = n.state === "available" && !!n.one_click?.available, _ = h.job.state === "updating", v = n.installation_code === "standalone", y = () => void at({
 		title: J("settings:releaseUpdates.oneClickUpdate"),
 		body: J("settings:releaseUpdates.dockerUpdateBody", { version: n.latest_version || "" }),
 		confirmLabel: J("settings:releaseUpdates.startUpdate"),
@@ -2882,7 +2897,7 @@ function Do({ initial: e, initialJob: t }) {
 			...e,
 			state: "error"
 		}), l.setError(G(t));
-	}), te = s >= Co ? J("settings:releaseUpdates.connectionLost") : "", w = l.error || te || h.error, ne = qt(n), D = n.installation_code === "standalone" && (n.state === "available" || i.state !== "idle") ? n.package_kind : void 0, re = D === "update" ? J("settings:releaseUpdates.updatePackageHelp") : D === "full" ? J("settings:releaseUpdates.includesMediaTools") : D === "installer" ? J("settings:releaseUpdates.installerHelp") : "", ie = i.state === "downloading" && i.total ? `${((i.downloaded || 0) / 1048576).toFixed(1)} / ${(i.total / 1048576).toFixed(1)} MB` : `${i.progress}%`;
+	}), te = s >= wo ? J("settings:releaseUpdates.connectionLost") : "", w = l.error || te || h.error, ne = qt(n), D = n.installation_code === "standalone" && (n.state === "available" || i.state !== "idle") ? n.package_kind : void 0, re = D === "update" ? J("settings:releaseUpdates.updatePackageHelp") : D === "full" ? J("settings:releaseUpdates.includesMediaTools") : D === "installer" ? J("settings:releaseUpdates.installerHelp") : "", ie = i.state === "downloading" && i.total ? `${((i.downloaded || 0) / 1048576).toFixed(1)} / ${(i.total / 1048576).toFixed(1)} MB` : `${i.progress}%`;
 	return /* @__PURE__ */ (0, Q.jsxs)(F, {
 		id: "releaseUpdates",
 		guide: "updates",
@@ -2934,7 +2949,7 @@ function Do({ initial: e, initialJob: t }) {
 							text: q(`release.dockerStep.${e.id}`, e.text)
 						}))
 					}), /* @__PURE__ */ (0, Q.jsx)(j, { children: (n.one_click?.reason ? W(n.one_click, "reason") : "") || J("settings:releaseUpdates.watchtowerHint") })] }) : null,
-					/* @__PURE__ */ (0, Q.jsx)(bo, { job: h.job }),
+					/* @__PURE__ */ (0, Q.jsx)(xo, { job: h.job }),
 					i.state === "error" ? /* @__PURE__ */ (0, Q.jsx)(T, { children: Ct(i) }) : null,
 					i.state !== "idle" && i.state !== "error" ? /* @__PURE__ */ (0, Q.jsxs)("div", {
 						"aria-live": "polite",
@@ -2943,7 +2958,7 @@ function Do({ initial: e, initialJob: t }) {
 							/* @__PURE__ */ (0, Q.jsx)(Te, {
 								label: J("settings:releaseUpdates.progressLabel"),
 								value: i.progress,
-								stops: So
+								stops: Co
 							}),
 							/* @__PURE__ */ (0, Q.jsxs)(j, { children: [
 								J("settings:releaseUpdates.progressSteps"),
@@ -2968,7 +2983,7 @@ function Do({ initial: e, initialJob: t }) {
 							children: "GitHub"
 						}),
 						/* @__PURE__ */ (0, Q.jsx)(E, {
-							href: n.release_url || wo,
+							href: n.release_url || To,
 							children: J("settings:releaseUpdates.releasePage")
 						})
 					]
@@ -3017,15 +3032,24 @@ function Do({ initial: e, initialJob: t }) {
 	});
 }
 // src/react/settings/upgrade-repairs.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 var Oo = {
+========
+var Do = {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	pending: J("settings:upgradeRepairs.pending"),
 	running: J("settings:upgradeRepairs.repairing"),
 	failed: J("settings:repairCenter.needsRetry"),
 	review: J("settings:upgradeRepairs.needsReview"),
 	complete: J("settings:shared.completed"),
 	unavailable: J("settings:upgradeRepairs.unavailable")
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 }, ko = (e) => $t("settings:upgradeRepairs.itemCount", { count: e }, { value: /* @__PURE__ */ (0, Q.jsx)(yi, { value: e }) });
 function Ao() {
+========
+}, Oo = (e) => $t("settings:upgradeRepairs.itemCount", { count: e }, { value: /* @__PURE__ */ (0, Q.jsx)(yi, { value: e }) });
+function ko() {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let { snapshot: e } = en(), [t, n] = (0, Z.useState)(null), r = Y();
 	(0, Z.useEffect)(() => n(null), [e]);
 	let i = t ?? e?.repairs, a = i?.state || "pending", o = i?.items.reduce((e, t) => e + (t.pending || 0), 0) || 0, s = i?.items.reduce((e, t) => e + (t.failed || 0), 0) || 0, c = i?.items.reduce((e, t) => e + (t.review_count || 0), 0) || 0;
@@ -3036,13 +3060,18 @@ function Ao() {
 			tone: a === "failed" ? "error" : a === "running" ? "progress" : a === "review" ? "warning" : a === "complete" ? "success" : "neutral",
 			children: /* @__PURE__ */ (0, Q.jsx)("span", {
 				"data-copy-key": `upgradeRepairs.${a}.status`,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 				children: Oo[a] || J("settings:shared.notFound")
+========
+				children: Do[a] || J("settings:shared.notFound")
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			}, a)
 		}),
 		children: [
 			/* @__PURE__ */ (0, Q.jsxs)(k, { children: [
 				/* @__PURE__ */ (0, Q.jsx)(O, {
 					term: J("settings:upgradeRepairs.toDo"),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 					children: /* @__PURE__ */ (0, Q.jsx)("span", { children: ko(o) })
 				}),
 				/* @__PURE__ */ (0, Q.jsx)(O, {
@@ -3052,6 +3081,17 @@ function Ao() {
 				/* @__PURE__ */ (0, Q.jsx)(O, {
 					term: J("settings:upgradeRepairs.toReview"),
 					children: /* @__PURE__ */ (0, Q.jsx)("span", { children: ko(c) })
+========
+					children: /* @__PURE__ */ (0, Q.jsx)("span", { children: Oo(o) })
+				}),
+				/* @__PURE__ */ (0, Q.jsx)(O, {
+					term: J("settings:shared.failed"),
+					children: /* @__PURE__ */ (0, Q.jsx)("span", { children: Oo(s) })
+				}),
+				/* @__PURE__ */ (0, Q.jsx)(O, {
+					term: J("settings:upgradeRepairs.toReview"),
+					children: /* @__PURE__ */ (0, Q.jsx)("span", { children: Oo(c) })
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				})
 			] }),
 			i?.message || r.error ? /* @__PURE__ */ (0, Q.jsx)(R, { children: /* @__PURE__ */ (0, Q.jsx)(T, { children: r.error || W(i, "message") }) }) : null,
@@ -3080,6 +3120,7 @@ function Ao() {
 	});
 }
 // src/react/settings/general-settings.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function jo({ data: e, receipt: t, panel: n }) {
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
 		...Rr(n),
@@ -3089,18 +3130,37 @@ function jo({ data: e, receipt: t, panel: n }) {
 				initialJob: e.update_job
 			}) : null,
 			/* @__PURE__ */ (0, Q.jsx)(Ao, {}),
+========
+function Ao({ data: e, receipt: t, panel: n }) {
+	return /* @__PURE__ */ (0, Q.jsxs)("div", {
+		...Rr(n),
+		children: [
+			e.updates ? /* @__PURE__ */ (0, Q.jsx)(Eo, {
+				initial: e.updates,
+				initialJob: e.update_job
+			}) : null,
+			/* @__PURE__ */ (0, Q.jsx)(ko, {}),
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			e.automatic_updates ? /* @__PURE__ */ (0, Q.jsx)(mo, {
 				initial: e.automatic_updates,
 				receipt: t
 			}) : null,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			e.startup ? /* @__PURE__ */ (0, Q.jsx)(Mo, {
+========
+			e.startup ? /* @__PURE__ */ (0, Q.jsx)(jo, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				startup: e.startup,
 				receipt: t
 			}) : null
 		]
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function Mo({ startup: e, receipt: t }) {
+========
+function jo({ startup: e, receipt: t }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let [n, r] = (0, Z.useState)(e.enabled), [i, a] = (0, Z.useState)(e.silent), [o, s] = (0, Z.useState)(e.desktop), c = Y(), l = e.available && !e.desktop_message, u = W(e, "desktop_message"), d = W(e, "message");
 	return /* @__PURE__ */ (0, Q.jsxs)(F, {
 		guide: "startup",
@@ -3158,7 +3218,11 @@ function Mo({ startup: e, receipt: t }) {
 	});
 }
 // src/react/restart-redirect.ts
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 var No = 8e3, Po = [
+========
+var Mo = 8e3, No = [
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	{
 		name: J("settings:cloudDriveGuide.tierHdd"),
 		cache: "10–20 GiB",
@@ -3177,12 +3241,20 @@ var No = 8e3, Po = [
 		read: "256 / 128 KB",
 		task: J("settings:cloudDriveGuide.tasksTwoPlus")
 	}
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 ], Fo = [
+========
+], Po = [
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	["cache", J("settings:cloudDriveGuide.cacheLimit")],
 	["read", J("settings:cloudDriveGuide.readLength")],
 	["task", J("settings:cloudDriveGuide.concurrentVideos")]
 ];
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function Io() {
+========
+function Fo() {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	return /* @__PURE__ */ (0, Q.jsx)("div", {
 		className: "@container flex flex-col gap-3",
 		children: /* @__PURE__ */ (0, Q.jsxs)(C, {
@@ -3197,14 +3269,22 @@ function Io() {
 				/* @__PURE__ */ (0, Q.jsx)("ul", {
 					"aria-label": J("settings:cloudDriveGuide.tiersLabel"),
 					className: "flex flex-col gap-2",
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 					children: Po.map((e) => /* @__PURE__ */ (0, Q.jsxs)("li", {
+========
+					children: No.map((e) => /* @__PURE__ */ (0, Q.jsxs)("li", {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 						className: "flex flex-col gap-2 rounded-2lg border border-separator-border bg-background-primary-default p-3",
 						children: [/* @__PURE__ */ (0, Q.jsx)("p", {
 							className: "text-body-medium text-text-primary",
 							children: e.name
 						}), /* @__PURE__ */ (0, Q.jsx)("dl", {
 							className: "inline-grid grid-cols-1 gap-2 @md:grid-cols-3",
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 							children: Fo.map(([t, n]) => /* @__PURE__ */ (0, Q.jsxs)("div", {
+========
+							children: Po.map(([t, n]) => /* @__PURE__ */ (0, Q.jsxs)("div", {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 								className: "flex flex-col",
 								children: [/* @__PURE__ */ (0, Q.jsx)("dt", {
 									className: "text-caption-1-regular text-text-secondary",
@@ -3234,15 +3314,25 @@ function Io() {
 	});
 }
 // src/react/settings/cloud-proxy-settings.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 var Lo = "/api/configuration/cloud-proxies", Ro = [
+========
+var Io = "/api/configuration/cloud-proxies", Lo = [
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	["direct", J("settings:cloudProxy.direct")],
 	["system", J("settings:shared.followSystem")],
 	["http", J("settings:cloudProxy.http")],
 	["socks5", J("settings:cloudProxy.socks5")]
 ];
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function zo({ receipt: e }) {
 	let [t, n] = (0, Z.useState)(null), [r, i] = (0, Z.useState)(!0), a = (0, Z.useRef)(/* @__PURE__ */ new Set()), o = (0, Z.useRef)(/* @__PURE__ */ new Set()), [s, c] = (0, Z.useState)(!1), l = (0, Z.useRef)(() => void 0), u = Y(), d = () => {
 		o.current.size || u.run("refresh", (e) => V(Lo, e), (e) => {
+========
+function Ro({ receipt: e }) {
+	let [t, n] = (0, Z.useState)(null), [r, i] = (0, Z.useState)(!0), a = (0, Z.useRef)(/* @__PURE__ */ new Set()), o = (0, Z.useRef)(/* @__PURE__ */ new Set()), [s, c] = (0, Z.useState)(!1), l = (0, Z.useRef)(() => void 0), u = Y(), d = () => {
+		o.current.size || u.run("refresh", (e) => V(Io, e), (e) => {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			a.current.clear(), n(e), i(!1);
 		}, (e) => {
 			i(!1), u.setError(e instanceof Error ? e.message : J("settings:cloudProxy.loadFailed"));
@@ -3300,7 +3390,11 @@ function zo({ receipt: e }) {
 						children: [/* @__PURE__ */ (0, Q.jsx)(Be, { mark: Mr(e.location) }), e.name]
 					}) }), /* @__PURE__ */ (0, Q.jsx)(j, { children: J("settings:cloudProxy.unmatched") })]
 				}, e.root)),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 				t?.accounts.map((t) => /* @__PURE__ */ (0, Q.jsx)(Bo, {
+========
+				t?.accounts.map((t) => /* @__PURE__ */ (0, Q.jsx)(zo, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 					initial: t,
 					receipt: e,
 					onDirty: () => a.current.add(t.id),
@@ -3324,7 +3418,11 @@ function zo({ receipt: e }) {
 		}) })]
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function Bo({ initial: e, receipt: t, onDirty: n, onSaved: r, onSaving: i }) {
+========
+function zo({ initial: e, receipt: t, onDirty: n, onSaved: r, onSaving: i }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let [a, o] = (0, Z.useState)(e), [s, c] = (0, Z.useState)([]), l = wt(a.libraries?.map((e) => e.name) ?? []) || a.name, u = Y(), d = (e, t) => {
 		o((n) => ({
 			...n,
@@ -3334,7 +3432,11 @@ function Bo({ initial: e, receipt: t, onDirty: n, onSaved: r, onSaving: i }) {
 	return /* @__PURE__ */ (0, Q.jsxs)("form", {
 		"aria-label": J("settings:cloudProxy.accountForm", { name: l }),
 		onSubmit: (e) => {
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			e.preventDefault(), i(!0), u.run("save", (e) => H(Lo, {
+========
+			e.preventDefault(), i(!0), u.run("save", (e) => H(Io, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				id: a.id,
 				revision: a.revision,
 				...s.includes("api") ? { api: a.api } : {},
@@ -3354,13 +3456,21 @@ function Bo({ initial: e, receipt: t, onDirty: n, onSaved: r, onSaving: i }) {
 				" · ",
 				a.path
 			] }),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			/* @__PURE__ */ (0, Q.jsx)(Vo, {
+========
+			/* @__PURE__ */ (0, Q.jsx)(Bo, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				label: J("settings:cloudProxy.dataProxy"),
 				value: a.data,
 				disabled: !a.writable || !!u.busy,
 				onChange: (e) => d("data", e)
 			}),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			/* @__PURE__ */ (0, Q.jsx)(Vo, {
+========
+			/* @__PURE__ */ (0, Q.jsx)(Bo, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				label: J("settings:cloudProxy.apiProxy"),
 				value: a.api,
 				disabled: !a.writable || !!u.busy,
@@ -3384,7 +3494,11 @@ function Bo({ initial: e, receipt: t, onDirty: n, onSaved: r, onSaving: i }) {
 		]
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function Vo({ label: e, value: t, disabled: n, onChange: r }) {
+========
+function Bo({ label: e, value: t, disabled: n, onChange: r }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let i = t.mode === "http" || t.mode === "socks5";
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
 		className: "flex min-w-0 flex-col gap-3",
@@ -3403,7 +3517,11 @@ function Vo({ label: e, value: t, disabled: n, onChange: r }) {
 				children: [t.mode === "unknown" ? /* @__PURE__ */ (0, Q.jsx)(I, {
 					id: "unknown",
 					children: J("settings:cloudProxy.unknownType")
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 				}) : null, Ro.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(I, {
+========
+				}) : null, Lo.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(I, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 					id: e,
 					children: t
 				}, e))]
@@ -3471,7 +3589,11 @@ function Vo({ label: e, value: t, disabled: n, onChange: r }) {
 	});
 }
 // src/react/settings/library-icon-picker.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 var Ho = [
+========
+var Vo = [
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	["", J("settings:libraryIcons.auto")],
 	["hard-drive", J("settings:libraryIcons.hardDrive")],
 	["database", J("settings:libraryIcons.database")],
@@ -3515,6 +3637,7 @@ var Ho = [
 	["star", J("settings:libraryIcons.favorites")],
 	["tags", J("settings:libraryIcons.topics")]
 ];
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function Uo(e) {
 	let t = e === "local" ? "" : ge[e];
 	return t ? [t, J("settings:libraryIcons.auto")] : ["hard-drive", J("settings:libraryIcons.default")];
@@ -3522,6 +3645,15 @@ function Uo(e) {
 var Wo = "auto";
 function Go({ value: t, label: r, kind: i = "local", onChange: a }) {
 	let l = (0, Z.useRef)(null), [u, d] = (0, Z.useState)(!1), [p, m] = (0, Z.useState)(t), [h, g] = Uo(i);
+========
+function Ho(e) {
+	let t = e === "local" ? "" : ge[e];
+	return t ? [t, J("settings:libraryIcons.auto")] : ["hard-drive", J("settings:libraryIcons.default")];
+}
+var Uo = "auto";
+function Wo({ value: t, label: r, kind: i = "local", onChange: a }) {
+	let l = (0, Z.useRef)(null), [u, d] = (0, Z.useState)(!1), [p, m] = (0, Z.useState)(t), [h, g] = Ho(i);
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	return /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(f, {
 		ref: l,
 		variant: "secondary",
@@ -3535,7 +3667,11 @@ function Go({ value: t, label: r, kind: i = "local", onChange: a }) {
 		children: /* @__PURE__ */ (0, Q.jsxs)("span", {
 			"data-icon-choice": !0,
 			className: "flex items-center gap-2",
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			children: [/* @__PURE__ */ (0, Q.jsx)(Be, { mark: t || h }), ((e) => e && Ho.find(([t]) => t === e)?.[1] || g)(t)]
+========
+			children: [/* @__PURE__ */ (0, Q.jsx)(Be, { mark: t || h }), ((e) => e && Vo.find(([t]) => t === e)?.[1] || g)(t)]
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 		})
 	}), /* @__PURE__ */ (0, Q.jsx)(n, {
 		triggerRef: l,
@@ -3555,6 +3691,7 @@ function Go({ value: t, label: r, kind: i = "local", onChange: a }) {
 				}),
 				/* @__PURE__ */ (0, Q.jsx)(s, {
 					"aria-label": J("settings:libraryIcons.choices"),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 					value: p || Wo,
 					onChange: (e) => m(e === Wo ? "" : e),
 					className: "inline-grid grid-cols-7 gap-1",
@@ -3564,6 +3701,17 @@ function Go({ value: t, label: r, kind: i = "local", onChange: a }) {
 						className: "flex h-10 cursor-pointer items-center justify-center rounded-lg text-foreground-icon-secondary outline-none hover:bg-dropdown-item-hover-background focus-visible:ring-2 focus-visible:ring-border-focus-ring data-selected:bg-dropdown-item-hover-background data-selected:text-text-primary",
 						children: /* @__PURE__ */ (0, Q.jsx)(Be, { mark: e || h })
 					}, e || Wo))
+========
+					value: p || Uo,
+					onChange: (e) => m(e === Uo ? "" : e),
+					className: "inline-grid grid-cols-7 gap-1",
+					children: Vo.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(c, {
+						value: e || Uo,
+						"aria-label": e ? t : g,
+						className: "flex h-10 cursor-pointer items-center justify-center rounded-lg text-foreground-icon-secondary outline-none hover:bg-dropdown-item-hover-background focus-visible:ring-2 focus-visible:ring-border-focus-ring data-selected:bg-dropdown-item-hover-background data-selected:text-text-primary",
+						children: /* @__PURE__ */ (0, Q.jsx)(Be, { mark: e || h })
+					}, e || Uo))
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				}),
 				/* @__PURE__ */ (0, Q.jsxs)("div", {
 					className: "flex justify-end gap-2 border-t border-separator-border pt-2.5",
@@ -3584,19 +3732,31 @@ function Go({ value: t, label: r, kind: i = "local", onChange: a }) {
 	})] });
 }
 // src/react/settings/library-policy-settings.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 var Ko = [
+========
+var Go = [
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	["probe", J("settings:libraryPolicy.stepProbe")],
 	["metadata", J("settings:libraryPolicy.stepMetadata")],
 	["cover", J("settings:libraryPolicy.stepCovers")],
 	["people", J("settings:libraryPolicy.stepAvatars")],
 	["preview", J("settings:libraryPolicy.stepContactSheet")]
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 ], qo = [
+========
+], Ko = [
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	"probe",
 	"metadata",
 	"cover",
 	"people",
 	"preview"
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 ], Jo = [
+========
+], qo = [
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	[
 		"auto",
 		J("settings:libraryPolicy.auto"),
@@ -3613,7 +3773,11 @@ var Ko = [
 		J("settings:libraryPolicy.customHint")
 	]
 ];
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function Yo() {
+========
+function Jo() {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
 		"data-policy-legend": "",
 		className: "flex flex-col gap-1",
@@ -3645,7 +3809,11 @@ function Yo() {
 		})]
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function Xo({ name: e, value: t, onChange: n }) {
+========
+function Yo({ name: e, value: t, onChange: n }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	return /* @__PURE__ */ (0, Q.jsx)(Pe, {
 		"data-guide-target": "library-policy",
 		className: "w-full",
@@ -3654,10 +3822,17 @@ function Xo({ name: e, value: t, onChange: n }) {
 		prefix: J("settings:libraryPolicy.mode"),
 		renderValue: /* @__PURE__ */ (0, Q.jsx)("span", {
 			className: "truncate",
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			children: Jo.find(([e]) => e === t)?.[1]
 		}),
 		onSelectionChange: (e) => n(String(e)),
 		children: Jo.map(([e, t, n]) => /* @__PURE__ */ (0, Q.jsx)(I, {
+========
+			children: qo.find(([e]) => e === t)?.[1]
+		}),
+		onSelectionChange: (e) => n(String(e)),
+		children: qo.map(([e, t, n]) => /* @__PURE__ */ (0, Q.jsx)(I, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			id: e,
 			textValue: t,
 			children: /* @__PURE__ */ (0, Q.jsxs)("span", {
@@ -3670,19 +3845,31 @@ function Xo({ name: e, value: t, onChange: n }) {
 		}, e))
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function Zo({ name: e, value: t, onChange: n }) {
+========
+function Xo({ name: e, value: t, onChange: n }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	return /* @__PURE__ */ (0, Q.jsx)(C, {
 		defaultOpen: !0,
 		summary: J("settings:libraryPolicy.stepsSummary", {
 			name: e,
 			selected: t.length,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			total: Ko.length
+========
+			total: Go.length
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 		}),
 		children: /* @__PURE__ */ (0, Q.jsx)("div", {
 			className: "flex flex-wrap gap-x-6 gap-y-2",
 			role: "group",
 			"aria-label": J("settings:libraryPolicy.stepsLabel", { name: e }),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			children: Ko.map(([e, r]) => /* @__PURE__ */ (0, Q.jsx)(b, {
+========
+			children: Go.map(([e, r]) => /* @__PURE__ */ (0, Q.jsx)(b, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				isSelected: t.includes(e),
 				onChange: (r) => n(r ? [...t, e] : t.filter((t) => t !== e)),
 				children: r
@@ -3690,7 +3877,11 @@ function Zo({ name: e, value: t, onChange: n }) {
 		})
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function Qo({ id: e, name: t, value: i, onChange: a }) {
+========
+function Zo({ id: e, name: t, value: i, onChange: a }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let s = (0, Z.useRef)(null), [c, u] = (0, Z.useState)(!1), d = l.find(([e]) => e === i)?.[1] || J("settings:libraryColor.none"), f = (t) => {
 		a(t), Pt(e, t), u(!1);
 	};
@@ -3776,8 +3967,13 @@ function Qo({ id: e, name: t, value: i, onChange: a }) {
 	})] });
 }
 // src/react/settings/push-discovery-settings.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 var $o = "/api/configuration/push-discovery", es = "/api/configuration/push-discovery/secret";
 function ts({ initial: e, receipt: t }) {
+========
+var Qo = "/api/configuration/push-discovery", $o = "/api/configuration/push-discovery/secret";
+function es({ initial: e, receipt: t }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let [n, r] = (0, Z.useState)(e), [i, a] = (0, Z.useState)(e.prefixes), [o, s] = (0, Z.useState)(""), c = Y(), l = n.media_roots, [u, d] = (0, Z.useState)(e), p = (e, n) => {
 		r(e), d(e), a(e.prefixes), s(""), t(n);
 	}, m = (e, t) => a((n) => n.map((n, r) => r === e ? {
@@ -3791,9 +3987,15 @@ function ts({ initial: e, receipt: t }) {
 			cloud: n.cloud,
 			prefixes: i
 		};
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 		c.run("save", (e) => H($o, t, "POST", e), (e) => p(e, J("settings:shared.settingsSaved")), (e) => s(G(e)));
 	}, g = () => {
 		c.run("secret", (e) => H(es, {}, "POST", e), (e) => p(e, J("settings:pushDiscovery.secretRotated")), (e) => s(G(e)));
+========
+		c.run("save", (e) => H(Qo, t, "POST", e), (e) => p(e, J("settings:shared.settingsSaved")), (e) => s(G(e)));
+	}, g = () => {
+		c.run("secret", (e) => H($o, {}, "POST", e), (e) => p(e, J("settings:pushDiscovery.secretRotated")), (e) => s(G(e)));
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	}, _ = [
 		J("settings:pushDiscovery.ingestedCount", { count: u.queue.ingested }),
 		u.queue.failed ? J("settings:pushDiscovery.failedCount", { count: u.queue.failed }) : "",
@@ -3960,7 +4162,11 @@ function ts({ initial: e, receipt: t }) {
 	});
 }
 // src/react/settings/media-settings.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 async function ns(e) {
+========
+async function ts(e) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let t;
 	try {
 		t = await ht();
@@ -3975,14 +4181,22 @@ async function ns(e) {
 	});
 	return n;
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 var rs = (e) => Dr.find(([t]) => t === e)?.[1] ?? e, is = [...Dr, ["smb", J("settings:mediaLibraries.smbShare")]], as = (e) => e.library_icon || Uo(e.transport === "smb" ? "smb" : e.location)[0], os = async (e) => Mt(e, (e) => H(ve, e)), ss = (e) => ({
+========
+var ns = (e) => Dr.find(([t]) => t === e)?.[1] ?? e, rs = [...Dr, ["smb", J("settings:mediaLibraries.smbShare")]], is = (e) => e.library_icon || Ho(e.transport === "smb" ? "smb" : e.location)[0], as = async (e) => Mt(e, (e) => H(ve, e)), os = (e) => ({
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	library_id: e.library_id,
 	library: e.library,
 	library_icon: e.library_icon,
 	library_color: e.library_color,
 	library_policy: e.library_policy,
 	library_stages: e.library_stages
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 }), cs = (e) => e.library_stages ? qo.filter((t) => e.library_stages.split(",").includes(t)) : [], ls = (e = "") => ({
+========
+}), ss = (e) => e.library_stages ? Ko.filter((t) => e.library_stages.split(",").includes(t)) : [], cs = (e = "") => ({
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	path: e,
 	transport: e.startsWith("smb://") ? "smb" : "filesystem",
 	location: "local",
@@ -3995,7 +4209,11 @@ var rs = (e) => Dr.find(([t]) => t === e)?.[1] ?? e, is = [...Dr, ["smb", J("set
 	library_stages: "",
 	cost: "free"
 });
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function us(e) {
+========
+function ls(e) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let t = e.media_sources?.filter((e) => Dr.some(([t]) => t === e.location));
 	return t?.length ? t.map((e) => ({
 		transport: e.transport === "smb" || e.path.startsWith("smb://") ? "smb" : "filesystem",
@@ -4014,15 +4232,26 @@ function us(e) {
 		root_id: e.root_id,
 		library_id: e.library_id || Rt(),
 		cost: e.cost ?? Zt(e.location)
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 	})) : (e.media_dirs.length ? e.media_dirs : [""]).map((e) => ls(e));
 }
 var ds = (e) => !(e instanceof d) || e.status !== 400 ? null : Qe(e.body) ?? null;
 function fs({ data: e, receipt: t, panel: n }) {
+========
+	})) : (e.media_dirs.length ? e.media_dirs : [""]).map((e) => cs(e));
+}
+var us = (e) => !(e instanceof d) || e.status !== 400 ? null : Qe(e.body) ?? null;
+function ds({ data: e, receipt: t, panel: n }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let r = !!e.media_sources?.some((e) => jr(e.location));
 	return (0, Z.useEffect)(() => {
 		if (e.editable) {
 			let t = /* @__PURE__ */ new Map();
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			for (let n of us(e)) t.set(n.library_id, (t.get(n.library_id) ?? 0) + 1);
+========
+			for (let n of ls(e)) t.set(n.library_id, (t.get(n.library_id) ?? 0) + 1);
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			zt("media", {
 				folders: [...t.values()],
 				cloud: r
@@ -4039,7 +4268,11 @@ function fs({ data: e, receipt: t, panel: n }) {
 	}, [e, r]), /* @__PURE__ */ (0, Q.jsxs)("div", {
 		...Rr(n),
 		children: [
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			e.editable ? /* @__PURE__ */ (0, Q.jsx)(ps, {
+========
+			e.editable ? /* @__PURE__ */ (0, Q.jsx)(fs, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				data: e,
 				receipt: t
 			}) : /* @__PURE__ */ (0, Q.jsx)(N, {
@@ -4047,20 +4280,34 @@ function fs({ data: e, receipt: t, panel: n }) {
 				title: J("settings:mediaLibraries.readOnly"),
 				children: e.notice
 			}),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			e.editable ? null : /* @__PURE__ */ (0, Q.jsx)(hs, { data: e }),
 			r ? /* @__PURE__ */ (0, Q.jsx)(zo, { receipt: t }) : null,
 			e.push_discovery ? /* @__PURE__ */ (0, Q.jsx)(ts, {
+========
+			e.editable ? null : /* @__PURE__ */ (0, Q.jsx)(ms, { data: e }),
+			r ? /* @__PURE__ */ (0, Q.jsx)(Ro, { receipt: t }) : null,
+			e.push_discovery ? /* @__PURE__ */ (0, Q.jsx)(es, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				initial: e.push_discovery,
 				receipt: t
 			}) : null
 		]
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function ps({ data: e, receipt: t }) {
 	let { rows: n, edit: r, add: i, remove: a, errors: o, setErrors: s, picking: c, pick: l, inputRef: u } = Nr({
 		initial: () => us(e),
 		blank: () => ls(),
 		pickFolder: os,
+========
+function fs({ data: e, receipt: t }) {
+	let { rows: n, edit: r, add: i, remove: a, errors: o, setErrors: s, picking: c, pick: l, inputRef: u } = Nr({
+		initial: () => ls(e),
+		blank: () => cs(),
+		pickFolder: as,
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 		describe: G
 	}), [d, p] = (0, Z.useState)(!1), [m, h] = (0, Z.useState)(!1), [g, _] = (0, Z.useState)(""), [y, x] = (0, Z.useState)({}), [S, C] = (0, Z.useState)(null), ee = (0, Z.useRef)(e.revision), te = (0, Z.useRef)(!1), w = Y();
 	tn();
@@ -4077,7 +4324,11 @@ function ps({ data: e, receipt: t }) {
 	let ie = (e, t) => {
 		let i = n.find((e) => e.library_id === t);
 		if (i) {
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			r(e, ss(i));
+========
+			r(e, os(i));
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			return;
 		}
 		let a = Rt();
@@ -4092,7 +4343,11 @@ function ps({ data: e, receipt: t }) {
 	};
 	(0, Z.useEffect)(() => {
 		if (!S) return;
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 		let e = setTimeout(() => location.assign(S.url), No);
+========
+		let e = setTimeout(() => location.assign(S.url), Mo);
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 		return () => clearTimeout(e);
 	}, [S]);
 	let ae = (e) => {
@@ -4102,7 +4357,11 @@ function ps({ data: e, receipt: t }) {
 			h(!0);
 			let n = e.currentTarget;
 			requestAnimationFrame(() => n.querySelector(`[data-media-read-policy="${t}"] button`)?.focus());
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 		} else w.busy || te.current || (_(""), te.current = !0, ns(d).then((e) => {
+========
+		} else w.busy || te.current || (_(""), te.current = !0, ts(d).then((e) => {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			te.current = !1, e && O();
 		}));
 	}, O = () => {
@@ -4115,7 +4374,11 @@ function ps({ data: e, receipt: t }) {
 		}, "POST", t), (e) => {
 			ee.current = e.revision, s([]), t(J("settings:shared.settingsSaved")), C(e);
 		}, (e) => {
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			let t = ds(e);
+========
+			let t = us(e);
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			s(t?.media_dirs ?? []), (!t || t.port) && _(t?.port || G(e));
 		});
 	};
@@ -4142,7 +4405,11 @@ function ps({ data: e, receipt: t }) {
 		title: J("settings:libraryFolders.title"),
 		onSubmit: ae,
 		children: [/* @__PURE__ */ (0, Q.jsxs)(R, { children: [
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			/* @__PURE__ */ (0, Q.jsx)(Yo, {}),
+========
+			/* @__PURE__ */ (0, Q.jsx)(Jo, {}),
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			/* @__PURE__ */ (0, Q.jsx)("div", {
 				role: "group",
 				"aria-label": J("settings:libraryFolders.title"),
@@ -4165,7 +4432,11 @@ function ps({ data: e, receipt: t }) {
 							/* @__PURE__ */ (0, Q.jsxs)("div", {
 								"data-library-head": "",
 								children: [
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 									/* @__PURE__ */ (0, Q.jsx)(Go, {
+========
+									/* @__PURE__ */ (0, Q.jsx)(Wo, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 										label: J("settings:mediaLibraries.iconLabel", { name: p }),
 										value: e.library_icon,
 										kind: e.transport === "smb" ? "smb" : e.location,
@@ -4179,26 +4450,45 @@ function ps({ data: e, receipt: t }) {
 										value: e.library,
 										onChange: (e) => T(t, { library: e })
 									}),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 									/* @__PURE__ */ (0, Q.jsx)(Qo, {
+========
+									/* @__PURE__ */ (0, Q.jsx)(Zo, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 										id: e.library_id,
 										name: e.library,
 										value: e.library_color,
 										onChange: (e) => T(t, { library_color: e })
 									}),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 									/* @__PURE__ */ (0, Q.jsx)(Xo, {
+========
+									/* @__PURE__ */ (0, Q.jsx)(Yo, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 										name: p,
 										value: d,
 										onChange: (n) => T(t, {
 											library_policy: n,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 											library_stages: n === "custom" ? e.library_stages || qo.join(",") : ""
+========
+											library_stages: n === "custom" ? e.library_stages || Ko.join(",") : ""
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 										})
 									})
 								]
 							}),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 							d === "custom" ? /* @__PURE__ */ (0, Q.jsx)(Zo, {
 								name: p,
 								value: cs(e),
 								onChange: (e) => T(t, { library_stages: qo.filter((t) => e.includes(t)).join(",") })
+========
+							d === "custom" ? /* @__PURE__ */ (0, Q.jsx)(Xo, {
+								name: p,
+								value: ss(e),
+								onChange: (e) => T(t, { library_stages: Ko.filter((t) => e.includes(t)).join(",") })
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 							}) : null,
 							/* @__PURE__ */ (0, Q.jsxs)("div", {
 								"data-library-folders": "",
@@ -4216,12 +4506,20 @@ function ps({ data: e, receipt: t }) {
 									picking: c === i,
 									onPick: () => void l(i),
 									onRemove: n.length > 1 ? () => a(i) : void 0,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 									status: k(t) ? /* @__PURE__ */ (0, Q.jsx)(ms, { online: k(t)?.online }) : null,
+========
+									status: k(t) ? /* @__PURE__ */ (0, Q.jsx)(ps, { online: k(t)?.online }) : null,
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 									children: [/* @__PURE__ */ (0, Q.jsxs)(Tr, { children: [
 										/* @__PURE__ */ (0, Q.jsx)(Ar, {
 											index: i,
 											value: t.transport === "smb" ? "smb" : t.location,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 											options: is,
+========
+											options: rs,
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 											onChange: (e) => {
 												let n = e === "smb";
 												r(i, {
@@ -4274,7 +4572,11 @@ function ps({ data: e, receipt: t }) {
 												selectedKey: t.library_id,
 												renderValue: /* @__PURE__ */ (0, Q.jsxs)("span", {
 													className: "flex min-w-0 items-center gap-2",
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 													children: [/* @__PURE__ */ (0, Q.jsx)(Be, { mark: as(e) }), /* @__PURE__ */ (0, Q.jsx)("span", {
+========
+													children: [/* @__PURE__ */ (0, Q.jsx)(Be, { mark: is(e) }), /* @__PURE__ */ (0, Q.jsx)("span", {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 														className: "truncate",
 														children: p
 													})]
@@ -4287,7 +4589,11 @@ function ps({ data: e, receipt: t }) {
 													textValue: e.library || J("settings:mediaLibraries.untitled"),
 													children: /* @__PURE__ */ (0, Q.jsxs)("span", {
 														className: "flex min-w-0 items-center gap-2",
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 														children: [/* @__PURE__ */ (0, Q.jsx)(Be, { mark: as(e) }), /* @__PURE__ */ (0, Q.jsx)("span", {
+========
+														children: [/* @__PURE__ */ (0, Q.jsx)(Be, { mark: is(e) }), /* @__PURE__ */ (0, Q.jsx)("span", {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 															className: "truncate",
 															children: e.library || J("settings:mediaLibraries.untitled")
 														})]
@@ -4384,7 +4690,11 @@ function ps({ data: e, receipt: t }) {
 										"aria-label": J("settings:mediaLibraries.addDirectoryLabel", { name: p }),
 										onClick: () => {
 											i(), r(n.length, {
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 												...ss(e),
+========
+												...os(e),
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 												location: e.location,
 												cost: e.cost
 											});
@@ -4404,7 +4714,11 @@ function ps({ data: e, receipt: t }) {
 				children: J("settings:mediaLibraries.addLibrary")
 			}),
 			/* @__PURE__ */ (0, Q.jsx)(j, { children: le }),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			oe ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(kr, {}), /* @__PURE__ */ (0, Q.jsx)(Io, {})] }) : null,
+========
+			oe ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(kr, {}), /* @__PURE__ */ (0, Q.jsx)(Fo, {})] }) : null,
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			se.map((e) => /* @__PURE__ */ (0, Q.jsxs)(j, { children: [
 				J("settings:mediaLibraries.dependencyMissingName", { name: e.name }),
 				J("shell:format.sentenceGap"),
@@ -4437,18 +4751,30 @@ function ps({ data: e, receipt: t }) {
 		})]
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function ms({ online: e }) {
 	return /* @__PURE__ */ (0, Q.jsx)(pn, { online: e });
 }
 function hs({ data: e }) {
+========
+function ps({ online: e }) {
+	return /* @__PURE__ */ (0, Q.jsx)(pn, { online: e });
+}
+function ms({ data: e }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let t = e.media_sources, n = Y();
 	return t ? /* @__PURE__ */ (0, Q.jsxs)(F, {
 		guide: "mounts",
 		title: J("settings:mountStatus.title"),
 		children: [
 			/* @__PURE__ */ (0, Q.jsx)(k, { children: t.map((e, t) => /* @__PURE__ */ (0, Q.jsxs)(O, {
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 				term: /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(Be, { mark: Mr(e.location) }), rs(e.location)] }),
 				children: [e.path || J("settings:mountStatus.notConfigured"), /* @__PURE__ */ (0, Q.jsx)(ms, { online: e.online })]
+========
+				term: /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(Be, { mark: Mr(e.location) }), ns(e.location)] }),
+				children: [e.path || J("settings:mountStatus.notConfigured"), /* @__PURE__ */ (0, Q.jsx)(ps, { online: e.online })]
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			}, t)) }),
 			n.error ? /* @__PURE__ */ (0, Q.jsx)(R, {
 				divided: !0,
@@ -4464,12 +4790,20 @@ function hs({ data: e }) {
 	}) : null;
 }
 // src/react/settings/service-preferences.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 var gs = [
+========
+var hs = [
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	["off", J("settings:timelineThumbnails.off")],
 	["precise", J("settings:timelineThumbnails.precise")],
 	["coarse", J("settings:timelineThumbnails.coarse")]
 ];
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function _s({ receipt: e }) {
+========
+function gs({ receipt: e }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let t = X({
 		queryKey: Ae,
 		queryFn: ({ signal: e }) => _t(e)
@@ -4490,7 +4824,11 @@ function _s({ receipt: e }) {
 		}) : null]
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function vs({ epoch: e = 0, disabled: t = !1 }) {
+========
+function _s({ epoch: e = 0, disabled: t = !1 }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let n = X({
 		queryKey: Ve,
 		queryFn: ({ signal: e }) => vt(e),
@@ -4513,7 +4851,11 @@ function vs({ epoch: e = 0, disabled: t = !1 }) {
 					onSelectionChange: (e) => {
 						e !== null && r.mutate(String(e));
 					},
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 					children: gs.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(I, {
+========
+					children: hs.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(I, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 						id: e,
 						children: t
 					}, e))
@@ -4538,7 +4880,11 @@ function vs({ epoch: e = 0, disabled: t = !1 }) {
 		}) : null
 	] });
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function ys({ receipt: e }) {
+========
+function vs({ receipt: e }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let t = Ze();
 	(0, Z.useSyncExternalStore)(t.subscribe, t.version);
 	let n = X({
@@ -4550,8 +4896,13 @@ function ys({ receipt: e }) {
 		guide: "follow-options",
 		title: J("settings:followFetch.title"),
 		children: [/* @__PURE__ */ (0, Q.jsxs)(P, { children: [
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			/* @__PURE__ */ (0, Q.jsx)(bs, {}),
 			/* @__PURE__ */ (0, Q.jsx)(xs, {}),
+========
+			/* @__PURE__ */ (0, Q.jsx)(ys, {}),
+			/* @__PURE__ */ (0, Q.jsx)(bs, {}),
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			/* @__PURE__ */ (0, Q.jsx)(L, {
 				label: J("settings:followFetch.initialRange"),
 				description: J("settings:followFetch.initialRangeHelp"),
@@ -4596,12 +4947,16 @@ function ys({ receipt: e }) {
 		}) : null]
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function bs() {
+========
+function ys() {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let e = X({
 		queryKey: ae,
 		queryFn: ({ signal: e }) => mt(e),
 		refetchOnMount: "always",
-		refetchInterval: (e) => Wt(e.state.data)
+		refetchInterval: Wt
 	}), t = cn(), n = e.data, r = (0, Z.useRef)($e(Number(localStorage.getItem("peach.number.followScheduleSetting")), 15, 10080, 60)), [i, a] = (0, Z.useState)("60"), [o, s] = (0, Z.useState)(!1);
 	(0, Z.useEffect)(() => {
 		n?.enabled && (r.current = n.interval_minutes, a(String(n.interval_minutes)));
@@ -4660,7 +5015,11 @@ function bs() {
 			kind: Ye("follow-check"),
 			label: J("settings:followSchedule.checking")
 		}) }) : null,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 		/* @__PURE__ */ (0, Q.jsx)(Ss, {
+========
+		/* @__PURE__ */ (0, Q.jsx)(xs, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			kind: "follow",
 			status: n,
 			title: J("settings:followSchedule.lastCheckFailed")
@@ -4668,12 +5027,16 @@ function bs() {
 		u ? /* @__PURE__ */ (0, Q.jsx)(R, { children: /* @__PURE__ */ (0, Q.jsx)(T, { children: G(u) }) }) : null
 	] });
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function xs() {
+========
+function bs() {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let e = X({
 		queryKey: D,
 		queryFn: ({ signal: e }) => pt(e),
 		refetchOnMount: "always",
-		refetchInterval: (e) => Wt(e.state.data)
+		refetchInterval: Wt
 	}), t = e.data;
 	if (!t) return e.isPending ? /* @__PURE__ */ (0, Q.jsx)(L, {
 		label: J("settings:followFetch.feedSchedule"),
@@ -4698,14 +5061,22 @@ function xs() {
 			kind: Ye("feed-check"),
 			label: J("settings:followSchedule.fetchingFeeds")
 		}) }) : null,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 		/* @__PURE__ */ (0, Q.jsx)(Ss, {
+========
+		/* @__PURE__ */ (0, Q.jsx)(xs, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			kind: "feed",
 			status: t,
 			title: J("settings:followSchedule.lastFetchFailed")
 		})
 	] });
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function Ss({ kind: e, status: t, title: n }) {
+========
+function xs({ kind: e, status: t, title: n }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let r = sn(e);
 	if (!t?.enabled || t.running || !t.last_error) return null;
 	let i = t.consecutive_failures ?? 0, a = Ot(t.next_run_at), o = [i > 1 ? J("settings:followSchedule.consecutiveFailures", { count: i }) : "", a ? J("settings:followSchedule.nextRun", { time: a }) : ""].filter(Boolean).join(J("shell:format.clauseSeparator")), s = [
@@ -4728,7 +5099,11 @@ function Ss({ kind: e, status: t, title: n }) {
 	}) });
 }
 // src/react/settings/media-processing-settings.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function Cs({ receipt: e }) {
+========
+function Ss({ receipt: e }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let t = X({
 		queryKey: me,
 		queryFn: ({ signal: e }) => gt(e)
@@ -4749,7 +5124,11 @@ function Cs({ receipt: e }) {
 					})
 				})
 			}) }),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			/* @__PURE__ */ (0, Q.jsx)(vs, { disabled: !t.data || t.data.metadata_only || !!n.busy }),
+========
+			/* @__PURE__ */ (0, Q.jsx)(_s, { disabled: !t.data || t.data.metadata_only || !!n.busy }),
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			/* @__PURE__ */ (0, Q.jsx)(P, { children: /* @__PURE__ */ (0, Q.jsx)(L, {
 				label: J("settings:videoPreviews.decoder"),
 				description: J("settings:videoPreviews.decoderHelp"),
@@ -4789,7 +5168,11 @@ function Cs({ receipt: e }) {
 		]
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function ws({ receipt: e }) {
+========
+function Cs({ receipt: e }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let t = X({
 		queryKey: me,
 		queryFn: ({ signal: e }) => gt(e)
@@ -4838,7 +5221,11 @@ function ws({ receipt: e }) {
 	});
 }
 // src/react/boardui/components/base/textarea/textarea.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 var Ts = Xt({
+========
+var ws = Xt({
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	field: "relative flex w-full flex-col rounded-2lg bg-background-tertiary-default text-foreground-icon-tertiary ring-2 ring-inset ring-transparent transition-[background-color,box-shadow,color] duration-[var(--input-transition-ms)] ease",
 	fieldSize: {
 		medium: "p-2",
@@ -4851,8 +5238,13 @@ var Ts = Xt({
 	},
 	footer: "flex w-full items-start justify-between gap-3",
 	count: "ms-auto shrink-0 pt-px text-caption-1-medium text-text-tertiary tabular-nums"
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 }), Es = 20;
 function Ds({ size: e, rows: n = 3, autoResize: r = !1, maxRows: a, resize: o = "vertical", fieldClassName: s, className: c, ref: l, groupRef: u, onInput: d, ...f }) {
+========
+}), Ts = 20;
+function Es({ size: e, rows: n = 3, autoResize: r = !1, maxRows: a, resize: o = "vertical", fieldClassName: s, className: c, ref: l, groupRef: u, onInput: d, ...f }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let p = (0, Z.useContext)(Ge), m = e ?? p.size ?? "medium", h = (0, Z.useRef)(null), g = (e) => {
 		h.current = e, typeof l == "function" ? l(e) : l && (l.current = e);
 	}, _ = () => {
@@ -4862,14 +5254,22 @@ function Ds({ size: e, rows: n = 3, autoResize: r = !1, maxRows: a, resize: o = 
 			e.style.height = "", e.style.maxHeight = "", e.style.overflowY = "";
 			return;
 		}
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 		let t = parseFloat(window.getComputedStyle(e).lineHeight) || Es, i = a ? a * t : Infinity;
+========
+		let t = parseFloat(window.getComputedStyle(e).lineHeight) || Ts, i = a ? a * t : Infinity;
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 		e.style.height = "0px";
 		let o = Math.max(e.scrollHeight, n * t);
 		e.style.height = `${Math.min(o, i)}px`, e.style.maxHeight = a ? `${i}px` : "", e.style.overflowY = o > i ? "auto" : "hidden";
 	};
 	return (0, Z.useLayoutEffect)(_), /* @__PURE__ */ (0, Q.jsx)(t, {
 		ref: u,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 		className: ({ isFocusWithin: e, isHovered: t, isDisabled: n, isInvalid: r }) => ct(Ts.field, Ts.fieldSize[m], t && !e && !n && !r && "ring-border-button-hover", e && !n && !r && "ring-border-button-active", n && "bg-input-disabled-background text-input-disabled-foreground", r && "bg-background-tertiary-error text-foreground-icon-error", p.fieldClassName, s),
+========
+		className: ({ isFocusWithin: e, isHovered: t, isDisabled: n, isInvalid: r }) => ct(ws.field, ws.fieldSize[m], t && !e && !n && !r && "ring-border-button-hover", e && !n && !r && "ring-border-button-active", n && "bg-input-disabled-background text-input-disabled-foreground", r && "bg-background-tertiary-error text-foreground-icon-error", p.fieldClassName, s),
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 		children: /* @__PURE__ */ (0, Q.jsx)(i, {
 			ref: g,
 			rows: n,
@@ -4877,12 +5277,21 @@ function Ds({ size: e, rows: n = 3, autoResize: r = !1, maxRows: a, resize: o = 
 			onInput: (e) => {
 				_(), d?.(e);
 			},
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			className: ct(Ts.textarea, Ts.resize[r ? "none" : o], p.inputClassName, c)
 		})
 	});
 }
 Ds.displayName = "TextareaBase";
 function Os({ label: e, hint: t, tooltip: n, placeholder: r, rows: i, autoResize: a, maxRows: o, resize: s, maxLength: c, showCount: l = !1, fieldClassName: u, ref: d, groupRef: f, className: p, value: m, defaultValue: h, onChange: g, ..._ }) {
+========
+			className: ct(ws.textarea, ws.resize[r ? "none" : o], p.inputClassName, c)
+		})
+	});
+}
+Es.displayName = "TextareaBase";
+function Ds({ label: e, hint: t, tooltip: n, placeholder: r, rows: i, autoResize: a, maxRows: o, resize: s, maxLength: c, showCount: l = !1, fieldClassName: u, ref: d, groupRef: f, className: p, value: m, defaultValue: h, onChange: g, ..._ }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let [v, y] = (0, Z.useState)(() => (h ?? "").length), b = m === void 0 ? v : m.length;
 	return /* @__PURE__ */ (0, Q.jsx)(We, {
 		..._,
@@ -4900,7 +5309,11 @@ function Os({ label: e, hint: t, tooltip: n, placeholder: r, rows: i, autoResize
 				tooltip: n,
 				children: e
 			}),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			/* @__PURE__ */ (0, Q.jsx)(Ds, {
+========
+			/* @__PURE__ */ (0, Q.jsx)(Es, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				ref: d,
 				groupRef: f,
 				placeholder: r,
@@ -4912,22 +5325,37 @@ function Os({ label: e, hint: t, tooltip: n, placeholder: r, rows: i, autoResize
 				fieldClassName: u
 			}),
 			(t || l) && /* @__PURE__ */ (0, Q.jsxs)("div", {
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 				className: Ts.footer,
+========
+				className: ws.footer,
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				children: [t && /* @__PURE__ */ (0, Q.jsx)(se, {
 					isInvalid: m,
 					children: t
 				}), l && /* @__PURE__ */ (0, Q.jsx)("span", {
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 					className: ct(Ts.count, m && "text-text-error-primary"),
+========
+					className: ct(ws.count, m && "text-text-error-primary"),
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 					children: c ? `${b}/${c}` : b
 				})]
 			})
 		] })
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 Os.displayName = "Textarea";
 // src/react/settings/code-pattern-settings.tsx
 var ks = "^\\+{3}\\s*(?<code>FC2-PPV-\\d+)\n\\[(?<code>[A-Z]+-\\d+)\\]";
 function As({ receipt: e }) {
+========
+Ds.displayName = "Textarea";
+// src/react/settings/code-pattern-settings.tsx
+var Os = "^\\+{3}\\s*(?<code>FC2-PPV-\\d+)\n\\[(?<code>[A-Z]+-\\d+)\\]";
+function ks({ receipt: e }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let t = X({
 		queryKey: Ae,
 		queryFn: ({ signal: e }) => _t(e)
@@ -4942,7 +5370,11 @@ function As({ receipt: e }) {
 				Lt.setQueryData(Ae, t), r(null), e(J("settings:shared.settingsSaved"));
 			});
 		},
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 		children: [/* @__PURE__ */ (0, Q.jsxs)(R, { children: [/* @__PURE__ */ (0, Q.jsx)(j, { children: J("settings:codePatterns.help") }), /* @__PURE__ */ (0, Q.jsx)(Os, {
+========
+		children: [/* @__PURE__ */ (0, Q.jsxs)(R, { children: [/* @__PURE__ */ (0, Q.jsx)(j, { children: J("settings:codePatterns.help") }), /* @__PURE__ */ (0, Q.jsx)(Ds, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			id: "codePatternSetting",
 			"aria-label": J("settings:codePatterns.title"),
 			rows: 3,
@@ -4950,7 +5382,11 @@ function As({ receipt: e }) {
 			maxRows: 12,
 			spellCheck: "false",
 			autoComplete: "off",
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			placeholder: ks,
+========
+			placeholder: Os,
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			value: a,
 			isDisabled: !t.data,
 			isInvalid: !!o,
@@ -4964,7 +5400,11 @@ function As({ receipt: e }) {
 	});
 }
 // src/react/settings/password-pair.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function js({ label: e, password: t, confirmation: n, onPassword: r, onConfirmation: i, disabled: a = !1, passwordError: o, passwordHint: s, confirmationError: c, confirmationInvalid: l = !1 }) {
+========
+function As({ label: e, password: t, confirmation: n, onPassword: r, onConfirmation: i, disabled: a = !1, passwordError: o, passwordHint: s, confirmationError: c, confirmationInvalid: l = !1 }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	return /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(M, {
 		id: "access-password",
 		type: "password",
@@ -4994,12 +5434,20 @@ function js({ label: e, password: t, confirmation: n, onPassword: r, onConfirmat
 	})] });
 }
 // src/react/settings/access-settings.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 var Ms = {
+========
+var js = {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	legacy: J("settings:accessPassword.legacyHelp"),
 	locked: J("settings:accessPassword.lockedHelp"),
 	password: J("settings:accessPassword.passwordHelp")
 };
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function Ns({ initial: e, receipt: t, devices: n, after: r }) {
+========
+function Ms({ initial: e, receipt: t, devices: n, after: r }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let [i, a] = (0, Z.useState)(e), [o, s] = (0, Z.useState)(""), [c, l] = (0, Z.useState)(""), [u, p] = (0, Z.useState)(""), [m, h] = (0, Z.useState)(!1), [g, _] = (0, Z.useState)({}), v = (0, Z.useRef)(null), y = Y(), x = (e) => {
 		e.preventDefault();
 		let n = {};
@@ -5016,7 +5464,11 @@ function Ns({ initial: e, receipt: t, devices: n, after: r }) {
 			let t = e instanceof d ? e.body : null, n = Qe(t) || Qe(t?.detail);
 			n ? _(n) : y.setError(G(e));
 		});
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 	}, S = Ms[i.mode], C = i.mode !== "locked";
+========
+	}, S = js[i.mode], C = i.mode !== "locked";
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	return /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [
 		/* @__PURE__ */ (0, Q.jsxs)(F, {
 			guide: "access",
@@ -5049,7 +5501,11 @@ function Ns({ initial: e, receipt: t, devices: n, after: r }) {
 						isInvalid: !!g.current_password,
 						hint: g.current_password
 					}) : null,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 					C && !m ? /* @__PURE__ */ (0, Q.jsx)(js, {
+========
+					C && !m ? /* @__PURE__ */ (0, Q.jsx)(As, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 						label: i.mode === "password" ? J("settings:accessPassword.new") : J("settings:accessPassword.set"),
 						password: c,
 						confirmation: u,
@@ -5077,12 +5533,21 @@ function Ns({ initial: e, receipt: t, devices: n, after: r }) {
 	] });
 }
 // src/react/settings/api-token-settings.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 var Ps = "/api/configuration/access/token/rotate";
 function Fs(e, t) {
 	let n = J("settings:accessToken.scriptsInvalidated"), r = J(e === "legacy" ? "settings:accessToken.rotateEffectLegacy" : e === "open" ? "settings:accessToken.rotateEffectOpen" : "settings:accessToken.rotateEffectPassword", { scripts: n });
 	return t ? J("settings:accessToken.rotateEffectPaired", { sentence: r }) : r;
 }
 function Is({ initial: e, mode: t, receipt: n }) {
+========
+var Ns = "/api/configuration/access/token/rotate";
+function Ps(e, t) {
+	let n = J("settings:accessToken.scriptsInvalidated"), r = J(e === "legacy" ? "settings:accessToken.rotateEffectLegacy" : e === "open" ? "settings:accessToken.rotateEffectOpen" : "settings:accessToken.rotateEffectPassword", { scripts: n });
+	return t ? J("settings:accessToken.rotateEffectPaired", { sentence: r }) : r;
+}
+function Fs({ initial: e, mode: t, receipt: n }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let [r, i] = (0, Z.useState)(e), [a, o] = (0, Z.useState)(null), s = Y(), c = an();
 	return /* @__PURE__ */ (0, Q.jsxs)(F, {
 		title: J("settings:accessToken.title"),
@@ -5129,10 +5594,17 @@ function Is({ initial: e, mode: t, receipt: n }) {
 				variant: "secondary",
 				onClick: () => void at({
 					title: J("settings:accessToken.rotateTitle"),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 					body: Fs(t, r.paired),
 					confirmLabel: J("settings:accessToken.rotate"),
 					onConfirm: async () => {
 						let e = await H(Ps, {});
+========
+					body: Ps(t, r.paired),
+					confirmLabel: J("settings:accessToken.rotate"),
+					onConfirm: async () => {
+						let e = await H(Ns, {});
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 						i(e), o(e), e.mode === "legacy" && c.invalidateQueries({ queryKey: ["access-sessions"] }), n(e.signed_out ? J("settings:accessToken.rotatedSignedOut", { count: e.signed_out }) : J("settings:accessToken.rotated"));
 					}
 				}),
@@ -5142,7 +5614,11 @@ function Is({ initial: e, mode: t, receipt: n }) {
 	});
 }
 // src/react/settings/certificate-trust.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function Ls({ rows: e, label: t }) {
+========
+function Is({ rows: e, label: t }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let n = e.length + 8, r = e.flatMap((e, t) => [...e].flatMap((e, n) => e === "1" ? [`M${n + 4} ${t + 4}h1v1h-1z`] : [])).join("");
 	return /* @__PURE__ */ (0, Q.jsx)("svg", {
 		role: "img",
@@ -5156,12 +5632,20 @@ function Ls({ rows: e, label: t }) {
 		})
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 var Rs = [
+========
+var Ls = [
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	[J("settings:certificateTrust.iosDevices"), J("settings:certificateTrust.iosSteps")],
 	["Android", J("settings:certificateTrust.androidSteps")],
 	[J("settings:certificateTrust.computer"), J("settings:certificateTrust.computerSteps")]
 ];
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function zs({ initial: e }) {
+========
+function Rs({ initial: e }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let t = X({
 		queryKey: ["ca-certificate"],
 		initialData: e,
@@ -5179,7 +5663,11 @@ function zs({ initial: e }) {
 		children: [
 			/* @__PURE__ */ (0, Q.jsxs)(R, { children: [/* @__PURE__ */ (0, Q.jsx)(j, { children: J("settings:certificateTrust.help") }), /* @__PURE__ */ (0, Q.jsxs)("div", {
 				className: "flex min-w-0 flex-wrap items-start gap-4",
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 				children: [/* @__PURE__ */ (0, Q.jsx)(Ls, {
+========
+				children: [/* @__PURE__ */ (0, Q.jsx)(Is, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 					rows: t.qr,
 					label: J("settings:certificateTrust.qrLabel")
 				}), /* @__PURE__ */ (0, Q.jsxs)("div", {
@@ -5199,7 +5687,11 @@ function zs({ initial: e }) {
 					})] }), /* @__PURE__ */ (0, Q.jsx)(j, { children: J("settings:certificateTrust.qrHelp") })]
 				})]
 			})] }),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			/* @__PURE__ */ (0, Q.jsx)(P, { children: Rs.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(L, {
+========
+			/* @__PURE__ */ (0, Q.jsx)(P, { children: Ls.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(L, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				label: e,
 				description: t
 			}, e)) }),
@@ -5217,6 +5709,7 @@ function zs({ initial: e }) {
 	});
 }
 // src/react/settings/device-sessions.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 var Bs = "/api/configuration/access/sessions", Vs = (e) => e.device || J("settings:deviceSessions.unknownBrowser"), Hs = {
 	glyph: ce,
 	brand: "apple"
@@ -5238,6 +5731,29 @@ var Bs = "/api/configuration/access/sessions", Vs = (e) => e.device || J("settin
 	},
 	"Android tablet": {
 		platform: Us,
+========
+var zs = "/api/configuration/access/sessions", Bs = (e) => e.device || J("settings:deviceSessions.unknownBrowser"), Vs = {
+	glyph: ce,
+	brand: "apple"
+}, Hs = {
+	glyph: Tt,
+	brand: "android"
+}, Us = {
+	iPhone: {
+		platform: Vs,
+		terminal: Je
+	},
+	iPad: {
+		platform: Vs,
+		terminal: ne
+	},
+	Android: {
+		platform: Hs,
+		terminal: Je
+	},
+	"Android tablet": {
+		platform: Hs,
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 		terminal: ne,
 		label: () => J("settings:deviceSessions.androidTablet")
 	},
@@ -5253,6 +5769,7 @@ var Bs = "/api/configuration/access/sessions", Vs = (e) => e.device || J("settin
 		terminal: fn
 	},
 	macOS: {
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 		platform: Hs,
 		terminal: fn
 	},
@@ -5262,11 +5779,23 @@ function Ks({ platform: e }) {
 	if ("browser" in e) return /* @__PURE__ */ (0, Q.jsx)(Pr, {
 		name: e.browser,
 		className: Gs
+========
+		platform: Vs,
+		terminal: fn
+	},
+	Linux: { terminal: fn }
+}, Ws = "inline size-4 -mt-0.5 mr-1 align-middle";
+function Gs({ platform: e }) {
+	if ("browser" in e) return /* @__PURE__ */ (0, Q.jsx)(Pr, {
+		name: e.browser,
+		className: Ws
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	});
 	let { glyph: t, brand: n } = e;
 	return /* @__PURE__ */ (0, Q.jsx)(t, {
 		"aria-hidden": !0,
 		"data-platform-mark": n,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 		className: Gs
 	});
 }
@@ -5284,16 +5813,40 @@ function qs({ row: e }) {
 }
 function Js({ row: e }) {
 	let t = Ws[e.device.split(" · ").at(-1) ?? ""]?.terminal ?? lt;
+========
+		className: Ws
+	});
+}
+function Ks({ row: e }) {
+	if (!e.device) return Bs(e);
+	let t = e.device.split(" · "), n = Us[t.at(-1) ?? ""] ? t.pop() : "", r = t.join(" · "), i = n ? Us[n].platform : void 0;
+	return /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [
+		r ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [Fr(r) ? /* @__PURE__ */ (0, Q.jsx)(Pr, {
+			name: r,
+			className: Ws
+		}) : null, r] }) : null,
+		r && n ? " · " : null,
+		n ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [i ? /* @__PURE__ */ (0, Q.jsx)(Gs, { platform: i }) : null, Us[n].label?.() ?? n] }) : null
+	] });
+}
+function qs({ row: e }) {
+	let t = Us[e.device.split(" · ").at(-1) ?? ""]?.terminal ?? lt;
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	return /* @__PURE__ */ (0, Q.jsx)(t, {
 		"aria-hidden": !0,
 		className: "size-5 shrink-0 text-foreground-icon-secondary"
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function Ys({ row: e, children: t }) {
+========
+function Js({ row: e, children: t }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
 		className: "flex min-h-13 w-full items-center justify-between gap-4 border-b border-separator-border py-2.5 pr-2.5 last:border-b-0",
 		children: [/* @__PURE__ */ (0, Q.jsxs)("div", {
 			className: "flex min-w-0 items-center gap-3",
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			children: [/* @__PURE__ */ (0, Q.jsx)(Js, { row: e }), /* @__PURE__ */ (0, Q.jsxs)("div", {
 				className: "flex min-w-0 flex-col",
 				children: [/* @__PURE__ */ (0, Q.jsx)("p", {
@@ -5302,11 +5855,22 @@ function Ys({ row: e, children: t }) {
 				}), /* @__PURE__ */ (0, Q.jsx)("p", {
 					className: "text-body-2-regular text-text-secondary",
 					children: Qs(e)
+========
+			children: [/* @__PURE__ */ (0, Q.jsx)(qs, { row: e }), /* @__PURE__ */ (0, Q.jsxs)("div", {
+				className: "flex min-w-0 flex-col",
+				children: [/* @__PURE__ */ (0, Q.jsx)("p", {
+					className: "text-body-regular text-text-primary",
+					children: /* @__PURE__ */ (0, Q.jsx)(Ks, { row: e })
+				}), /* @__PURE__ */ (0, Q.jsx)("p", {
+					className: "text-body-2-regular text-text-secondary",
+					children: Zs(e)
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				})]
 			})]
 		}), t]
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function Xs(e, t = Date.now() / 1e3) {
 	let n = Math.max(0, t - e);
 	return n < 60 ? J("settings:deviceSessions.justNow") : n < 3600 ? J("settings:deviceSessions.minutesAgo", { count: Math.floor(n / 60) }) : n < 86400 ? J("settings:deviceSessions.hoursAgo", { count: Math.floor(n / 3600) }) : n < 2592e3 ? J("settings:deviceSessions.daysAgo", { count: Math.floor(n / 86400) }) : (/* @__PURE__ */ new Date(e * 1e3)).toLocaleDateString(xt);
@@ -5320,6 +5884,21 @@ function $s({ revision: e, receipt: t }) {
 		queryKey: ["access-sessions", e],
 		refetchOnMount: "always",
 		queryFn: ({ signal: e }) => V(Bs, e)
+========
+function Ys(e, t = Date.now() / 1e3) {
+	let n = Math.max(0, t - e);
+	return n < 60 ? J("settings:deviceSessions.justNow") : n < 3600 ? J("settings:deviceSessions.minutesAgo", { count: Math.floor(n / 60) }) : n < 86400 ? J("settings:deviceSessions.hoursAgo", { count: Math.floor(n / 3600) }) : n < 2592e3 ? J("settings:deviceSessions.daysAgo", { count: Math.floor(n / 86400) }) : (/* @__PURE__ */ new Date(e * 1e3)).toLocaleDateString(xt);
+}
+function Xs(e) {
+	return e.network === "loopback" ? J("settings:deviceSessions.loopback") : e.network ? e.remote ? J("settings:deviceSessions.viaRemoteAccess", { network: e.network }) : e.network : "";
+}
+var Zs = (e) => [J("settings:deviceSessions.lastActive", { time: Ys(e.last_seen) }), Xs(e)].filter(Boolean).join(" · ");
+function Qs({ revision: e, receipt: t }) {
+	let n = X({
+		queryKey: ["access-sessions", e],
+		refetchOnMount: "always",
+		queryFn: ({ signal: e }) => V(zs, e)
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	});
 	return n.error ? /* @__PURE__ */ (0, Q.jsx)(F, {
 		title: J("settings:signedInDevices.title"),
@@ -5327,12 +5906,20 @@ function $s({ revision: e, receipt: t }) {
 	}) : n.isFetching || !n.data ? /* @__PURE__ */ (0, Q.jsx)(Me, {
 		label: J("settings:deviceSessions.loading"),
 		html: ut
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 	}) : /* @__PURE__ */ (0, Q.jsx)(ec, {
+========
+	}) : /* @__PURE__ */ (0, Q.jsx)($s, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 		initial: n.data,
 		receipt: t
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function ec({ initial: e, receipt: t }) {
+========
+function $s({ initial: e, receipt: t }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let [n, r] = (0, Z.useState)(e);
 	(0, Z.useEffect)(() => r(e), [e]);
 	let i = n.sessions.filter((e) => !e.current);
@@ -5345,12 +5932,21 @@ function ec({ initial: e, receipt: t }) {
 	let a = (e) => void at({
 		title: J("settings:deviceSessions.revokeTitle"),
 		body: J("settings:deviceSessions.revokeBody", {
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			device: Vs(e),
 			details: Qs(e)
 		}),
 		confirmLabel: J("settings:deviceSessions.revokeConfirm"),
 		onConfirm: async () => {
 			r(await H(`${Bs}/revoke`, {
+========
+			device: Bs(e),
+			details: Zs(e)
+		}),
+		confirmLabel: J("settings:deviceSessions.revokeConfirm"),
+		onConfirm: async () => {
+			r(await H(`${zs}/revoke`, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				revision: n.revision,
 				id: e.id
 			})), t(J("settings:deviceSessions.revoked"));
@@ -5359,7 +5955,11 @@ function ec({ initial: e, receipt: t }) {
 	return /* @__PURE__ */ (0, Q.jsxs)(F, {
 		title: J("settings:signedInDevices.title"),
 		children: [
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			n.sessions.length ? /* @__PURE__ */ (0, Q.jsx)(P, { children: n.sessions.map((e) => /* @__PURE__ */ (0, Q.jsx)(Ys, {
+========
+			n.sessions.length ? /* @__PURE__ */ (0, Q.jsx)(P, { children: n.sessions.map((e) => /* @__PURE__ */ (0, Q.jsx)(Js, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				row: e,
 				children: e.current ? /* @__PURE__ */ (0, Q.jsx)(x, {
 					color: "blue",
@@ -5368,7 +5968,11 @@ function ec({ initial: e, receipt: t }) {
 				}) : n.manageable ? /* @__PURE__ */ (0, Q.jsx)(f, {
 					size: "small",
 					variant: "secondary",
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 					"aria-label": J("settings:deviceSessions.revokeDevice", { device: Vs(e) }),
+========
+					"aria-label": J("settings:deviceSessions.revokeDevice", { device: Bs(e) }),
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 					onClick: () => a(e),
 					children: J("settings:deviceSessions.revoke")
 				}) : null
@@ -5386,7 +5990,11 @@ function ec({ initial: e, receipt: t }) {
 						body: J("settings:deviceSessions.revokeOthersBody", { count: i.length }),
 						confirmLabel: J("settings:deviceSessions.revokeConfirm"),
 						onConfirm: async () => {
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 							let e = await H(`${Bs}/revoke`, {
+========
+							let e = await H(`${zs}/revoke`, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 								revision: n.revision,
 								scope: "others"
 							});
@@ -5400,18 +6008,30 @@ function ec({ initial: e, receipt: t }) {
 	});
 }
 // src/react/settings/port-settings.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 var tc = [{
+========
+var ec = [{
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	value: "0.0.0.0",
 	label: J("settings:accessAddress.lanDevices")
 }, {
 	value: "127.0.0.1",
 	label: J("settings:accessAddress.thisComputerOnly")
 }];
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function nc({ data: e, receipt: t }) {
 	let n = e.network, r = n ? n.editable : e.editable && e.port_editable !== !1, [i, a] = (0, Z.useState)(n?.host ?? "127.0.0.1"), [o, s] = (0, Z.useState)(n?.mdns_name ?? "peach"), [c, l] = (0, Z.useState)(String(e.port)), [u, p] = (0, Z.useState)({}), [m, h] = (0, Z.useState)(null), g = Y();
 	return (0, Z.useEffect)(() => {
 		if (!m) return;
 		let e = setTimeout(() => location.assign(m.url), No);
+========
+function tc({ data: e, receipt: t }) {
+	let n = e.network, r = n ? n.editable : e.editable && e.port_editable !== !1, [i, a] = (0, Z.useState)(n?.host ?? "127.0.0.1"), [o, s] = (0, Z.useState)(n?.mdns_name ?? "peach"), [c, l] = (0, Z.useState)(String(e.port)), [u, p] = (0, Z.useState)({}), [m, h] = (0, Z.useState)(null), g = Y();
+	return (0, Z.useEffect)(() => {
+		if (!m) return;
+		let e = setTimeout(() => location.assign(m.url), Mo);
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 		return () => clearTimeout(e);
 	}, [m]), m ? /* @__PURE__ */ (0, Q.jsx)(F, {
 		guide: "port",
@@ -5447,17 +6067,29 @@ function nc({ data: e, receipt: t }) {
 			});
 		} : void 0,
 		children: [/* @__PURE__ */ (0, Q.jsxs)(R, { children: [
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			n ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(rc, {
+========
+			n ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(nc, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				label: J("settings:accessAddress.localUrl"),
 				value: n.local_url,
 				receipt: t
 			}), n.lan_url || n.ip_url ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 				/* @__PURE__ */ (0, Q.jsx)(rc, {
+========
+				/* @__PURE__ */ (0, Q.jsx)(nc, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 					label: J("settings:accessAddress.phoneUrl"),
 					value: n.lan_url || n.ip_url,
 					receipt: t
 				}),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 				n.lan_url && n.ip_url ? /* @__PURE__ */ (0, Q.jsx)(rc, {
+========
+				n.lan_url && n.ip_url ? /* @__PURE__ */ (0, Q.jsx)(nc, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 					label: J("settings:accessAddress.alternateIp"),
 					value: n.ip_url,
 					receipt: t
@@ -5469,7 +6101,11 @@ function nc({ data: e, receipt: t }) {
 				label: J("settings:accessAddress.whoCanConnect"),
 				value: i,
 				onChange: a,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 				options: tc,
+========
+				options: ec,
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				isDisabled: !!g.busy,
 				isInvalid: !!u.host,
 				children: u.host ? /* @__PURE__ */ (0, Q.jsx)(T, { children: u.host }) : null
@@ -5515,7 +6151,11 @@ function nc({ data: e, receipt: t }) {
 		}) : null]
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function rc({ label: e, value: t, receipt: n }) {
+========
+function nc({ label: e, value: t, receipt: n }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let r = Y();
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
 		className: "flex min-w-0 flex-col gap-2",
@@ -5540,12 +6180,20 @@ function rc({ label: e, value: t, receipt: n }) {
 	});
 }
 // src/react/settings/peach-proxy-fields.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 var ic = [
+========
+var rc = [
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	["environment", J("settings:peachProxy.environment")],
 	["direct", J("settings:cloudProxy.direct")],
 	["proxy", J("settings:shared.custom")]
 ];
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function ac({ mode: e, onChange: t, labelledBy: n }) {
+========
+function ic({ mode: e, onChange: t, labelledBy: n }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	return /* @__PURE__ */ (0, Q.jsx)(Fe, {
 		"aria-label": n ? void 0 : J("settings:peachProxy.mode"),
 		"aria-labelledby": n,
@@ -5553,13 +6201,21 @@ function ac({ mode: e, onChange: t, labelledBy: n }) {
 		onSelectionChange: (e) => {
 			e !== null && t(String(e));
 		},
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 		children: ic.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(I, {
+========
+		children: rc.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(I, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			id: e,
 			children: t
 		}, e))
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function oc({ id: e, value: t, onChange: n, saved: r = !1, error: i }) {
+========
+function ac({ id: e, value: t, onChange: n, saved: r = !1, error: i }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	return /* @__PURE__ */ (0, Q.jsx)(M, {
 		id: e,
 		type: "password",
@@ -5575,19 +6231,32 @@ function oc({ id: e, value: t, onChange: n, saved: r = !1, error: i }) {
 	});
 }
 // src/react/settings/tunnel-settings.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 var sc = 2e3, cc = 3e5, lc = [["quick", J("settings:cloudflareTunnel.quick")], ["named", J("settings:cloudflareTunnel.named")]], uc = {
 	quick: J("settings:remoteAccess.quickHelp"),
 	named: J("settings:remoteAccess.namedHelp")
 };
 function dc({ revision: e, initial: t, receipt: n }) {
+========
+var oc = 2e3, sc = 3e5, cc = [["quick", J("settings:cloudflareTunnel.quick")], ["named", J("settings:cloudflareTunnel.named")]], lc = {
+	quick: J("settings:remoteAccess.quickHelp"),
+	named: J("settings:remoteAccess.namedHelp")
+};
+function uc({ revision: e, initial: t, receipt: n }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let [r, i] = (0, Z.useState)(t), [a, o] = (0, Z.useState)(e), [s, l] = (0, Z.useState)(t.mode), [u, p] = (0, Z.useState)(t.hostname), [m, h] = (0, Z.useState)(""), [_, v] = (0, Z.useState)({}), y = Y(), b = r.state === "starting" || r.state === "running", x = r.named_available && s === "named";
 	(0, Z.useEffect)(() => {
 		if (r.state !== "starting") return;
 		let e = new AbortController();
 		return Nt({
 			signal: e.signal,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			everyMs: sc,
 			limitMs: cc,
+========
+			everyMs: oc,
+			limitMs: sc,
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			read: (e) => dt(e),
 			apply: (e) => {
 				e.tunnel && (Lt.setQueryData(g, e), i(e.tunnel), o(e.revision));
@@ -5627,13 +6296,21 @@ function dc({ revision: e, initial: t, receipt: n }) {
 				isDisabled: b,
 				onChange: (e) => l(e),
 				className: ke,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 				children: lc.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(c, {
+========
+				children: cc.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(c, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 					value: e,
 					className: Oe,
 					children: t
 				}, e))
 			}) : null,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			/* @__PURE__ */ (0, Q.jsx)(j, { children: uc[x ? "named" : "quick"] }),
+========
+			/* @__PURE__ */ (0, Q.jsx)(j, { children: lc[x ? "named" : "quick"] }),
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			x ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(M, {
 				id: "tunnel-hostname",
 				label: J("settings:remoteAccess.hostname"),
@@ -5690,11 +6367,16 @@ function dc({ revision: e, initial: t, receipt: n }) {
 	});
 }
 // src/react/settings/network-settings.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function fc({ data: e, receipt: t, panel: n, issues: r }) {
+========
+function dc({ data: e, receipt: t, panel: n, issues: r }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
 		...Rr(n),
 		children: [
 			r,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			e.network || e.editable && e.port_editable !== !1 && !e.section_errors?.media_sources ? /* @__PURE__ */ (0, Q.jsx)(nc, {
 				data: e,
 				receipt: t
@@ -5707,25 +6389,52 @@ function fc({ data: e, receipt: t, panel: n, issues: r }) {
 					receipt: t
 				}),
 				after: e.api_token ? (n) => /* @__PURE__ */ (0, Q.jsx)(Is, {
+========
+			e.network || e.editable && e.port_editable !== !1 && !e.section_errors?.media_sources ? /* @__PURE__ */ (0, Q.jsx)(tc, {
+				data: e,
+				receipt: t
+			}) : null,
+			e.access ? /* @__PURE__ */ (0, Q.jsx)(Ms, {
+				initial: e.access,
+				receipt: t,
+				devices: (e) => /* @__PURE__ */ (0, Q.jsx)(Qs, {
+					revision: e.revision,
+					receipt: t
+				}),
+				after: e.api_token ? (n) => /* @__PURE__ */ (0, Q.jsx)(Fs, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 					initial: e.api_token,
 					mode: n.mode,
 					receipt: t
 				}) : void 0
 			}) : null,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			e.certificate ? /* @__PURE__ */ (0, Q.jsx)(zs, { initial: e.certificate }) : null,
 			e.tunnel ? /* @__PURE__ */ (0, Q.jsx)(dc, {
+========
+			e.certificate ? /* @__PURE__ */ (0, Q.jsx)(Rs, { initial: e.certificate }) : null,
+			e.tunnel ? /* @__PURE__ */ (0, Q.jsx)(uc, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				revision: e.revision,
 				initial: e.tunnel,
 				receipt: t
 			}) : null,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			e.peach_proxy ? /* @__PURE__ */ (0, Q.jsx)(pc, {
+========
+			e.peach_proxy ? /* @__PURE__ */ (0, Q.jsx)(fc, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				initial: e.peach_proxy,
 				receipt: t
 			}) : null
 		]
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function pc({ initial: e, receipt: t }) {
+========
+function fc({ initial: e, receipt: t }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let [n, r] = (0, Z.useState)(e), [i, a] = (0, Z.useState)(e.mode), [o, s] = (0, Z.useState)(""), c = Y();
 	return /* @__PURE__ */ (0, Q.jsxs)(F, {
 		id: "peachProxy",
@@ -5743,7 +6452,11 @@ function pc({ initial: e, receipt: t }) {
 			/* @__PURE__ */ (0, Q.jsx)(P, { children: /* @__PURE__ */ (0, Q.jsx)(L, {
 				label: J("settings:peachProxy.mode"),
 				description: J("settings:peachProxy.modeHelp"),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 				children: /* @__PURE__ */ (0, Q.jsx)(ac, {
+========
+				children: /* @__PURE__ */ (0, Q.jsx)(ic, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 					mode: i,
 					onChange: a
 				})
@@ -5751,7 +6464,11 @@ function pc({ initial: e, receipt: t }) {
 			i === "proxy" || n.needs_selection || c.error ? /* @__PURE__ */ (0, Q.jsxs)(R, {
 				divided: !0,
 				children: [
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 					i === "proxy" ? /* @__PURE__ */ (0, Q.jsx)(oc, {
+========
+					i === "proxy" ? /* @__PURE__ */ (0, Q.jsx)(ac, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 						id: "peachProxyAddress",
 						value: o,
 						onChange: s,
@@ -5774,11 +6491,19 @@ function pc({ initial: e, receipt: t }) {
 	});
 }
 // src/react/follow-manage/credentials.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 var mc = J("follow:sourceCredentials.clearBody"), hc = J("follow:sourceCredentials.worldReadable");
 function gc(e, t) {
 	return (e.shared_fields || []).includes(t) ? J("follow:sourceCredentials.fromSharedHint") : e.fields.includes(t) ? J("follow:sourceCredentials.savedHint") : J("follow:sourceCredentials.notSet");
 }
 function _c({ row: e }) {
+========
+var pc = J("follow:sourceCredentials.clearBody"), mc = J("follow:sourceCredentials.worldReadable");
+function hc(e, t) {
+	return (e.shared_fields || []).includes(t) ? J("follow:sourceCredentials.fromSharedHint") : e.fields.includes(t) ? J("follow:sourceCredentials.savedHint") : J("follow:sourceCredentials.notSet");
+}
+function gc({ row: e }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	if (ot(e)) return /* @__PURE__ */ (0, Q.jsx)(x, {
 		variant: "caption",
 		color: "lime",
@@ -5791,7 +6516,11 @@ function _c({ row: e }) {
 		children: y[e.requirement] || ""
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function vc({ row: e, readOnly: t, toast: n }) {
+========
+function _c({ row: e, readOnly: t, toast: n }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let [r, i] = (0, Z.useState)({}), [a, o] = (0, Z.useState)(""), s = ot(e), c = nn({
 		mutationFn: (t) => Ut(e.provider, t),
 		onSuccess: (e, t) => {
@@ -5818,7 +6547,11 @@ function vc({ row: e, readOnly: t, toast: n }) {
 				children: (e.needs || []).map((n) => /* @__PURE__ */ (0, Q.jsx)(M, {
 					type: "password",
 					label: n,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 					placeholder: gc(e, n),
+========
+					placeholder: hc(e, n),
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 					autoComplete: "off",
 					spellCheck: "false",
 					isDisabled: t,
@@ -5838,7 +6571,11 @@ function vc({ row: e, readOnly: t, toast: n }) {
 					...U(c.isPending),
 					onClick: () => void at({
 						title: J("follow:sourceCredentials.clearTitle"),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 						body: mc,
+========
+						body: pc,
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 						confirmLabel: J("follow:sourceCredentials.clearTitle"),
 						danger: !0,
 						onConfirm: () => c.mutateAsync({})
@@ -5868,7 +6605,11 @@ function vc({ row: e, readOnly: t, toast: n }) {
 		]
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function yc({ row: e, readOnly: t, toast: n }) {
+========
+function vc({ row: e, readOnly: t, toast: n }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let r = /* @__PURE__ */ (0, Q.jsxs)("span", {
 		className: "flex min-w-0 flex-wrap items-center gap-2",
 		children: [
@@ -5880,7 +6621,11 @@ function yc({ row: e, readOnly: t, toast: n }) {
 				className: "min-w-0 text-body-medium wrap-anywhere text-text-primary",
 				children: e.provider_label
 			}),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			/* @__PURE__ */ (0, Q.jsx)(_c, { row: e }),
+========
+			/* @__PURE__ */ (0, Q.jsx)(gc, { row: e }),
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			e.missing.map((e) => /* @__PURE__ */ (0, Q.jsx)(x, {
 				variant: "caption",
 				color: "rose",
@@ -5898,7 +6643,11 @@ function yc({ row: e, readOnly: t, toast: n }) {
 			/* @__PURE__ */ (0, Q.jsx)(C, {
 				summary: ot(e) ? J("follow:sourceCredentials.editCredentials") : J("follow:sourceCredentials.enterCredentials"),
 				defaultOpen: e.requirement === "required" && !ot(e),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 				children: /* @__PURE__ */ (0, Q.jsx)(vc, {
+========
+				children: /* @__PURE__ */ (0, Q.jsx)(_c, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 					row: e,
 					readOnly: t,
 					toast: n
@@ -5907,12 +6656,20 @@ function yc({ row: e, readOnly: t, toast: n }) {
 			e.world_readable ? /* @__PURE__ */ (0, Q.jsx)(N, {
 				tone: "error",
 				title: J("follow:sourceCredentials.permissionsTooOpen"),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 				children: hc
+========
+				children: mc
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 			}) : null
 		]
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function bc({ data: e, readOnly: t, toast: n, embedded: r = !1 }) {
+========
+function yc({ data: e, readOnly: t, toast: n, embedded: r = !1 }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let i = e.providers || [], a = i.filter((e) => e.requirement === "required" && !ot(e));
 	if ((0, Z.useEffect)(() => {
 		zt("credentials", { done: i.filter(ot).map((e) => e.provider) });
@@ -5950,7 +6707,11 @@ function bc({ data: e, readOnly: t, toast: n, embedded: r = !1 }) {
 				padding: "none",
 				className: "flex flex-col overflow-hidden"
 			}),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			children: e.rows.map((e) => /* @__PURE__ */ (0, Q.jsx)(yc, {
+========
+			children: e.rows.map((e) => /* @__PURE__ */ (0, Q.jsx)(vc, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				row: e,
 				readOnly: t,
 				toast: n
@@ -5980,7 +6741,11 @@ function bc({ data: e, readOnly: t, toast: n, embedded: r = !1 }) {
 	});
 }
 // src/react/settings/entry-links-settings.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function xc({ initial: e, receipt: t }) {
+========
+function bc({ initial: e, receipt: t }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let [n, r] = (0, Z.useState)(e.sites), i = Y(), a = (e, t) => r((n) => n.map((n) => n.key === e ? {
 		...n,
 		host: t
@@ -6020,31 +6785,53 @@ function xc({ initial: e, receipt: t }) {
 	});
 }
 // src/react/settings/indexer-settings.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 var Sc = "/api/configuration/indexers";
 function Cc({ receipt: e }) {
 	let t = X({
 		queryKey: ["indexers"],
 		queryFn: ({ signal: e }) => V(Sc, e),
+========
+var xc = "/api/configuration/indexers";
+function Sc({ receipt: e }) {
+	let t = X({
+		queryKey: ["indexers"],
+		queryFn: ({ signal: e }) => V(xc, e),
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 		refetchOnMount: "always"
 	});
 	return t.error ? /* @__PURE__ */ (0, Q.jsx)(T, { children: G(t.error) }) : t.isFetching ? /* @__PURE__ */ (0, Q.jsx)(Me, {
 		label: J("settings:indexers.loading"),
 		html: bt
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 	}) : t.data ? /* @__PURE__ */ (0, Q.jsx)(Ec, {
+========
+	}) : t.data ? /* @__PURE__ */ (0, Q.jsx)(Tc, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 		initial: t.data,
 		receipt: e
 	}) : null;
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function wc(e) {
+========
+function Cc(e) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	try {
 		return new globalThis.URL(e).host;
 	} catch {
 		return e;
 	}
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function Tc({ row: e, index: t }) {
 	let n = [
 		e.url ? wc(e.url) : J("settings:indexers.noUrl"),
+========
+function wc({ row: e, index: t }) {
+	let n = [
+		e.url ? Cc(e.url) : J("settings:indexers.noUrl"),
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 		e.enabled ? J("settings:shared.enabled") : J("settings:shared.disabled"),
 		e.api_key_set && !e.clear_api_key ? J("settings:indexers.apiKeySaved") : e.api_key ? J("settings:indexers.apiKeyUnsaved") : J("settings:indexers.noApiKey")
 	];
@@ -6059,7 +6846,11 @@ function Tc({ row: e, index: t }) {
 		})]
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function Ec({ initial: e, receipt: t }) {
+========
+function Tc({ initial: e, receipt: t }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let [n, r] = (0, Z.useState)(e.indexers), i = Y();
 	(0, Z.useEffect)(() => {
 		zt("indexers", { open: e.indexers.map((e) => !e.url) });
@@ -6072,7 +6863,11 @@ function Ec({ initial: e, receipt: t }) {
 		guide: "indexers",
 		title: J("settings:indexers.title"),
 		onSubmit: (e) => {
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			e.preventDefault(), i.run("save", (e) => H(Sc, { indexers: n }, "POST", e), (e) => {
+========
+			e.preventDefault(), i.run("save", (e) => H(xc, { indexers: n }, "POST", e), (e) => {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				r(e.indexers), t(J("settings:indexers.saved"));
 			});
 		},
@@ -6092,7 +6887,11 @@ function Ec({ initial: e, receipt: t }) {
 				className: "min-w-0 border-t border-separator-border pt-2",
 				children: /* @__PURE__ */ (0, Q.jsx)(C, {
 					defaultOpen: !e.url,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 					summary: /* @__PURE__ */ (0, Q.jsx)(Tc, {
+========
+					summary: /* @__PURE__ */ (0, Q.jsx)(wc, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 						row: e,
 						index: t
 					}),
@@ -6177,7 +6976,11 @@ function Ec({ initial: e, receipt: t }) {
 	});
 }
 // src/react/settings/source-settings.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function Dc({ data: e, receipt: t, panel: n, issues: r }) {
+========
+function Ec({ data: e, receipt: t, panel: n, issues: r }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let i = X({
 		queryKey: re,
 		queryFn: ({ signal: e }) => ft(e),
@@ -6196,7 +6999,11 @@ function Dc({ data: e, receipt: t, panel: n, issues: r }) {
 					children: J("settings:sourceSettings.sourcesLink")
 				})
 			}),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			i.data ? /* @__PURE__ */ (0, Q.jsx)(bc, {
+========
+			i.data ? /* @__PURE__ */ (0, Q.jsx)(yc, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				data: i.data,
 				readOnly: !!e.ledger_read_only,
 				toast: t,
@@ -6209,9 +7016,15 @@ function Dc({ data: e, receipt: t, panel: n, issues: r }) {
 				label: J("settings:sourceSettings.loadingCredentials"),
 				html: st
 			}),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			/* @__PURE__ */ (0, Q.jsx)(ys, { receipt: t }),
 			/* @__PURE__ */ (0, Q.jsx)(Cc, { receipt: t }),
 			e.entry_links ? /* @__PURE__ */ (0, Q.jsx)(xc, {
+========
+			/* @__PURE__ */ (0, Q.jsx)(vs, { receipt: t }),
+			/* @__PURE__ */ (0, Q.jsx)(Sc, { receipt: t }),
+			e.entry_links ? /* @__PURE__ */ (0, Q.jsx)(bc, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				initial: e.entry_links,
 				receipt: t
 			}) : null
@@ -6219,7 +7032,11 @@ function Dc({ data: e, receipt: t, panel: n, issues: r }) {
 	});
 }
 // src/react/settings/configuration-shape.ts
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function Oc(e) {
+========
+function Dc(e) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let t = e.downloads;
 	if (!t) return null;
 	let n = t.media_sources ?? [];
@@ -6232,7 +7049,11 @@ function Oc(e) {
 		browserLogin: t.pikpak_browser.available
 	};
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function kc(e) {
+========
+function Oc(e) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let t = e.tunnel;
 	return {
 		port: !!(e.editable && e.port_editable !== !1),
@@ -6246,7 +7067,11 @@ function kc(e) {
 		tunnelNote: !!(t && (!t.available || t.state === "starting" || t.state === "running" && t.url))
 	};
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function Ac(e) {
+========
+function kc(e) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let t = e.updates, n = e.update_job?.state ?? "idle", r = !t || t.state === "unchecked" && !t.checked_at && n === "idle", i = +!!t?.package_kind + (r ? 0 : +!!t?.checked_at + (t?.state === "unchecked" ? 0 : 1) + (n === "idle" ? 0 : 1)), a = e.automatic_updates, o = e.storage;
 	return {
 		releaseFacts: t?.package_kind ? 5 : 4,
@@ -6267,12 +7092,20 @@ function Ac(e) {
 	};
 }
 // src/react/settings/configuration-page.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function jc({ receipt: e, reopenTutorial: t, section: n = "", diagnostics: r }) {
+========
+function Ac({ receipt: e, reopenTutorial: t, section: n = "", diagnostics: r }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	let i = X({
 		queryKey: g,
 		queryFn: ({ signal: e }) => dt(e)
 	}), a = i.data;
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 	return a ? /* @__PURE__ */ (0, Q.jsx)(Pc, {
+========
+	return a ? /* @__PURE__ */ (0, Q.jsx)(Nc, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 		data: a,
 		receipt: e,
 		reopenTutorial: t,
@@ -6291,7 +7124,11 @@ function jc({ receipt: e, reopenTutorial: t, section: n = "", diagnostics: r }) 
 		})
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 function Mc({ data: e, sections: t, reload: n, refreshing: r }) {
+========
+function jc({ data: e, sections: t, reload: n, refreshing: r }) {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	return /* @__PURE__ */ (0, Q.jsx)(Q.Fragment, { children: t.map((t) => {
 		let i = e.section_errors?.[t];
 		return i ? /* @__PURE__ */ (0, Q.jsx)(N, {
@@ -6308,6 +7145,7 @@ function Mc({ data: e, sections: t, reload: n, refreshing: r }) {
 		}, t) : null;
 	}) });
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 var Nc = 0;
 function Pc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i, reload: a, refreshing: o }) {
 	let [s] = (0, Z.useState)(() => `board-tabs-${++Nc}`), [c, l] = (0, Z.useState)(r), u = (0, Z.useRef)(null), d = (0, Z.useRef)(c);
@@ -6316,6 +7154,16 @@ function Pc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 	}, [r]), (0, Z.useEffect)(() => {
 		let t = Oc(e);
 		t && zt("downloads", t), zt("network", kc(e)), zt("maintenance", Ac(e));
+========
+var Mc = 0;
+function Nc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i, reload: a, refreshing: o }) {
+	let [s] = (0, Z.useState)(() => `board-tabs-${++Mc}`), [c, l] = (0, Z.useState)(r), u = (0, Z.useRef)(null), d = (0, Z.useRef)(c);
+	(0, Z.useEffect)(() => {
+		l(r);
+	}, [r]), (0, Z.useEffect)(() => {
+		let t = Dc(e);
+		t && zt("downloads", t), zt("network", Oc(e)), zt("maintenance", kc(e));
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 	}, [e]), (0, Z.useLayoutEffect)(() => {
 		if (d.current === c) return;
 		d.current = c;
@@ -6339,7 +7187,11 @@ function Pc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 	let h = {
 		data: e,
 		receipt: t
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 	}, g = (t) => /* @__PURE__ */ (0, Q.jsx)(Mc, {
+========
+	}, g = (t) => /* @__PURE__ */ (0, Q.jsx)(jc, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 		data: e,
 		sections: t,
 		reload: a,
@@ -6362,17 +7214,28 @@ function Pc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 						"library_count",
 						"mount_dependencies"
 					]),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 					!e.section_errors?.media_sources && !e.section_errors?.library_count ? /* @__PURE__ */ (0, Q.jsx)(fs, { ...h }) : null,
 					/* @__PURE__ */ (0, Q.jsx)(As, { receipt: t }),
 					/* @__PURE__ */ (0, Q.jsx)(Cs, { receipt: t }),
 					/* @__PURE__ */ (0, Q.jsx)(_s, { receipt: t })
+========
+					!e.section_errors?.media_sources && !e.section_errors?.library_count ? /* @__PURE__ */ (0, Q.jsx)(ds, { ...h }) : null,
+					/* @__PURE__ */ (0, Q.jsx)(ks, { receipt: t }),
+					/* @__PURE__ */ (0, Q.jsx)(Ss, { receipt: t }),
+					/* @__PURE__ */ (0, Q.jsx)(gs, { receipt: t })
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				]
 			})
 		},
 		{
 			id: "sources",
 			title: _.subscriptions,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			body: (e) => /* @__PURE__ */ (0, Q.jsx)(Dc, {
+========
+			body: (e) => /* @__PURE__ */ (0, Q.jsx)(Ec, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				...h,
 				panel: e,
 				issues: g(["entry_links"])
@@ -6391,7 +7254,11 @@ function Pc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 		...y ? [{
 			id: "network",
 			title: _.network,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 			body: (e) => /* @__PURE__ */ (0, Q.jsx)(fc, {
+========
+			body: (e) => /* @__PURE__ */ (0, Q.jsx)(dc, {
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 				...h,
 				panel: e,
 				issues: g(v)
@@ -6414,8 +7281,13 @@ function Pc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 						"automatic_updates",
 						"facts"
 					]),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 					/* @__PURE__ */ (0, Q.jsx)(jo, { ...h }),
 					/* @__PURE__ */ (0, Q.jsx)(ws, { receipt: t }),
+========
+					/* @__PURE__ */ (0, Q.jsx)(Ao, { ...h }),
+					/* @__PURE__ */ (0, Q.jsx)(Cs, { receipt: t }),
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
 					/* @__PURE__ */ (0, Q.jsx)(fo, {
 						...h,
 						reopenTutorial: n
@@ -6463,6 +7335,12 @@ function Pc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 		})] }, t))]
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-CpsXf_3d.js
 export { jc as ConfigurationPage };
 
 //# debugId=ea0dc74e-997e-4fdb-b94c-7f0c0cbaea5c
+========
+export { Ac as ConfigurationPage };
+
+//# debugId=eab3e1a4-216e-455b-8d88-9efca63e87b2
+>>>>>>>> agent/claude/polling-frontend-backoff:web/dist/peach-app.configuration-page-CNbQoEQs.js
