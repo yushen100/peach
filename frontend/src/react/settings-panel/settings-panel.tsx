@@ -493,9 +493,12 @@ function BrowseGroup({ host: current, tab, epoch }: GroupProps) {
         <input type="checkbox" id="groupCollapseSetting" data-toggle="" role="switch" checked={settings.groupCollapse}
           onChange={(event) => { settings.groupCollapse = event.target.checked; save(); current.changed('groupCollapse') }} />
       </label>
-      <Row title={t('settings:preferencesPanel.hoverDelay')}>
+      {/* SFW 模式停掉悬停预览，延迟这时不起作用：禁用并说明，关掉 SFW 就恢复。 */}
+      <Row title={t('settings:preferencesPanel.hoverDelay')}
+        description={current.censored() ? t('settings:preferencesPanel.hoverDelaySfw') : undefined}>
         <div id="hoverDelaySetting">
           <NumberSetting key={epoch} id="hoverDelaySetting" label={t('settings:preferencesPanel.hoverDelay')} value={settings.hoverDelaySeconds}
+            disabled={current.censored()}
             onApply={(value) => {
               settings.hoverDelaySeconds = boundedPreference(value, 0, 60, 5); save(); current.changed('hoverDelay');
             }} />
@@ -530,16 +533,19 @@ function JavGroup({ host: current, tab, epoch }: GroupProps) {
           onChoose={(choice) => { settings.javImage = normalizeJavImage(choice); save(); current.changed('javImage') }} />
       </Row>
       <h4 data-settings-subheading="">{t('settings:preferencesPanel.newReleases')}</h4>
-      <ToggleRow id="homeFeedNewSetting" title={t('settings:preferencesPanel.homeFeedNew')} checked={settings.homeFeedNew}
-        onToggle={(on) => { settings.homeFeedNew = on; save(); current.changed('homeFeedNew') }} />
-      <Row title={t('settings:preferencesPanel.feedLimit')}>
-        <div id="feedLimitSetting">
-          <NumberSetting key={epoch} id="feedLimitSetting" label={t('settings:preferencesPanel.feedLimitInput')} value={settings.feedLimit}
-            onApply={(value) => { settings.feedLimit = boundedPreference(value, 1, 100, 12); save(); current.changed('feedLimit') }} />
-        </div>
-      </Row>
-      <ToggleRow id="feedAutoScrollSetting" title={t('settings:preferencesPanel.autoScroll')} checked={settings.feedAutoScroll}
-        onToggle={(on) => { settings.feedAutoScroll = on; save(); current.changed('feedAutoScroll') }} />
+      <ToggleRow id="feedNewRowsSetting" title={t('settings:preferencesPanel.feedNewRows')} checked={settings.feedNewRows}
+        onToggle={(on) => { settings.feedNewRows = on; save(); current.changed('feedNewRows') }} />
+      {/* 数量与自动滚动只作用于首页和人物页的新作行：行关了就收起；合集开关还管「JAV → 新作」与未读数，照常显示。 */}
+      {settings.feedNewRows ? <>
+        <Row title={t('settings:preferencesPanel.feedLimit')}>
+          <div id="feedLimitSetting">
+            <NumberSetting key={epoch} id="feedLimitSetting" label={t('settings:preferencesPanel.feedLimitInput')} value={settings.feedLimit}
+              onApply={(value) => { settings.feedLimit = boundedPreference(value, 1, 100, 12); save(); current.changed('feedLimit') }} />
+          </div>
+        </Row>
+        <ToggleRow id="feedAutoScrollSetting" title={t('settings:preferencesPanel.autoScroll')} checked={settings.feedAutoScroll}
+          onToggle={(on) => { settings.feedAutoScroll = on; save(); current.changed('feedAutoScroll') }} />
+      </> : null}
       {FEED_COMPILATIONS.map(([id, key, label, title]) => (
         <CompilationToggle key={id} host={current} id={id} settingKey={key} label={label} title={title} />
       ))}

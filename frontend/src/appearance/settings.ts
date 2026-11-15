@@ -70,7 +70,7 @@ export interface AppSettings {
   uiSounds: boolean;
   feedAutoScroll: boolean;
   /** 首页的新作那一行；人物页的那一行不归它管。 */
-  homeFeedNew: boolean;
+  feedNewRows: boolean;
   /** 首页竖屏带一条放几张；0 是不插带子，竖屏回到主网格里。 */
   homeShortsLimit: number;
   /** 首页顶上女优、厂牌两排头像。 */
@@ -137,7 +137,7 @@ export function normalizeAppSettings(raw: unknown): { settings: AppSettings; mig
   settings.miniplayer = settings.miniplayer !== false;
   settings.uiSounds = settings.uiSounds !== false;
   settings.feedAutoScroll = settings.feedAutoScroll !== false;
-  settings.homeFeedNew = settings.homeFeedNew !== false;
+  settings.feedNewRows = settings.feedNewRows !== false;
   settings.homeShortsLimit = settings.homeShortsLimit === 0 ? 0
     : boundedPreference(+(settings.homeShortsLimit as number), HOME_SHORTS_MIN, HOME_SHORTS_MAX, HOME_SHORTS_DEFAULT);
   settings.homeTiers = settings.homeTiers !== false;

@@ -5,7 +5,8 @@
  * 守自己的宿主。页内状态都在这里：当前视图、名册还是作品、照片墙的种子与翻页；筛选与媒体视图读
  * 地址栏（壳推进来的 `filters`／`media`），改它们只调 `actions.route`。 */
 import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { appSettingsStore } from '@peach/appearance';
 import { createPortal } from 'react-dom';
 import { api } from '@peach/legacy/core';
 import { tagLabel } from '@peach/legacy/tags';
@@ -196,7 +197,11 @@ function EntityLoaded(props: EntityPageProps & { entity: EntityPageData }) {
   const fetchNextPhotos = wall.fetchNextPage;
 
   /* ── 新作 ── */
-  const feed = useQuery({ ...feedNewOptions(entityId, helpers.feedRowHtml), enabled: !!entityId });
+  /* 设置「首页与人物页显示新作」关掉时不取这一行、宿主收起；在这一页上切换当场跟上。 */
+  const settings = appSettingsStore();
+  const feedRows = useSyncExternalStore(settings.subscribe, () => settings.value.feedNewRows !== false);
+  const feed = useQuery({ ...feedNewOptions(entityId, helpers.feedRowHtml), enabled: !!entityId && feedRows });
+  useLayoutEffect(() => { if (!feedRows) hosts.feed.hidden = true }, [feedRows, hosts.feed]);
   const feedRevision = useRef(props.feedRevision);
   useEffect(() => {
     if (feedRevision.current === props.feedRevision) return;
@@ -436,7 +441,7 @@ function EntityLoaded(props: EntityPageProps & { entity: EntityPageData }) {
     <>
       <EntityHeroPage key={avatarEpoch} kind={kind} name={name} entity={entity} feedNew={feed.data ?? null}
         feedError={!feed.data && feed.isError ? errorMessage(feed.error) : undefined} retryFeed={() => { void feed.refetch() }}
-        feedHost={entityId ? hosts.feed : null} jav={javPage} actions={heroActions} helpers={heroHelpers} />
+        feedHost={entityId && feedRows ? hosts.feed : null} jav={javPage} actions={heroActions} helpers={heroHelpers} />
       {createPortal(
         <EntityFilterPage kind={kind} name={name} view={view} views={views} state={filters.state || ''}
           states={props.states} tags={tags} combo={combo} readout={readout} busy={busy}

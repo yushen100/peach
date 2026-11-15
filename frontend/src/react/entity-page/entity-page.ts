@@ -9,6 +9,7 @@
  *
  * 首屏由壳铺骨架，身份资料就绪后挂载页面；作品、照片与新作各自替换对应区域的骨架。 */
 import { api } from '@peach/legacy/core';
+import { appSettingsStore } from '@peach/appearance';
 
 import type { CatalogGridProps, MediaPage } from '../catalog-grid/types';
 import type { EntityBodyActions, EntityBodyHelpers, EntityCodeSet, EntityLocalPhoto, PhotoLayout, PhotoSize } from '../entity-body/entity-body';
@@ -283,5 +284,7 @@ export async function prefetchEntityPage(props: EntityPageProps): Promise<void> 
   const entity = await queryClient.fetchQuery(entityOptions(kind, name));
   if (!entity || entity.error || !entity.id) return;
   if (!props.restoreNavigation) queryClient.removeQueries({ queryKey: feedNewKey(Number(entity.id)) });
+  /* 设置关掉了新作行就不预取。 */
+  if (appSettingsStore().value.feedNewRows === false) return;
   void queryClient.prefetchQuery(feedNewOptions(Number(entity.id), props.helpers.feedRowHtml));
 }

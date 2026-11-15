@@ -20,7 +20,7 @@ vi.mock('../../src/application/effects', () => ({ applicationEffects: {} }));
 beforeEach(() => {
   document.body.innerHTML = '<section id="feedNew" hidden></section>';
   Object.assign(managed, { taken: false, opened: [], released: 0 });
-  appSettingsStore().value.homeFeedNew = true;
+  appSettingsStore().value.feedNewRows = true;
   window.history.replaceState(null, '', '/');
   rememberHomeFeed(true);
   feedState.feedNewSkeletonHtml = () => '<div class="feednewskeleton"></div>';
@@ -28,7 +28,7 @@ beforeEach(() => {
 
 it('关掉后目录路径上不再算这一行的地方（首屏骨架、换页与路由都按它判）', () => {
   expect([isFeedNewPath('/'), isFeedNewPath('/junk-files')]).toEqual([true, false]);
-  appSettingsStore().value.homeFeedNew = false;
+  appSettingsStore().value.feedNewRows = false;
   expect(isFeedNewPath('/')).toBe(false);
 });
 
@@ -36,11 +36,11 @@ it('设置里关掉时卸掉画着的那一行并收起，打开时人在目录�
   const host = document.getElementById('feedNew')!;
   managed.taken = true;
   host.hidden = false;
-  appSettingsStore().value.homeFeedNew = false;
+  appSettingsStore().value.feedNewRows = false;
   syncHomeFeedSetting(false);
   expect([managed.released, host.hidden]).toEqual([1, true]);
 
-  appSettingsStore().value.homeFeedNew = true;
+  appSettingsStore().value.feedNewRows = true;
   syncHomeFeedSetting(true);
   expect(managed.opened).toEqual([]);
   syncHomeFeedSetting(false);

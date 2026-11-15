@@ -228,8 +228,10 @@ function DownloadForm({ state, settle, receipt, pikpakAccount }: CardProps & { p
         <div className="flex flex-col gap-1">
           <FieldLabel><SourceLabel source="pikpak" label={t('settings:cloudDownload.pikpakRootDirectory')} /></FieldLabel>
           {state.pikpak_roots.length ? (
+            /* 根目录只给登录后的 PikPak 直连与 PikPak 任务落地用：没登录、也没填账号时变灰。
+               上面的目标目录经 CloudDrive 转存时也要用，不跟着变灰。 */
             <Select aria-label={t('settings:cloudDownload.pikpakRootDirectory')} selectedKey={config.pikpak_root || null}
-              isDisabled={!state.available} placeholder={t('settings:cloudDownload.rootPlaceholder')}
+              isDisabled={!state.available || !pikpakAccount} placeholder={t('settings:cloudDownload.rootPlaceholder')}
               onSelectionChange={(key) => setConfig({ ...config, pikpak_root: key === null ? '' : String(key) })}>
               {state.pikpak_roots.map((root) => <SelectItem key={root} id={root}>{root}</SelectItem>)}
             </Select>

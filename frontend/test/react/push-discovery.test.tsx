@@ -53,6 +53,13 @@ it('配置块默认收起，横向滚动用全站的覆盖式滑块', async () =
   expect(pre.parentElement?.querySelector('.ovtrack')).not.toBeNull();
 });
 
+it('云端前缀表在自动入库与云通知关着时也摆出来：云下载还在用它', async () => {
+  vi.stubGlobal('fetch', fetchMock(200, state()));
+  const host = await mount(<PushDiscoveryForm initial={state({ enabled: false, cloud: false })} receipt={vi.fn()} />);
+  expect(host.querySelector<HTMLInputElement>('input[aria-label="云端路径前缀 1"]')?.value).toBe('/115');
+  expect(host.textContent).toContain('云下载');
+});
+
 it('这台机器没有局域网地址时说明生成条件', async () => {
   const host = await mount(
     <PushDiscoveryForm initial={state({ origin: '', config_toml: '' })} receipt={vi.fn()} />);

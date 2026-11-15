@@ -20,20 +20,23 @@ import { busyProps, useAction } from './use-action';
 import { t } from '../../i18n';
 
 export function NetworkSettings({ data, receipt, panel, issues }: ConfigurationGroupProps) {
+  /* 远程访问要求先设访问密码：访问方式跟着密码卡的保存结果走，关掉密码时服务端也会顺手停掉隧道。 */
+  const [accessMode, setAccessMode] = useState(data.access?.mode);
+  const tunnelBlocked = accessMode === 'open' || accessMode === 'locked';
   return (
     <div {...groupRoot(panel)}>
       {issues}
       {data.network || (data.editable && data.port_editable !== false && !data.section_errors?.media_sources)
         ? <PortSettings data={data} receipt={receipt} /> : null}
       {data.access
-        ? <AccessSettings initial={data.access} receipt={receipt}
+        ? <AccessSettings initial={data.access} receipt={receipt} onSaved={(state) => setAccessMode(state.mode)}
             devices={(state) => <DeviceSessions revision={state.revision} receipt={receipt} />}
             after={data.api_token
               ? (state) => <ApiTokenSettings initial={data.api_token!} mode={state.mode} receipt={receipt} />
               : undefined} />
         : null}
       {data.certificate ? <CertificateTrust initial={data.certificate} /> : null}
-      {data.tunnel ? <TunnelSettings revision={data.revision} initial={data.tunnel} receipt={receipt} /> : null}
+      {data.tunnel ? <TunnelSettings revision={data.revision} initial={data.tunnel} receipt={receipt} blocked={tunnelBlocked} /> : null}
       {data.peach_proxy ? <PeachProxy initial={data.peach_proxy} receipt={receipt} /> : null}
     </div>
   );

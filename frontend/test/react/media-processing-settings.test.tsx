@@ -34,6 +34,17 @@ it('读取已保存模式，等待服务端保存完成才更新开关和回执'
   expect(control?.checked).toBe(false);
 });
 
+it('关掉视频预览生成时抽帧解码方式禁用，开着时可选', async () => {
+  for (const metadataOnly of [true, false]) {
+    queryClient.clear();
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ metadata_only: metadataOnly }) })));
+    const host = await mount(<QueryClientProvider client={queryClient}><MediaProcessingSettings receipt={vi.fn()} /></QueryClientProvider>);
+    await settle();
+    const decoder = host.querySelector<HTMLButtonElement>('#previewAccelerationSetting [aria-haspopup="listbox"]')!;
+    expect(decoder.disabled || decoder.hasAttribute('data-disabled'), String(metadataOnly)).toBe(metadataOnly);
+  }
+});
+
 it('保存失败保留当前模式并显示可恢复的错误', async () => {
   vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => ({
     ok: init?.method !== 'POST', status: init?.method === 'POST' ? 400 : 200,

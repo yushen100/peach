@@ -6,6 +6,8 @@ import type { ConfigurationData } from '../../src/react/bundle';
 import { CloudDriveGuide } from '../../src/react/settings/clouddrive-guide';
 import { MEDIA_SOURCE_ICONS } from '../../src/ui-kit/media-source-icons';
 import { MediaSettings } from '../../src/react/settings/media-settings';
+import { MEDIA_PROCESSING_KEY } from '../../src/react/settings-panel/settings-data';
+import { queryClient } from '../../src/react/query';
 import { buttonNamed, choose, click, fetchMock, mount, section, sentBody, settle, submit, type } from './render';
 
 vi.mock('../../src/react/settings/service-preferences', () => ({ VideoThumbnailRow: () => null }));
@@ -62,7 +64,8 @@ it('局域网 HTTP 页面没有 randomUUID 时，旧目录补上媒体库身份�
     const host = await open({ media_sources: [{ location: 'local', root: '/media', path: '/media', cost: 'free' }] });
     expect(host.querySelector('form')).not.toBeNull();
     await submit(host.querySelector('form'));
-    expect(sentBody(fetcher).media_sources[0].library_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    const save = fetcher.mock.calls.findIndex(([, init]) => (init as RequestInit | undefined)?.method === 'POST');
+    expect(sentBody(fetcher, save).media_sources[0].library_id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
   } finally {
     vi.unstubAllGlobals();
   }
@@ -88,6 +91,35 @@ describe('媒体目录', () => {
     expect(host.querySelector('[aria-label="SMB 账号 1"]')).not.toBeNull();
     await choose(source(), '本地磁盘');
     expect(host.querySelector('[aria-label="SMB 账号 1"]')).toBeNull();
+  });
+
+  it('勾了「移除账号」时账号、密码与加密一起禁用，取消后恢复', async () => {
+    const host = await open({ media_sources: [{ location: 'local', root: 'D:\\Media', path: 'D:\\Media' }] });
+    await choose(host.querySelector('[aria-label="媒体来源 1"]'), 'SMB 共享');
+    const fields = () => [host.querySelector<HTMLInputElement>('input[aria-label="SMB 账号 1"]')!.disabled,
+      host.querySelector<HTMLInputElement>('input[aria-label="SMB 密码 1"]')!.disabled,
+      [...host.querySelectorAll<HTMLLabelElement>('label')].find((label) => label.textContent?.includes('要求 SMB 加密'))!
+        .querySelector<HTMLInputElement>('input')!.disabled];
+    const remove = () => [...host.querySelectorAll<HTMLLabelElement>('label')].find((label) => label.textContent?.includes('移除已保存的 SMB 账号'))!;
+    expect(fields()).toEqual([false, false, false]);
+    await click(remove());
+    expect(fields()).toEqual([true, true, true]);
+    await click(remove());
+    expect(fields()).toEqual([false, false, false]);
+  });
+
+  it('关掉视频预览生成时，自定义步骤里的九宫格变灰并说明，其他步骤照常', async () => {
+    const before = queryClient.getQueryData(MEDIA_PROCESSING_KEY);
+    queryClient.setQueryData(MEDIA_PROCESSING_KEY, { metadata_only: true });
+    try {
+      const host = await open({ media_sources: [{ location: 'local', root: 'D:\\Media', path: 'D:\\Media', library_policy: 'custom', library_stages: 'probe,preview' }] });
+      const step = (text: string) => [...host.querySelectorAll<HTMLLabelElement>('label')]
+        .find((label) => label.textContent === text)!.querySelector<HTMLInputElement>('input')!;
+      expect([step('生成九宫格预览').disabled, step('生成九宫格预览').checked, step('读取视频信息').disabled]).toEqual([true, true, false]);
+      expect(host.textContent).toContain('九宫格这一步不会执行');
+    } finally {
+      queryClient.setQueryData(MEDIA_PROCESSING_KEY, before);
+    }
   });
 
   it('保存 SMB 来源保留目录身份，密码输入保持为空', async () => {

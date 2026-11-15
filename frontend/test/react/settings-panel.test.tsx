@@ -113,7 +113,7 @@ const settings = (): PanelSettings => ({
   javImage: 'cover', performerNameLanguage: 'zh-CN', interfaceLanguage: 'zh-CN', systemLanguage: null, feedAutoScroll: true, feedLimit: 12, feedHideGroupCompilations: true, feedHideSoloCompilations: false,
   feedHideExcerpts: true, hoverDelaySeconds: 5, detailAutoplay: false, afterPlayback: 'next', resumeRestartPercent: 5, miniplayer: true, seekSeconds: 10,
   relatedLimit: 24, searchHistoryLimit: 10, followInitialDays: 30, avatarRefreshDays: 90, faviconRefreshDays: 365,
-  homeFeedNew: true, homeShortsLimit: 18, homeTiers: true, completionPrompt: true, searchRecommendations: true, ingestNotices: true,
+  feedNewRows: true, homeShortsLimit: 18, homeTiers: true, completionPrompt: true, searchRecommendations: true, ingestNotices: true,
 });
 
 /** 壳 `settingsHost()` 交进来的那一份。 */
@@ -276,7 +276,7 @@ describe('设置面板与壳的接缝', () => {
     for (const [id, field, effect] of [
       ['uiSoundsSetting', 'uiSounds', 'uiSounds'], ['groupCollapseSetting', 'groupCollapse', 'groupCollapse'],
       ['miniplayerSetting', 'miniplayer', 'miniplayer'], ['feedAutoScrollSetting', 'feedAutoScroll', 'feedAutoScroll'],
-      ['homeFeedNewSetting', 'homeFeedNew', 'homeFeedNew'], ['homeTiersSetting', 'homeTiers', 'homeTiers'],
+      ['feedNewRowsSetting', 'feedNewRows', 'feedNewRows'], ['homeTiersSetting', 'homeTiers', 'homeTiers'],
       ['searchRecommendationsSetting', 'searchRecommendations', 'searchRecommendations'],
     ] as const) {
       current.changed.mockClear();
@@ -300,6 +300,34 @@ describe('设置面板与壳的接缝', () => {
     current.changed.mockClear();
     await click(panel.querySelector('#themeSetting input[value="dark"]'));
     expect([current.value.theme, effects(current.changed)]).toEqual(['dark', ['theme']]);
+    await close(current);
+  });
+
+  it('关掉新作行时显示数量与自动滚动收起，合集开关照常；再打开回来', async () => {
+    const current = await setup();
+    const panel = await open(current, 'JAV 与新作');
+    const shown = () => ['#feedLimitSetting', '#feedAutoScrollSetting', '#feedHideGroupSetting'].map((id) => !!panel.querySelector(id));
+    expect(shown()).toEqual([true, true, true]);
+    await click(panel.querySelector('#feedNewRowsSetting'));
+    expect([current.value.feedNewRows, ...shown()]).toEqual([false, false, false, true]);
+    await click(panel.querySelector('#feedNewRowsSetting'));
+    expect([current.value.feedNewRows, ...shown()]).toEqual([true, true, true, true]);
+    await close(current);
+  });
+
+  it('SFW 模式打开时悬停预览延迟禁用并说明原因，关掉后恢复', async () => {
+    const current = await setup();
+    let censored = true;
+    current.host.censored = () => censored;
+    const panel = await open(current, '浏览与播放');
+    const input = () => panel.querySelector<HTMLInputElement>('#hoverDelaySetting input[type=number]');
+    expect(input()?.disabled).toBe(true);
+    expect(panel.querySelector('#hoverDelaySetting')?.closest('[data-setting-row]')?.textContent).toContain('SFW 模式下不预览');
+    censored = false;
+    /* 壳切 SFW 时调 `applyCensor`，它只通知 store 重画。 */
+    await act(async () => { current.host.store.notify() });
+    expect(input()?.disabled).toBe(false);
+    expect(panel.querySelector('#hoverDelaySetting')?.closest('[data-setting-row]')?.textContent).not.toContain('SFW 模式下不预览');
     await close(current);
   });
 

@@ -36,12 +36,17 @@ const HELP: Record<TunnelState['mode'], string> = {
 
 type FieldErrors = Partial<Record<'hostname' | 'mode', string>>;
 
-export function TunnelSettings({ revision: initialRevision, initial, receipt }: {
+export function TunnelSettings({ revision: initialRevision, initial, receipt, blocked = false }: {
   revision: string;
   initial: TunnelState;
   receipt(message: string): void;
+  /** 没设访问密码（或被锁定）：服务端拒绝启动，这里不让按、不让填；关掉密码时服务端已停掉隧道。 */
+  blocked?: boolean;
 }) {
   const [state, setState] = useState(initial);
+  useEffect(() => {
+    if (blocked) setState((current) => current.state === 'stopped' ? current : { ...current, enabled: false, state: 'stopped', url: '' });
+  }, [blocked]);
   const [revision, setRevision] = useState(initialRevision);
   const [mode, setMode] = useState<TunnelState['mode']>(initial.mode);
   const [hostname, setHostname] = useState(initial.hostname);
@@ -104,7 +109,7 @@ export function TunnelSettings({ revision: initialRevision, initial, receipt }: 
       {state.error ? t('settings:cloudflareTunnel.connectionFailed') : state.state === 'running' ? t('settings:shared.running') : state.state === 'starting' ? t('settings:cloudflareTunnel.connectingStatus') : t('settings:shared.stopped')}</StatusLabel>}>
       <Stack>
         {state.named_available
-          ? <RadioGroup aria-label={t('settings:cloudflareTunnel.modeLabel')} value={mode} isDisabled={active}
+          ? <RadioGroup aria-label={t('settings:cloudflareTunnel.modeLabel')} value={mode} isDisabled={active || blocked}
               onChange={(next) => setMode(next as TunnelState['mode'])} className={SEGMENTED_TRACK}>
               {MODES.map(([value, label]) => (
                 <Radio key={value} value={value} className={SEGMENT}>{label}</Radio>
@@ -114,11 +119,11 @@ export function TunnelSettings({ revision: initialRevision, initial, receipt }: 
         <Help>{HELP[named ? 'named' : 'quick']}</Help>
         {named ? <>
           <Input id="tunnel-hostname" label={t('settings:remoteAccess.hostname')} autoComplete="off" maxLength={253}
-            value={hostname} onChange={setHostname} isDisabled={active} validationBehavior="aria"
+            value={hostname} onChange={setHostname} isDisabled={active || blocked} validationBehavior="aria"
             isInvalid={Boolean(fields.hostname)}
             hint={fields.hostname || t('settings:remoteAccess.hostnameHelp')} />
           <Input id="tunnel-token" type="password" label={t('settings:remoteAccess.tunnelToken')} autoComplete="off" maxLength={2048}
-            value={token} onChange={setToken} isDisabled={active} validationBehavior="aria"
+            value={token} onChange={setToken} isDisabled={active || blocked} validationBehavior="aria"
             hint={state.token_set
               ? t('settings:cloudflareTunnel.tokenSaved')
               : t('settings:cloudflareTunnel.tokenHint')} />
@@ -134,7 +139,8 @@ export function TunnelSettings({ revision: initialRevision, initial, receipt }: 
         {action.error ? <ErrorText>{action.error}</ErrorText> : null}
       </Stack>
       <Footer>
-        <Button variant={state.named_available ? 'secondary' : 'primary'} onClick={toggle} {...busyProps(action.busy === 'toggle')}>
+        <Button variant={state.named_available ? 'secondary' : 'primary'} onClick={toggle} {...busyProps(action.busy === 'toggle')}
+          disabled={blocked && !active}>
           {active ? t('settings:cloudflareTunnel.stop') : t('settings:remoteAccess.start')}
         </Button>
         {state.named_available
