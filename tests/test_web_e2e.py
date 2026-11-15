@@ -881,6 +881,7 @@ class MissingPrerequisiteTests(unittest.TestCase):
                     mock.patch(__name__ + ".BROWSER_LOGS", log_root), \
                     mock.patch(__name__ + ".e2e_pools", return_value=((files[:3], 2), (files[3:], 1))), \
                     mock.patch.object(case, "_server_log", return_value="serve fixture"), \
+                    mock.patch.object(case, "_offline_attempts", return_value=[]), \
                     mock.patch.object(test_history, 'record_external') as recorded, \
                     mock.patch("subprocess.run", side_effect=run), \
                     contextlib.redirect_stdout(io.StringIO()):
