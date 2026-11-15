@@ -113,9 +113,13 @@ describe('作品详情岛', () => {
     const opened = await openItemPage(browser, `/assets/${ITEM.plain}`, viewport);
     try {
       const { page } = opened;
-      await page.locator('#stage [data-tag-plus]').evaluate(node => node.scrollIntoView({ block:'center', behavior:'instant' }));
-      await page.locator('#stage [data-tag-plus]').click();
-      const menu = page.locator('#stage [data-tag-picker]');
+      // 标签增删收进了「编辑资料」：选择器长在编辑框里。
+      await page.locator('#stage [data-item-edit-open]').click();
+      const editor = page.locator('dialog[data-item-edit-dialog]');
+      await editor.waitFor();
+      await editor.locator('[data-tag-plus]').evaluate(node => node.scrollIntoView({ block:'center', behavior:'instant' }));
+      await editor.locator('[data-tag-plus]').click();
+      const menu = editor.locator('[data-tag-picker]');
       await menu.waitFor({ state:'visible' });
       const scrollbar = await menu.locator('[data-tag-body]').evaluate(node => ({
         hidden:getComputedStyle(node).scrollbarWidth,

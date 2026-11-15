@@ -306,7 +306,13 @@ describe('设计决定：关注详情、作品详情、播放器与侧栏', () =
       assert.deepEqual([await chips.count(), (await more.innerText()).trim()], [30, '收起']);
       await more.click();
       assert.equal(await chips.count(), 20);
-      assert.equal(await page.locator('#stage [data-detail-tags] [data-tag-plus]').isVisible(), true, '收起时加号照样在');
+      assert.equal(await page.locator('#stage [data-detail-tags] [data-tag-plus]').count(), 0, '侧栏标签只读，不该有加号');
+      // 增删收进了「编辑资料」：框里同样先露 20 个，收起时加号照样在。
+      await page.locator('#stage [data-item-edit-open]').click();
+      const editor = page.locator('dialog[data-item-edit-dialog]');
+      await editor.waitFor();
+      assert.equal(await editor.locator('[data-detail-tags] [data-detail-tag]').count(), 20);
+      assert.equal(await editor.locator('[data-detail-tags] [data-tag-plus]').isVisible(), true, '收起时加号照样在');
       assert.deepEqual(withoutPlayer(opened.problems), []);
     } finally {
       await opened.close();
