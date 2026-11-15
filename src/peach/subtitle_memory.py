@@ -57,9 +57,10 @@ class SubtitleMemory:
 
     def read(self) -> dict:
         if not self.manifest.exists():
-            return {"selected": None, "tracks": []}
+            return {"selected": None, "tracks": [], "selection_explicit": False}
         value = json.loads(self.manifest.read_text(encoding="utf-8"))
         return {"selected": value["selected"], "tracks": value["tracks"],
+                "selection_explicit": value.get("selection_explicit", True),
                 **{key: value[key] for key in PREFERENCES if key in value}}
 
     def update(self, selected: str | None, track: dict | None = None) -> dict:
@@ -80,7 +81,7 @@ class SubtitleMemory:
         self.root.mkdir(parents=True, exist_ok=True)
         with FileLock(str(self.manifest) + ".lock"):
             value = self.read()
-            if selected is not None and not selected.startswith("native:") and not re.fullmatch(r"sidecar:[1-9][0-9]*", selected) and not (
+            if selected is not None and not selected.startswith("native:") and not re.fullmatch(r"sidecar:(?:[1-9][0-9]*|local:[a-f0-9]{64})", selected) and not (
                     track is not None and selected == key) and not any(
                     row["key"] == selected for row in value["tracks"]):
                 raise UserValueError("errors.subtitleMemory.selectionNotSaved")
@@ -91,6 +92,7 @@ class SubtitleMemory:
                 value["tracks"].append({"key": key, "name": name, "file": filename})
             if "selected" in patch:
                 value["selected"] = selected
+                value["selection_explicit"] = True
             for field in PREFERENCES & patch.keys():
                 if field == "caption_style":
                     value[field] = {**value.get(field, {}), **patch[field]}

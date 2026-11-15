@@ -51,6 +51,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Fixed / 修复
 
+- **Playback**: A subtitle picked by hand from the video's folder is remembered for that video again; before, the choice failed to save (#428). / **播放**：手动选的同目录字幕重新能按影片记住，之前这一选择存不上（#428）。
 - **Library**: DMM video previews in JAV details play again after DMM moved them to a new host (#697). / **馆藏**：DMM 换了预告视频的主机后，JAV 详情里的 DMM 视频预览重新能播（#697）。
 - **Sourcing**: Blu-ray editions in New releases merge into their DMM streaming edition, so they get the official cover and no longer appear twice (#694). / **采集**：新作里的蓝光版并入 DMM 配信版，能取到官方封面，也不再和配信版重复列出（#694）。
 - **Sourcing**: A subscription check that finds more than 20 new releases keeps all of them in New releases, and works dropped this way before are restored after upgrading (#667). / **采集**：订阅一次拉到超过 20 部新作时全部留在「新作」里，旧版因此漏掉的作品升级后自动补回（#667）。
