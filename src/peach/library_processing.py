@@ -333,6 +333,11 @@ MISS_MESSAGES = {'querying_metadata': phrase('errors.libraryProcessing.missMetad
                  'fetching_cover': phrase('errors.libraryProcessing.missCover')}
 #: 日志里的 code 反查回上面的键，界面按键取自己的短标签。
 NOTE_KEYS = {said['code']: key for key, said in MISS_MESSAGES.items()}
+#: 这一部已经从别的来源取到了，链上另有几家没答上（超时、限流、冷却、拒绝、图片下载失败）：逐家原因
+#: 记进日志与诊断，留给排查，不算问题项、不进重试名单，界面也不报数（ADR-0107 的封面取舍不变）。
+PARTIAL_NOTES = {'errors.libraryProcessing.someSourcesUnfetched': 'partial_metadata',
+                 'errors.libraryProcessing.someCoverSourcesUnfetched': 'partial_cover'}
+NOTE_KEYS.update(PARTIAL_NOTES)
 #: 外网不通时要出网的那些行不去问，直接记这一句；联网之后可以重试（`network_reachability`）。
 OFFLINE_MESSAGE = phrase('errors.libraryProcessing.offline')
 
@@ -908,6 +913,8 @@ class LibraryMetadataProvider:
         kept = measure_image_file(target)
         mark = self.excused
         official, verified_by, problems, siblings = None, (), [], ()
+        #: 取到封面时没答上的那几处（`(phrase, 是否冷却)`），调用方据此留一条诊断。
+        self.cover_problems = problems
         try:
             siblings = self._official_candidates(code, evidence, deadline=deadline, known=snapshots, absent=absent)
             official = best_cover(self.transport, code, 0, deadline=_extended(deadline, self.excused - mark),
@@ -2046,7 +2053,8 @@ class _RemoteSession:
         wants_cast = 'performers' in missing and any(name in metadata_routes.WIKI_STAGE for name in chain)
         results = _MetadataResults(self, code, received)
         problems, held, entries = [], [], results.entries
-        failures = []
+        # 没答上的来源逐家留原因（`failures`），说过「没有」的另记一份（`absent`）：两样是两回事。
+        failures, absent = [], []
         attempted = set(answered)
         stages = metadata_routes.stages_for_chain(chain)
         for source, then in zip(stages, (*stages[1:], '')):
@@ -2071,9 +2079,12 @@ class _RemoteSession:
                 found = self._ask(source, code, members, cached, required=required, evidence=evidence,
                                   deadline=_extended(deadline, _excused(self._provider) - mark),
                                   received=results.save)
-            except DeadlineExceeded:
+            except DeadlineExceeded as error:
                 self.reset()
                 if entries:
+                    problems.append(phrase('errors.libraryProcessing.sourceProblem', {
+                        'source': source_name(source), 'problem': phrase('errors.libraryProcessing.deadlineRetryLater')}))
+                    failures.append(_source_failure_details(error, code, action, source=source))
                     break
                 issue(row, phrase('errors.libraryProcessing.deadlineRetryLater'), action=action, retryable=True)
                 return []
@@ -2082,6 +2093,7 @@ class _RemoteSession:
                 if is_missing(error):
                     for name in getattr(error, 'sites', None) or members:
                         self._record_miss(name, code)
+                        absent.append(name)
                 else:
                     # 社区那一档的原因里已经写明是哪一家了（`community()` 逐家拼过），再套一层
                     # 就成了「社区来源：javdb：…」。单家来源的原因不带来源名，这里补上。
@@ -2109,6 +2121,10 @@ class _RemoteSession:
             update=update, issue=issue, deadline=_extended(deadline, _excused(self._provider) - mark))
         results.cached(tag_entries)
         if entries:
+            if problems:
+                issue(row, phrase('errors.libraryProcessing.someSourcesUnfetched',
+                                  {'problems': joined_phrases(problems)}), action=action,
+                      diagnostics={'failures': failures, 'absent': absent})
             return entries
         # 链上任何一档还在正常作答，这一行就是真没取到；全被限住时才算没轮到。
         paused = bool(held) and all(held)
@@ -2116,7 +2132,7 @@ class _RemoteSession:
                           else 'errors.libraryProcessing.metadataUnfetched', {'problems': joined_phrases(problems)})
               if problems else MISS_MESSAGES[action],
               action=action, retryable=True, paused=paused,
-              **({'diagnostics': {'failures': failures}} if failures else {}))
+              **({'diagnostics': {'failures': failures, 'absent': absent}} if failures else {}))
         return []
 
     def _provided(self, code, entries):
@@ -2176,9 +2192,15 @@ class _RemoteSession:
         update(**stage_fields('library.fetchCovers'), current_action=action,
                current_started_at=time.time(), current_deadline_at=time.time() + budget, current_source=None)
         try:
-            return int(self.provider().cover(code, cover_root, deadline=deadline_after(budget),
-                                             evidence=_studio_evidence(row), snapshots=snapshots,
-                                             absent=absent))
+            provider = self.provider()
+            covers = int(provider.cover(code, cover_root, deadline=deadline_after(budget),
+                                        evidence=_studio_evidence(row), snapshots=snapshots, absent=absent))
+            raw = getattr(provider, 'cover_problems', None)
+            problems = [said for said, _paused in raw] if isinstance(raw, list) else []
+            if problems:
+                issue(row, phrase('errors.libraryProcessing.someCoverSourcesUnfetched',
+                                  {'problems': joined_phrases(problems)}), action=action)
+            return covers
         except DeadlineExceeded:
             self.reset()
             issue(row, phrase('errors.libraryProcessing.coverDeadline'), action=action, retryable=True)

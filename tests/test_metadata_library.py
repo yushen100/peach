@@ -3658,6 +3658,62 @@ class LibraryWatchdogTests(unittest.TestCase):
         self.assertEqual(reads, 1)
 
     @windows_ledger_roots
+    def test_a_source_that_failed_is_kept_for_diagnosis_when_another_one_answered(self):
+        """r18.dev 没答上、DMM 给齐了：这部片照常完成，r18.dev 的原因作为告知项留在日志与诊断里，
+        不算问题、不进重试；说过「没有」的来源另记，和没答上的分开。"""
+        media = self.root / 'media'
+        media.mkdir()
+        (media / 'ABW-216.mp4').write_bytes(b'video')
+        db = fresh_ledger(self.root)
+        process_library(self._config(media), db, self.root / 'generated', self.root / 'covers', stage='scan')
+        provider = stub_provider()
+
+        def query(code, source='r18dev', **_):
+            if source == 'r18dev':
+                raise ConnectionError('r18.dev timed out')
+            if source == 'dmm':
+                return {'id': code, 'title': 'DMM title', 'maker': 'Studio', 'release_date': '2024-01-02',
+                        'actresses': [{'japanese_name': '涼森れむ'}], 'source_url': ''}
+            raise NotFound(*relayed('HTTP 404'))
+
+        provider.query.side_effect = query
+        provider.cover.return_value = False
+        state = process_library(self._config(media), db, self.root / 'generated', self.root / 'covers',
+                                stage='metadata', provider_factory=lambda: provider)
+        self.assertEqual((state['status'], state['issue_count'], state['retryable_asset_ids']), ('complete', 0, []))
+        self.assertEqual(state['notes'].get('partial_metadata'), 1)
+        rows = [json.loads(line) for line in Path(state['issues_log']).read_text(encoding='utf-8').splitlines()]
+        partial = next(row for row in rows if row.get('message_code') == 'errors.libraryProcessing.someSourcesUnfetched')
+        self.assertEqual((partial['severity'], partial['retryable'], partial['failed_action']),
+                         ('info', False, 'querying_metadata'))
+        self.assertIn('r18.dev', partial['message'])
+        self.assertEqual([failure['source'] for failure in partial['diagnostics']['failures']], ['r18dev'])
+
+    @windows_ledger_roots
+    def test_an_image_source_that_failed_is_kept_when_the_cover_still_landed(self):
+        """封面从别处取到了，没答上的图源原因照样留一条告知项，不算问题。"""
+        from peach.library_processing import phrase
+        media = self.root / 'media'
+        media.mkdir()
+        (media / 'ABW-217.mp4').write_bytes(b'video')
+        db = fresh_ledger(self.root)
+        process_library(self._config(media), db, self.root / 'generated', self.root / 'covers', stage='scan')
+        provider = self._provider()
+
+        def cover(code, cover_root, **_):
+            provider.cover_problems = [(phrase('errors.libraryProcessing.sourceProblem',
+                                               {'source': 'JavBus', 'problem': 'HTTP 503'}), False)]
+            return 1
+
+        provider.cover.side_effect = cover
+        state = process_library(self._config(media), db, self.root / 'generated', self.root / 'covers',
+                                stage='covers', provider_factory=lambda: provider)
+        self.assertEqual((state['status'], state['issue_count'], state['covers']), ('complete', 0, 1))
+        self.assertEqual(state['notes'].get('partial_cover'), 1)
+        rows = Path(state['issues_log']).read_text(encoding='utf-8')
+        self.assertIn('JavBus', rows)
+
+    @windows_ledger_roots
     def test_the_covers_stage_asks_only_for_covers(self):
         """「只补封面」不问资料与人物资料，配额都用在封面上；新入库的影片照旧算待补全。"""
         from peach.library_new_assets import pending, remember
