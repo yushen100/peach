@@ -14,7 +14,7 @@ from xml.etree import ElementTree as ET
 import m3u8
 from PIL import Image
 
-from . import bif
+from . import bif, media_io
 
 MAX_INDEX_BYTES = 4 * 1024 * 1024
 MAX_FRAMES = 20000
@@ -415,12 +415,11 @@ def discover(video: Path, duration: float) -> Timeline | None:
     """按准确文件主名配对，不通过番号或同目录唯一性猜测视频版本。
 
     绝大多数片子旁边什么都没有，所以先把视频目录列一次，候选名字从这份清单里认（`_listed`），
-    不对十几个候选逐个 stat。
+    不对十几个候选逐个 stat。列目录交给带期限的读取子进程：挂死的挂载上读不出来就当没有。
     """
     root = _real(video.parent)
     try:
-        with os.scandir(root) as listing:
-            entries = {entry.name.casefold(): entry for entry in listing}
+        entries = {entry.name.casefold(): entry for entry in media_io.directory_entries(root)}
     except OSError:
         return None
 
@@ -452,8 +451,9 @@ def discover(video: Path, duration: float) -> Timeline | None:
                     return replace(found, root=root)
         directory = present(video.stem + '.trickplay', directory=True)
         if directory is not None:
-            for resolution in sorted(directory.iterdir()):
-                if resolution.is_dir() and _inside(resolution, root):
+            for entry in sorted(media_io.directory_entries(directory), key=lambda entry: entry.name):
+                resolution = directory / entry.name
+                if entry.is_dir() and _inside(resolution, root):
                     try:
                         found = read_jellyfin(resolution, duration)
                         if found:

@@ -198,12 +198,12 @@ def hung_mount(stuck, *functions):
             return original(path, *args, **kwargs)
         return call
 
-    modules = {'os': os, 'builtins': builtins}
+    modules = {'os': os, 'os.path': os.path, 'builtins': builtins}
     with ExitStack() as stack:
         stack.enter_context(mock.patch.object(media_io, 'TIMEOUT_SECONDS', 1.0))
         stack.enter_context(mock.patch.object(media_io.subprocess, 'Popen', side_effect=spawn))
         for name in functions:
-            module, attribute = name.split('.')
+            module, _, attribute = name.rpartition('.')
             target = modules[module]
             stack.enter_context(mock.patch.object(target, attribute, hang(getattr(target, attribute))))
         try:

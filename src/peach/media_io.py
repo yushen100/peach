@@ -66,6 +66,10 @@ class DirectoryEntry:
     def is_symlink(self):
         return self.symlink
 
+    def is_file(self):
+        """跟随链接后不是目录、类型也读得出来；口径同 `os.DirEntry.is_file` 对普通文件的回答。"""
+        return not self.directory and not self.error
+
     def stat(self):
         if self.error:
             raise OSError(errno.EIO, self.error, self.path)
