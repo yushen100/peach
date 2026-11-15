@@ -27,12 +27,13 @@ from __future__ import annotations
 import re
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from datetime import datetime, timedelta, timezone
 from enum import StrEnum
 from typing import Any, Mapping
 
 from .. import jav_cover_fetch
 from ..jav_cover_fetch import NotFound, Unavailable
-from ..content_words import CLOUDFLARE_CHALLENGE_TITLES, GEO_REFUSAL_PHRASES
+from ..content_words import ACCOUNT_RESUME_AT, ACCOUNT_SUSPENDED_PHRASES, CLOUDFLARE_CHALLENGE_TITLES, GEO_REFUSAL_PHRASES
 from ..metadata import MetadataProviderError, RelayableError, auth_error, relay_args
 
 
@@ -45,6 +46,8 @@ class FailureReason(StrEnum):
     IP_BANNED = "ip_banned"
     #: 站方按地区拒绝这个出口。
     GEO_RESTRICTED = "geo_restricted"
+    #: 站方临时停用了登录账号（嫌浏览太快）：停的是账号不是出口，换出口没用，等它到点恢复。
+    ACCOUNT_SUSPENDED = "account_suspended"
     #: 登录墙、年龄门或 401/403：换一份 Cookie 才能继续。
     AUTH_REQUIRED = "auth_required"
     #: 站上没有这个番号（HTTP 404 或搜索无命中）。
@@ -72,6 +75,7 @@ REASON_KINDS: dict[FailureReason, str] = {
     FailureReason.IP_BANNED: "auth",
     FailureReason.GEO_RESTRICTED: "auth",
     FailureReason.AUTH_REQUIRED: "auth",
+    FailureReason.ACCOUNT_SUSPENDED: "auth",
     FailureReason.NOT_FOUND: "not_found",
     FailureReason.GONE: "not_found",
     FailureReason.NO_USABLE_METADATA: "not_found",
@@ -117,6 +121,24 @@ REFUSAL_MARKS: tuple[tuple[re.Pattern[str], FailureReason], ...] = (
     (re.compile(r"banned your access", re.I), FailureReason.IP_BANNED),
 )
 REFUSAL_SCAN = 32 * 1024
+
+
+def account_suspension(html: str | bytes) -> tuple[bool, float | None]:
+    """这一页是不是账号临时停用的说明：(是不是, 页面写的恢复时刻的时间戳；没写或读不出为 None)。"""
+    head = html[:REFUSAL_SCAN]
+    text = head.decode("utf-8", "replace") if isinstance(head, bytes) else str(head)
+    if not any(phrase in text for phrase in ACCOUNT_SUSPENDED_PHRASES):
+        return False, None
+    found = re.search(ACCOUNT_RESUME_AT, text)
+    if not found:
+        return True, None
+    day, clock, sign, hours, minutes = found.groups()
+    offset = timedelta(hours=int(hours), minutes=int(minutes)) * (1 if sign == "+" else -1)
+    try:
+        moment = datetime.fromisoformat(f"{day}T{clock.zfill(5)}").replace(tzinfo=timezone(offset))
+    except ValueError:
+        return True, None
+    return True, moment.timestamp()
 
 
 def refusal_page(html: str | bytes) -> FailureReason | None:

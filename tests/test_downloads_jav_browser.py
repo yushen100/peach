@@ -572,6 +572,43 @@ class BrowserTests(unittest.TestCase):
         now[0] += 3600
         self.assertFalse(self.service.process_one())
 
+    def test_a_long_source_pause_settles_on_the_other_sources_and_rechecks_after_it_recovers(self):
+        """来源要停一小时以上时不干等：按其余来源记无资源、加入想要，来源恢复后再查一次。"""
+        now = [1_800_000_000.0]
+        self.downloads.clock = lambda: now[0]
+        self.service.search.return_value = {
+            "ok": True, "state": "ready", "items": [], "error": "", "warnings": ["JavDB：未取得"],
+            "unfetched_sources": ["JavDB"], "retry_after": 6 * 3600.0}
+        self.add()
+        self.service.process_one()
+        status = self.status().json()
+        self.assertEqual((status["state"], status["message"]),
+                         ("no_match", "其余来源没找到；JavDB 暂时访问不了，恢复后自动补查"))
+        self.assertNotIn("retry_at", status)
+        self.assertEqual(self.wants(), [("ABC-123", "code", "wanted")])
+        # 来源恢复前清扫不重查，不去撞其余来源。
+        now[0] += 3 * 3600
+        self.assertFalse(self.service.process_one())
+        self.assertEqual(self.service.search.call_count, 1)
+        self.assertGreater(self.service.idle_wait(), 0)
+        # 恢复之后重查一次，这次来源都答了就按普通无资源收尾。
+        now[0] += 3 * 3600 + 60
+        self.service.search.return_value = {"items": []}
+        self.assertTrue(self.service.process_one())
+        self.service.process_one()
+        self.assertEqual(self.service.search.call_count, 2)
+        self.assertEqual(self.status().json()["state"], "no_match")
+        self.assertTrue(self.service.rows["ABC-123"]["sources_complete"])
+
+    def test_a_failed_search_names_its_reason(self):
+        self.service.search.return_value = {"ok": False, "state": "unavailable", "items": [], "error": "x",
+                                            "error_code": "labels.resourceSearch.noIndexer", "error_params": {}}
+        self.add()
+        self.service.process_one()
+        status = self.status().json()
+        self.assertEqual(status["state"], "failed")
+        self.assertTrue(status["message"].startswith("资源搜索失败："), status["message"])
+
     def test_no_match_recorded_before_the_source_check_is_searched_again_once(self):
         now = [1_800_000_000.0]
         self.downloads.clock = lambda: now[0]

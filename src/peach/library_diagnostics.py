@@ -160,6 +160,7 @@ SOURCE_CHECK_REASONS = {
     "cloudflare_blocked": "labels.libraryDiagnostics.source.blocked",
     "ip_banned": "labels.libraryDiagnostics.source.blocked",
     "geo_restricted": "labels.libraryDiagnostics.source.geoRestricted",
+    "account_suspended": "labels.libraryDiagnostics.source.accountSuspended",
     "rate_limited": "labels.libraryDiagnostics.source.rateLimited",
     "server_error": "labels.libraryDiagnostics.source.serverError",
     "parse_error": "labels.libraryDiagnostics.source.parseError",

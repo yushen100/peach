@@ -610,6 +610,8 @@ def q_feed_lookup(contract, args) -> dict:
 
 def _search_javdb(contract, url: str) -> str:
     """取一页 JavDB 演员搜索结果；冷却、限流、断网、登入页都按原因报 ValueError。"""
+    from .sources.javdb import SEARCH_LIMITER
+    SEARCH_LIMITER.wait(url)
     try:
         response = _transport(contract)(HttpRequest("GET", url, {"Accept": "text/html"}),
                                         LOOKUP_TIMEOUT, FETCH_MAX_BYTES)
