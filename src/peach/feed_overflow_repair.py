@@ -57,7 +57,8 @@ def candidates(connection, hidden: frozenset[str] = feeds.DEFAULT_HIDDEN_COMPILA
     return planned
 
 
-def repair(connection, hidden: frozenset[str] = feeds.DEFAULT_HIDDEN_COMPILATIONS) -> dict | None:
+def repair(connection, hidden: frozenset[str] = feeds.DEFAULT_HIDDEN_COMPILATIONS, *,
+           backup=None) -> dict | None:
     """同一事务写新作壳与可审计水位；已补过或无目标时仍只记一次回执。"""
     if connection.execute(
             "SELECT 1 FROM ledger_upgrade_repair WHERE id=?", (RECEIPT_KEY,)).fetchone():
@@ -73,6 +74,8 @@ def repair(connection, hidden: frozenset[str] = feeds.DEFAULT_HIDDEN_COMPILATION
         if shell is not None:
             created.append({"id": shell, "code": row["code"], "item_id": row["id"]})
     outcome = {"candidates": len(planned), "created": created}
+    if backup is not None:
+        outcome["backup"] = str(backup)
     connection.execute(
         "INSERT INTO ledger_upgrade_repair(id,applied_at,result_json) VALUES(?,?,?)",
         (RECEIPT_KEY, str(time.time()), json.dumps(outcome, ensure_ascii=False)))

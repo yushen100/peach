@@ -237,6 +237,22 @@ class HistoricalFeedOverflowRepairTest(unittest.TestCase):
                 (feed_overflow_repair.RECEIPT_KEY,)).fetchone()[0], 1)
             self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
 
+    def test_repair_is_listed_in_repair_history_with_its_backup(self):
+        from peach import feed_overflow_repair, repair_center
+
+        backup = Path(self._tmp.name) / "ledger.pre-upgrade-1.db"
+        backup.write_bytes(b"")
+        with self.database.write_transaction() as connection:
+            source = feeds.add_source(connection, url="https://javdb.com/actors/ab1")
+            self._old_batch(connection, source)
+            feed_overflow_repair.repair(connection, backup=backup)
+        with self.database.read_connection() as connection:
+            history = repair_center.snapshot(connection, {}, cloud_pending=0,
+                                             backup_directories=[Path(self._tmp.name)])["history"]
+        self.assertEqual([(row["title"], row["changed"]) for row in history],
+                         [("补回超出单轮上限的新作", 15)])
+        self.assertEqual([row["name"] for row in history[0]["backups"]], [backup.name])
+
     def test_excludes_library_ignored_and_hidden_compilations(self):
         from peach import feed_overflow_repair
 

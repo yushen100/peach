@@ -30,6 +30,7 @@ RULES = (
     ('enhancement-suffix-names-', ('aliases', 'terms', 'added_aliases')),
     ('fc2-seller-backfill-', ('entity_ids',)),
     ('code-sibling-identity-', ('links',)),
+    ('feed-overflow-discoveries-', ('created',)),
     ('studio-unbounded-misses-', ('released',)), ('stale-filename-codes-', ('cleared',)),
     ('dangling-candidates-', ('repinned', 'withdrawn')),
     ('javdb-actor-records-', ('hidden', 'disabled_feeds')),
