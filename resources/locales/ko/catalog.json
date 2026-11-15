@@ -1,1 +1,15 @@
-{}
+{
+  "avatarPicker": {
+    "backToChoices": "설정으로 돌아가기",
+    "baseImage": "기본 이미지",
+    "castCount": "{{count, number}} 명",
+    "castDetail": " {{count, number}}인 공동 출연",
+    "change": "아바타 변경",
+    "changeFor": "{{name}}의 아바타 변경하기",
+    "choicesCount": "{{count, number}} 개의 항목 선택 가능",
+    "choicesLabel": "아바타 설정",
+    "chooseFromDevice": "이 기기에서 선택",
+    "codePlaceholder": "품번, 예시) ABW-232",
+    "cropFromCover": "표지에서 발췌하기"
+  }
+}
