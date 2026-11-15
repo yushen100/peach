@@ -833,6 +833,7 @@
     "feedLimitInput": "Number of new releases shown",
     "feedNewRows": "Show new releases on Home and actress pages",
     "groupEditions": "Group parts and editions",
+    "homePreviewOnly": "Show only videos with a preview image on Home",
     "homeShorts": "Portrait strip on Home",
     "homeTiers": "Show actress and label avatars on Home",
     "hoverDelay": "Hover preview delay",

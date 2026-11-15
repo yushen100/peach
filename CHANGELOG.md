@@ -18,6 +18,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 - **Library**: Actress names can show translated, original Japanese, romanized, or original and local side by side in either order; local follows the interface language (#682). / **馆藏**：女优名称可显示为中文化译名、日语原文、英文罗马音，或原文与本地语言并列（任一在前），本地语言跟界面语言走（#682）。
 - **Review**: Review can select every item in the current filter across pages with Select all, not just the page on screen (#216). / **复核**：人工复核可用「全选全部」一次选中当前筛选下所有页的项目，不再只能选本页（#216）。
+- **Interface**: Settings can make Home show only videos with a preview image, kept after refresh and when returning Home; Show all next to the count shows everything (#196). / **界面**：设置里可让首页只显示有预览图的作品，刷新与回首页后仍生效；读数旁的「显示全部」可临时看全部（#196）。
 - **Library**: Profile name menus can merge duplicate actress, label, creator, series and agency profiles; a new alias that another profile already uses offers it too (#207). / **馆藏**：女优、厂牌、创作者、系列与事务所的名字菜单可合并重复档案，添加的别名已被另一份档案使用时也会提示合并（#207）。
 - **Library**: Edit details next to the title changes the code, title, date, region, performers, label, series and tags; edited values aren't overwritten by collection (#187). / **馆藏**：详情标题旁新增「编辑资料」，可改番号、标题、日期、产地、演员、厂牌、系列与标签，改过的值不再被采集覆盖（#187）。
 - **Library**: Performers, labels and series not found in Edit details can be created on the spot and carry a Custom tag in rosters and details (#549). / **馆藏**：编辑资料里搜不到的演员、厂牌、系列可直接新建，名册与详情上带「自建」标记（#549）。

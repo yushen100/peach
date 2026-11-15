@@ -33,6 +33,7 @@ export interface PanelSettings {
   feedNewRows: boolean;
   homeShortsLimit: number;
   homeTiers: boolean;
+  homePreviewOnly: boolean;
   completionPrompt: boolean;
   searchRecommendations: boolean;
   ingestNotices: boolean;
@@ -65,7 +66,7 @@ export type SettingsEffect =
   | 'groupCollapse' | 'feedAutoScroll' | 'feedLimit' | 'feedCompilations' | 'miniplayer' | 'javImage'
   | 'searchHistoryLimit' | 'performerNameLanguage'
   /** 首页那几块的显隐：新作那一行、竖屏带（连同主网格排不排除竖屏）、两排头像。 */
-  | 'feedNewRows' | 'homeShorts' | 'homeTiers'
+  | 'feedNewRows' | 'homeShorts' | 'homeTiers' | 'homePreviewOnly'
   | 'searchRecommendations';
 
 /** `[值, 显示名, 字形]`，与壳里各张选项表同形。 */

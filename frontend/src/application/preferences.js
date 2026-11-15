@@ -229,6 +229,12 @@ preferencesState.settingsEffects = {
   /* 竖屏带的开关与张数都改了目录的请求口径（排不排除竖屏、一条取几张），按新口径重取一遍。 */
   homeShorts:()=>{if(isCatalogPath(location.pathname))loadCatalog()},
   homeTiers:()=>syncCatalogFilterScreen(),
+  /* 首页当场换到新的默认档；地址上带着 `thumb` 的、不在首页的，下次回首页时生效。 */
+  homePreviewOnly:()=>{
+    if(navigationState.surfacePath()!=='/'||new URLSearchParams(location.search).has('thumb'))return;
+    state.thumb=preferencesState.appSettings.homePreviewOnly?'1':'0';notifyShell();
+    paintCatalogFilter({previewOnly:state.thumb==='1'});replaceCatalogAddress();
+  },
 };
 preferencesState.syncGlassOptics = ()=>{};
 preferencesState.placeSidebarHead = ()=>{};

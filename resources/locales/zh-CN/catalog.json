@@ -48,6 +48,7 @@
   "catalogFilter": {
     "filterAndSort": "筛选与排序",
     "readout": "{{count, number}} 个符合 · 显示 {{shown, number}}",
+    "showAll": "显示全部",
     "views": "视图",
     "viewsAndTags": "视图与标签"
   },

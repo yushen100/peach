@@ -44,6 +44,17 @@ describe('目录地址与默认范围', () => {
     expect(initial(address.pathname, address.search)).toMatchObject({ ...filters, seed: 'fresh-seed', thumb: '0' });
   });
 
+  it('设置打开「首页只显示有预览图」后，进首页与回首页都默认只看有预览的，地址上的 thumb 优先', () => {
+    const previewOnly = { ...preferences, homePreviewOnly: true };
+    expect(initialCatalogFilters({ pathname: '/', search: '' }, previewOnly, seed).thumb).toBe('1');
+    expect(initialCatalogFilters({ pathname: '/', search: '?thumb=0' }, previewOnly, seed).thumb).toBe('0');
+    expect(initialCatalogFilters({ pathname: '/', search: '?thumb=1' }, preferences, seed).thumb).toBe('1');
+    const shown = { ...initial('/'), thumb: '0' };
+    expect(resetCatalogFilters(shown, previewOnly, seed).thumb).toBe('1');
+    expect(resetCatalogFilters(shown, preferences, seed).thumb).toBe('0');
+    expect(new URL(homePath({ ...shown, thumb: '1' }), 'https://peach.test').searchParams.has('thumb')).toBe(false);
+  });
+
   it('没有独立路径的状态用查询参数，垃圾文件使用独立路径', () => {
     expect(homePath({ state: 'trash', sort: 'seed', dir: '', seed: 'private' })).toBe('/?sort=seed&state=trash');
     expect(homePath({ state: 'ads', tag_match: 'all' })).toBe('/junk-files');

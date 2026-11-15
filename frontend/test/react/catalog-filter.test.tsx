@@ -132,6 +132,21 @@ describe('读数', () => {
   });
 });
 
+describe('只显示有预览图', () => {
+  it('只看有预览图时读数旁给「显示全部」，点下去交给壳；看全部时不出', async () => {
+    const showAll = vi.fn();
+    const base = props();
+    const host = await mount(<CatalogFilterPage {...base} previewOnly actions={{ ...base.actions, showAll }} />);
+    const button = [...host.querySelectorAll('[data-catalog-summary] button')].find((node) => node.textContent === '显示全部');
+    expect(button).toBeTruthy();
+    (button as HTMLButtonElement).click();
+    expect(showAll).toHaveBeenCalledOnce();
+    document.body.innerHTML = '';
+    const all = await mount(<CatalogFilterPage {...base} actions={{ ...base.actions, showAll }} />);
+    expect([...all.querySelectorAll('[data-catalog-summary] button')].some((node) => node.textContent === '显示全部')).toBe(false);
+  });
+});
+
 describe('续页', () => {
   it('上一份名单要的那页还在路上时换了名单，新名单照样续页，旧的那页回来不进这一排', async () => {
     // 一排一枚铺不满一行：没溢出就一直停在右端，每次画完都要下一页。

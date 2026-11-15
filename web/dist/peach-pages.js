@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "b7ffab45-5bb6-4ffa-907a-7a1e7e2c0308", e._sentryDebugIdIdentifier = "sentry-dbid-b7ffab45-5bb6-4ffa-907a-7a1e7e2c0308");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "641bda18-def1-4718-acb5-3353cb892515", e._sentryDebugIdIdentifier = "sentry-dbid-641bda18-def1-4718-acb5-3353cb892515");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -1513,6 +1513,7 @@ var He = {
 		filterAndSort: "Filter and sort",
 		readout_one: "{{count, number}} match · showing {{shown, number}}",
 		readout_other: "{{count, number}} matches · showing {{shown, number}}",
+		showAll: "Show all",
 		views: "Views",
 		viewsAndTags: "Views and tags"
 	},
@@ -6621,6 +6622,7 @@ var He = {
 		feedLimitInput: "Number of new releases shown",
 		feedNewRows: "Show new releases on Home and actress pages",
 		groupEditions: "Group parts and editions",
+		homePreviewOnly: "Show only videos with a preview image on Home",
 		homeShorts: "Portrait strip on Home",
 		homeTiers: "Show actress and label avatars on Home",
 		hoverDelay: "Hover preview delay",
@@ -8953,6 +8955,7 @@ var He = {
 	catalogFilter: {
 		filterAndSort: "筛选与排序",
 		readout: "{{count, number}} 个符合 · 显示 {{shown, number}}",
+		showAll: "显示全部",
 		views: "视图",
 		viewsAndTags: "视图与标签"
 	},
@@ -13687,6 +13690,7 @@ var He = {
 		feedLimitInput: "新作显示数量",
 		feedNewRows: "首页与人物页显示新作",
 		groupEditions: "合并分卷与版本",
+		homePreviewOnly: "首页只显示有预览图的作品",
 		homeShorts: "首页竖屏短片带",
 		homeTiers: "首页显示女优与厂牌头像",
 		hoverDelay: "悬停预览延迟",
@@ -39165,4 +39169,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=b7ffab45-5bb6-4ffa-907a-7a1e7e2c0308
+//# debugId=641bda18-def1-4718-acb5-3353cb892515
