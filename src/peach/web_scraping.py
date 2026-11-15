@@ -103,11 +103,14 @@ def _result(code: str, **params) -> dict:
 
 
 def _fetch_cover(contract, code):
-    from .cover_artwork import install_cover
+    from .cover_artwork import install_cover, is_user_cover
     from .jav_cover_fetch import (best_cover, HostLimitedTransport, Unavailable,
                                  fc2_cover_candidates, logged_success_evidence)
     from .review_csv import read_rows
     target = contract.cover_root / (code + ".jpg")
+    # 编辑资料里换上的封面不联网替换；要换回刮削封面，在编辑资料里点「恢复刮削封面」（ADR-0165）。
+    if is_user_cover(target):
+        return {"ok": True, "code": code, "reason": "kept_existing", **_result("labels.webScraping.keptUserCover")}
     sidecar = target.with_suffix(".scraping.json")
     try:
         installed = json.loads(sidecar.read_text(encoding="utf-8"))

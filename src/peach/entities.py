@@ -495,6 +495,9 @@ def merge_entity(
         " FROM asset_entity WHERE entity_id=?", (target_id, source_id))
     moved["assets"] = connection.execute("SELECT changes()").fetchone()[0]
     connection.execute("DELETE FROM asset_entity WHERE entity_id=?", (source_id,))
+    # 用户从某部片上删掉的这个人，并入之后在那部片上照样算删掉。
+    from .item_edit import rekey_removals
+    rekey_removals(connection, source_id=source_id, target_id=target_id)
 
     before = connection.execute(
         "SELECT count(*) FROM entity_external_ref WHERE entity_id=?", (source_id,)).fetchone()[0]
@@ -738,14 +741,11 @@ def _creator_ingest_identity(connection, name, asset_id):
 
 
 def _entity_metadata_payload(connection, entity_id: int, kind: str, payload: str) -> str:
-    """来源资料更新保留用户标签决定与公司档案。"""
-    if kind not in {'tag', 'studio', 'agency'}:
-        return payload
+    """来源资料更新保留用户写下的键（`user_` 开头：标签决定、自建标记）与公司档案。"""
     held = connection.execute('SELECT metadata_json FROM entity WHERE id=?', (entity_id,)).fetchone()
-    previous, incoming = json.loads(held[0] or '{}'), json.loads(payload)
-    if kind == 'tag':
-        incoming.update({key: value for key, value in previous.items() if key.startswith('user_tag_')})
-    elif 'company_profile' in previous:
+    previous, incoming = json.loads((held[0] if held else None) or '{}'), json.loads(payload)
+    incoming.update({key: value for key, value in previous.items() if key.startswith('user_')})
+    if kind in {'studio', 'agency'} and 'company_profile' in previous:
         incoming['company_profile'] = previous['company_profile']
     return json.dumps(incoming, ensure_ascii=False)
 

@@ -32,6 +32,8 @@ export interface DetailEntityRef extends FaceRef {
   logo_version?: string;
   /** 厂牌是某家片商旗下的 label 时（ADR-0049），从近到远的上级片商链。 */
   makers?: DetailEntityRef[];
+  /** 用户在编辑资料里新建的档案（ADR-0165），名字旁带一枚小标记。 */
+  user_created?: boolean;
 }
 
 /** 卡片条目里声明过的那些字段。`MediaItem` 带着 `[field: string]: unknown`，直接 `Omit` 会把
@@ -68,6 +70,8 @@ export interface DetailItem extends Omit<CardFields, 'tags'> {
   tags?: DetailTag[];
   entity_refs?: Partial<Record<'performer' | 'studio' | 'creator' | 'series', DetailEntityRef[]>>;
   sample_images?: { n: number }[];
+  /** 现在这张封面是编辑资料里换上的（ADR-0165）。 */
+  cover_user?: boolean;
 }
 
 /** 卷标：数字、字母卷标原样给；FC2 的本篇与特典是服务端按 zh-CN 写好的原文，旁边带 code 与参数。 */
@@ -114,7 +118,6 @@ export const ITEM_URL = (id: number) => `/api/item?id=${id}`;
 export const RELATED_URL = (id: number, limit: number) => `/api/related?id=${id}&limit=${limit}`;
 export const PLAYLIST_URL = '/api/playlist';
 export const FEEDBACK_URL = '/api/feedback';
-export const ITEM_TAG_URL = '/api/item-tag';
 export const WATCH_LATER_URL = '/api/watch-later';
 export const QUALITY_GOAL_URL = '/api/quality-goal';
 export const PREFERENCE_URL = '/api/preference';
@@ -416,12 +419,6 @@ export function detailTags(item: DetailItem, helpers: Pick<ItemDetailHelpers, 't
   });
   return [...byDisplay.values()].slice(0, 40);
 }
-
-export const hasTag = (item: DetailItem, tag: string) => (item.tags || []).some((own) => foldName(own.k) === foldName(tag));
-export const withoutTag = (item: DetailItem, tag: string): DetailItem =>
-  ({ ...item, tags: (item.tags || []).filter((own) => foldName(own.k) !== foldName(tag)) });
-export const withTag = (item: DetailItem, tag: DetailTag): DetailItem =>
-  (hasTag(item, tag.k) ? item : { ...item, tags: [...(item.tags || []), tag] });
 
 const RECENT_TAGS = 'peach.recentTags';
 export function recentTags(): string[] {

@@ -1845,6 +1845,28 @@
     "fieldOwners": {
       "revisionConflict": "资产已被改过：期望 revision {{expected}}，数据库现值 {{current}}"
     },
+    "coverArtwork": {
+      "userCoverKept": "这部片用的是你换上的封面，自动采集不替换"
+    },
+    "itemCover": {
+      "tooLarge": "图片太大，最多 32 MB",
+      "empty": "没有收到图片",
+      "unreadable": "读不出这张图片，请换一张 JPEG、PNG 或 WebP",
+      "tooSmall": "图片太小，至少要 200 × 200",
+      "nothingToRestore": "这部片用的不是换上的封面，没有可恢复的"
+    },
+    "itemEdit": {
+      "assetMissing": "这部影片已经不在馆藏里",
+      "malformed": "提交的编辑内容格式不对",
+      "unknownField": "不能编辑这些字段：{{fields}}",
+      "restoreAndEdit": "同一个字段不能既修改又恢复自动：{{fields}}",
+      "controlCharacters": "内容里不能有换行或控制字符",
+      "tooLong": "内容太长，最多 1000 个字",
+      "releaseDateFormat": "发行日期要写成 2025-11-04 这样的格式",
+      "regionUnknown": "认不出这个产地",
+      "entityMissing": "选中的档案已经不在了，请重新选择",
+      "entityNameInvalid": "名称不能为空，也不能超过 200 个字"
+    },
     "folderPicker": {
       "busy": "已经有一个选择文件夹的窗口开着",
       "cannotOpen": "这台电脑上打不开系统文件夹对话框",
@@ -2991,6 +3013,7 @@
       "keptAfterDetails": "。已有图片保留。",
       "keptLocalNoBetter": "本机封面 {{localWidth}} × {{localHeight}}，来源可用封面 {{width}} × {{height}}；保留本机封面。没有找到更大或更合适的封面。",
       "keptLocalPartial": "本机封面 {{localWidth}} × {{localHeight}}，来源可用封面 {{width}} × {{height}}；保留本机封面。部分来源连接失败，未能完成全部来源比较。",
+      "keptUserCover": "这部片用的是你换上的封面，没有联网替换。要换回刮削封面，在编辑资料里恢复。",
       "period": "。",
       "reusedCover": "复用 24 小时内核验过的本机封面（{{width}} × {{height}}），没有再向来源请求。"
     },

@@ -1845,6 +1845,28 @@
     "fieldOwners": {
       "revisionConflict": "The asset has changed: expected revision {{expected}}, current value in the database {{current}}"
     },
+    "coverArtwork": {
+      "userCoverKept": "This video uses a cover you set, so automatic collection won't replace it"
+    },
+    "itemCover": {
+      "tooLarge": "The image is too large, 32 MB at most",
+      "empty": "No image was received",
+      "unreadable": "Couldn't read this image. Use a JPEG, PNG or WebP",
+      "tooSmall": "The image is too small, at least 200 × 200",
+      "nothingToRestore": "This video doesn't use a cover you set, so there's nothing to restore"
+    },
+    "itemEdit": {
+      "assetMissing": "This video is no longer in the library",
+      "malformed": "The submitted edit is malformed",
+      "unknownField": "These fields can't be edited: {{fields}}",
+      "restoreAndEdit": "A field can't be both edited and handed back to automatic collection: {{fields}}",
+      "controlCharacters": "Line breaks and control characters aren't allowed",
+      "tooLong": "Too long, 1000 characters at most",
+      "releaseDateFormat": "Write the release date like 2025-11-04",
+      "regionUnknown": "Unrecognized region",
+      "entityMissing": "The selected profile no longer exists. Choose it again",
+      "entityNameInvalid": "Names can't be empty or longer than 200 characters"
+    },
     "folderPicker": {
       "busy": "A folder selection window is already open",
       "cannotOpen": "The system folder dialog can't be opened on this device",
@@ -2991,6 +3013,7 @@
       "keptAfterDetails": ". The existing image was kept.",
       "keptLocalNoBetter": "Cover on this device is {{localWidth}} × {{localHeight}}, the best source cover is {{width}} × {{height}}; kept the cover on this device. No larger or better cover was found.",
       "keptLocalPartial": "Cover on this device is {{localWidth}} × {{localHeight}}, the best source cover is {{width}} × {{height}}; kept the cover on this device. Some sources couldn't be reached, so not all of them were compared.",
+      "keptUserCover": "This video uses a cover you set, so it wasn't replaced. Restore the scraped cover in Edit details to switch back.",
       "period": ".",
       "reusedCover": "Reused the cover on this device verified within 24 hours ({{width}} × {{height}}); the source wasn't asked again."
     },
@@ -3180,8 +3203,8 @@
       "trafficUnobserved": "External fetch tool traffic isn't measured"
     },
     "regions": {
-      "jp": "Japan",
-      "kr": "Korea",
+      "jp": "Japanese",
+      "kr": "Korean",
       "cn": "Chinese",
       "west": "Western",
       "other": "Other",

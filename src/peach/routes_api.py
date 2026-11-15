@@ -184,6 +184,54 @@ def opencode_go_models(request: Request, args: dict[str, str] = Depends(require_
     return {"ok": True, "provider": "opencode-go", "models": models}
 
 
+@router.post("/api/item-cover")
+async def item_cover_set(
+    request: Request,
+    _args: dict[str, str] = Depends(require_auth),
+):
+    """编辑资料里换封面（ADR-0165）。请求体就是图片字节，`id` 与 `origin` 走查询参数，
+    不用 multipart：与 `/api/taste/import` 同一个理由，不为一张图引入表单解析依赖。"""
+    from .item_cover import MAX_BYTES, set_user_cover
+    contract = request.app.state.web_contract
+    try:
+        asset_id = int(request.query_params.get("id") or 0)
+        declared = int(request.headers.get("content-length") or 0)
+    except ValueError:
+        return JSONResponse(message_fields("errors.itemEdit.malformed", key="error"), status_code=400)
+    if declared > MAX_BYTES:
+        return JSONResponse(message_fields("errors.itemCover.tooLarge", key="error"), status_code=413)
+    body = bytearray()
+    async for chunk in request.stream():
+        body.extend(chunk)
+        if len(body) > MAX_BYTES:
+            return JSONResponse(message_fields("errors.itemCover.tooLarge", key="error"), status_code=413)
+    try:
+        receipt = await asyncio.to_thread(set_user_cover, contract, asset_id, bytes(body),
+                                          origin=str(request.query_params.get("origin") or "upload"))
+    except UserFacingError as exc:
+        return JSONResponse(error_fields(exc), status_code=response_status(exc))
+    contract.cache_bust()
+    return {"ok": True, "receipt": receipt, "item": web_contract.q_item(contract, asset_id)}
+
+
+@router.post("/api/item-cover/restore")
+async def item_cover_restore(
+    request: Request,
+    body: dict = Body(...),
+    _args: dict[str, str] = Depends(require_auth),
+):
+    """换回刮削封面：有备份放回备份，没有就撤掉用户那张，等下一次采集补上。"""
+    from .item_cover import restore_user_cover
+    contract = request.app.state.web_contract
+    asset_id = int(body.get("id") or 0)
+    try:
+        receipt = await asyncio.to_thread(restore_user_cover, contract, asset_id)
+    except UserFacingError as exc:
+        return JSONResponse(error_fields(exc), status_code=response_status(exc))
+    contract.cache_bust()
+    return {"ok": True, "receipt": receipt, "item": web_contract.q_item(contract, asset_id)}
+
+
 @router.post("/api/taste/import")
 async def taste_import(
     request: Request,

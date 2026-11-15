@@ -145,9 +145,31 @@ def _sidecars(code: str, payload: bytes, size: tuple[int, int], detector=None, e
             for suffix, record in records.items()}
 
 
+#: 编辑资料里换上的封面在 `.scraping.json` 的来源（ADR-0165）。
+USER_COVER_SOURCE = "user:manual"
+
+
+class UserCoverKept(Unavailable):
+    """这张封面是用户换上的，自动来源不替换。"""
+
+
+def is_user_cover(target: Path) -> bool:
+    """本机这张封面是不是用户在编辑资料里换上的。"""
+    try:
+        evidence = json.loads(Path(target).with_suffix('.scraping.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return False
+    return isinstance(evidence, dict) and evidence.get('source') == USER_COVER_SOURCE
+
+
 def install_cover(target: Path, code: str, payload: bytes, size: tuple[int, int], *,
                   evidence: dict | None = None, detector=None) -> None:
-    """准备完成后安装整组文件；失败时还原旧组，避免图片与取景跨版本。"""
+    """准备完成后安装整组文件；失败时还原旧组，避免图片与取景跨版本。
+
+    用户换上的封面只有用户自己能换（ADR-0165）：调用方各自先比过本机那张，这里是最后一道。
+    """
+    if is_user_cover(target) and (evidence or {}).get('source') != USER_COVER_SOURCE:
+        raise UserCoverKept('errors.coverArtwork.userCoverKept')
     if evidence and is_javdb_image(evidence.get('source_url'), evidence.get('source')):
         raise Unavailable('errors.communityCatalog.noUnwatermarked')
     target = Path(target)

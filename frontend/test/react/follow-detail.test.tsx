@@ -221,6 +221,22 @@ describe('侧栏', () => {
         ['animated', 'r34-metadata'], ['odd', 'r34-unknown']]);
   });
 
+  it('标签平时只读，行尾「编辑标签」切到增删，「完成」收回', async () => {
+    const { host } = await show(data(item(3, { detail_tags: ['solo', 'kou'] })));
+    const tags = host.querySelector('[data-follow-detail-tags]')!;
+    expect(tags.querySelectorAll('[data-remove-tag]').length).toBe(0);
+    expect(tags.querySelector('#tagPlus')).toBeNull();
+    const toggle = tags.querySelector<HTMLButtonElement>('[data-follow-tags-edit]')!;
+    expect(toggle.closest('[data-detail-tags]'), '编辑键和标签不在同一行').not.toBeNull();
+    expect(toggle.textContent).toBe('编辑标签');
+    await click(toggle);
+    expect(tags.querySelectorAll('[data-remove-tag]').length).toBe(2);
+    expect(tags.querySelector('#tagPlus')).not.toBeNull();
+    expect(toggle.textContent).toBe('完成');
+    await click(toggle);
+    expect(tags.querySelectorAll('[data-remove-tag]').length).toBe(0);
+  });
+
   it('来源外链、网盘链接与下载键；发布者与署名作者不同才写', async () => {
     const { host } = await show({ ...data(item(2, {
       url: 'https://example.invalid/post/2', author: 'Poster',

@@ -158,7 +158,8 @@ async function stub(page: Page, catalogIds: readonly number[] = CATALOG): Promis
     }
     return { feedback: feedback.get(sent.id) || null, disposal: sent.kind === 'dispose' ? 'trash' : null, o_count: 1 };
   });
-  await json('/api/item-tag', () => ({ ok: true }));
+  // 编辑资料的保存只记下请求体；回话不带条目，详情维持原样，用例只核对交出去的那一份。
+  await json('/api/item-edit', () => ({ ok: true, item: null }));
   const later = new Set<number>();
   await json('/api/watch-later', (_url, request) => {
     const id = Number(body(request).id);

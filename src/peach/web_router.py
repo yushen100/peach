@@ -39,6 +39,7 @@ from .web_catalog import (
     q_tops,
     w_item_tag,
 )
+from .web_item_edit import w_item_edit
 from .web_entity import (
     FEED_SHAPE_TABLES,
     SUGGEST_GROUP_LIMIT,
@@ -495,6 +496,7 @@ POST_HANDLERS = {
     "/api/quality-goal": w_quality_goal,
     "/api/wants": w_wants,
     "/api/item-tag": w_item_tag,
+    "/api/item-edit": w_item_edit,
     "/api/batch": w_batch,
     "/api/search-history": w_search_history,
     "/api/taste/refresh": w_taste_refresh,

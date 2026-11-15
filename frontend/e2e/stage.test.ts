@@ -412,19 +412,23 @@ describe('舞台岛', () => {
     }
   });
 
-  it('标签搜索框里按 Escape 只收起选择器，舞台留着；再按一下才关舞台', { timeout: 60_000 }, async () => {
+  it('编辑框的标签搜索框里按 Escape 只收起选择器；再按一下关编辑框，舞台始终留着', { timeout: 60_000 }, async () => {
     const opened = await openItemPage(browser, `/assets/${ITEM.plain}`, DESKTOP);
     try {
       const page = opened.page;
-      await page.locator('#tagPlus').click();
-      await page.locator('#tagPicker:not([hidden])').waitFor();
-      await page.locator('#tagPickSearch').focus();
+      const editor = page.locator('dialog[data-item-edit-dialog]');
+      await page.locator('#stage [data-item-edit-open]').click();
+      await editor.waitFor();
+      await editor.locator('#tagPlus').click();
+      await editor.locator('#tagPicker:not([hidden])').waitFor();
+      await editor.locator('#tagPickSearch').focus();
       await page.keyboard.press('Escape');
-      await page.locator('#tagPicker').waitFor({ state: 'hidden' });
-      assert.equal(await page.locator('#stage[open]').count(), 1, 'Escape 连舞台一起关了');
+      await editor.locator('#tagPicker').waitFor({ state: 'hidden' });
+      assert.equal(await editor.count(), 1, 'Escape 连编辑框一起关了');
+      await page.keyboard.press('Escape');
+      await editor.waitFor({ state: 'detached' });
+      assert.equal(await page.locator('#stage[open]').count(), 1, 'Escape 关编辑框时把舞台也关了');
       assert.equal(await page.evaluate(() => location.pathname), `/assets/${ITEM.plain}`);
-      await page.keyboard.press('Escape');
-      await pathIs(page, '/');
       assert.deepEqual(withoutPlayer(opened.problems), []);
     } finally {
       await opened.close();

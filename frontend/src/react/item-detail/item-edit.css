@@ -1,0 +1,127 @@
+/* ── 编辑资料（ADR-0165）──
+   弹层沿用 `.ui-geist-modal`，表单比确认框多一列来源，放宽到 640px；窄屏仍贴两侧 10px。
+   每行三列：字段名、控件、来源。来源一列窄屏折到控件下面。
+   演员一行选多人、展开候选后会长高，三列按顶对齐，字段名与来源按首行（输入框外框 36px）居中。 */
+.ui-geist-modal[data-item-edit-dialog] { width: min(640px, calc(100vw - 20px)); max-width: min(640px, calc(100vw - 20px)); }
+.peach-react [data-item-edit] { display: flex; flex-direction: column; gap: 18px; --edit-line: 36px; }
+.peach-react [data-item-edit] [data-edit-section] { display: flex; flex-direction: column; gap: 10px; }
+.peach-react [data-item-edit] [data-edit-section] h4 { margin: 0; font-size: var(--fs-xs); font-weight: 600; color: var(--muted); }
+.peach-react [data-item-edit] [data-edit-row] {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 112px;
+  align-items: start;
+  gap: 10px;
+}
+.peach-react [data-item-edit] [data-edit-label] { display: flex; align-items: center; min-height: var(--edit-line); font-size: var(--fs-sm); color: var(--ink-2); }
+.peach-react [data-item-edit] [data-edit-control] { min-width: 0; }
+.peach-react [data-item-edit] [data-edit-source] {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  align-content: center;
+  min-height: var(--edit-line);
+  gap: 2px 6px;
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.peach-react [data-item-edit] [data-edit-source][data-owner="user"] { color: var(--ink); font-weight: 600; }
+
+/* 身份胶囊与搜索框排在一行里，放不下就折行。胶囊本身与标签胶囊共用 `detail-tags.css` 的规则，
+   这里只管它们在一行里的排布；胶囊按首行 36px 居中。 */
+.peach-react [data-item-edit] [data-entity-chips] { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 6px; min-height: var(--edit-line); }
+.peach-react [data-item-edit] [data-entity-chip] { margin-block: 4px; }
+.peach-react [data-item-edit] [data-entity-option] svg {
+  width: var(--icon-inline); height: var(--icon-inline); stroke: currentColor; fill: none; stroke-width: 2;
+}
+/* 胶囊里的「自建」是名字后一段灰色小字：名字右侧已有 8px 内边距，往回收一点，再与移除键隔开。 */
+.peach-react [data-item-edit] [data-entity-chip] [data-user-created-mark] {
+  flex: none; margin-inline: -4px 6px; font-size: var(--fs-xs); color: var(--muted); white-space: nowrap;
+}
+/* 侧栏身份格里「自建」标签压在头像底边居中：格子是居中的一列，头像高 `--id-face`。 */
+.peach-react [data-item-identity] [data-id-cell]:has([data-id-badge]) { position: relative; }
+/* 头像下面 5px 就是名字：标签压成 14px 高、底边只出头像 2px，盖不到名字。 */
+.peach-react [data-item-identity] [data-id-badge] {
+  position: absolute;
+  top: calc(var(--id-face, 46px) - 12px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 4px;
+  font-size: 10px;
+  line-height: 14px;
+  letter-spacing: 0;
+  box-shadow: 0 0 0 1.5px var(--surface);
+  pointer-events: none;
+}
+
+/* 搜索框占满一行剩下的宽度，候选就地往下展开，不另开浮层：弹层本身已在顶层，再叠一层只会被它裁掉。 */
+.peach-react [data-item-edit] [data-entity-picker] { flex: 1 1 160px; min-width: 160px; display: flex; flex-direction: column; gap: 4px; }
+.peach-react [data-item-edit] [data-entity-options] {
+  display: flex;
+  flex-direction: column;
+  max-height: 200px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+.peach-react [data-item-edit] [data-entity-option] {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: start;
+  cursor: pointer;
+}
+.peach-react [data-item-edit] [data-entity-option][aria-selected="true"] { background: var(--hover); color: var(--ink); }
+.peach-react [data-item-edit] [data-entity-option="new"] { color: var(--ink); font-weight: 500; }
+
+@media (max-width: 560px) {
+  .peach-react [data-item-edit] [data-edit-row] { grid-template-columns: 1fr; gap: 4px; }
+}
+
+/* 封面：左边缩略图（按竖封面比例，横图居中裁），右边几种换法与状态。样张就地展开成一排小图。 */
+.peach-react [data-item-edit] [data-cover-row] { display: flex; gap: 14px; align-items: flex-start; }
+.peach-react [data-item-edit] [data-cover-preview] {
+  flex: none;
+  width: 96px;
+  aspect-ratio: 3 / 4;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--sunk);
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+.peach-react [data-item-edit] [data-cover-preview] img { width: 100%; height: 100%; object-fit: cover; object-position: right center; display: block; }
+.peach-react [data-item-edit] [data-cover-preview] svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.5; }
+.peach-react [data-item-edit] [data-cover-actions] { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.peach-react [data-item-edit] [data-cover-buttons] { display: flex; flex-wrap: wrap; gap: 6px; }
+.peach-react [data-item-edit] [data-cover-actions] [data-edit-source] { min-height: 0; }
+.peach-react [data-item-edit] [data-cover-failure] { font-size: var(--fs-xs); color: var(--drop); }
+/* 弹层的字段区是 grid，弹性盒与 grid 的子项最小宽度默认都是内容宽：一排十几张样张会把弹层撑宽，
+   横向滚动条不起作用。从挂载点往下每一层都得能缩。 */
+.ui-geist-modal [data-item-edit-fields] { min-width: 0; }
+.peach-react [data-item-edit] [data-edit-cover] { min-width: 0; }
+.peach-react [data-item-edit] [data-cover-samples-grid] { display: flex; gap: 6px; min-width: 0; max-width: 100%; overflow-x: auto; padding-bottom: 4px; }
+.peach-react [data-item-edit] [data-cover-sample] {
+  flex: none;
+  width: 96px;
+  aspect-ratio: 16 / 9;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--sunk);
+  cursor: pointer;
+}
+.peach-react [data-item-edit] [data-cover-sample]:hover { box-shadow: 0 0 0 2px var(--ink-2); }
+.peach-react [data-item-edit] [data-cover-sample] img { width: 100%; height: 100%; object-fit: cover; display: block; }
+/* 现有封面多是双联封面，正封在右半边；待保存的那张（播放器画面、上传的图）按原样居中。 */
+.peach-react [data-item-edit] [data-cover-preview][data-pending] img { object-position: center; }

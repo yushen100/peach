@@ -83,10 +83,18 @@ export function PeopleGrid(
       {items.map((item) => {
         const entityKind = item.entity_kind || ENTITY_KINDS[kind];
         const avatar = props.personAvatar(item, entityKind, big);
+        /* 读数一行：作品数、身份分类，编辑资料里新建的档案（ADR-0165）再接一个「自建」。 */
+        const readout = [
+          personReadout(kind, item),
+          ...(item.identity_labels?.length ? [serverLabels('identity.category', item.identity_categories, item.identity_labels).join(' / ')] : []),
+          ...(item.user_created ? [t('catalog:itemEdit.userCreated')] : []),
+        ].join(' · ');
         return (
-          <Cell key={`${entityKind}:${item.entity_id || item.k}`} data-k={item.k} data-kind={entityKind} name={entityDisplayName(entityKind, item.k, item.entity_id)} readout={`${personReadout(kind, item)}${item.identity_labels?.length ? ' · ' + serverLabels('identity.category', item.identity_categories, item.identity_labels).join(' / ') : ''}`}
+          <Cell key={`${entityKind}:${item.entity_id || item.k}`} data-k={item.k} data-kind={entityKind} name={entityDisplayName(entityKind, item.k, item.entity_id)} readout={readout}
+            {...(item.user_created ? { 'data-user-created': '' } : {})}
             big={big} following={item.following} selected={picks ? picks.picked.has(item.entity_id ?? item.id ?? 0) : undefined}
             onPress={() => picks ? picks.toggle(item.entity_id ?? item.id ?? 0) : props.openEntity(entityKind, item.k)}>
+
             <Ring html={avatar.html} face={avatar.face} company={company} big={big} />
           </Cell>
         );
