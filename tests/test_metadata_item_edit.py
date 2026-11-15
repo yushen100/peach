@@ -10,7 +10,7 @@ import json
 import sqlite3
 import tempfile
 import unittest
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -190,7 +190,7 @@ class ItemCoverTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         root = Path(self.tmp.name)
         self.db = fresh_ledger(root)
-        with sqlite3.connect(self.db) as con:
+        with closing(sqlite3.connect(self.db)) as con, con:
             con.execute("INSERT INTO asset(id,location,path,name,medium,code) "
                         "VALUES(1,'local','R:\\media\\a.mp4','a.mp4','video','ABC-123')")
         self.covers = root / "covers"
