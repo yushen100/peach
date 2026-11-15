@@ -39,6 +39,13 @@ def userscript_bridge(request: Request):
                                  "Content-Security-Policy": "default-src 'none'; frame-ancestors 'self'; base-uri 'none'"})
 
 
+def _performer_names(service, code: str):
+    """浏览记录要用的出演者名，按需取：记录关着或刚记过时不查库。"""
+    def names():
+        from .web_jav_browser_people import local_people
+        return [person["name"] for person in local_people(service.browsing.contract, [code]).get(code, [])]
+    return names
+
 def status(code: str, service=Depends(browser_client)):
     try:
         result = service.status(code)
@@ -46,7 +53,7 @@ def status(code: str, service=Depends(browser_client)):
     except ValueError as error:
         raise HTTPException(400, error_detail(error)) from None
     # 作品浮卡与列表面板都用这条查状态；列表面板的番号已由 `/people` 标出，不算浏览。
-    service.browsing.work(result["code"])
+    service.browsing.work(result["code"], names=_performer_names(service, result["code"]))
     return response
 
 
@@ -64,7 +71,7 @@ def identify(source_url: str, code: str = "", service=Depends(browser_client)):
                                 headers={"Cache-Control": "no-store"})
     except ValueError as error:
         raise HTTPException(400, error_detail(error)) from None
-    service.browsing.work(status["code"], source_url)
+    service.browsing.work(status["code"], source_url, names=_performer_names(service, status["code"]))
     return response
 
 

@@ -8,14 +8,11 @@ import sqlite3
 from contextlib import closing
 import ahocorasick
 
-from .catalog_rules import LENGTH_TAGS, TECH_TAGS
+from .catalog_rules import LENGTH_TAGS, PLOT_TAGS, TECH_TAGS
 from .entities import male_performer_ids, normalize_entity_name
 from .taste_sites import account_key, host, identity_context, linked_identities, mixed_adult, MIXED_DOMAINS
 
 KINDS = ("performer", "creator", "tag", "studio", "series")
-#: 剧情与角色设定类标签：出现在看过的作品里只是巧合，不作口味特征（ADR-0164）。
-PLOT_TAGS = frozenset({"剧情", "妄想剧情", "强制剧情", "绿帽NTR", "出轨", "师生", "近亲", "母子设定", "痴汉",
-                       "偷拍偷窥", "醉酒", "药物", "泄密流出", "处女设定"})
 #: 各类证据的权重，信号由弱到强：馆藏积累 < 浏览 < 主动下载 < 书签 < 关注 < 观看与反馈。
 #: 下载按 log2 累加，同一人下载三部作品与关注同档，即「反复下载 ≈ 关注」。
 EVIDENCE_WEIGHTS = {"collection": .45, "browsing": .7, "downloads": 1.0, "bookmarks": 1.2, "watched": 2.5}

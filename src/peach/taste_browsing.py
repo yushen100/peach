@@ -5,7 +5,7 @@
 会让整份浏览器历史的口味缓存每翻一页就失效重算。
 
 信号分级从弱到强：浏览 < 主动下载、想要 < 反复下载、关注 < 播放看完。推荐打分里的权重见
-`taste_evidence.preference_evidence`；剧情类标签不作口味特征（`taste_evidence.PLOT_TAGS`）。
+`taste_evidence.preference_evidence`；剧情类标签不作口味特征（`catalog_rules.PLOT_TAGS`）。
 """
 from __future__ import annotations
 
@@ -112,15 +112,12 @@ class BrowsingRecorder:
         except sqlite3.Error as error:
             LOGGER.warning("browsing record retraction failed: %s", type(error).__name__)
 
-    def work(self, code: str, url: str = "") -> bool:
+    def work(self, code: str, url: str = "", names=lambda: []) -> bool:
+        """记一笔作品页浏览；`names` 在真要记录时才调用，交回这部作品本机认得的出演者名。"""
         key = normalise_code_key(code)
         with self._lock:
             if not key or self._listed.get(key, datetime.min.replace(tzinfo=UTC)) > self.clock():
                 return False
-
-        def names():
-            from .web_jav_browser_people import local_people
-            return [person["name"] for person in local_people(self.contract, [code]).get(code, [])]
         return self._record("work", key, url, names)
 
     def performer(self, url: str, name: str) -> bool:
