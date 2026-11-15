@@ -66,6 +66,10 @@ describe('各页骨架的显示门槛与绘制边界', () => {
           const pending = overlay ? ['/api/item', '/api/follow', '/api/jav/detail'].includes(url.pathname)
             : !['/api/settings', '/api/entity/shapes'].includes(url.pathname);
           if (route.request().method() === 'GET' && pending) await held;
+          // 来源资料会让服务去问外站；骨架量完才放行，这一问由桩回答。
+          if (url.pathname === '/api/jav/detail') {
+            return route.fulfill({ json: { code: url.searchParams.get('code'), state: 'ready', preview_count: 0 } });
+          }
           await route.continue();
         });
         await page.goto(requiredEnv('PEACH_E2E_ORIGIN') + path, { waitUntil: 'load' });
