@@ -1836,7 +1836,7 @@ class OperationalScriptTests(unittest.TestCase):
         asked = []
 
         class Connector:
-            def _get(self, url, headers=None):
+            def probe(self, url, headers=None):
                 asked.append(url)
                 return HttpResponse(200, {}, detail)
 

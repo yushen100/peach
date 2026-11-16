@@ -117,7 +117,7 @@ def inspect_video(connector, row: dict) -> tuple[dict, list[str]]:
         entry.update(result=SKIPPED, note=NOTE_NOT_DETAIL)
         return entry, []
     try:
-        response = connector._get(row["url"], headers={"Accept": "text/html"})
+        response = connector.probe(row["url"], headers={"Accept": "text/html"})
         connector._raise_if_rate_limited(response)
         if response.status in (404, 410):
             entry.update(result=GONE, note=f"HTTP {response.status}")
