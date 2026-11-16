@@ -189,6 +189,25 @@ class TestPlanningTests(unittest.TestCase):
                 self.assertNotIn('full', scopes)
         self.assertNotIn('delivery', runner.scopes_for_changes(['docs/TESTING.md', 'scripts/render_star_history.py'])[0])
 
+    def test_changed_language_entries_select_their_readers(self):
+        path = 'resources/locales/zh-CN/server.json'
+        before = (runner.ROOT / path).read_text(encoding='utf-8')
+        data = json.loads(before)
+        data['errors']['seesaa']['notInSearch'] += '（改）'
+        scopes = runner.scopes_for_changes([path], contents={path: (before, json.dumps(data, ensure_ascii=False))})[0]
+        self.assertEqual(scopes[:2], ('tooling', 'web'))
+        self.assertIn('test_metadata_seesaa.py', scopes)
+        self.assertNotIn('test_tray.py', scopes)
+        data = json.loads(before)
+        data['release']['message']['available'] += '（改）'
+        self.assertIn('test_tray.py', runner.scopes_for_changes(
+            [path], contents={path: (before, json.dumps(data, ensure_ascii=False))})[0])
+        # 没有前后内容时按整份文件的全部条目找读者。
+        fallback = runner.scopes_for_changes([path])[0]
+        self.assertIn('test_metadata_seesaa.py', fallback)
+        self.assertIn('test_tray.py', fallback)
+        self.assertEqual(runner.selected_files('test_tray.py'), (runner.TESTS / 'test_tray.py',))
+
     def test_checks_ci_omits_runtime_tool_installation_and_keeps_platforms(self):
         for path in ("README.md", "CONTRIBUTING.md", ".github/PULL_REQUEST_TEMPLATE.md", "docs/TESTING.md"):
             with self.subTest(path=path):

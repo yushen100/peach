@@ -203,12 +203,85 @@ def script_consumers(root: Path = ROOT) -> dict[str, frozenset[str]]:
     return {stem: frozenset(names) for stem, names in found.items()}
 
 
+_LOCALE_FILE = re.compile(r"resources/locales/[^/]+/(?:server|cli)\.json")
+_PLACEHOLDER = re.compile(r"\{\{[^}]*\}\}")
+
+
+def locale_file(path: str) -> bool:
+    """后端语言资源：经 `interface_text` 渲染给 API、托盘与命令行的文字。"""
+    return bool(_LOCALE_FILE.fullmatch(path))
+
+
+def _flat_texts(source: str | None) -> dict[str, str]:
+    try:
+        data = json.loads(source) if source else {}
+    except ValueError:
+        return {}
+    found, todo = {}, [("", data)]
+    while todo:
+        prefix, node = todo.pop()
+        if isinstance(node, dict):
+            todo.extend((f"{prefix}{key}.", value) for key, value in node.items())
+        elif isinstance(node, str):
+            found[prefix[:-1]] = node
+    return found
+
+
+@lru_cache(maxsize=None)
+def _test_literals(root: Path) -> dict[str, tuple[str, ...]]:
+    """各测试文件源码里的字符串字面量：条目键与断言里的原文都写在这里。"""
+    found = {}
+    for path in (root / "tests").glob("test_*.py"):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except (OSError, SyntaxError, UnicodeError, ValueError):
+            found[path.name] = (path.read_text(encoding="utf-8", errors="replace"),)
+            continue
+        found[path.name] = tuple(node.value for node in ast.walk(tree)
+                                 if isinstance(node, ast.Constant) and isinstance(node.value, str))
+    return found
+
+
+def _mentions(literals: tuple[str, ...], index: dict[str, list[str]]) -> bool:
+    """字面量里是否出现任一要找的片段；按片段前 6 个字符建索引，逐位查表再核对整段。"""
+    for literal in literals:
+        for start in range(len(literal) - 5):
+            for needle in index.get(literal[start:start + 6], ()):
+                if literal.startswith(needle, start):
+                    return True
+    return False
+
+
+@lru_cache(maxsize=64)
+def locale_readers(root: Path, before: str | None, after: str | None) -> frozenset[str]:
+    """改动的语言条目的读者：源码里写了条目键，或在断言里写了旧原文片段的测试文件。
+
+    没有前后内容时按整份文件的全部条目算，宁多勿漏。"""
+    old, new = _flat_texts(before), _flat_texts(after)
+    keys = {key for key in old.keys() | new.keys() if old.get(key) != new.get(key)} if before and after         else set(old) | set(new)
+    needles = {key for key in keys if len(key) >= 6}
+    short = {key for key in keys if len(key) < 6}
+    for key in keys:
+        needles.update(piece.strip() for piece in _PLACEHOLDER.split(old.get(key) or new.get(key) or "")
+                       if len(piece.strip()) >= 6)
+    index: dict[str, list[str]] = {}
+    for needle in needles:
+        index.setdefault(needle[:6], []).append(needle)
+    return frozenset(name for name, literals in _test_literals(root).items()
+                     if _mentions(literals, index) or any(key in literal for key in short for literal in literals))
+
+
 def file_consumers(path: str, kind: str, contents: dict | None, root: Path) -> frozenset[str]:
-    """按文件补选的测试：导入改动脚本的测试。"""
+    """按文件补选的测试：导入改动脚本的测试，以及读改动语言条目的测试。"""
     if kind in {"unsafe", "prose"}:
         return frozenset()
     if path.startswith("scripts/") and path.endswith(".py") and "/" not in path.removeprefix("scripts/"):
         return script_consumers(root).get(path.removeprefix("scripts/").removesuffix(".py"), frozenset())
+    if locale_file(path):
+        before, after = (contents or {}).get(path, (None, None))
+        if before is None and after is None and (root / path).is_file():
+            after = (root / path).read_text(encoding="utf-8")
+        return locale_readers(root, before, after)
     return frozenset()
 
 
@@ -251,7 +324,8 @@ def dependency_inputs(source: str) -> dict:
 def changed_contents(root: Path, base: str, paths: Iterable[str]) -> dict:
     result = {}
     for path in paths:
-        if not (path.endswith(".py") or path in {*change_impact.PACKAGE_FILES, "pyproject.toml", change_impact.REGISTRY}):
+        if not (path.endswith(".py") or path in {*change_impact.PACKAGE_FILES, "pyproject.toml", change_impact.REGISTRY}
+                or locale_file(path)):
             continue
         try:
             raw = "\n".join((
