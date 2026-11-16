@@ -322,11 +322,6 @@ def _download_projection(task) -> dict:
             "updated_at": task.updated_at}
 
 
-def _failed(item: dict) -> bool:
-    """共享列表里的一项算不算失败：搜索或下载失败、未找到资源，或入库后整理失败；与用户脚本的失败计数同一口径。"""
-    return item.get("state") in {"failed", "no_match"} or (item.get("download") or {}).get("postprocess_state") == "failed"
-
-
 def _postprocess_retry_status(task) -> dict:
     """后处理的等待与耗尽状态，投影成浏览器可读的重试回执。"""
     if task.postprocess_state == POSTPROCESS_PENDING and task.next_check_at:
@@ -462,22 +457,19 @@ class JavBrowser:
         return ended
 
     def dismiss(self, body: dict) -> dict:
-        """确认已结束的任务：`keys` 逐条确认 `active()` 给出的键；`all` 确认到此刻为止结束的全部，失败项除外。
+        """确认已结束的任务，`keys` 逐条确认 `active()` 给出的键，`all` 确认到此刻为止的全部结果。
 
-        失败（含未找到资源与整理失败）要用户决定重试还是放弃，只能逐条确认。`all` 把分界点放到最早那条
-        未确认的失败上，分界点之后已完成的逐条记下。
+        已完成、失败与未找到资源共用持久确认分界点。进行中任务和分界点之后的新结果继续显示。
         """
         keys = body.get("keys", [])
         if body.get("all") not in (None, False, True) or not isinstance(keys, list) or len(keys) > ACTIVE_LIMIT \
                 or not all(isinstance(key, str) and ENDED_KEY.match(key) for key in keys):
             raise UserValueError("errors.javBrowser.invalidDismiss")
-        failed: list[str] = []
         if body.get("all") is True:
             ended = [item for item in self.active()["items"] if item.get("ended_key") and not item.get("dismissed")]
-            failed = [item["ended_key"].split("@", 1)[1] for item in ended if _failed(item)]
-            keys = [*keys, *(item["ended_key"] for item in ended if not _failed(item))]
+            keys = [*keys, *(item["ended_key"] for item in ended)]
         with self._lock:
-            since = min([iso(time.time()), *failed]) if body.get("all") is True else self.ended["since"]
+            since = iso(time.time()) if body.get("all") is True else self.ended["since"]
             dismissed = [key for key in dict.fromkeys([*self.ended["dismissed"], *keys])
                          if key.split("@", 1)[1] >= since]
             self.ended = {"since": since, "dismissed": dismissed[-ENDED_DISMISSED_LIMIT:]}

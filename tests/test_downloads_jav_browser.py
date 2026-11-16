@@ -1141,8 +1141,8 @@ class BrowserTests(unittest.TestCase):
         self.downloads.store.save(task)
         self.assertEqual(listed(), {})
 
-    def test_dismiss_all_keeps_failures_listed_until_each_is_dismissed(self):
-        """「全部标为已读」只收起已完成的；失败与未找到资源留到逐条确认。"""
+    def test_dismiss_all_acknowledges_finished_results_across_polling_and_restart(self):
+        """全部已读确认已完成、失败与无资源结果，后续轮询和重启沿用确认记录。"""
         def listed():
             return {item["code"]: item for item in self.client.get(
                 "/api/jav-browser/active", headers=self.script_headers).json()["items"]}
@@ -1166,13 +1166,58 @@ class BrowserTests(unittest.TestCase):
         self.assertEqual({code: (item["state"], item["dismissed"]) for code, item in listed().items()},
                          {"ABC-123": ("ingested", False), "ABP-616": ("no_match", False)})
         dismiss({"all": True})
-        self.assertEqual(set(listed()), {"ABP-616"})
-        self.assertFalse(listed()["ABP-616"]["dismissed"])
-        # 失败项逐条确认后才收起；之后再「全部标为已读」分界点回到此刻。
-        dismiss({"keys": [listed()["ABP-616"]["ended_key"]]})
         self.assertEqual(listed(), {})
+        self.service._save()
+        restored = JavBrowser(self.service.contract, search=self.service.search)
+        self.assertEqual(restored.active()['items'], [])
         dismiss({"all": True})
         self.assertGreater(self.service.ended["since"], "2026-06-02")
+
+    def test_dismiss_all_persists_failures_and_keeps_running_and_new_results_unread(self):
+        """下载、整理与搜索失败统一确认，进行中任务和之后的新结果继续显示。"""
+        self.service.ended['since'] = '2026-01-01T00:00:00+00:00'
+        self.service.search.return_value = {'state': 'unavailable', 'items': [], 'error': '索引器未配置'}
+        self.add('EXM-104')
+        self.service.process_one()
+        finished = '2026-06-01T00:00:00+00:00'
+        tasks = []
+        for index, (state, postprocess) in enumerate(((dl.FAILED, dl.POSTPROCESS_NOT_REQUESTED),
+                                                    (dl.INGESTED, dl.POSTPROCESS_FAILED)), start=1):
+            digest = str(index) * 40
+            tasks.append(self.downloads.store.save(dl.DownloadTask(
+                id=0, info_hash=digest, provider='115', source_uri='magnet:?xt=urn:btih:' + digest,
+                display_name=f'EXM-10{index}', code=f'EXM-10{index}', target='/115/Movies',
+                origin='browser:test', state=state, failure='no_source' if state == dl.FAILED else None,
+                postprocess_state=postprocess, updated_at=finished, finished_at=finished,
+                postprocessed_at=finished if postprocess == dl.POSTPROCESS_FAILED else None)))
+            task = tasks[-1]
+            self.service.rows[task.code] = {'state': 'failed' if state == dl.FAILED else 'ingested',
+                                           'task_id': task.id, 'provider': '115', 'source_url': PAGE}
+        running = self.downloads.store.save(dl.DownloadTask(
+            id=0, info_hash='3' * 40, provider='115', source_uri='magnet:?xt=urn:btih:' + '3' * 40,
+            display_name='EXM-103', code='EXM-103', target='/115/Movies', origin='browser:test',
+            state=dl.REMOTE_RUNNING, updated_at=finished))
+        self.add('EXM-105')
+        acknowledged_at = int(time.time())
+        self.service.rows['EXM-104']['ended_at'] = dl.iso(acknowledged_at)
+        self.service._save()
+        before = {item['code']: item for item in self.service.active()['items']}
+        self.assertTrue(all(not before[code]['dismissed'] for code in ('EXM-101', 'EXM-102', 'EXM-104')))
+        with patch('peach.jav_browser.time.time', return_value=acknowledged_at):
+            response = self.client.post('/api/jav-browser/dismiss', json={'all': True}, headers=self.script_headers)
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual({item['code'] for item in response.json()['items'] if not item.get('dismissed')},
+                         {'EXM-103', 'EXM-105'}, response.json())
+        restored = JavBrowser(self.service.contract, search=self.service.search)
+        self.assertEqual({item['code'] for item in restored.active()['items'] if not item.get('dismissed')},
+                         {'EXM-103', 'EXM-105'})
+        self.assertEqual(self.downloads.store.get(running.id).state, dl.REMOTE_RUNNING)
+        self.assertEqual(restored.rows['EXM-105']['state'], 'queued')
+        # 再次结束的整理使用新的结束键，作为新结果显示。
+        tasks[1].postprocessed_at = tasks[1].updated_at = dl.iso(time.time() + 1)
+        self.downloads.store.save(tasks[1])
+        after = {item['code']: item for item in restored.active()['items']}
+        self.assertFalse(after['EXM-102']['dismissed'])
 
     def test_disable_and_rotation_revoke_tokens(self):
         rotated = self.configure("rotate").json()["token"]
