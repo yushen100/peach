@@ -521,6 +521,10 @@ describe('设计决定：数据管理、索引页与资料页头', () => {
       try {
         const { page } = opened;
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
+        if (viewport.mobile && await page.locator('#drawer.open').count()) {
+          await page.locator('#filterBtn').click();
+          await page.waitForFunction(() => !document.querySelector('#drawer')?.classList.contains('open'));
+        }
         await page.route('**/api/tag-management?**', async route => {
           if (!new URL(route.request().url()).searchParams.get('q')) return route.continue();
           await waiting;
