@@ -380,6 +380,9 @@ describe('设计决定：人物与厂牌资料页', () => {
         body: '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect width="200" height="200" fill="#888"/></svg>' };
       await page.route(/\/entity-image\?/, (route) => route.fulfill(square));
       await page.route(/\/logo\?/, (route) => route.fulfill(square));
+      // 换成番号作品后详情会问来源资料；这条只量出演区，资料由桩回答，服务不去问外站。
+      await page.route(/\/api\/jav\/detail\?/, (route) => route.fulfill({ json: {
+        code: new URL(route.request().url()).searchParams.get('code'), state: 'ready', preview_count: 0 } }));
       await page.goto(new URL(`/assets/${requiredEnv('PEACH_E2E_ITEM')}`, page.url()).href, { waitUntil: 'load' });
       await page.locator('[data-item-identity] [data-id-group="studio"] [data-id-name]').waitFor({ timeout: 15_000 });
       const edges = await page.evaluate(() => Object.fromEntries(

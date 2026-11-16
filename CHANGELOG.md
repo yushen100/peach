@@ -108,6 +108,7 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Library**: Avatar crops follow their source picture, so a replaced cover drops the old crop; a merged entry's old avatars become choices (#565). / **馆藏**：头像裁剪框跟着源图走，封面换图后不再套用旧框；合并人物后可选被合并条目的旧头像（#565）。
 - **Library**: Codes such as S2M-009, S2MCR-08, CW3D2DBD-14 and IBW-483z are recognised from file names, and KIRARI MKD-S codes can be sent to sources (#124). / **馆藏**：能从文件名认出 S2M-009、S2MCR-08、CW3D2DBD-14 和 IBW-483z 这类番号，KIRARI 的 MKD-S 番号也能拿去采集了（#124）。
 - **Playback**: A subtitle picked by hand from the video's directory is remembered for that video again; before, the choice failed to save (#428). / **播放**：手动选的同目录字幕重新能按影片记住，之前这一选择存不上（#428）。
+- **Library**: JAV details no longer fail with an error while JavDB is cooling down; they keep earlier data and offer a retry (#701). / **馆藏**：JavDB 冷却期间打开 JAV 详情不再报错，沿用上次取到的资料并可重试（#701）。
 - **Library**: DMM video previews in JAV details play again after DMM moved them to a new host (#697). / **馆藏**：DMM 换了预告视频的主机后，JAV 详情里的 DMM 视频预览重新能播（#697）。
 - **Library**: Spineless covers (VR, streaming-only sets, SOD two-panel art) are no longer cut in half; large cards use DMM's portrait, and SOD prefers the DVD sleeve (#538). / **馆藏**：VR、配信限定合集、SOD 双栏这类没有书脊的封面不再被切掉一半，大图改用 DMM 竖版正封，SOD 优先用 DVD 封套（#538）。
 - **Library**: Cover crops follow the code printed on the spine, so the front panel no longer keeps a strip of spine or loses its left edge (#538). / **馆藏**：正封按书脊上印的番号定位切点，不再带进一截书脊或切掉正封左边（#538）。

@@ -186,9 +186,13 @@ export async function visit(browser: Browser, path: string, viewport: Viewport,
   });
   /* 桩回调里的 `route.fetch`、`route.continue` 可能在关上下文时还没返回，之后会以
    * 「Request context disposed」失败；没人等它，就成了整个文件的 unhandledRejection。
-   * `ignoreErrors` 先撤掉全部桩，让还在路上的那几趟失败时静默返回。 */
+   * `ignoreErrors` 先撤掉全部桩，让还在路上的那几趟失败时静默返回。撤桩到关上下文之间页面新发的
+   * 请求一律中止：否则本该由桩回答的来源接口会落到服务上，服务就去问外站。 */
   const close = async () => {
-    if (!page.isClosed()) await page.unrouteAll({ behavior: 'ignoreErrors' });
+    if (!page.isClosed()) {
+      await page.unrouteAll({ behavior: 'ignoreErrors' });
+      await page.route('**/*', (route) => route.abort().catch(() => {})).catch(() => {});
+    }
     await context.close();
   };
   // 只打开到 load：等哪块主体、何时 settle 由用例决定，见 `settle` 的说明。

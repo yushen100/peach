@@ -25,7 +25,7 @@ from .scripting import HostLimiter
 from .user_agent import JAVDB_APP_USER_AGENT
 from .jav_cache import DAY, PublicSnapshots, cache_lifetime
 from .javdb_identity import RULE, cache_key as identity_cache_key, current_evidence
-from .metadata import RelayableError
+from .metadata import RelayableError, relay_args
 from .user_messages import UserValueError, nested_message
 
 WEB = "https://catembylegacy.fastcdn.dpdns.org"
@@ -300,7 +300,11 @@ class PublicAPI:
             self.page_context.reset(token)
 
     def _login_walled(self, ask, path, parse):
-        """搜索与作品资料：接口答就用接口；要求登录时改读网页，评论与磁链不经这里、照常问接口。"""
+        """搜索与作品资料：接口答就用接口；要求登录时改读网页，评论与磁链不经这里、照常问接口。
+
+        网页那一站在冷却或本趟预算用完时（`SourcePaused`）交 `PublicSourcePaused`，沿用旧快照、不往外冒。
+        """
+        from .scraping_access import SourcePaused
         from .sources.base import SourceFailure
         if self.clock() >= self.login_until:
             try:
@@ -312,6 +316,8 @@ class PublicAPI:
             raise PublicLoginRequired(_UNAVAILABLE)
         try:
             return parse(reader(path))
+        except SourcePaused as error:
+            raise PublicSourcePaused(*relay_args(error)) from error
         except (OSError, ValueError, TypeError, AttributeError, KeyError, SourceFailure) as error:
             raise PublicSourceUnavailable(_UNAVAILABLE) from error
 
