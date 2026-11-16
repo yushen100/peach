@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 
 import m3u8
@@ -40,12 +41,23 @@ class PreviewCache:
     def __init__(self, cache):
         self.cache = cache
 
+    def _source_paths(self, code: str, ref: str) -> tuple[Path, Path]:
+        """来源记录的短路径，以及旧版本用过的长路径。
+
+        旧布局是两段 64 位十六进制（番号目录与对象 ID），再加原子写入的临时名，装在 Windows
+        较深的安装或数据目录下会超过 MAX_PATH。对外的对象 ID 保持完整，只把私有目录缩短。
+        """
+        name = ref + ".source.json"
+        compact = self.cache.root / "p" / hashlib.sha256(code.encode()).hexdigest()[:16] / name
+        legacy = self.cache.folder("preview:" + code) / name
+        return compact, legacy
+
     def register(self, code: str, url: str, *, identity: str = "", playlist: bool | None = None,
                  media_type: str = "") -> str:
         if not public_https_url(url):
             raise UserValueError("errors.previewCache.sourceUnavailable")
         ref = hashlib.sha256((identity or url).encode()).hexdigest()
-        path = self.cache.folder("preview:" + code) / (ref + ".source.json")
+        path, _legacy = self._source_paths(code, ref)
         value = {"url": url, "playlist": playlist if playlist is not None else urlsplit(url).path.lower().endswith(".m3u8")}
         if media_type == 'video/mp4':
             value['media_type'] = media_type
@@ -61,8 +73,12 @@ class PreviewCache:
         ref = ref.removesuffix(".m3u8")
         if len(ref) != 64 or any(char not in "0123456789abcdef" for char in ref):
             raise UserValueError("errors.previewCache.objectMissing")
-        path = self.cache.folder("preview:" + code) / (ref + ".source.json")
-        return json.loads(path.read_text(encoding="utf-8"))
+        # 升级前登记的来源还在旧布局里，先读新布局，没有再读旧的；新登记一律写新布局。
+        compact, legacy = self._source_paths(code, ref)
+        try:
+            return json.loads(compact.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return json.loads(legacy.read_text(encoding="utf-8"))
 
     def playlist(self, code: str, ref: str, fetch) -> bytes:
         url = self.source(code, ref)["url"]
