@@ -2858,6 +2858,28 @@ class UpgradeRepairTests(unittest.TestCase):
                                                    (upgrade_repairs.PROCESSING_STATE_KEY,)).fetchone()[0])
         self.assertEqual(result, {'local_evidence': 1, 'download_states': 2, 'organize_batches': 2})
 
+    def test_avatar_faces_are_backfilled_offline_and_retried_while_the_model_is_missing(self):
+        from peach import avatar_face, repair_center
+        with patch.object(avatar_face, 'backfill', return_value=None) as backfill:
+            self.service._backfill_avatar_faces()
+        probe = backfill.call_args.args[1]
+        self.assertEqual(backfill.call_args.args[0], self.root / 'avatars')
+        self.assertFalse(probe._allow_download)
+        with self.database.read_connection() as connection:
+            self.assertIsNone(connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
+                                                 (upgrade_repairs.AVATAR_FACES_KEY,)).fetchone())
+        with patch.object(avatar_face, 'backfill', return_value={'checked': 3, 'written': 2}):
+            self.service._backfill_avatar_faces()
+        with patch.object(avatar_face, 'backfill', return_value={'checked': 0, 'written': 0}) as again:
+            self.service._backfill_avatar_faces()
+        again.assert_called_once()
+        with self.database.read_connection() as connection:
+            stored = json.loads(connection.execute('SELECT result_json FROM ledger_upgrade_repair WHERE id=?',
+                                                   (upgrade_repairs.AVATAR_FACES_KEY,)).fetchone()[0])
+            center = repair_center.snapshot(connection, {}, cloud_pending=0)
+        self.assertEqual(stored, {'checked': 3, 'written': 2})
+        self.assertEqual(next(item['changed'] for item in center['items'] if item['id'] == 'avatar-faces'), 2)
+
     def test_a_new_library_run_drops_local_evidence_its_state_no_longer_points_to(self):
         from peach.library_processing import prune_local_evidence
         path = self.root / 'state' / 'library-processing.json'

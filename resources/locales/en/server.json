@@ -291,6 +291,7 @@
       "source-resolution-tags": "4K tags from sources",
       "video-medium": "Reclassified as videos",
       "sidecar-assets": "NFO files and posters removed from the collection",
+      "avatar-faces": "Faces found on avatars",
       "stale-filename-codes": "Misread codes cleared",
       "studio-unbounded-misses": "Label lookup cache",
       "verification-settlement": "Verification differences settled",
@@ -361,6 +362,10 @@
       "sidecar-assets": {
         "summary": "NFO files, posters, fanart, and screenshot thumbnails that older versions listed as works leave the collection. The files aren't touched.",
         "title": "NFO files and posters"
+      },
+      "avatar-faces": {
+        "summary": "Avatars installed while the face model was unavailable are checked for faces, so round avatars center on the face. Only local images are read.",
+        "title": "Avatar face framing"
       },
       "interface-text": {
         "title": "Interface text in task records",

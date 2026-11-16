@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "260db3d0-17dd-4d8f-922b-579e16f640d6", e._sentryDebugIdIdentifier = "sentry-dbid-260db3d0-17dd-4d8f-922b-579e16f640d6");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "1357352d-a1d5-4df6-8248-17f460f1e60c", e._sentryDebugIdIdentifier = "sentry-dbid-1357352d-a1d5-4df6-8248-17f460f1e60c");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -7395,6 +7395,7 @@ var He = "peach.settings.v1", Ue = {
 			"source-resolution-tags": "4K tags from sources",
 			"video-medium": "Reclassified as videos",
 			"sidecar-assets": "NFO files and posters removed from the collection",
+			"avatar-faces": "Faces found on avatars",
 			"stale-filename-codes": "Misread codes cleared",
 			"studio-unbounded-misses": "Label lookup cache",
 			"verification-settlement": "Verification differences settled",
@@ -7465,6 +7466,10 @@ var He = "peach.settings.v1", Ue = {
 			"sidecar-assets": {
 				summary: "NFO files, posters, fanart, and screenshot thumbnails that older versions listed as works leave the collection. The files aren't touched.",
 				title: "NFO files and posters"
+			},
+			"avatar-faces": {
+				summary: "Avatars installed while the face model was unavailable are checked for faces, so round avatars center on the face. Only local images are read.",
+				title: "Avatar face framing"
 			},
 			"interface-text": {
 				title: "Interface text in task records",
@@ -14527,6 +14532,7 @@ var He = "peach.settings.v1", Ue = {
 			"source-resolution-tags": "来源的 4K 标签",
 			"video-medium": "改登记为视频",
 			"sidecar-assets": "移出馆藏的 NFO 与海报",
+			"avatar-faces": "补测头像人脸",
 			"stale-filename-codes": "清除误认的番号",
 			"studio-unbounded-misses": "厂牌查询缓存",
 			"verification-settlement": "核查差异结算",
@@ -14597,6 +14603,10 @@ var He = "peach.settings.v1", Ue = {
 			"sidecar-assets": {
 				summary: "旧版当成作品登记的 NFO、海报、剧照和截图缩略图移出馆藏，文件本身不动",
 				title: "NFO 与海报"
+			},
+			"avatar-faces": {
+				summary: "人脸模型不可用时装上的头像补测人脸，圆头像按脸取景；只读本机图片",
+				title: "头像人脸取景"
 			},
 			"interface-text": {
 				title: "任务记录的界面文字",
@@ -39381,4 +39391,4 @@ jt();
 var Kb = document.getElementById("peach-page"), qb = Kb ? Gb[Kb.dataset.page ?? ""] : void 0;
 Kb && qb && (0, Bt.createRoot)(Kb).render(/* @__PURE__ */ (0, V.jsx)(Wb, { children: /* @__PURE__ */ (0, V.jsx)(qb, { data: { ...Kb.dataset } }) }));
 
-//# debugId=260db3d0-17dd-4d8f-922b-579e16f640d6
+//# debugId=1357352d-a1d5-4df6-8248-17f460f1e60c

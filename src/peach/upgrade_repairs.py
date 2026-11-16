@@ -452,6 +452,8 @@ SIDECAR_ASSETS_KEY = f'sidecar-assets-{upgrade_rules.SIDECAR_ASSETS}'
 FAILED_FOLLOWUPS_KEY = 'failed-followups-1'
 #: 处理任务积下的状态文件（`_prune_processing_state`）的回执键。
 PROCESSING_STATE_KEY = 'processing-state-files-1'
+#: 头像人脸记录补测（`_backfill_avatar_faces`）第一次做完时的回执键。
+AVATAR_FACES_KEY = 'avatar-faces-1'
 
 
 def misfiled_videos(connection) -> list[int]:
@@ -1695,6 +1697,33 @@ class UpgradeRepairs:
         except Exception:
             LOGGER.exception('Failed to clean up failed follow-up rows')
 
+    def _backfill_avatar_faces(self) -> None:
+        """人物头像缺人脸记录或记录过期的补测一遍（`avatar_face.backfill`），每次启动在后台做。
+
+        人脸模型不可用时装上的头像没有 `.face.json`，页面一直按几何居中取景；换图后没重检、
+        `px` 对不上的同样退回居中。只读本机图片，只用随包或已在数据目录里的模型，不联网；
+        模型用不了就什么也不写，下次启动再试。第一次做完记回执（检了几张、写了几张），之后
+        每次启动照样补安装时没检成的。
+
+        关注作品的题材圆标不补：那里一张都过不了人脸判据的题材本来就不写记录（按整张封面显示），
+        而判据要看站点的高清原图，缺记录的分不出是没检成还是本来没有可用的脸，只能联网重取。
+        """
+        from . import avatar_face
+        try:
+            root = getattr(self.contract, 'avatar_root', None)
+            if root is None:
+                return
+            result = avatar_face.backfill(Path(root), avatar_face.FaceProbe(allow_download=False))
+            if result is None:
+                LOGGER.info('Avatar face backfill waits for the face model')
+                return
+            with self.contract.database.write_transaction() as connection:
+                connection.execute('INSERT OR IGNORE INTO ledger_upgrade_repair(id,applied_at,result_json) '
+                                   'VALUES(?,?,?)', (AVATAR_FACES_KEY, str(time.time()), json.dumps(result)))
+            LOGGER.info('Avatar face backfill: %s', result)
+        except Exception:
+            LOGGER.exception('Avatar face backfill failed')
+
     def _prune_processing_state(self) -> None:
         """处理任务积下的状态文件一次清掉，只做一次；之后各在自己的任务里清。
 
@@ -2396,6 +2425,7 @@ class UpgradeRepairs:
             self.scheduler.add_job(self._prune_repair_checkpoints, max_instances=1)
             self.scheduler.add_job(self._prune_failed_followups, max_instances=1)
             self.scheduler.add_job(self._prune_processing_state, max_instances=1)
+            self.scheduler.add_job(self._backfill_avatar_faces, max_instances=1)
             self.scheduler.start()
 
     def stop(self) -> None:
