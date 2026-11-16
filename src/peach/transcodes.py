@@ -194,6 +194,21 @@ class TranscodeService:
                     and not profile.decode_order_timestamps
                     and not self._browser_compatible(source, profile, decode))
 
+    def hls_mode(self, source: Path, *, session: str = "", registry=None) -> str:
+        """分片所需处理：兼容视频保留码流，音轨单独判断。
+
+        返回 `copy`（音视频都复制）、`audio`（视频复制、音轨转 AAC）或 `transcode`（视频重编码）。
+        只有 H.264 8 位、时间戳没错乱的视频才保留码流；HEVC 进 MPEG-TS 分片各浏览器支持不一，仍转码。
+        """
+        if self.resolver.ffprobe() is None:
+            return "transcode"
+        profile = self._profile_for(source, session, registry)
+        if (profile is None or profile.video_codec != "h264"
+                or profile.pixel_format not in DIRECT_MP4_PIXEL_FORMATS
+                or profile.decode_order_timestamps):
+            return "transcode"
+        return "copy" if profile.audio_codec in {"", "aac", "mp3"} else "audio"
+
     def decode_order_timestamps(self, source: Path, *, session: str = "", registry=None, stat=None,
                                 decode: frozenset[str] = frozenset()) -> bool:
         """是不是只有时间戳错乱的那一类：有 B 帧却没有 ctts，码流本身浏览器解得出来。

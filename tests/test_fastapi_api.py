@@ -3509,13 +3509,80 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
         con.commit()
         con.close()
         with patch.object(self.app.state.transcode_service, 'requires_conversion', return_value=True), \
+                patch.object(self.app.state.transcode_service, 'decode_order_timestamps', return_value=False), \
                 patch.object(self.app.state.transcode_service, 'browser_path',
                              side_effect=AssertionError('whole movie conversion')):
             response = await self.client.get('/api/stream-plan?id=1&session=s&t=secret')
             self.assertEqual(response.json()['protocol'], 'hls')
+            self.assertEqual(response.json()['original_src'], '/stream?id=1&original=1&session=s')
+            self.assertEqual(response.json()['original_mime_type'], 'video/mp4')
             playlist = await self.client.get('/stream/hls/1/index.m3u8?session=s&t=secret')
             self.assertEqual(playlist.status_code, 200)
             self.assertIn('#EXTINF:0.280', playlist.text)
+
+    async def test_original_stream_bypasses_browser_transcoding(self):
+        """原画试播要真正读原文件；兼容性转码只能由回退请求触发。"""
+        with patch.object(self.app.state.transcode_service, 'browser_path',
+                          side_effect=AssertionError('original trial started transcoding')):
+            response = await self.client.get(
+                '/stream?id=1&original=1&session=original-trial',
+                headers={'X-Token': 'secret', 'Range': 'bytes=0-3'},
+            )
+        self.assertEqual(response.status_code, 206)
+        self.assertEqual(response.content, b'0123')
+        self.assertEqual(response.headers['content-type'], 'video/mp4')
+        self.assertNotIn('x-peach-transcoded', response.headers)
+
+    async def test_mkv_plan_tries_original_then_remux_and_explicit_video_conversion(self):
+        from peach.transcodes import _MediaProfile
+        from peach.ffmpeg import BinaryChoice
+        from support.mkv import minimal_mkv
+
+        source = self.media_root / "clip.mkv"
+        source.write_bytes(minimal_mkv())
+        with closing(sqlite3.connect(self.db)) as connection, connection:
+            connection.execute("UPDATE asset SET path=?, duration=13.5 WHERE id=1", (str(source),))
+        service = self.app.state.transcode_service
+        with patch.object(service.resolver, "ffprobe", return_value=BinaryChoice(Path("ffprobe"), "test")), \
+                patch.object(service, "_probe", return_value=_MediaProfile("h264", "yuv420p", "aac")):
+            plan = (await self.client.get("/api/stream-plan?id=1&session=mkv&t=secret")).json()
+            self.assertEqual(plan["original_mime_type"], "video/x-matroska")
+            self.assertEqual(plan["processing"], "copy")
+            self.assertEqual(plan["segments"], 2)
+            self.assertIn("transcode=1", plan["fallback_src"])
+            playlist = await self.client.get(plan["fallback_src"] + "&t=secret")
+            self.assertIn("#EXTINF:6.000,", playlist.text)
+            self.assertIn("&transcode=1", playlist.text)
+            original = await self.client.get(plan["original_src"] + "&t=secret", headers={"Range": "bytes=0-3"})
+            self.assertEqual(original.status_code, 206)
+            self.assertEqual(original.headers["content-type"], "video/x-matroska")
+
+    async def test_mkv_audio_conversion_and_forced_video_conversion_reach_the_segment_service(self):
+        from unittest.mock import AsyncMock
+        from peach.transcodes import _MediaProfile
+        from peach.ffmpeg import BinaryChoice
+        from support.mkv import minimal_mkv
+
+        source = self.media_root / "clip.mkv"
+        source.write_bytes(minimal_mkv())
+        segment = self.media_root / "slice.ts"
+        segment.write_bytes(b"transport stream")
+        with closing(sqlite3.connect(self.db)) as connection, connection:
+            connection.execute("UPDATE asset SET path=?, duration=13.5 WHERE id=1", (str(source),))
+        service = self.app.state.transcode_service
+        generate = AsyncMock(return_value=segment)
+        with patch.object(service.resolver, "ffprobe", return_value=BinaryChoice(Path("ffprobe"), "test")), \
+                patch.object(service, "_probe", return_value=_MediaProfile("h264", "yuv420p", "dts")), \
+                patch.object(self.app.state.hls_service, "generate", generate):
+            plan = (await self.client.get("/api/stream-plan?id=1&session=mkv&t=secret")).json()
+            self.assertEqual(plan["processing"], "audio")
+            response = await self.client.get("/stream/hls/1/0.ts?session=mkv&t=secret")
+            self.assertEqual(response.content, b"transport stream")
+            self.assertTrue(generate.call_args.kwargs["audio_transcode"])
+            self.assertNotIn("transcode", generate.call_args.kwargs)
+            await self.client.get("/stream/hls/1/0.ts?session=mkv&transcode=1&t=secret")
+            self.assertTrue(generate.call_args.kwargs["transcode"])
+            self.assertNotIn("audio_transcode", generate.call_args.kwargs)
 
     async def test_unknown_ledger_duration_still_slices_by_the_probed_duration(self):
         """账本没记时长（或记成 -1）的 HEVC MP4 也按片切：时长取 ffprobe 报的，不走整片转码。"""
@@ -3701,6 +3768,7 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
             plan = (await self.client.get("/api/stream-plan?id=1&session=s&t=secret")).json()
 
         self.assertEqual(plan["protocol"], "hls")
+        self.assertNotIn("original_src", plan)
         self.assertEqual(asked, [1])
 
     async def test_transcoded_stream_has_browser_mime_and_marker(self):

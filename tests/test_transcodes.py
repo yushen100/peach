@@ -107,6 +107,23 @@ class TranscodeServiceTests(unittest.TestCase):
             self.assertNotIn(str(source), str(report))
             self.assertEqual(service.hardware.diagnostic_snapshot()['probe_status'], 'not-probed')
 
+    def test_hls_processing_preserves_compatible_video_and_audio_independently(self):
+        for codec, pixel, audio, mode in (
+            ("h264", "yuv420p", "aac", "copy"),
+            ("h264", "yuv420p", "dts", "audio"),
+            ("h264", "yuv420p10le", "aac", "transcode"),
+            ("hevc", "yuv420p", "aac", "transcode"),
+        ):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp).resolve()
+                source = root / "movie.mkv"
+                source.write_bytes(b"source")
+                service = TranscodeService(_Resolver(root / "ffmpeg", root / "ffprobe"), root / "cache")
+                streams = [{"codec_type": "video", "codec_name": codec, "pix_fmt": pixel},
+                           {"codec_type": "audio", "codec_name": audio}]
+                with patch("peach.transcodes.subprocess.Popen", side_effect=_media_process([], streams)):
+                    self.assertEqual(service.hls_mode(source), mode)
+
     def setUp(self):
         candidates = patch("peach.hardware_transcode.HardwareTranscoder._candidates",
                            return_value=(HardwareEncoder("nvenc"),))
