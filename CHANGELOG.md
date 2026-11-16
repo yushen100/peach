@@ -37,6 +37,10 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Changed / 变更
 
+- **Sourcing**: Resources on out-of-library details come from every magnet source, not only JavDB, and still load while JavDB is down (#717). / **采集**：库外详情的资源改查全部磁链来源，JavDB 不可用时照样列出（#717）。
+- **Sourcing**: New FC2 works take details from FC2 and its archives, and FC2, uncensored and amateur covers fall back to issuer and community pictures (#717). / **采集**：FC2 新作资料先问 FC2 与存档站；FC2、无码与素人新作封面可改用发行方与社区图源（#717）。
+- **Interface**: When JavDB doesn't answer, discovery cards and out-of-library details fill in from DMM and r18.dev (#717). / **界面**：JavDB 没答上时，发现页卡片与库外详情改用 DMM、r18.dev 的资料（#717）。
+- **Library**: Official sample images for censored works come from r18.dev when DMM has none (#717). / **馆藏**：有码作品的官方样张在 DMM 没有时改从 r18.dev 补（#717）。
 - **Following**: Subscriptions skip an actress's JavDB censored page while her DMM catalogue fetches fine (#704). / **关注**：女优的 DMM 片单抓取正常时，订阅跳过她在 JavDB 的有码页（#704）。
 - **Sourcing**: Scheduled Wants checks skip JavDB once manko already has 1080p or better (#704). / **采集**：「想要」定时查找在 manko 已有 1080p 以上时不再问 JavDB（#704）。
 - **Sourcing**: Complete work details fetched after release are kept as local metadata instead of being refetched (#704). / **采集**：发行后取齐的作品资料留作本地资料，不再定期重取（#704）。
