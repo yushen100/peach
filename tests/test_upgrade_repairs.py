@@ -1658,6 +1658,62 @@ class UpgradeRepairTests(unittest.TestCase):
         self.service._prune_task_controls()
         self.assertTrue((root / '999999.observed.json').exists())
 
+    def failed_followups(self, keys):
+        """一轮父任务派出这几条后继并全按失败结束，返回 {键: 任务 id}。"""
+        parent = self.store.start('upgrade-repairs', trigger='scheduled')
+        queued = self.store.enqueue_followups(parent.id, [(key, key.split(':')[0], key) for key in keys])['queued']
+        self.store.finish(parent.id, 'succeeded')
+        runs = {}
+        for run_id in queued:
+            run = self.store.get(run_id)
+            self.store.finish(run_id, 'failed', error='来源出错')
+            runs[run.followup_key] = run_id
+        return runs
+
+    def test_failed_followups_left_by_old_versions_are_pruned_once_with_their_controls(self):
+        from peach import update_tasks
+        self.service.prepare()
+        runs = self.failed_followups([
+            'upgrade-library:processing-v2:1',          # 结论已记进状态表
+            'upgrade-library:display-dimensions-1:2',   # 已撤下的旧规则
+            'upgrade-library:processing-v2:3',          # 回执队列里还等结算
+            'upgrade-library:processing-v2:4',          # 状态表说它正排着、指的就是这一行
+            'avatar:5', 'avatar:6'])
+        with self.database.write_transaction() as connection:
+            upgrade_repairs.upsert_items(connection, [
+                {'rule': 'media:processing-v2', 'asset_id': 1, 'state': 'failed',
+                 'run_id': runs['upgrade-library:processing-v2:1']},
+                {'rule': 'media:processing-v2', 'asset_id': 4, 'state': 'queued',
+                 'run_id': runs['upgrade-library:processing-v2:4']}], mode='finish')
+            connection.execute("UPDATE task_run SET finished_at='2000-01-01T00:00:00.000Z' WHERE id=?",
+                               (runs['avatar:5'],))
+        receipt = upgrade_repairs._read(self.service.receipt)
+        receipt['queued'] = {'upgrade-library:processing-v2:3': runs['upgrade-library:processing-v2:3']}
+        self.service._save_receipt(receipt)
+        self.service._prune_failed_followups()
+        left = {key for key, run_id in runs.items() if self.store.get(run_id) is not None}
+        self.assertEqual(left, {'upgrade-library:processing-v2:3', 'upgrade-library:processing-v2:4', 'avatar:6'})
+        controls = update_tasks.state_for(self.db).parent / 'task-controls'
+        self.assertFalse((controls / f"{runs['upgrade-library:processing-v2:1']}.speed.json").exists())
+        self.assertTrue((controls / f"{runs['avatar:6']}.speed.json").exists())
+        with self.database.read_connection() as connection:
+            result = json.loads(connection.execute('SELECT result_json FROM ledger_upgrade_repair WHERE id=?',
+                                                   (upgrade_repairs.FAILED_FOLLOWUPS_KEY,)).fetchone()[0])
+        self.assertEqual(result, {'removed': {'upgrade-library': 2, 'avatar': 1}})
+
+    def test_a_settled_failure_leaves_the_task_list_once_its_conclusion_is_recorded(self):
+        self.service.prepare()
+        key = 'upgrade-library:processing-v2:7'
+        run_id = self.failed_followups([key])[key]
+        receipt = upgrade_repairs._read(self.service.receipt)
+        receipt['queued'] = {key: run_id}
+        self.service._save_receipt(receipt)
+        self.tick_quietly()
+        with self.database.read_connection() as connection:
+            state = connection.execute("SELECT state FROM ledger_upgrade_item WHERE asset_id=7").fetchone()[0]
+        self.assertEqual(state, 'failed')
+        self.assertIsNone(self.store.get(run_id))
+
     def test_local_repairs_are_atomic_idempotent_and_preserve_manual_codes(self):
         self.asset(1)
         self.asset(2, owner='user:manual')

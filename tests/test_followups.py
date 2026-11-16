@@ -163,6 +163,42 @@ class RunnerTests(LedgerTestCase):
             self.assertEqual(connection.execute("SELECT count(*) FROM task_run WHERE task_key=? "
                                                 "AND status='succeeded'", (AVATAR_TASK_KEY,)).fetchone()[0], 20)
 
+    def test_failed_followups_older_than_the_retention_window_are_pruned_with_their_controls(self):
+        from datetime import datetime, timedelta, timezone
+        from peach import update_tasks
+        parent = self.parent()
+        rows = self.store.enqueue_followups(parent.id, [(f'avatar:{i}', AVATAR_TASK_KEY, str(i))
+                                                       for i in range(3)])['queued']
+        for run_id in rows[:2]:
+            self.store.finish(run_id, 'failed', error='source unavailable')
+        self.store.finish(parent.id, 'succeeded')
+        old = task_runs_module.stamp(datetime.now(timezone.utc)
+                                     - timedelta(days=task_runs_module.FAILED_FOLLOWUP_DAYS + 1))
+        with self.database.write_transaction() as connection:
+            connection.execute('UPDATE task_run SET finished_at=? WHERE id=?', (old, rows[0]))
+        controls = update_tasks.state_for(self.db).parent / 'task-controls'
+        self.assertTrue((controls / f'{rows[0]}.speed.json').exists())
+        with registered(echo_type(AVATAR_TASK_KEY)):
+            self.assertEqual(FollowupRunner(self.contract()).drain(), 1)
+        self.assertIsNone(self.store.get(rows[0]))
+        self.assertEqual(self.store.get(rows[1]).status, 'failed')
+        self.assertFalse((controls / f'{rows[0]}.speed.json').exists())
+        self.assertTrue((controls / f'{rows[1]}.speed.json').exists())
+
+    def test_a_type_that_settles_its_own_failures_keeps_them_past_the_window(self):
+        parent = self.parent()
+        rows = self.store.enqueue_followups(parent.id, [(f'avatar:{i}', AVATAR_TASK_KEY, str(i))
+                                                       for i in range(2)])['queued']
+        self.store.finish(rows[0], 'failed', error='source unavailable')
+        self.store.finish(parent.id, 'succeeded')
+        with self.database.write_transaction() as connection:
+            connection.execute("UPDATE task_run SET finished_at='2000-01-01T00:00:00.000Z' WHERE id=?", (rows[0],))
+        owner = FollowupType(task_key=AVATAR_TASK_KEY, label='', writes_ledger=True,
+                             run=lambda contract, key, handle: {}, prunes_failures=True)
+        with registered(owner):
+            self.assertEqual(FollowupRunner(self.contract()).drain(), 1)
+        self.assertEqual(self.store.get(rows[0]).status, 'failed')
+
     def test_finished_followups_obey_retention_after_their_parent_settles(self):
         parent = self.parent()
         self.store.enqueue_followups(parent.id, [(f'avatar:{i}', AVATAR_TASK_KEY, str(i)) for i in range(21)])

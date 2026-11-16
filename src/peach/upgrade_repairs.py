@@ -230,6 +230,36 @@ def settled(row, generation: str | None, now: float) -> bool:
     return False
 
 
+def prune_settled_failures(store, queued_run_ids) -> int:
+    """清退结论已记进 `ledger_upgrade_item` 的影片补全失败行，返回删掉的行数。
+
+    失败行只在结算之前有用：`_settle_queue` 读它的状态给状态表记结论，记完之后重派按那一行的
+    `retry_at` 或用户点重试，任务中心里的这一行只剩历史。所以留下的只有两种：回执队列里还等
+    结算的（`queued_run_ids`），和状态表里那部片还在等或在跑、指的正是这一行的（结算前的那一刻）。
+    已撤下的旧规则（`display-dimensions-1`）与早已重派过的旧行都不在两者之中，一并清退。
+    """
+    if not getattr(store, 'enabled', False):
+        return 0
+    keep = {int(run_id) for run_id in queued_run_ids}
+    with store.database.read_connection() as connection:
+        rows = connection.execute(
+            "SELECT id,followup_key FROM task_run WHERE task_key=? AND status IN ('failed','interrupted') "
+            'AND followup_key IS NOT NULL', (MEDIA_TASK,)).fetchall()
+        if not rows:
+            return 0
+        waiting = {(row[0], row[1]): row[2] for row in connection.execute(
+            "SELECT rule,asset_id,run_id FROM ledger_upgrade_item WHERE state IN ('pending','queued')")}
+    doomed = []
+    for run_id, key in rows:
+        if run_id in keep:
+            continue
+        members = [item_of(member) for member in member_keys(key)]
+        if any(member is not None and waiting.get(member[:2]) == run_id for member in members):
+            continue
+        doomed.append(run_id)
+    return store.delete_finished(doomed)
+
+
 def _media_items(connection, *, rules=None, every=False) -> dict:
     """状态表里影片补全的行，键是 (规则, 影片)。
 
@@ -391,6 +421,8 @@ RESOLUTION_TAGS_KEY = f'source-resolution-tags-{upgrade_rules.SOURCE_RESOLUTION_
 
 
 VIDEO_MEDIUM_KEY = f'video-medium-{upgrade_rules.VIDEO_MEDIUM}'
+#: 旧版永不清退的失败后继行（`_prune_failed_followups`）的回执键。
+FAILED_FOLLOWUPS_KEY = 'failed-followups-1'
 
 
 def misfiled_videos(connection) -> list[int]:
@@ -1538,6 +1570,33 @@ class UpgradeRepairs:
         except Exception:
             LOGGER.exception('Failed to clean up repair resume state')
 
+    def _prune_failed_followups(self) -> None:
+        """旧版永不清退的失败后继行一次清掉，连同它们的控制文件；只做一次。
+
+        影片补全按结论清（`prune_settled_failures`）；其余后继按 `TaskRunStore.prune` 的天数清
+        （`FAILED_FOLLOWUP_DAYS`）。之后每条后继跑完、每轮结算后都照同样的判据清，这里只是不等下一轮。
+        回执按任务种类记删掉的行数。出错只记日志，下次启动再试。
+        """
+        key = FAILED_FOLLOWUPS_KEY
+        try:
+            with self.contract.database.read_connection() as connection:
+                if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?', (key,)).fetchone():
+                    return
+                keys = [row[0] for row in connection.execute(
+                    "SELECT DISTINCT task_key FROM task_run WHERE status IN ('failed','interrupted') "
+                    'AND followup_key IS NOT NULL AND task_key<>?', (MEDIA_TASK,))]
+            store = self.contract.task_runs
+            removed = {MEDIA_TASK: prune_settled_failures(store, _read(self.receipt).get('queued', {}).values())}
+            for task_key in keys:
+                removed[task_key] = store.prune(task_key, keep_errors=True)
+            removed = {name: count for name, count in removed.items() if count}
+            with self.contract.database.write_transaction() as connection:
+                connection.execute('INSERT OR IGNORE INTO ledger_upgrade_repair(id,applied_at,result_json) '
+                                   'VALUES(?,?,?)', (key, str(time.time()), json.dumps({'removed': removed})))
+            LOGGER.info('Failed follow-up rows: removed %s', removed)
+        except Exception:
+            LOGGER.exception('Failed to clean up failed follow-up rows')
+
     def _settle_verification(self) -> None:
         """核查差异的结算规则（ADR-0139）对存量候选跑一遍，规则版本变了才再跑。
 
@@ -1895,6 +1954,7 @@ class UpgradeRepairs:
         settled_rows = self._settle_queue(receipt)
         if settled_rows is not None:
             self._save_receipt(receipt, [('settle', settled_rows)])
+            prune_settled_failures(self.contract.task_runs, receipt.get('queued', {}).values())
         if receipt.get('dispatch_complete'):
             with self.contract.database.read_connection() as connection:
                 seed = self._seed_pending(connection)
@@ -1956,7 +2016,8 @@ class UpgradeRepairs:
         回执队列原本只增不减，上万条结束了的键还在承担防重复派发；结算后这件事交给
         状态表里那一行（`settled`）。只改两种行：本版派发时记下、还归这一轮任务管的
         （`queued` 且 `run_id` 对得上），和旧版留下、表里没有结论的。处理器自己写过结论的不动。
-        任务已被清退的，清退只删成功与取消的后继（`TaskRunStore.prune(keep_errors=True)`），按完成算。
+        任务已被清退的按完成算：跑完后的清退只删成功与取消的影片补全，失败的等这里结算之后才由
+        `prune_settled_failures` 收走。
         本版派出的失败按退避自动重派（`retry_at`）；旧版留下的失败照旧只等用户点重试
         （`retry_at` 为空），不会被自动重派。
         """
@@ -2176,6 +2237,7 @@ class UpgradeRepairs:
             self.scheduler.add_job(self._clear_stale_codes, max_instances=1)
             self.scheduler.add_job(self._prune_task_controls, max_instances=1)
             self.scheduler.add_job(self._prune_repair_checkpoints, max_instances=1)
+            self.scheduler.add_job(self._prune_failed_followups, max_instances=1)
             self.scheduler.start()
 
     def stop(self) -> None:
@@ -2402,4 +2464,5 @@ def _pause_for_capacity(service, handle, error):
     raise CapacityPaused(error.code, error.params) from error
 
 
-TYPE = register(FollowupType(MEDIA_TASK, interface_text.text('server:stage.upgrade.updateMetadata'), True, _media_run))
+TYPE = register(FollowupType(MEDIA_TASK, interface_text.text('server:stage.upgrade.updateMetadata'), True, _media_run,
+                             prunes_failures=True))

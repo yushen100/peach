@@ -152,6 +152,9 @@ class FollowupType:
 
     `jumps_queue` 的后继在自己的通道里先于别的种类领取（ADR-0114）：给人刚做完的那件事
     收尾的后继，人在等它；补资料、补头像这类后台存量不急。
+
+    `prunes_failures` 的类型按自己的结论清退失败行，跑完后的 `prune` 不按天数收它们：
+    升级补修的失败行在结算进 `ledger_upgrade_item` 之前还要读（`upgrade_repairs._settle_queue`）。
     """
 
     task_key: str
@@ -159,6 +162,7 @@ class FollowupType:
     writes_ledger: bool
     run: Callable[[object, str, TaskRunHandle], dict]
     jumps_queue: bool = False
+    prunes_failures: bool = False
 
     @property
     def lane(self) -> str:
@@ -328,7 +332,11 @@ class FollowupRunner:
         try:
             return self._execute_one(run)
         finally:
-            self.store.prune(run.task_key, keep_errors=True)
+            followup_type = REGISTRY.get(run.task_key)
+            if followup_type is not None and followup_type.prunes_failures:
+                self.store.prune(run.task_key, keep_errors=True, failed_days=None)
+            else:
+                self.store.prune(run.task_key, keep_errors=True)
             with self._lock:
                 listeners = list(self._listeners)
             for listener in listeners:
