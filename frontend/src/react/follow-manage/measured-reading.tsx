@@ -60,8 +60,10 @@ export function MeasuredReading({ field, figure, total, failed = false }: {
       for (const root of shadows) root.adoptedStyleSheets = root.adoptedStyleSheets.filter(value => value !== sheet);
     };
   }, [figure, failed]);
+  /* 名字贴顶、读数贴底：英文名字会折成两行，一排卡被最高的那张撑齐后，读数仍落在同一条底线上，
+     不随各自名字的行数上下错开。 */
   return <div ref={host} data-measured-reading={field} className={cardClass({ padding: 'none',
-    className: 'flex flex-col gap-3 px-6 py-5 max-sm:gap-2 max-sm:p-4' })}>
+    className: 'flex flex-col justify-between gap-3 px-6 py-5 max-sm:gap-2 max-sm:p-4' })}>
     <span className="text-body-medium text-text-secondary">{term}</span>
     {figure === undefined && failed
       ? <b data-follow-reading="" className="text-title-1-medium text-text-primary">{t('follow:shared.notFound')}</b>

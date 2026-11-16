@@ -1007,6 +1007,17 @@ describe('设计决定：数据管理、索引页与资料页头', () => {
         assert.deepEqual(spill.wrapped, [], '七位数的读数把单位挤到了下一行');
         assert.deepEqual(spill.spilled, [], '来源行的控件越出了行');
         if (!viewport.mobile) assert.deepEqual(spill.split, [], '桌面上来源行的操作键掉到了名字下面');
+        // 英文名字会折行：把第一张卡的名字拉长到三行，同一排的读数仍压在同一条底线上。
+        const baselines = await opened.page.evaluate(() => {
+          const cards = [...document.querySelectorAll('[data-measured-reading]')];
+          cards[0]!.querySelector(':scope > span')!.textContent = 'A deliberately long reading label '.repeat(3);
+          const top = cards[0]!.getBoundingClientRect().top;
+          return cards.filter((card) => Math.abs(card.getBoundingClientRect().top - top) < 1)
+            .map((card) => card.querySelector('[skullet-pane]:not([skullet-exiting]) [data-follow-reading]')!
+              .getBoundingClientRect().bottom);
+        });
+        assert.ok(baselines.length > 1 && Math.max(...baselines) - Math.min(...baselines) <= 1,
+          `同一排读数的底边错开了：${baselines.join(', ')}`);
         assert.deepEqual(opened.problems, []);
       } finally {
         await opened.close();
