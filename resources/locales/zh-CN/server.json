@@ -312,7 +312,9 @@
       "descriptive-performers": "建成女优的描述称呼",
       "code-folder-creators": "当成创作者的番号目录",
       "case-duplicates": "同一文件登记了两次",
-      "r18-merges": "r18.dev 英文名建成的实体"
+      "r18-merges": "r18.dev 英文名建成的实体",
+      "rule34video-characters": "rule34video 的角色分类",
+      "rule34-details": "rule34.xxx 的标签分类与上传时间"
     },
     "items": {
       "catalog": {
@@ -422,6 +424,14 @@
       "r18-merges": {
         "title": "r18.dev 英文名建成的实体",
         "summary": "按 r18.dev 英文名建成的女优与系列，并入同一位、同一系列的日文名实体。"
+      },
+      "rule34video-characters": {
+        "title": "rule34video 的角色分类",
+        "summary": "逐条读取详情页，把站方单列的角色从普通标签改记为角色，每秒 1 条。"
+      },
+      "rule34-details": {
+        "title": "rule34.xxx 的标签分类与上传时间",
+        "summary": "逐条向 rule34.xxx 补问标签分类、上传时间和视频时长，只补缺的，约 2 秒 1 条。"
       }
     }
   },
@@ -522,6 +532,7 @@
     "feed-check": "订阅源拉取",
     "feed-cover": "新作封面采集",
     "feed-scrape": "新作资料采集",
+    "follow-backfill": "关注条目补填",
     "follow-check": "追更检查",
     "follow-creator": "关注作者建档",
     "follow-evidence-reclaim": "关注旧快照清理",
@@ -2841,6 +2852,10 @@
       "outsideRoots": "只能浏览已配置的媒体挂载目录；新挂载路径可在媒体目录输入框中填写",
       "timedOut": "媒体目录读取超时，请稍后重试或手动填写路径",
       "unreadable": "媒体目录不可读取，请检查挂载与目录权限"
+    },
+    "followBackfill": {
+      "credentialMissing": "先在关注来源里填好 rule34.xxx 的 API 凭据",
+      "running": "正在补填，请等这一次做完"
     }
   },
   "jobMessage": {
@@ -4326,6 +4341,10 @@
     },
     "browserTransport": {
       "trafficUnobserved": "浏览器采集流量未观测"
+    },
+    "followBackfill": {
+      "rule34-details": "补齐 rule34.xxx 细节",
+      "rule34video-characters": "补记 rule34video 角色"
     }
   },
   "taste": {

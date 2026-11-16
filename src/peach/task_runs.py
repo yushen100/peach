@@ -94,7 +94,7 @@ TASK_KEYS = (
     "follow-check", "follow-resolve", "library-processing", "taste-refresh", "link-check", "link-prune",
     "resource-scan", "resource-apply", "scraping-cover", "media-repair", "mp4-header-repair",
     "jav-discovery-metadata", "diagnostic-export", "ledger-backup", "ledger-restore", "upgrade-repairs",
-    "upgrade-library", "follow-evidence-reclaim", "organize", "batch", "scrape-codes", "jav-covers",
+    "upgrade-library", "follow-evidence-reclaim", "follow-backfill", "organize", "batch", "scrape-codes", "jav-covers",
     "entity-avatar", "performer-profile", "performer-alias", "studio-mark", "creator-identity", "code-samples",
     "feed-check", "feed-scrape", "feed-cover", "want-scrape", "want-search", "timeline-thumbnails", "download-postprocess",
     "seed-import", "follow-creator", "amane-bridge", "source-check", "face-models",

@@ -966,6 +966,7 @@ def _repair_center(request: Request) -> dict:
     except (OSError, ValueError):
         pass
     reclaim = getattr(request.app.state, 'follow_evidence', None)
+    backfill = getattr(request.app.state, 'follow_backfill', None)
     from . import legacy_repairs
     with request.app.state.web_contract.read_connection() as connection:
         result = repair_center.snapshot(connection, receipt, backup_directories=directories,
@@ -975,7 +976,9 @@ def _repair_center(request: Request) -> dict:
                                             connection, service.contract,
                                             revision=(str(service.contract.db_path),
                                                       request.app.state.web_contract.ledger_revision()))
-                                        if service.available else {})
+                                        if service.available else {},
+                                        follow_backfill_status=backfill.snapshot(connection)
+                                        if backfill and service.available else None)
     return {**result, 'available': service.available}
 
 

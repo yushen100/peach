@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "c6cb99c2-1f4d-448c-bdf8-721125fd211b", e._sentryDebugIdIdentifier = "sentry-dbid-c6cb99c2-1f4d-448c-bdf8-721125fd211b");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "b58bb1da-90e8-4eaf-bd77-dc3459726c9d", e._sentryDebugIdIdentifier = "sentry-dbid-b58bb1da-90e8-4eaf-bd77-dc3459726c9d");
 	} catch {}
 })();
 import { Button as e, Bx as t, Chip as n, DataTableFooter as r, Disclosure as i, DownloadsPanel as a, EmptyState as o, Gg as s, HN as c, IssueRow as l, LinkButton as u, Lo as d, Ma as f, NameLink as p, Note as m, OV as h, Pf as g, ProcessingMode as _, RB as v, RUNNING_POLL_MS as y, Rk as b, Su as x, TASKS_KEY as S, TRIGGER_LABELS as C, TaskProgress as w, Xl as T, __toESM as E, activityKind as D, apiGet as O, apiSend as ee, busyProps as k, cardClass as A, codedText as j, confirmModal as te, controlTask as ne, cx as re, elapsedText as ie, errorMessage as M, fetchTasks as ae, fmtSize as oe, foldByKind as se, foldRoutine as ce, followupDetail as le, followupTally as N, groupFollowups as ue, hasResultProblems as P, i2 as F, interfaceLanguage as de, isActive as I, isRoutine as fe, latestOfKind as pe, momentText as L, notifyManager as me, oe as he, pollInterval as ge, problemDestination as _e, progressLabel as ve, progressText as ye, readableErrorHeadline as be, replaceEqualDeep as xe, require_jsx_runtime as Se, require_react as Ce, runError as R, setTaskSpeed as we, statusLabel as Te, summaryItems as Ee, t as z, taskIssues as De, taskName as B, taskSubject as Oe, um as ke, uo as Ae, useMutation as V, useQuery as H, useQueryClient as U, vl as je, withBackoff as W } from "./peach-app.js";
@@ -231,6 +231,7 @@ var Ke = new Map([
 		"follow-resolve",
 		"follow-creator",
 		"follow-evidence-reclaim",
+		"follow-backfill",
 		"feed-check",
 		"feed-scrape",
 		"feed-cover"
@@ -823,4 +824,4 @@ function lt() {
 }
 export { lt as ActivityPage };
 
-//# debugId=c6cb99c2-1f4d-448c-bdf8-721125fd211b
+//# debugId=b58bb1da-90e8-4eaf-bd77-dc3459726c9d
