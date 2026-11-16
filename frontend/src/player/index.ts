@@ -11,6 +11,10 @@ export {
   attachPlayerChrome, mountDetailPlayer, mountPlayer, preparePlayerFrame, stopPlayerPanels,
 } from './detail-player';
 export { disposePlayer } from './dispose';
+export { lockLandscape } from './fullscreen';
+export { gestureSettings } from './gesture-settings';
+export type { Panels } from './subtitles';
+export { SubtitleControls, subtitleIcon, subtitlePanels } from './subtitles';
 export type { ImmersePlayerOptions } from './immerse-player';
 export { seekVideoBy, toggleVideoPlayback } from './playback';
 export type { SeekPreview } from './seek-preview';

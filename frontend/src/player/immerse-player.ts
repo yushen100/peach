@@ -25,6 +25,9 @@ export interface ImmersePlayerOptions {
   onEnded?: () => void;
   /** 片源已经交给 video：调用方从这一刻起等它可以出画。拆得比片源解析快时不回调。 */
   onLoaded?: () => void;
+  /** 播放器挂好交出去：字幕菜单这类跟着播放器走的交互由宿主接（字幕键在宿主的界面里，#585）。
+   *  给了它，字幕记忆与外观由宿主的 `SubtitleControls` 管，这里不再另起一份。 */
+  onPlayer?: (player: VjsPlayer) => void;
 }
 
 const BARE = {
@@ -46,12 +49,15 @@ export function mountImmersePlayer(video: HTMLVideoElement, options: ImmersePlay
       player = mounted;
       mounted.peachItem = item;
       mounted.peachPlaybackKey = playbackKey('item', item);
-      const captions = new AbortController();
-      mountCaptionStyle(mounted.el(), video, captions.signal, playerMemory(mounted));
       mountPlayerRotation(mounted, video);
       mountPlaybackRate(mounted, video);
-      mounted.on('dispose', () => captions.abort());
-      new SubtitleSession(mounted, video);
+      if (options.onPlayer) options.onPlayer(mounted);
+      else {
+        const captions = new AbortController();
+        mountCaptionStyle(mounted.el(), video, captions.signal, playerMemory(mounted));
+        mounted.on('dispose', () => captions.abort());
+        new SubtitleSession(mounted, video);
+      }
       mountPlayerSubtitles(mounted, item.id);
       if (segmented) mounted.one('error', () => { if (!released) mounted.src(direct) });
       mounted.src(source);
