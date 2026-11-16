@@ -125,7 +125,7 @@
     "doneAllReachable": "检查完成，全部可连接",
     "doneWithFailures": "检查完成，{{count, number}} 项未通过",
     "elapsed": "用时 {{seconds}} 秒",
-    "hdImages": "{{source}} 高清图片",
+    "hdImages": "{{source}} 图片",
     "help": "检查各来源页面与 DMM 高清图片服务器。可连接不代表登录有效。",
     "lastChecked": "上次检查 {{time}}",
     "loadingStatus": "正在读取连接检查状态",
@@ -136,6 +136,7 @@
     "seconds": "{{seconds}} 秒",
     "secondsSuffix": " · {{seconds}} 秒",
     "title": "连接检查",
+    "uncheckedTarget": "{{target}}：未检查",
     "unreachableTarget": "{{target}}：不能连接"
   },
   "customSources": {
@@ -782,6 +783,7 @@
     "setUpProxy": "配置 Peach 代理",
     "signInUnverified": "登录有效性待验证。",
     "testConnection": "检查连接",
+    "unchecked": "未检查",
     "uploadFile": "导入文件"
   },
   "stats": {

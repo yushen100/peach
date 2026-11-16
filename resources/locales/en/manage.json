@@ -148,7 +148,7 @@
     "doneWithFailures_one": "Check complete: {{count, number}} failed",
     "doneWithFailures_other": "Check complete: {{count, number}} failed",
     "elapsed": "Took {{seconds}} s",
-    "hdImages": "{{source}} HD images",
+    "hdImages": "{{source}} images",
     "help": "Checks each source page and the DMM HD image servers. Reachable doesn't mean the sign-in is valid.",
     "lastChecked": "Last checked {{time}}",
     "loadingStatus": "Loading connection check status",
@@ -160,6 +160,7 @@
     "seconds": "{{seconds}} s",
     "secondsSuffix": " · {{seconds}} s",
     "title": "Connection check",
+    "uncheckedTarget": "{{target}}: not checked",
     "unreachableTarget": "{{target}}: unreachable"
   },
   "customSources": {
@@ -864,6 +865,7 @@
     "setUpProxy": "Set up Peach proxy",
     "signInUnverified": "Sign-in not verified yet.",
     "testConnection": "Test connection",
+    "unchecked": "Not checked",
     "uploadFile": "Upload file"
   },
   "stats": {

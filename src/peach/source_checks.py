@@ -11,12 +11,25 @@ from .scraping_access import SOURCES, SourcePaused, SourceRefused, SourceTranspo
 MOBILE_BROADBAND_HINT_CODE = "labels.sourceChecks.mobileBroadbandHint"
 #: 那句提示按 zh-CN 渲染的原文，封面比较的报错与测试按它核对。
 MOBILE_BROADBAND_HINT = interface_text.text(f"server:{MOBILE_BROADBAND_HINT_CODE}")
-#: 一次检查查哪几跳：来源页面本身，以及 DMM 另有的高清图片地址。`label` 由 `target` 取说法。
+#: 一次检查查哪几跳：来源页面本身，以及来源取图的那台图片主机。`label` 由 `target` 取说法。
 PAGE, CDN = "page", "cdn"
+#: 各来源实际取图的那台主机上一张长期在的图（2026-11-16 实测都能取到）。只取前 64 KB，看通不通、是不是图，
+#: 不下载整张。请求按地址归属走那个来源的连接方式与冷却（`scraping_access.source_for`）：r18.dev 的封面
+#: 本来就在 DMM 的图片主机上，取图时用的也是 DMM 那一份设置。没列在这里的来源没有固定的图片主机
+#: （FC2 的 `storage*` 按商品换，片商官网与综合索引的图在别家主机上），图片那一跳标「未检查」。
+IMAGE_PROBES = {
+    "dmm": "https://awsimgsrc.dmm.co.jp/pics_dig/digital/video/gyan00017/gyan00017pl.jpg",
+    "r18dev": "https://pics.dmm.co.jp/mono/movie/adult/118abw350/118abw350pl.jpg",
+    "javdb": "https://c0.jdbstatic.com/covers/wk/wKGkQD.jpg",
+    "javbus": "https://www.javbus.com/pics/cover/9paa_b.jpg",
+    "mgstage": "https://image.mgstage.com/images/prestige/sp/abw/196/pake-03_sp-abw-196.jpg",
+}
+#: 图片主机属于 DMM 的来源：中国移动宽带直连常在握手后被断开，连不上时附那一句提示。
+DMM_IMAGE_SOURCES = frozenset({"dmm", "r18dev"})
 TARGET_LABELS = {PAGE: "labels.sourceChecks.target.page", CDN: "labels.sourceChecks.target.cdn"}
 
 
-def _connection_failure(exc, target):
+def _connection_failure(exc, target, source=""):
     """来源连接异常对应可操作的诊断说明。"""
     if isinstance(exc, SourceRefused):
         # 地区限制与出口封禁：原话里写着要换出口，不只是「稍后重试」。`message` 是给不认 code 的
@@ -32,8 +45,8 @@ def _connection_failure(exc, target):
         detail, message = "timeout", Said("labels.sourceChecks.timeout")
     else:
         detail = "network"
-        message = (Said("labels.sourceChecks.cdnUnreachable", hint=Said(MOBILE_BROADBAND_HINT_CODE)) if target == CDN
-                   else Said("labels.sourceChecks.unreachable"))
+        message = (Said("labels.sourceChecks.cdnUnreachable", hint=Said(MOBILE_BROADBAND_HINT_CODE))
+                   if target == CDN and source in DMM_IMAGE_SOURCES else Said("labels.sourceChecks.unreachable"))
     return {"ok": False, "kind": "unavailable", "reason": detail,
             **coded("message", message), "error_type": type(exc).__name__}
 
@@ -65,6 +78,12 @@ def _target(target):
     return {"target": target, **coded("label", Said(TARGET_LABELS[target]))}
 
 
+def _image_unchecked():
+    """没有固定图片主机的来源，图片那一跳不发请求，标明未检查。"""
+    return {**_target(CDN), "ok": False, "kind": "unchecked", "reason": "no_image_host",
+            **coded("message", Said("labels.sourceChecks.noImageHost"))}
+
+
 def check_source(secrets_root, source, *, preflight=False):
     """复用来源连接与图片 CDN 判据；安装检查只使用有界 HTTP 请求。"""
     from .metadata import auth_wall
@@ -72,11 +91,11 @@ def check_source(secrets_root, source, *, preflight=False):
         raise ValueError("unknown scraping source")
     if not SOURCES[source]["login"]:
         return {"ok": True, "results": [{**_target(PAGE), "ok": False, "kind": "unavailable",
-                "reason": "needs_code", **coded("message", Said("labels.sourceChecks.needsCode"))}],
-                "session_verified": False}
+                "reason": "needs_code", **coded("message", Said("labels.sourceChecks.needsCode"))},
+                _image_unchecked()], "session_verified": False}
     targets = [(PAGE, SOURCES[source]["login"])]
-    if source == "dmm":
-        targets.append((CDN, "https://awsimgsrc.dmm.co.jp/pics_dig/digital/video/gyan00017/gyan00017pl.jpg"))
+    if source in IMAGE_PROBES:
+        targets.append((CDN, IMAGE_PROBES[source]))
     results = []
     transport = (SourceTransport(secrets_root, max_requests=12, max_bytes=12 * 65536,
                                  max_seconds=15, allow_browser=False)
@@ -119,13 +138,15 @@ def check_source(secrets_root, source, *, preflight=False):
                     # 页面上再手写一份「请去登录」等于把人引去做错事。
                     result.update(coded("message", _connection_message(detail, reason)))
             except Exception as exc:
-                result.update(_connection_failure(exc, target))
+                result.update(_connection_failure(exc, target, source))
             result.update(checked_at=time.time(), elapsed_s=round(time.monotonic() - started, 2))
             if target == PAGE:
                 record_source_check(secrets_root, source, "connection", result)
             results.append(result)
     finally:
         transport.close()
+    if source not in IMAGE_PROBES:
+        results.append(_image_unchecked())
     return {"ok": True, "results": results, "session_verified": False}
 
 

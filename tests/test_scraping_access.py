@@ -103,7 +103,7 @@ class ScrapingAccessTests(unittest.TestCase):
             record = JavBusSource().query("ABW-123", session=Session(transport))
         self.assertEqual(record.code, "ABW-123")
         self.assertEqual(record.cover_urls, ("https://www.javbus.com/imgs/cover/test.jpg",))
-        self.assertEqual(seen, ["/", "/ABW-123"])
+        self.assertEqual(seen, ["/", "/pics/cover/9paa_b.jpg", "/ABW-123"], "检查连图片主机一起问")
 
     def test_javbus_cover_language_overrides_caller_headers_without_changing_other_sources(self):
         from peach.jav_cover_fetch import _fetch
@@ -764,11 +764,11 @@ class ScrapingAccessTests(unittest.TestCase):
             factory.return_value.side_effect = httpx.ConnectError("EOF occurred in violation of protocol")
             checks = {item["label"]: item for item in
                       w_scraping_check(SimpleNamespace(follow_secrets_root=self.root), {"source": "dmm"})["results"]}
-        self.assertIn(MOBILE_BROADBAND_HINT, checks["高清图片 CDN"]["message"])
+        self.assertIn(MOBILE_BROADBAND_HINT, checks["图片 CDN"]["message"])
         self.assertNotIn(MOBILE_BROADBAND_HINT, checks["来源页面"]["message"])
-        cdn = checks["高清图片 CDN"]
+        cdn = checks["图片 CDN"]
         self.assertEqual((cdn["target"], checks["来源页面"]["target"]), ("cdn", "page"))
-        self.assertEqual(interface_text.text(f"server:{cdn['label_code']}", language="en"), "HD image CDN")
+        self.assertEqual(interface_text.text(f"server:{cdn['label_code']}", language="en"), "Image CDN")
         self.assertEqual(interface_text.text(f"server:{cdn['message_code']}", cdn["message_params"], language="en"),
                          "Can't connect. On China Mobile broadband, direct connections to DMM image hosts are often "
                          "dropped after the handshake; set the DMM / FANZA connection to the Peach proxy.")
@@ -795,6 +795,32 @@ class ScrapingAccessTests(unittest.TestCase):
         self.assertEqual((checks["page"]["ok"], checks["page"]["reason"]), (True, "ok"))
         self.assertEqual((sent[0].method, sent[0].url), ("POST", "https://api.video.dmm.co.jp/graphql"))
         self.assertTrue(checks["cdn"]["ok"])
+
+    def test_each_source_with_a_fixed_image_host_checks_it_and_the_rest_say_not_checked(self):
+        """页面与图片主机分开报（#377）：有固定图片主机的来源各查一张那台主机上的图，只取前 64 KB；
+        没有的标「未检查」，全部检查里归到「跳过」，不算失败；DMM 以外的图片主机连不上不附移动宽带那句。"""
+        from peach.source_checks import IMAGE_PROBES, MOBILE_BROADBAND_HINT, check_source
+        from peach.source_preflight import outcome
+        self.assertTrue({"dmm", "r18dev", "javdb", "javbus", "mgstage"} <= set(IMAGE_PROBES))
+        sent = []
+
+        def respond(request, timeout, max_bytes):
+            sent.append(request)
+            if "jdbstatic" in request.url:
+                raise httpx.ConnectError("connection reset")
+            return HttpResponse(200, {"content-type": "text/html"}, b"<html><title>ok</title></html>", request.url)
+
+        with patch("peach.source_checks.SourceTransport") as factory:
+            factory.return_value.side_effect = respond
+            javdb = {item["target"]: item for item in check_source(self.root, "javdb")["results"]}
+            avbase = {item["target"]: item for item in check_source(self.root, "avbase")["results"]}
+        self.assertEqual([request.url for request in sent if "jdbstatic" in request.url], [IMAGE_PROBES["javdb"]])
+        self.assertEqual(sent[1].headers.get("Range"), "bytes=0-65535")
+        self.assertEqual((javdb["cdn"]["ok"], outcome(javdb["cdn"])), (False, "network"))
+        self.assertNotIn(MOBILE_BROADBAND_HINT, javdb["cdn"]["message"])
+        self.assertEqual((avbase["page"]["ok"], avbase["cdn"]["kind"], outcome(avbase["cdn"])), (True, "unchecked", "skipped"))
+        self.assertFalse(any("avbase" not in request.url and "jdbstatic" not in request.url and "javdb" not in request.url
+                             for request in sent), "没有固定图片主机的来源图片那一跳不发请求")
 
 class BrowserFallbackTests(unittest.TestCase):
     """登记了 `browser_fallback` 的来源（minnano-av）：HTTP 客户端被拦时由本机浏览器验证一页，
@@ -989,7 +1015,7 @@ class SourcePreflightTests(unittest.TestCase):
         def check(root, source, **options):
             self.assertTrue(options['preflight'])
             return {'results': [{'label': '来源页面', 'ok': source == 'dmm'},
-                                {'label': '高清图片 CDN', 'ok': False, 'reason': 'network'}]}
+                                {'label': '图片 CDN', 'ok': False, 'reason': 'network'}]}
         with patch('peach.source_preflight.check_source', side_effect=check) as checked:
             result = check_sources(Path('/unused'), ['dmm', 'javdb', 'dmm'])
         self.assertEqual(checked.call_count, 2)
