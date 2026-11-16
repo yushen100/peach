@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "9ab24642-fa80-4266-850c-d01b22ea05bc", e._sentryDebugIdIdentifier = "sentry-dbid-9ab24642-fa80-4266-850c-d01b22ea05bc");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "5d2d58c8-5090-424f-b6a4-48519c791211", e._sentryDebugIdIdentifier = "sentry-dbid-5d2d58c8-5090-424f-b6a4-48519c791211");
 	} catch {}
 })();
 import { Button as e, LinkButton as t, Note as n, Progress as r, REPAIRS_KEY as i, RESULT_PANEL as a, RESULT_SECTION as o, SectionHeading as s, StatusLabel as c, apiSend as l, confirmModal as u, fetchRepairs as d, fmtSize as f, i2 as p, interfaceLanguage as m, localizeRepairs as h, queryClient as g, quoted as _, repairCenterPanelSkeleton as v, require_jsx_runtime as y, t as b, useAction as x, useQuery as S, withBackoff as C } from "./peach-app.js";
@@ -61,7 +61,7 @@ function L(e) {
 	}) : null;
 }
 function R(e) {
-	return e.estimating ? b("settings:repairCenter.estimating") : e.state === "failed" && e.error ? e.error : e.files ? b("settings:repairCenter.reclaimable", { size: f(e.bytes || 0) }) : e.state === "pending" && e.online ? b("settings:repairCenter.pendingChecks", { count: e.pending || 0 }) : e.state === "waiting" && e.backed_up ? b("settings:repairCenter.pendingFixes", { count: e.pending || 0 }) : e.state === "waiting" ? e.pending ? b("settings:repairCenter.pendingRecheck", { count: e.pending }) : "" : M(e) ? "" : e.total ? `${k(e.done)} / ${k(e.total)}` : e.changed ? b("settings:repairCenter.changedCount", { count: e.changed }) : "";
+	return e.estimating ? b("settings:repairCenter.estimating") : e.state === "failed" && e.error ? e.error : e.files ? b("settings:repairCenter.reclaimable", { size: f(e.bytes || 0) }) : e.state === "pending" && e.online ? b("settings:repairCenter.pendingChecks", { count: e.pending || 0 }) : e.state === "waiting" && e.backed_up ? b("settings:repairCenter.pendingFixes", { count: e.pending || 0 }) : e.covers ? b("settings:repairCenter.pendingCovers", { count: e.covers }) : e.state === "waiting" ? e.pending ? b("settings:repairCenter.pendingRecheck", { count: e.pending }) : "" : M(e) ? "" : e.total ? `${k(e.done)} / ${k(e.total)}` : e.changed ? b("settings:repairCenter.changedCount", { count: e.changed }) : "";
 }
 function z({ title: e, description: t, progress: n, children: r }) {
 	return /* @__PURE__ */ (0, T.jsxs)("div", {
@@ -240,4 +240,4 @@ function H() {
 }
 export { H as RepairCenterPage, P as repairsInterval };
 
-//# debugId=9ab24642-fa80-4266-850c-d01b22ea05bc
+//# debugId=5d2d58c8-5090-424f-b6a4-48519c791211
