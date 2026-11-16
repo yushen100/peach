@@ -2776,6 +2776,56 @@ class UpgradeRepairTests(unittest.TestCase):
         self.assertEqual(sorted(path.name for path in self.service.root.iterdir()), sorted(other))
         self.assertFalse(any((self.service.root / name).exists() for name in single))
 
+    def test_processing_state_files_that_only_grew_are_cleared_once(self):
+        """本地证据缓存留状态还引用的；下载续跑状态留还在等的那部；整理批次日志留最近几份。"""
+        import os
+        from peach import organize
+        stale = time.time() - 7200
+        state = self.root / 'state'
+        items = state / 'library-processing-items'
+        items.mkdir(parents=True)
+        for name in ('1-aaa.json', '2-bbb.json', '3-ccc.json'):
+            (items / name).write_text('{}', encoding='utf-8')
+        (state / 'library-processing.json').write_text(json.dumps(
+            {'status': 'complete', 'local_metadata': {'1:x': str(items / '1-aaa.json')}}), encoding='utf-8')
+        downloads = state / 'download-processing'
+        downloads.mkdir()
+        for main in (11, 12):
+            (downloads / f'{main}.json').write_text('{}', encoding='utf-8')
+            (downloads / f'{main}-items').mkdir()
+            (downloads / f'{main}-items' / 'a.json').write_text('{}', encoding='utf-8')
+        batches = organize.batch_log_dir(self.root / 'generated')
+        batches.mkdir(parents=True)
+        for day in range(1, 8):
+            (batches / f'organize-2026010{day}-000000.json').write_text('{}', encoding='utf-8')
+        for path in [*state.rglob('*'), *batches.iterdir()]:
+            os.utime(path, (stale, stale))
+        (items / '3-ccc.json').touch()  # 一小时内刚写的不碰
+        self.asset(12)
+        with self.database.write_transaction() as connection:
+            connection.execute("INSERT INTO download_task(provider,source_uri,target,state,updated_at,postprocess_state,"
+                               "asset_id) VALUES('115','x','/115','ingested','now','failed',12)")
+        self.service._prune_processing_state()
+        self.assertEqual(sorted(path.name for path in items.iterdir()), ['1-aaa.json', '3-ccc.json'])
+        self.assertEqual(sorted(path.name for path in downloads.iterdir()), ['12-items', '12.json'])
+        self.assertEqual(len(list(batches.iterdir())), 5)
+        with self.database.read_connection() as connection:
+            result = json.loads(connection.execute('SELECT result_json FROM ledger_upgrade_repair WHERE id=?',
+                                                   (upgrade_repairs.PROCESSING_STATE_KEY,)).fetchone()[0])
+        self.assertEqual(result, {'local_evidence': 1, 'download_states': 2, 'organize_batches': 2})
+
+    def test_a_new_library_run_drops_local_evidence_its_state_no_longer_points_to(self):
+        from peach.library_processing import prune_local_evidence
+        path = self.root / 'state' / 'library-processing.json'
+        items = path.parent / 'library-processing-items'
+        items.mkdir(parents=True)
+        for name in ('1-aaa.json', '2-bbb.json'):
+            (items / name).write_text('{}', encoding='utf-8')
+        self.assertEqual(prune_local_evidence(path, {'1:x': str(items / '1-aaa.json')}), 1)
+        self.assertEqual([item.name for item in items.iterdir()], ['1-aaa.json'])
+        self.assertEqual(prune_local_evidence(path, {}), 1)
+        self.assertEqual(prune_local_evidence(self.root / 'absent.json', {}), 0)
+
     def test_a_new_text_rule_does_not_resume_completed_metadata_from_the_old_rule(self):
         from peach.settings_file import load_config
         self.contract.upgrade_config = load_config(environ={'PEACH_DATA_ROOT': str(self.root)})

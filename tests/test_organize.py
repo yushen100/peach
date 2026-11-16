@@ -408,6 +408,21 @@ class ApplyTests(unittest.TestCase):
         self.assertEqual(len(journal['entries']), 2)
         self.assertEqual(len(list(organize.batch_log_dir(self.holder).glob('*.json'))), 1)
 
+    def test_only_the_latest_batch_journals_are_kept_after_a_run(self):
+        folder = organize.batch_log_dir(self.holder)
+        folder.mkdir(parents=True)
+        for day in range(1, 7):
+            (folder / f'organize-2026010{day}-000000.json').write_text('{"entries": []}', encoding='utf-8')
+        self._file('old/1.mp4')
+        _seed(self.db_path, [dict(id=1, path='R:\\media\\old\\1.mp4', name='1.mp4', code='ABC-001')])
+        plan = _plan(self.db_path, file_template='{number}')
+        with closing(sqlite3.connect(self.db_path)) as connection:
+            result = organize.apply_plan(connection, plan['rows'], generated_root=self.holder, stamp='20260201-000000')
+        self.assertEqual(organize.latest_batch(self.holder).name, result['batch'])
+        self.assertEqual(sorted(path.name for path in folder.glob('*.json')),
+                         [f'organize-2026010{day}-000000.json' for day in range(3, 7)]
+                         + ['organize-20260201-000000.json'])
+
     def setUp(self):
         self.holder = Path(tempfile.mkdtemp(prefix="peach-organize-apply-")).resolve()
         self.addCleanup(lambda: __import__("shutil").rmtree(self.holder, ignore_errors=True))

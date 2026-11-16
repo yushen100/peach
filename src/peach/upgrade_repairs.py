@@ -448,6 +448,8 @@ RESOLUTION_TAGS_KEY = f'source-resolution-tags-{upgrade_rules.SOURCE_RESOLUTION_
 VIDEO_MEDIUM_KEY = f'video-medium-{upgrade_rules.VIDEO_MEDIUM}'
 #: 旧版永不清退的失败后继行（`_prune_failed_followups`）的回执键。
 FAILED_FOLLOWUPS_KEY = 'failed-followups-1'
+#: 处理任务积下的状态文件（`_prune_processing_state`）的回执键。
+PROCESSING_STATE_KEY = 'processing-state-files-1'
 
 
 def misfiled_videos(connection) -> list[int]:
@@ -1658,6 +1660,61 @@ class UpgradeRepairs:
         except Exception:
             LOGGER.exception('Failed to clean up failed follow-up rows')
 
+    def _prune_processing_state(self) -> None:
+        """处理任务积下的状态文件一次清掉，只做一次；之后各在自己的任务里清。
+
+        - 馆藏处理的本地证据缓存（`library-processing-items/`）：留状态文件还引用的，判据同
+          `library_processing.prune_local_evidence`。馆藏处理正在跑就不碰，留给它下一轮开工时清。
+        - 下载后处理的续跑状态（`download-processing/<正片>`）：后处理还在等、在跑或失败待重试的
+          下载指着的那部片留着，其余删掉；现在每条后处理完成时当场删。
+        - 整理批次日志（`organize-batches/`）：只留最近几份（`organize.prune_batches`），现在每次整理后都清。
+
+        一小时内动过的不碰。回执记三类各删掉多少。出错只记日志，下次启动再试。
+        """
+        import re
+        from . import organize
+        from .job_recovery import read as recovery
+        from .library_processing import prune_local_evidence
+        key = PROCESSING_STATE_KEY
+        try:
+            with self.contract.database.read_connection() as connection:
+                if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?', (key,)).fetchone():
+                    return
+                waiting = {str(row[0]) for row in connection.execute(
+                    'SELECT asset_id FROM download_task WHERE asset_id IS NOT NULL '
+                    "AND postprocess_state IN ('pending','queued','running','failed')")}
+            state_root = Path(self.contract.follow_state_root)
+            cutoff = time.time() - 3600
+            result = {'local_evidence': 0, 'download_states': 0, 'organize_batches': 0}
+            if recovery(self.contract.db_path, 'library-processing').get('status') != 'active':
+                library_state = state_root / 'library-processing.json'
+                try:
+                    stored = json.loads(library_state.read_text(encoding='utf-8'))
+                except FileNotFoundError:
+                    stored = {}
+                if isinstance(stored, dict):
+                    result['local_evidence'] = prune_local_evidence(
+                        library_state, stored.get('local_metadata'), before=cutoff)
+            pattern = re.compile(r'^(\d+)(\.json|\.issues\.jsonl|-items)$')
+            folder = state_root / 'download-processing'
+            for path in folder.iterdir() if folder.is_dir() else ():
+                found = pattern.match(path.name)
+                if not found or found.group(1) in waiting:
+                    continue
+                try:
+                    if path.stat().st_mtime > cutoff:
+                        continue
+                except OSError:
+                    continue
+                result['download_states'] += _remove(path)[0]
+            result['organize_batches'] = organize.prune_batches(Path(self.contract.candidate_root))
+            with self.contract.database.write_transaction() as connection:
+                connection.execute('INSERT OR IGNORE INTO ledger_upgrade_repair(id,applied_at,result_json) '
+                                   'VALUES(?,?,?)', (key, str(time.time()), json.dumps(result)))
+            LOGGER.info('Processing state files: %s', result)
+        except Exception:
+            LOGGER.exception('Failed to clean up processing state files')
+
     def _settle_verification(self) -> None:
         """核查差异的结算规则（ADR-0139）对存量候选跑一遍，规则版本变了才再跑。
 
@@ -2303,6 +2360,7 @@ class UpgradeRepairs:
             self.scheduler.add_job(self._prune_task_controls, max_instances=1)
             self.scheduler.add_job(self._prune_repair_checkpoints, max_instances=1)
             self.scheduler.add_job(self._prune_failed_followups, max_instances=1)
+            self.scheduler.add_job(self._prune_processing_state, max_instances=1)
             self.scheduler.start()
 
     def stop(self) -> None:

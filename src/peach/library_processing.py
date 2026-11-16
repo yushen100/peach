@@ -3118,12 +3118,43 @@ def _restore_processing_counts(state, previous):
         state[key] = previous.get(key, 0)
 
 
+def prune_local_evidence(state_path: Path, local_metadata: dict | None, *, before: float | None = None) -> int:
+    """`<状态名>-items/` 里状态没有引用的本地证据缓存删掉，返回删掉的个数。
+
+    缓存文件只经状态里的 `local_metadata` 找到；不在里面的，续跑也认不上。不续跑的新一轮
+    `local_metadata` 从空开始，上一轮留下的整批在开工时收走，目录不再只增不减。
+    `before` 给了就只删修改时间早于它的，留给不在任务里、读的是盘上状态的调用方。
+    """
+    folder = Path(state_path).parent / (Path(state_path).stem + '-items')
+    referenced = {Path(value).name for value in (local_metadata or {}).values() if value}
+    removed = 0
+    try:
+        entries = list(folder.iterdir())
+    except OSError:
+        return 0
+    for path in entries:
+        if path.name in referenced or not path.name.endswith('.json'):
+            continue
+        try:
+            if before is not None and path.stat().st_mtime > before:
+                continue
+            path.unlink()
+            removed += 1
+        except OSError:
+            continue
+    return removed
+
+
 class _LocalEvidenceCache:
-    """保存已经读出的本地证据与待处理图片，供同一影片的后续阶段复用。"""
+    """保存已经读出的本地证据与待处理图片，供同一影片的后续阶段复用。
+
+    开工时先收走状态不再引用的旧缓存（`prune_local_evidence`）。
+    """
 
     def __init__(self, config, db_path, cover_root, listing, state, path):
         self.config, self.db_path, self.cover_root = config, db_path, cover_root
         self.listing, self.state, self.path = listing, state, path
+        prune_local_evidence(path, state.get('local_metadata'))
         with closing(sqlite3.connect(db_path, timeout=30)) as connection:
             stored = read_settings(connection).get('codePatterns')
         try:

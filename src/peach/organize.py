@@ -367,6 +367,27 @@ def latest_batch(root: Path | str) -> Path | None:
     return logs[-1] if logs else None
 
 
+#: 批次日志留几份，与整理前的账本备份（`ledger_backups.ORGANIZE_KEEP_RECENT`）同数。
+BATCH_LOG_KEEP = 5
+
+
+def prune_batches(root: Path | str, keep: int = BATCH_LOG_KEEP) -> int:
+    """批次日志按名字（即执行时刻）只留最近 `keep` 份，返回删掉的份数。
+
+    「回滚上一批」只读最近那一份，更早的批次只剩历史；每次下载整理也各留一份，不清就只增不减。
+    删不掉的跳过，下次再清。
+    """
+    logs = sorted(batch_log_dir(root).glob("organize-*.json"))
+    removed = 0
+    for path in logs[:-keep] if keep > 0 else logs:
+        try:
+            path.unlink()
+            removed += 1
+        except OSError:
+            continue
+    return removed
+
+
 def _media_path(raw):
     from .smb_media import resolve
     return resolve(raw) or translate_ledger_path(raw)
@@ -586,6 +607,7 @@ def apply_plan(connection: sqlite3.Connection, rows: Sequence[dict], *,
                     progress(checked=index, total=len(movable))
     finally:
         save()
+    prune_batches(generated_root)
     return {"moved": len(entries), "failed": len(failures), "failures": failures[:50],
             "batch": log_path.name, "log_path": str(log_path)}
 
