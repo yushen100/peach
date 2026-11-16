@@ -92,7 +92,7 @@ SCOPES: dict[str, tuple[str, ...]] = {
               "test_interaction.py", "test_media.py", "test_mp4repair.py",
               "test_mp4recover.py", "test_web_media_repair.py",
               "test_previews.py", "test_preview_transport.py",
-              "test_providers.py", "test_segments.py", "test_streaming.py", "test_stream_lifecycle.py",
+              "test_providers.py", "test_segments.py", "test_mkvindex.py", "test_streaming.py", "test_stream_lifecycle.py",
               "test_subtitles.py", "test_transcodes.py", "test_hardware_transcode.py", "test_strm.py",
               "test_guangya_sources.py", "test_media_sources.py", "test_smb*.py"),
     "sync": ("test_sync*.py", "test_platform.py", "test_mount.py", "test_tray*.py", "test_macos_standalone.py", "test_log_retention.py",
@@ -350,6 +350,7 @@ AUTO_SCOPE_PREFIXES: tuple[tuple[str, str | tuple[str, ...]], ...] = (
     ("src/peach/hardware_transcode.py", "media"),
     # 关键帧与 ctts 都从 moov 读，测试住在 `test_segments.py` 里。
     ("src/peach/mp4index.py", "media"),
+    ("src/peach/mkvindex.py", "media"),
     ("src/peach/mp4repair.py", "media"),
     ("src/peach/mp4recover.py", "media"),
     # 批量修复是播放链路的任务，但住在 web 层，两个域都要跑到。

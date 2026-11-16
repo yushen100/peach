@@ -527,7 +527,7 @@ class QualityCapTests(unittest.TestCase):
             self.assertTrue(converted and target.name.endswith("-720p.mp4"))
             self.assertIn(f"scale={SCALE_720}", captured[0])
             path, hit, max_height = hls._cached_target(source, 7, 0, True)
-            self.assertEqual((hit, max_height, path.parent.name.endswith("-h264-v2-720p")), (False, 720, True))
+            self.assertEqual((hit, max_height, path.parent.name.endswith("-h264-v3-720p")), (False, 720, True))
             self.assertNotEqual(path, original_segment)
             self.assertFalse(original_segment.parent.name.endswith("p"))
             self.assertEqual(hls._cached_target(source, 7, 0, False)[2], 0)

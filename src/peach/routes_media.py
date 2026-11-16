@@ -174,12 +174,17 @@ def _needs_conversion(state, asset_id: int, source: Path, session: str,
     return True
 
 
-def _hls_plan(state, asset_id: int, session: str = "", conversion: bool | None = None):
+def _hls_plan(state, asset_id: int, session: str = "", conversion: bool | None = None,
+              force_transcode: bool = False):
     """解析 HLS 的片源路径与分片计划；任何一步不成立就返回 None 走 Range。
 
     要重编码的片源按固定 6 秒切，时长先看账本，账本没记或记成负数就用 ffprobe 报的；
     探测也拿不到才放弃，否则浏览器只能退回 `/stream`，那条路要先把整部片转完才出第一个字节。
     原样封装的 HLS 仍要账本时长与关键帧表。
+
+    要转换的片源先问 `hls_mode`：H.264 8 位视频按关键帧切、码流原样复制（MKV 读 Cues，MP4 读
+    `stss`），音轨不兼容时只转音轨；读不到关键帧就退回按 6 秒重编码。`force_transcode` 是播放器
+    退到视频重编码时要的那一套。返回的第四项是处理方式：`copy`、`audio` 或 `transcode`。
 
     `conversion` 是起播时已经得出的结论。给不出时按片源本身判：播放列表和分片端点走的
     就是这条，它们不看重建好的 MP4 头，理由见 `_needs_conversion`。
@@ -189,29 +194,37 @@ def _hls_plan(state, asset_id: int, session: str = "", conversion: bool | None =
     choice = state.media_engine.stream_plan(asset_id, mode="hls")
     source = state.media_engine.filesystem.file_for(asset, thumbnail=False)
     duration = asset.duration if asset.duration and asset.duration > 0 else 0.0
-    if conversion if conversion is not None else state.transcode_service.requires_conversion(
-            source, session=session, registry=state.stream_sessions):
+    needs_conversion = (conversion if conversion is not None else state.transcode_service.requires_conversion(
+        source, session=session, registry=state.stream_sessions))
+    if force_transcode or needs_conversion:
         duration = duration or state.transcode_service.media_duration(
             source, session=session, registry=state.stream_sessions)
+        mode = ("transcode" if force_transcode else state.transcode_service.hls_mode(
+            source, session=session, registry=state.stream_sessions))
+        if mode != "transcode" and duration > 0:
+            plan = state.hls_service.plan(source, duration)
+            if plan:
+                return asset, source, plan, mode
         plan = state.hls_service.conversion_plan(duration) if duration > 0 else []
-        return (asset, source, plan, True) if plan else None
+        return (asset, source, plan, "transcode") if plan else None
     if choice.protocol != "hls" or duration <= 0:
         return None
     plan = state.hls_service.plan(source, duration)
-    return None if not plan else (asset, source, plan, False)
+    return None if not plan else (asset, source, plan, "copy")
 
 
-def _session_plan(state, asset_id: int, session: str):
+def _session_plan(state, asset_id: int, session: str, force_transcode: bool = False):
     """这次播放的分片计划：播放列表算出来记在会话上，分片端点直接取（`SessionPlans`）。
 
     重启后续播的分片没有记录，当场再算一次并记下。
     """
     plans = getattr(state, "hls_session_plans", None)
-    if plans is not None and (known := plans.get(session, asset_id)) is not None:
+    variant = "transcode" if force_transcode else ""
+    if plans is not None and (known := plans.get(session, asset_id, variant)) is not None:
         return known
-    resolved = _hls_plan(state, asset_id, session)
+    resolved = _hls_plan(state, asset_id, session, force_transcode=force_transcode)
     if plans is not None and resolved is not None:
-        plans.put(session, asset_id, resolved)
+        plans.put(session, asset_id, resolved, variant)
     return resolved
 
 
@@ -337,7 +350,7 @@ def external_playlist(request: Request, id: int, ticket: str, origin: str = ''):
 
 
 @router.api_route("/stream", methods=["GET", "HEAD"])
-def stream(request: Request, id: int, session: str = "", decode: str = "",
+def stream(request: Request, id: int, session: str = "", decode: str = "", original: bool = False,
            args: dict[str, str] = Depends(require_auth)):
     state = request.app.state
     from .error_reporting import local_event
@@ -358,8 +371,9 @@ def stream(request: Request, id: int, session: str = "", decode: str = "",
             path, header, session=session, registry=state.stream_sessions,
         )
     try:
+        # `original=1` 是起播计划给的原文件试播地址：浏览器自己判断能不能放，放不了再走兼容路径。
         # 不带会话的只有卡片悬停预览：取消不了，也看不到浏览器断开，不能为它起整片转码。
-        path, transcoded = state.transcode_service.browser_path(
+        path, transcoded = (path, False) if original else state.transcode_service.browser_path(
             id, path, session=session, registry=state.stream_sessions, convert=bool(session),
             stat=source_stat, decode=parse_decode(decode),
         )
@@ -371,7 +385,8 @@ def stream(request: Request, id: int, session: str = "", decode: str = "",
     except TranscodeUnavailable:
         LOGGER.exception("browser transcode failed for asset %s", id)
         return JSONResponse({"error": "transcode unavailable"}, status_code=503)
-    media_type = "video/mp4" if transcoded else None
+    media_type = ("video/mp4" if transcoded else
+                  "video/x-matroska" if original and path.suffix.lower() == ".mkv" else None)
     from .smb_media import SmbResource
     if isinstance(path, SmbResource):
         from .smb_response import SmbResponse
@@ -423,10 +438,13 @@ def stream_plan(request: Request, id: int, session: str = "", mode: str = "", de
             source_path, session=session, registry=state.stream_sessions, decode=capabilities):
         # 视频浏览器解得了，只差音轨、`hev1` 标签或容器（`.ts` 一类）：`/stream` 整片换封装，不重编码视频。
         conversion, reason = False, "remux"
+    original_trial = conversion and state.transcode_service.original_playable(
+        source_path, session=session, registry=state.stream_sessions, decode=capabilities)
+    original_mime = "video/x-matroska" if source_path.suffix.lower() == ".mkv" else "video/mp4"
     resolved = (_hls_plan(state, id, session, conversion)
                 if conversion or plan.protocol == "hls" else None)
     if resolved and session:
-        return _record_stream_plan(state, id, source_path, {
+        result = {
             "id": id,
             "protocol": "hls",
             "mime_type": "application/vnd.apple.mpegurl",
@@ -435,20 +453,33 @@ def stream_plan(request: Request, id: int, session: str = "", mode: str = "", de
             "segments": len(resolved[2]),
             "src": f"/stream/hls/{id}/index.m3u8?session={quote(session, safe='')}",
             "reason": plan.reason,
-        }, capabilities)
+            "processing": resolved[3],
+        }
+        if original_trial:
+            result["original_src"] = f"/stream?id={id}&original=1&session={quote(session, safe='')}"
+            result["original_mime_type"] = original_mime
+        if resolved[3] != "transcode":
+            result["fallback_src"] = f"/stream/hls/{id}/index.m3u8?session={quote(session, safe='')}&transcode=1"
+            result["fallback_mime_type"] = "application/vnd.apple.mpegurl"
+        return _record_stream_plan(state, id, source_path, result, capabilities)
     source = f"/stream?id={id}"
     if session:
         source += f"&session={quote(session, safe='')}"
     if capabilities:
         source += f"&decode={','.join(sorted(capabilities))}"
-    return _record_stream_plan(state, id, source_path, {
+    result = {
         "id": id,
         "protocol": "range",
         "mime_type": plan.mime_type,
         "duration": asset.duration,
         "src": source,
         "reason": reason,
-    }, capabilities)
+    }
+    if original_trial and session:
+        # 切不了分片（时长或关键帧都拿不到）时先试原文件，浏览器放不了再要整片转换的那条。
+        result.update(src=f"/stream?id={id}&original=1&session={quote(session, safe='')}",
+                      mime_type=original_mime, fallback_src=source, fallback_mime_type="video/mp4")
+    return _record_stream_plan(state, id, source_path, result, capabilities)
 
 
 def _record_stream_plan(state, asset_id: int, source: Path, plan: dict,
@@ -456,7 +487,8 @@ def _record_stream_plan(state, asset_id: int, source: Path, plan: dict,
     from .error_reporting import local_event
     try:
         local_event('playback-plan', asset_id=asset_id,
-                    plan={key: plan.get(key) for key in ('protocol', 'mime_type', 'duration', 'reason', 'segments')},
+                    plan={key: plan.get(key) for key in ('protocol', 'mime_type', 'duration', 'reason', 'segments',
+                                                         'processing', 'original_src')},
                     decode=sorted(decode),
                     media_profile=state.transcode_service.diagnostic_profile(source),
                     hardware=state.transcode_service.hardware.diagnostic_snapshot())
@@ -480,7 +512,8 @@ def strm_resource(request: Request, id: int, key: str, session: str = '',
 
 
 @router.get("/stream/hls/{id}/index.m3u8")
-def hls_playlist(request: Request, id: int, session: str = "", args: dict[str, str] = Depends(require_auth)):
+def hls_playlist(request: Request, id: int, session: str = "", transcode: bool = False,
+                 args: dict[str, str] = Depends(require_auth)):
     state = request.app.state
     # 分片必须带 session 才能被取消，播放列表这层就要求它；
     # 否则会生成一份每个分片都必然 400 的目录。
@@ -489,12 +522,12 @@ def hls_playlist(request: Request, id: int, session: str = "", args: dict[str, s
     if state.stream_sessions.is_cancelled(session):
         return PlainTextResponse("stream cancelled", status_code=410)
     try:
-        resolved = _session_plan(state, id, session)
+        resolved = _session_plan(state, id, session, transcode)
     except (MediaUnavailable, TranscodeUnavailable):
         return PlainTextResponse("hls unavailable", status_code=404)
     if resolved is None:
         return PlainTextResponse("hls unavailable", status_code=404)
-    query = f"?session={quote(session, safe='')}"
+    query = f"?session={quote(session, safe='')}" + ("&transcode=1" if transcode else "")
     playlist = build_hls_playlist(
         resolved[2], lambda index: f"/stream/hls/{id}/{index}.ts{query}",
     )
@@ -504,37 +537,39 @@ def hls_playlist(request: Request, id: int, session: str = "", args: dict[str, s
 
 
 @router.get("/stream/hls/{id}/{index}.ts")
-async def hls_segment(request: Request, id: int, index: int, session: str = "", args: dict[str, str] = Depends(require_auth)):
+async def hls_segment(request: Request, id: int, index: int, session: str = "", transcode: bool = False,
+                      args: dict[str, str] = Depends(require_auth)):
     state = request.app.state
     if not session or len(session) > 128:
         return JSONResponse({"error": "invalid session"}, status_code=400)
     if state.stream_sessions.is_cancelled(session):
         return Response(status_code=410, headers={"Cache-Control": "no-store"})
     try:
-        return await run_until_disconnect(_hls_segment(request, id, index, session), request.receive)
+        return await run_until_disconnect(_hls_segment(request, id, index, session, transcode), request.receive)
     except ClientDisconnect:
         return Response(status_code=410, headers={"Cache-Control": "no-store"})
 
 
-async def _hls_segment(request: Request, id: int, index: int, session: str):
+async def _hls_segment(request: Request, id: int, index: int, session: str, transcode: bool = False):
     state = request.app.state
     try:
         plans = getattr(state, "hls_session_plans", None)
-        resolved = plans.get(session, id) if plans is not None else None
+        resolved = plans.get(session, id, "transcode" if transcode else "") if plans is not None else None
         if resolved is None:
             resolved = await asyncio.get_running_loop().run_in_executor(
-                state.hls_plan_executor, partial(_session_plan, state, id, session),
+                state.hls_plan_executor, partial(_session_plan, state, id, session, transcode),
             )
         if resolved is None:
             return JSONResponse({"error": "hls unavailable"}, status_code=404)
-        _, source, plan, conversion = resolved
+        _, source, plan, processing = resolved
         if index < 0 or index >= len(plan):
             return JSONResponse({"error": "invalid segment"}, status_code=416)
         start, duration = plan[index]
         generation = asyncio.create_task(state.hls_service.generate(
             source, start, duration, asset_id=id, index=index,
             session=session, registry=state.stream_sessions,
-            **({"transcode": True} if conversion else {}),
+            **({"transcode": True} if processing == "transcode" else
+               {"audio_transcode": True} if processing == "audio" else {}),
         ))
         disconnect = asyncio.create_task(_wait_for_disconnect(request.receive))
         try:
