@@ -32,9 +32,10 @@ class CIFrontendOwnershipTests(unittest.TestCase):
                                                                   runner.TESTS / 'test_frontend_preflight.py')):
             return list(self.ids(runner.build_suite('web', **shard)))
 
-    def test_only_known_ci_jobs_delegate_exactly_three_frontend_tools(self):
+    def test_only_known_ci_jobs_delegate_exactly_the_node_backed_frontend_checks(self):
         local = set(self.frontend_ids({}))
         delegated = {'test_frontend_build.VitestTests.test_the_island_suite_passes',
+                     'test_frontend_build.BundleFreshnessTests.test_the_committed_bundle_is_what_the_current_sources_build',
                      'test_frontend_preflight.FrontendPreflightTests.test_the_frontend_sources_typecheck',
                      'test_frontend_preflight.FrontendPreflightTests.test_frontend_sources_and_tests_pass_lint'}
         self.assertLessEqual(delegated, local)
