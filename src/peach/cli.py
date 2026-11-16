@@ -7,7 +7,7 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-from . import auth, distribution, onboarding, scan, settings_file
+from . import auth, distribution, listening, onboarding, scan, settings_file
 from .api import create_app
 from .config import (
     CONFIGURED,
@@ -28,7 +28,7 @@ from .config import (
     PeachSettings,
 )
 from .migrations import plan, upgrade
-from .platform import location_mounts
+from .platform import location_mount_values
 from .scripting import open_readonly
 from .sync import LedgerSync, device_id
 from .sync import plan as sync_plan
@@ -40,12 +40,9 @@ from .interface_text import cli as _t
 
 DEFAULT_DB = DATABASE_PATH
 
-#: 只监听这些地址时，服务在局域网上不可达。
-_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1", "[::1]"})
-
-
 def _is_loopback(host: str) -> bool:
-    return (host or "").strip().lower() in _LOOPBACK_HOSTS
+    """只监听回环地址时，服务在局域网上不可达。"""
+    return listening.is_loopback(host)
 
 
 def _require_readable_settings() -> None:
@@ -59,41 +56,14 @@ def _require_readable_settings() -> None:
         raise SystemExit(_t("settingsUnreadable", error=_local(SETTINGS_ERROR)))
 
 
-def _run_uvicorn(app, **options) -> None:
-    """与单进程的 `uvicorn.run` 相同，只是先在 uvicorn 的事件循环上装好 Peach 的 asyncio 处理器。
-
-    处理器拿着 Server：Windows 上客户端在 accept 完成前断开时，标准库会关掉监听套接字，
-    `error_reporting.asyncio_handler` 靠它按原地址重新监听。
-    """
-    import asyncio
-    import functools
-
-    import uvicorn
-
-    from .error_reporting import asyncio_handler
-    config = uvicorn.Config(app, workers=1, **options)
-    server = uvicorn.Server(config)
-
-    async def serve():
-        asyncio.get_running_loop().set_exception_handler(
-            functools.partial(asyncio_handler, uvicorn_server=server))
-        await server.serve()
-
-    try:
-        asyncio.run(serve(), loop_factory=config.get_loop_factory())
-    except KeyboardInterrupt:
-        pass
-    if not server.started:
-        raise SystemExit(uvicorn.config.STARTUP_FAILURE)
-
-
 def _serve(args: argparse.Namespace) -> int:
     _require_readable_settings()
     if args.redirect_origin:
         from .redirect import create_redirect_app
         if args.ssl_certfile or args.ssl_keyfile:
             raise SystemExit("redirect listener must use HTTP")
-        _run_uvicorn(create_redirect_app(args.redirect_origin), host=args.host, port=args.port)
+        listening.serve(create_redirect_app(args.redirect_origin),
+                        listening.bind(args.host, args.port, ipv4_only=args.ipv4_only)[0])
         return 0
     if distribution.docker():
         # Docker 没有托盘，日志的保留、按月切段与空进程日志清理在这里做；子进程还没起。
@@ -121,6 +91,8 @@ def _serve(args: argparse.Namespace) -> int:
     # 也不要口令。口令刻意置空而不是读文件——表单一提交就会生成一份口令，那之后要是
     # 有人重启这条引导服务，读到新口令的它会把还没看到口令的用户关在门外。
     # 安全边界由绑定地址给：这条服务只监听回环（`build_setup_service_specs`）。
+    # 先绑端口再装配应用：mDNS 只在服务真能收 IPv6 连接时才发布 AAAA 记录。
+    sock, ipv6 = listening.bind(args.host, args.port, ipv4_only=args.ipv4_only)
     tunnel_lan_address = None
     if not distribution.standalone() and not _is_loopback(args.host) and (publish_mdns or TUNNEL_ENABLED):
         from .mdns import lan_ipv4
@@ -140,6 +112,7 @@ def _serve(args: argparse.Namespace) -> int:
         mdns_name=args.mdns_name,
         mdns_port=args.port,
         mdns_address=args.mdns_address,
+        mdns_ipv6=ipv6,
         tls_enabled=tls_enabled,
         tunnel_enabled=TUNNEL_ENABLED,
         tunnel_binary=CLOUDFLARED_BINARY,
@@ -153,8 +126,8 @@ def _serve(args: argparse.Namespace) -> int:
         tunnel_log_root=settings_file.active().directory("logs"),
     )
     sync = _build_sync(args, settings)
-    _run_uvicorn(
-        create_app(settings, sync), host=args.host, port=args.port,
+    listening.serve(
+        create_app(settings, sync), sock,
         ssl_certfile=str(args.ssl_certfile) if args.ssl_certfile else None,
         ssl_keyfile=str(args.ssl_keyfile) if args.ssl_keyfile else None,
     )
@@ -497,14 +470,15 @@ def _scan(args: argparse.Namespace) -> int:
         print(_t("notInitialized"))
         return 4
     config = settings_file.active()
-    mounts = {location: tuple(str(mount) for mount in points)
-              for location, points in location_mounts().items()}
+    mounts = location_mount_values()
     try:
         if args.location == "configured" and args.root is None:
             from .platform import root_online, translate_ledger_path
+            from .smb_media import resolve
             for location, declared in config.locations.items():
                 for root in declared:
-                    if not root_online(translate_ledger_path(root)):
+                    # SMB 根按协议探测；本机路径形态的翻译对它只有占位，会被当成离线跳过。
+                    if not root_online(resolve(root) or translate_ledger_path(root)):
                         print(_t("scan.offline", location=location), flush=True)
                         continue
                     scan.scan_location(args.db, location, root, declared_roots=config.locations,
@@ -851,6 +825,8 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--host", default=SERVE_HOST)
     serve.add_argument("--redirect-origin", default="", help="HTTP navigation to one HTTPS origin")
     serve.add_argument("--port", type=int, default=SERVE_PORT)
+    serve.add_argument("--ipv4-only", action="store_true",
+                       help="with 0.0.0.0, listen on IPv4 only: no IPv6 connections and no AAAA records")
     serve.add_argument("--db", type=Path, default=DEFAULT_DB)
     serve.add_argument("--token", default="")
     serve.add_argument("--docs", action="store_true")
@@ -864,7 +840,8 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--ledger-sync-seconds", type=float, default=0.0,
                        help=argparse.SUPPRESS)
     serve.add_argument("--mdns-name", default=MDNS_NAME)
-    serve.add_argument("--mdns-address", help="explicit LAN IPv4 to publish")
+    serve.add_argument("--mdns-address",
+                       help="explicit LAN IPv4 to publish; IPv6 follows the same interface")
     serve.add_argument("--ssl-certfile", type=Path)
     serve.add_argument("--ssl-keyfile", type=Path)
     serve.set_defaults(handler=_serve)

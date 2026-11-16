@@ -508,7 +508,6 @@ class ScanCommandTests(unittest.TestCase):
                         mounts={key: tuple(str(item) for item in value)
                                 for key, value in mounts.items()})
         for target in (mock.patch.object(settings_file, "active", lambda: fixed),
-                       mock.patch.object(cli, "location_mounts", lambda: mounts),
                        mock.patch.object(cli, "SETTINGS_ERROR", None)):
             target.start()
             self.addCleanup(target.stop)
@@ -542,6 +541,37 @@ class ScanCommandTests(unittest.TestCase):
         self.assertIn('115', output)
         self.assertEqual(scanner.call_count, 1)
         self.assertEqual(scanner.call_args.args[1:3], ('pikpak', 'A:/'))
+
+    def test_an_smb_mount_reaches_the_scan_verbatim(self):
+        """#693：挂载表里的 `smb://` 地址原样交给扫描，不被改写成本机路径形态。"""
+        address = "smb://192.0.2.20:4450/Share"
+        fixed = replace(settings_file.active(), mounts={"local": (address,)})
+        with mock.patch.object(settings_file, "active", return_value=fixed), \
+             mock.patch.dict(os.environ, {"PEACH_MEDIA_MOUNTS": ""}), \
+             mock.patch.object(cli.scan, "scan_location") as scanner:
+            code, _ = self._run(["scan", "local", "--db", str(self.db)])
+        self.assertEqual(code, 0)
+        self.assertEqual(scanner.call_args.kwargs["mounts"], {"local": (address,)})
+
+    def test_an_unreadable_root_exits_with_a_message_and_keeps_existing_rows(self):
+        """#693：根目录列不出来时报错退出，不按 0 个文件结束、不把已有资产算作消失。"""
+        self.assertEqual(self._run(["scan", "local", "--db", str(self.db)])[0], 0)
+        connection = sqlite3.connect(self.db)
+        try:
+            before = connection.execute("SELECT path,last_seen FROM asset ORDER BY path").fetchall()
+        finally:
+            connection.close()
+        for path in sorted(self.media.rglob("*"), reverse=True):
+            path.rmdir() if path.is_dir() else path.unlink()
+        self.media.rmdir()
+        with self.assertRaises(SystemExit) as caught:
+            self._run(["scan", "local", "--db", str(self.db)])
+        self.assertTrue(str(caught.exception).startswith("✗"), caught.exception)
+        connection = sqlite3.connect(self.db)
+        try:
+            self.assertEqual(connection.execute("SELECT path,last_seen FROM asset ORDER BY path").fetchall(), before)
+        finally:
+            connection.close()
 
     def test_an_explicit_subdirectory_is_scanned_alone(self):
         code, _ = self._run(["scan", "local", str(self.media / "sub"), "--db", str(self.db)])

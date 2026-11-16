@@ -1349,7 +1349,7 @@ class Landing:
         """定向登记。目录就逐个登记里面的文件；什么也没找到返回假。"""
         from .discovery_rules import system_directory, system_path
         from .push_discovery import ignored
-        from .scan import _relative_directory, _walk, walk_root_for
+        from .scan import ScanRootUnreadable, _relative_directory, _walk, walk_root_for
         if system_path(ledger_path):
             return False
         parent = str(PureWindowsPath(ledger_path).parent)
@@ -1380,7 +1380,7 @@ class Landing:
                     found = self.push_discovery.ingest_now(location, path) or found
                     count += 1
             return found
-        except OSError:
+        except (OSError, ScanRootUnreadable):
             return False
 
 

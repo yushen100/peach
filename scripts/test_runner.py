@@ -96,7 +96,7 @@ SCOPES: dict[str, tuple[str, ...]] = {
               "test_subtitles.py", "test_transcodes.py", "test_hardware_transcode.py", "test_strm.py",
               "test_guangya_sources.py", "test_media_sources.py", "test_smb*.py"),
     "sync": ("test_sync*.py", "test_platform.py", "test_mount.py", "test_tray*.py", "test_macos_standalone.py", "test_log_retention.py",
-             "test_mdns.py", "test_netwatch.py", "test_certs.py",
+             "test_mdns.py", "test_listening.py", "test_netwatch.py", "test_certs.py",
              "test_review_mirror.py", "test_runtime_prepare.py"),
     "metadata": ("test_custom_metadata.py", "test_scraping_access.py", "test_browser_transport.py", "test_metadata*.py", "test_genre_taxonomy.py", "test_processing_control.py", "test_processing_traffic.py", "test_processing_inventory.py",
                  "test_fc2*.py", "test_local_poster.py", "test_media_io.py",
@@ -405,6 +405,8 @@ AUTO_SCOPE_PREFIXES: tuple[tuple[str, str | tuple[str, ...]], ...] = (
     ("src/peach/platform.py", "sync"),
     ("src/peach/mount.py", "sync"),
     ("src/peach/mdns.py", "sync"),
+    # 监听套接字与连接边界由 `peach serve` 的全部入口共用，CLI 与服务的测试在 tooling。
+    ("src/peach/listening.py", ("sync", "tooling")),
     ("src/peach/netwatch.py", "sync"),
     ("src/peach/certs.py", "sync"),
     # 产地的判据住在 `regions.py`，验它的测试叫 `test_content_region.py`：

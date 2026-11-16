@@ -429,13 +429,25 @@ def _rearm_listener(loop, uvicorn_server, listener) -> bool:
     if not any(sock.fileno() == listener.fileno()
                for server in getattr(uvicorn_server, "servers", ()) for sock in server.sockets):
         return False
-    task = loop.create_task(_listen_again(uvicorn_server, listener.getsockname(), listener.family))
+    task = loop.create_task(_listen_again(uvicorn_server, listener.getsockname(), listener.family,
+                                          dualstack=_dualstack(listener)))
     _rearm_tasks.add(task)
     task.add_done_callback(_rearm_tasks.discard)
     return True
 
 
-async def _listen_again(uvicorn_server, address, family) -> None:
+def _dualstack(listener) -> bool:
+    """`listening.bind` 的 `::` 套接字关着 `IPV6_V6ONLY`，IPv4 连接也从它进来；重新监听要照样关。"""
+    import socket
+    if listener.family != socket.AF_INET6:
+        return False
+    try:
+        return listener.getsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY) == 0
+    except OSError:
+        return False
+
+
+async def _listen_again(uvicorn_server, address, family, *, dualstack=False) -> None:
     """任务排在处理器所在回调之后执行，此时旧监听已关。绑不上就让服务退出，交给托盘重拉。
 
     旧的 `asyncio.Server` 原样留着：主机名解析出多个地址时，它的其余监听还在服务；
@@ -457,7 +469,8 @@ async def _listen_again(uvicorn_server, address, family) -> None:
             return
         listener = None
         try:
-            listener = socket.create_server(address, family=family, backlog=config.backlog)
+            listener = socket.create_server(address, family=family, backlog=config.backlog,
+                                            dualstack_ipv6=dualstack)
             server = await asyncio.get_running_loop().create_server(
                 create_protocol, sock=listener, ssl=config.ssl, backlog=config.backlog)
         except OSError as error:

@@ -786,6 +786,9 @@
     "faceModelsReady": "人脸模型已就绪"
   },
   "api": {
+    "listening": {
+      "outsideLan": "这个地址只接受局域网内的连接"
+    },
     "auth": {
       "invalidRememberDays": "请选择有效的保持登录时间",
       "sessionNotSaved": "登录设备未能记下，请检查数据目录能否写入后重试",
@@ -1984,14 +1987,11 @@
       "deviceNotAllowed": "浏览器添加只在允许修改数据库的设备上可用",
       "invalidDismiss": "确认参数无效",
       "invalidEdition": "版本参数无效",
-      "invalidRetryAttempt": "浏览器添加重试次数无效",
-      "invalidRetryTime": "浏览器添加重试时间无效",
       "invalidSwitch": "换磁力参数无效",
       "manualRejectsSource": "手动添加不接受来源网页地址",
       "notEnabled": "请先启用浏览器添加",
       "nothingToRetry": "这个番号没有失败的整理可以重试",
       "queueFull": "添加队列已满，请等待当前任务结束",
-      "queueUnreadable": "浏览器添加队列无法读取",
       "unsupportedPage": "请从支持的 JAV 影片详情页添加",
       "searchUnavailable": "资源搜索暂不可用，请在 Peach 检查来源后重试"
     },
@@ -2738,7 +2738,8 @@
       "outsideMounts": "✗ {{path}} 不在来源 {{location}} 的挂载点 {{mounts}} 之下",
       "smbNotSaved": "SMB 目录尚未保存到媒体库配置",
       "prefixWithoutMount": "✗ 媒体来源 {{location}} 的第 {{index}} 个数据库路径前缀没有对应的本机目录；请先在 [media.mounts] 中按相同顺序配置媒体目录",
-      "checkpointMismatch": "扫描目录与保存的断点不一致，请核对挂载设置"
+      "checkpointMismatch": "扫描目录与保存的断点不一致，请核对挂载设置",
+      "rootUnreadable": "✗ 无法列出扫描目录 {{root}}（{{error}}）；本次没有扫描，也没有文件被算作已消失"
     },
     "faceDetect": {
       "faceModelMissing": "缺少人脸模型：{{path}}",

@@ -36,6 +36,7 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Interface**: Wants, HD upgrades, junk files, the profile online view, rosters and online tags support multi-select; the queue page gets the select toggle (#690). / **界面**：想要、高清升级、垃圾文件、资料页在线视图、名册与在线标签支持多选，处理队列页接入右上角多选开关（#690）。
 - **Sourcing**: With Browsing history checked in the userscript, works and performers you open count toward discovery recommendations, as do downloads you add (#691). / **采集**：用户脚本勾选「浏览记录」后，打开过的作品、女优计入发现页推荐，用户脚本加入下载的作品也算（#691）。
 - **Sourcing**: Find sources also lists JavBus magnets, merged with the other sources by hash (#704). / **采集**：查找资源新增 JavBus 磁链，与其他来源按哈希去重合并（#704）。
+- **Desktop**: With LAN access on, Peach also accepts IPv6 connections from the local network and publishes the .local name over IPv6 (#239). / **桌面**：开放局域网访问时同时接受局域网内的 IPv6 连接，.local 名字也能解析到 IPv6 地址（#239）。
 
 ### Changed / 变更
 
@@ -108,6 +109,10 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Library**: Video enhancement model tags such as `_prob4` no longer become part of creator names, aliases or search terms (#681). / **馆藏**：视频增强软件的模型代号（如 `_prob4`）不再算进创作者名，也不再登记成别名和搜索词（#681）。
 - **Sourcing**: Codes left with only a cover image after the video is deleted can be added to Wants, and an early cover no longer marks a want as acquired (#681). / **采集**：视频删掉后只剩封面图的番号能加入「想要」，先到的封面图也不再把想要标成已到手（#681）。
 - **Sourcing**: Mark all as read in the userscript's other tasks no longer hides failed or not-found items; those are dismissed one by one (#686). / **采集**：用户脚本「其他任务」的全部标为已读不再收起失败和未找到资源的项，这类要逐条确认（#686）。
+- **Desktop**: Peach starts again when the browser adding queue file is unreadable; bad rows are dropped and the original file is kept beside it (#548). / **桌面**：浏览器添加队列文件读不懂时 Peach 照常启动，无效行丢弃，原文件留在旁边（#548）。
+- **Library**: `peach scan` reads SMB storage set in media.mounts, and a folder that can't be listed stops with an error instead of reporting 0 files and missing items (#693). / **馆藏**：`peach scan` 能读 media.mounts 里的 SMB 来源；目录列不出来时报错，不再报 0 个文件并把已有影片算作消失（#693）。
+- **Settings**: Running from source on macOS or Linux with LAN access, first-run setup reports a missing OpenSSL instead of returning to setup each time (#395). / **配置**：macOS、Linux 源码运行并对局域网开放时，首次设置缺 OpenSSL 会直接报出，不再反复回到设置页（#395）。
+- **Library**: Large scans retry a batch on a fresh ledger connection when the journal file is briefly blocked, instead of failing with unable to open database file (#138). / **馆藏**：大目录扫描遇到账本日志文件被短暂占用时换新连接重试当前批次，不再报 unable to open database file 中断（#138）。
 
 ## [0.58.0] - 2026-11-14
 

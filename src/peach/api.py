@@ -58,7 +58,7 @@ from .media import (
 from .mdns import create_mdns_publisher
 from .mount_reachability import MountReachability
 from .mp4repair import HeaderRepairStore
-from .platform import location_mounts
+from .platform import location_mount_values
 from .previews import (
     COVER_SMALL_THUMB_EDGE,
     COVER_SMALL_THUMB_QUALITY,
@@ -692,7 +692,7 @@ def create_app(
     )
     mdns = create_mdns_publisher(
         settings.mdns_name, settings.mdns_port, secure=settings.tls_enabled,
-        address=settings.mdns_address,
+        address=settings.mdns_address, ipv6=settings.mdns_ipv6,
     ) if settings.mdns_enabled else None
     providers = default_registry()
     opencode_go = OpenCodeGoClient(transport=http_transport)
@@ -713,7 +713,7 @@ def create_app(
         secrets_root=settings.secrets_root,
         db_path=settings.db_path,
         declared_roots=LOCATION_ROOT_DECLARATIONS,
-        mounts=location_mounts(),
+        mounts=location_mount_values(),
         available=_writer(sync),
         ffprobe=resolver.ffprobe,
         after_ingest=contract.cache_bust,
@@ -789,7 +789,7 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
-        # asyncio 异常处理器由 `cli._run_uvicorn` 装在 uvicorn 的事件循环上：它要拿着 uvicorn
+        # asyncio 异常处理器由 `listening.serve` 装在 uvicorn 的事件循环上：它要拿着 uvicorn
         # 的 Server，才能在监听被标准库关掉后重新监听。
         # 握手要等 cloudflared 连上边缘，断网时会等满 `wait_timeout`；放在后台，本机访问
         # 不等公网入口。连接进度由 `tunnel_manager.snapshot()` 报告。
@@ -1021,6 +1021,7 @@ def create_app(
                 "mdns_service": mdns.name if mdns is not None else None,
                 "mdns_service_host": mdns.hostname if mdns is not None else None,
                 "mdns_address": mdns.address if mdns is not None else None,
+                "mdns_ipv6_addresses": list(getattr(mdns, "ipv6_addresses", ())),
                 "ledger_sync": sync.status if sync is not None else "disabled",
                 "ledger_read_only": read_only,
                 **_read_only_fields(sync, read_only),
