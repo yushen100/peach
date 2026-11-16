@@ -57,6 +57,14 @@ describe('首次运行页', { skip: origin && media && dataRoot ? false : '只�
       // 加载：题目到齐后表单出现，等待态结束，页面不横向溢出。
       const heading = page.getByRole('heading', { name: '欢迎使用 Peach' });
       await heading.waitFor({ state: 'visible', timeout: 15_000 });
+      // 第一步就能选语言：换界面语言整页重载成新语言，换回「自动」再按浏览器语言回到中文。
+      await page.locator('button[aria-labelledby~="setup-language-label"]').click();
+      await Promise.all([page.waitForEvent('load'), page.getByRole('option', { name: 'English', exact: true }).click()]);
+      await page.getByRole('heading', { name: 'Welcome to Peach' }).waitFor({ state: 'visible', timeout: 15_000 });
+      await page.locator('button[aria-labelledby~="setup-language-label"]').click();
+      await Promise.all([page.waitForEvent('load'), page.getByRole('option', { name: 'Auto', exact: true }).click()]);
+      await heading.waitFor({ state: 'visible', timeout: 15_000 });
+      assert.deepEqual((await layout(page)).offenders, []);
       await page.getByRole('button', { name: '开始设置', exact: true }).click();
       const folder = page.getByRole('textbox', { name: '媒体目录 1' });
       await folder.waitFor({ state: 'visible', timeout: 15_000 });
@@ -144,6 +152,8 @@ describe('首次运行页', { skip: origin && media && dataRoot ? false : '只�
       await page.getByRole('button', { name: '完成设置' }).click();
       const acceptedResponse = await accepted;
       assert.equal(acceptedResponse.status(), 200, await acceptedResponse.text());
+      const answers = acceptedResponse.request().postDataJSON() as Record<string, unknown>;
+      assert.equal(answers.interface_language, 'auto');
       assert.deepEqual(JSON.parse(await readFile(join(selectedData, 'secrets/follow/peach-proxy.json'), 'utf8')), {
         mode: 'proxy', proxy: 'socks5h://user:private-proxy@127.0.0.1:17890',
       });

@@ -667,6 +667,27 @@ class SetupJsonContractTests(_SetupHttpCase):
         self.assertEqual((loaded.server.host, loaded.server.port), ("127.0.0.1", 8900))
         self.assertFalse(loaded.replication.enabled)
 
+    def _synced_settings(self, data_root):
+        from peach import web_settings
+        from peach.repository import LedgerDatabase
+        return web_settings.q_settings(LedgerDatabase(data_root / "database" / "ledger.db"))
+
+    def test_first_step_language_is_saved_into_the_new_ledger(self):
+        self._submit(scan_now=False, interface_language="en")
+        self.assertEqual(self._synced_settings(self.data_root)["interfaceLanguage"], "en")
+
+    def test_first_step_language_leaves_an_existing_ledger_alone(self):
+        from peach import web_settings
+        from peach.repository import LedgerDatabase
+        tree = onboarding.create_data_tree(onboarding.resolve_config(str(self.data_root))[0])
+        web_settings.w_settings(LedgerDatabase(tree.database), {"interfaceLanguage": "zh-CN"})
+        self._submit(scan_now=False, interface_language="en")
+        self.assertEqual(self._synced_settings(self.data_root)["interfaceLanguage"], "zh-CN")
+
+    def test_an_unknown_language_is_a_field_error_before_anything_is_written(self):
+        self.assertEqual(set(self._errors(self._body(interface_language="fr"))), {"interface_language"})
+        self.assertFalse(self.data_root.exists())
+
     def test_a_custom_data_root_is_loaded_by_the_tray_and_a_fresh_launch(self):
         import json
         import socket

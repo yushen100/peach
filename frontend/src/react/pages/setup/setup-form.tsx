@@ -36,10 +36,27 @@ import {
 } from './setup-api';
 import { libraryFields, processingSummary } from './setup-processing';
 import { SetupShell } from './setup-scene';
-import { t } from '../../../i18n';
+import { SETTINGS_KEY } from '../../../settings-key';
+import {
+  INTERFACE_LANGUAGES, interfaceLanguage, isInterfaceLanguageChoice, LANGUAGE_SELF_NAMES, storedInterfaceLanguage, t,
+  type InterfaceLanguageChoice,
+} from '../../../i18n';
 
 /** 这几项出错时「高级设置」自己展开：错在折叠里的框，人看不见。 */
 const ADVANCED_KEYS = ['port', 'mdns_name'];
+
+/* 首启时还没有账本，界面语言先记在这台设备的本地偏好里：换语言要整页重载才生效，重载后从这里
+   读回；完成设置时随答卷写进新账本，之后打开的设备都按它显示。 */
+function storedPreferences(): Record<string, unknown> {
+  try {
+    const saved: unknown = JSON.parse(localStorage.getItem(SETTINGS_KEY) || '{}');
+    return saved && typeof saved === 'object' ? saved as Record<string, unknown> : {};
+  } catch { return {} }
+}
+
+function rememberPreferences(patch: Record<string, unknown>) {
+  try { localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...storedPreferences(), ...patch })) } catch { /* 存不下就只在本页生效 */ }
+}
 
 /** 媒体目录那一项的错误：与行数对得上就按行写回，否则是整表一句。 */
 function folderErrors(value: SetupErrors[string], count: number): { rows: string[]; table: string } {
@@ -95,6 +112,17 @@ export function SetupForm({ setup, onDone, onRestore }: { setup: SetupQuestions;
   const [reporting, setReporting] = useState(setup.remote_reporting);
   const [proxyMode, setProxyMode] = useState(setup.peach_proxy?.mode ?? 'environment');
   const [proxyAddress, setProxyAddress] = useState('');
+  const [languageChoice, setLanguageChoice] = useState<InterfaceLanguageChoice>(() => {
+    const saved = storedPreferences().interfaceLanguage;
+    return isInterfaceLanguageChoice(saved) ? saved : 'auto';
+  });
+  const pickLanguage = (value: string) => {
+    if (!isInterfaceLanguageChoice(value)) return;
+    setLanguageChoice(value);
+    rememberPreferences({ interfaceLanguage: value });
+    // 界面语言只在页面载入时定，换成另一种语言要重载；还在第一步，没有填过的内容会丢。
+    if (storedInterfaceLanguage() !== interfaceLanguage) location.reload();
+  };
   const [errors, setErrors] = useState<SetupErrors>({});
   const [tableError, setTableError] = useState('');
   const [failure, setFailure] = useState('');
@@ -140,6 +168,7 @@ export function SetupForm({ setup, onDone, onRestore }: { setup: SetupQuestions;
     const submission: SetupSubmission = {
       media_dir: skipMedia ? [] : folders.rows.map(row => ({ ...row, library: row.library?.trim() || t('shell:shared.untitledLibrary') })),
       skip_media: skipMedia, access_enabled: accessOn, scan_now: !skipMedia && scanNow,
+      interface_language: languageChoice,
       peach_proxy: { mode: proxyMode, proxy: proxyMode === 'proxy' ? proxyAddress : '' },
       ...(setup.history_guide ? { history_guide: true } : {}),
       ...(reporting ? { remote_reporting: { usage: reporting.usage, errors: reporting.errors } } : {}),
@@ -158,7 +187,8 @@ export function SetupForm({ setup, onDone, onRestore }: { setup: SetupQuestions;
         setErrors(found);
         if (ADVANCED_KEYS.some((key) => found[key])) setAdvancedOpenings((count) => count + 1);
         if (found.access_password) setAccessOn(true);
-        move(found.media_dir || (dataRoot && found[dataRoot.key]) ? 1 : 2);
+        move(found.interface_language ? 0
+          : found.media_dir || (dataRoot && found[dataRoot.key]) ? 1 : 2);
         setErrorRound((count) => count + 1);
       } else {
         setFailure(describeFailure(cause));
@@ -238,6 +268,18 @@ export function SetupForm({ setup, onDone, onRestore }: { setup: SetupQuestions;
           </p>
         </header>
       <div hidden={step !== 0}>
+        {/* 下拉而不是分段：Weblate 译好的语言登记上线后直接多一项，宽度不随语言数变。 */}
+        <div className="flex flex-col items-start gap-1.5">
+          <Label elementType="span" id="setup-language-label">{t('settings:interfaceLanguage.title')}</Label>
+          <Select className="w-60 max-w-full" aria-labelledby="setup-language-label" selectedKey={languageChoice}
+            isInvalid={Boolean(errors.interface_language)}
+            onSelectionChange={(key) => { if (key !== null) pickLanguage(String(key)); }}>
+            {[['auto', t('settings:interfaceLanguage.auto')] as const,
+              ...INTERFACE_LANGUAGES.map(code => [code, LANGUAGE_SELF_NAMES[code]] as const)].map(([value, name]) =>
+              <SelectItem key={value} id={value} textValue={name}>{name}</SelectItem>)}
+          </Select>
+          {errors.interface_language ? <ErrorText key={errorRound}>{text(errors.interface_language)}</ErrorText> : null}
+        </div>
         <ul data-setup-welcome-points="">
           <li><RiFolderLine /><div data-setup-welcome-copy=""><strong className="text-body-medium">{t('shell:setupForm.welcomeLibraries')}</strong><p className="text-body-2-regular text-text-secondary">{t('shell:setupForm.welcomeLibrariesBody')}</p></div></li>
           <li><RiSearchLine /><div data-setup-welcome-copy=""><strong className="text-body-medium">{t('shell:setupForm.welcomeFind')}</strong><p className="text-body-2-regular text-text-secondary">{t('shell:setupForm.welcomeFindBody')}</p></div></li>
@@ -422,6 +464,8 @@ export function SetupForm({ setup, onDone, onRestore }: { setup: SetupQuestions;
       <CardGroup labelledBy="setup-summary-title">
         <GroupTitle id="setup-summary-title">{t('shell:setupForm.summaryTitle')}</GroupTitle>
         <FactList>
+          <Fact term={t('settings:interfaceLanguage.title')}>{languageChoice === 'auto'
+            ? t('settings:interfaceLanguage.auto') : LANGUAGE_SELF_NAMES[languageChoice]}</Fact>
           <Fact term={t('shell:setupForm.mediaDirectories')}>{skipMedia ? t('shell:setupForm.addLater') : filled.length ? `${t('shell:setupForm.directoryCount', { count: filled.length })} · ${t('shell:setupForm.libraryCount', { count: libraries.length })}` : t('shell:setupForm.notFilled')}</Fact>
           <Fact term={t('shell:setupForm.dataDirectory')}><span className="break-all">{dataRoot ? values[dataRoot.key] || t('shell:setupForm.notFilled') : setup.data_root || t('shell:shared.notFound')}</span></Fact>
           <Fact term={t('shell:setupForm.accessScope')}>{setup.docker ? t('shell:setupForm.scopeCompose') : lan ? t('shell:setupForm.scopeLan') : t('shell:setupForm.scopeLocal')} · {

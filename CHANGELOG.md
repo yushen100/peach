@@ -26,6 +26,7 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Interface**: Settings can turn off new releases on home and person pages, the shorts strip, avatar rows, missing-art hints, empty-search picks and import notices (#660). / **界面**：设置里可分别关掉首页与人物页的新作、竖屏短片带、头像两排、缺图补全提示、空搜索推荐与入库通知，横幅关掉后不再反复出现（#660）。
 - **Settings**: Settings that depend on a switch collapse or gray out when it is off, and remote access cannot start without an access password (#660). / **配置**：上级开关关掉后，依赖它的设置随之收起或变灰；未设访问密码时远程访问不能启动（#660）。
 - **Settings**: Subscription feed fetching can be turned off or given its own interval, like automatic checks for follows (#661). / **配置**：Peach 配置里的「订阅源拉取」可以关掉或改间隔，和关注的自动检查一样（#661）。
+- **Settings**: First-time setup offers the interface language on its first page and switches the page right away; the choice carries over to Peach (#709). / **配置**：首次设置第一页即可选界面语言，选后整页换成该语言，进入 Peach 后沿用（#709）。
 - **Settings**: Wants recheck interval and give-up count, ledger backup count, log retention days and the transcode quality cap are adjustable (#661). / **配置**：「想要」老片的再查间隔与放弃次数、账本备份份数、日志保留天数和播放转码的画质上限都能在 Peach 配置里调了（#661）。
 - **Playback**: On phones and tablets, tap shows controls, double-tap seeks or pauses, long-press plays at 2x, and dragging sideways previews a seek (#156). / **播放**：手机和平板上轻点显示控制条，双击两侧快进快退、中间暂停，长按临时 2 倍速，横向拖动预览后跳转（#156）。
 - **Playback**: Holding the Right arrow key plays at 2x until released (#275). / **播放**：按住右方向键临时 2 倍速，松开恢复原来的速度（#275）。
