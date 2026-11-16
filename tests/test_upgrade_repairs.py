@@ -2880,7 +2880,7 @@ class UpgradeRepairTests(unittest.TestCase):
         self.assertEqual(stored, {'checked': 3, 'written': 2})
         self.assertEqual(next(item['changed'] for item in center['items'] if item['id'] == 'avatar-faces'), 2)
 
-    def test_a_new_library_run_drops_local_evidence_its_state_no_longer_points_to(self):
+    def test_a_new_library_run_drops_local_evidence_its_state_does_not_reference(self):
         from peach.library_processing import prune_local_evidence
         path = self.root / 'state' / 'library-processing.json'
         items = path.parent / 'library-processing-items'
