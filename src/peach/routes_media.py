@@ -33,7 +33,7 @@ from starlette.staticfiles import StaticFiles
 from starlette.requests import ClientDisconnect
 
 from . import (
-    avatar_face, avatar_online, avatar_picker, avatar_provider, error_reporting,
+    avatar_face, avatar_online, avatar_picker, avatar_provider, cover_artwork, error_reporting,
     follow_assets, follow_providers, images, interface_text,
     jav_poster_crop, link_marks, link_status, media_io, peach_proxy, public_http, scraping_access, site_icons,
     social_links, subtitles,
@@ -905,7 +905,9 @@ def _apply_cover_crop(state, payload: dict):
                  if same_image and jav_poster_crop.front_path(path).is_file() else None)
         record = jav_poster_crop.crop_record(
             code, size[0], size[1], jav_poster_crop.file_gradient(path), title=title,
-            face=face.get('face') if current_face else None, portrait=portrait, front=front)
+            face=face.get('face') if current_face else None, portrait=portrait, front=front,
+            spine=jav_poster_crop.spine_of(saved) if same_image else None,
+            templates=cover_artwork.cover_templates(path.parent))
         if portrait is None and current_face and face.get('layout') == 'still':
             record['box'] = dict(x0=0, y0=0, x1=size[0], y1=size[1], method=jav_poster_crop.NONE)
     else:

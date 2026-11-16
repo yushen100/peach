@@ -141,13 +141,66 @@ def _portrait_verdict(image, portrait: bytes | None):
     if match is None or match.verdict != jav_poster_crop.POSTER:
         return match, None
     front_h, front_w = decoded.shape[:2]
-    if front_h < image.shape[0] * FRONT_MIN_HEIGHT_RATIO:
+    if front_h < image.shape[0] * FRONT_MIN_HEIGHT_RATIO or front_w >= front_h:
         return match, None
     return match, (int(front_w), int(front_h))
 
 
+def spine_box(image, code: str, title: str = '', match=None, reader=None) -> tuple[int, int] | None:
+    """封套横图书脊上印的番号框（`spine_label`）；不是封套比例、认不出或模型取不到是 None。
+
+    竖版图证明是独立海报的不找：那不是封套。锚点是 DMM 竖版图的左缘，没有就是标准正封位置。
+    """
+    if image is None or not getattr(image, "size", 0) or not code:
+        return None
+    if match is not None and match.verdict != jav_poster_crop.SLEEVE:
+        return None
+    height, width = image.shape[:2]
+    if not (jav_poster_crop.SLEEVE_RATIO_MIN <= width / height < jav_poster_crop.WIDE_SLEEVE_RATIO_MAX):
+        return None
+    if match is None and not jav_poster_crop.crops_to_portrait(code, title):
+        return None
+    from . import spine_label
+    active = reader if reader is not None else spine_label.default_reader()
+    if active is None:
+        return None
+    anchor = match.x0 if match is not None else round(width - jav_poster_crop.PANEL_ASPECT * height)
+    return active.code_box(image, code, anchor)
+
+
+#: 每个 sidecar 的修改时间与读出的内容（只留记着书脊番号框的）：一批装几百张时不必每张都重读整个目录。
+_SIDECAR_CACHE: dict[Path, tuple[int, dict | None]] = {}
+_TEMPLATES_LOCK = threading.Lock()
+
+
+def cover_templates(directory: Path) -> dict:
+    """封面目录里按书脊番号定了切点的封套学到的模板（`jav_poster_crop.learn_templates`）。
+
+    每次都按当前目录重学，只重读修改时间变了的 sidecar。
+    """
+    suffix = jav_poster_crop.SIDECAR_SUFFIX
+    records = []
+    with _TEMPLATES_LOCK:
+        for side in Path(directory).glob(f"*{suffix}"):
+            try:
+                stamp = side.stat().st_mtime_ns
+            except OSError:
+                continue
+            cached = _SIDECAR_CACHE.get(side)
+            if cached is None or cached[0] != stamp:
+                try:
+                    record = json.loads(side.read_text(encoding="utf-8"))
+                except (OSError, ValueError):
+                    record = None
+                cached = (stamp, record if isinstance(record, dict) and "spine" in record else None)
+                _SIDECAR_CACHE[side] = cached
+            if cached[1] is not None:
+                records.append((side.name[:-len(suffix)], cached[1]))
+    return jav_poster_crop.learn_templates(records)
+
+
 def _sidecars(code: str, payload: bytes, size: tuple[int, int], detector=None, evidence=None,
-              portrait: bytes | None = None) -> dict[str, bytes]:
+              portrait: bytes | None = None, templates=None) -> dict[str, bytes]:
     title = str((evidence or {}).get('title') or '')
     image = None
     try:
@@ -164,7 +217,7 @@ def _sidecars(code: str, payload: bytes, size: tuple[int, int], detector=None, e
         code, size[0], size[1],
         (lambda: jav_poster_crop.column_gradient(image)) if image is not None else None,
         title=title, face=(face or {}).get('face'), layout=(face or {}).get('layout', ''),
-        portrait=match, front=front,
+        portrait=match, front=front, spine=spine_box(image, code, title, match), templates=templates,
     )
     if (match is None and face is None and min(abs(size[0] / size[1] - ratio) for ratio in PROMOTIONAL_ASPECTS) < .015
             and poster['box']['method'] in NO_SPINE):
@@ -228,7 +281,7 @@ def install_cover(target: Path, code: str, payload: bytes, size: tuple[int, int]
         raise Unavailable('errors.communityCatalog.noUnwatermarked')
     target = Path(target)
     target.parent.mkdir(parents=True, exist_ok=True)
-    prepared = _sidecars(code, payload, size, detector, evidence, portrait)
+    prepared = _sidecars(code, payload, size, detector, evidence, portrait, cover_templates(target.parent))
     if evidence is not None:
         prepared[".scraping.json"] = json.dumps(evidence, ensure_ascii=False).encode("utf-8")
     token = uuid.uuid4().hex

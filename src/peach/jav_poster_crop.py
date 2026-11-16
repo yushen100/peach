@@ -111,6 +111,12 @@ PANEL_ASPECT = 0.704
 #: 1.6（BITU-001、XVT-076、KIWVRL-011）这些比例上，找不到折痕时整幅显示。
 RATIO_FALLBACK_MIN = 1.46
 RATIO_FALLBACK_MAX = 1.52
+#: 比例不标准时，找到的折痕还得是一道够满高的边（左右 `RATIO_FOLD_REACH` 列内满高覆盖达到这个值），
+#: 否则也整幅显示。4:3 与 SOD 1.416 的整幅宣传图里，人物轮廓、大字也会被当成折痕：本机 27 张
+#: 这种切点覆盖 0.16～0.64，全是把一幅画面切成两半（FKOS-005、MIDE-925、STARS-232、SDDE-652）；
+#: 真有书脊的不标准比例封套（STZY-019、STARS-110、OFJE-448）折痕覆盖 0.75～1.0。
+RATIO_FOLD_COVERAGE = 0.7
+RATIO_FOLD_REACH = 3
 
 #: 宽封套与剧照比例接近，按厂牌与比例共同判定：厂牌在名单里且比例落在这个区间才按宽封套切；同一
 #: 厂牌换成 DVD 比例的封面照旧走上面那一档，比例更宽的照旧当剧照。别的 `*BD` 厂牌
@@ -296,6 +302,15 @@ PORTRAIT_SPINE_MAX = 0.09
 #: 那一段里的满高缝还得达到段内最强梯度的这个比例，挡掉正封画面里偶然贯穿的淡线。
 #: 实测书脊右缘 0.22～1.00，对应段内最强的 0.27～1.00。
 PORTRAIT_SEAM_STRENGTH = 0.5
+#: 书脊番号框定折痕（`label_fold`）：框右缘往左容这么多倍图高（框常贴着书脊右缘，ABW-255），
+#: 往右这么多倍图高之内找第一道满高边。
+LABEL_FOLD_SLACK = 0.005
+LABEL_FOLD_REACH = 0.03
+#: 那道边按这个满高覆盖率认：书脊右缘挨着正封画面时色差常常不大。
+LABEL_SEAM_COVERAGE = 0.6
+#: 切点离标准正封位置的合理范围（倍图高）：左边容 JPEG 与缩放误差，右边容最厚的书脊（STZY-019 0.07）。
+LABEL_ANCHOR_LEFT = 0.02
+LABEL_ANCHOR_RIGHT = 0.09
 #: 竖版图要比这个宽高比更竖才算竖版。有些素人作品的 `ps` 和 `pl` 是同一张横图，说明不了什么。
 PORTRAIT_MAX_ASPECT = 1.0
 SLEEVE = "sleeve"
@@ -404,13 +419,24 @@ def _sleeve(width: int, height: int, gradient_source: GradientSource,
     """一张封套的正封框：找到折痕从折痕起，找不到按这一档的先验从右缘量回去。
 
     先验只给标准 DVD 封套比例（`RATIO_FALLBACK_MIN`～`RATIO_FALLBACK_MAX`）：比例不标准又找不到
-    折痕的，多半是没有书脊的整幅宣传图，按先验切会把画面拦腰截断，整幅显示。
+    折痕的，多半是没有书脊的整幅宣传图，按先验切会把画面拦腰截断，整幅显示。找到的折痕不够满高
+    （`RATIO_FOLD_COVERAGE`）也一样。
     """
     fold = fold_column(width, height, gradient_source, shape)
-    if fold is None and shape is DVD_PANEL and not RATIO_FALLBACK_MIN <= width / height <= RATIO_FALLBACK_MAX:
-        return _whole(width, height)
+    if shape is DVD_PANEL and not RATIO_FALLBACK_MIN <= width / height <= RATIO_FALLBACK_MAX:
+        if fold is None or _seam_near(gradient_source, fold) < RATIO_FOLD_COVERAGE:
+            return _whole(width, height)
     start = fold if fold is not None else round(width - shape.prior * height)
     return _panel(width, height, start, FOLD if fold is not None else RATIO)
+
+
+def _seam_near(gradient_source: GradientSource, column: int) -> float:
+    """`column` 左右 `RATIO_FOLD_REACH` 列内最高的满高覆盖；只有列梯度、没有满高覆盖数据时不设限。"""
+    profile = gradient_source() if callable(gradient_source) else gradient_source
+    seams = getattr(profile, "seams", None)
+    if not seams:
+        return 1.0
+    return max(seams[max(0, column - RATIO_FOLD_REACH):column + RATIO_FOLD_REACH + 1], default=0.0)
 
 
 def fold_column(width: int, height: int,
@@ -650,6 +676,87 @@ def _panel(width: int, height: int, start: int, method: str) -> dict:
     return {"x0": start, "y0": 0, "x1": width, "y1": height, "method": method}
 
 
+def label_fold(width: int, height: int, gradient_source: GradientSource,
+               label: Sequence[int], anchor: int) -> int | None:
+    """书脊上印的番号框 `label`（左右两列，`spine_label.SpineReader.code_box`）→ 正封起点；不成立返回 None。
+
+    番号框在书脊里，它右边最近的那道满高边就是书脊右缘：实测在框右缘外 0.005～0.016 倍图高
+    （JBS-016、UNT-017、NAMH-042、CEAD-731）。测不出那道边时（JUR-908 书脊与正封色差太小），
+    标准正封位置落在这段里就用它。切点还得落在标准位置左右的合理范围内：封底靠书脊的那一角
+    也常印番号，要是认成了那一处，它右边最近的边是书脊左缘，按它切会把整条书脊留在框里。
+    """
+    profile = gradient_source() if callable(gradient_source) else gradient_source
+    seams = getattr(profile, "seams", None)
+    if profile is None or seams is None or len(profile) != width or len(label) != 2:
+        return None
+    right = int(label[1])
+    low = max(0, right - round(height * LABEL_FOLD_SLACK))
+    high = min(width - 1, right + round(height * LABEL_FOLD_REACH))
+    fold = None
+    for column in range(low, high + 1):
+        if seams[column] >= LABEL_SEAM_COVERAGE:
+            fold = column
+            while fold + 1 <= high and seams[fold + 1] >= LABEL_SEAM_COVERAGE:
+                fold += 1
+            fold += 1
+            break
+    if fold is None and right <= anchor <= high:
+        fold = anchor
+    if fold is None or not anchor - height * LABEL_ANCHOR_LEFT <= fold <= anchor + height * LABEL_ANCHOR_RIGHT:
+        return None
+    return fold
+
+
+#: 同一模板的封套：番号前缀相同、宽高比取两位小数相同。正封宽高比 (宽 - 折痕) / 高 在同组里
+#: 至少这么多张认出了书脊番号、彼此相差不超过 `TEMPLATE_SPREAD` 才算模板。本机留一验证 1019 张，
+#: 误差超过 0.6% 图高的 7 张；厂牌、系列分组覆盖的封面大多也被前缀覆盖，只多出几张。
+TEMPLATE_MIN_SAMPLES = 2
+TEMPLATE_SPREAD = 0.006
+
+
+def template_key(code: str | None, width: int, height: int) -> tuple[str, float] | None:
+    """模板分组键：番号前缀（去掉前面的数字）与两位小数的宽高比；番号认不出前缀是 None。"""
+    found = re.match(r"^(?:\d+)?([A-Z]+)-", (code or "").upper())
+    if not found or width <= 0 or height <= 0:
+        return None
+    return found.group(1), round(width / height, 2)
+
+
+def learn_templates(records) -> dict[tuple[str, float], float]:
+    """从 `(番号, sidecar)` 里学模板：只用按书脊番号定了切点的那些（记着 `spine`），得到正封宽高比。"""
+    samples: dict[tuple[str, float], list[float]] = {}
+    for code, record in records:
+        if spine_of(record) is None or is_manual(record):
+            continue
+        box, px = record.get("box") or {}, record.get("px") or [0, 0]
+        try:
+            width, height, x0 = int(px[0]), int(px[1]), int(box["x0"])
+        except (KeyError, TypeError, ValueError, IndexError):
+            continue
+        key = template_key(code, width, height)
+        if key is not None and box.get("method") == FOLD:
+            samples.setdefault(key, []).append((width - x0) / height)
+    return {key: statistics.median(values) for key, values in samples.items()
+            if len(values) >= TEMPLATE_MIN_SAMPLES and max(values) - min(values) <= TEMPLATE_SPREAD}
+
+
+def template_fold(code: str | None, width: int, height: int, templates) -> int | None:
+    """同模板封套学到的折痕列；没有模板是 None。"""
+    key = template_key(code, width, height)
+    aspect = (templates or {}).get(key) if key is not None else None
+    return None if aspect is None else round(width - aspect * height)
+
+
+def spine_of(record: dict | None) -> tuple[int, int] | None:
+    """sidecar 里记着的书脊番号框；没有或形状不对是 None。"""
+    found = record.get("spine") if isinstance(record, dict) else None
+    try:
+        left, right = int(found[0]), int(found[1])
+    except (TypeError, IndexError, ValueError):
+        return None
+    return (left, right) if right > left >= 0 else None
+
+
 def portrait_of(record: dict | None) -> PortraitMatch | None:
     """sidecar 里记着的竖版图比对结果；没有或形状不对是 None。"""
     found = (record or {}).get("portrait") if isinstance(record, dict) else None
@@ -691,12 +798,16 @@ def _matched_sleeve(width: int, height: int, gradient_source: GradientSource,
 def crop_record(code: str | None, width: int, height: int,
                 gradient_source: GradientSource = None, *, title: str = '', face: dict | None = None,
                 layout: str = '', portrait: PortraitMatch | None = None,
-                front: Sequence[int] | None = None) -> dict:
+                front: Sequence[int] | None = None, spine: Sequence[int] | None = None,
+                templates=None) -> dict:
     """可直接落盘的 sidecar 内容：算法版本、源图尺寸、框。
 
     有 DMM 竖版图的比对结果（`portrait_match`）时以它为准：对上的是封套，按折痕或 DMM 的左缘切；
     对不上的是独立设计的竖版海报，横图整幅显示，不再从中间切一刀。`front` 是装在封面旁的那张
-    竖版图的尺寸，页面大图位改用它。没有比对结果的走原有判据。
+    竖版图的尺寸，页面大图位改用它。没有比对结果的走原有判据。`spine` 是书脊上认出的番号框
+    （`spine_label`），认出了就按它定书脊右缘（`label_fold`），并记进 sidecar 供学模板。认不出时
+    同前缀同比例的封套学到的模板（`learn_templates`）定切点：小图上番号字太小认不出，同一家的
+    大图认得出，书脊宽度是同一个。
 
     番号形态先判：不该裁的图连梯度都不算，`gradient_source` 是惰性的就一次都不解码。
     """
@@ -712,6 +823,20 @@ def crop_record(code: str | None, width: int, height: int,
                if layout != 'still' and crops_to_portrait(code, title) else _whole(width, height))
         if box['method'] != CENTER and face_crosses_spine(width, height, face):
             box = _whole(width, height)
+    # 书脊上认出了番号：那条竖带就是书脊，切点改在它的右缘。只改已经判成封套、要切的那几档。
+    labelled = False
+    if spine and box['method'] in (FOLD, RATIO, MATCH) and height > 0:
+        wide = (is_wide_sleeve_label(code, title)
+                and WIDE_SLEEVE_RATIO_MIN <= width / height < WIDE_SLEEVE_RATIO_MAX)
+        anchor = (portrait.x0 if portrait is not None and portrait.verdict == SLEEVE
+                  else round(width - (WIDE_PANEL_ASPECT if wide else PANEL_ASPECT) * height))
+        fold = label_fold(width, height, gradient_source, spine, anchor)
+        if fold is not None:
+            box, labelled = _panel(width, height, fold, FOLD), True
+    if not labelled and box['method'] in (FOLD, RATIO, MATCH) and height > 0:
+        fold = template_fold(code, width, height, templates)
+        if fold is not None and 0 < fold < width:
+            box = _panel(width, height, fold, FOLD)
     # 封套比例的番号封面判成不裁时，页面也不能再按右缘先验切：记成整幅画面交给卡片。
     still = (box['method'] == NONE and height > 0 and SLEEVE_RATIO_MIN <= width / height < SLEEVE_RATIO_MAX
              and (portrait is not None or crops_to_portrait(code, title)))
@@ -719,7 +844,8 @@ def crop_record(code: str | None, width: int, height: int,
             **({'title': title} if title else {}),
             **({'layout': 'still'} if still else {}),
             **({'portrait': portrait._asdict()} if portrait is not None else {}),
-            **({'front': [int(front[0]), int(front[1])]} if front else {})}
+            **({'front': [int(front[0]), int(front[1])]} if front else {}),
+            **({'spine': [int(spine[0]), int(spine[1])]} if labelled else {})}
 
 
 def manual_record(width: int, height: int, box: object) -> dict | None:

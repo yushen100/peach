@@ -103,25 +103,29 @@ def _digest(path: Path) -> str:
     return digest.hexdigest()
 
 
-def ensure_model(path: Path | None = None, *, allow_download: bool = True) -> Path:
-    """本地那份校验通过就用，否则按固定 URL 取一次再校验。"""
+def ensure_model(path: Path | None = None, *, allow_download: bool = True,
+                 url: str = MODEL_URL, sha256: str = MODEL_SHA256) -> Path:
+    """本地那份校验通过就用，否则按固定 URL 取一次再校验。
+
+    `url` 与 `sha256` 给同一来源（opencv_zoo）的其他定版模型用，例如书脊番号识别的 CRNN（`spine_label`）。
+    """
     target = Path(path) if path is not None else MODEL_PATH
-    if target.is_file() and _digest(target) == MODEL_SHA256:
+    if target.is_file() and _digest(target) == sha256:
         return target
     if not allow_download:
         raise WatermarkModelUnavailable("errors.avatarWatermark.modelMissing", {"path": str(target)})
     target.parent.mkdir(parents=True, exist_ok=True)
     partial = target.with_suffix(target.suffix + ".part")
     try:
-        partial.write_bytes(read_url(MODEL_URL, timeout=60))
+        partial.write_bytes(read_url(url, timeout=120))
     except (OSError, httpx.HTTPError) as error:
         partial.unlink(missing_ok=True)
         raise WatermarkModelUnavailable("errors.avatarWatermark.downloadFailed", {"error": str(error)}) from error
     digest = _digest(partial)
-    if digest != MODEL_SHA256:
+    if digest != sha256:
         partial.unlink(missing_ok=True)
         raise WatermarkModelUnavailable("errors.avatarWatermark.checksumMismatch",
-                                        {"expected": MODEL_SHA256, "actual": digest})
+                                        {"expected": sha256, "actual": digest})
     partial.replace(target)
     return target
 

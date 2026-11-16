@@ -77,33 +77,75 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def first_pass(path: Path, width: int, height: int) -> dict:
+    """一张封面重算取景要用的全部输入；竖版图比对与竖版正封描述的是这张图本身，原样沿用。
+
+    书脊番号在这一遍认（本机有模型时），模板要等全部认完才学得出来，第二遍才套。
+    """
+    from peach import cover_artwork
+
+    saved = jav_poster_crop.read_sidecar(path) or {}
+    same_image = saved.get("px") == [width, height]
+    try:
+        face = json.loads(path.with_suffix('.face.json').read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        face = {}
+    portrait = jav_poster_crop.portrait_of(saved) if same_image else None
+    front = (jav_poster_crop.front_size(saved)
+             if same_image and jav_poster_crop.front_path(path).is_file() else None)
+    gradient = jav_poster_crop.file_gradient(path)
+    title = saved.get('title', '')
+    spine = None
+    if jav_poster_crop.crops_to_portrait(path.stem, title) or portrait is not None:
+        import cv2
+
+        spine = cover_artwork.spine_box(cv2.imread(str(path)), path.stem, title, portrait)
+    current_face = face.get('px') == [width, height]
+    return dict(code=path.stem, width=width, height=height, gradient_source=gradient, title=title,
+                face=face.get('face') if current_face and portrait is None else None,
+                layout=face.get('layout', '') if current_face and portrait is None else '',
+                portrait=portrait, front=front, spine=spine)
+
+
 def run(args: argparse.Namespace) -> int:
     covers = sorted(args.covers.glob("*.jpg")) if args.covers.is_dir() else []
-    todo = pending(covers, args.redo)
+    # 手工框只有用户自己能换：`--redo` 也不重算它。
+    todo = [(path, size) for path, size in pending(covers, args.redo)
+            if not jav_poster_crop.is_manual(jav_poster_crop.read_sidecar(path))]
     if args.limit:
         todo = todo[:args.limit]
     print(t("poster_crop_boxes.writingStart" if args.apply else "poster_crop_boxes.previewStart",
             covers=len(covers), todo=len(todo)), flush=True)
 
-    methods = (jav_poster_crop.FOLD, jav_poster_crop.RATIO, jav_poster_crop.CENTER,
+    if todo:  # 装封面只用本机已有的书脊识别模型，重算在这里取一次
+        from peach import spine_label
+
+        spine_label.default_reader(allow_download=True)
+    methods = (jav_poster_crop.FOLD, jav_poster_crop.MATCH, jav_poster_crop.RATIO, jav_poster_crop.CENTER,
                jav_poster_crop.NONE)
     counts = {**dict.fromkeys(methods, 0), "unreadable": 0}
     samples: dict[str, list[str]] = {}
+    inputs: dict[Path, dict] = {}
+    for index, (path, (width, height)) in enumerate(todo, 1):
+        if width and height:
+            inputs[path] = first_pass(path, width, height)
+        if index % PROGRESS_EVERY == 0:
+            print(f"[{index}/{len(todo)}]", flush=True)
+    # 模板从这一批按书脊番号定了切点的，加上这一批没重算、边车里已记着番号框的那些学。
+    redone = {path.stem for path in inputs}
+    suffix = jav_poster_crop.SIDECAR_SUFFIX
+    untouched = [(side.name[:-len(suffix)], jav_poster_crop.read_sidecar(side.with_name(side.name[:-len(suffix)] + ".jpg")))
+                 for side in args.covers.glob(f"*{suffix}") if side.name[:-len(suffix)] not in redone]
+    templates = jav_poster_crop.learn_templates(
+        [*((path.stem, jav_poster_crop.crop_record(**work)) for path, work in inputs.items()),
+         *((code, record) for code, record in untouched if record)])
     for index, (path, size) in enumerate(todo, 1):
         width, height = size
         if not width or not height:
             counts["unreadable"] += 1
             print(t("poster_crop_boxes.unreadable", index=index, total=len(todo), name=path.name), flush=True)
             continue
-        try:
-            face = json.loads(path.with_suffix('.face.json').read_text(encoding='utf-8'))
-        except (OSError, ValueError):
-            face = {}
-        record = jav_poster_crop.crop_record(
-            path.stem, width, height, jav_poster_crop.file_gradient(path),
-            title=(jav_poster_crop.read_sidecar(path) or {}).get('title', ''),
-            face=face.get('face') if face.get('px') == [width, height] else None,
-            layout=face.get('layout', '') if face.get('px') == [width, height] else '')
+        record = jav_poster_crop.crop_record(**inputs[path], templates=templates)
         method = record["box"]["method"]
         counts[method] += 1
         bucket = samples.setdefault(method, [])

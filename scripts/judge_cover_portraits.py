@@ -17,7 +17,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 
-from peach import jav_poster_crop as crop
+from peach import jav_poster_crop as crop, spine_label
 from peach.cover_artwork import cover_group, install_cover, is_user_cover
 from peach.fsutil import atomic_write_text
 from peach.images import measure_image_file, measure_image_size
@@ -129,6 +129,8 @@ def main() -> int:
     paths = [root / (code + '.jpg') for code in args.code] if args.code else sorted(root.glob('*.jpg'))
     args.report.mkdir(parents=True, exist_ok=True)
     transport = HostLimitedTransport(SourceTransport(args.data_root / 'secrets'), 1.0)
+    if args.apply:  # 装封面只用本机已有的书脊识别模型，补判在这里取一次
+        spine_label.default_reader(allow_download=True)
     results = []
     try:
         for path in paths:
