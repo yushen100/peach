@@ -39,10 +39,11 @@ from contextlib import closing
 from pathlib import Path
 from unittest import mock
 
-from peach import follow_assets, link_marks, scraping_access, settings_file, taste_history
+from peach import cover_repair, follow_assets, link_marks, scraping_access, settings_file, taste_history
 from peach import platform as peach_platform
 from peach.config import FFMPEG_DIR
 from peach.ffmpeg import FFmpegResolver
+from peach.images import measure_image_file
 from peach.library_processing import process_library
 from peach.network_reachability import TARGETS as CONNECTIVITY_TARGETS
 from peach.web_contract import WebContract
@@ -426,6 +427,13 @@ class WebE2ESmokeTests(unittest.TestCase):
                                  provider_factory=refuse_network)
         if result["status"] != "complete":
             raise AssertionError(f"演示库 process 没有完成：{result}")
+        # 「已装封面的版式」后台补修（`cover_repair`）补判时要按番号问 DMM：演示库的封面在它自己的已核对
+        # 名单里预置为查过，测试服务不去补判。缺人脸的几张它只用本机模型，没有就留着，不联网。
+        repair = cover_repair.CoverRepair(generated / "covers", config.directory("state") / "upgrade-repairs",
+                                          None, config.directory("secrets"))
+        repair.checked_path.parent.mkdir(parents=True, exist_ok=True)
+        repair.checked_path.write_text(json.dumps({path.stem: list(measure_image_file(path) or ())
+                                                   for path, _ in repair.plan()["judge"]}), encoding="utf-8")
         # 普通页面用已看过邀请的账本；首次邀请由教程专用用例独立验证。
         w_tutorial_progress(WebContract(cls.db), {'campaign': CAMPAIGN, 'action': 'dismiss'})
         with closing(sqlite3.connect(cls.db)) as connection:
