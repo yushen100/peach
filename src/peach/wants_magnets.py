@@ -30,10 +30,11 @@ def reusable_result(result) -> bool:
             and bool(result['items'] or not result.get('warnings')))
 
 
-def fetch(root: Path, code: str) -> dict:
+def fetch(root: Path, code: str, *, quick: bool = False) -> dict:
+    """查一部的磁链与资源链接。`quick` 给定时查找用：manko.fun 已有高清时跳过 JavDB，其余来源照查。"""
     from .magnet_chain import search
     from .sources.javdb import merge_resources
-    result = search(root, code, stop_on_preferred=False)
+    result = search(root, code, stop_on_preferred=False, skip_javdb_after_preferred=quick)
     linked = result.pop('linked_resources', [])
     ranked = [{**row, 'id': 'magnet:' + row['info_hash'], 'size': row['size_text']} for row in result['items']]
     return {**result, 'items': merge_resources([*ranked, *linked])[:128]}
@@ -130,7 +131,7 @@ class MagnetSearch:
             if reusable_result(result):
                 self._save()
 
-    def query(self, code: str, *, refresh: bool = False, released: str | None = None) -> dict:
+    def query(self, code: str, *, refresh: bool = False, released: str | None = None, quick: bool = False) -> dict:
         code = normalise_code_key(code)
         cached = self._cached(code, released)
         if cached and not refresh:
@@ -149,7 +150,7 @@ class MagnetSearch:
             result = {"ok": True, "state": "ready", "items": [], "warnings": [], "error": "",
                       "checked_at": datetime.fromtimestamp(self.wallclock(), timezone.utc).isoformat()}
             try:
-                result.update(self.fetcher(self.root, code))
+                result.update(self.fetcher(self.root, code, quick=True) if quick else self.fetcher(self.root, code))
                 if result['state'] == 'ready' and not reusable_result(result):
                     result.update(state='error', **coded('error', Said('labels.wantsMagnets.linksUnfetched')))
             except SourceFailure as error:

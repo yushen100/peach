@@ -52,15 +52,42 @@ def cache_fresh(saved: float, released: str | None, now: float | None = None) ->
     return now - saved < lifetime
 
 
+def held(saved: float, released: str | None, now: float | None = None, *,
+         durable: bool = False, until: str | None = None) -> bool:
+    """固定的资料一律有效；发行前取得的留到发行日（当天起补取一次）；其余按 `cache_fresh`。"""
+    if durable:
+        return True
+    now = time.time() if now is None else now
+    if until and type(saved) in (int, float) and math.isfinite(saved) and 0 <= saved <= now:
+        try:
+            if datetime.fromtimestamp(now).date().isoformat() < until:
+                return True
+        except (ValueError, OverflowError, OSError):
+            return False
+    return cache_fresh(saved, released, now)
+
+
+def hold_until(value) -> str | None:
+    """读回的留存日期只认 ISO 日期。"""
+    try:
+        return value if isinstance(value, str) and date.fromisoformat(value).isoformat() == value else None
+    except ValueError:
+        return None
+
+
 @dataclass(frozen=True)
 class Snapshot:
     value: object
     saved: float
     released: str | None
     revision: str
+    #: 作品资料已经齐全、发行后取得：当本地资料留着，不再过期重取（磁链、评论从不标）。
+    durable: bool = False
+    #: 发行前取得的齐全资料留到这一天，发行日起补取一次。
+    until: str | None = None
 
     def fresh(self, now: float) -> bool:
-        return cache_fresh(self.saved, self.released, now)
+        return held(self.saved, self.released, now, durable=self.durable, until=self.until)
 
 
 class PublicSnapshots:
@@ -88,16 +115,20 @@ class PublicSnapshots:
                     or saved < 0 or saved > self.clock() or not isinstance(row.get('revision'), str)
                     or (row.get('released') is not None and not isinstance(row['released'], str))):
                 return None
-            return Snapshot(row['value'], saved, row.get('released'), row['revision'])
+            return Snapshot(row['value'], saved, row.get('released'), row['revision'],
+                            row.get('durable') is True, hold_until(row.get('until')))
         except (OSError, ValueError, TypeError, AttributeError, KeyError):
             return None
 
-    def save(self, key: str, value: object, released: str | None) -> Snapshot:
-        snapshot = Snapshot(value, self.clock(), released, uuid4().hex)
+    def save(self, key: str, value: object, released: str | None, *,
+             durable: bool = False, until: str | None = None) -> Snapshot:
+        snapshot = Snapshot(value, self.clock(), released, uuid4().hex, durable, None if durable else until)
         path = self.path(key)
         if path is not None:
+            hold = {'durable': True} if durable else {'until': until} if until else {}
             encoded = json.dumps({'version': PUBLIC_SNAPSHOTS, 'key': key, 'saved': snapshot.saved,
-                                  'released': released, 'revision': snapshot.revision, 'value': value},
+                                  'released': released, 'revision': snapshot.revision,
+                                  **hold, 'value': value},
                                  ensure_ascii=False, allow_nan=False)
             if len(encoded.encode('utf-8')) > MAX_SNAPSHOT_BYTES:
                 raise ValueError('public metadata snapshot exceeds the read limit')

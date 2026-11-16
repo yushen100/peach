@@ -432,11 +432,39 @@ def sources(connection: sqlite3.Connection) -> list[dict]:
 
 
 def due_sources(connection: sqlite3.Connection, now: str | None = None) -> list[sqlite3.Row]:
-    """到期该拉的源，等得最久的在前。从没拉过的（`next_fetch_at` 为空）总是到期，排最前。"""
+    """到期该拉的源，等得最久的在前。从没拉过的（`next_fetch_at` 为空）总是到期，排最前。
+
+    同一位女优的 DMM 片单在拉时，她在 JavDB 上的有碼演员页绕过不拉（`covered_by_dmm`）：两边列的是
+    同一批作品，JavDB 那页只多花请求。源本身不停用，DMM 片单停了或手动拉取时照常拉。
+    """
     moment = now or stamp()
-    return list(connection.execute(
+    rows = list(connection.execute(
         "SELECT * FROM feed_source WHERE enabled=1"
         " AND (next_fetch_at IS NULL OR next_fetch_at<=?) ORDER BY next_fetch_at, id", (moment,)))
+    skipped = covered_by_dmm(connection)
+    return [row for row in rows if int(row["id"]) not in skipped]
+
+
+def covered_by_dmm(connection: sqlite3.Connection) -> set[int]:
+    """DMM 片单已经覆盖的 JavDB 演员页源 id：同一人的 DMM 片单源在拉、上一次拉成功，且这一页不是她的無碼记录。
+
+    DMM 不卖无码，無碼那一页照拉；记录类型读不出来的按有碼算（JavDB 上不带标记的那一条就是有碼）。
+    DMM 片单还没拉过或上次失败时不绕过：刚订时两边各拉一次，DMM 出错时 JavDB 接上，不漏新作。
+    """
+    from .entry_links import _ref_metadata, javdb_actor_page
+    rows = list(connection.execute(
+        "SELECT s.id, s.url, s.entity_id FROM feed_source s WHERE s.enabled=1 AND s.kind=?"
+        " AND s.entity_id IS NOT NULL AND EXISTS (SELECT 1 FROM feed_source d WHERE d.entity_id=s.entity_id"
+        " AND d.enabled=1 AND d.kind=? AND d.last_fetched_at IS NOT NULL AND d.last_error IS NULL)",
+        (KIND_JAVDB_ACTOR, KIND_DMM_ACTRESS)))
+    covered: set[int] = set()
+    for row in rows:
+        uncensored = {javdb_actor_page(str(ref["external_id"])) for ref in connection.execute(
+            "SELECT external_id, metadata_json FROM entity_external_ref WHERE entity_id=? AND provider='javdb'",
+            (int(row["entity_id"]),)) if _ref_metadata(dict(ref)).get("uncensored") is True}
+        if row["url"] not in uncensored:
+            covered.add(int(row["id"]))
+    return covered
 
 
 def next_fetch(source_id: int, moment: datetime, interval_minutes: int) -> datetime:

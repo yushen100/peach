@@ -1544,6 +1544,33 @@ class PerformerFeedSwitchTest(PerformerFeedFixture):
         self._switch(False)
         self.assertEqual([source["enabled"] for source in self._sources()], [False, False])
 
+    def test_her_censored_javdb_page_is_skipped_while_her_dmm_catalogue_answers(self):
+        """DMM 片单拉成功后，定时轮次绕过她在 JavDB 上的有碼页；無碼页照拉，DMM 出错时 JavDB 接上。源都不停用。"""
+        self._dmm_id(self.performer)
+        self.transport.responses[DMM_ENDPOINT] = dmm_catalogue([], {})
+        self._switch(True)
+        self._settled()
+        sources = {source["kind"]: source for source in self._sources()}
+        javdb, dmm = sources[feeds.KIND_JAVDB_ACTOR], sources[feeds.KIND_DMM_ACTRESS]
+        future = "2999-01-01T00:00:00Z"
+        with self.contract.database.read_connection() as connection:
+            self.assertEqual(feeds.covered_by_dmm(connection), {javdb["id"]})
+            self.assertEqual([row["id"] for row in feeds.due_sources(connection, future)], [dmm["id"]])
+        self.assertTrue(all(source["enabled"] for source in self._sources()), "绕过不等于停用")
+        # 她这一页是無碼记录时照拉。
+        with self.contract.database.write_transaction() as connection:
+            connection.execute("UPDATE entity_external_ref SET metadata_json=? WHERE entity_id=? AND provider='javdb'",
+                               (json.dumps({"uncensored": True}), self.performer))
+        with self.contract.database.read_connection() as connection:
+            self.assertEqual(feeds.covered_by_dmm(connection), set())
+        # DMM 片单上次失败时 JavDB 接上。
+        with self.contract.database.write_transaction() as connection:
+            connection.execute("UPDATE entity_external_ref SET metadata_json='{}' WHERE entity_id=? AND provider='javdb'",
+                               (self.performer,))
+            connection.execute("UPDATE feed_source SET last_error='HTTP 503' WHERE id=?", (dmm["id"],))
+        with self.contract.database.read_connection() as connection:
+            self.assertEqual(feeds.covered_by_dmm(connection), set())
+
     def test_a_dmm_failure_lands_on_its_own_row(self):
         self._dmm_id(self.performer)
         self.transport.responses[DMM_ENDPOINT] = HttpResponse(503, {}, b"", DMM_ENDPOINT)

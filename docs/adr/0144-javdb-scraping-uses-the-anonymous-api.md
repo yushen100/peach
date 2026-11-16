@@ -2,7 +2,7 @@
 
 - 状态：已采纳
 - 日期：2026-11-04
-- 关系：刮削一侧取代 `sources/javdb.py` 详情页解析的取法；沿用 [ADR-0034](0034-lone-community-source-fills-and-javdb-settles.md) 的 javdb 结算地位、[ADR-0100](0100-censored-javdb-content-tags.md) 的有码内容标签与 [ADR-0052](0052-entity-results-land-when-evidence-is-sufficient.md) 的按来源撤回；第五条的冷却范围由 [ADR-0148](0148-javdb-api-host-and-signature-fallback.md) 改为按接口主机；第一条「详情页解析只留给视频预览」由 [ADR-0160](0160-javdb-scraping-falls-back-to-detail-pages.md) 修订：接口冷却或未取得时刮削也读详情页
+- 关系：刮削一侧取代 `sources/javdb.py` 详情页解析的取法；沿用 [ADR-0034](0034-lone-community-source-fills-and-javdb-settles.md) 的 javdb 结算地位、[ADR-0100](0100-censored-javdb-content-tags.md) 的有码内容标签与 [ADR-0052](0052-entity-results-land-when-evidence-is-sufficient.md) 的按来源撤回；第五条的冷却范围由 [ADR-0148](0148-javdb-api-host-and-signature-fallback.md) 改为按接口主机；第一条「详情页解析只留给视频预览」由 [ADR-0160](0160-javdb-scraping-falls-back-to-detail-pages.md) 修订：接口冷却或未取得时刮削也读详情页；作品快照的保留期由 [ADR-0167](0167-less-reliance-on-javdb.md) 修订：发行后取齐的固定，发行前取齐的留到发行日
 
 ## 背景
 
