@@ -1666,7 +1666,7 @@
       "timeBudgetSpent": "本趟采集时间已用完，再跑一次接着采；已有图片保留",
       "downloadBudgetSpent": "本趟下载量已用完，再跑一次接着采；已有图片保留",
       "coolingDown": "来源正在冷却，请稍后重试；已有图片保留",
-      "challengeTimedOut": "来源的人机验证没有在限时内通过，暂停向它请求一段时间；浏览器窗口再弹出时点一下验证即可；已有图片保留",
+      "challengeTimedOut": "来源的人机验证没有在限时内通过，暂停向它请求一段时间；下次可从任务栏点开采集浏览器点一下验证；已有图片保留",
       "rateLimited": "来源限流，已记录冷却时间；已有图片保留",
       "coolingDownNamed": "{{label}} 暂停中，约 {{minutes}} 分钟后再试",
       "rateLimitedNamed": "{{label}} 限流，约 {{minutes}} 分钟后再试",

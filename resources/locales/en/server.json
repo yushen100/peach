@@ -1666,7 +1666,7 @@
       "timeBudgetSpent": "This run's fetch time limit is used up. Run it again to continue; existing images are kept",
       "downloadBudgetSpent": "This run's download limit is used up. Run it again to continue; existing images are kept",
       "coolingDown": "The source is cooling down. Try again later; existing images are kept",
-      "challengeTimedOut": "The source's human verification wasn't passed in time, so requests to it are paused for a while. When the browser window pops up again, click the verification; existing images are kept",
+      "challengeTimedOut": "The source's human verification wasn't passed in time, so requests to it are paused for a while. Next time, open the collection browser from the taskbar and click the verification; existing images are kept",
       "rateLimited": "The source is rate limiting requests; the cooldown has been recorded. Existing images are kept",
       "coolingDownNamed": "{{label}} is paused. Try again in about {{minutes}} min",
       "rateLimitedNamed": "{{label}} is rate limiting. Try again in about {{minutes}} min",
