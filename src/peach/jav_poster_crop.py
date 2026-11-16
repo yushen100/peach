@@ -170,10 +170,11 @@ MANUAL_SOURCE = "user:crop"
 
 #: 算法版本号。sidecar 记着它，落后的重算。改动判据、常数或框的形状都要进位。
 ALGORITHM_VERSION = "poster-crop-v13"
-#: 切点判据的修订：书脊番号、同前缀模板、比例不标准要满高折痕、横跨切线的文字。sidecar 记着它，
+#: 切点判据的修订：书脊番号、同前缀模板、比例不标准要满高折痕、横跨切线的文字（2）；
+#: 番号定折痕的容差区要更明显的边、测不出边时原有判据与模板吻合就信它（3）。sidecar 记着它，
 #: 「修复与迁移」的封面一项据此找出按旧判据算的边车重算（`cover_repair`）。不进位 `ALGORITHM_VERSION`：
 #: 那会让所有旧边车立刻作废，页面在重算完之前全退回默认切法。判据再变就把它加一。
-CROP_RULES = 2
+CROP_RULES = 3
 #: sidecar 与封面同名换后缀：`ABW-232.jpg` → `ABW-232.poster.json`。人脸取景是
 #: `.face.json`，两者同目录、同命名风格，各描述一件事：一个是脸在哪，一个是正封在哪。
 SIDECAR_SUFFIX = ".poster.json"
@@ -312,6 +313,13 @@ LABEL_FOLD_SLACK = 0.005
 LABEL_FOLD_REACH = 0.03
 #: 那道边按这个满高覆盖率认：书脊右缘挨着正封画面时色差常常不大。
 LABEL_SEAM_COVERAGE = 0.6
+#: 框右缘往左那段容差里的边要更明显才认：书脊里照片的右缘常落在那里（MIDV-922 照片边 0.61、真书脊右缘
+#: 在框右缘外 13 列 0.94）；框贴着书脊右缘的那种（AARM-001 0.81）照样认得出。
+LABEL_SLACK_COVERAGE = 0.75
+#: 测不出那道边时，原有判据的折痕与同模板推出的折痕相差不超过这么多列，就信原有判据。两个独立的依据
+#: 吻合，比通用的标准位置可靠：VEC-789 书脊与正封同为深色，满高覆盖只有 0.35，标准位置偏进书脊 17 列，
+#: 原有判据 1163 与 VEC-762 实测推出的 1165 吻合。
+LABEL_AGREE = 4
 #: 切点离标准正封位置的合理范围（倍图高）：左边容 JPEG 与缩放误差，右边容最厚的书脊（STZY-019 0.07）。
 LABEL_ANCHOR_LEFT = 0.02
 LABEL_ANCHOR_RIGHT = 0.09
@@ -689,26 +697,39 @@ def label_fold(width: int, height: int, gradient_source: GradientSource,
     标准正封位置落在这段里就用它。切点还得落在标准位置左右的合理范围内：封底靠书脊的那一角
     也常印番号，要是认成了那一处，它右边最近的边是书脊左缘，按它切会把整条书脊留在框里。
     """
+    fold, _measured = label_edge(width, height, gradient_source, label, anchor)
+    return fold
+
+
+def label_edge(width: int, height: int, gradient_source: GradientSource,
+               label: Sequence[int], anchor: int) -> tuple[int | None, bool]:
+    """同 `label_fold`，另说切点是不是测出来的：`False` 是测不出边、退回标准位置。"""
     profile = gradient_source() if callable(gradient_source) else gradient_source
     seams = getattr(profile, "seams", None)
     if profile is None or seams is None or len(profile) != width or len(label) != 2:
-        return None
+        return None, False
     right = int(label[1])
     low = max(0, right - round(height * LABEL_FOLD_SLACK))
     high = min(width - 1, right + round(height * LABEL_FOLD_REACH))
-    fold = None
-    for column in range(low, high + 1):
-        if seams[column] >= LABEL_SEAM_COVERAGE:
-            fold = column
-            while fold + 1 <= high and seams[fold + 1] >= LABEL_SEAM_COVERAGE:
-                fold += 1
-            fold += 1
-            break
+
+    def scan(start: int, end: int, need: float) -> int | None:
+        for column in range(start, end + 1):
+            if seams[column] >= need:
+                fold = column
+                while fold + 1 <= high and seams[fold + 1] >= LABEL_SEAM_COVERAGE:
+                    fold += 1
+                return fold + 1
+        return None
+
+    fold = scan(low, right - 1, LABEL_SLACK_COVERAGE)
+    if fold is None:
+        fold = scan(right, high, LABEL_SEAM_COVERAGE)
+    measured = fold is not None
     if fold is None and right <= anchor <= high:
         fold = anchor
     if fold is None or not anchor - height * LABEL_ANCHOR_LEFT <= fold <= anchor + height * LABEL_ANCHOR_RIGHT:
-        return None
-    return fold
+        return None, False
+    return fold, measured
 
 
 #: 同一模板的封套：番号前缀相同、宽高比取两位小数相同。正封宽高比 (宽 - 折痕) / 高 在同组里
@@ -728,11 +749,23 @@ def template_key(code: str | None, width: int, height: int) -> tuple[str, float]
     return found.group(1), round(width / height, 2)
 
 
-def learn_templates(records) -> dict[tuple[str, float], float]:
-    """从 `(番号, sidecar)` 里学模板：只用按书脊番号定了切点的那些（记着 `spine`），得到正封宽高比。"""
+class Templates(dict):
+    """模板 → 正封宽高比，只含够 `TEMPLATE_MIN_SAMPLES` 张的；`single` 里另记只有一张样本的组。
+
+    一张样本不足以单独定切点，但能印证别的依据（`LABEL_AGREE`）。
+    """
+
+    def __init__(self, full=(), single=()):
+        super().__init__(full)
+        self.single = dict(single)
+
+
+def learn_templates(records) -> Templates:
+    """从 `(番号, sidecar)` 里学模板：只用按书脊番号测出了书脊右缘的那些（记着 `spine`、没标 `spine_edge: false`），
+    得到正封宽高比。测不出边、退回标准位置或借原有判据的不学：那不是这一家的实测。"""
     samples: dict[tuple[str, float], list[float]] = {}
     for code, record in records:
-        if spine_of(record) is None or is_manual(record):
+        if spine_of(record) is None or is_manual(record) or record.get("spine_edge") is False:
             continue
         box, px = record.get("box") or {}, record.get("px") or [0, 0]
         try:
@@ -742,8 +775,10 @@ def learn_templates(records) -> dict[tuple[str, float], float]:
         key = template_key(code, width, height)
         if key is not None and box.get("method") == FOLD:
             samples.setdefault(key, []).append((width - x0) / height)
-    return {key: statistics.median(values) for key, values in samples.items()
-            if len(values) >= TEMPLATE_MIN_SAMPLES and max(values) - min(values) <= TEMPLATE_SPREAD}
+    consistent = {key: values for key, values in samples.items() if max(values) - min(values) <= TEMPLATE_SPREAD}
+    return Templates({key: statistics.median(values) for key, values in consistent.items()
+                      if len(values) >= TEMPLATE_MIN_SAMPLES},
+                     {key: values[0] for key, values in consistent.items() if len(values) == 1})
 
 
 def template_fold(code: str | None, width: int, height: int, templates) -> int | None:
@@ -751,6 +786,15 @@ def template_fold(code: str | None, width: int, height: int, templates) -> int |
     key = template_key(code, width, height)
     aspect = (templates or {}).get(key) if key is not None else None
     return None if aspect is None else round(width - aspect * height)
+
+
+def template_agrees(code: str | None, width: int, height: int, templates, column: int) -> bool:
+    """同模板（一张样本也算）推出的折痕与 `column` 相差不超过 `LABEL_AGREE` 列。"""
+    key = template_key(code, width, height)
+    if key is None or templates is None:  # 只有单张样本的组时 dict 本身是空的，不能按真假判
+        return False
+    aspect = templates.get(key, getattr(templates, "single", {}).get(key))
+    return aspect is not None and abs(round(width - aspect * height) - column) <= LABEL_AGREE
 
 
 def spine_of(record: dict | None) -> tuple[int, int] | None:
@@ -831,13 +875,17 @@ def crop_record(code: str | None, width: int, height: int,
         if box['method'] != CENTER and face_crosses_spine(width, height, face):
             box = _whole(width, height)
     # 书脊上认出了番号：那条竖带就是书脊，切点改在它的右缘。只改已经判成封套、要切的那几档。
-    labelled = False
+    labelled = measured = False
     if spine and box['method'] in (FOLD, RATIO, MATCH) and height > 0:
         wide = (is_wide_sleeve_label(code, title)
                 and WIDE_SLEEVE_RATIO_MIN <= width / height < WIDE_SLEEVE_RATIO_MAX)
         anchor = (portrait.x0 if portrait is not None and portrait.verdict == SLEEVE
                   else round(width - (WIDE_PANEL_ASPECT if wide else PANEL_ASPECT) * height))
-        fold = label_fold(width, height, gradient_source, spine, anchor)
+        fold, measured = label_edge(width, height, gradient_source, spine, anchor)
+        # 测不出书脊右缘：原有判据的折痕在番号框右边、又与同模板推出的吻合，就信它，不退标准位置。
+        if (fold is not None and not measured and box['method'] in (FOLD, MATCH) and box['x0'] > int(spine[1])
+                and template_agrees(code, width, height, templates, int(box['x0']))):
+            fold = int(box['x0'])
         if fold is not None:
             box, labelled = _panel(width, height, fold, FOLD), True
     if not labelled and box['method'] in (FOLD, RATIO, MATCH) and height > 0:
@@ -856,7 +904,8 @@ def crop_record(code: str | None, width: int, height: int,
             **({'layout': 'still'} if still else {}),
             **({'portrait': portrait._asdict()} if portrait is not None else {}),
             **({'front': [int(front[0]), int(front[1])]} if front else {}),
-            **({'spine': [int(spine[0]), int(spine[1])]} if labelled else {})}
+            **({'spine': [int(spine[0]), int(spine[1])]} if labelled else {}),
+            **({'spine_edge': False} if labelled and not measured else {})}
 
 
 def manual_record(width: int, height: int, box: object) -> dict | None:

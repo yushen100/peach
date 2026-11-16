@@ -45,6 +45,29 @@ class LabelFoldTests(unittest.TestCase):
         profile = self.profile({1036: .9})
         self.assertIsNone(jav_poster_crop.label_fold(2184, 1468, profile, (960, 1030), 1151))
 
+    def test_a_photo_edge_inside_the_label_slack_is_not_the_fold(self):
+        """MIDV-922 型：框右缘 1137，往左 4 列是书脊照片的右缘（0.61），真书脊右缘在 1150（0.94）。"""
+        profile = self.profile({1132: .61, 1150: .94})
+        self.assertEqual(jav_poster_crop.label_fold(2184, 1468, profile, (1040, 1137), 1152), 1151)
+
+    def test_a_clear_edge_just_inside_the_label_is_still_the_fold(self):
+        """AARM-001 型：框比书脊宽出几列，书脊右缘落在框右缘左边，边够明显照样认。"""
+        profile = self.profile({1138: .81, 1149: .85})
+        self.assertEqual(jav_poster_crop.label_fold(2184, 1468, profile, (1040, 1142), 1152), 1139)
+
+    def test_an_unmeasurable_edge_trusts_the_old_fold_when_a_template_agrees(self):
+        """VEC-789 型：书脊与正封同为深色测不出边，原有判据 1163 与同前缀实测样本推出的 1165 吻合，不退标准位置。"""
+        width, height = 2184, 1474
+        profile = ColumnProfile([0.1] * width, [0.2] * width)
+        profile[1162], profile.seams[1162] = 3.0, .35
+        templates = jav_poster_crop.learn_templates([("VEC-762", {"px": [width, height], "spine": [1044, 1140],
+                                                                  "box": {"x0": 1165, "method": FOLD}})])
+        self.assertEqual(templates, {}, "一张样本不单独当模板用")
+        record = jav_poster_crop.crop_record("VEC-789", width, height, profile, spine=(1044, 1139), templates=templates)
+        self.assertEqual((record["box"]["x0"], record["spine_edge"]), (1163, False))
+        alone = jav_poster_crop.crop_record("VEC-789", width, height, profile, spine=(1044, 1139))
+        self.assertNotEqual(alone["box"]["x0"], 1163, "没有印证的依据照旧退标准位置")
+
     def test_the_label_overrides_the_gradient_guess_and_is_recorded(self):
         found = PortraitMatch(SLEEVE, .99, 950, 1800)
         profile = self.profile({953: .96, 954: .96, 971: .7}, width=1800)
