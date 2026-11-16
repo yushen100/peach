@@ -627,6 +627,8 @@
     "busyOrigin": "当前的扫描与采集任务（{{origin}}）还没结束，等它完成或取消后再开始新的同步",
     "canceledBody": "已取得的资料和预览已保留，这一轮不会自动继续，需要时重新同步。",
     "canceledTitle": "已取消上次任务",
+    "coversFetched": "已补上 {{count, number}} 张封面。",
+    "coversToast": "封面已补全：{{count, number}} 张",
     "currentLibraryName": "当前任务媒体库：{{name}}",
     "currentLine": "当前：{{file}} · {{action}}{{waited}}",
     "disconnected": "连接中断，正在重新读取处理进度",
@@ -862,6 +864,8 @@
     "spaceUsed": "使用空间"
   },
   "syncMenu": {
+    "coversOnly": "仅补全封面",
+    "coversOnlyHint": "只找缺的封面，不查影片资料",
     "fillGroup": "补全方式",
     "fillImportedTitle": "补全已入库影片",
     "fillMetadataHint": "补资料和视频属性，生成预览图",
@@ -893,6 +897,7 @@
     "syncTheseVideos": "同步这些影片",
     "workCollect": "为已入库影片补全资料和视频属性，并生成预览图",
     "workCollectNoPreviews": "为已入库影片补全资料和视频属性",
+    "workCovers": "读取配套文件，只为缺封面的影片找封面，不查影片资料",
     "workFindNew": "发现并登记未入库的新文件，保留已有影片资料",
     "workFull": "扫描目录发现文件，再补全资料和视频属性，并生成预览图",
     "workFullNoPreviews": "扫描目录发现文件，再补全资料和视频属性",

@@ -1315,5 +1315,22 @@
     "intervalHelp": "发售超过 90 天、上次没查到的作品隔多久再查。",
     "never": "一直查",
     "title": "想要查资源"
+  },
+  "sourceBudget": {
+    "gigabyteCount": "{{count, number}} GB",
+    "gigabytes": "每趟下载上限",
+    "hourCount": "{{count, number}} 小时",
+    "hours": "每趟采集时长",
+    "requestCount": "{{count, number}} 次",
+    "requests": "每趟请求上限",
+    "requestsHelp": "一趟扫描与采集向外部来源要的总量，三项哪项先到就停在哪，剩下的下一趟接着采。",
+    "saved": "已保存每趟采集上限"
+  },
+  "scrapingBrowser": {
+    "headless": "无窗口",
+    "mode": "后台采集浏览器",
+    "modeHelp": "保留窗口时窗口在屏幕外、不抢前台，验证过不了可从任务栏点开手动点；无窗口时过不了就暂停该来源。",
+    "title": "采集浏览器",
+    "window": "保留窗口"
   }
 }

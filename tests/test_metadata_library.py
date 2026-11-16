@@ -2111,6 +2111,35 @@ class LibraryNfoTests(unittest.TestCase):
             provider.cover('FC2-PPV-3', covers)
         self.assertEqual((covers / 'FC2-PPV-3.jpg').read_bytes(), before)
 
+    def test_an_upgrade_attempt_blocked_by_an_official_source_keeps_a_usable_cover_without_retrying(self):
+        """本机已有一张能用的封面（800×539），这一趟只是想换更大的：官方那一档被挡（CloudFront 403，来源层
+        已让它冷却），别处给的又不比本机大，就按「没换到更大的」收，一周内不为升级重问整条链；原因留给诊断（#144）。
+        连接抖动这类说不准的失败照旧下趟再问，见上一条用例。"""
+        from peach.jav_cover_fetch import Candidate
+        from peach.library_processing import CoverKept, LibraryMetadataProvider
+        provider = LibraryMetadataProvider.__new__(LibraryMetadataProvider)
+        provider.transport = Mock()
+        provider._official_candidates = Mock(return_value=())
+        provider.community = Mock(return_value=[])
+        provider.community_problems = Mock(return_value=[])
+        covers = self.root / 'covers'
+        covers.mkdir()
+        buffer = io.BytesIO()
+        Image.new('RGB', (800, 539), 'gray').save(buffer, format='JPEG')
+        (covers / 'ABF-002.jpg').write_bytes(buffer.getvalue())
+        (covers / 'ABF-002.scraping.json').write_text(json.dumps(
+            {'source_url': 'https://pics.dmm.co.jp/mono/movie/adult/118abf002/118abf002pl.jpg'}), encoding='utf-8')
+        same = (Candidate('pics.dmm.co.jp', 'https://pics.dmm.co.jp/x.jpg'), (800, 539), b'same')
+        from peach.scraping_access import SourcePaused
+        blocked = SourcePaused('errors.javCoverFetch.coolingDown')
+        for verified in ((*same, ('javdb',)), NotFound('errors.libraryProcessing.communitySaidNo')):
+            with self.subTest(community=type(verified).__name__),                     patch('peach.jav_cover_fetch.best_cover', side_effect=blocked),                     patch('peach.community_catalog.verified_cover',
+                          **({'side_effect': verified} if isinstance(verified, Exception) else {'return_value': verified})),                     self.assertRaises(CoverKept):
+                provider.cover('ABF-002', covers)
+            self.assertEqual(len(provider.cover_problems), 1, '被挡的那一处原因留着')
+        with Image.open(covers / 'ABF-002.jpg') as kept:
+            self.assertEqual(kept.size, (800, 539))
+
     def test_a_verified_cover_replaces_a_wider_unverified_picture_of_something_else(self):
         """官方那一档按尺寸挑中的是正片截图：同页竖版商品图经 javdb 印证后，窄一点也换上。
 
@@ -3608,18 +3637,192 @@ class LibraryWatchdogTests(unittest.TestCase):
     @windows_ledger_roots
     def test_one_directory_is_listed_once_for_all_the_videos_in_it(self):
         """同一个文件夹里的片子共用一次目录列表，找 NFO 和找海报也不各列一遍。"""
-        from peach import library_nfo
+        from peach import library_nfo, media_io
         media = self.root / 'media'
         media.mkdir()
         for name in ('ABW-206.mp4', 'ABW-207.mp4', 'ABW-208.mp4'):
             (media / name).write_bytes(b'video')
         db = fresh_ledger(self.root)
         provider = self._provider()
-        with patch('peach.library_processing.directory_files', wraps=library_nfo.directory_files) as listed:
+        with patch('peach.library_processing.directory_files', wraps=library_nfo.directory_files) as listed,                 patch('peach.media_io.read_directories', wraps=media_io.read_directories) as prefetched:
             state = process_library(self._config(media), db, self.root / 'generated', self.root / 'covers',
                                     provider_factory=lambda: provider)
         self.assertEqual(state['checked'], 3)
-        self.assertEqual(listed.call_count, 1)
+        self.assertEqual(listed.call_count, 0)
+        self.assertEqual([[str(path) for path in call.args[0]] for call in prefetched.call_args_list], [[str(media)]])
+
+    def _nfo_run(self, media, db, provider):
+        from peach import media_io
+        with patch('peach.library_processing.read_nfo', wraps=media_io.read_nfo) as read:
+            state = process_library(self._config(media), db, self.root / 'generated', self.root / 'covers',
+                                    stage='metadata', provider_factory=lambda: provider)
+        return state, read.call_count
+
+    @windows_ledger_roots
+    def test_a_later_run_reuses_local_evidence_while_the_folder_is_unchanged(self):
+        """「立即重试」与下一轮处理不重读没动过的 NFO；目录里任何文件改了、增删了都重读。"""
+        media = self.root / 'media'
+        media.mkdir()
+        (media / 'ABW-212.mp4').write_bytes(b'video')
+        nfo = media / 'ABW-212.nfo'
+        nfo.write_text('<movie><title>Local title</title><sorttitle>ABW-212</sorttitle></movie>', encoding='utf-8')
+        db = fresh_ledger(self.root)
+        provider = self._provider()
+        process_library(self._config(media), db, self.root / 'generated', self.root / 'covers', stage='scan')
+        first, reads = self._nfo_run(media, db, provider)
+        self.assertEqual((first['status'], reads), ('complete', 1))
+        second, reads = self._nfo_run(media, db, provider)
+        self.assertEqual((second['status'], reads), ('complete', 0))
+        self.assertEqual(second['candidates'], first['candidates'])
+        nfo.write_text('<movie><title>Edited title</title><sorttitle>ABW-212</sorttitle></movie>', encoding='utf-8')
+        os.utime(nfo, ns=(nfo.stat().st_atime_ns, nfo.stat().st_mtime_ns + 10**9))
+        third, reads = self._nfo_run(media, db, provider)
+        self.assertEqual(reads, 1)
+        titles = [json.loads(row['candidates_json'])
+                  for row in read_rows(self.root / 'generated/library-metadata-field-candidates.csv')
+                  if row['field'] == 'title']
+        self.assertIn('Edited title', json.dumps(titles, ensure_ascii=False))
+        (media / 'poster.jpg').write_bytes(b'not read here')
+        _fourth, reads = self._nfo_run(media, db, provider)
+        self.assertEqual(reads, 1)
+
+    @windows_ledger_roots
+    def test_a_source_that_failed_is_kept_for_diagnosis_when_another_one_answered(self):
+        """r18.dev 没答上、DMM 给齐了：这部片照常完成，r18.dev 的原因作为告知项留在日志与诊断里，
+        不算问题、不进重试；说过「没有」的来源另记，和没答上的分开。"""
+        media = self.root / 'media'
+        media.mkdir()
+        (media / 'ABW-216.mp4').write_bytes(b'video')
+        db = fresh_ledger(self.root)
+        process_library(self._config(media), db, self.root / 'generated', self.root / 'covers', stage='scan')
+        provider = stub_provider()
+
+        def query(code, source='r18dev', **_):
+            if source == 'r18dev':
+                raise ConnectionError('r18.dev timed out')
+            if source == 'dmm':
+                return {'id': code, 'title': 'DMM title', 'maker': 'Studio', 'release_date': '2024-01-02',
+                        'actresses': [{'japanese_name': '涼森れむ'}], 'source_url': ''}
+            raise NotFound(*relayed('HTTP 404'))
+
+        provider.query.side_effect = query
+        provider.cover.return_value = False
+        state = process_library(self._config(media), db, self.root / 'generated', self.root / 'covers',
+                                stage='metadata', provider_factory=lambda: provider)
+        self.assertEqual((state['status'], state['issue_count'], state['retryable_asset_ids']), ('complete', 0, []))
+        self.assertEqual(state['notes'].get('partial_metadata'), 1)
+        rows = [json.loads(line) for line in Path(state['issues_log']).read_text(encoding='utf-8').splitlines()]
+        partial = next(row for row in rows if row.get('message_code') == 'errors.libraryProcessing.someSourcesUnfetched')
+        self.assertEqual((partial['severity'], partial['retryable'], partial['failed_action']),
+                         ('info', False, 'querying_metadata'))
+        self.assertIn('r18.dev', partial['message'])
+        self.assertEqual([failure['source'] for failure in partial['diagnostics']['failures']], ['r18dev'])
+
+    @windows_ledger_roots
+    def test_an_image_source_that_failed_is_kept_when_the_cover_still_landed(self):
+        """封面从别处取到了，没答上的图源原因照样留一条告知项，不算问题。"""
+        from peach.library_processing import phrase
+        media = self.root / 'media'
+        media.mkdir()
+        (media / 'ABW-217.mp4').write_bytes(b'video')
+        db = fresh_ledger(self.root)
+        process_library(self._config(media), db, self.root / 'generated', self.root / 'covers', stage='scan')
+        provider = self._provider()
+
+        def cover(code, cover_root, **_):
+            provider.cover_problems = [(phrase('errors.libraryProcessing.sourceProblem',
+                                               {'source': 'JavBus', 'problem': 'HTTP 503'}), False)]
+            return 1
+
+        provider.cover.side_effect = cover
+        state = process_library(self._config(media), db, self.root / 'generated', self.root / 'covers',
+                                stage='covers', provider_factory=lambda: provider)
+        self.assertEqual((state['status'], state['issue_count'], state['covers']), ('complete', 0, 1))
+        self.assertEqual(state['notes'].get('partial_cover'), 1)
+        rows = Path(state['issues_log']).read_text(encoding='utf-8')
+        self.assertIn('JavBus', rows)
+
+    @windows_ledger_roots
+    def test_a_kept_cover_with_a_blocked_source_is_a_note_and_is_not_asked_again_this_week(self):
+        """升级没成（来源被挡、别处不更大）：不记问题、不进重试名单，留一条告知项；下一趟直接短路（#144）。"""
+        from peach.library_processing import CoverKept, phrase
+        media = self.root / 'media'
+        media.mkdir()
+        (media / 'ABW-218.mp4').write_bytes(b'video')
+        db = fresh_ledger(self.root)
+        process_library(self._config(media), db, self.root / 'generated', self.root / 'covers', stage='scan')
+        provider = self._provider()
+
+        def cover(code, cover_root, **_):
+            provider.cover_problems = [(phrase('errors.libraryProcessing.sourceProblem',
+                                               {'source': 'MGStage', 'problem': 'HTTP 403'}), False)]
+            raise CoverKept('errors.libraryProcessing.coverNotImproved', {'width': 800, 'height': 539})
+
+        provider.cover.side_effect = cover
+        run = lambda: process_library(self._config(media), db, self.root / 'generated', self.root / 'covers',
+                                      stage='covers', provider_factory=lambda: provider)
+        state = run()
+        self.assertEqual((state['status'], state['issue_count'], state['retryable_asset_ids']), ('complete', 0, []))
+        self.assertEqual(state['notes'].get('partial_cover'), 1)
+        self.assertIn('MGStage', Path(state['issues_log']).read_text(encoding='utf-8'))
+        provider.cover.reset_mock()
+        run()
+        provider.cover.assert_not_called()
+
+    @windows_ledger_roots
+    def test_the_covers_stage_asks_only_for_covers(self):
+        """「只补封面」不问资料与人物资料，配额都用在封面上；新入库的影片照旧算待补全。"""
+        from peach.library_new_assets import pending, remember
+        media = self.root / 'media'
+        media.mkdir()
+        (media / 'ABW-215.mp4').write_bytes(b'video')
+        db = fresh_ledger(self.root)
+        process_library(self._config(media), db, self.root / 'generated', self.root / 'covers', stage='scan')
+        with closing(sqlite3.connect(db)) as connection:
+            asset_id = connection.execute('SELECT id FROM asset').fetchone()[0]
+        remember(db, [asset_id])
+        provider = self._provider()
+        provider.cover.return_value = True
+        state = process_library(self._config(media), db, self.root / 'generated', self.root / 'covers',
+                                stage='covers', provider_factory=lambda: provider)
+        self.assertEqual((state['status'], state['requested_stage'], state['covers']), ('complete', 'covers', 1))
+        provider.query.assert_not_called()
+        provider.community.assert_not_called()
+        self.assertEqual(provider.cover.call_args.args[0], 'ABW-215')
+        self.assertEqual([step['label_code'] for step in state['steps']][-1],
+                         'labels.libraryProcessing.step.fetchCovers')
+        self.assertEqual(pending(db), [asset_id])
+
+    def test_the_source_budget_follows_the_settings_and_defaults_stay(self):
+        """每趟采集预算三项按设置走，没设过、不在档位里的按默认（6000 次、4 小时、1 GiB）。"""
+        from peach.library_processing import LibraryMetadataProvider, SourceBudget, source_budget
+        db = fresh_ledger(self.root)
+        self.assertEqual(source_budget(db), SourceBudget(6000, 1024 ** 3, 4 * 3600))
+        with closing(sqlite3.connect(db)) as connection, connection:
+            connection.execute("UPDATE profile SET settings_json=? WHERE id='local-default'", (json.dumps(
+                {'sourceBudgetRequests': 24000, 'sourceBudgetHours': 12, 'sourceBudgetGigabytes': 3}),))
+        budget = source_budget(LedgerDatabase(db))
+        self.assertEqual(budget, SourceBudget(24000, 1024 ** 3, 12 * 3600))
+        transport = LibraryMetadataProvider(self.root / 'secrets', budget=budget).transport.inner
+        self.assertEqual((transport.max_requests, transport.max_bytes), (24000, 1024 ** 3))
+
+    @windows_ledger_roots
+    def test_local_evidence_is_not_reused_after_the_code_patterns_change(self):
+        """番号识别规则改了，旧的读法可能认出别的番号：跨任务的本地证据整份不用。"""
+        media = self.root / 'media'
+        media.mkdir()
+        (media / 'ABW-213.mp4').write_bytes(b'video')
+        (media / 'ABW-213.nfo').write_text('<movie><title>Local</title><sorttitle>ABW-213</sorttitle></movie>',
+                                           encoding='utf-8')
+        db = fresh_ledger(self.root)
+        provider = self._provider()
+        process_library(self._config(media), db, self.root / 'generated', self.root / 'covers', stage='scan')
+        self.assertEqual(self._nfo_run(media, db, provider)[1], 1)
+        with closing(sqlite3.connect(db)) as connection, connection:
+            connection.execute("UPDATE profile SET settings_json=? WHERE id='local-default'",
+                               (json.dumps({'codePatterns': [r'ZZZ-\d+']}),))
+        _state, reads = self._nfo_run(media, db, provider)
+        self.assertEqual(reads, 1)
 
     @windows_ledger_roots
     def test_candidates_are_written_once_for_a_short_batch_not_once_per_asset(self):

@@ -42,8 +42,12 @@ export interface Source {
   cooldown_until?: number | null;
 }
 
+/** 后台采集浏览器的模式：`window` 窗口留在屏幕外、验证可人工点；`headless` 不创建窗口、过不了就冷却。 */
+export type BrowserMode = 'window' | 'headless';
+
 export interface ScrapingData {
   sources: Source[];
+  browser_mode?: BrowserMode;
 }
 
 /** 一次连接检查的一项结果：来源页面，以及部分来源另有的高清图片地址。 */

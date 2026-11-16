@@ -63,6 +63,10 @@ export interface SyncedSettings {
   /** 「想要」老片多久再查一次（天），以及查几次没找到就暂时放弃（0 表示一直查）。 */
   wantStaleSearchDays?: number;
   wantStaleAttemptLimit?: number;
+  /** 每趟扫描与采集向外部来源要的总量：请求次数、小时数、GB 数，档位与服务端 `SOURCE_BUDGET_CHOICES` 一致。 */
+  sourceBudgetRequests?: number;
+  sourceBudgetHours?: number;
+  sourceBudgetGigabytes?: number;
 }
 
 export interface FollowScheduleStatus {

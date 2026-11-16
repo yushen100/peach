@@ -5,7 +5,7 @@ import logging
 
 from . import interface_text, settings_file
 from .library_processing_scope import scoped_config, scoped_assets
-from .library_processing import (ALL_STAGES, COLLECT_STAGE, SCAN_STAGE, STAGES,
+from .library_processing import (ALL_STAGES, COLLECT_STAGE, COVERS_STAGE, SCAN_STAGE, STAGES,
                                 METADATA_STAGE, PREVIEWS_STAGE, _asset_selection,
                                 decorate, issues_path, process_library, snapshot)
 from .processing_control import control_for, initial_estimate, valid_mode, mode_ratio
@@ -141,6 +141,8 @@ def q_library_processing(contract, _args):
     if recovery.get('status') == 'cancelled' and recovery.get('job_id') == state.get('job_id'):
         state.update(status='cancelled', outcome='cancelled', error='')
     state['retryable_asset_ids'] = _remaining_retry_ids(contract, state)
+    if _issues_all_removed(contract, state):
+        state['archived'] = True
     from .library_new_assets import pending
     state['new_asset_count'] = len(pending(contract.db_path))
     if state.get('status') not in ACTIVE and recovery.get('status') == 'blocked':
@@ -326,6 +328,67 @@ def _remaining_retry_ids(contract, previous):
             remaining.update(row[0] for row in connection.execute(
                 'SELECT id FROM asset WHERE disposal IS NULL AND id IN ('+','.join('?'*len(batch))+')',batch))
     return [value for value in ids if value in remaining]
+
+
+#: 问题日志 → (mtime_ns, 大小, 问题项的影片 id 或 None)。轮询每 10 秒一次，日志没变就不重读。
+_ISSUE_ASSETS: dict = {}
+
+
+def _issue_assets(path):
+    """问题日志里每一条问题项（告知项不算）对应的影片；有一条不带影片就是 None。"""
+    try:
+        info = path.stat()
+    except OSError:
+        return None
+    cached = _ISSUE_ASSETS.get(str(path))
+    if cached is not None and cached[:2] == (info.st_mtime_ns, info.st_size):
+        return cached[2]
+    from .library_processing import _note_key
+    ids = set()
+    try:
+        with path.open(encoding='utf-8') as handle:
+            for line in handle:
+                if not line.strip():
+                    continue
+                item = json.loads(line)
+                if _note_key(item):
+                    continue
+                asset_id = item.get('asset_id')
+                if isinstance(asset_id, bool) or not isinstance(asset_id, int):
+                    ids = None
+                    break
+                ids.add(asset_id)
+    except (OSError, ValueError, AttributeError):
+        ids = None
+    _ISSUE_ASSETS.clear()
+    _ISSUE_ASSETS[str(path)] = (info.st_mtime_ns, info.st_size, ids)
+    return ids
+
+
+def _issues_all_removed(contract, state):
+    """跑完、留有问题的那一趟，问题影片都已不在馆藏（删掉、进回收站或标「已消失」）时为真。
+
+    资源同步清掉失效条目后，那一趟的红框和悬浮提示就不该再要人处理：读状态时现算，
+    不改状态文件，问题日志原样留着；条目从回收站还原了，提示也跟着回来。来源离线时
+    账本不动，这里不会把「盘没挂上」当成「文件删了」。有一条问题不对应影片（准备工具失败、
+    预算到顶的汇总）就不算。"""
+    if (state.get('archived') or state.get('status') != 'failed' or state.get('outcome') != 'partial'
+            or not state.get('issue_count') or not state.get('job_id')):
+        return False
+    from pathlib import Path
+    path = Path(state['issues_log']) if state.get('issues_log') else issues_path(
+        settings_file.active(), str(state['job_id']))
+    ids = _issue_assets(path)
+    if not ids:
+        return False
+    ids = sorted(ids)
+    with contract.database.read_connection() as connection:
+        for offset in range(0, len(ids), 900):
+            batch = ids[offset:offset + 900]
+            if connection.execute('SELECT 1 FROM asset WHERE disposal IS NULL AND id IN ('
+                                  + ','.join('?' * len(batch)) + ') LIMIT 1', batch).fetchone():
+                return False
+    return True
 
 
 def _retry_ids(previous, body):
@@ -518,7 +581,8 @@ def w_library_processing(contract, body, *, resume=False):
     # 起步那行字按这一趟真正要做的事写：点了「只扫描」却看到「读取本地资料」，
     # 人会以为点错了。
     labels = {ALL_STAGES: 'library.startAll', SCAN_STAGE: 'library.startScan', COLLECT_STAGE: 'library.startCollect',
-              METADATA_STAGE: 'library.startCollect', PREVIEWS_STAGE: 'library.startPreviews'}
+              METADATA_STAGE: 'library.startCollect', COVERS_STAGE: 'library.fetchCovers',
+              PREVIEWS_STAGE: 'library.startPreviews'}
     estimate_ids = asset_ids if asset_ids is not None else retry_ids
     if incremental:
         from .library_new_assets import pending

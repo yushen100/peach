@@ -27,15 +27,39 @@ import { t } from '../../i18n';
 
 const THUMBNAIL_OPTIONS = [['off', t('settings:timelineThumbnails.off')], ['precise', t('settings:timelineThumbnails.precise')], ['coarse', t('settings:timelineThumbnails.coarse')]] as const;
 
+/* 每趟采集上限三档，与服务端 `library_processing.SOURCE_BUDGET_CHOICES` 一致；没设过时显示默认档。 */
+const SOURCE_BUDGET_ROWS = [
+  { key: 'sourceBudgetRequests', fallback: 6000, choices: [1500, 3000, 6000, 12000, 24000, 48000],
+    label: () => t('settings:sourceBudget.requests'), help: () => t('settings:sourceBudget.requestsHelp'),
+    option: (count: number) => t('settings:sourceBudget.requestCount', { count }) },
+  { key: 'sourceBudgetHours', fallback: 4, choices: [1, 2, 4, 8, 12, 24],
+    label: () => t('settings:sourceBudget.hours'), help: () => undefined,
+    option: (count: number) => t('settings:sourceBudget.hourCount', { count }) },
+  { key: 'sourceBudgetGigabytes', fallback: 1, choices: [1, 2, 4, 8, 16],
+    label: () => t('settings:sourceBudget.gigabytes'), help: () => undefined,
+    option: (count: number) => t('settings:sourceBudget.gigabyteCount', { count }) },
+] as const;
+
 export function TaskSpeedSettings({ receipt }: { receipt(message: string): void }) {
   const settings = useQuery({ queryKey: SETTINGS_KEY, queryFn: ({ signal }) => fetchSettings(signal) });
   const save = useSaveSettings();
   const error = save.error || settings.error;
+  const blocked = !settings.data || save.isPending;
   return <Section title={t('settings:taskSpeed.title')}>
     <Rows><SettingsRow label={t('settings:taskSpeed.defaultSpeed')} description={t('settings:taskSpeed.defaultSpeedHelp')}>
-      <ProcessingMode value={settings.data?.taskSpeedMode || 'standard'} busy={!settings.data || save.isPending}
+      <ProcessingMode value={settings.data?.taskSpeedMode || 'standard'} busy={blocked}
         onChange={(mode) => save.mutate({ taskSpeedMode: mode }, { onSuccess: () => receipt(t('settings:taskSpeed.saved')) })} />
-    </SettingsRow></Rows>
+    </SettingsRow>
+    {SOURCE_BUDGET_ROWS.map((row) => <SettingsRow key={row.key} label={row.label()} description={row.help()}>
+      <div id={`${row.key}Setting`} className="shrink-0">
+        <Select aria-label={row.label()} selectedKey={String(settings.data?.[row.key] ?? row.fallback)} isDisabled={blocked}
+          onSelectionChange={(key) => {
+            if (key !== null) save.mutate({ [row.key]: Number(key) }, { onSuccess: () => receipt(t('settings:sourceBudget.saved')) });
+          }}>
+          {row.choices.map((count) => <SelectItem key={count} id={String(count)}>{row.option(count)}</SelectItem>)}
+        </Select>
+      </div>
+    </SettingsRow>)}</Rows>
     {error ? <Stack divided><ErrorText>{errorMessage(error)}</ErrorText></Stack> : null}
   </Section>;
 }

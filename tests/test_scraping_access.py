@@ -148,6 +148,29 @@ class ScrapingAccessTests(unittest.TestCase):
                 self.assertEqual(shared.call_args.kwargs["direct"], direct)
                 self.assertEqual(shared.call_args.kwargs["proxy"], proxy)
 
+    def test_the_background_browser_mode_defaults_to_a_window_and_is_read_at_launch(self):
+        """后台采集浏览器默认保留窗口；设置成无窗口后，浏览器下次拉起时读到的是新模式。"""
+        from peach.scraping_access import browser_mode, save_browser_mode
+        self.assertEqual(browser_mode(self.root), "window")
+        transport = SourceTransport(self.root)
+        self.addCleanup(transport.close)
+        with patch("peach.browser_transport.shared") as shared:
+            transport._browser_for("javten")
+        headless = shared.call_args.kwargs["headless"]
+        self.assertFalse(headless())
+        self.assertEqual(save_browser_mode(self.root, "headless"), "headless")
+        self.assertTrue(headless())
+        with self.assertRaises(ValueError):
+            save_browser_mode(self.root, "minimized")
+        self.assertEqual(browser_mode(self.root), "headless")
+        from peach.web_scraping import w_scraping_settings
+        contract = SimpleNamespace(follow_secrets_root=self.root)
+        self.assertEqual(w_scraping_settings(contract, {"browser_mode": "window"}),
+                         {"ok": True, "browser_mode": "window"})
+        self.assertEqual(q_scraping(contract, {})["browser_mode"], "window")
+        (self.root / "scraping-browser.json").write_text("{broken", encoding="utf-8")
+        self.assertEqual(browser_mode(self.root), "window", "存坏了按默认")
+
     def test_switching_networks_releases_the_previous_exit_cooldown(self):
         from peach.scraping_access import pause_source, paused_until
         pause_source(self.root, 'airav', refused=True)
@@ -250,7 +273,7 @@ class ScrapingAccessTests(unittest.TestCase):
 
         「请求预算」是这个类内部的词：看到它的人在问题清单里只能读出「有个数用完了」，
         既不知道那个数归谁管，也不知道自己还要不要动手。一趟任务的用量见
-        `library_processing.MAX_SOURCE_*`。
+        `library_processing.SourceBudget`。
         """
         from peach.scraping_access import SourcePaused
         request = HttpRequest("GET", "https://javdb.com/search?q=ABW-358", {})
@@ -276,9 +299,13 @@ class ScrapingAccessTests(unittest.TestCase):
         三家并行也要 4 小时才用得完，时间不会先掐断请求数。每次约 250 KB，1 GiB 装得下。
         """
         from peach import library_processing
-        self.assertEqual(library_processing.MAX_SOURCE_REQUESTS, 6000)
-        self.assertEqual(library_processing.MAX_SOURCE_BYTES, 1024 * 1024 * 1024)
-        self.assertEqual(library_processing.MAX_SOURCE_SECONDS, 4 * 3600)
+        self.assertEqual(library_processing.SourceBudget(), library_processing.SourceBudget(
+            requests=6000, bytes=1024 * 1024 * 1024, seconds=4 * 3600))
+        # 设置里能选的档位要包含默认档：没调过的人看到的就是现在这一档。
+        self.assertEqual(library_processing.source_budget_settings({}), {
+            'sourceBudgetRequests': 6000, 'sourceBudgetHours': 4, 'sourceBudgetGigabytes': 1})
+        for key, value in library_processing.SOURCE_BUDGET_DEFAULTS.items():
+            self.assertIn(value, library_processing.SOURCE_BUDGET_CHOICES[key])
 
     def test_a_community_source_that_refuses_is_paused_as_a_whole(self):
         """javdb 超配额回 403 不带 Retry-After，接着问只会每条都再撞一次、把封期拖长。"""
@@ -769,6 +796,28 @@ class ScrapingAccessTests(unittest.TestCase):
                          "Can't connect. On China Mobile broadband, direct connections to DMM image hosts are often "
                          "dropped after the handshake; set the DMM / FANZA connection to the Peach proxy.")
 
+
+    def test_the_dmm_check_asks_the_catalog_api_instead_of_the_age_gated_home_page(self):
+        """DMM 首页 301 到 fanza.jp 再落到年龄确认页，按首页查永远是「要登录」（#144）；采集走的是
+        不设年龄门的 GraphQL 接口，检查问它。"""
+        sent = []
+
+        def respond(request, timeout, max_bytes):
+            sent.append(request)
+            if request.url.startswith("https://api.video.dmm.co.jp/"):
+                return HttpResponse(200, {"content-type": "application/json"},
+                                    b'{"data":{"__typename":"Query"}}', request.url)
+            buffer = io.BytesIO()
+            Image.new("RGB", (800, 538)).save(buffer, format="JPEG")
+            return HttpResponse(206, {"content-type": "image/jpeg"}, buffer.getvalue(), request.url)
+
+        with patch("peach.source_checks.SourceTransport") as factory:
+            factory.return_value.side_effect = respond
+            checks = {item["target"]: item for item in
+                      w_scraping_check(SimpleNamespace(follow_secrets_root=self.root), {"source": "dmm"})["results"]}
+        self.assertEqual((checks["page"]["ok"], checks["page"]["reason"]), (True, "ok"))
+        self.assertEqual((sent[0].method, sent[0].url), ("POST", "https://api.video.dmm.co.jp/graphql"))
+        self.assertTrue(checks["cdn"]["ok"])
 
 class BrowserFallbackTests(unittest.TestCase):
     """登记了 `browser_fallback` 的来源（minnano-av）：HTTP 客户端被拦时由本机浏览器验证一页，

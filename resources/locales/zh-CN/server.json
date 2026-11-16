@@ -1659,7 +1659,8 @@
       "rateLimitedNamed": "{{label}} 限流，约 {{minutes}} 分钟后再试",
       "refusedNamed": "{{label}} 拒绝了当前出口的请求，多半是请求太频繁或出口被拦；暂停约 {{minutes}} 分钟，也可以在代理里给它换一个出口",
       "refusedCookieNamed": "{{label}} 拒绝了请求：可能是请求太频繁、出口被拦，或贴过的 Cookie 已过期；暂停约 {{minutes}} 分钟，可以换个出口或重贴 Cookie",
-      "refused": "来源拒绝访问，暂停向它请求一段时间；已有图片保留"
+      "refused": "来源拒绝访问，暂停向它请求一段时间；已有图片保留",
+      "browserModeInvalid": "采集浏览器模式只收 {{choices}}"
     },
     "downloadPostprocess": {
       "noLandingPath": "下载任务没有落地路径",
@@ -2157,7 +2158,9 @@
       "captureUnfetched": "视频抽帧未取得，反馈问题请导出诊断报告",
       "previewTimeout": "生成预览图超时，请重试",
       "previewFailed": "生成预览图失败，请检查 FFmpeg 与目录权限后重试",
-      "toolsNotPrepared": "采集工具准备失败：{{error}}"
+      "toolsNotPrepared": "采集工具准备失败：{{error}}",
+      "someSourcesUnfetched": "已从其他来源取到资料；没答上的来源：{{problems}}",
+      "someCoverSourcesUnfetched": "封面已有；没答上的图源：{{problems}}"
     },
     "followStream": {
       "coolingDown": "{{provider}} 限流冷却中，{{seconds}} 秒后再试",
@@ -3540,7 +3543,8 @@
         "checkCompanions": "检查配套文件",
         "makePreviews": "生成视频预览",
         "checkPreviewSettings": "检查媒体预览设置",
-        "fetchMetadataAndCovers": "采集外部资料与封面"
+        "fetchMetadataAndCovers": "采集外部资料与封面",
+        "fetchCovers": "采集缺失封面"
       },
       "source": {
         "onePondo": "一本道",

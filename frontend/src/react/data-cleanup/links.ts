@@ -50,6 +50,9 @@ export interface LinkRow {
   /** 取不到时那句的 code 与参数；有译文时显示译文。 */
   note_code?: string;
   note_params?: Record<string, unknown>;
+  /** 取不到且像是暂时的（连不上、超时、限流、5xx），这一趟里自动重查过；`attempts` 是一共问了几次。 */
+  temporary?: boolean;
+  attempts?: number;
 }
 
 export interface LinkCheckState {

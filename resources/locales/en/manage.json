@@ -694,6 +694,8 @@
     "busyOrigin": "The current Scan & fetch task ({{origin}}) hasn't finished. Start a new sync after it finishes or is canceled.",
     "canceledBody": "Fetched metadata and previews are kept. This run won't resume on its own; sync again when needed.",
     "canceledTitle": "Last task canceled",
+    "coversFetched": "Added {{count, number}} covers.",
+    "coversToast": "Covers filled in: {{count, number}}",
     "currentLibraryName": "Library for current task: {{name}}",
     "currentLine": "Now: {{file}} · {{action}}{{waited}}",
     "disconnected": "Connection lost. Reloading progress…",
@@ -956,6 +958,8 @@
     "spaceUsed": "Space used"
   },
   "syncMenu": {
+    "coversOnly": "Fill in covers only",
+    "coversOnlyHint": "Finds missing covers without looking up metadata",
     "fillGroup": "Fill-in options",
     "fillImportedTitle": "Fill in imported videos",
     "fillMetadataHint": "Fills in metadata and video properties, and generates previews",
@@ -988,6 +992,7 @@
     "syncTheseVideos": "Sync these videos",
     "workCollect": "Fills in metadata and video properties for imported videos, and generates previews",
     "workCollectNoPreviews": "Fills in metadata and video properties for imported videos",
+    "workCovers": "Reads sidecar files and finds covers for videos missing one, without looking up metadata",
     "workFindNew": "Finds and adds new files that aren't imported yet, keeping existing metadata",
     "workFull": "Scans directories for files, fills in metadata and video properties, and generates previews",
     "workFullNoPreviews": "Scans directories for files, then fills in metadata and video properties",

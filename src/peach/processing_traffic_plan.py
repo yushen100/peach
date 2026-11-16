@@ -54,7 +54,10 @@ def typical_size(directory, pattern, fallback):
 class TrafficPlan:
     def __init__(self, config, stage, media_key, *, allow_metered=False):
         from .library_processing import _MissCache, _RemoteSession, misses_path
+        from .library_processing import MAX_SOURCE_BYTES
         self.config, self.stage, self.media_key = config, stage, media_key
+        #: 本趟采集预算里的下载字节上限；`ProcessingTraffic` 按账本设置换掉默认档。
+        self.budget_bytes = MAX_SOURCE_BYTES
         self.allow_metered = allow_metered
         self.remote = _RemoteSession(config, None, _MissCache(misses_path(config)), retrying=False)
         self.cover_root = config.directory('generated') / 'covers'
@@ -141,7 +144,8 @@ class TrafficPlan:
                     if not self._ready(code):
                         self._add('local:' + path, key, self.cover_bytes)
                     title = self.titles.setdefault(code, dict(row=row, missing=set()))
-                    title['missing'].update(_missing_fields(row))
+                    if self.stage != 'covers':
+                        title['missing'].update(_missing_fields(row))
                     changed.add(code)
             self._media(row, key)
         for code in changed:
@@ -161,7 +165,7 @@ class TrafficPlan:
         if skip_background_read(path):
             return
         size = max(0, row.get('size') if row.get('size') is not None else 9 * 8 * MIB)
-        if (self.stage != 'metadata' and row.get('duration') is None
+        if (self.stage not in ('metadata', 'covers') and row.get('duration') is None
                 and cost_for(row['location'], path, self.config) == 'free'):
             self._add('media:' + path, key, min(size, self.history.average(key + ':probe', 8 * MIB)))
         if (self.stage in ('all', 'collect', 'previews')
@@ -214,7 +218,8 @@ class TrafficPlan:
         for row, code, verify, local_fields, *_ in prepared:
             if code and _scrapes_as_jav(row, code):
                 title = titles.setdefault(code, dict(row=row, missing=set()))
-                title['missing'].update(COLLECTED_FIELDS if verify else _missing_fields(row, local_fields))
+                if self.stage != 'covers':
+                    title['missing'].update(COLLECTED_FIELDS if verify else _missing_fields(row, local_fields))
         for code, title in titles.items():
             self._downloads(code, title)
 
@@ -240,7 +245,6 @@ class TrafficPlan:
             self.refresh(list(self.assets))
 
     def remaining(self, rows):
-        from .library_processing import MAX_SOURCE_BYTES
         planned = dict.fromkeys(rows, 0)
         for unit in self.units.values():
             for key, amount in unit.items():
@@ -249,7 +253,7 @@ class TrafficPlan:
         download_keys = [key for key, row in rows.items() if not row['root']]
         outside = {key: sum(unit.get(key, 0) for unit in self.outside_budget.values()) for key in download_keys}
         wanted = sum(planned[key] - outside[key] for key in download_keys)
-        budget = max(0, MAX_SOURCE_BYTES - sum(rows[key]['used_bytes'] for key in download_keys))
+        budget = max(0, self.budget_bytes - sum(rows[key]['used_bytes'] for key in download_keys))
         if wanted > budget:
             remaining = budget
             for key in download_keys:

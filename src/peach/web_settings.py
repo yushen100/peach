@@ -63,11 +63,13 @@ INTERFACE_LANGUAGE_CHOICES = ("auto", *INTERFACE_LANGUAGES)
 #: 界面语言（ADR-0156）是用这套馆藏的那个人读的语言，每个部署只有一人，换台设备不该再选一遍。
 #: 浏览器入库没搜到资源时加不加入想要（ADR-0161）是服务端在入库队列里做的事，同样跟着账本走。
 #: 「想要」老片多久查一次、查几次放弃（`wants.cadence`）是定时查找读的，同样跟着账本走。
+#: 扫描与采集每趟向外部来源要多少（`library_processing.source_budget`）是后台任务读的，同样跟着账本走。
 SYNCED_SETTING_KEYS = frozenset({
     "sidebarOrder", "manageOrder", "navigationOrders", "libraryOrder", "followInitialDays", "postSetupTutorialDone",
     "organizeTemplates", "feedHideGroupCompilations", "feedHideSoloCompilations",
     "feedHideExcerpts", "searchHistoryLimit", "codePatterns", "performerNameLanguage", "taskSpeedMode",
     "interfaceLanguage", "javBrowserWantOnNoMatch", "wantStaleSearchDays", "wantStaleAttemptLimit",
+    "sourceBudgetRequests", "sourceBudgetHours", "sourceBudgetGigabytes",
 })
 #: 「想要」两项节奏设置的键、档位校验与报错 code。
 WANT_CADENCE_KEYS = (
@@ -259,6 +261,7 @@ def _stored(contract: SettingsContract) -> dict:
 
 def q_settings(contract: SettingsContract, _args=None) -> dict:
     """读取跟人走的那部分设置。缺省时返回默认值，不返回空。"""
+    from .library_processing import source_budget_settings
     payload = _stored(contract)
     cadence = wants.cadence_from(payload)
     return {
@@ -281,6 +284,7 @@ def q_settings(contract: SettingsContract, _args=None) -> dict:
         "javBrowserWantOnNoMatch": payload.get("javBrowserWantOnNoMatch") is not False,
         "wantStaleSearchDays": cadence.stale_every.days,
         "wantStaleAttemptLimit": cadence.attempt_limit,
+        **source_budget_settings(payload),
     }
 
 
@@ -294,6 +298,19 @@ def _want_cadence_patch(body):
                 raise UserValueError("api.settings.choiceInvalid",
                                      {"key": key, "choices": "/".join(map(str, choices))})
             patch[key] = value
+    return patch
+
+
+def _source_budget_patch(body):
+    """每趟采集预算三项：只收 `SOURCE_BUDGET_CHOICES` 里的档位，不在档位里的值整次拒收。"""
+    from .library_processing import SOURCE_BUDGET_CHOICES
+    patch = {}
+    for key, choices in SOURCE_BUDGET_CHOICES.items():
+        if key in body:
+            value = body[key]
+            if isinstance(value, bool) or value not in choices:
+                raise UserValueError("api.settings.choiceInvalid", {"key": key, "choices": "/".join(map(str, choices))})
+            patch[key] = int(value)
     return patch
 
 
@@ -328,6 +345,7 @@ def w_settings(contract: SettingsContract, body) -> dict:
     merged = _stored(contract)
     merged.update(_navigation_patch(body))
     merged.update(_want_cadence_patch(body))
+    merged.update(_source_budget_patch(body))
     if "taskSpeedMode" in body:
         from .processing_control import valid_mode
         merged["taskSpeedMode"] = valid_mode(body["taskSpeedMode"])

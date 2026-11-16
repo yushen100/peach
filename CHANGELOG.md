@@ -16,6 +16,8 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Added / 新增
 
+- **Following**: A SimpCity post with several images shows all of them in Following details, in post order, with the existing image carousel (#575). / **关注**：SimpCity 一层楼有多张图时，关注详情按正文顺序列出全部图片，可以轮播切换（#575）。
+- **Sourcing**: Scan and collection can Fill in covers only without metadata lookups, and Background tasks settings cap each run's requests, time and downloads (#589). / **采集**：扫描与采集新增「仅补全封面」，不查影片资料；「后台任务」里可调每趟的请求次数、时长和下载上限（#589）。
 - **Library**: Profile name menus can merge duplicate actress, label, creator, series and agency profiles; a new alias that another profile already uses offers it too (#207). / **馆藏**：女优、厂牌、创作者、系列与事务所的名字菜单可合并重复档案，添加的别名已被另一份档案使用时也会提示合并（#207）。
 - **Library**: Edit details next to the title changes the code, title, date, region, performers, label, series and tags; edited values aren't overwritten by collection (#187). / **馆藏**：详情标题旁新增「编辑资料」，可改番号、标题、日期、产地、演员、厂牌、系列与标签，改过的值不再被采集覆盖（#187）。
 - **Library**: Performers, labels and series not found in Edit details can be created on the spot and carry a Custom tag in rosters and details (#549). / **馆藏**：编辑资料里搜不到的演员、厂牌、系列可直接新建，名册与详情上带「自建」标记（#549）。
@@ -70,9 +72,18 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Library**: Avatars installed while the face model was unavailable get face framing after upgrade, using only local images (#715). / **馆藏**：人脸模型不可用时装上的头像，升级后补上按脸取景，只读本机图片（#715）。
 - **Ledger**: Docker and peach serve also prune old ledger backups, and one upgrade writes a single pre-upgrade backup instead of one per repair (#715). / **账本**：Docker 与 peach serve 也按保留份数清理账本备份，一次升级只写一份升级前备份（#715）。
 - **Ledger**: Failed task records, empty crash logs, repair resume files and processing state files no longer pile up; upgrading clears the backlog (#715). / **账本**：失败的任务记录、空崩溃日志、补修续跑文件和处理状态文件不再越积越多，升级时清掉旧版积下的（#715）。
+- **Desktop**: If resuming interrupted tasks gets stuck, Peach sets that round aside after five minutes and keeps resuming the other tasks (#144). / **桌面**：接回中断任务卡住时，五分钟后放下那一轮，其余任务照常接回（#144）。
+- **Sourcing**: The DMM / FANZA connection check tests the catalog API collection uses, so the age-check redirect no longer reads as sign-in required (#144). / **采集**：DMM / FANZA 的连接检查改查采集实际用的目录接口，首页跳到年龄确认不再被误判为需要登录（#144）。
+- **Sourcing**: Videos that already have a usable cover no longer re-ask every source each run when an official source is blocked; they wait a week and log a note (#144). / **采集**：已有可用封面的影片在官方来源被拦时，不再每趟把来源全问一遍，改为一周后再试并留一条告知（#144）。
+- **Library**: Link check retries links that time out, are throttled or hit a server error a few times, and marks the ones still failing as temporary (#566). / **馆藏**：链接检查对超时、限流和服务器故障的链接自动再试几轮，仍打不开的注明是临时故障（#566）。
+- **Sourcing**: When one source answers, the reasons other sources failed (timeout, throttling, refusal, image download) stay in the run log and diagnostics (#573). / **采集**：有来源答上时，其余来源超时、限流、被拒或图片下载失败的原因照样留在运行日志和诊断里（#573）。
+- **Sourcing**: The background collection browser no longer jumps to the front; Sources settings can switch it to no window, where a failed check pauses that source (#309). / **采集**：后台采集浏览器不再跳到前台；「来源与采集」里可改为无窗口，验证过不了就暂停该来源（#309）。
+- **Interface**: Wide or edge-to-edge site icons in round slots keep their whole mark instead of losing both ends or the corners (#576). / **界面**：横向或顶到边的站点图标放进圆形位置时完整显示，不再被裁掉两头或四角（#576）。
 - **Sourcing**: Background jobs no longer use your JavDB account, so it isn't suspended for browsing too fast; a suspension shows its resume time (#702). / **采集**：后台任务读 JavDB 不再带登录账号，免得账号被判浏览过快停用；账号被停时提示停的是账号和恢复时间（#702）。
 - **Sourcing**: When browser adds pause for search, they name the source being waited for, and account suspensions say resume times like "at 21:39 tonight" (#716). / **采集**：浏览器添加因搜索暂停时点名在等哪个来源，账号停用的恢复时间写成「今晚 21:39」（#716）。
 - **Sourcing**: Refused sources show who and for how long instead of asking for a new cookie, and one paused source no longer stalls a browser batch (#702). / **采集**：来源被拒时点名并写明暂停多久，不再一律让人更新 Cookie；某个来源暂停时浏览器添加不再整批干等一天（#702）。
+- **Library**: Once every video with a problem in the last scan has been cleaned up by Resource sync or marked missing, its alert and floating notice go away (#166). / **馆藏**：上一趟扫描出问题的影片都被资源同步清掉或标为已消失后，那条告警和悬浮提示自动撤下（#166）。
+- **Sourcing**: Retry and later processing runs skip Check companion files for videos whose folders haven't changed, instead of rereading every NFO (#587). / **采集**：「立即重试」和之后的处理任务里，文件夹没变过的影片不再重读 NFO，「检查配套文件」快很多（#587）。
 - **Library**: DMM video previews in JAV details play again after DMM moved them to a new host (#697). / **馆藏**：DMM 换了预告视频的主机后，JAV 详情里的 DMM 视频预览重新能播（#697）。
 - **Sourcing**: Blu-ray editions in New releases merge into their DMM streaming edition, so they get the official cover and no longer appear twice (#694). / **采集**：新作里的蓝光版并入 DMM 配信版，能取到官方封面，也不再和配信版重复列出（#694）。
 - **Library**: The Keep dropdown in Merge tags under tag management shows its options again (#187). / **馆藏**：标签管理里「合并标签」的「保留」下拉能看到选项了（#187）。

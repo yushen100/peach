@@ -170,9 +170,11 @@ class BrowserTransportTests(unittest.TestCase):
             self.processes.append(process)
             return process
 
+        # 多数用例按无窗口模式验；窗口模式的用例显式传 `headless=lambda: False`。
+        options.setdefault("headless", lambda: True)
         transport = BrowserTransport(executable, self.profile, ("--no-proxy-server",), popen=popen,
                                      targets=server.targets, clock=self.clock, sleep=self.clock.sleep,
-                                     auto_seconds=40, click_seconds=120, idle_seconds=600, **options)
+                                     auto_seconds=40, idle_seconds=600, **options)
         self.addCleanup(transport.close)
         return transport, server
 
@@ -206,10 +208,10 @@ class BrowserTransportTests(unittest.TestCase):
         self.assertEqual([params for method, params in server.calls if method == "Page.navigate"],
                          [{"url": "https://javten.com/search?kw=2", "referrer": "https://javten.com/"}],
                          "上一跳只作主文档的 Referer：挂在会话上会让 Turnstile 勾选框的 iframe 被浏览器拦下")
-        # 启动参数：调试口、关掉自动化标记与它的警告条、不同步、profile 在凭据根下、窗口在屏幕外、来源的连接方式。
+        # 启动参数：调试口、不同步、独立 profile、无窗口模式与来源的连接方式。
         command = self.launches[0]
         for flag in ("--remote-debugging-port=0", "--disable-blink-features=AutomationControlled", "--test-type",
-                     "--disable-sync", f"--user-data-dir={self.profile}", "--window-position=-32000,-32000",
+                     "--disable-sync", f"--user-data-dir={self.profile}", "--headless=new",
                      "--no-proxy-server"):
             self.assertIn(flag, command)
         self.assertNotIn("--inprivate", command, "Chrome 不会拿系统账号登录，用持久 profile 留住 cf_clearance")
@@ -242,6 +244,7 @@ class BrowserTransportTests(unittest.TestCase):
         self.assertIn(f"--window-position={browser_transport.ONSCREEN[0]},{browser_transport.ONSCREEN[1]}", command)
         self.assertIn(f"--user-data-dir={self.profile}", command)
         self.assertNotIn("--inprivate", command, "登录要的 localStorage 必须落在 profile 里")
+        self.assertNotIn("--headless=new", command, "主动登录保留可操作窗口")
         self.assertNotIn("Network.setBlockedURLs", [method for method, _params in server.calls],
                          "登录页和人机验证靠图片与字体渲染")
 
@@ -278,7 +281,7 @@ class BrowserTransportTests(unittest.TestCase):
         self.assertFalse(any(method == "Network.deleteCookies" for method, _ in server.calls), "几秒就过的验证不动 cookie")
         self.assertEqual(browser_transport.attention(), [])
 
-    def test_a_stuck_challenge_gets_the_sites_cookies_cleared_and_reloaded_before_anyone_is_asked(self):
+    def test_a_stuck_challenge_gets_the_sites_cookies_cleared_and_reloaded_in_the_background(self):
         """验证页转了 15 秒还没过：只删这一站的 cookie、重新导航，重载后过了就照常读文档，窗口不动、不提醒。"""
         cleared_at = []
 
@@ -311,7 +314,6 @@ class BrowserTransportTests(unittest.TestCase):
                          "清完重新导航一次，重载照样带上一跳")
         self.assertFalse(any(method == "Browser.setWindowBounds" for method, _ in server.calls), "重载后过了就不惊动人")
         self.assertEqual(browser_transport.attention(), [])
-        self.assertEqual(transport._unsolved, set())
 
     def test_a_page_mid_navigation_counts_as_loading(self):
         """跳转那一瞬执行环境被销毁、脚本报错：当作还在加载，下一秒再看。"""
@@ -328,101 +330,28 @@ class BrowserTransportTests(unittest.TestCase):
         transport, _server = self.make(handler)
         self.assertEqual(transport(HttpRequest("GET", "https://javten.com/x", {}), 10, 4096).status, 200)
 
-    def test_a_challenge_that_needs_a_click_shows_the_window_and_asks_for_attention(self):
-        attention_seen = []
+    def test_a_challenge_stays_in_the_background_and_the_next_request_can_succeed(self):
+        passed = False
 
         def handler(method, params):
             if method == "Runtime.evaluate" and is_document(params):
                 return {"result": {"value": document_reply("https://fc2ppv-db.com/ja/videos/1")}}
             if method == "Runtime.evaluate":
-                if self.clock.now - started >= 60:
-                    attention_seen.append(browser_transport.attention())
+                if passed:
                     return {"result": {"value": state_reply("FC2PPV Database", url="https://fc2ppv-db.com/ja/videos/1")}}
                 return {"result": {"value": state_reply("Just a moment...")}}
             return self.generic(method, params)
 
         transport, server = self.make(handler)
-        started = self.clock.now
-        transport(HttpRequest("GET", "https://fc2ppv-db.com/ja/videos/1", {}), 10, 4096)
-        bounds = [params["bounds"] for method, params in server.calls if method == "Browser.setWindowBounds"]
-        self.assertEqual(bounds, [{"windowState": "normal"}, {"left": 200, "top": 100, "width": 1000, "height": 800},
-                                  {"windowState": "minimized"}], "先放回屏幕内，过了再收起")
-        self.assertIn("Page.bringToFront", [method for method, _ in server.calls])
-        self.assertEqual(attention_seen[0], ["fc2ppv-db.com verification needs a click; the browser window is open"])
-        self.assertEqual(browser_transport.attention(), [], "过了就撤回提醒")
-
-    def test_minimizing_the_offscreen_window_on_a_challenge_brings_it_on_screen(self):
-        """验证页还在自动阶段，用户点任务栏把屏幕外的窗口最小化了：当作要看，先恢复常态再放到屏幕内、顶到前面。
-
-        屏幕外窗口的还原位置也在屏幕外，不这样拉回来，点任务栏还原仍看不见。上次没点过去的站也照样弹。"""
-        window_moves = []
-        attention_seen = []
-
-        def handler(method, params):
-            if method in ("Browser.setWindowBounds", "Page.bringToFront"):
-                window_moves.append((method, params.get("bounds")))
-            if method == "Browser.getWindowBounds":
-                state = "minimized" if self.clock.now - started >= 5 else "normal"
-                return {"bounds": {"left": -16384, "top": -16384, "width": 1000, "height": 800, "windowState": state}}
-            if method == "Runtime.evaluate" and is_document(params):
-                return {"result": {"value": document_reply("https://javten.com/x")}}
-            if method == "Runtime.evaluate":
-                if self.clock.now - started >= 10:
-                    attention_seen.append(browser_transport.attention())
-                    return {"result": {"value": state_reply("JAVten", url="https://javten.com/x")}}
-                return {"result": {"value": state_reply("Just a moment...")}}
-            return self.generic(method, params)
-
-        transport, server = self.make(handler)
-        transport._unsolved.add("javten.com")
-        started = self.clock.now
-        self.assertEqual(transport(HttpRequest("GET", "https://javten.com/x", {}), 10, 4096).status, 200)
-        self.assertEqual(window_moves, [
-            ("Browser.setWindowBounds", {"windowState": "normal"}),
-            ("Browser.setWindowBounds", {"left": 200, "top": 100, "width": 1000, "height": 800}),
-            ("Page.bringToFront", None),
-            ("Browser.setWindowBounds", {"windowState": "minimized"}),
-        ], "状态与坐标分两步给，还原位置因此落在屏幕内；过了再收起")
-        self.assertEqual({params["windowId"] for method, params in server.calls
-                          if method in ("Browser.setWindowBounds", "Browser.getWindowBounds")}, {7})
-        self.assertFalse(any(method == "Network.deleteCookies" for method, _ in server.calls),
-                         "用户已经在看，不再等 15 秒清 cookie")
-        self.assertEqual(attention_seen[0], ["javten.com verification needs a click; the browser window is open"])
+        with self.assertRaises(ChallengeUnsolved):
+            transport(HttpRequest("GET", "https://fc2ppv-db.com/ja/videos/1", {}), 10, 4096)
+        self.assertFalse(any(method in {"Page.bringToFront", "Browser.setWindowBounds"}
+                             for method, _ in server.calls))
         self.assertEqual(browser_transport.attention(), [])
+        passed = True
+        self.assertEqual(transport(HttpRequest("GET", "https://fc2ppv-db.com/ja/videos/1", {}), 10, 4096).status, 200)
 
-    def test_a_window_put_away_by_peach_is_not_taken_for_a_user_summons(self):
-        """Peach 自己收起（最小化）的窗口还原位置已在屏幕内：下一次撞验证照常先等自动通过，不因为它最小化着就弹。"""
-        phase = {"needs_click": True, "window": "normal"}
-
-        def handler(method, params):
-            if method == "Browser.setWindowBounds" and "windowState" in params["bounds"]:
-                phase["window"] = params["bounds"]["windowState"]
-            if method == "Browser.getWindowBounds":
-                return {"bounds": {"left": 200, "top": 100, "width": 1000, "height": 800, "windowState": phase["window"]}}
-            if method == "Runtime.evaluate" and is_document(params):
-                return {"result": {"value": document_reply("https://javten.com/x")}}
-            if method == "Runtime.evaluate":
-                passed_at = 60 if phase["needs_click"] else 3
-                if self.clock.now - started >= passed_at:
-                    return {"result": {"value": state_reply("JAVten", url="https://javten.com/x")}}
-                return {"result": {"value": state_reply("Just a moment...")}}
-            return self.generic(method, params)
-
-        transport, server = self.make(handler)
-        started = self.clock.now
-        transport(HttpRequest("GET", "https://javten.com/x", {}), 10, 4096)
-        shows = [params for method, params in server.calls
-                 if method == "Browser.setWindowBounds" and params["bounds"].get("windowState") == "normal"]
-        self.assertEqual(len(shows), 1, "第一次是自动阶段到点才弹")
-        self.assertEqual(phase["window"], "minimized", "过了就收起")
-        phase["needs_click"] = False
-        started = self.clock.now
-        transport(HttpRequest("GET", "https://javten.com/x", {}), 10, 4096)
-        shows = [params for method, params in server.calls
-                 if method == "Browser.setWindowBounds" and params["bounds"].get("windowState") == "normal"]
-        self.assertEqual(len(shows), 1, "收起后的最小化不算用户唤出")
-
-    def test_an_unsolved_challenge_is_reported_and_the_window_is_put_away(self):
+    def test_an_unsolved_challenge_is_reported_and_the_page_is_cleared(self):
         def handler(method, params):
             if method == "Runtime.evaluate":
                 return {"result": {"value": state_reply("Just a moment...")}}
@@ -435,15 +364,15 @@ class BrowserTransportTests(unittest.TestCase):
         self.assertEqual(browser_transport.attention(), [])
         states = [params["bounds"].get("windowState") for method, params in server.calls
                   if method == "Browser.setWindowBounds"]
-        self.assertEqual(states, ["normal", None, "minimized"])
+        self.assertEqual(states, [])
         navigations = [params for method, params in server.calls if method == "Page.navigate"]
         self.assertEqual(navigations[-1], {"url": "about:blank"},
                          "放弃后把验证页换成空白页：留在窗口里它每 50 秒自己重载一次")
         self.assertEqual(len(navigations), 3, "首次导航、清 cookie 重载、空白页")
         self.assertIsNone(self.processes[0].returncode, "验证没过不是浏览器坏了，进程留着")
 
-    def test_a_site_whose_window_went_unclicked_is_not_shown_again_until_a_page_loads(self):
-        """同一站弹过窗口没点过去：再撞验证只等自动时限就报、不弹窗；哪次页面正常打开后再撞才重新弹。"""
+    def test_repeated_challenges_stay_in_the_background_even_after_recovery(self):
+        """连续失败、恢复后再次失败都只结束当前请求，不操作窗口。"""
         passes = {"through": False}
 
         def handler(method, params):
@@ -463,13 +392,13 @@ class BrowserTransportTests(unittest.TestCase):
         request = HttpRequest("GET", "https://javten.com/x", {})
         with self.assertRaises(ChallengeUnsolved):
             transport(request, 10, 4096)
-        self.assertEqual(window_shows(server), 1)
+        self.assertEqual(window_shows(server), 0)
         started = self.clock.now
         with self.assertRaises(ChallengeUnsolved) as caught:
             transport(request, 10, 4096)
-        self.assertIn("not shown again", str(caught.exception))
-        self.assertLessEqual(self.clock.now - started, 56, "不弹窗就只等清 cookie 那 15 秒加自动时限，不再多等点击那 120 秒")
-        self.assertEqual(window_shows(server), 1, "弹过一次没点过去，这次不弹")
+        self.assertIn("background request was ended", str(caught.exception))
+        self.assertEqual(self.clock.now - started, 20)
+        self.assertEqual(window_shows(server), 0)
         self.assertEqual(browser_transport.attention(), [])
         self.assertEqual([params for method, params in server.calls if method == "Page.navigate"][-1],
                          {"url": "about:blank"}, "不弹窗直接放弃的那条路径同样把验证页换成空白页")
@@ -478,7 +407,8 @@ class BrowserTransportTests(unittest.TestCase):
         passes["through"] = False
         with self.assertRaises(ChallengeUnsolved):
             transport(request, 10, 4096)
-        self.assertEqual(window_shows(server), 2, "页面正常打开过一次之后再撞验证，重新弹窗")
+        self.assertEqual(window_shows(server), 0)
+        self.assertFalse(any(method == "Page.bringToFront" for method, _ in server.calls))
 
     def test_a_page_that_is_not_a_challenge_must_load_within_the_callers_timeout(self):
         """不是验证页的那一页按调用方的 `timeout` 截止：报 `PageTimeout`（调用方按连接失败重试），浏览器留着。"""
@@ -499,43 +429,117 @@ class BrowserTransportTests(unittest.TestCase):
         self.assertIsNone(self.processes[0].returncode, "页面慢不是浏览器坏了，进程留着")
         self.assertEqual(len(self.launches), 1)
 
-    def test_the_automatic_phase_is_cut_to_the_timeout_but_the_click_window_is_not(self):
-        """撞验证页：清 cookie 在 `min(RESET_SECONDS, 自动时限)` 触发，重载后自动阶段最多等 `min(auto_seconds, timeout)`；
-        弹窗之后照旧等满 `click_seconds`，不看 `timeout`。"""
-        shown_at = []
-
-        def handler(method, params):
-            if method == "Browser.setWindowBounds" and params["bounds"].get("windowState") == "normal":
-                shown_at.append(self.clock.now - started)
-            if method == "Runtime.evaluate":
-                return {"result": {"value": state_reply("Just a moment...")}}
-            return self.generic(method, params)
-
-        transport, _server = self.make(handler)
-        for timeout, reset, auto in ((5, 5, 5), (100, 15, 40)):
-            with self.subTest(timeout=timeout):
-                shown_at.clear()
-                transport._unsolved.clear()
-                started = self.clock.now
-                with self.assertRaises(ChallengeUnsolved):
-                    transport(HttpRequest("GET", "https://javten.com/x", {}), timeout, 4096)
-                self.assertEqual(shown_at, [reset + auto])
-                self.assertEqual(self.clock.now - started, reset + auto + 120, "弹窗后等满 click_seconds")
-
-    def test_a_site_left_unclicked_gives_up_at_the_shortened_automatic_limit(self):
-        """同一站上次弹窗没点过去：这次清 cookie 重载后到 `min(auto_seconds, timeout)` 就报，不弹窗，不再多等。"""
+    def test_challenges_end_after_the_bounded_automatic_retry(self):
+        """清 cookie 和重载均受自动时限约束，不额外等待人工操作。"""
         def handler(method, params):
             if method == "Runtime.evaluate":
                 return {"result": {"value": state_reply("Just a moment...")}}
             return self.generic(method, params)
 
         transport, server = self.make(handler)
-        transport._unsolved.add("javten.com")
+        for timeout, reset, auto in ((5, 5, 5), (100, 15, 40)):
+            with self.subTest(timeout=timeout):
+                started = self.clock.now
+                with self.assertRaises(ChallengeUnsolved):
+                    transport(HttpRequest("GET", "https://javten.com/x", {}), timeout, 4096)
+                self.assertEqual(self.clock.now - started, reset + auto)
+                self.assertFalse(any(method in {"Page.bringToFront", "Browser.setWindowBounds"}
+                                     for method, _ in server.calls))
+
+    def test_unattended_browsers_ignore_requests_to_show_the_window(self):
+        transport, server = self.make(self.generic)
+        browser = transport._ensure()
+        browser.place(visible=True)
+        browser.place(visible=False)
+        self.assertFalse(any(method in {"Page.bringToFront", "Browser.setWindowBounds"}
+                             for method, _ in server.calls))
+
+    def test_the_window_mode_keeps_the_window_off_screen_and_waits_for_a_click_without_taking_focus(self):
+        """默认的窗口模式：窗口开在屏幕外；自动过不了就登记等人点，但不把窗口挪上屏、不顶到前台。
+        等满还没过就报，同一站下一次不再等，页面正常打开后才恢复等人。"""
+        passes = {"through": False}
+
+        def handler(method, params):
+            if method == "Runtime.evaluate" and is_document(params):
+                return {"result": {"value": document_reply("https://javten.com/x")}}
+            if method == "Runtime.evaluate":
+                if passes["through"]:
+                    return {"result": {"value": state_reply("JAVten", url="https://javten.com/x")}}
+                if self.clock.now - started >= 20:
+                    seen.append(list(browser_transport.attention()))
+                return {"result": {"value": state_reply("Just a moment...")}}
+            return self.generic(method, params)
+
+        seen = []
+        transport, server = self.make(handler, headless=lambda: False, click_seconds=120)
+        request = HttpRequest("GET", "https://javten.com/x", {})
         started = self.clock.now
         with self.assertRaises(ChallengeUnsolved):
-            transport(HttpRequest("GET", "https://javten.com/x", {}), 6, 4096)
-        self.assertEqual(self.clock.now - started, 12, "清 cookie 那一步与重载后的自动阶段都按 timeout 裁到 6 秒")
-        self.assertFalse(any(method == "Browser.setWindowBounds" for method, _ in server.calls))
+            transport(request, 10, 4096)
+        command = self.launches[0]
+        self.assertNotIn("--headless=new", command)
+        self.assertIn("--window-position=-32000,-32000", command)
+        self.assertEqual(self.clock.now - started, 20 + 120, "自动时限之后再等人点两分钟")
+        self.assertTrue(any(entries and "javten.com" in entries[0] for entries in seen), "等人点时登记在 attention")
+        self.assertEqual(browser_transport.attention(), [], "放弃后撤掉登记")
+        self.assertFalse(any(method in {"Page.bringToFront", "Browser.setWindowBounds"} for method, _ in server.calls),
+                         "窗口留在屏幕外，不上屏、不抢前台")
+        started = self.clock.now
+        with self.assertRaises(ChallengeUnsolved) as caught:
+            transport(request, 10, 4096)
+        self.assertEqual(self.clock.now - started, 20, "上次没人点，这次只等自动时限")
+        self.assertIn("does not wait again", str(caught.exception))
+        passes["through"] = True
+        self.assertEqual(transport(request, 10, 4096).status, 200)
+
+    def test_opening_the_off_screen_window_from_the_taskbar_brings_it_on_screen_without_forcing_focus(self):
+        """窗口模式下用户点任务栏（屏幕外的窗口只会被最小化）：放回屏幕内给人点，不调 `Page.bringToFront`；
+        过了之后收起来。"""
+        state = {"minimized": False, "placed": False}
+
+        def handler(method, params):
+            if method == "Browser.getWindowBounds":
+                return {"bounds": {"windowState": "minimized" if state["minimized"] else "normal"}}
+            if method == "Browser.setWindowBounds" and params["bounds"].get("windowState") == "normal":
+                state["minimized"], state["placed"] = False, True
+            if method == "Runtime.evaluate" and is_document(params):
+                return {"result": {"value": document_reply("https://javten.com/x")}}
+            if method == "Runtime.evaluate":
+                if state["placed"] and self.clock.now - started >= 8:
+                    return {"result": {"value": state_reply("JAVten", url="https://javten.com/x")}}
+                if self.clock.now - started >= 3:
+                    state["minimized"] = not state["placed"]
+                return {"result": {"value": state_reply("Just a moment...")}}
+            return self.generic(method, params)
+
+        transport, server = self.make(handler, headless=lambda: False)
+        started = self.clock.now
+        self.assertEqual(transport(HttpRequest("GET", "https://javten.com/x", {}), 10, 4096).status, 200)
+        windows = [params["bounds"] for method, params in server.calls if method == "Browser.setWindowBounds"]
+        self.assertEqual(windows[0], {"windowState": "normal"})
+        self.assertEqual((windows[1]["left"], windows[1]["top"]), browser_transport.ONSCREEN)
+        self.assertEqual(windows[-1], {"windowState": "minimized"}, "过了就收起来")
+        self.assertFalse(any(method == "Page.bringToFront" for method, _ in server.calls))
+        self.assertEqual(browser_transport.attention(), [])
+
+    def test_changing_the_mode_relaunches_the_browser_for_the_next_request(self):
+        """采集设置里换了模式，下一条请求就按新模式重开浏览器。"""
+        mode = {"headless": False}
+
+        def handler(method, params):
+            if method == "Runtime.evaluate" and is_document(params):
+                return {"result": {"value": document_reply("https://javten.com/x")}}
+            if method == "Runtime.evaluate":
+                return {"result": {"value": state_reply("JAVten", url="https://javten.com/x")}}
+            return self.generic(method, params)
+
+        transport, _server = self.make(handler, headless=lambda: mode["headless"])
+        request = HttpRequest("GET", "https://javten.com/x", {})
+        transport(request, 10, 4096)
+        transport(request, 10, 4096)
+        mode["headless"] = True
+        transport(request, 10, 4096)
+        self.assertEqual(["--headless=new" in command for command in self.launches], [False, True])
 
     def test_a_site_gate_is_clicked_and_the_page_it_returns_to_is_read(self):
         """FC2PPV-DB 的年龄门：落到 `/age-verify` 就点匹配的按钮，等地址离开那个路径再读文档。"""

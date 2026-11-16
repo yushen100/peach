@@ -43,7 +43,7 @@ from .follow_secrets import (
 from .follow_stream import proxyable
 from .follow_sources import (
     CONNECTORS, KemonoConnector, Rule34VideoConnector, build_connector,
-    canonical_source_ref, display_thumb_url, f95_attachment_media_items, f95_discussion_image,
+    canonical_source_ref, display_thumb_url, f95_discussion_image, fallback_media_items,
     is_history_end_error, media_content_hash, parse_source_url, resource_links,
 )
 from .follow_store import (
@@ -759,7 +759,7 @@ def _media_key(media: dict) -> str:
 def _raw_media_items(item) -> list:
     raw = item.metadata.get("media_items")
     if not isinstance(raw, list) or not raw:
-        return f95_attachment_media_items(item.metadata) if item.provider == "f95zone" else []
+        return fallback_media_items(item.provider, item.metadata)
     return raw
 
 

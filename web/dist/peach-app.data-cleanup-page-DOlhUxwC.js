@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "9cc2bfe9-d402-469c-85a3-8e9263b82afe", e._sentryDebugIdIdentifier = "sentry-dbid-9cc2bfe9-d402-469c-85a3-8e9263b82afe");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "3af4d97e-23e0-493c-b017-27007a9d512a", e._sentryDebugIdIdentifier = "sentry-dbid-3af4d97e-23e0-493c-b017-27007a9d512a");
 	} catch {}
 })();
 import { BATCH_DELETE_TEXT as e, Button as t, CLEANUP_ENTRY as n, CLEANUP_ENTRY_GRID as r, CLEANUP_HASH_REDIRECTS as i, CLEANUP_TOOLS as a, Chip as o, DIRECTORY_TEMPLATE_ERROR as s, DUPLICATES_KEY as c, Fieldset as l, FieldsetTitle as u, IDLE_REPAIR as d, IconButton as f, IndexSearch as p, Input as m, JUNK_KEY as h, LINKS_KEY as g, LINK_CHECK_KEY as _, LINK_KINDS as v, LINK_PRUNE_KEY as ee, LOC as y, LibraryLabel as b, LibraryProcessingCard as x, MEDIA_REPAIR_KEY as S, MEDIA_REPAIR_URL as C, MEDIA_SOURCES_KEY as w, MEDIA_SOURCE_ICONS as T, Note as E, ORGANIZE_KEY as te, ORGANIZE_PARAMETER_HINT as ne, ORGANIZE_SCOPE_HINT as re, ORGANIZE_TEXT as ie, ORPHAN_RECORDS_KEY as D, ORPHAN_RECORDS_TEXT as O, PERFORMER_DELETE_KEY as k, PLAIN_STAT_STRIP as A, PlainStat as j, Progress as ae, QUALITY_GOALS_KEY as M, REPAIR_CARD_TEXT as oe, REPAIR_LIBRARIES_KEY as se, RESOURCE_APPLY_KEY as N, RESOURCE_SCAN_KEY as P, RESOURCE_SYNC_TEXT as F, RESULT_PANEL as ce, RESULT_SECTION as le, REVIEW_COUNTS_KEY as I, SOURCE_LABELS as ue, SectionHeading as de, Select as fe, SelectItem as pe, SourceLabel as L, SourceMark as me, StatusLabel as he, TRASH_KEY as ge, TaskProgress as R, Wt as _e, __toESM as ve, activityKind as z, apiSend as B, applyConfirmText as ye, applyLeftovers as V, applyPlanText as be, applyText as xe, attachOrphan as Se, baseName as Ce, busyProps as H, candidateText as we, checkLine as Te, codedText as Ee, confirmModal as De, cx as Oe, deletePerformerVideos as ke, entityDisplayName as Ae, entityFaceImg as je, entityPath as Me, errorMessage as U, esc as Ne, fetchDeletePerformers as Pe, fetchDeletePlan as Fe, fetchDuplicates as Ie, fetchJunkSummary as Le, fetchLinkCheck as Re, fetchLinkPrune as ze, fetchLinkStats as Be, fetchMediaRepair as Ve, fetchMediaSources as He, fetchOrganize as Ue, fetchOrganizeExample as We, fetchOrphanRecords as Ge, fetchQualityGoals as Ke, fetchRepairLibraries as qe, fetchResourceApply as Je, fetchResourceScan as Ye, fetchReviewCounts as Xe, fetchTrashSummary as Ze, firstGrapheme as Qe, fmtSize as W, hasChanges as $e, hasResourceRoots as et, jobText as G, junkBreakdown as tt, linkLabel as nt, missingToolText as rt, organizeOutcome as it, peachHistory$1 as at, pickOrganizeFolder as ot, plainStatClass as K, planSummary as st, previewOrganize as ct, pruneText as lt, purgeCount as ut, purgeOrphan as dt, queryClient as q, recordsText as ft, rememberTemplates as pt, require_jsx_runtime as mt, require_react as ht, reviewSummary as gt, runBulkAction as _t, scanLine as vt, serverLabel as yt, sourceMeta as bt, spriteGlyph as J, stageText as xt, startLinkCheck as St, startLinkPrune as Ct, startOrganize as wt, startResourceApply as Tt, startResourceScan as Et, statusLine as Dt, t as Y, useAction as Ot, useBackgroundJob as X, useEntityNames as kt, useMutation as At, useOrderedLibraries as jt, useQuery as Z, withOrganizeJob as Mt } from "./peach-app.js";
@@ -268,10 +268,10 @@ function $t({ title: e, items: t, hint: n, picked: r, onPick: i, actions: a, con
 			width: 320,
 			min: 192,
 			value: (e) => e.note,
-			render: (e) => /* @__PURE__ */ (0, $.jsx)("div", {
+			render: (e) => /* @__PURE__ */ (0, $.jsxs)("div", {
 				className: "min-w-0 w-full",
 				"data-link-result": c ? "gone" : "unclear",
-				children: /^(?:HTTP\s+)?[1-5]\d{2}$/.test(e.note.trim()) ? /* @__PURE__ */ (0, $.jsx)(he, {
+				children: [/^(?:HTTP\s+)?[1-5]\d{2}$/.test(e.note.trim()) ? /* @__PURE__ */ (0, $.jsx)(he, {
 					tone: c || /^(?:HTTP\s+)?5\d{2}$/.test(e.note.trim()) ? "error" : "warning",
 					"data-link-code": "",
 					children: e.note.trim()
@@ -284,7 +284,11 @@ function $t({ title: e, items: t, hint: n, picked: r, onPick: i, actions: a, con
 						text: yt(e.note_code ?? "", e.note, e.note_params),
 						className: "tabular-nums text-text-secondary"
 					})]
-				})
+				}), !c && e.temporary && e.attempts ? /* @__PURE__ */ (0, $.jsx)("span", {
+					"data-link-rechecked": "",
+					className: "mt-1 block text-body-2-regular text-text-secondary",
+					children: Y("cleanup:links.rechecked", { count: e.attempts })
+				}) : null]
 			})
 		},
 		{
@@ -1832,4 +1836,4 @@ function Pn({ toast: e, open: t, navigate: n }) {
 }
 export { Pn as DataCleanupPage, wn as DataCleanupToolPage };
 
-//# debugId=9cc2bfe9-d402-469c-85a3-8e9263b82afe
+//# debugId=3af4d97e-23e0-493c-b017-27007a9d512a
