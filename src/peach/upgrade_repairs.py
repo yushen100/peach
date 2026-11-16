@@ -57,10 +57,19 @@ def retry_at(attempts: int, now: float) -> float | None:
     return now + min(RETRY_BASE_SECONDS * 2 ** max(attempts - 1, 0), RETRY_CAP_SECONDS)
 
 
+#: 延后原因码，记进状态表那一行的 `result_json.deferred`，「修复与迁移」按它写明在等什么。
+DEFER_MOUNT, DEFER_COOLDOWN, DEFER_COST = 'mount', 'cooldown', 'cost'
+#: 结论码（`RepairDeferred.code`）对应的延后原因码。
+DEFER_REASONS = {'deferMountMedia': DEFER_MOUNT, 'deferMountDimensions': DEFER_MOUNT,
+                 'deferCooling': DEFER_COOLDOWN, 'deferBilling': DEFER_COST}
+#: 有了结论的行摘掉上次的延后原因（`json_patch` 里 null 即删键）。
+_NOT_DEFERRED = {'deferred': None}
+
+
 class RepairDeferred(Exception):
     """这部片这会儿补不了（挂载不可达、计费来源未确认、来源冷却），过 `retry_after` 秒再派。
 
-    `code` 是结论里那一段原因（`task_outcomes`），异常文字按它渲染。"""
+    `code` 是结论里那一段原因（`task_outcomes`），异常文字按它渲染；延后原因码见 `DEFER_REASONS`。"""
 
     def __init__(self, code: str, retry_after: float):
         self.code = code
@@ -68,12 +77,36 @@ class RepairDeferred(Exception):
         self.retry_after = retry_after
 
 
+class MalformedPath(UserValueError):
+    """账本里的影片路径写法本身不对：翻译不出、含空字符或本机不认的字符。
+
+    这不是挂载掉线，延后多少次也读不到，补修按失败结算并写明原因，等用户修好路径或重新扫描。"""
+
+
+#: Windows 路径里盘符之后不能出现的字符。
+_WINDOWS_ILLEGAL = frozenset('<>"|?*:')
+
+
 def mount_unreachable(ledger_path: str) -> bool:
-    """影片所在目录现在读不到：网盘或 NAS 掉线时补修延后，不按这部片失败结算。"""
-    from .platform import root_status, translate_ledger_path
+    """影片所在目录现在读不到：网盘或 NAS 掉线时补修延后，不按这部片失败结算。
+
+    本机没挂载的来源（翻译到未映射根）照旧算读不到；路径写法本身不对时抛 `MalformedPath`。"""
+    import os
+    from .platform import is_unmapped, root_status, translate_ledger_path
+    text = os.fspath(ledger_path or '')
+    if chr(0) in text:
+        raise MalformedPath('errors.upgradeRepairs.malformedPath', {'path': text.replace(chr(0), '?')})
     try:
-        folder = getattr(translate_ledger_path(ledger_path), 'parent', None)
-        return folder is not None and root_status(folder) != 'ok'
+        translated = translate_ledger_path(text)
+    except ValueError as error:
+        raise MalformedPath('errors.upgradeRepairs.malformedPathReason',
+                            {'path': text, 'reason': nested_message(error)}) from None
+    if is_unmapped(translated):
+        return True
+    if os.name == 'nt' and any(_WINDOWS_ILLEGAL & set(segment) for segment in translated.parts[1:]):
+        raise MalformedPath('errors.upgradeRepairs.malformedPath', {'path': text})
+    try:
+        return root_status(translated.parent) != 'ok'
     except (OSError, ValueError):
         return True
 
@@ -238,6 +271,13 @@ def _batched(planned) -> list:
             rows.append(Followup.coded(f'{_BATCH_PREFIX}{rule}:{ids}', MEDIA_TASK,
                                        run_progress('items', MEDIA_TASK, first=first, count=len(chunk))))
     return rows
+
+
+#: 「这部片没有被别的影片补全占着」：同片有排着或被用户取消的非显示尺寸补全行时，规划器整片跳过
+#: （`UpgradeRepairs._inherited_media`），派发判断也要跳过，否则这种片子每轮都触发一次空规划。
+#: 参数是显示尺寸的规则名。子查询不关联外层，只算一次（主键以 rule 打头，按 asset_id 关联会逐行扫表）。
+_NOT_HELD = ("item.asset_id NOT IN (SELECT asset_id FROM ledger_upgrade_item "
+             "WHERE rule<>? AND state IN ('queued','cancelled'))")
 
 
 def settled(row, generation: str | None, now: float) -> bool:
@@ -1045,8 +1085,9 @@ class UpgradeRepairs:
         waiting = settled_counts.get('deferred', 0)
         review = int(local.get('review_count', 0)) + len(receipt.get('deferred', []))
         paused = receipt.get('media_paused', {})
+        # 只剩延后（挂载读不到、来源冷却、退避中）的报「已延后」：没有东西在跑，也不挡用户点重试。
         state = 'failed' if self.error or paused else 'running' if active else 'failed' if failed else (
-            'running' if waiting else 'review' if review else
+            'deferred' if waiting else 'review' if review else
             'complete' if receipt.get('dispatch_complete') and local else 'pending')
         items = [{'id': REVISION, **_coded('labels.upgradeRepairs.item.existing', key='label'), 'state': local.get('state', 'pending'),
                   'changed': local.get('changed', {}), 'review_count': review},
@@ -2310,12 +2351,16 @@ class UpgradeRepairs:
         return rows
 
     def _retry_due(self) -> bool:
-        """有延后或退避中的补修到了重派时间。"""
+        """有延后或退避中的补修到了重派时间，而且规划器这一轮真会派它。
+
+        同片还有排着或被取消的影片补全时，规划器整片跳过（`_inherited_media`）；那种片子不算，
+        否则它一直到期、一直派不出，每分钟都要白白重开一轮规划。"""
+        from .display_dimensions_repair import ITEM_RULE
         with self.contract.database.read_connection() as connection:
             return connection.execute(
                 "SELECT 1 FROM ledger_upgrade_item item JOIN asset ON asset.id=item.asset_id "
                 "WHERE item.state IN ('failed','deferred') AND item.retry_at IS NOT NULL AND item.retry_at<=? "
-                'AND asset.disposal IS NULL LIMIT 1', (time.time(),)).fetchone() is not None
+                f'AND asset.disposal IS NULL AND {_NOT_HELD} LIMIT 1', (time.time(), ITEM_RULE)).fetchone() is not None
 
     def _display_due(self, receipt):
         from .display_dimensions_repair import IDENTITY_COLUMNS, ITEM_RULE, generation, task_key
@@ -2325,7 +2370,8 @@ class UpgradeRepairs:
             rows = connection.execute(
                 f'SELECT {columns},item.generation AS item_generation,item.state,item.retry_at '
                 'FROM ledger_upgrade_item item JOIN asset ON asset.id=item.asset_id '
-                "WHERE item.rule=? AND asset.medium='video' AND asset.disposal IS NULL", (ITEM_RULE,)).fetchall()
+                f"WHERE item.rule=? AND asset.medium='video' AND asset.disposal IS NULL AND {_NOT_HELD}",
+                (ITEM_RULE, ITEM_RULE)).fetchall()
         queued = receipt.get('queued', {})
         return any(not settled({'generation': row['item_generation'], 'state': row['state'], 'retry_at': row['retry_at']},
                                generation(row), now) and task_key(row) not in queued for row in rows)
@@ -2379,9 +2425,16 @@ class UpgradeRepairs:
             return 0
         if display is None or display.get('cloud_included_at'):
             return 0
-        with self.contract.database.read_connection() as connection:
-            known = self._display_targets_known(connection)
-            return sum(asset_id not in known for asset_id in repair.collect(connection, cloud=True))
+
+        def count() -> int:
+            with self.contract.database.read_connection() as connection:
+                known = self._display_targets_known(connection)
+                return sum(asset_id not in known for asset_id in repair.collect(connection, cloud=True))
+        # 「修复与迁移」每次打开、补测在跑时每 2 秒都要问；全部网盘视频与补测名单各扫一遍，
+        # 生产冷时 0.46 秒。两张表不变就用上一次的数。
+        cached = getattr(self.contract, 'cached_until_changed', None)
+        return cached('upgrade-cloud-display-pending', count, tables=('asset', 'ledger_upgrade_item')) \
+            if callable(cached) else count()
 
     def include_cloud_display_dimensions(self) -> dict:
         """用户在「自动修复」里点了「补测网盘视频」：把网盘来源的旧视频加进显示尺寸补测。
@@ -2546,7 +2599,11 @@ def _media_run(contract, key: str, handle) -> dict:
             paused = _read(service.receipt).get('media_paused')
             if paused:
                 raise DiskSpaceDenied('errors.upgradeRepairs.mediaPaused', {'message': _paused_phrase(paused)})
-        if found is not None and mount_unreachable(found['path']):
+        try:
+            offline = found is not None and mount_unreachable(found['path'])
+        except MalformedPath as error:
+            _fail(contract, key, handle, [asset_id], error)
+        if offline:
             return _defer(contract, key, handle, [asset_id],
                           RepairDeferred('deferMountMedia', MOUNT_RETRY_SECONDS))
         guard = CapacityGuard(config)
@@ -2597,8 +2654,15 @@ def _batch_run(contract, key: str, handle) -> dict:
     with contract.database.read_connection() as connection:
         found = {row['id']: row for row in connection.execute(
             'SELECT id,path FROM asset WHERE id IN (SELECT value FROM json_each(?))', (json.dumps(asset_ids),))}
-    offline = [asset_id for asset_id in asset_ids if asset_id in found and mount_unreachable(found[asset_id]['path'])]
-    targets = [asset_id for asset_id in asset_ids if asset_id in found and asset_id not in offline]
+    offline, broken = [], {}
+    for asset_id in asset_ids:
+        try:
+            if asset_id in found and mount_unreachable(found[asset_id]['path']):
+                offline.append(asset_id)
+        except MalformedPath as error:
+            broken[asset_id] = nested_message(error)
+    targets = [asset_id for asset_id in asset_ids if asset_id in found and asset_id not in offline
+               and asset_id not in broken]
 
     def active():
         return service is None or not service.stopping.is_set()
@@ -2629,7 +2693,7 @@ def _batch_run(contract, key: str, handle) -> dict:
             raise RuntimeError(result['error'])
         raise UserRuntimeError('errors.upgradeRepairs.mediaRepairIncomplete')
     cooling = [asset_id for asset_id in targets if asset_id in set(result.get('paused_asset_ids', ()))]
-    settled = _settle_batch(contract, handle, rule, asset_ids, offline, cooling)
+    settled = _settle_batch(contract, handle, rule, asset_ids, offline, cooling, broken)
     discard_checkpoint(state_file)
     return settled
 
@@ -2648,23 +2712,31 @@ def _batch_checkpoint(contract, key: str) -> tuple[str, Path, dict]:
     return job_id, state_file, previous
 
 
-def _settle_batch(contract, handle, rule: str, asset_ids, offline, cooling) -> dict:
-    """一批里每部片的结论写进状态表：目录读不到、来源冷却的延后，其余完成。"""
-    done = [asset_id for asset_id in asset_ids if asset_id not in offline and asset_id not in cooling]
+def _settle_batch(contract, handle, rule: str, asset_ids, offline, cooling, broken=None) -> dict:
+    """一批里每部片的结论写进状态表：目录读不到、来源冷却的延后，路径写法不对的（`broken`，影片到原因）
+    按失败结算、不自动重派，其余完成。"""
+    broken = broken or {}
+    done = [asset_id for asset_id in asset_ids
+            if asset_id not in offline and asset_id not in cooling and asset_id not in broken]
     now = time.time()
     item_rule = f'media:{rule}'
-    rows = [{'rule': item_rule, 'asset_id': asset_id, 'state': 'done', 'run_id': _run_id(handle)} for asset_id in done]
+    rows = [{'rule': item_rule, 'asset_id': asset_id, 'state': 'done', 'run_id': _run_id(handle),
+             'result': _NOT_DEFERRED} for asset_id in done]
     rows += [{'rule': item_rule, 'asset_id': asset_id, 'state': 'deferred', 'run_id': _run_id(handle),
-              'retry_at': now + MOUNT_RETRY_SECONDS} for asset_id in offline]
+              'retry_at': now + MOUNT_RETRY_SECONDS, 'result': {'deferred': DEFER_MOUNT}} for asset_id in offline]
     rows += [{'rule': item_rule, 'asset_id': asset_id, 'state': 'deferred', 'run_id': _run_id(handle),
-              'retry_at': now + COOLDOWN_RETRY_SECONDS} for asset_id in cooling]
+              'retry_at': now + COOLDOWN_RETRY_SECONDS, 'result': {'deferred': DEFER_COOLDOWN}} for asset_id in cooling]
+    rows += [{'rule': item_rule, 'asset_id': asset_id, 'state': 'failed', 'run_id': _run_id(handle),
+              'result': {'deferred': None, 'error': error}} for asset_id, error in broken.items()]
     with contract.database.write_transaction(notify=False) as connection:
         upsert_items(connection, rows, mode='finish')
     _discard_settled(Path(contract.follow_state_root) / 'upgrade-repairs', item_rule, done)
     deferred = len(offline) + len(cooling)
     outcome = joined([part('videosUpgraded', count=len(done)),
-                      part('videosDeferred', count=deferred) if deferred else []])
-    return {**said(outcome), 'asset_ids': asset_ids, 'done': len(done), 'deferred': deferred}
+                      part('videosDeferred', count=deferred) if deferred else [],
+                      part('videosMalformed', count=len(broken)) if broken else []])
+    return {**said(outcome), 'asset_ids': asset_ids, 'done': len(done), 'deferred': deferred,
+            **({'failed': len(broken)} if broken else {})}
 
 
 def _display_run(contract, key: str, handle) -> dict:
@@ -2696,6 +2768,8 @@ def _display_run(contract, key: str, handle) -> dict:
                                                    run_id=_run_id(handle))
     except RepairDeferred as error:
         return _defer(contract, key, handle, [asset_id], error)
+    except MalformedPath as error:
+        _fail(contract, key, handle, [asset_id], error)
     except DiskSpaceDenied as error:
         _pause_for_capacity(service, handle, error)
     except InterruptedError:
@@ -2717,9 +2791,22 @@ def _defer(contract, key: str, handle, asset_ids, error: RepairDeferred) -> dict
     until = time.time() + error.retry_after
     with contract.database.write_transaction(notify=False) as connection:
         upsert_items(connection, [{'rule': rule, 'asset_id': asset_id, 'generation': generation, 'state': 'deferred',
-                                   'run_id': _run_id(handle), 'retry_at': until} for asset_id in asset_ids],
+                                   'run_id': _run_id(handle), 'retry_at': until,
+                                   'result': {'deferred': DEFER_REASONS.get(error.code)}} for asset_id in asset_ids],
                      mode='finish')
     return {**said(part('deferredBy', reason=[part(error.code)])), 'deferred': len(asset_ids), 'retry_at': until}
+
+
+def _fail(contract, key: str, handle, asset_ids, error: MalformedPath):
+    """这几部片补不了、重派也没用（路径写法不对）：状态表按失败结算并写明原因（`{code, params}`），
+    不排自动重派，只等用户在「自动修复」点重试；再把原因抛给任务中心，这一轮照样显示失败。"""
+    rule, _, generation = item_of(key) or ('', 0, '')
+    with contract.database.write_transaction(notify=False) as connection:
+        upsert_items(connection, [{'rule': rule, 'asset_id': asset_id, 'generation': generation, 'state': 'failed',
+                                   'run_id': _run_id(handle),
+                                   'result': {'deferred': None, 'error': nested_message(error)}}
+                                  for asset_id in asset_ids], mode='finish')
+    raise error
 
 
 def _pause_for_capacity(service, handle, error):

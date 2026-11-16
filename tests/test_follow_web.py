@@ -1485,6 +1485,20 @@ class FollowContractTests(unittest.TestCase):
         self.assertEqual([row["k"] for row in last["items"]], ["pov"])
         self.assertFalse(last["has_more"])
 
+    def test_online_tag_vocabulary_is_built_once_until_follow_data_changes(self):
+        """整份词表要过一遍全部关注条目（生产一次 3 秒）：搜索、翻页只在算好的那份上切，关注数据变了才重算。"""
+        from unittest import mock
+        from peach import web_follow
+        self._seed(candidates=(self._tagged("1", ["anal", "pov"]), self._tagged("2", ["anal"])))
+        with mock.patch.object(web_follow, "_follow_facets", wraps=web_follow._follow_facets) as facets:
+            self._get("/api/follow/tags")
+            self._get("/api/follow/tags", q="po")
+            self._get("/api/follow/tags", limit=1, offset=1)
+            self.assertEqual(facets.call_count, 1)
+            self._seed(candidates=(self._tagged("3", ["blowjob"]),), ref="another", label="Another")
+            self.assertIn("blowjob", [row["k"] for row in self._get("/api/follow/tags")["items"]])
+            self.assertEqual(facets.call_count, 2)
+
     def _clip(self, external_id, *, duration=None, score=None, published_at=None):
         extra = {"tags": ["anal"], "tag_types": {"anal": "general"}}
         if score is not None:

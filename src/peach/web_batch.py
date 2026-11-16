@@ -32,7 +32,7 @@ from .catalog_vocabulary import KEEP_DUPLICATES_NOTE, NOT_JUNK_NOTE
 from .config import GENERATED_DIR, LOCATION_ROOT_DECLARATIONS
 from .field_owners import USER_MANUAL, write_owned_fields
 from .media_sources import SCANNABLE_LOCATIONS
-from .personal_records import VANISHED, delete_asset_rows
+from .personal_records import VANISHED, being_purged, delete_asset_rows, purging
 from .platform import is_unmapped, root_online, translate_ledger_path, within_root
 from .regions import normalize_region
 from .task_runs import TaskRunHandle
@@ -427,17 +427,48 @@ def _purge_outside_lock(contract: WebContract, rows, *, missing_only: bool = Fal
 
     `verify(connection)` 在同一事务里先跑，用来核对调用方的前提（删除清单的口令）；抛错就整批
     放弃，隔离文件全部放回。返回已提交、尚未 `_finish_purge` 的回执。
+
+    先删文件、再删行（`peach-ledger-write`「删除」），中间不持写锁。rclone 挂载上文件是直接删的，
+    这段时间里被还原出回收站的那一条会留下没有文件的行。所以动文件之前先登记这几部（`purging`），
+    还原入口见到就拒绝；再拿一下进程写锁、按最新的行筛一遍：拿到写锁时，登记之前开始的还原
+    都已提交、看得见，登记之后的会被拒绝。只读几行、不碰网盘，写锁只占一瞬。
     """
-    outcome = stage_purge(rows, missing_only=missing_only)
-    try:
-        with contract.write_transaction() as connection:
-            if verify is not None:
-                verify(connection)
-            commit_purge(connection, outcome, eligible=eligible)
-    except BaseException:
-        _restore_staged_media(outcome["_staged"])
-        raise
+    ids = [row["id"] for row in rows]
+    with purging(ids):
+        changed = []
+        if eligible is not None and ids:
+            rows, changed = _still_eligible(contract, rows, eligible)
+        outcome = stage_purge(rows, missing_only=missing_only)
+        outcome["blocked"].extend(changed)
+        try:
+            with contract.write_transaction() as connection:
+                if verify is not None:
+                    verify(connection)
+                commit_purge(connection, outcome, eligible=eligible)
+        except BaseException:
+            _restore_staged_media(outcome["_staged"])
+            raise
     return outcome
+
+
+def _still_eligible(contract: WebContract, rows, eligible) -> tuple[list, list[dict]]:
+    """按此刻的行重新筛一遍删除条件：路径没变、`eligible` 仍成立的留下，其余进 `blocked`。"""
+    ids = [row["id"] for row in rows]
+    current = {}
+    # 只要和本进程的写事务错开，不必开 SQLite 写事务：持着进程写锁时没有写事务在途，读连接看到的就是最新。
+    with contract.database.write_lock, contract.read_connection() as connection:
+        for offset in range(0, len(ids), 400):
+            chunk = ids[offset:offset + 400]
+            current.update((row["id"], row) for row in connection.execute(
+                f"SELECT id,path,disposal,code FROM asset WHERE id IN ({','.join('?' * len(chunk))})", chunk))
+    kept, changed = [], []
+    for row in rows:
+        now = current.get(row["id"])
+        if now is not None and now["path"] == row["path"] and eligible(now):
+            kept.append(row)
+        else:
+            changed.append(_blocked(row["id"], row["path"], code="labels.webBatch.changedDuringDelete"))
+    return kept, changed
 
 
 def _purge_receipt(contract: WebContract, outcome: dict, **fields) -> dict:
@@ -792,6 +823,9 @@ def _reject_ineligible_targets(operation: str, rows) -> None:
     """选中集合与操作对不上就拒绝整批，不做部分生效。"""
     if operation in {"restore", "delete"} and any(row["disposal"] not in DISPOSED for row in rows):
         raise ValueError("restore/delete is only allowed for recycle-bin or vanished assets")
+    # 正在永久删除的那几部文件可能已经删了，还原只会留下空行。
+    if operation == "restore" and being_purged(row["id"] for row in rows):
+        raise UserValueError("errors.webBatch.purgingCannotRestore")
     # 已消失的行文件不在盘上：进回收站再还原就成了在库，只能在孤儿记录里接回或彻底删除。
     if operation == "dispose" and any(row["disposal"] == VANISHED for row in rows):
         raise ValueError("vanished assets cannot be moved to the recycle bin")

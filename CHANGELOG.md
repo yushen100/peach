@@ -150,6 +150,14 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Playback**: Followed media and previews cached on disk stay intact when two requests save the same item at once or the cache folder is cleaned meanwhile (#521). / **播放**：两个请求同时缓存同一段媒体，或缓存目录正被清理时，缓存不再错配或让播放失败（#521）。
 - **Playback**: JAV previews play again when Peach's data folder sits in a long Windows path (#521). / **播放**：数据目录在 Windows 较深的路径下时，JAV 预告片重新能播（#521）。
 - **Library**: Setting an actress avatar no longer fails when the avatar cache is cleaned at the same moment (#521). / **馆藏**：设置女优头像时缓存恰好被清理，不再让设置失败（#521）。
+- **Updates**: Repairs and migrations says how many videos are postponed and why, and marks an item Deferred instead of In progress when only postponed ones are left (#734). / **更新**：「修复与迁移」写明补测延后了几部、在等什么，只剩延后时标「已延后」，不再一直报「进行中」（#734）。
+- **Updates**: Upgrade repairs fail videos whose path can't be recognized and give the reason, instead of postponing them every half hour (#734). / **更新**：路径写法无法识别的影片补修按失败结算并写明原因，不再每半小时延后一次（#734）。
+- **Updates**: Upgrade repairs no longer replan every minute when a video also has a queued or cancelled fill-in (#734). / **更新**：同一部片有排队或已取消的补全时，升级补修不再每分钟白白重排一轮（#734）。
+- **Updates**: Repairs and migrations opens with the old snapshot estimate ready after a restart instead of showing Calculating (#734). / **更新**：重启后第一次打开「修复与迁移」就有关注旧快照的估算，不再先显示「正在统计」（#734）。
+- **Playback**: Playback no longer waits for the first hardware probe, transcoding skips re-probing videos that just failed, and stopping the server frees streaming threads (#734). / **播放**：起播不再等首次硬件探测，探不出的片子转码时不再多探一次，关闭服务时收掉送流线程（#734）。
+- **Library**: An item being permanently deleted from a cloud drive can't be restored from the bin midway, so no entry is left without its file (#734). / **馆藏**：网盘上永久删除期间不能再把同一部还原出回收站，不会留下没有文件的条目（#734）。
+- **Following**: Searching and paging online tags no longer recount every followed item, dropping from about 3 seconds to instant (#734). / **关注**：在线标签页的搜索与翻页不再每次重算全部关注条目，从约 3 秒降到瞬时（#734）。
+- **Sourcing**: The directory link harvesting script and the server share one JavDB pace, staying under 20 pages a minute together (#734). / **采集**：目录链接采集脚本与服务同时访问 JavDB 时共用一份间隔，合计不超过每分钟 20 页（#734）。
 
 ## [0.58.0] - 2026-11-14
 

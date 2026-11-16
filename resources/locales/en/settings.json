@@ -965,11 +965,23 @@
     "backupCleaned": "Pre-repair backup removed",
     "changedCount_one": "{{count, number}} change",
     "changedCount_other": "{{count, number}} changes",
+    "deferReasonCount": "{{reason}} ({{count, number}})",
+    "deferReasons": {
+      "mount": "directory unreadable",
+      "cooldown": "metadata source cooling down",
+      "cost": "metered source not confirmed",
+      "retry": "waiting to retry automatically"
+    },
+    "deferred": "Deferred",
+    "deferredNote_one": "{{count, number}} video deferred: {{reason}}",
+    "deferredNote_other": "{{count, number}} videos deferred: {{reason}}",
     "deleteBody": "This deletes {{amount}} and can't be undone. The 3 most recent snapshots of each followed source and any snapshots still referenced by items are kept.",
     "deleteSnapshots": "Delete snapshots",
     "deleteTitle": "Delete {{title}}",
     "empty": "Nothing to repair or migrate.",
     "estimating": "Calculating",
+    "failedNote_one": "{{count, number}} video failed; retry it in {{place}}",
+    "failedNote_other": "{{count, number}} videos failed; retry them in {{place}}",
     "filesAndSize_one": "{{count, number}} file · {{size}}",
     "filesAndSize_other": "{{count, number}} files · {{size}}",
     "groups": {
@@ -1291,6 +1303,8 @@
     "title": "Uninstall Peach"
   },
   "upgradeRepairs": {
+    "deferred": "Deferred",
+    "deferredHelp": "The rest waits for the mount to come back or the source to reopen, and continues automatically.",
     "downloadReviewLog": "Download review log",
     "itemCount_one": "{{value}} item",
     "itemCount_other": "{{value}} items",

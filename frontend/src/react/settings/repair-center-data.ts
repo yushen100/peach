@@ -16,6 +16,8 @@ export interface RepairItem {
   online?: boolean;
   /** 封面版式补修：等确认时待处理的封面数。 */
   covers?: number;
+  /** 补测类：延后的部数按原因码（mount / cooldown / cost，旧版没记原因的是空串）；`failed` 为等你重试的失败部数。 */
+  deferred?: Record<string, number>; failed?: number;
 }
 /** `rule` 是修复规则的 id，按它取译文；`id` 是这一次执行的记录号。 */
 export interface RepairHistory { id: string; rule: string; title: string; at: number; changed: number; backups: { name: string; exists: boolean }[] }

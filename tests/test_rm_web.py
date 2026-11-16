@@ -2296,30 +2296,55 @@ class WebDataTests(unittest.TestCase):
         self.assertFalse(landed[0].exists())
         self.assertEqual(original.read_bytes(), b"media")
 
-    def test_empty_trash_moves_media_outside_the_write_lock_and_spares_rows_restored_meanwhile(self):
-        """网盘上逐个 stat、改名不占写锁；这期间被还原出回收站的，事务里复核时留下、文件放回原处。"""
+    def test_empty_trash_moves_media_outside_the_write_lock_and_refuses_restores_meanwhile(self):
+        """网盘上逐个 stat、改名或直接删除不占写锁；这期间还原出回收站被拒，不会留下没有文件的行。"""
         binned = self.stage_media(1, "binned.mp4")
-        restored = self.stage_media(2, "restored.mp4")
+        other = self.stage_media(2, "other.mp4")
         rm_web.w_feedback(self.contract, {"id": 1, "kind": "dispose"})
         rm_web.w_feedback(self.contract, {"id": 2, "kind": "dispose"})
         quarantine = web_batch._quarantine_media
-        locked = []
+        locked, refused = [], []
 
         def outside_lock(original, **kwargs):
             locked.append(self.contract.database.write_lock.locked())
             moved = quarantine(original, **kwargs)
-            if original == restored and not locked[-1]:
-                rm_web.w_feedback(self.contract, {"id": 2, "kind": "dispose"})
+            if original == other:
+                for restore in (lambda: rm_web.w_feedback(self.contract, {"id": 2, "kind": "dispose"}),
+                                lambda: rm_web.w_batch(self.contract, {"ids": [2], "operation": "restore"})):
+                    with self.assertRaisesRegex(ValueError, "正在永久删除"):
+                        restore()
+                    refused.append(True)
             return moved
         with mock.patch.object(web_batch, "_quarantine_media", side_effect=outside_lock):
             result = rm_web.w_empty_trash(self.contract)
 
-        self.assertEqual(locked, [False, False])
+        self.assertEqual((locked, refused), ([False, False], [True, True]))
+        self.assertEqual((result["purged"], result["blocked"]), (2, []))
+        self.assertFalse(binned.exists() or other.exists())
+        self.assertIsNone(self.row(1))
+        self.assertIsNone(self.row(2))
+        self.assertFalse(web_batch.being_purged([1, 2]), "删完就撤下登记")
+
+    def test_a_row_restored_just_before_the_purge_starts_is_left_alone(self):
+        """读完回收站、登记之前就被还原的那一条：动文件前按最新的行再筛一遍，文件一下都不碰。"""
+        binned = self.stage_media(1, "binned.mp4")
+        restored = self.stage_media(2, "restored.mp4")
+        rm_web.w_feedback(self.contract, {"id": 1, "kind": "dispose"})
+        rm_web.w_feedback(self.contract, {"id": 2, "kind": "dispose"})
+        register = web_batch.purging
+
+        def restore_first(ids):
+            rm_web.w_feedback(self.contract, {"id": 2, "kind": "dispose"})
+            return register(ids)
+        with mock.patch.object(web_batch, "purging", side_effect=restore_first), \
+                mock.patch.object(web_batch, "_quarantine_media", wraps=web_batch._quarantine_media) as moved:
+            result = rm_web.w_empty_trash(self.contract)
+
         self.assertEqual(result["purged"], 1)
         self.assertEqual([item["id"] for item in result["blocked"]], [2])
+        self.assertEqual([call.args[0] for call in moved.call_args_list], [binned])
         self.assertFalse(binned.exists())
-        self.assertIsNone(self.row(1))
-        self.assertTrue(restored.is_file(), "隔离期间被还原的，文件放回原处")
+        self.assertTrue(restored.is_file())
         self.assertIsNone(self.row(2)["disposal"])
 
     def test_a_purge_cleans_only_what_the_deleted_rows_left_behind(self):

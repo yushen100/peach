@@ -950,11 +950,21 @@
     "awaitingConfirmation": "等你确认",
     "backupCleaned": "修复前的备份已清理",
     "changedCount": "改动 {{count, number}} 项",
+    "deferReasonCount": "{{reason}} {{count, number}} 部",
+    "deferReasons": {
+      "mount": "所在目录读不到",
+      "cooldown": "资料来源冷却中",
+      "cost": "计费来源未确认",
+      "retry": "等待自动重试"
+    },
+    "deferred": "已延后",
+    "deferredNote": "延后 {{count, number}} 部：{{reason}}",
     "deleteBody": "将删除 {{amount}}，删除后不能恢复。每个关注来源最近 3 份快照和条目引用的快照会保留。",
     "deleteSnapshots": "删除快照",
     "deleteTitle": "删除{{title}}",
     "empty": "没有要修复或迁移的内容。",
     "estimating": "正在统计",
+    "failedNote": "失败 {{count, number}} 部，可在{{place}}重试",
     "filesAndSize": "{{count, number}} 个文件 · {{size}}",
     "groups": {
       "files": "馆藏文件",
@@ -1267,6 +1277,8 @@
     "title": "卸载 Peach"
   },
   "upgradeRepairs": {
+    "deferred": "延后",
+    "deferredHelp": "剩下的要等挂载恢复或来源放开，到时间自动继续。",
     "downloadReviewLog": "下载复核记录",
     "itemCount": "{{value}} 项",
     "needsReview": "需要复核",

@@ -4913,6 +4913,50 @@ class ScriptingConventionTests(unittest.TestCase):
         limiter.wait("https://www.x.com/b")
         self.assertEqual(slept, [2.0], "同一主机的第二次请求必须等一个间隔")
 
+    def test_a_shared_slot_keeps_two_processes_apart_by_each_ones_interval(self):
+        """服务与采集脚本各自限速时合起来会超速；共用一个节拍文件后每次至少比上一次晚自己的间隔。"""
+        now = [1000.0]
+        slept: list[float] = []
+
+        def sleeper(seconds):
+            slept.append(seconds)
+            now[0] += seconds
+        with tempfile.TemporaryDirectory() as tmp:
+            path = scripting.shared_slot_path(Path(tmp), "javdb.com")
+            script = scripting.SharedSlot(path, clock=lambda: now[0], sleeper=sleeper)
+            service = scripting.SharedSlot(path, clock=lambda: now[0], sleeper=sleeper)
+            script.take(5.0)
+            service.take(3.0)
+            script.take(5.0)
+            self.assertEqual(slept, [3.0, 3.0], "后来的那一方等满自己的间隔，不叠加对方的")
+            # 坏值、钟回拨留下的远未来时刻都只封顶在自己的间隔内。
+            path.write_text("not a number", encoding="utf-8")
+            service.take(3.0)
+            self.assertEqual(slept, [3.0, 3.0])
+            path.write_text(repr(now[0] + 10_000), encoding="utf-8")
+            service.take(3.0)
+            self.assertEqual(slept[-1], 3.0)
+            # 写不了（路径被目录占了）就只按进程内限速，不挡取页。
+            blocked = Path(tmp) / "blocked"
+            blocked.mkdir()
+            scripting.SharedSlot(blocked, clock=lambda: now[0], sleeper=sleeper).take(3.0)
+
+    def test_host_limiter_waits_for_another_process_on_a_shared_host_only(self):
+        import time
+        slept: list[float] = []
+        with tempfile.TemporaryDirectory() as tmp:
+            path = scripting.shared_slot_path(Path(tmp), "javdb.com")
+            limiter = scripting.HostLimiter({"javdb.com": 3.0, "x.com": 3.0}, sleeper=slept.append)
+            limiter.share("javdb.com", path)
+            path.parent.mkdir(parents=True)
+            path.write_text(repr(time.time() + 2.0), encoding="utf-8")
+            limiter.wait("https://x.com/a")
+            self.assertEqual(slept, [], "没共用的主机不看别的进程")
+            limiter.wait("https://javdb.com/actors/1")
+            self.assertEqual(len(slept), 1)
+            self.assertGreater(slept[0], 1.0, "脚本刚发过一页，服务这一页要等它的间隔")
+            self.assertGreater(float(path.read_text(encoding="utf-8")), time.time() + 2.0)
+
     def test_host_under_rejects_a_domain_that_merely_ends_with_the_key(self):
         self.assertTrue(scripting.host_under("x.com", ("x.com",)))
         self.assertTrue(scripting.host_under("mobile.X.com", ("x.com",)))

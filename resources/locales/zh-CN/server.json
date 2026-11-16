@@ -783,6 +783,7 @@
     "videoUpgraded": "影片升级补全完成",
     "videosUpgraded": "影片升级补全完成 {{count}} 部",
     "videosDeferred": "目录读不到或来源冷却，延后 {{count}} 部",
+    "videosMalformed": "路径写法无法识别，失败 {{count}} 部",
     "dimensionsMeasured": "显示尺寸补测完成",
     "deferredBy": "已延后：{{reason}}",
     "deferMountMedia": "影片所在目录读不到，挂载恢复后再补全",
@@ -1824,7 +1825,9 @@
       "mediaRepairIncomplete": "影片升级补全未完成，请在任务中心查看后重试",
       "resumeAfterRestart": "服务重启后继续",
       "displayBackupNoSpace": "显示尺寸补测备份空间不足，已暂停本批媒体",
-      "mediaPaused": "{{message}}"
+      "mediaPaused": "{{message}}",
+      "malformedPath": "影片路径写法无法识别：{{path}}",
+      "malformedPathReason": "影片路径写法无法识别（{{reason}}）：{{path}}"
     },
     "tunnel": {
       "standalonePortInvalid": "独立包 Tunnel 的 HTTP 端口无效：{{port}}",
@@ -2787,7 +2790,8 @@
     "webBatch": {
       "changedDuringQuarantine": "文件在隔离备份期间发生变化",
       "pathUnmapped": "媒体路径未映射到可访问的挂载目录",
-      "storageOffline": "媒体来源未挂载或不可读取"
+      "storageOffline": "媒体来源未挂载或不可读取",
+      "purgingCannotRestore": "正在永久删除的条目不能还原"
     },
     "webFeeds": {
       "checkStopped": "订阅检查已停止"

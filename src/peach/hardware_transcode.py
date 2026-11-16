@@ -327,9 +327,17 @@ class HardwareTranscoder:
         return playback_max_height(self.state_root) if self.state_root is not None else 0
 
     def diagnostic_snapshot(self) -> dict:
-        """读取当前硬件策略与已有探测结果，不启动新的硬件探测。"""
-        with self._lock:
+        """读取当前硬件策略与已有探测结果，不启动新的硬件探测，也不等正在跑的那次。
+
+        首次探测持锁逐个候选跑 ffmpeg（本机约 2 秒，每个候选最多 10 秒）；起播计划要记这份诊断，
+        等锁就是让播放陪着别人的探测等，所以拿不到锁就报「探测中」。"""
+        if not self._lock.acquire(blocking=False):
+            return {'backend': self.backend, 'enabled': self.active(),
+                    'probe_status': 'probing', 'available_backends': []}
+        try:
             results = [sorted({encoder.backend for encoder in encoders}) for encoders in self._encoders.values()]
+        finally:
+            self._lock.release()
         return {'backend': self.backend, 'enabled': self.active(),
                 'probe_status': 'cached' if results else 'not-probed', 'available_backends': results}
 
