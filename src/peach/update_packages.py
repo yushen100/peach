@@ -14,7 +14,9 @@ TOOL_PATHS = {
     "untrunc": ("tools/untrunc", {"untrunc.exe", "manifest.json", "LICENSE.txt", "NOTICE.md", "buildconf.txt"}),
     "cloudflared": ("", {"cloudflared.exe", "cloudflared-manifest.json"}),
     "face-models": ("tools/face-models", {"face_detection_yunet_2023mar.onnx", "face_recognition_sface_2021dec.onnx",
-                                          "LICENSE-yunet.txt", "LICENSE-sface.txt", "manifest.json"}),
+                                          "text_detection_en_ppocrv3_2023may.onnx", "text_recognition_CRNN_EN_2021sep.onnx",
+                                          "320n.onnx", "LICENSE-yunet.txt", "LICENSE-sface.txt", "LICENSE-ppocr.txt",
+                                          "LICENSE-crnn.txt", "LICENSE-nudenet.txt", "manifest.json"}),
 }
 #: 运行时自己能补齐的工具：旧版更新器不认得它、装好的新版里缺了它，由它自己的运行时下载
 #: （人脸模型见 `face_models`）。新版本往清单里加旧客户端不认得的工具，必须登记在这里，

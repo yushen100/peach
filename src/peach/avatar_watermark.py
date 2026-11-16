@@ -36,10 +36,10 @@ from pathlib import Path
 from .config import TOOLS_DIR
 from .user_messages import UserFacingError
 
-#: opencv_zoo 的 PP-OCRv3 定版检测模型。走 media. 域名的原因和 YuNet 一样：
-#: 仓库用 Git LFS，raw. 域名只会回一个指针文件。
+#: opencv_zoo 的 PP-OCRv3 定版检测模型，钉在人脸模型那个提交（`face_detect.ZOO_COMMIT`）。走 media. 域名的
+#: 原因和 YuNet 一样：仓库用 Git LFS，raw. 域名只会回一个指针文件。
 MODEL_URL = (
-    "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/"
+    "https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/"
     "models/text_detection_ppocr/text_detection_en_ppocrv3_2023may.onnx"
 )
 MODEL_SHA256 = "03f550c6b406fda8bf54bd8327815f6c7e2edd98cea02348c93d879254366587"
@@ -114,6 +114,11 @@ def ensure_model(path: Path | None = None, *, allow_download: bool = True,
     `url` 指向的压缩包（例如 PyPI 的 wheel）里模型的路径：取下整包、解出这一个文件，校验的是解出来的模型。
     """
     target = Path(path) if path is not None else MODEL_PATH
+    # 安装包与 Docker 镜像随包带着（`scripts/fetch_face_models.py`，和人脸模型同一个目录）：先用那一份。
+    from .face_detect import bundled_model
+    bundled = bundled_model(target.name, sha256)
+    if bundled is not None:
+        return bundled
     if target.is_file() and _digest(target) == sha256:
         return target
     if not allow_download:

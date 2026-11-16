@@ -21,10 +21,10 @@ from . import avatar_watermark
 from .avatar_watermark import WatermarkModelUnavailable
 from .config import TOOLS_DIR
 
-#: opencv_zoo 定版的 CRNN 英文识别模型，和检测模型同一个仓库、同一种取法（media. 域名，见
+#: opencv_zoo 定版的 CRNN 英文识别模型，和检测模型同一个仓库、同一个提交、同一种取法（media. 域名，见
 #: `avatar_watermark.MODEL_URL`）。
 RECOGNIZER_URL = (
-    "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/"
+    "https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/"
     "models/text_recognition_crnn/text_recognition_CRNN_EN_2021sep.onnx"
 )
 RECOGNIZER_SHA256 = "a84b1f6e11a65c2d733cb0cc1f014aae3f99051e3f11447dc282faa678eee544"
