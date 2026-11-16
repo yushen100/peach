@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "12527e7d-e00a-438f-9598-9c8438ef1ff2", e._sentryDebugIdIdentifier = "sentry-dbid-12527e7d-e00a-438f-9598-9c8438ef1ff2");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "74626678-bec2-4ac0-ae91-95553de23458", e._sentryDebugIdIdentifier = "sentry-dbid-74626678-bec2-4ac0-ae91-95553de23458");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -7396,7 +7396,15 @@ var He = "peach.settings.v1", Ue = {
 			"enhancement-suffix-names": "Video enhancement tags in names",
 			"fc2-seller-backfill": "FC2 sellers linked",
 			"code-sibling-identity": "Cast and creators copied to same-code copies",
-			"interface-text-codes": "Interface text in task records"
+			"interface-text-codes": "Interface text in task records",
+			"entity-link-values": "Profile links",
+			"fc2-seller-studios": "FC2 sellers as labels",
+			"scrape-mark-titles": "Masked FC2 titles",
+			"alias-flat-names": "Label and series names",
+			"tag-vocabulary": "Retired tags",
+			"feed-bluray-duplicates": "Duplicate Blu-ray releases",
+			"want-image-acquired": "Wants marked acquired by a cover",
+			"download-text-codes": "Cloud download notes"
 		},
 		items: {
 			catalog: {
@@ -7446,6 +7454,38 @@ var He = "peach.settings.v1", Ue = {
 			"interface-text": {
 				title: "Interface text in task records",
 				summary: "Earlier task records now store codes instead of text, so they show in English; unmatched text is kept"
+			},
+			"entity-links": {
+				title: "Profile links",
+				summary: "Links copied with &amp; in the address open the right page again, and generic link names show in your language."
+			},
+			"fc2-studios": {
+				title: "FC2 sellers as labels",
+				summary: "FC2 titles whose label was the seller now use FC2-PPV; the seller stays as the creator."
+			},
+			"scrape-mark-titles": {
+				title: "Masked FC2 titles",
+				summary: "Scrambled strings JavDB inserted into FC2 titles are removed."
+			},
+			"alias-flat-names": {
+				title: "Label and series names",
+				summary: "Labels and series stored under an alias use their main name."
+			},
+			"tag-vocabulary": {
+				title: "Retired tags",
+				summary: "Retired and dropped tags, and tags from old local NFO imports, follow the current tag list."
+			},
+			"bluray-duplicates": {
+				title: "Duplicate Blu-ray releases",
+				summary: "Blu-ray editions listed next to their DMM streaming edition in New releases are removed."
+			},
+			"want-acquired": {
+				title: "Wants marked acquired by a cover",
+				summary: "Wants marked acquired because a cover image arrived first point to the video, or go back to wanted."
+			},
+			"download-text": {
+				title: "Cloud download notes",
+				summary: "Notes on older cloud downloads show in your interface language."
 			}
 		}
 	},
@@ -14453,7 +14493,15 @@ var He = "peach.settings.v1", Ue = {
 			"enhancement-suffix-names": "名字里的视频增强代号",
 			"fc2-seller-backfill": "补挂 FC2 卖家",
 			"code-sibling-identity": "同番号副本补齐演员与创作者",
-			"interface-text-codes": "任务记录的界面文字"
+			"interface-text-codes": "任务记录的界面文字",
+			"entity-link-values": "资料页链接",
+			"fc2-seller-studios": "FC2 卖家记成厂牌",
+			"scrape-mark-titles": "FC2 标题里的混淆串",
+			"alias-flat-names": "厂牌与系列名",
+			"tag-vocabulary": "退役标签",
+			"feed-bluray-duplicates": "重复的蓝光版",
+			"want-image-acquired": "被封面标成已到手的想要",
+			"download-text-codes": "云下载说明"
 		},
 		items: {
 			catalog: {
@@ -14503,6 +14551,38 @@ var He = "peach.settings.v1", Ue = {
 			"interface-text": {
 				title: "任务记录的界面文字",
 				summary: "旧任务记录里的说明和结论改存 code，英文界面也能显示；对不上的保留原文"
+			},
+			"entity-links": {
+				title: "资料页链接",
+				summary: "地址里带 &amp; 的链接重新打开到正确的页面，通用链接名按界面语言显示。"
+			},
+			"fc2-studios": {
+				title: "FC2 卖家记成厂牌",
+				summary: "厂牌写成卖家的 FC2 作品改为 FC2-PPV，卖家保留为创作者。"
+			},
+			"scrape-mark-titles": {
+				title: "FC2 标题里的混淆串",
+				summary: "去掉 JavDB 插进 FC2 标题的乱码串。"
+			},
+			"alias-flat-names": {
+				title: "厂牌与系列名",
+				summary: "记成别名的厂牌和系列改用主名。"
+			},
+			"tag-vocabulary": {
+				title: "退役标签",
+				summary: "退役与撤掉的标签、旧版本地 NFO 导入的标签按现行标签表改名或撤下。"
+			},
+			"bluray-duplicates": {
+				title: "重复的蓝光版",
+				summary: "新作里和 DMM 配信版同时列出的蓝光版去掉。"
+			},
+			"want-acquired": {
+				title: "被封面标成已到手的想要",
+				summary: "因封面图先到被标成已到手的想要，改指视频或回到待找。"
+			},
+			"download-text": {
+				title: "云下载说明",
+				summary: "旧云下载记录的说明按界面语言显示。"
 			}
 		}
 	},
@@ -39231,4 +39311,4 @@ jt();
 var Kb = document.getElementById("peach-page"), qb = Kb ? Gb[Kb.dataset.page ?? ""] : void 0;
 Kb && qb && (0, Bt.createRoot)(Kb).render(/* @__PURE__ */ (0, V.jsx)(Wb, { children: /* @__PURE__ */ (0, V.jsx)(qb, { data: { ...Kb.dataset } }) }));
 
-//# debugId=12527e7d-e00a-438f-9598-9c8438ef1ff2
+//# debugId=74626678-bec2-4ac0-ae91-95553de23458

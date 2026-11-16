@@ -9,8 +9,8 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
-from peach import (display_dimensions_repair, entry_links, interface_text_upgrade, quality_repair, r18_legacy_repair,
-                   upgrade_repairs, upgrade_rules)
+from peach import (display_dimensions_repair, entry_links, interface_text_upgrade, legacy_repairs, quality_repair,
+                   r18_legacy_repair, upgrade_repairs, upgrade_rules)
 from peach.entities import upsert_asset_entity
 from peach.repository import LedgerDatabase
 from peach.task_runs import TaskRunStore
@@ -1137,12 +1137,14 @@ class UpgradeRepairTests(unittest.TestCase):
             self.assertEqual(row[0], '元の題名')
             self.assertEqual(json.loads(row[1])['catalog_title'], 'auto:dmm')
             # 悬空候选、JavDB 记录类型、视频改登记、来源分辨率标签、画质分档与旧记录转换六条补修各记一行，这里只数更新已有资料的回执。
-            self.assertEqual(connection.execute('SELECT count(*) FROM ledger_upgrade_repair WHERE id NOT IN (?,?,?,?,?,?)',
+            self.assertEqual(connection.execute('SELECT count(*) FROM ledger_upgrade_repair WHERE id NOT IN (?,?,?,?,?,?) '
+                                                'AND id NOT IN (SELECT value FROM json_each(?))',
                                                 (upgrade_repairs.DANGLING_KEY,
                                                  upgrade_repairs.JAVDB_RECORDS_KEY,
                                                  upgrade_repairs.VIDEO_MEDIUM_KEY,
                                                  upgrade_repairs.RESOLUTION_TAGS_KEY, quality_repair.KEY,
-                                                 interface_text_upgrade.RECEIPT_KEY)).fetchone()[0], 2)
+                                                 interface_text_upgrade.RECEIPT_KEY,
+                                                 json.dumps([rule.key for rule in legacy_repairs.RULES]))).fetchone()[0], 2)
             self.assertEqual(connection.execute('PRAGMA integrity_check').fetchone()[0], 'ok')
         self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))), 2)
         self.assertEqual(upgrade_repairs._read(self.service.receipt)['text_media_ids'], [1])
@@ -1665,12 +1667,14 @@ class UpgradeRepairTests(unittest.TestCase):
             rows = connection.execute('SELECT id,code,duration FROM asset ORDER BY id').fetchall()
             self.assertEqual([tuple(row) for row in rows], [(1, 'SSIS-123', None), (2, 'BAD-001', None)])
             # 悬空候选、JavDB 记录类型、视频改登记、来源分辨率标签、画质分档与旧记录转换六条补修各记一行，这里只数更新已有资料的回执。
-            self.assertEqual(connection.execute('SELECT count(*) FROM ledger_upgrade_repair WHERE id NOT IN (?,?,?,?,?,?)',
+            self.assertEqual(connection.execute('SELECT count(*) FROM ledger_upgrade_repair WHERE id NOT IN (?,?,?,?,?,?) '
+                                                'AND id NOT IN (SELECT value FROM json_each(?))',
                                                 (upgrade_repairs.DANGLING_KEY,
                                                  upgrade_repairs.JAVDB_RECORDS_KEY,
                                                  upgrade_repairs.VIDEO_MEDIUM_KEY,
                                                  upgrade_repairs.RESOLUTION_TAGS_KEY, quality_repair.KEY,
-                                                 interface_text_upgrade.RECEIPT_KEY)).fetchone()[0], 1)
+                                                 interface_text_upgrade.RECEIPT_KEY,
+                                                 json.dumps([rule.key for rule in legacy_repairs.RULES]))).fetchone()[0], 1)
         self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))), 1)
         receipt = upgrade_repairs._read(self.service.receipt)
         self.assertEqual(receipt['local']['before'], receipt['local']['after'])

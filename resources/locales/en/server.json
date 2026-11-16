@@ -297,7 +297,15 @@
       "enhancement-suffix-names": "Video enhancement tags in names",
       "fc2-seller-backfill": "FC2 sellers linked",
       "code-sibling-identity": "Cast and creators copied to same-code copies",
-      "interface-text-codes": "Interface text in task records"
+      "interface-text-codes": "Interface text in task records",
+      "entity-link-values": "Profile links",
+      "fc2-seller-studios": "FC2 sellers as labels",
+      "scrape-mark-titles": "Masked FC2 titles",
+      "alias-flat-names": "Label and series names",
+      "tag-vocabulary": "Retired tags",
+      "feed-bluray-duplicates": "Duplicate Blu-ray releases",
+      "want-image-acquired": "Wants marked acquired by a cover",
+      "download-text-codes": "Cloud download notes"
     },
     "items": {
       "catalog": {
@@ -347,6 +355,38 @@
       "interface-text": {
         "title": "Interface text in task records",
         "summary": "Earlier task records now store codes instead of text, so they show in English; unmatched text is kept"
+      },
+      "entity-links": {
+        "title": "Profile links",
+        "summary": "Links copied with &amp; in the address open the right page again, and generic link names show in your language."
+      },
+      "fc2-studios": {
+        "title": "FC2 sellers as labels",
+        "summary": "FC2 titles whose label was the seller now use FC2-PPV; the seller stays as the creator."
+      },
+      "scrape-mark-titles": {
+        "title": "Masked FC2 titles",
+        "summary": "Scrambled strings JavDB inserted into FC2 titles are removed."
+      },
+      "alias-flat-names": {
+        "title": "Label and series names",
+        "summary": "Labels and series stored under an alias use their main name."
+      },
+      "tag-vocabulary": {
+        "title": "Retired tags",
+        "summary": "Retired and dropped tags, and tags from old local NFO imports, follow the current tag list."
+      },
+      "bluray-duplicates": {
+        "title": "Duplicate Blu-ray releases",
+        "summary": "Blu-ray editions listed next to their DMM streaming edition in New releases are removed."
+      },
+      "want-acquired": {
+        "title": "Wants marked acquired by a cover",
+        "summary": "Wants marked acquired because a cover image arrived first point to the video, or go back to wanted."
+      },
+      "download-text": {
+        "title": "Cloud download notes",
+        "summary": "Notes on older cloud downloads show in your interface language."
       }
     }
   },

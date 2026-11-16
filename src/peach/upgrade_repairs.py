@@ -1016,6 +1016,7 @@ class UpgradeRepairs:
                 self._settle_quality()
                 self._convert_interface_text()
                 self._isolate_system_files()
+                self._settle_legacy()
                 return
             self._restore_receipt(None)
             sources = Path(contract.follow_sources_root)
@@ -1069,6 +1070,45 @@ class UpgradeRepairs:
             self._settle_quality()
             self._convert_interface_text()
             self._isolate_system_files()
+            self._settle_legacy()
+
+    def _settle_legacy(self) -> None:
+        """旧版本写下、按现行判据能确定改对的存量各补一次（`legacy_repairs.RULES`）。
+
+        先只读把还没做过的几条算一遍，有要改的才备份一次账本，再逐条在各自的写事务里重算、改写、记回执，
+        回执带这份备份。某条出错只记日志，其余照做，下次启动再试那一条。
+        """
+        from . import legacy_repairs
+        try:
+            with self.contract.database.read_connection() as connection:
+                rules = legacy_repairs.pending(connection)
+                planned = [rule for rule in rules if rule.find(connection)]
+        except Exception:
+            LOGGER.exception('Legacy repairs: planning failed')
+            return
+        backup = None
+        if planned:
+            backup = self.contract.db_path.with_name(f'ledger.pre-legacy-repairs-{time.time_ns()}.db')
+            try:
+                sqlite_backup(self.contract.db_path, backup)
+            except Exception:
+                LOGGER.exception('Legacy repairs: backup failed')
+                return
+        for rule in rules:
+            try:
+                with self.contract.database.write_transaction() as connection:
+                    if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?', (rule.key,)).fetchone():
+                        continue
+                    found = rule.find(connection)
+                    result = rule.fix(connection, found) if found else {'changed': 0}
+                    if found and backup is not None:
+                        result['backup'] = str(backup)
+                    connection.execute('INSERT INTO ledger_upgrade_repair(id,applied_at,result_json) VALUES(?,?,?)',
+                                       (rule.key, str(time.time()), json.dumps(result, ensure_ascii=False, default=str)))
+            except Exception:
+                LOGGER.exception('Legacy repair %s failed', rule.key)
+                continue
+            LOGGER.info('Legacy repair %s: changed %s', rule.key, result.get('changed', 0))
 
     def _prepare_display_dimensions(self) -> None:
         from . import display_dimensions_repair

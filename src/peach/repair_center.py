@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import follow_evidence, interface_text, system_file_repair
+from . import follow_evidence, interface_text, legacy_repairs, system_file_repair
 from .media_sources import CLOUD_LOCATIONS
 
 #: 列给用户看的修复：id 与是否自动执行，顺序就是页面顺序。标题与一句说明在
@@ -21,7 +21,8 @@ from .media_sources import CLOUD_LOCATIONS
 ITEMS = (
     ('catalog', 'auto'), ('display-local', 'auto'), ('display-cloud', 'confirm'), ('system-files', 'auto'),
     ('garbled-people', 'auto'), ('dangling-candidates', 'auto'), ('javdb-entries', 'auto'),
-    ('resolution-tags', 'auto'), ('video-medium', 'auto'), ('quality-bands', 'auto'), ('interface-text', 'auto'), ('follow-evidence', 'confirm'),
+    ('resolution-tags', 'auto'), ('video-medium', 'auto'), ('quality-bands', 'auto'), ('interface-text', 'auto'),
+    *((rule.item, 'auto') for rule in legacy_repairs.RULES), ('follow-evidence', 'confirm'),
 )
 #: 历史里的规则：账本行 id 的前缀、计哪个字段（`None` 为资料整理的改动合计）。
 #: 前缀去掉末尾的连字符就是规则 id，名字在 `server:repairCenter.history.<id>`。
@@ -37,6 +38,7 @@ RULES = (
     ('video-medium-', ('video',)),
     ('quality-resolution-', ('assets',)),
     ('interface-text-codes-', ('rows', 'attempts')),
+    *((rule.prefix, ('changed',)) for rule in legacy_repairs.RULES),
     (follow_evidence.RECEIPT_PREFIX, ('files',)),
 )
 #: 资料整理回执里不算「改动」的计数：重新探测、转人工与来源快照失效只是排队或让缓存重取，不是改了资料。
@@ -189,6 +191,7 @@ def snapshot(connection, receipt: dict, *, cloud_pending: int, backup_directorie
         'video-medium': _receipt_fact(rows, 'video-medium-', 'video'),
         'interface-text': _receipt_fact(rows, 'interface-text-codes-', 'rows', 'attempts'),
         'follow-evidence': _follow_evidence(follow_evidence_status, rows),
+        **{rule.item: _receipt_fact(rows, rule.prefix, 'changed') for rule in legacy_repairs.RULES},
     }
     items = [{'id': key, 'title': interface_text.text(f'server:repairCenter.items.{key}.title'),
               'summary': interface_text.text(f'server:repairCenter.items.{key}.summary'), 'mode': mode, **facts[key]}
