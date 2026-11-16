@@ -540,6 +540,26 @@ export function loadJunk(surface){
   return paintJunkQueue(surface);
 }
 
+/* 垃圾文件页「全部移入回收站」：待判断里这一类的全部条目，服务端按同一份筛选整批写，不止页面取回的那一批。
+   带上确认框里的件数，队列在这期间变了就整批不动、重读，请人再确认；做完给撤销，按返回的那批 id 整批还原。 */
+const JUNK_DISPOSE_ALL='/api/ads/dispose-all',JUNK_RESTORE_ALL='/api/ads/restore-all';
+export function disposeAllJunk(kind,count){
+  return confirmModal({title:tr('shell:batchJunk.disposeAll'),body:confirmBody(tr('shell:batchJunk.confirmDisposeAll',{count}),'undo'),
+    confirmLabel:tr('shell:batchJunk.disposeAll'),danger:true,onConfirm:async()=>{
+      let result;
+      try{result=await api(JUNK_DISPOSE_ALL,{method:'POST',body:JSON.stringify({kind,status:'pending',expected:count})})}
+      catch(error){
+        if(error?.status!==400)throw error;
+        await loadCatalog();throw new Error(tr('shell:batchJunk.queueChanged'));
+      }
+      await loadCatalog();
+      receiptsState.actionReceipt(tr('shell:batchJunk.doneDispose',{count:result.changed}),{undo:async()=>{
+        await api(JUNK_RESTORE_ALL,{method:'POST',body:JSON.stringify({ids:result.ids})});
+        await loadCatalog();
+      }});
+    }});
+}
+
 export async function runJunkOperation(it,operation){
   const ids=[it.id],disposed=operation==='dispose',reconsidered=operation==='reconsider-junk';
   try{
@@ -668,6 +688,7 @@ catalogState.junkQueueActions = {
     catch(error){return entityState.sourceHint(error.message)}
   },
   operate:(it,operation)=>runJunkOperation(it,operation),
+  disposeAll:(kind,count)=>{disposeAllJunk(kind,count)},
 };
 }
 

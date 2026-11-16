@@ -11,6 +11,7 @@
  * 分类仍是 `<a href>`：要落到地址上，可深链、可刷新恢复，中键与修饰键照浏览器默认开新标签。
  * 普通左键交给壳，由它收起多选、改地址并重读。计数为 0 的那一类整枚徽标不画。 */
 import { useRef, type MouseEvent } from 'react';
+import { Button } from '@/components/base/buttons/button';
 
 import { JUNK_KIND_OPTIONS, junkPath, junkSummaryLabel, junkViewLink } from '../../junk-queue';
 import { FilterGlassRows, SelectAllPill } from '../components/filter-glass';
@@ -34,9 +35,11 @@ function Badge({ scope, count }: { scope: string; count: number }) {
 /** 下排「全选」：这一屏已取回的那几张。 */
 export interface JunkPickAll { loaded: number[]; picked: number; onChange(on: boolean): void }
 
-export function JunkCount({ route, page, failed, pickAll, sorts, onSort, onNavigate }: {
+export function JunkCount({ route, page, failed, pickAll, sorts, onSort, onNavigate, onDisposeAll }: {
   route: JunkRoute; page: JunkPage | undefined; failed: boolean; pickAll: JunkPickAll | null;
   sorts: readonly EntitySortKey[]; onSort(key: string): void; onNavigate(path: string): void;
+  /** 「全部移入回收站」：只在待判断视图、这一类有条目时给。 */
+  onDisposeAll?(): void;
 }) {
   const nav = useRef<HTMLElement>(null);
   const pane = useRef<HTMLSpanElement>(null);
@@ -81,6 +84,9 @@ export function JunkCount({ route, page, failed, pickAll, sorts, onSort, onNavig
           </span>
           {pickAll && pickAll.loaded.length ? <SelectAllPill label={t('cleanup:junk.selectAll', { count: pickAll.loaded.length })}
             picked={pickAll.picked} total={pickAll.loaded.length} onChange={pickAll.onChange} /> : null}
+          {/* 同回收站的「清空回收站」那一档：危险操作用实底红键，件数写在确认框里。 */}
+          {onDisposeAll ? <Button size="small" variant="danger" data-junk-dispose-all="" onClick={onDisposeAll}>
+            {t('shell:batchJunk.disposeAll')}</Button> : null}
         </span>
         <span data-entity-sorts="">
           <CatalogViewToggle />

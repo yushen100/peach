@@ -68,7 +68,9 @@ export function JunkQueuePage(props: JunkQueueProps) {
     onChange: (on: boolean) => selectAll(loaded, on) } : null;
   const count = host
     ? createPortal(<JunkCount route={route} page={query.data} failed={query.isError && !query.data} pickAll={pickAll}
-      sorts={order.sorts} onSort={order.onSort} onNavigate={navigate} />, host)
+      sorts={order.sorts} onSort={order.onSort} onNavigate={navigate}
+      onDisposeAll={route.view === 'pending' && Number(query.data?.total || 0) > 0
+        ? () => props.actions.disposeAll(route.kind, Number(query.data!.total)) : undefined} />, host)
     : null;
   return (
     <>

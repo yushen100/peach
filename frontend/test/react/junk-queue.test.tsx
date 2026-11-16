@@ -24,7 +24,7 @@ const answer = (items: JunkItem[], extra: Partial<JunkPage> = {}): JunkPage =>
 function actions(patch: Partial<JunkQueueActions> = {}): JunkQueueActions {
   return {
     navigate: vi.fn(), toggleSelection: vi.fn(), selectAll: vi.fn(), open: vi.fn(),
-    reveal: vi.fn(async () => ''), operate: vi.fn(async () => {}), ...patch,
+    reveal: vi.fn(async () => ''), operate: vi.fn(async () => {}), disposeAll: vi.fn(), ...patch,
   };
 }
 
@@ -162,13 +162,27 @@ describe('计数行', () => {
     expect(modified.defaultPrevented).toBe(false);
   });
 
+  it('「全部移入回收站」只在待判断里给，按这一类的总条数交给壳，不按取回的那一批', async () => {
+    vi.stubGlobal('fetch', fetchMock(200, answer([junk(1), junk(2)], { total: 260, counts: { video: 260 } })));
+    const disposeAll = vi.fn();
+    const p = props({ kind: 'video', actions: actions({ disposeAll }) });
+    const { update } = await open(p);
+    const button = () => p.countRow!.querySelector<HTMLButtonElement>('[data-junk-dispose-all]');
+    expect(button()?.textContent).toBe('全部移入回收站');
+    await click(button());
+    expect(disposeAll).toHaveBeenCalledWith('video', 260);
+    await update({ view: 'dismissed' });
+    await settle();
+    expect(button()).toBeNull();
+  });
+
   it('读不到时读数不再转圈，网格那一格给重试', async () => {
     vi.stubGlobal('fetch', fetchMock(500, { error: '服务端出错' }));
     const p = props();
     const { host } = await open(p);
     expect(p.countRow!.querySelector('[data-skeleton]')).toBeNull();
     expect(p.countRow!.querySelector('[data-catalog-readout]')?.textContent).toBe('待判断 · —');
-    expect(p.countRow!.querySelector('[data-select-all]')).toBeNull();
+    expect(p.countRow!.querySelector('[data-select-all], [data-junk-dispose-all]')).toBeNull();
     expect(host.querySelector('[data-media-error] [data-note-action]')?.textContent).toBe('立即重试');
     expect(cards(host)).toHaveLength(0);
   });

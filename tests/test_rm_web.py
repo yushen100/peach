@@ -1816,7 +1816,7 @@ class WebDataTests(unittest.TestCase):
             "/api/library-shortcuts", "/api/folders/preview", "/api/folders/rule",
             "/api/custom-metadata",
             "/api/preference", "/api/quality-goal", "/api/item-tag", "/api/item-edit", "/api/batch",
-            "/api/search-history", "/api/trash/empty",
+            "/api/ads/dispose-all", "/api/ads/restore-all", "/api/search-history", "/api/trash/empty",
             "/api/review/decision", "/api/review/genre", "/api/review/auto-landings/revert",
             "/api/purge-missing", "/api/orphan-records/attach",
             "/api/links/check", "/api/links/prune",
