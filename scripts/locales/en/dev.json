@@ -2388,10 +2388,12 @@
   "test_evidence": {
     "snapshotFailed": "Cannot build a verification snapshot for file: {{name}}",
     "queueAhead": "; {{count}} ahead in the queue",
-    "waiting": "Waiting for {{lock}} ({{holder}}{{place}}), up to {{seconds}} seconds.",
+    "waiting": "Waiting for {{lock}} ({{holder}}{{place}}), {{limit}}.",
     "holderUnknown": "holder details not available yet",
     "holderGone": "holder just exited or left no record",
-    "holderSince": "since {{time}}"
+    "holderSince": "since {{time}}",
+    "waitLimit": "up to {{seconds}} seconds",
+    "waitQueued": "queued in arrival order with no time limit"
   },
   "test_focus": {
     "browserOutside": "Browser test missing or outside the e2e directory: {{selector}}",
@@ -2467,12 +2469,12 @@
     "helpResume": "Resume a formal verification; full also reuses valid completion proofs",
     "helpFocus": "Debug the given Python/browser tests without issuing a record",
     "helpRerunFailures": "After a focused run fails, rerun the failed files once alone and record passes as flaky (for CI browser shards)",
-    "helpLockTimeout": "Seconds to wait for the full-suite lock; 0 returns at once when it is busy",
+    "helpLockTimeout": "Seconds to wait for the full-suite lock; by default it queues in arrival order with no limit, 0 returns at once when it is busy",
     "helpBase": "Verified Git baseline for CI test selection",
     "helpTimings": "File where a shard subprocess writes its result and per-test durations for the parent to collect",
     "helpShardPlan": "Per-shard file names planned by the parent by duration; without it, files rotate by name",
     "helpJobs": "How many shard subprocesses run at once on this device; auto picks by core count. Serial by default; the formal entry passes auto",
-    "lockTimeoutRange": "The lock wait must be between 0 and 1800 seconds",
+    "lockTimeoutRange": "The lock wait cannot be negative",
     "shardRange": "The shard count must be positive, and the index must start at 0 and be less than the count",
     "resumePlanParentOnly": "A resume plan is only for shards of a formal parent run",
     "rerunFailuresFocusOnly": "--rerun-failures is only for focused runs; the formal entry already reruns failed files alone",
@@ -2493,11 +2495,12 @@
     "inputsChanged": "Inputs changed during verification; kept {{kept}} unaffected results. Run auto to fill in the rest."
   },
   "test_slots": {
-    "waiting": "Waiting for machine-wide test slots (this run needs {{need}} of {{total}}{{place}}), up to {{minutes}} more minutes; holders are reported every minute:",
+    "waiting": "Waiting for machine-wide test slots (this run needs {{need}} of {{total}}{{place}}), queued in arrival order; holders are reported every minute",
     "holder": "slot {{slot}}: {{scope}}, pid {{pid}}, {{root}}, since {{since}}, running {{minutes}} min",
     "holdersUnknown": "holder details not available yet (just exited or not yet recorded)",
     "timedOut": "Waited {{minutes}} minutes and no machine-wide test slot came free; no tests were run.",
-    "badCount": "{{variable}} must be a whole number of at least 1; got {{value}}"
+    "badCount": "{{variable}} must be a whole number of at least 1; got {{value}}",
+    "waitLimit": "; at most {{minutes}} more minutes"
   },
   "test_shard_results": {
     "badFields": "Invalid shard report fields",

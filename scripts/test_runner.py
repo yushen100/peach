@@ -6,6 +6,7 @@ import ast
 import fnmatch
 import importlib
 import json
+import math
 import os
 import re
 import shutil
@@ -924,6 +925,26 @@ def shard_command(scopes: tuple[str, ...], index: int, count: int, timings: Path
 PRIOR_SECONDS = {"test_web_e2e.py": 900.0}
 
 
+def file_weights(names: Iterable[str], seconds: dict[str, float],
+                 prior_seconds: dict[str, float] | None = None) -> dict[str, float]:
+    """各测试文件的预计秒数：取本机实测，没测过的取已测文件的中位数，再不低于先验值。"""
+    known = sorted(value for value in seconds.values() if value > 0)
+    default = known[len(known) // 2] if known else 1.0
+    priors = PRIOR_SECONDS if prior_seconds is None else prior_seconds
+    return {name: max(seconds.get(name.removesuffix(".py"), default), priors.get(name, 0.0)) for name in names}
+
+
+#: 待跑文件的预计串行耗时达到全量的这个比例，就和全量一样占满整机名额（ADR-0172）。
+#: 只看标签不够：`auto` 选中多个域时跑的文件数接近全量，负载也一样。
+FULL_LOAD_SHARE = 0.6
+
+
+def takes_every_slot(names: Iterable[str]) -> bool:
+    seconds = load_file_seconds()
+    total = sum(file_weights([path.name for path in selected_files("full")], seconds).values())
+    return total > 0 and sum(file_weights(names, seconds).values()) >= FULL_LOAD_SHARE * total
+
+
 def shard_plan(names: Iterable[str], shard_count: int,
                seconds: dict[str, float], *, prior_seconds: dict[str, float] | None = None) -> list[list[str]]:
     """按预计秒数把测试文件装进分片：先长后短，每个文件放进当前最空的一片。
@@ -933,11 +954,7 @@ def shard_plan(names: Iterable[str], shard_count: int,
     没测过的文件取已测文件的中位数；表是空的时所有文件等重，相当于按个数均分。
     """
     names = sorted(names)
-    known = sorted(value for value in seconds.values() if value > 0)
-    default = known[len(known) // 2] if known else 1.0
-    priors = PRIOR_SECONDS if prior_seconds is None else prior_seconds
-    weight = {name: max(seconds.get(name.removesuffix(".py"), default), priors.get(name, 0.0))
-              for name in names}
+    weight = file_weights(names, seconds, prior_seconds)
     groups: list[list[str]] = [[] for _ in range(max(1, min(shard_count, len(names))))]
     totals = [0.0] * len(groups)
     for name in sorted(names, key=lambda item: (-weight[item], item)):
@@ -1151,7 +1168,11 @@ def rerun_failures(rows: list[dict], spawn=subprocess.run) -> bool:
     print(t("test_runner.rerunning", count=len(selectors), tests=', '.join(selectors)), flush=True)
     command = [sys.executable, str(ROOT / "scripts" / "test_runner.py"),
                *(item for selector in selectors for item in ("--focus", selector))]
-    if spawn(command, cwd=str(ROOT), check=False).returncode != 0:
+    # 重跑要在低负载下进行：本次运行已持有名额时就在它的名额里跑（分片此时都已结束），
+    # 没有名额的定向调试先排 1 个，不和别的会话的重负载同时跑。
+    with machine_slots("rerun", full=False):
+        returncode = spawn(command, cwd=str(ROOT), check=False).returncode
+    if returncode != 0:
         print(t("test_runner.rerunStillFailed"), flush=True)
         return False
     FLAKY[:] = selectors
@@ -1307,7 +1328,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--rerun-failures", action="store_true",
                         help=t("test_runner.helpRerunFailures"))
     parser.add_argument("--full-lock-held", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("--lock-timeout", type=float, default=1800,
+    parser.add_argument("--lock-timeout", type=float, default=math.inf,
                         help=t("test_runner.helpLockTimeout"))
     parser.add_argument("--base", default="master", help=t("test_runner.helpBase"))
     parser.add_argument("--shard-index", type=int, default=0)
@@ -1321,7 +1342,7 @@ def main(argv: list[str] | None = None) -> int:
                         help=t("test_runner.helpJobs"))
     parser.add_argument("--list-scopes", action="store_true")
     args = parser.parse_args(argv)
-    if not 0 <= args.lock_timeout <= 1800:
+    if not args.lock_timeout >= 0:
         parser.error(t("test_runner.lockTimeoutRange"))
     if args.shard_count < 1 or not 0 <= args.shard_index < args.shard_count:
         parser.error(t("test_runner.shardRange"))
@@ -1472,7 +1493,8 @@ def verified_run(args, requested, scopes, files) -> int:
                     pending=len(progress.pending)), flush=True)
         if progress.pending:
             # 锁的顺序固定：全量锁、同状态锁、整机名额；只有真要跑用例时才排名额。
-            slots.enter_context(machine_slots(" ".join(requested), full="full" in scopes))
+            pending = {path.name for scope in scopes for path in selected_files(scope)} & set(progress.modules)
+            slots.enter_context(machine_slots(" ".join(requested), full=takes_every_slot(pending)))
         progress.start()
         FLAKY.clear()
         with test_run_progress.phase(phases, '测试执行'):

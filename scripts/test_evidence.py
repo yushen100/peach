@@ -492,8 +492,9 @@ def held(lock_path: Path, *, wait_seconds: float = 0, **note: object):
             if announced != len(ahead):
                 announced = len(ahead)
                 place = t("test_evidence.queueAhead", count=announced) if announced else ""
+                limit = t("test_evidence.waitLimit", seconds=f"{wait_seconds:g}") if math.isfinite(wait_seconds)                     else t("test_evidence.waitQueued")
                 print(t("test_evidence.waiting", lock=lock_path.name, holder=describe_holder(lock_path), place=place,
-                        seconds=f"{wait_seconds:g}"), file=sys.stderr, flush=True)
+                        limit=limit), file=sys.stderr, flush=True)
             time.sleep(min(QUEUE_POLL_SECONDS, max(0.0, deadline - time.monotonic())))
     finally:
         drop_ticket(ticket)

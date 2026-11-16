@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import sys
 import time
@@ -28,7 +29,8 @@ HELD_VARIABLE = "PEACH_TEST_SLOTS_HELD"
 DEFAULT_SLOTS = 2
 #: 定向调试不含浏览器用例、且只点了这么多个测试文件以内时不占名额。
 FOCUS_FREE_FILES = 10
-WAIT_SECONDS = 7200
+#: 默认一直排队、按先后取；只有 `machine_lock.py --wait` 这类显式时限才会超时退出。
+WAIT_SECONDS = math.inf
 REPORT_SECONDS = 60
 POLL_SECONDS = 0.2
 
@@ -108,7 +110,10 @@ def describe(folder: Path, total: int, need: int, ahead: int, remaining: float, 
     """等待提示：要几个、前面排几个、谁占着、各自跑了多久。"""
     now = time.time() if now is None else now
     place = t("test_evidence.queueAhead", count=ahead) if ahead else ""
-    lines = [t("test_slots.waiting", need=need, total=total, place=place, minutes=max(1, round(remaining / 60)))]
+    head = t("test_slots.waiting", need=need, total=total, place=place)
+    if math.isfinite(remaining):
+        head += t("test_slots.waitLimit", minutes=max(1, round(remaining / 60)))
+    lines = [head]
     found = holders(folder, total, now)
     for note in found:
         lines.append("  " + t("test_slots.holder", slot=note["slot"], scope=note.get("scope") or "?", pid=note["pid"],

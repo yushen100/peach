@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import io
 import json
+import math
 import os
 import subprocess
 import sys
@@ -165,6 +166,19 @@ class SlotPoolTests(SlotFixture, unittest.TestCase):
             self.assertIn(part, lines[1])
         self.assertIn("30", lines[0])
 
+    def test_waiting_has_no_time_limit_by_default(self):
+        self.assertEqual(slots.WAIT_SECONDS, math.inf)
+        unlimited = slots.describe(self.folder, 2, 1, 0, math.inf).splitlines()[0]
+        limited = slots.describe(self.folder, 2, 1, 0, 600).splitlines()[0]
+        self.assertTrue(limited.startswith(unlimited))
+        self.assertIn("10", limited.removeprefix(unlimited))
+        with ThreadPoolExecutor(max_workers=1) as pool, redirect_stderr(io.StringIO()):
+            with self.hold(2, scope="full"):
+                waiter = pool.submit(self.taken, 1, wait_seconds=slots.WAIT_SECONDS)
+                time.sleep(0.5)
+                self.assertFalse(waiter.done())
+            self.assertEqual(len(waiter.result(timeout=10)), 1)
+
     def test_the_lock_folder_is_created_when_missing(self):
         self.assertFalse(self.folder.parent.exists())
         with self.hold(1):
@@ -203,6 +217,20 @@ class SlotSettingTests(SlotFixture, unittest.TestCase):
         many = [f"test_module_{index}" for index in range(slots.FOCUS_FREE_FILES + 1)]
         self.assertTrue(slots.focus_needs_slot(many))
         self.assertFalse(slots.focus_needs_slot(many[:slots.FOCUS_FREE_FILES]))
+
+
+class LoadEstimateTests(unittest.TestCase):
+    def test_runs_estimated_near_a_full_run_take_every_slot(self):
+        files = [Path(f"test_{name}.py") for name in "abcdefghij"]
+        seconds = {path.stem: 10.0 for path in files}
+        with mock.patch.object(runner, "load_file_seconds", return_value=seconds),                 mock.patch.object(runner, "selected_files", return_value=tuple(files)):
+            names = [path.name for path in files]
+            self.assertTrue(runner.takes_every_slot(names))
+            share = math.ceil(runner.FULL_LOAD_SHARE * len(names))
+            self.assertTrue(runner.takes_every_slot(names[:share]))
+            self.assertFalse(runner.takes_every_slot(names[:share - 1]))
+            # 没测过的文件按已测文件的中位数估计，浏览器冒烟不低于先验秒数。
+            self.assertTrue(runner.takes_every_slot(["test_web_e2e.py"]))
 
 
 class RunnerSlotTests(SlotFixture, unittest.TestCase):
@@ -251,6 +279,35 @@ class RunnerSlotTests(SlotFixture, unittest.TestCase):
                 mock.patch.object(slots, "held", side_effect=slots.SlotTimeout("busy")):
             code, seen = self.run_main("--scope", "checks")
         self.assertEqual((code, seen), (2, []))
+
+    def test_isolated_reruns_take_a_slot_unless_the_run_already_holds_one(self):
+        seen = []
+
+        def spawn(*_args, **_kwargs):
+            seen.append(os.environ.get(slots.HELD_VARIABLE))
+            return subprocess.CompletedProcess([], 0)
+
+        rows = [{"test": "test_scan.ScanTests.test_a", "file": "test_scan", "outcome": "fail"}]
+        with mock.patch.object(runner, "rerun_selectors", return_value=["test_scan"]),                 mock.patch.object(runner, "report_flaky"), redirect_stdout(io.StringIO()):
+            self.assertTrue(runner.rerun_failures(rows, spawn=spawn))
+            self.assertEqual((self.held.call_args.args[0], self.held.call_args.kwargs["scope"]), (1, "rerun"))
+            self.held.reset_mock()
+            with self.hold(2):
+                self.assertTrue(runner.rerun_failures(rows, spawn=spawn))
+            self.held.assert_called_once()
+        self.assertEqual(seen, [str(os.getpid())] * 2)
+
+    def test_the_full_suite_lock_queues_without_a_limit_by_default(self):
+        lock = evidence.evidence_dir(self.repo) / "full-suite.lock"
+        errors = io.StringIO()
+        with ThreadPoolExecutor(max_workers=1) as pool, redirect_stderr(errors),                 mock.patch.object(runner, "run_local_suite", return_value=(True, 1, [])),                 redirect_stdout(io.StringIO()):
+            with evidence.held(lock, scope="integrate"):
+                waiter = pool.submit(runner.main, ["--scope", "full"])
+                self.until(lambda: "full-suite.lock" in errors.getvalue())
+                time.sleep(0.5)
+                self.assertFalse(waiter.done(), "默认不设 30 分钟上限，一直排队")
+            self.assertEqual(waiter.result(timeout=60), 0)
+        self.assertNotIn("inf", errors.getvalue())
 
     def test_an_invalid_slot_count_is_rejected_before_running(self):
         os.environ[slots.SLOTS_VARIABLE] = "zero"
