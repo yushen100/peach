@@ -90,18 +90,15 @@ export function islandSelect(
   return `<div class="group flex flex-col${className ? ` ${className}` : ''}"><button type="button" aria-haspopup="listbox"${attrs ? ` ${attrs}` : ''} class="flex w-full items-center justify-between rounded-2lg border border-border-button-default bg-background-primary-default shadow-xs text-text-primary ${shape.box}">${body}${islandGlyph('chevron-down', `shrink-0 text-text-secondary ${shape.chevron}`)}</button></div>`;
 }
 
-/* 以下类名抄自 `react/components/collection-summary.tsx` 的等待态，由用例逐字对照。 */
-const SUMMARY_CLASS = 'flex items-end justify-between gap-4 rounded-surface bg-background-secondary-default px-6 py-5 '
-  + 'max-compact:flex-col max-compact:items-start max-compact:gap-3 max-compact:p-4 dark:bg-background-primary-default';
-const SUMMARY_TERMS = 'flex min-w-0 flex-col gap-2';
-const SUMMARY_LABEL = 'text-body-regular text-text-secondary';
-const SUMMARY_FIGURE = 'text-display-4-medium tabular-nums text-text-primary';
-const SUMMARY_PENDING = 'relative inline-block h-8 w-24 rounded-2lg align-middle skeleton-sheen';
-
-/** `CollectionSummary` 带 `flush`、等数据时的那一版：名目此刻就有，大数那一格是微光占位。 */
-export function islandSummary(label: string): string {
-  return `<div data-collection-summary="" class="${SUMMARY_CLASS}"><div class="${SUMMARY_TERMS}">`
-    + `<span class="${SUMMARY_LABEL}">${label}</span>`
-    + `<strong class="${SUMMARY_FIGURE}"><span data-skeleton="count" aria-hidden="true" class="${SUMMARY_PENDING}"></span></strong>`
-    + `</div></div>`;
+/** 处理队列页（垃圾文件、高清版、重复文件）的筛选浮层等数据时那一版，结构与类同
+ *  `react/components/filter-glass.tsx` 的 `FilterGlassRows`：上排照给的 HTML 画（不给就不出这一行），
+ *  下排读数的名目此刻就有，数字那一格是一条微光，右边是 `controls`（卡片／列表与排序键的等待态）。
+ *  「全选」要等条数，骨架里不占位，它排在读数后面、不挤动右边那组。 */
+export function islandGlassRows({ label, top = '', attrs = '', controls = '', className = '' }:
+  { label: string; top?: string; attrs?: string; controls?: string; className?: string }): string {
+  return `<div role="group" data-filter-glass="" data-glass-pane="" data-catalog-frame=""${attrs} class="sticky top-topbar z-10 mb-5.5 flex flex-col${className ? ` ${className}` : ''}">`
+    + (top ? `<div data-filter-row="top" class="flex h-12 min-w-0 items-center gap-1.75 overflow-x-auto overscroll-x-contain px-3 py-2">${top}</div>` : '')
+    + `<div data-filter-row="bottom" aria-busy="true" class="flex min-w-0 items-center gap-3 px-3 py-2 min-h-12">`
+    + `<span data-catalog-summary=""><span data-catalog-readout="">${label} · <span data-skeleton="count" aria-hidden="true"`
+    + ` class="relative inline-block h-3.5 w-12 rounded-md align-middle skeleton-sheen"></span></span></span>${controls}</div></div>`;
 }

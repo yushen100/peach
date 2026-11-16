@@ -45,7 +45,8 @@ describe('回收站卡片', () => {
           await route.fulfill({ json: { ok: true, changed: body.ids.length } });
         });
         await page.goto(requiredEnv('PEACH_E2E_ORIGIN') + '/trash', { waitUntil: 'load' });
-        const cards = page.locator('#grid [data-media-card]');
+        // 骨架那一层落地后藏着留在网格里（`[data-content-skeleton]`），只数带 id 的真卡。
+        const cards = page.locator('#grid [data-media-card][data-id]');
         await cards.first().waitFor();
         assert.equal(await cards.count(), 10);
         const heights: number[] = [];

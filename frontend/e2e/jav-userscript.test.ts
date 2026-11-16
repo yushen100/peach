@@ -51,6 +51,11 @@ async function open(browser: Browser, options: {
     contentType: 'text/html; charset=utf-8', body: `<!doctype html><html><head><meta charset="utf-8"><title>${options.title || 'SSIS-057 作品详情'}</title></head><body>${options.html ?? '<h1>SSIS-057 作品详情</h1>'}</body></html>`,
   }));
   await page.addInitScript(({ configured, token, base, initial, resolved, version, releaseMeta }) => {
+    // 交互回归向选择器开放影子树，正式闭合隔离由用户脚本仓库单独验收。
+    const attach = Element.prototype.attachShadow;
+    Element.prototype.attachShadow = function (options) {
+      return attach.call(this, { ...options, mode: 'open' });
+    };
     const mock: Mock = {
       calls: [], reports: [], updates: [], pending: [], automatic: true, menus: {},
       values: configured ? { 'peach.jav.base': base, 'peach.jav.token': token } : {},

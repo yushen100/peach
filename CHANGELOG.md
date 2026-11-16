@@ -24,6 +24,7 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Review**: Review can select every item in the current filter across pages with Select all, not just the page on screen (#216). / **复核**：人工复核可用「全选全部」一次选中当前筛选下所有页的项目，不再只能选本页（#216）。
 - **Interface**: Settings can make Home show only videos with a preview image, kept after refresh and when returning Home; Show all next to the count shows everything (#196). / **界面**：设置里可让首页只显示有预览图的作品，刷新与回首页后仍生效；读数旁的「显示全部」可临时看全部（#196）。
 - **Interface**: Settings > Playback can turn off hover previews on cards; hovering then shows only the still image and requests no stream (#170). / **界面**：设置「浏览与播放」可关掉「卡片悬停时播放视频预览」，关掉后悬停只显示静态图，不再请求视频流（#170）。
+- **Library**: Junk files can move every undecided file in the current category to Trash at once, beyond the 200 loaded, with undo (#218). / **馆藏**：垃圾文件可把当前分类的待判断文件一次全部移入回收站，不限已载入的 200 条，可撤销（#218）。
 - **Library**: Profile name menus can merge duplicate actress, label, creator, series and agency profiles; a new alias that another profile already uses offers it too (#207). / **馆藏**：女优、厂牌、创作者、系列与事务所的名字菜单可合并重复档案，添加的别名已被另一份档案使用时也会提示合并（#207）。
 - **Library**: Edit details next to the title changes the code, title, date, region, performers, label, series and tags; edited values aren't overwritten by collection (#187). / **馆藏**：详情标题旁新增「编辑资料」，可改番号、标题、日期、产地、演员、厂牌、系列与标签，改过的值不再被采集覆盖（#187）。
 - **Library**: Performers, labels and series not found in Edit details can be created on the spot and carry a Custom tag in rosters and details (#549). / **馆藏**：编辑资料里搜不到的演员、厂牌、系列可直接新建，名册与详情上带「自建」标记（#549）。
@@ -52,6 +53,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Changed / 变更
 
+- **Interface**: Junk files, HD upgrades, Duplicates and Trash use the home filter bar, discovery cards and list, with a Library column and sortable size and duration (#737). / **界面**：垃圾文件、高清版、重复文件与回收站改用首页的筛选浮层、探索卡与列表表格，可按体积和时长排序并显示媒体库（#737）。
 - **Sourcing**: Resources on out-of-library details come from every magnet source, not only JavDB, and still load while JavDB is down (#717). / **采集**：库外详情的资源改查全部磁链来源，JavDB 不可用时照样列出（#717）。
 - **Sourcing**: New FC2 works take details from FC2 and its archives, and FC2, uncensored and amateur covers fall back to issuer and community pictures (#717). / **采集**：FC2 新作资料先问 FC2 与存档站；FC2、无码与素人新作封面可改用发行方与社区图源（#717）。
 - **Interface**: When JavDB doesn't answer, discovery cards and out-of-library details fill in from DMM and r18.dev (#717). / **界面**：JavDB 没答上时，发现页卡片与库外详情改用 DMM、r18.dev 的资料（#717）。
@@ -80,6 +82,10 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Updates**: Repairs and migrations is grouped by kind, and repairs awaiting your OK can be started all at once or a group at a time (#723). / **更新**：「修复与迁移」按类分组，等确认的修复可一次全部开始或按组开始（#723）。
 
 ### Fixed / 修复
+
+- **Interface**: The userscript's floating panel keeps its position and appearance on pages with sidebar styles (peach-mitao/peach-userscript#41). / **界面**：网页的侧栏样式不再挤压用户脚本的悬浮面板（peach-mitao/peach-userscript#41）。
+
+- **Sourcing**: Retrying download organization keeps completed previews and metadata and reports the current attempt's result (#730). / **采集**：重试下载后的整理会保留已完成的预览和资料，并按本次处理结果结算（#730）。
 - **Library**: Profile links copied with `&amp;` in the address open the right page, and archive, blog and catalog link names show in the interface language; existing links are fixed on upgrade (#715). / **馆藏**：地址里带 `&amp;` 的资料页链接能打开正确的页面，官网存档、博客、作品页等链接名按界面语言显示；已有链接升级后自动改正（#715）。
 - **Updates**: Upgrading fixes data older versions left behind: FC2 sellers as labels, scrambled FC2 titles, labels and series under an alias, retired and old NFO tags, Blu-ray duplicates in New releases, wants marked acquired by a cover, and old cloud download notes (#715). / **更新**：升级时修正旧版本留下的数据：记成厂牌的 FC2 卖家、带乱码串的 FC2 标题、写成别名的厂牌与系列、退役标签与旧版 NFO 标签、新作里重复的蓝光版、被封面标成已到手的想要，以及云下载的旧说明（#715）。
 - **Updates**: Repairs and migrations lists older data that needs your OK before changing: unverified cast JavDB added to FC2 titles, descriptions saved as performers, code folders saved as creators, the same file listed twice, and English-named duplicates from r18.dev; the database is backed up first (#715). / **更新**：「修复与迁移」列出要你确认后才改的旧数据：JavDB 给 FC2 作品自动填入、身份未核实的演员，建成女优的描述称呼，当成创作者的番号目录，登记了两次的同一文件，以及 r18.dev 英文名建成的重复实体；执行前先备份账本（#715）。

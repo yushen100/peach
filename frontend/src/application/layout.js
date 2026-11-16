@@ -5,7 +5,7 @@ import { DIRECT_MANAGE_NAV, MANAGE_MENU_SECTIONS, MANAGE_SECTIONS, NAV_CATALOG, 
 import { FOLLOW_INITIAL_RANGE_OPTIONS } from './initial-follow-ranges';
 import { noteHtml, revealTexts } from '../ui-kit';
 import { $, ROUTE_ENTITIES, STATE_LABELS, STATE_ROUTES, api, isCatalogPath } from '../core';
-import { buildBars, catalogLayoutProp, catalogState, clearCatalogGrid, commitContextFilter, emptyTrash, goHome, homePath, loadCatalog, paintCatalogFilter, repaintCatalogGrid, syncCatalogFilterScreen } from './catalog.js';
+import { buildBars, catalogHeadProps, catalogLayoutProp, catalogState, clearCatalogGrid, commitContextFilter, goHome, homePath, loadCatalog, paintCatalogFilter, repaintCatalogGrid, syncCatalogFilterScreen } from './catalog.js';
 import { rememberedSidebarPath, requestPageTop } from '../history/page-navigation';
 import { navigationState, openRoutedPage, paintSidebar, syncNavigation } from './navigation.js';
 import { paintManagementPlaceholder } from './../management-placeholder';
@@ -25,6 +25,7 @@ import { receiptsState } from './receipts.js';
 import { applySyncedSettings } from './../appearance/settings';
 import { loadManageHeader, loadSettingsPanel, loadSidebar, manageHeaderApi, sidebarApi } from '../react/application-residents';
 import { sidebarSkeletonHtml } from './../sidebar-skeleton';
+import { trashFilterSkeletonHtml } from './../catalog-filter-skeleton';
 import { selectionState, setSelectMode } from './selection.js';
 import { manageHeaderSkeletonHtml, manageHeaderView } from './../manage-header';
 import { junkPath } from './../junk-queue';
@@ -180,17 +181,19 @@ export function buildManageBar(){
   // 隐藏 tagbar 的同时同步 count 栏的吸顶偏移：它默认按「顶栏+筛选条」留位，
   // 筛选条不在时那个偏移会留出一条 58px 的缝，滚动内容从缝里穿出来。
   if(current)hideDiscoveryBars();
+  /* 回收站的筛选浮层住在正文里页头下面；进页时先铺同形骨架，筛选岛接手时整块换掉。 */
+  const trashHost=$('#trashFilter');trashHost.hidden=current!=='trash';
+  if(current==='trash'&&!trashHost.firstChild)trashHost.innerHTML=trashFilterSkeletonHtml(catalogHeadProps());
   $('#count').classList.toggle('no-tagbar',!!current);
   syncNavigation();     // 顶层高亮跟随管理区；否则从首页进来时仍停在「首页」上
-  /* 回收站读数只在这一次进页里有效：离开回收站就忘掉，下次进来说明行先铺同形占位，
-     读数到了再落；同页重画（筛选、判完一批、翻页）沿用手上这份，不再铺占位。 */
+  /* 回收站读数只在这一次进页里有效，离开就忘掉：「清空回收站」的确认框不拿上一次进页的件数。 */
   if(current!=='trash')selectionState.trashCount=null;
   paintManageHeader(current);
 }
 
 export function manageHeaderProps(section){
   return {section,path:decodeURIComponent(location.pathname),sections:layoutState.MANAGE_SECTIONS,
-    menu:section?layoutState.manageMenuSections():[],trash:selectionState.trashCount};
+    menu:section?layoutState.manageMenuSections():[]};
 }
 
 export function paintManageHeader(section=manageSection()){
@@ -219,9 +222,8 @@ export function mountManageHeader(){
       if(event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||event.button)return;
       event.preventDefault();navigationState.navigatePath('/data-cleanup');return;
     }
-    if(event.target.closest?.('[data-empty-trash]'))emptyTrash();
   });
-  loadManageHeader({root,store:preferencesState.settingsStore,openManage,openPath:path=>navigationState.navigatePath(path),emptyTrash})
+  loadManageHeader({root,store:preferencesState.settingsStore,openManage,openPath:path=>navigationState.navigatePath(path)})
     .then(()=>paintManageHeader()).catch(()=>{});
 }
 

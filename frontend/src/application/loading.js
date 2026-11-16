@@ -4,11 +4,11 @@ import { managementSkeletonHtml, pageSkeletonHtml, skeletonKeyOf } from './../ma
 import { photoSize } from './../appearance/layout';
 import { $, ROUTE_ENTITIES } from '../core';
 import { activityStatusHtml, fitSkeleton, LOAD_MORE_STATUS, revealSkeleton } from '../ui-kit';
-import { junkCountSkeletonHtml, junkRoute, junkSelectAllSkeletonHtml } from './../junk-queue';
+import { junkCountSkeletonHtml, junkRoute } from './../junk-queue';
 import { state, presentedItem } from './../shell/index';
 import { homeRouteLabel, mediaRouteLabel, postRouteLabel } from '../history/page-title';
 import { subscribeNames } from '../core/entity-names';
-import { catalogCardRatio, catalogHeadProps, catalogSkeletonHtml, clearCatalogGrid, gridTaken, paintCatalogFilter, syncCatalogFilterScreen } from './catalog.js';
+import { catalogCardRatio, catalogHeadProps, catalogSkeletonHtml, clearCatalogGrid, gridTaken, keptCatalogCount, paintCatalogFilter, syncCatalogFilterScreen } from './catalog.js';
 import { followListLayout, followManageParams, indexState, showIndexContainer } from './index.js';
 import { applicationEffects } from './effects';
 import { feedState, loadEntityShapes } from './feed.js';
@@ -37,7 +37,7 @@ export function renderCatalogLoading(label=t('shell:skeleton.loadingVideos')){
     fitSkeleton(count);
   }else{
     count.removeAttribute('aria-busy');count.removeAttribute('aria-label');count.textContent='';
-    if(state)paintCatalogFilter({count:null,...catalogHeadProps()});
+    if(state)paintCatalogFilter({count:keptCatalogCount(),...catalogHeadProps()});
   }
   /* 骨架一铺上去就得把底部那颗 Loading Dots 收掉。骨架说的是「等下会出现几张什么
      形状的卡」，dots 说的是「上面已经有内容，还在往下接」；两段同时在场时一屏里
@@ -46,11 +46,10 @@ export function renderCatalogLoading(label=t('shell:skeleton.loadingVideos')){
   $('#loadSentinel').hidden=true;
   /* 网格已经画着（或首屏在途）时骨架归它自己铺：`#grid` 是它的容器，壳往里写会把页面冲掉。 */
   if(gridTaken())return;
-  /* 垃圾文件的网格上面压着一行「全选」：骨架连同它占满一整行，首张卡与落地同位。 */
-  const cards=catalogSkeletonHtml(label);
-  const grid=$('#grid'),placeholder=junk?`<div style="grid-column:1/-1;min-width:0">${junkSelectAllSkeletonHtml()}${cards}</div>`:cards;
+  /* 垃圾文件的「全选」在筛选浮层里，网格骨架只有卡片或列表（`catalogSkeletonHtml` 按页面给）。 */
+  const grid=$('#grid'),placeholder=catalogSkeletonHtml(label);
   const skeleton=grid.querySelector('.catalog-skeleton');
-  if(skeleton?.dataset.skeleton===skeletonKeyOf(placeholder)&&!!grid.querySelector('[data-junk-select-all]')===junk
+  if(skeleton?.dataset.skeleton===skeletonKeyOf(placeholder)
     &&Number(skeleton.querySelector('[style]')?.style.getPropertyValue('--skeleton-card-ratio'))===catalogCardRatio())return;
   if(skeleton)grid.innerHTML=`<div class="grid">${placeholder}</div>`;
   else loadingState.setGridCards(placeholder);

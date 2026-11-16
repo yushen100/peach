@@ -4506,6 +4506,44 @@ class LibraryPreviewCompletionTests(unittest.TestCase):
         self.assertEqual(result['status'], 'complete')
         self.assertEqual(result['previews'], 2)
 
+    def test_retry_checkpoint_records_only_current_problems_and_keeps_completed_previews(self):
+        """定向重试保留成功检查点，并用本趟错误替换问题清单。"""
+        state_file = self.root / 'download-processing' / '1.json'
+        with patch.object(library_processing, '_generate_preview', side_effect=ValueError('first failure')):
+            first = self.run_processing(stage='previews', asset_ids=[1], state_file=state_file)
+        self.assertEqual(first['issue_count'], 1)
+        log = Path(first['issues_log'])
+        self.assertIn('first failure', log.read_text(encoding='utf-8'))
+        with patch.object(library_processing, '_generate_preview', side_effect=ValueError('current failure')):
+            second = self.run_processing(stage='previews', retry_ids=[1], state_file=state_file,
+                                         resume_state=first)
+        self.assertEqual((second['status'], second['issue_count']), ('failed', 1))
+        self.assertEqual(second['retryable_asset_ids'], [1])
+        issues = [json.loads(line) for line in log.read_text(encoding='utf-8').splitlines()]
+        self.assertEqual([row['message'] for row in issues], ['current failure'])
+        with patch.object(library_processing, '_generate_preview', return_value=True) as capture:
+            complete = self.run_processing(stage='previews', retry_ids=[1], state_file=state_file,
+                                           resume_state=second)
+            self.assertEqual(capture.call_count, 1)
+            capture.reset_mock()
+            resumed = self.run_processing(stage='previews', retry_ids=[1], state_file=state_file,
+                                          resume_state=complete)
+            capture.assert_not_called()
+        self.assertEqual((complete['status'], complete['issue_count'], complete['issue_preview']),
+                         ('complete', 0, []))
+        self.assertEqual(complete['retryable_asset_ids'], [])
+        self.assertEqual(resumed['completed_previews'], complete['completed_previews'])
+        self.assertEqual(resumed['previews'], 1)
+        self.assertFalse(log.exists())
+
+    def test_resume_checkpoint_keeps_problems_from_the_same_processing_attempt(self):
+        with patch.object(library_processing, '_generate_preview', side_effect=ValueError('preview failure')):
+            first = self.run_processing(stage='previews', asset_ids=[1])
+        with patch.object(library_processing, '_generate_preview', return_value=True):
+            resumed = self.run_processing(stage='previews', asset_ids=[1], resume_state=first)
+        self.assertEqual((resumed['status'], resumed['issue_count']), ('failed', 1))
+        self.assertEqual(resumed['issue_preview'], first['issue_preview'])
+
     def test_real_local_video_produces_a_snapshot_and_card_poster(self):
         import subprocess
         from peach.ffmpeg import FFmpegResolver

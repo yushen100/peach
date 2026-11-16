@@ -15,12 +15,16 @@ const segments = (label: string, value: string, options: readonly SegmentOption[
     `<span class="${SEGMENT_GLASS}" role="radio" aria-label="${esc(text)}" aria-checked="${key === value}" data-glass-segment=""${key === value ? ' data-selected=""' : ''} ${FILTER_WAITING}>${icon(glyph)}</span>`).join('')}</span>`;
 
 /** 已知的控件保留文字、字形与按下态；等待接线时不能执行动作。`folders` 为假时不画文件夹开关
- *  （JAV 新作分区没有文件夹浏览，其余换一批、卡片版式、卡片／列表与排序键照画）。 */
-export function filterControlsSkeletonHtml(sorts: readonly EntitySortKey[], layout: Layout | null, { folders = true } = {}): string {
+ *  （JAV 新作分区没有文件夹浏览，其余换一批、卡片版式、卡片／列表与排序键照画）；`shuffle` 为假时
+ *  不画换一批（回收站与处理队列页）；`views` 为假时不画卡片／列表（重复文件）。 */
+export function filterControlsSkeletonHtml(sorts: readonly EntitySortKey[], layout: Layout | null,
+  { folders = true, shuffle = true, views = true } = {}): string {
   const view = catalogView();
   const params = new URLSearchParams(location.search);
   const sizes = layout && view === 'cards' ? segments(layout.label, layout.value, layout.options) : '';
   const folder = folders ? `<button type="button" data-folder-mode-toggle="" aria-label="${t('catalog:catalogFolders.folderMode')}" aria-pressed="${params.get('browse') === 'folders' || !!params.get('folder')}" ${FILTER_WAITING}>${icon('ri-folder-3-line')}</button>` : '';
-  return `<span data-entity-sorts=""><button type="button" data-entity-batch="" data-filter-action="" aria-label="${t('catalog:entityFilter.shuffle')}" ${FILTER_WAITING}>${icon('shuffle')}</button>${sizes}${segments(t('catalog:catalogList.viewMode'), view, [['cards',t('catalog:catalogList.viewCards'),'ri-layout-grid-line'],['list',t('catalog:catalogList.viewList'),'ri-list-unordered']])}${folder}${sorts.map(sort =>
+  const batch = shuffle ? `<button type="button" data-entity-batch="" data-filter-action="" aria-label="${t('catalog:entityFilter.shuffle')}" ${FILTER_WAITING}>${icon('shuffle')}</button>` : '';
+  const toggle = views ? segments(t('catalog:catalogList.viewMode'), view, [['cards',t('catalog:catalogList.viewCards'),'ri-layout-grid-line'],['list',t('catalog:catalogList.viewList'),'ri-list-unordered']]) : '';
+  return `<span data-entity-sorts="">${batch}${sizes}${toggle}${folder}${sorts.map(sort =>
     `<button type="button" data-entity-sort="${esc(sort.key)}" aria-pressed="${sort.pressed}" ${FILTER_WAITING}>${esc(sort.label)}${sort.dir ? icon(sort.dir === 'asc' ? 'arrow-up' : 'arrow-down') : ''}</button>`).join('')}</span>`;
 }

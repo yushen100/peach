@@ -313,6 +313,7 @@
     "dockLabel": "Actions for selected HD upgrades",
     "emptyBody": "All current editions already meet the criteria, or nothing has been added to tracking yet.",
     "emptyTitle": "No HD upgrade targets",
+    "listReason": "Reason",
     "loadFailed": "Couldn't load HD upgrade targets",
     "noPreview": "No preview",
     "notFound": "HD upgrade targets not found. Refresh the page to try again.",
@@ -390,9 +391,7 @@
     "repairs": "Repairs",
     "review": "Review",
     "sources": "Sources",
-    "trash": "Trash",
-    "trashCount_one": "{{count, number}} matching · showing {{shown}}",
-    "trashCount_other": "{{count, number}} matching · showing {{shown}}"
+    "trash": "Trash"
   },
   "manageSkeleton": {
     "loadingLibraryTools": "Loading library tools",

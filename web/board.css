@@ -609,30 +609,6 @@ body[data-density="dense"] .catalog-skeleton .skeletoncard{padding-top:7px}
 body[data-density="dense"] .postercard-skeleton .skeletoncard b{height:1.35em}
 body[data-density="dense"] .postercard-skeleton .skeletoncard em{height:1.35em}
 body[data-density="dense"] .postercard-skeleton .skeletoncard u{height:30px}
-body:is([data-surface="/junk-files"],[data-surface="/trash"]) .catalog-skeleton>div{grid-template-columns:repeat(auto-fill,minmax(min(100%,280px),1fr));gap:20px}
-body:is([data-surface="/junk-files"],[data-surface="/trash"]) .catalog-skeleton .skeletoncard{border:1px solid var(--line-soft);border-radius:var(--surface-radius);overflow:hidden;background:var(--ground);padding-bottom:20px}
-/* 回收站卡照 `media-card.css` 里回收站那几条排：面色同真卡，元信息区四周 10px 12px 12px，
-   头像列 38px 加左边距 12px，标题两行 2.7em、署名一行 20px，再预留标签和归入原因行。 */
-body[data-surface="/trash"] .catalog-skeleton .skeletoncard{grid-template-columns:50px minmax(0,1fr);gap:3px 10px;padding:0 0 12px;background:var(--color-background-primary-default)}
-body[data-surface="/trash"] .catalog-skeleton .skeletoncard s{grid-row:2/span 2;margin:9px 0 0 12px}
-body[data-surface="/trash"] .catalog-skeleton .skeletoncard b{width:auto;height:2.7em;margin:7px 12px 0 0}
-body[data-surface="/trash"] .catalog-skeleton .skeletoncard em{height:20px}
-body[data-surface="/trash"] .catalog-skeleton .skeletoncard u{display:block;position:relative;height:calc(1.45em + var(--tag-pad-y) * 2 + 2px + 23px);background:transparent}
-body[data-surface="/trash"] .catalog-skeleton .skeletoncard u::before,
-body[data-surface="/trash"] .catalog-skeleton .skeletoncard u::after{content:"";position:absolute;left:0;border-radius:var(--control-radius);background:var(--hover)}
-body[data-surface="/trash"] .catalog-skeleton .skeletoncard u::before{top:0;width:100%;height:calc(100% - 23px)}
-body[data-surface="/trash"] .catalog-skeleton .skeletoncard u::after{bottom:0;width:60%;height:20px}
-/* 垃圾卡照 `junk-queue.css` 排：面色同真卡，预览格贴边，元信息区四周 20px、文件名与事实两行各 20px、
-   行间 6px，键行是一条沉一档底色、顶上压一条发丝线的 61px 横条（12px 内边距夹一排 36px 的键）。 */
-body[data-surface="/junk-files"] .catalog-skeleton .skeletoncard{grid-template-columns:minmax(0,1fr);gap:0;padding:0;background:var(--color-background-primary-default)}
-body[data-surface="/junk-files"] .catalog-skeleton .skeletoncard s{display:none}
-body[data-surface="/junk-files"] .catalog-skeleton .skeletoncard :is(i,b,em,u){grid-column:1}
-body[data-surface="/junk-files"] .catalog-skeleton .skeletoncard b{width:62%;height:20px;margin:20px 20px 0}
-body[data-surface="/junk-files"] .catalog-skeleton .skeletoncard em{width:40%;height:20px;margin:6px 20px 20px}
-body[data-surface="/junk-files"] .catalog-skeleton .skeletoncard u{display:block;box-sizing:border-box;width:auto;height:61px;margin:0;border-radius:0;border-top:1px solid var(--line-soft);background:var(--color-background-secondary-default)}
-body[data-surface="/junk-files"] .catalog-skeleton .skeletoncard u::after{content:none}
-/* 手机上真卡的键升到 44px，键行跟着高 8px。 */
-@media(max-width:760px){body[data-surface="/junk-files"] .catalog-skeleton .skeletoncard u{height:69px}}
 .skeleton,.skeletoncard i,.skeletoncard b,.skeletoncard em,.skeletoncard s,.skeletoncard u{background:var(--color-background-tertiary-default);border-radius:8px}.skeletoncard i{border-radius:12px}.postercard-skeleton .skeletoncard{gap:6px 12px}.postercard-skeleton .skeletoncard s{border-radius:50%}.cleanup-skeleton .skeletoncard{border:0;border-radius:16px}.cleanup-skeleton .skeletoncard i,.review-skeleton .skeletoncard i{border-radius:8px}.index-skeleton .icell .ring{border-radius:50%}.entityskeletontext .skeleton{height:20px;border-radius:8px}.entityportrait.skeleton{border-radius:16px}.follow-content-skeleton .skeletoncard{padding-bottom:16px}
 
 /* Board secondary：实体细边框、轻阴影和统一的三档控件尺寸。

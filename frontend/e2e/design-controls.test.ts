@@ -226,20 +226,22 @@ describe('设计决定：控件、状态与首页顶部', () => {
     }
   });
 
-  it('高清版卡片的封面是 150px 宽的 16/10 方块，长标题从头显示、最多两行', { timeout: 60_000 }, async () => {
+  it('高清版卡片是探索卡那一副：封面铺满卡宽、16:9，长标题从头显示、最多两行', { timeout: 60_000 }, async () => {
     const long = '这是一个长到必须省略才放得下的文件名，用来盯住标题从头显示而番号不被截掉.mp4';
     const opened = await openQualityGoals(browser, [
       qualityGoal(1, long), qualityGoal(2, 'short.mp4'),
     ]);
     try {
-      const cover = opened.page.locator('li[data-goal-id="1"] button').first();
-      const box = await cover.evaluate((element) => ({
-        width: getComputedStyle(element).width,
-        ratio: getComputedStyle(element).aspectRatio,
-      }));
-      assert.equal(box.width, '150px');
-      assert.equal(box.ratio.replaceAll(' ', ''), '16/10');
-      const title = opened.page.locator('li[data-goal-id="1"] h3 button');
+      const card = opened.page.locator('[data-goal-id="1"]');
+      const box = await card.evaluate((element) => {
+        const pic = element.querySelector('[data-media-pic]')!;
+        return { card: element.getBoundingClientRect().width, cover: pic.getBoundingClientRect().width,
+          ratio: getComputedStyle(pic).aspectRatio };
+      });
+      assert.ok(Math.abs(box.cover - box.card) < 1, `封面没铺满卡宽：${JSON.stringify(box)}`);
+      const [w, h] = box.ratio.split('/').map(Number);
+      assert.ok(Math.abs(w! / h! - 16 / 9) < 0.001, `封面不是 16:9：${box.ratio}`);
+      const title = card.locator('[data-media-title]');
       await title.waitFor({ timeout: 5_000 });
       const shown = await title.evaluate((element) => ({
         clamp: getComputedStyle(element).webkitLineClamp,

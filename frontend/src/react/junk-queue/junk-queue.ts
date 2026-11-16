@@ -90,6 +90,9 @@ export interface JunkQueueActions {
   reveal(item: JunkItem): Promise<string>;
   /** 三颗处置键。写 ledger，做完重读队列并给撤销；失败由壳报，再抛出。 */
   operate(item: JunkItem, operation: JunkOperation): Promise<void>;
+  /** 浮层上的「全部移入回收站」：待判断里这一类的全部 `count` 条，不止取回的这一批。壳弹确认框，
+   *  写明件数与可撤销；件数在这期间变了就整批不动、重读后请人再确认。 */
+  disposeAll(kind: JunkKind, count: number): void;
 }
 
 export interface JunkQueueProps extends JunkRoute {

@@ -79,13 +79,23 @@ it('首屏用 prefetch 落进缓存的那一份画出来，挂载时不再请求
   const { fetcher, host } = await open(payload([goal()]));
   expect(fetcher).toHaveBeenCalledTimes(1);
   expect(fetcher.mock.calls[0]?.[0]).toBe(QUALITY_GOALS_URL);
-  expect(host.querySelectorAll('li[data-goal-id]')).toHaveLength(1);
+  expect(host.querySelectorAll('[data-goal-id]')).toHaveLength(1);
 });
 
-it('汇总说的是服务端的总数，不是这一页截到的条数', async () => {
+it('读数说的是服务端的总数，不是这一页截到的条数', async () => {
   const { host } = await open(payload([goal(), goal({ id: 2, name: 'two.mp4' })], 37));
-  expect(host.querySelector('[data-collection-summary] strong')?.textContent).toBe('37 部作品');
-  expect(host.querySelectorAll('li[data-goal-id]')).toHaveLength(2);
+  expect(host.querySelector('[data-catalog-frame] [data-catalog-readout]')?.textContent).toBe('待升级 · 37 部作品');
+  expect(host.querySelectorAll('[data-goal-id]')).toHaveLength(2);
+});
+
+it('「全选」选的是这一屏全部，没有番号的那部也算；卡上不画勾选框', async () => {
+  const { host } = await open(payload([goal({ id: 1, code: 'ABC-001' }), goal({ id: 2 })]));
+  expect(host.querySelector('[data-goal-id] [role="checkbox"], [data-goal-id] input[type="checkbox"]')).toBeNull();
+  const all = host.querySelector<HTMLButtonElement>('[data-select-all]')!;
+  expect([all.textContent, all.getAttribute('aria-pressed')]).toEqual(['全选', 'false']);
+  await click(all);
+  expect(all.getAttribute('aria-pressed')).toBe('true');
+  expect([...host.querySelectorAll('[data-goal-id]')].map((card) => card.hasAttribute('data-selected'))).toEqual([true, true]);
 });
 
 it('每条目标一张卡片，读数走遗留层同一套格式化口径', async () => {
@@ -93,22 +103,24 @@ it('每条目标一张卡片，读数走遗留层同一套格式化口径', asyn
     id: 42, name: 'one.mp4', location: '115', cost: 'metered',
     duration: 3725, size: 2147483648, reason: '只有 720p',
   })]));
-  const card = host.querySelector('li[data-goal-id="42"]')!;
-  // 第一格是来源徽标的宿主：它只放 HTML，不带文字。
-  expect([...card.querySelectorAll('h3 ~ p > span')].map((node) => node.textContent))
-    .toEqual(['', '115', '1:02:05', '2.0 GB']);
-  expect(card.querySelector('.src')?.getAttribute('data-location')).toBe('115');
-  expect(card.querySelector('.src')?.classList.contains('metered')).toBe(true);
-  expect(card.querySelector('h3 .ui-javcode')?.textContent).toBe('one.mp4');
-  expect(card.querySelector('h3 button')?.hasAttribute('data-middle-truncate')).toBe(false);
-  expect(card.querySelector('h3 button')?.getAttribute('title')).toBe('名称 one.mp4');
-  expect([...card.querySelectorAll('p')].at(-1)?.textContent).toBe('只有 720p');
+  const card = host.querySelector('[data-goal-id="42"]')!;
+  // 来源徽标与时长在封面上；署名一行是所在媒体库（没有时写来源）与体积；判定原因落在标签行。
+  expect(card.querySelector('[data-media-pic] .src')?.getAttribute('data-location')).toBe('115');
+  expect(card.querySelector('[data-media-pic] .src')?.classList.contains('metered')).toBe(true);
+  expect(card.querySelector('[data-media-duration]')?.textContent).toBe('1:02:05');
+  expect(card.querySelector('[data-media-who]')?.textContent).toBe('115');
+  expect(card.querySelector('[data-media-size]')?.textContent).toBe('2.0 GB');
+  expect(card.querySelector('[data-media-title] .ui-javcode')?.textContent).toBe('one.mp4');
+  expect(card.querySelector('[data-media-title]')?.hasAttribute('data-middle-truncate')).toBe(false);
+  expect(card.querySelector('[data-media-title]')?.getAttribute('title')).toBe('名称 one.mp4');
+  expect(card.querySelector('[data-media-tags]')?.textContent).toBe('只有 720p');
 });
 
-it('探测失败的时长显示占位，不显示 0 也不显示负数', async () => {
+it('探测失败的时长不上封面，不显示 0 也不显示负数；体积未知照写', async () => {
   const { host } = await open(payload([goal({ duration: -1, size: 0 })]));
-  expect([...host.querySelectorAll('h3 ~ p > span')].map((node) => node.textContent))
-    .toEqual(['', '本地', '—', '大小未知']);
+  expect(host.querySelector('[data-media-duration]')).toBeNull();
+  expect(host.querySelector('[data-media-who]')?.textContent).toBe('本地');
+  expect(host.querySelector('[data-media-size]')?.textContent).toBe('大小未知');
 });
 
 it('有番号封面就用番号封面，否则退回海报', async () => {
@@ -124,16 +136,18 @@ it('有番号封面就用番号封面，否则退回海报', async () => {
 it('封面取不到就把图摘掉，兜底文字还在，卡片其余部分照常显示', async () => {
   const { host } = await open(payload([goal()]));
   host.querySelector('img')!.dispatchEvent(new Event('error'));
+  await settle();
   expect(host.querySelector('img')).toBeNull();
-  expect(host.querySelector('li[data-goal-id] button')?.textContent).toBe('暂无预览');
+  expect(host.querySelector('[data-goal-id] [data-media-pic]')?.textContent).toContain('暂无预览');
+  expect(host.querySelector('[data-goal-id] [data-media-title]')).not.toBeNull();
 });
 
-it('封面、标题和页脚三处都打开同一部作品，无障碍名称用纯文本形态', async () => {
+it('封面、标题和底部「查看版本」三处都打开同一部作品，无障碍名称用纯文本形态', async () => {
   const { host, props } = await open(payload([goal({ id: 42 })]));
-  const cover = host.querySelector<HTMLButtonElement>('li[data-goal-id] button')!;
+  const cover = host.querySelector<HTMLButtonElement>('[data-goal-id] button[data-media-pic]')!;
   expect(cover.getAttribute('aria-label')).toBe('打开 名称 one.mp4');
   await click(cover);
-  await click(host.querySelector('h3 button'));
+  await click(host.querySelector('[data-media-title]'));
   await click([...host.querySelectorAll('button')].find((node) => node.textContent === '查看版本'));
   expect(props.openItem.mock.calls).toEqual([[42], [42], [42]]);
 });

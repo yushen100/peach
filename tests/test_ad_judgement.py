@@ -259,6 +259,60 @@ class ResourceJunkQueueTests(unittest.TestCase):
         self.assertNotIn(7, by_id)
         self.assertTrue(all("path" not in item for item in result["items"]))
 
+    def test_each_page_names_its_media_library_from_the_current_settings(self):
+        self.add(3, "pikpak", r"A:\资源\点击这里.url", "other", 128)
+
+        def owned_by(library):
+            return lambda config, path: {"library_id": library} if path == r"A:\资源\点击这里.url" else {}
+
+        with mock.patch.object(web_batch.settings_file, "active", return_value=object()), \
+                mock.patch("peach.media_identity.ownership", side_effect=owned_by("lib-a")):
+            first = q_ads(self.contract)["items"]
+        # 评分缓存只随账本表失效；媒体库归属按取页那一刻的设置算，换了设置下一次取就跟着换。
+        with mock.patch.object(web_batch.settings_file, "active", return_value=object()), \
+                mock.patch("peach.media_identity.ownership", side_effect=owned_by("lib-b")):
+            second = q_ads(self.contract)["items"]
+        self.assertEqual([item["library_id"] for item in first], ["lib-a"])
+        self.assertEqual([item["library_id"] for item in second], ["lib-b"])
+        self.assertTrue(all("path" not in item and "_path" not in item for item in first + second))
+
+    def disposals(self):
+        with closing(sqlite3.connect(self.db_path)) as connection:
+            return dict(connection.execute("SELECT id, disposal_reason FROM asset WHERE disposal='trash'").fetchall())
+
+    def test_dispose_all_moves_every_undecided_item_of_the_kind_beyond_one_page(self):
+        # 网址快捷方式在媒体目录里直接进待判断：造 205 条，比页面一次取回的 200 条多。
+        for asset_id in range(1000, 1205):
+            self.add(asset_id, "local", rf"R:\media\入口{asset_id}.url", "other", 128)
+        self.add(2000, "local", r"R:\下载\福利群vip0955.com.zip", "archive", 2048)
+        self.assertEqual(q_ads(self.contract, kind="url")["total"], 205)
+
+        result = web_batch.w_ads_dispose_all(self.contract, {"kind": "url", "status": "pending", "expected": 205})
+
+        self.assertEqual(result["changed"], 205)
+        self.assertEqual(sorted(result["ids"]), list(range(1000, 1205)))
+        # 只动这一类；归入原因记垃圾，撤销按返回的 id 还原。
+        self.assertEqual(self.disposals(), {asset_id: "junk" for asset_id in range(1000, 1205)})
+        self.assertEqual(q_ads(self.contract, kind="url")["total"], 0)
+        self.assertEqual({item["id"] for item in q_ads(self.contract)["items"]}, {2000})
+        # 撤销把这一整批原样还原，同样不分段。
+        restored = web_batch.w_ads_restore_all(self.contract, {"ids": result["ids"]})
+        self.assertEqual(restored["changed"], 205)
+        self.assertEqual(self.disposals(), {})
+        self.assertEqual(q_ads(self.contract, kind="url")["total"], 205)
+
+    def test_dispose_all_refuses_a_count_the_user_did_not_confirm_and_the_excluded_view(self):
+        self.add(3, "pikpak", r"A:\资源\点击这里.url", "other", 128)
+        self.add(4, "local", r"R:\media\福利群vip0955.com.zip", "archive", 2048)
+        # 确认框给人看的是 1 条，队列里实际是 2 条：整批拒绝，一条不动。
+        with self.assertRaises(ValueError):
+            web_batch.w_ads_dispose_all(self.contract, {"kind": "", "status": "pending", "expected": 1})
+        with self.assertRaises(ValueError):
+            web_batch.w_ads_dispose_all(self.contract, {"kind": "", "status": "dismissed", "expected": 2})
+        with self.assertRaises(ValueError):
+            web_batch.w_ads_dispose_all(self.contract, {"kind": "", "status": "pending"})
+        self.assertEqual(self.disposals(), {})
+
     def test_game_download_promo_name_enters_review_without_automatic_trash(self):
         name = "18+游戏大全(996gg.cc)-七龍珠H版-三國志H版-三國群淫傳等.mp4"
         self.add(80, "115", "B:\\云下载\\MNGS-071\\" + name, "video", 2001226, 11.378005)

@@ -1,4 +1,5 @@
-import { islandButton, islandSelect, islandSummary } from './island-skeleton';
+import { islandButton, islandGlassRows, islandSelect } from './island-skeleton';
+import { queueContentSkeletonHtml, queueControlsSkeletonHtml } from './queue-skeleton';
 import { RESULT_PANEL, RESULT_SECTION } from './react/components/fieldset';
 import { t } from './i18n';
 
@@ -75,8 +76,7 @@ export function tasteSkeleton(): string {
   </div></div>`;
 }
 
-/** 重复文件首屏：完整汇总、玻璃批量条（全选本页、三条全部规则与「已保留」入口）、组头（勾选框、
- *  判据与五颗键里常驻的四颗）和两行文件，尺寸跟正文一致；窄屏换行也就和正文换在同一处。 */
+/** 重复文件首屏：筛选浮层（上排批量保留，下排读数）、组头和两行文件，尺寸跟正文一致。 */
 export function duplicatesSkeleton(): string {
   const row = `<div class="duplicate-row items-center gap-3 border-t border-separator-border px-5 py-4 max-compact:p-4">
     <span class="${placeholder} row-span-2 inline-grid aspect-16/10 w-full rounded-2lg"></span>
@@ -91,27 +91,19 @@ export function duplicatesSkeleton(): string {
       <span class="ml-auto flex flex-wrap gap-2 max-compact:ml-0 max-compact:w-full">${[t('cleanup:duplicates.keepLargest'), t('cleanup:duplicates.keepLongest'), t('cleanup:duplicates.keepAll'), t('cleanup:duplicates.trashGroup')].map(label => islandButton({ variant: 'secondary', size: 'small', label, attrs: wait })).join('')}</span>
     </div>${row.repeat(2)}</section>`;
   return `<div class="peach-react"><div class="mx-auto w-full max-w-board pb-10.5">
-    <div data-collection-summary class="mb-5 flex items-end justify-between gap-4 rounded-surface bg-background-secondary-default px-6 py-5 max-compact:flex-col max-compact:items-start max-compact:gap-3 max-compact:p-4 dark:bg-background-primary-default">
-      <div class="flex min-w-0 flex-col gap-2"><span class="text-body-regular text-text-secondary">${t('cleanup:duplicates.summaryLabel')}</span><strong class="text-display-4-medium">${text('4em')}</strong></div><p class="text-body-regular text-text-secondary">${text('12em')}</p>
-    </div>
-    <div data-filter-glass data-glass-pane class="mb-5.5 flex flex-wrap items-center gap-x-2.5 gap-y-2 px-4 py-2.5"><h3 class="mr-1 text-body-medium">${t('cleanup:duplicates.bulkKeep')}</h3>${check(t('cleanup:duplicates.selectPage'), 'sm')}${[t('cleanup:duplicates.allKeepLargest'), t('cleanup:duplicates.allKeepLongest'), t('cleanup:duplicates.allKeepAll')].map(glassPill).join('')}<span class="ml-auto"></span>${glassPill(text('4.5em'))}</div>
+    ${islandGlassRows({ label: t('cleanup:duplicates.summaryLabel'), attrs: ' data-filter-frame="" data-duplicates-frame=""',
+      controls: queueControlsSkeletonHtml('duplicates'),
+      top: [t('cleanup:duplicates.allKeepLargest'), t('cleanup:duplicates.allKeepLongest'), t('cleanup:duplicates.allKeepAll')].map(glassPill).join('')
+        + `<span class="ml-auto"></span>${glassPill(text('4.5em'))}` })}
     ${group.repeat(2)}
   </div></div>`;
 }
 
-/** 高清版首屏：摘要面、「全选」与六张待升级的卡，类名同 `QualityGoalsPage` 落地那一版（卡面是
- *  `cardClass({ padding: 'none' })`，底栏左端一枚勾选框、右边两颗键），接管那一拍间距、卡高与底色都不跳。 */
+/** 高清版首屏：筛选浮层（只有下排）加按卡片／列表画的内容，同 `QualityGoalsPage` 落地那一版。 */
 export function qualityGoalsSkeleton(): string {
-  const card = `<li class="min-w-0 bg-background-secondary-default rounded-2xl shadow-card flex flex-col gap-3 p-3">
-    <div class="flex min-w-0 gap-4"><span class="${placeholder} inline-grid w-card-cover shrink-0 aspect-card-cover rounded-2lg"></span>
-      <div class="flex min-w-0 flex-1 flex-col gap-1.5"><h3 class="text-headline-medium">${text('80%')}</h3><p class="text-body-2-regular">${text('60%')}</p></div>
-    </div>
-    <footer class="flex flex-wrap items-center justify-end gap-2">${check('', 'md', 'mr-auto')}${[t('manage:resourceSearch.searchTorrents'), t('manage:hdUpgrades.viewEditions')].map(label => islandButton({ variant: 'secondary', size: 'small', label, attrs: wait })).join('')}</footer>
-  </li>`;
-  return `<div class="peach-react"><div class="mx-auto flex w-full max-w-board flex-col gap-8">
-    ${islandSummary(t('manage:hdUpgrades.summaryLabel'))}
-    <div class="mb-4">${check(t('manage:hdUpgrades.selectAll'), 'sm')}</div>
-    <ul class="card-grid-cover gap-5">${card.repeat(6)}</ul>
+  return `<div class="peach-react"><div data-quality-goals class="mx-auto w-full max-w-board">
+    ${islandGlassRows({ label: t('manage:hdUpgrades.summaryLabel'), attrs: ' data-filter-frame=""', controls: queueControlsSkeletonHtml('quality-goals') })}
+    ${queueContentSkeletonHtml('quality-goals', '', ['w-20', 'w-20'])}
   </div></div>`;
 }
 

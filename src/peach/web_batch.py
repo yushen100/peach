@@ -26,7 +26,7 @@ from functools import partial
 from pathlib import Path, PureWindowsPath
 from typing import Sequence
 
-from . import interface_text, junk
+from . import interface_text, junk, settings_file
 from .catalog_rules import duration_clusters, is_jav_code, normalise_code_key
 from .catalog_vocabulary import KEEP_DUPLICATES_NOTE, NOT_JUNK_NOTE
 from .config import GENERATED_DIR, LOCATION_ROOT_DECLARATIONS
@@ -136,23 +136,16 @@ def q_ads(contract: WebContract, limit=200, offset=0, kind="", status="pending")
 
     词库 `PROMO_NAMES_FILE` 里的固定命名，以及未探测时长视频的目录与体积证据，只够进队列：
     这部分分数单独凑够 `AUTO_TRASH_SCORE` 时压到线下，须有别的证据或人看过内容才进回收站。"""
-    kind = str(kind or "").strip().casefold()
-    status = str(status or "pending").strip().casefold()
-    if kind and kind not in JUNK_KINDS:
-        raise ValueError("invalid junk kind")
-    if status not in {"pending", "dismissed"}:
-        raise ValueError("invalid junk status")
-    out, dismissed_ids = contract.cached_until_changed(
-        "junk-scored", lambda: _scored_junk(contract), tables=JUNK_SCORE_TABLES)
-    pending = [item for item in out if item["id"] not in dismissed_ids]
-    dismissed = [item for item in out if item["id"] in dismissed_ids]
+    kind, status = _junk_scope(kind, status)
+    pending, dismissed = _junk_queues(contract)
     pool = dismissed if status == "dismissed" else pending
     counts = {junk_kind: 0 for junk_kind in JUNK_KINDS}
     for item in pool:
         counts[item["junk_kind"]] += 1
     filtered = [item for item in pool if not kind or item["junk_kind"] == kind]
-    # 缓存里那份是共享的，这一页的条目复制出来再挂演员，不改到下一次请求。
+    # 缓存里那份是共享的，这一页的条目复制出来再挂演员与媒体库，不改到下一次请求。
     items = [dict(item) for item in filtered[offset:offset + limit]]
+    _attach_library(items)
     attach_card_performers(
         contract, [item for item in items if item.get("medium") == "video"])
     return {
@@ -167,14 +160,72 @@ def q_ads(contract: WebContract, limit=200, offset=0, kind="", status="pending")
     }
 
 
+def _junk_scope(kind, status) -> tuple[str, str]:
+    """垃圾队列的分类与视图，认不出的拒绝。"""
+    kind = str(kind or "").strip().casefold()
+    status = str(status or "pending").strip().casefold()
+    if kind and kind not in JUNK_KINDS:
+        raise ValueError("invalid junk kind")
+    if status not in {"pending", "dismissed"}:
+        raise ValueError("invalid junk status")
+    return kind, status
+
+
+def _junk_queues(contract: WebContract) -> tuple[list[dict], list[dict]]:
+    """评分缓存拆成待判断与已排除两份，顺序同页面。"""
+    out, dismissed_ids = contract.cached_until_changed(
+        "junk-scored", lambda: _scored_junk(contract), tables=JUNK_SCORE_TABLES)
+    return ([item for item in out if item["id"] not in dismissed_ids],
+            [item for item in out if item["id"] in dismissed_ids])
+
+
+def w_ads_dispose_all(contract: WebContract, body) -> dict:
+    """垃圾文件页的「全部移入回收站」：待判断里当前这一类的每一条，不止页面取回的那一批，
+    都移入回收站、归入原因记垃圾；文件留在原处，返回的 `ids` 给撤销还原。
+
+    `expected` 是确认框里给人看的条数：判定或扫描在这期间改了队列，条数对不上就整批拒绝，
+    不把人没看过的那几条一起移走。已排除视图里是人判过「不是垃圾」的，不收。写入沿用批量
+    移入回收站那一步，整批一个事务、一条任务记录：要么全部移入，要么一条不动。"""
+    kind, status = _junk_scope(body.get("kind"), body.get("status"))
+    if status != "pending":
+        raise ValueError("only undecided junk can be moved to the recycle bin in bulk")
+    expected = body.get("expected")
+    if not isinstance(expected, int) or isinstance(expected, bool) or expected < 1:
+        raise ValueError("expected must be the confirmed item count")
+    pending, _dismissed = _junk_queues(contract)
+    ids = [item["id"] for item in pending if not kind or item["junk_kind"] == kind]
+    if len(ids) != expected:
+        raise ValueError("the junk queue changed since it was shown; reload and confirm again")
+    result = w_batch(contract, {"ids": ids, "operation": "dispose", "disposal_reason": "junk"}, limit=None)
+    return {"ok": True, "operation": "dispose", "changed": result["changed"], "ids": ids}
+
+
+def w_ads_restore_all(contract: WebContract, body) -> dict:
+    """「全部移入回收站」的撤销：把那一次返回的 `ids` 整批还原，同样不受页面多选的上限。"""
+    raw = body.get("ids")
+    if not isinstance(raw, list) or not raw:
+        raise ValueError("ids must be a non-empty list")
+    result = w_batch(contract, {"ids": raw, "operation": "restore"}, limit=None)
+    return {"ok": True, "operation": "restore", "changed": result["changed"]}
+
+
 def _scored_junk(contract: WebContract) -> tuple[list[dict], frozenset[int]]:
-    """领域评分加上页面需要的成本与缩略图状态，路径留在服务内部。"""
+    """领域评分加上页面需要的成本与缩略图状态，路径留在服务内部（`_path`，取页时换成媒体库后删掉）。"""
     out, dismissed = junk.scored_candidates(contract)
     for item in out:
         item["cost"] = cost_for(item['location'], item.get('path'))
         item["has_thumb"] = contract.has_snapshot(item.pop("snapshot_path", None))
-        item.pop("path", None)
+        item["_path"] = item.pop("path", None) or ""
     return out, dismissed
+
+
+def _attach_library(items: list[dict]) -> None:
+    """按路径补这一页条目的媒体库，同作品列表（`web_catalog.attach_artwork_fields`）；评分缓存只随账本表失效，
+    媒体库设置变了它不会重算，所以归属在取页时按当前设置算，不放进缓存。路径不下发。"""
+    from .media_identity import ownership
+    config = settings_file.active()
+    for item in items:
+        item["library_id"] = ownership(config, item.pop("_path", "") or "").get("library_id", "")
 
 
 def _restore_staged_media(staged):
@@ -975,14 +1026,17 @@ def _write_batch_state(connection, rows, operation, now, disposal_reason):
     return {}
 
 
-def w_batch(contract: WebContract, body):
-    """Apply one explicit, reversible marker to a bounded selected set."""
+def w_batch(contract: WebContract, body, *, limit: int | None = 200):
+    """Apply one explicit, reversible marker to a bounded selected set.
+
+    `limit` 是页面多选一次能交上来的上限；服务端按筛选整批处理的入口（`w_ads_dispose_all`）传 `None`，
+    整批在一个事务里写完。"""
     groups = _batch_duplicate_groups(body)
     raw_ids = [asset_id for group in groups for asset_id in group] if groups else body.get("ids")
     if not isinstance(raw_ids, list):
         raise TypeError("ids must be a list")
     ids = list(dict.fromkeys(int(item) for item in raw_ids))
-    if not ids or len(ids) > 200:
+    if not ids or (limit is not None and len(ids) > limit):
         raise ValueError("batch requires 1 to 200 assets")
     operation = body.get("operation")
     if operation not in {
