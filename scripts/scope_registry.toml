@@ -76,10 +76,10 @@ tooling = [
     "test_wants.py", "test_push_discovery.py", "test_media_probe.py", "test_subtitles.py",
     "test_onboarding.py", "test_configuration_sources.py", "test_clouddrive_proxy.py",
     "test_folder_picker.py", "test_ledger_backups.py", "test_clear_camera_filename_codes.py",
-    "test_agent_worktree.py", "test_ci_test_evidence.py", "test_check_public_text.py",
-    "test_issue_intake.py", "test_star_history.py", "test_test_evidence.py", "test_test_history.py",
-    "test_test_slots.py", "test_test_environment.py", "test_dependency_policy.py", "test_version_bump.py",
-    "test_changelog.py", "test_release_due.py", "test_release_candidate.py", "test_media_build_cache.py",
+    "test_check_public_text.py",
+    "test_issue_intake.py", "test_star_history.py", "test_test_history.py",
+    "test_test_environment.py", "test_dependency_policy.py", "test_version_bump.py",
+    "test_changelog.py", "test_release_candidate.py", "test_media_build_cache.py",
     "test_runner_launcher.py", "test_restart_windows_tray.py", "test_deploy_windows_tray.py",
     "test_runtime_prepare.py", "test_buildinfo.py", "test_versioning.py", "test_macos_standalone.py",
     "test_windows_update.py", "test_release_updates.py", "test_release_signing.py",
@@ -96,6 +96,12 @@ tooling = [
     "test_ffmpeg_bundle.py", "test_untrunc_build.py", "test_macos_media.py", "test_media_tool_import.py",
     "test_seed_corrections.py", "test_face_models_bundle.py", "test_dev_text.py",
 ]
+# 交付设施的重型测试：工作树、集成、测试证明与名额。它们只导入 `scripts.*`，改到被它们沿导入链用到的
+# 脚本时按文件补选；协议文件本身跑全量。不放在 tooling，免得改任何脚本或文档都连带跑这十几分钟。
+delivery = [
+    "test_agent_worktree.py", "test_ci_test_evidence.py", "test_release_due.py", "test_test_evidence.py", "test_test_slots.py",
+]
+
 # 前端 island 层（ADR-0022）。产物与源码的断言不需要 Node；vitest 那部分在没有
 # npm 时自己跳过，所以这个域在任何机器上都能跑，`full` 也就自动包含它。
 # `test_web_perf.py` 两个域都登记：压缩与 ETag 是 API 交付（catalog），

@@ -171,6 +171,24 @@ class TestPlanningTests(unittest.TestCase):
             with self.subTest(after=after):
                 self.assertEqual(self.registry_scopes(after), ('full',))
 
+    def test_changing_a_script_selects_the_tests_that_import_it(self):
+        """改 `scripts/X.py` 选 tooling，再按文件补上沿脚本导入链用到它的测试。"""
+        cases = {'scripts/reject_agency.py': 'test_agency_reject.py',
+                 'scripts/fetch_fc2_metadata.py': 'test_fc2_metadata.py',
+                 'scripts/merge_duplicate_identities.py': 'test_duplicate_identity_merge.py',
+                 'scripts/check_readme_impact.py': 'test_readme_contracts.py',
+                 'scripts/smoke_desktop.py': 'test_frame_capture.py',
+                 # 测试只导入 agent_worktree，agent_worktree 再导入 co_author。
+                 'scripts/co_author.py': 'test_agent_worktree.py'}
+        for script, test in cases.items():
+            with self.subTest(script=script):
+                scopes, why = runner.scopes_for_changes([script])
+                self.assertIn('tooling', scopes, why)
+                selected = {path.name for scope in scopes for path in runner.selected_files(scope)}
+                self.assertIn(test, selected, why)
+                self.assertNotIn('full', scopes)
+        self.assertNotIn('delivery', runner.scopes_for_changes(['docs/TESTING.md', 'scripts/render_star_history.py'])[0])
+
     def test_checks_ci_omits_runtime_tool_installation_and_keeps_platforms(self):
         for path in ("README.md", "CONTRIBUTING.md", ".github/PULL_REQUEST_TEMPLATE.md", "docs/TESTING.md"):
             with self.subTest(path=path):
@@ -894,9 +912,13 @@ class TestPlanningTests(unittest.TestCase):
         选的是 tooling。补法是 `AUTO_SCOPE_FILES` 与 `AUTO_SCOPE_PREFIXES` 让一个文件落到多个域，
         而不是把测试重复登记到不相干的域里。
         """
+        tests, _, _ = runner._import_index(runner.ROOT)
         for path in sorted((runner.ROOT / 'tests').glob('test_*.py')):
-            read = [item for item in runner.repository_paths_read_by(path.read_text(encoding='utf-8'))
-                    if not item.startswith('tests/')
+            # 导入的脚本也是它的输入：改那个脚本时同样要选到它。
+            imported = [f'scripts/{name.removeprefix("scripts.")}.py' for name in sorted(tests[path.name])
+                        if name.startswith('scripts.')]
+            read = [item for item in [*runner.repository_paths_read_by(path.read_text(encoding='utf-8')), *imported]
+                    if not item.startswith('tests/') and (runner.ROOT / item).is_file()
                     and not any(item.startswith(prefix) for prefix in runner.FULL_ONLY_PREFIXES)]
             for item in read:
                 scopes, why = runner.scopes_for_changes([item])

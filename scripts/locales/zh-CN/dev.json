@@ -2492,7 +2492,8 @@
     "coverage": "单项覆盖：复用 {{reused}} 项，待验证 {{pending}} 项。",
     "phaseTimings": "分阶段耗时（测试执行包含各测试阶段）：{{phases}}",
     "slowTest": "慢测试 {{seconds}}s：{{name}}",
-    "inputsChanged": "验证期间输入改变；保留 {{kept}} 项未受影响的结果，请运行 auto 补齐。"
+    "inputsChanged": "验证期间输入改变；保留 {{kept}} 项未受影响的结果，请运行 auto 补齐。",
+    "unknownScope": "未知测试域：{{scope}}"
   },
   "test_slots": {
     "waiting": "等待整机测试名额（本次要 {{need}} 个，共 {{total}} 个{{place}}），按到达先后排队，每分钟报告一次占用",

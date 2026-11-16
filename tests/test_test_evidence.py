@@ -1656,7 +1656,7 @@ class VerificationTests(unittest.TestCase):
     def test_full_run_retains_unaffected_files_then_completes_with_auto(self):
         mapping = {"full": ("test_checks.py", "test_web.py"), "checks": ("test_checks.py",),
                    "web": ("test_web.py",)}
-        select = lambda scope: tuple(Path(name) for name in mapping.get(scope, ()))
+        select = lambda scope, **_: tuple(Path(name) for name in mapping.get(scope, ()))
 
         def mutate(*args, **kwargs):
             (self.repo / "README.md").write_text("检查期间的文档修订\n", encoding="utf-8")

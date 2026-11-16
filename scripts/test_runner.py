@@ -87,7 +87,10 @@ FULL_ONLY_PREFIXES: tuple[str, ...] = (
 
 
 def selected_files(scope: str, *, root: Path | None = None) -> tuple[Path, ...]:
+    """一个域选中的测试文件。`auto` 也会按文件补选：这时 `scope` 就是测试文件名本身。"""
     tests = TESTS if root is None else root / "tests"
+    if scope.endswith(".py"):
+        return (tests / scope,) if (tests / scope).is_file() else ()
     if scope == "full":
         return tuple(sorted(tests.glob("test_*.py")))
     found: set[Path] = set()
@@ -118,12 +121,35 @@ def scopes_of_module(stem: str) -> tuple[str, ...]:
 
 
 def _imported_modules(path: Path, *, root: Path | None = None) -> frozenset[str]:
-    """一个 Python 文件导入了 `peach` 下哪些顶层模块（含函数里的延迟导入）。"""
+    """一个 Python 文件导入了 `peach` 下哪些顶层模块（含函数里的延迟导入），以及 `scripts` 下的
+    哪些模块（记作 `scripts.<名字>`）。"""
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"))
     except (OSError, SyntaxError, UnicodeError, ValueError):
         return frozenset()
-    source = (ROOT if root is None else root) / "src" / "peach"
+    root = ROOT if root is None else root
+    return _imported_peach(tree, path, root) | _imported_scripts(tree, path.parent == root / "scripts")
+
+
+def _imported_scripts(tree: ast.AST, inside: bool) -> frozenset[str]:
+    """`import scripts.x`、`from scripts import x`、`from scripts.x import y`；脚本目录里另认 `from . import x`。"""
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            found.update(alias.name.split(".")[1] for alias in node.names if alias.name.startswith("scripts."))
+            continue
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        module = node.module or ""
+        if node.level == 1 and inside or node.level == 0 and module == "scripts":
+            found.update([module.split(".")[0]] if module and node.level else (alias.name for alias in node.names))
+        elif node.level == 0 and module.startswith("scripts."):
+            found.add(module.split(".")[1])
+    return frozenset("scripts." + name for name in found)
+
+
+def _imported_peach(tree: ast.AST, path: Path, root: Path) -> frozenset[str]:
+    source = root / "src" / "peach"
     depth = len(path.relative_to(source).parts) if path.is_relative_to(source) else None
     found: set[str] = set()
     for node in ast.walk(tree):
@@ -152,6 +178,38 @@ def _import_index(root: Path = ROOT) -> tuple[dict[str, frozenset[str]], dict[st
     support = frozenset(name for path in (root / "tests/support").glob("*.py")
                         for name in _imported_modules(path, root=root))
     return tests, sources, support
+
+
+@lru_cache(maxsize=None)
+def script_consumers(root: Path = ROOT) -> dict[str, frozenset[str]]:
+    """`scripts/<stem>.py` → 导入它的测试文件，沿 `scripts/` 内部的导入链传递。
+
+    与 `src/peach` 不同，脚本之间的导入链有界（单个脚本最多牵到十来个测试文件），传递下去才不会
+    漏掉经 `agent_worktree` 用到 `co_author` 这类间接消费者。不穿过 `peach` 包。"""
+    scripts = {path.stem: {name.removeprefix("scripts.") for name in _imported_modules(path, root=root)
+                           if name.startswith("scripts.")} for path in (root / "scripts").glob("*.py")}
+    tests, _, _ = _import_index(root)
+    found: dict[str, set[str]] = {}
+    for name, modules in tests.items():
+        todo = [module.removeprefix("scripts.") for module in modules if module.startswith("scripts.")]
+        seen: set[str] = set()
+        while todo:
+            stem = todo.pop()
+            if stem in scripts and stem not in seen:
+                seen.add(stem)
+                todo.extend(scripts[stem])
+        for stem in seen:
+            found.setdefault(stem, set()).add(name)
+    return {stem: frozenset(names) for stem, names in found.items()}
+
+
+def file_consumers(path: str, kind: str, contents: dict | None, root: Path) -> frozenset[str]:
+    """按文件补选的测试：导入改动脚本的测试。"""
+    if kind in {"unsafe", "prose"}:
+        return frozenset()
+    if path.startswith("scripts/") and path.endswith(".py") and "/" not in path.removeprefix("scripts/"):
+        return script_consumers(root).get(path.removeprefix("scripts/").removesuffix(".py"), frozenset())
+    return frozenset()
 
 
 def scopes_of_importers(stem: str, seen: frozenset[str] = frozenset(), *,
@@ -290,15 +348,22 @@ def scopes_for_changes(paths: Iterable[str], *, contents: dict | None = None,
         elif "full" in scopes:
             full_reasons.append(t("test_runner.fullSurface", path=path))
         else:
-            for scope in scopes:
+            for scope in (*scopes, *sorted(file_consumers(path, kind, contents, root))):
                 picked.setdefault(scope, []).append(path)
     if full_reasons:
         return ("full",), "Peach auto scope: full <- " + "; ".join(full_reasons)
     if not picked:
         return ("checks",), "Peach auto scope: checks <- " + t("test_runner.noChanges")
-    ordered = tuple(scope for scope in SCOPES if scope in picked)
+    ordered = ordered_scopes(picked, root)
     detail = "; ".join(f"{scope}: {', '.join(picked[scope])}" for scope in ordered)
     return ordered, f"Peach auto scope: {', '.join(ordered)} <- {detail}"
+
+
+def ordered_scopes(picked, root: Path) -> tuple[str, ...]:
+    """域按登记顺序在前，按文件补选的测试名排在后面；已被选中的域覆盖的测试名不再单列。"""
+    domains = tuple(scope for scope in SCOPES if scope in picked)
+    covered = {path.name for scope in domains for path in selected_files(scope, root=root)}
+    return domains + tuple(sorted(scope for scope in picked if scope.endswith(".py") and scope not in covered))
 
 
 def changed_files(root: Path = ROOT, base: str = "master") -> list[str]:
@@ -923,11 +988,17 @@ def run_shard_child(args, requested, scopes, files) -> int:
     return 0 if success else 1
 
 
+def scope_name(value: str) -> str:
+    """`--scope` 的取值：`full`、`auto`、登记的域，或 `auto` 按文件补选的测试文件名。"""
+    if value in ("full", "auto", *SCOPES) or change_impact.EXACT_TEST.fullmatch(value) and (TESTS / value).is_file():
+        return value
+    raise argparse.ArgumentTypeError(t("test_runner.unknownScope", scope=value))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     # `--scope` 可重复：本机并行的父进程把 `auto` 算出来的几个域原样交给每个分片子进程。
-    parser.add_argument("--scope", action="append", dest="scopes",
-                        choices=("full", "auto", *SCOPES))
+    parser.add_argument("--scope", action="append", dest="scopes", type=scope_name)
     reuse = parser.add_mutually_exclusive_group()
     reuse.add_argument("--fresh", action="store_true", help=t("test_runner.helpFresh"))
     reuse.add_argument("--resume", action="store_true", help=t("test_runner.helpResume"))
