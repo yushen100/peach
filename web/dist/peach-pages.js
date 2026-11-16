@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "3a2eabfb-d0d0-4c9d-b6e9-e04fb8bfedfe", e._sentryDebugIdIdentifier = "sentry-dbid-3a2eabfb-d0d0-4c9d-b6e9-e04fb8bfedfe");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "1a6417ec-1243-4e99-95fb-77d9b720e7b9", e._sentryDebugIdIdentifier = "sentry-dbid-1a6417ec-1243-4e99-95fb-77d9b720e7b9");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -5375,8 +5375,6 @@ var He = "peach.settings.v1", Ue = {
 		settingsSummary: "Start with appearance and navigation. Check other settings as needed.",
 		settingsTitle: "Make Peach your own",
 		startQuickTour: "Start quick tour",
-		stepCountExitAnytime_one: "{{count, number}} step · Exit anytime",
-		stepCountExitAnytime_other: "{{count, number}} steps · Exit anytime",
 		stepCount_one: "{{count, number}} step",
 		stepCount_other: "{{count, number}} steps"
 	},
@@ -12569,8 +12567,7 @@ var He = "peach.settings.v1", Ue = {
 		settingsSummary: "先了解外观与导航，其余设置按需要查看。",
 		settingsTitle: "按习惯调整 Peach",
 		startQuickTour: "开始快速导览",
-		stepCount: "{{count, number}} 步",
-		stepCountExitAnytime: "{{count, number}} 步 · 随时可以退出"
+		stepCount: "{{count, number}} 步"
 	},
 	guideDownloads: {
 		browserBody: "安装用户脚本并配对 Peach。默认渠道决定提交到哪里；启用开关控制功能，专用令牌可更新或关闭，脚本检测帮助确认配对。",
@@ -39449,4 +39446,4 @@ jt();
 var Kb = document.getElementById("peach-page"), qb = Kb ? Gb[Kb.dataset.page ?? ""] : void 0;
 Kb && qb && (0, Bt.createRoot)(Kb).render(/* @__PURE__ */ (0, V.jsx)(Wb, { children: /* @__PURE__ */ (0, V.jsx)(qb, { data: { ...Kb.dataset } }) }));
 
-//# debugId=3a2eabfb-d0d0-4c9d-b6e9-e04fb8bfedfe
+//# debugId=1a6417ec-1243-4e99-95fb-77d9b720e7b9
