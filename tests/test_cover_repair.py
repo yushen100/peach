@@ -183,7 +183,7 @@ class RepairCenterTests(unittest.TestCase):
                          {"state": "pending", "covers": 12})
         self.assertEqual(repair_center._cover_artwork({"phase": "estimating"}, []),
                          {"state": "pending", "estimating": True})
-        self.assertIn(("cover-artwork", "auto"), repair_center.ITEMS)
+        self.assertIn(("cover-artwork", "auto", "catalog"), repair_center.ITEMS)
         rows = [(f"{cover_repair.RECEIPT_PREFIX}1", 1.0, {"judged": 3, "recropped": 40, "faces": 7, "failed": 1})]
         self.assertEqual(repair_center._cover_artwork({"phase": "ready", "covers": 0}, rows),
                          {"state": "done", "changed": 50})
