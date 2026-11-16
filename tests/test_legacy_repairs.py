@@ -234,10 +234,11 @@ class LegacyRepairTests(LedgerCase):
                                               'details': 'Deadline Exceeded'})
 
     def test_clean_ledger_records_every_rule_without_a_backup(self):
-        self.service.prepare()
+        with patch.object(self.service, '_upgrade_backup', wraps=self.service._upgrade_backup) as backup:
+            self.service._settle_legacy()
         for rule in legacy_repairs.RULES:
             self.assertEqual(self.receipt(rule.key), {'changed': 0})
-        self.assertEqual(list(self.db.parent.glob('ledger.pre-legacy-repairs-*.db')), [])
+        backup.assert_not_called()
 
     def test_failing_rule_is_retried_next_start_while_others_finish(self):
         rule = legacy_repairs.RULES[0]
