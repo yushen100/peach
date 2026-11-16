@@ -104,11 +104,12 @@ class DockerImageTests(unittest.TestCase):
             dockerfile)}
         self.assertEqual(added, {name: (url, digest) for name, url, digest, *member in fetch_face_models.FILES
                                  if not member})
-        self.assertIn(fetch_face_models.WHEEL, dockerfile)
-        for name, _, _, *member in fetch_face_models.FILES:
-            if member:
-                with self.subTest(name=name):
-                    self.assertIn(f"/app/tools/face-models/{name}', 'wb').write(z.read('{member[0]}'))", dockerfile)
+        # 从 wheel 里解出的那几个：镜像只取脚本钉的那一个 wheel，解出的文件与成员和 `FILES` 一一对应。
+        wheels = re.findall(r"ADD --checksum=sha256:[0-9a-f]{64} \\\n\s+(\S+) \\\n\s+/tmp/\S+\.whl", dockerfile)
+        self.assertEqual(wheels, [fetch_face_models.WHEEL])
+        extracted = dict(re.findall(
+            r"open\('/app/tools/face-models/([^']+)', 'wb'\)\.write\(z\.read\('([^']+)'\)\)", dockerfile))
+        self.assertEqual(extracted, {name: member[0] for name, _, _, *member in fetch_face_models.FILES if member})
         self.assertEqual(re.findall(r"PEACH_FACE_MODELS=(\S+)", dockerfile), ["/app/tools/face-models"])
 
 
