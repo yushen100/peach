@@ -480,7 +480,7 @@ describe('新作那一行', () => {
     expect(feedHost.hidden).toBe(true);
   });
 
-  it('想要是开关：同一颗键在想要与取消想要之间换，卡片不收也不变淡', async () => {
+  it('点击加入想要、长按取消想要，卡片保留原位置和样式', async () => {
     const feedHost = document.createElement('section');
     document.body.append(feedHost);
     const acts = actions();
@@ -491,11 +491,24 @@ describe('新作那一行', () => {
     await click(key());
     await settle();
     expect(acts.feedAction).toHaveBeenLastCalledWith(13, 'want');
-    expect([key().dataset.feedAction, key().getAttribute('aria-pressed'), key().title]).toEqual(['unwant', 'true', '取消想要']);
-    await click(key());
-    await settle();
-    expect(acts.feedAction).toHaveBeenLastCalledWith(13, 'unwant');
-    expect([key().dataset.feedAction, key().getAttribute('aria-pressed'), key().title]).toEqual(['want', 'false', '想要']);
+    expect([key().dataset.feedAction, key().getAttribute('aria-pressed'), key().title.split('\n')[0]]).toEqual(['unwant', 'true', '取消想要']);
+    expect(key().hasAttribute('data-hold-confirm')).toBe(true);
+    vi.useFakeTimers();
+    const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
+    try {
+      await click(key());
+      expect(acts.feedAction).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        key().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+      expect(acts.feedAction).toHaveBeenLastCalledWith(13, 'unwant');
+      expect([key().dataset.feedAction, key().getAttribute('aria-pressed'), key().title]).toEqual(['want', 'false', '想要']);
+      expect(key().hasAttribute('data-hold-confirm')).toBe(false);
+    } finally {
+      vi.useRealTimers();
+      hidden.mockRestore();
+    }
     expect(feedHost.querySelector('[data-feed-id="13"]')?.classList.contains('isread')).toBe(false);
     expect(feedHost.hidden).toBe(false);
   });

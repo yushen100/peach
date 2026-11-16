@@ -50,13 +50,13 @@ it('同一弹窗提供三个范围，每个按钮长按两秒只执行对应范�
   const buttons = [...document.querySelectorAll<HTMLButtonElement>('[data-modal-confirm]')];
   expect(buttons.map(button => button.dataset.modalConfirm)).toEqual(['profile','trash','purge']);
   expect(document.activeElement).toBe(document.querySelector('[data-modal-cancel]'));
-  buttons[0].click();
-  buttons[0].dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,isPrimary:true,pointerId:1}));
+  buttons[0]!.click();
+  buttons[0]!.dispatchEvent(new PointerEvent('pointerdown',{bubbles:true,button:0,isPrimary:true,pointerId:1}));
   await vi.advanceTimersByTimeAsync(1000);
-  buttons[0].dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:1}));
+  buttons[0]!.dispatchEvent(new PointerEvent('pointerup',{bubbles:true,pointerId:1}));
   await vi.advanceTimersByTimeAsync(1000);
   expect(write).not.toHaveBeenCalled();
-  buttons[1].dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));
+  buttons[1]!.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));
   await vi.advanceTimersByTimeAsync(1999);
   expect(write).not.toHaveBeenCalled();
   await vi.advanceTimersByTimeAsync(1);

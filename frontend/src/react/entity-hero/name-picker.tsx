@@ -43,43 +43,44 @@ export function NamePicker({ current, choices, onChoose, onAddAlias, onMerge, on
         isNonModal={new URLSearchParams(window.location.search).has('edit')}
         shouldCloseOnInteractOutside={element => !element.closest('[data-copy-editor]')}
         data-namepick-menu="">
-        <Menu aria-label={t('catalog:namePicker.title')} data-namepick-list="" data-copy-interact=""
-          onPointerDownCapture={event => { textEdit.current = event.altKey }}
-          onKeyDownCapture={event => { textEdit.current = event.altKey }}>
-          <MenuSection selectionMode="single" disallowEmptySelection selectedKeys={[current]}
-            onSelectionChange={(keys) => {
-              const chosen = [...(keys as Set<string>)][0];
-              if (chosen && chosen !== current) onChoose(chosen);
-            }}>
-            {choices.map((option) => (
-              <MenuItem key={option.value} id={option.value} textValue={option.label} data-namepick-name={option.value}>
-                <Glyph name="check" /><span>{option.label}</span>
-              </MenuItem>
-            ))}
-          </MenuSection>
-          <Separator data-namepick-rule="" />
-          <MenuSection>
-            <MenuItem id="alias" textValue={t('catalog:namePicker.addAlias')} data-namepick-alias="" onAction={onAddAlias}>
-              <Glyph name="plus" /><span>{t('catalog:namePicker.addAliasMenu')}</span>
-            </MenuItem>
-            {onMerge ? (
-              <MenuItem id="merge" textValue={t('shell:entityMerge.menu')} data-namepick-merge="" onAction={onMerge}>
-                <Glyph name="git-compare" /><span>{t('shell:entityMerge.menu')}</span>
-              </MenuItem>
-            ) : null}
-          </MenuSection>
-          {onDelete ? <Separator data-namepick-rule="" /> : null}
-          {onDelete ? <MenuSection>
-            <MenuItem id="delete" textValue={t('catalog:rosterActions.delete')} data-namepick-delete=""
-              shouldCloseOnSelect={false} onAction={() => {
-                if (textEdit.current) return;
-                setOpen(false);
-                onDelete();
+        <div className="contents" onKeyDownCapture={event => { textEdit.current = event.altKey }}>
+          <Menu aria-label={t('catalog:namePicker.title')} data-namepick-list="" data-copy-interact=""
+            onPointerDownCapture={event => { textEdit.current = event.altKey }}>
+            <MenuSection selectionMode="single" disallowEmptySelection selectedKeys={[current]}
+              onSelectionChange={(keys) => {
+                const chosen = [...(keys as Set<string>)][0];
+                if (chosen && chosen !== current) onChoose(chosen);
               }}>
-              <Glyph name="trash" /><span>{t('catalog:rosterActions.deleteMenu')}</span>
-            </MenuItem>
-          </MenuSection> : null}
-        </Menu>
+              {choices.map((option) => (
+                <MenuItem key={option.value} id={option.value} textValue={option.label} data-namepick-name={option.value}>
+                  <Glyph name="check" /><span>{option.label}</span>
+                </MenuItem>
+              ))}
+            </MenuSection>
+            <Separator data-namepick-rule="" />
+            <MenuSection>
+              <MenuItem id="alias" textValue={t('catalog:namePicker.addAlias')} data-namepick-alias="" onAction={onAddAlias}>
+                <Glyph name="plus" /><span>{t('catalog:namePicker.addAliasMenu')}</span>
+              </MenuItem>
+              {onMerge ? (
+                <MenuItem id="merge" textValue={t('shell:entityMerge.menu')} data-namepick-merge="" onAction={onMerge}>
+                  <Glyph name="git-compare" /><span>{t('shell:entityMerge.menu')}</span>
+                </MenuItem>
+              ) : null}
+            </MenuSection>
+            {onDelete ? <Separator data-namepick-rule="" /> : null}
+            {onDelete ? <MenuSection>
+              <MenuItem id="delete" textValue={t('catalog:rosterActions.delete')} data-namepick-delete=""
+                shouldCloseOnSelect={false} onAction={() => {
+                  if (textEdit.current) return;
+                  setOpen(false);
+                  onDelete();
+                }}>
+                <Glyph name="trash" /><span>{t('catalog:rosterActions.deleteMenu')}</span>
+              </MenuItem>
+            </MenuSection> : null}
+          </Menu>
+        </div>
       </Popover>
     </MenuTrigger>
   );

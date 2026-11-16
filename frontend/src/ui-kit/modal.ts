@@ -211,6 +211,6 @@ export function confirmModal({title,body,items=[],confirmLabel,cancelLabel=t('sh
     attachOverlayScrollbar(dialog.querySelector<HTMLElement>('.ui-geist-modal-body'));
     attachOverlayScrollbar(list);
     playUiSound('pop');
-    (danger?cancel:buttons[0].button).focus();
+    (danger?cancel:buttons[0]!.button).focus();
   });
 }
