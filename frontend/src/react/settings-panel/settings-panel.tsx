@@ -654,6 +654,7 @@ function PlaybackRows({ host: current, epoch }: Omit<GroupProps, 'tab'>) {
       <ToggleRow id="detailAutoplaySetting" title={t('settings:preferencesPanel.detailAutoplay')} checked={settings.detailAutoplay}
         onToggle={(on) => { settings.detailAutoplay = on; save() }} />
       <ToggleRow id="autoChineseSubtitlesSetting" title={t('settings:preferencesPanel.autoChineseSubtitles')}
+        description={t('settings:preferencesPanel.autoChineseSubtitlesHelp')}
         checked={settings.autoChineseSubtitles} onToggle={(on) => { settings.autoChineseSubtitles = on; save() }} />
       <Row title={t('settings:playbackEnd.title')}>
         <SelectField id="afterPlaybackSetting" label={t('settings:playbackEnd.title')} options={afterPlaybackOptions()} value={settings.afterPlayback} epoch={epoch}

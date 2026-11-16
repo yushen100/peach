@@ -819,7 +819,8 @@
     "software": "Software codec"
   },
   "preferencesPanel": {
-    "autoChineseSubtitles": "Turn on Chinese subtitles from the video's directory until you pick one",
+    "autoChineseSubtitles": "Turn on Chinese subtitles",
+    "autoChineseSubtitlesHelp": "Uses Chinese subtitles from the video's directory until you pick one",
     "autoScroll": "Auto-scroll",
     "batchSize": "Videos per batch",
     "batchSizeInput": "Videos per batch",
