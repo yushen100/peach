@@ -175,7 +175,7 @@ class EntityBatchTests(unittest.TestCase):
     def test_purge_transaction_failure_restores_temporary_media_and_rows(self):
         paths = self.temporary_media([1, 2])
         plan = self.delete_plan([1])
-        with mock.patch('peach.entity_deletion.delete_entities', side_effect=RuntimeError('write failed')):
+        with mock.patch('peach.web_entity_deletion.delete_entities', side_effect=RuntimeError('write failed')):
             with self.assertRaisesRegex(RuntimeError, 'write failed'):
                 self.run_batch('delete', mode='purge', entity_ids=[1], token=plan['token'])
         self.assertEqual([path.read_bytes() for path in paths.values()], [b'media-1', b'media-2'])
@@ -219,7 +219,7 @@ class EntityBatchTests(unittest.TestCase):
         sidecar = images / 'performer-1.face.json'
         sidecar.write_text('{}')
         plan = self.delete_plan([1])
-        with mock.patch('peach.entity_deletion.delete_entities', side_effect=RuntimeError('write failed')):
+        with mock.patch('peach.web_entity_deletion.delete_entities', side_effect=RuntimeError('write failed')):
             with self.assertRaisesRegex(RuntimeError, 'write failed'):
                 self.run_batch('delete', entity_ids=[1], token=plan['token'])
         self.assertEqual(image.read_bytes(), b'cached image')

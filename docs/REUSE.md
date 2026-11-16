@@ -12,7 +12,7 @@
 
 ## 账本一致性与运行状态恢复
 
-名册资料删除复用 `entity-batch`、名称菜单和批量确认契约，同一弹窗提供仅删资料、馆藏进回收站、永久删除全部三个范围。`entity_deletion` 绑定身份、作品范围和媒体路径生成计划，复用 SQLite 备份、字段归属写入与复核历史表，显式清理实体引用。永久删除复用 `stage_purge`、`commit_purge` 和清理回执，未删完的档案保留。头像按批次归档，事务失败时恢复。
+名册资料删除复用 `entity-batch`、名称菜单和批量确认契约，同一弹窗提供仅删资料、馆藏进回收站、永久删除全部三个范围。`web_entity_deletion` 绑定身份、作品范围和媒体路径生成计划，复用 SQLite 备份、字段归属写入与复核历史表，显式清理实体引用。永久删除复用 `stage_purge`、`commit_purge` 和清理回执，未删完的档案保留。头像按批次归档，事务失败时恢复。
 
 删除执行键共用 `attachHoldToConfirm`，React 通过 `HoldButton` 或 `HoldActionButton` 组合既有按钮。按满两秒才提交一次，提前松开、移出、失焦或进入忙态时取消。范围说明沿用确认弹窗，多个删除范围使用 `confirmModal.choices`。填充与复位参考见 [长按删除取证](reference-snapshots/emil-hold-to-delete.md)。
 

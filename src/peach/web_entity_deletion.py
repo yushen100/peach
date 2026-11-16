@@ -1,4 +1,4 @@
-"""名册删除计划，支持仅删除档案、馆藏进回收站和永久删除馆藏。"""
+"""实体批量接口的删除流程，协调范围预览、备份与三种删除模式。"""
 from __future__ import annotations
 
 import hashlib

@@ -8,7 +8,7 @@ from __future__ import annotations
 import time
 
 from . import entities, feeds
-from .entity_deletion import ROSTER_KINDS, deletion_plan, delete_profiles
+from .web_entity_deletion import ROSTER_KINDS, deletion_plan, delete_profiles
 from .user_messages import UserValueError
 from .web_entity import ROSTER_HIDDEN_KEY as HIDDEN_KEY, roster_hidden, scope_predicate
 
