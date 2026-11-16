@@ -549,6 +549,34 @@ class RecoveryServiceCadenceTests(unittest.TestCase):
         self.assertEqual(event.call_args.args[0], 'job-recovery-stop-timeout')
         self.assertIn('stacks', event.call_args.kwargs)
 
+    def test_stop_finishes_dispatching_a_one_shot_before_shutting_down(self):
+        from apscheduler.schedulers.base import STATE_RUNNING
+        removing, release = threading.Event(), threading.Event()
+        self.addCleanup(release.set)
+        remove_job = self.service.scheduler.remove_job
+        failures = []
+
+        def remove(job_id, jobstore=None):
+            if job_id == 'closing-once':
+                removing.set()
+                release.wait(5)
+            return remove_job(job_id, jobstore)
+
+        with patch.object(self.service.scheduler, 'remove_job', side_effect=remove), \
+                patch('threading.excepthook', side_effect=failures.append):
+            self.service.start()
+            self.service.scheduler.add_job(lambda: None, id='closing-once')
+            self.assertTrue(removing.wait(5))
+            closer = threading.Thread(target=self.service.stop)
+            closer.start()
+            try:
+                self.assertTrue(self.wait_for(lambda: self.service.scheduler.state != STATE_RUNNING))
+            finally:
+                release.set()
+                closer.join(5)
+            self.assertFalse(closer.is_alive())
+            self.assertEqual([str(error.exc_value) for error in failures], [])
+
     def test_an_idle_service_does_not_restore_between_events(self):
         self.service.start()
         time.sleep(.5)

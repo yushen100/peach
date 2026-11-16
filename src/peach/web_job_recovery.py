@@ -122,8 +122,12 @@ class RecoveryService:
         unsubscribe(self._notice)
         if not self.scheduler.running:
             return True
-        closer = threading.Thread(target=self.scheduler.shutdown, kwargs={'wait': True},
-                                  name='peach-recovery-stop', daemon=True)
+        def shutdown():
+            # 清空待执行项会等正在派发的一轮释放 job store 锁；暂停期间不再开始新一轮派发。
+            self.scheduler.pause()
+            self.scheduler.remove_all_jobs()
+            self.scheduler.shutdown(wait=True)
+        closer = threading.Thread(target=shutdown, name='peach-recovery-stop', daemon=True)
         closer.start()
         closer.join(timeout)
         if not closer.is_alive():
