@@ -76,7 +76,7 @@ describe('首页文件夹浏览', () => {
         assert.equal(saved.rule.purpose, 'category');
         await page.getByRole('button', { name: '设置目录用途', exact: true }).click();
         await page.getByRole('dialog', { name: '设置目录用途', exact: true }).getByRole('button', { name: '移除规则', exact: true }).click();
-        await page.getByRole('button', { name: '移除目录规则', exact: true }).click();
+        await page.getByRole('button', { name: '按住移除目录规则', exact: true }).press('Enter', { delay: 2100 });
         await page.getByRole('dialog', { name: '移除目录规则', exact: true }).waitFor({ state: 'hidden' });
         await page.getByRole('dialog', { name: '设置目录用途', exact: true }).waitFor({ state: 'hidden' });
         await settle(page);

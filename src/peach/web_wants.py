@@ -204,7 +204,7 @@ def _search_one(contract, code: str, release_date: str | None,
     candidate = _download_candidate(magnets, code)
     if candidate is not None:
         return "found", str(candidate.get("name") or ""), None
-    if result.get("state") == "ready" and not result.get("warnings"):
+    if result.get("state") == "ready" and (result.get('complete') is True or not result.get("warnings")):
         return "none", "", None
     after = result.get("retry_after")
     return "error", str(result.get("error") or ""), after if type(after) in (int, float) else None
@@ -247,9 +247,37 @@ def search(contract, job_id: str | None = None, *, sleep=time.sleep) -> dict:
     return {"ok": True, "total": len(done), **counts, "paused": paused}
 
 
+def reconcile_resources(contract, ids=None) -> int:
+    """按已经取得的正片磁链结算想要，恢复旧版误判为未命中的条目。"""
+    from .wants_magnets import search_for
+    searcher = search_for(contract.follow_secrets_root)
+    with contract.database.read_connection() as connection:
+        rows = [row for row in wants.list_rows(connection)
+                if row['code'] and row['state'] in {wants.WANTED, wants.GIVEN_UP}
+                and (ids is None or row['id'] in ids)
+                and (row['state'] == wants.GIVEN_UP or row['last_search_outcome'] != 'found' or row['search_count'])]
+    found = [row for row in rows if searcher.known_candidate(row['code']) is not None]
+    if not found:
+        return 0
+    changed = 0
+    with contract.database.write_transaction() as connection:
+        for row in found:
+            current = wants.get(connection, row['id'])
+            if current is None or current['state'] == wants.ACQUIRED or current['code_key'] != row['code_key']:
+                continue
+            if current['state'] == wants.WANTED and current['last_search_outcome'] == 'found' and not current['search_count']:
+                continue
+            candidate = searcher.known_candidate(current['code'])
+            if candidate is not None:
+                wants.record_search(connection, current['id'], 'found', note=str(candidate.get('name') or ''))
+                changed += 1
+    return changed
+
+
 def start_search(contract, *, trigger: str = "scheduled") -> dict | None:
     """有到期的想要就起一轮 `want_search_job`；没有、正在跑或来源失败后还在歇着就不起。"""
     from .job_recovery import current_job_id
+    reconcile_resources(contract)
     resuming = bool(current_job_id.get())
     if not resuming:
         resume_at = getattr(contract, "want_search_resume_at", None)
@@ -365,6 +393,10 @@ def _add(connection, body) -> dict:
 def w_wants(contract, body) -> dict:
     """登记（`add`：`code`、`feed` 或 `follow` 三选一）、移除、重置查找（`remove`/`reset` 带 `ids`）。"""
     action = str(body.get("action") or "")
+    if action == 'found':
+        changed = reconcile_resources(contract, _ids(body))
+        contract.cache_bust()
+        return {'ok': True, 'action': action, 'affected': changed}
     if action == "add":
         with contract.database.write_transaction() as connection:
             row = _add(connection, body)

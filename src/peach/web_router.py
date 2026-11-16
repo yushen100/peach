@@ -567,7 +567,7 @@ READ_ONLY_POST_ROUTES = frozenset({
 
 #: 用户在页面上点开才发的读请求：库外详情、评论与磁链、查找资源弹层、按名字搜 JavDB 演员。
 #: 只有这几条带登录账号的 Cookie（`scraping_access.with_account`），后台任务一律匿名取页。
-ACCOUNT_ROUTES = frozenset({"/api/resources/search", "/api/jav/detail", "/api/jav/reviews", "/api/jav/resources",
+ACCOUNT_ROUTES = frozenset({"/api/resources/search", "/api/jav/detail", "/api/jav/reviews", "/api/jav/resources", "/api/wants/magnets",
                             "/api/feeds/lookup"})
 
 

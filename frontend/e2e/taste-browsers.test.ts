@@ -53,7 +53,7 @@ describe('口味浏览器来源', () => {
       await sources.getByRole('button', { name: '启用 Aside', exact: true }).click();
       await sources.getByRole('button', { name: '停止读取 Aside', exact: true }).waitFor();
       await sources.getByRole('button', { name: '删除 Aside', exact: true }).click();
-      await page.getByRole('alertdialog', { name: '删除 Aside', exact: true }).getByRole('button', { name: '删除浏览器来源', exact: true }).click();
+      await page.getByRole('alertdialog', { name: '删除 Aside', exact: true }).getByRole('button', { name: '按住删除浏览器来源', exact: true }).press('Enter', { delay: 2100 });
       await sources.getByRole('button', { name: '停止读取 Aside', exact: true }).waitFor({ state: 'hidden' });
       assert.equal(await sources.getByRole('button', { name: '停止读取 Aside', exact: true }).count(), 0);
       assert.deepEqual(requests, ['add', 'disable', 'enable', 'delete_browser']);
@@ -101,7 +101,7 @@ describe('口味浏览器来源', () => {
       await page.screenshot({ path: `../build/taste-bookmarks-${viewport.name}.png` });
       await page.getByRole('button', { name: '移除 Chrome 与 Firefox 收藏的创作者与作品书签.html', exact: true }).click();
       await page.getByRole('dialog', { name: '移除口味数据源', exact: true })
-        .getByRole('button', { name: '移除口味数据源', exact: true }).click();
+        .getByRole('button', { name: '按住移除口味数据源', exact: true }).press('Enter', { delay: 2100 });
       await page.getByText('还没有数据源', { exact: true }).waitFor();
       assert.deepEqual(problems, []);
     } finally { await page.context().close(); }

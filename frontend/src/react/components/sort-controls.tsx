@@ -64,8 +64,8 @@ export function SortKeys({ sorts, onSort, group = 'catalog', follow = false }: {
     <FilterIconButton ref={trigger} data-sort-settings={group} label={t('catalog:sortControls.customize')}
       icon={More} aria-haspopup="dialog" aria-expanded={open} onPress={() => setOpen(true)} />
     <Popover triggerRef={trigger} isOpen={open} onOpenChange={setOpen} placement="bottom end" offset={4}
-      className={cx('peach-react w-80 max-w-[calc(100vw-2rem)]', MENU_POPOVER_SURFACE)}>
-      <MenuDialog aria-label={t('catalog:sortControls.customize')} className="flex max-h-[70dvh] flex-col gap-3 overflow-y-auto p-3 outline-none">
+      className={cx('peach-react w-80', MENU_POPOVER_SURFACE)}>
+      <MenuDialog aria-label={t('catalog:sortControls.customize')} data-sort-settings-dialog="" className="flex flex-col gap-3 overflow-y-auto p-3 outline-none">
         <h3 className="text-body-medium">{t('catalog:sortControls.title')}</h3>
         <NavigationOrderRows reset={false} labels={labels}
           order={{ label: t('catalog:sortControls.title'), keys: preference.order, defaults: defaults.order,

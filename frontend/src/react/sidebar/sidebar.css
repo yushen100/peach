@@ -285,3 +285,6 @@ body :is([data-sidebar-range] input)::-moz-range-thumb{width:18px;height:18px;bo
 @media (prefers-reduced-motion:reduce){
   html>body,[data-sidebar-drawer][data-sidebar-drawer],[data-sidebar-resize-line],[data-sidebar-resize-hint]{transition:none}
 }
+
+[data-sidebar-range] input { z-index: 1; }
+[data-sidebar-range] input[data-active] { z-index: 2; }

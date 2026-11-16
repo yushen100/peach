@@ -41,7 +41,7 @@
 .ui-geist-modal-choice { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .ui-geist-modal .ui-geist-modal-choice p { flex: 1; margin: 0; color: var(--muted); }
 .ui-geist-modal-choice button { flex: none; }
-.ui-geist-modal[data-modal-choices] .geist-modal-footer { justify-content: flex-end; padding-inline: 20px; }
+.ui-geist-modal[data-modal-choices] > footer { justify-content: flex-end; padding-inline: 20px; }
 @media (max-width: 600px) {
   .ui-geist-modal-choice { flex-direction: column; align-items: stretch; gap: 8px; }
 }

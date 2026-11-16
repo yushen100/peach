@@ -452,6 +452,81 @@ class PublicProtocolTests(unittest.TestCase):
         with api.page_reader(self.pages):
             self.assertEqual(api.movie('EXM-001')['id'], 'Exact')
 
+    def test_login_walled_resource_api_uses_the_work_page_and_recognises_an_explicit_empty_list(self):
+        from peach.javdb_public import PublicLoginRequired
+        api = self.login_walled_api()
+        detail = self.LOGIN_DETAIL.replace('短評(3)', '短評(0)') + (
+            '<div id="magnets-content">此影片暫無網友分享磁鏈, 請耐心等待。</div>')
+        with api.page_reader(lambda path: self.LOGIN_SEARCH if path.startswith('/search') else detail), \
+                patch.object(api, 'magnets', side_effect=PublicLoginRequired('errors.javdbPublic.unavailable')):
+            result = api.resources('EXM-001')
+        self.assertEqual((result['items'], result['warnings']), ([], []))
+        self.assertFalse(result['magnet_failed'])
+        self.assertFalse(result['comments_failed'])
+
+    def test_login_walled_resource_api_keeps_page_magnets_and_reports_an_unrecognised_magnet_section(self):
+        from peach.javdb_public import PublicLoginRequired
+        api = self.login_walled_api()
+        detail = self.LOGIN_DETAIL.replace('短評(3)', '短評(0)')
+        magnet = ('<div id="magnets-content"><div class="item"><a href="magnet:?xt=urn:btih:'
+                  + 'a' * 40 + '"><span class="name">EXM-001 HD</span></a><span class="meta">4 GB, 2 個文件</span>'
+                  '<span class="tag">高清</span><span class="time">2026-01-02</span></div></div>')
+        with api.page_reader(lambda path: self.LOGIN_SEARCH if path.startswith('/search') else detail + magnet), \
+                patch.object(api, 'magnets', side_effect=PublicLoginRequired('errors.javdbPublic.unavailable')):
+            result = api.resources('EXM-001')
+        self.assertEqual(result['items'][0]['info_hash'], 'a' * 40)
+        self.assertEqual(result['items'][0]['attributes'], ['high-definition'])
+        self.assertEqual(result['warnings'], [])
+        with api.page_reader(lambda path: detail), \
+                patch.object(api, 'magnets', side_effect=PublicLoginRequired('errors.javdbPublic.unavailable')):
+            failed = api.resources('EXM-001')
+        self.assertTrue(failed['magnet_failed'])
+        self.assertEqual(failed['items'], [])
+
+    def test_page_resources_reports_missing_comment_entry_without_losing_magnets(self):
+        from peach.sources.javdb import page_resources
+        detail = self.LOGIN_DETAIL + ('<div id="magnets-content"><div class="item">'
+                 '<a href="magnet:?xt=urn:btih:' + 'a' * 40 + '"><span class="name">EXM-001 HD</span></a>'
+                 '</div></div>')
+        read = Mock(return_value=detail)
+        result = page_resources('EXM-001', {'id': 'Exact'}, read, review_pages=8)
+        self.assertEqual(result['items'][0]['info_hash'], 'a' * 40)
+        self.assertFalse(result['magnet_failed'])
+        self.assertTrue(result['comments_failed'])
+        self.assertEqual(len(result['warnings']), 1)
+        read.assert_called_once_with('/v/Exact?locale=zh')
+
+    def test_page_resources_follows_comment_pages_and_preserves_partial_links(self):
+        from peach.sources.javdb import page_resources
+        detail = self.LOGIN_DETAIL.replace('class="review-tab"', 'class="review-tab" data-url="/v/Exact/reviews/1"')
+        detail += '<div id="magnets-content">此影片暫無網友分享磁鏈</div>'
+        first = ('<div class="review-items"><div class="review-item" id="review-item-1">'
+                 '<div class="content">magnet:?xt=urn:btih:' + 'b' * 40 + '</div></div></div>'
+                 '<a rel="next" href="/v/Exact/reviews/2">下一页</a>')
+        second = ('<div class="review-items"><div class="review-item" id="review-item-2">'
+                  '<div class="content">https://example.test/resource</div></div></div>')
+        for last, failed in ((second, False), ('<main>未取得评论列表</main>', True)):
+            with self.subTest(failed=failed):
+                read = Mock(side_effect=[detail, first, last])
+                result = page_resources('EXM-001', {'id': 'Exact'}, read, review_pages=8)
+                self.assertEqual([call.args[0] for call in read.call_args_list],
+                                 ['/v/Exact?locale=zh', '/v/Exact/reviews/1', '/v/Exact/reviews/2'])
+                self.assertEqual(result['comments_failed'], failed)
+                self.assertEqual(result['items'][0]['origins'],
+                                 ['https://javdb.com/v/Exact/reviews/1#review-item-1'])
+                self.assertEqual(len(result['items']), 1 if failed else 2)
+
+    def test_page_resources_stops_at_the_comment_page_budget(self):
+        from peach.sources.javdb import page_resources
+        detail = self.LOGIN_DETAIL.replace('class="review-tab"', 'class="review-tab" data-url="/v/Exact/reviews/1"')
+        detail += '<div id="magnets-content">此影片暫無網友分享磁鏈</div>'
+        read = Mock(side_effect=[detail, '<div class="review-items"></div><a rel="next" href="/v/Exact/reviews/2">下一页</a>',
+                                '<div class="review-items"></div><a rel="next" href="/v/Exact/reviews/3">下一页</a>'])
+        result = page_resources('EXM-001', {'id': 'Exact'}, read, review_pages=2)
+        self.assertEqual(read.call_count, 3)
+        self.assertFalse(result['comments_failed'])
+        self.assertEqual(result['warnings'], ['已查询前 2 页评论资源。'])
+
     def test_missing_search_result_and_cooldown_have_their_own_kinds(self):
         with self.assertRaises(PublicNotFound):
             self.api().movie('EXM-999')
@@ -1004,7 +1079,7 @@ class DetailProjectionTests(unittest.TestCase):
                 patch('peach.web_jav_detail.PUBLIC_API.reviews', side_effect=PublicSourceUnavailable('errors.javdbPublic.sourcePaused')):
             result = PUBLIC_API.resources('EXM-001')
         self.assertEqual(len(result['items']), 1)
-        self.assertEqual(result['warnings'], ['评论资源未取得：作品资料来源暂时不可用，请稍后重试'])
+        self.assertEqual(result['warnings'], ['JavDB 评论区查询未完成：作品资料来源暂时不可用，请稍后重试'])
 
     def test_comment_resource_scan_has_a_page_limit(self):
         with patch('peach.web_jav_detail.PUBLIC_API.movie', return_value={'id': 'Exact'}), \
@@ -1022,7 +1097,7 @@ class DetailProjectionTests(unittest.TestCase):
             result = PUBLIC_API.resources('EXM-001')
         self.assertTrue(result['magnet_failed'])
         self.assertEqual([item['protocol'] for item in result['items']], ['ed2k'])
-        self.assertEqual(result['warnings'], ['磁链区资源未取得：作品资料未取得，请稍后重试'])
+        self.assertEqual(result['warnings'], ['JavDB 磁链区查询未完成：作品资料未取得，请稍后重试'])
 
     def test_source_avatars_and_studio_logos_preserve_each_identity(self):
         movie = {'id': 'Exact', 'actors': [

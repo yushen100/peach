@@ -418,6 +418,12 @@ def w_settings(contract: SettingsContract, body) -> dict:
             if not isinstance(body[key], bool):
                 raise UserValueError("api.settings.switchNotBoolean", {"key": key})
             merged[key] = body[key]
+    _write_settings(contract, {key: merged[key] for key in body})
+    return {"ok": True, **q_settings(contract)}
+
+
+def _write_settings(contract: SettingsContract, patch: dict) -> None:
+    """在事务内合并最新档案设置，保留并发写入的导航和排序分组。"""
     stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     with contract.write_transaction() as connection:
         row = connection.execute("SELECT settings_json FROM profile WHERE id=?", (DEFAULT_PROFILE_ID,)).fetchone()
@@ -426,7 +432,6 @@ def w_settings(contract: SettingsContract, body) -> dict:
         except (TypeError, ValueError):
             current = {}
         current = current if isinstance(current, dict) else {}
-        patch = {key: merged[key] for key in body}
         if "navigationOrders" in patch:
             patch["navigationOrders"] = {**normalise_navigation_orders(current.get("navigationOrders")),
                                          **patch["navigationOrders"]}
@@ -439,4 +444,3 @@ def w_settings(contract: SettingsContract, body) -> dict:
         ).rowcount
         if not updated:
             raise UserValueError("api.settings.profileMissing", {"profile": DEFAULT_PROFILE_ID})
-    return {"ok": True, **q_settings(contract)}

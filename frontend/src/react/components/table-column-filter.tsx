@@ -30,11 +30,11 @@ export function TableColumnFilter(props: ColumnFilterProps) {
   return <>
     <LinkButton ref={trigger} variant={props.values === undefined ? 'secondary' : 'primary'} size="xs" trailingIcon={ChevronDownSmall}
       data-table-column-filter={props.id} data-filter-active={props.values === undefined ? undefined : ''}
-      className="min-w-0 max-w-full justify-start [&>span]:min-w-0 [&>span]:truncate"
+      className="min-w-0 max-w-full justify-start [&>span]:min-w-0"
       aria-label={t('catalog:columnFilter.label', { column: props.label })} aria-haspopup="dialog" aria-expanded={open}
       onClick={() => setOpen(true)}><span className="truncate">{props.label}</span></LinkButton>
     <Popover triggerRef={trigger} isOpen={open} onOpenChange={setOpen} placement="bottom start" offset={4}
-      className={cx(MENU_POPOVER_SURFACE, 'peach-react w-80 max-w-[calc(100vw-2rem)] overflow-hidden p-0')}>
+      className={cx(MENU_POPOVER_SURFACE, 'peach-react w-80 overflow-hidden p-0')}>
       <ColumnFilterMenu {...props} />
     </Popover>
   </>;
@@ -70,22 +70,27 @@ function ColumnFilterMenu({ id, label, values, options = [], queryKey, load, onC
       {errorMessage(result.error)}</Note> : null}
     {pending ? <span role="status" className="px-3 text-caption-1-regular text-text-secondary">{t('shell:spinner.loading')}</span> : null}
     <div ref={scroll} role="group" aria-label={label} data-column-filter-options=""
-      className={cx(MENU_ITEMS_CONTAINER, 'max-h-72 overflow-y-auto px-3 pb-3 [overflow-anchor:none]')}
+      className={cx(MENU_ITEMS_CONTAINER, 'max-h-72 overflow-y-auto px-3 pb-3')}
       onScroll={event => {
         const node = event.currentTarget;
         if (load && result.hasNextPage && !result.isFetching && node.scrollHeight - node.scrollTop - node.clientHeight < 100)
           void result.fetchNextPage({ cancelRefetch: false });
       }}>
-      <Checkbox slot={null} size="sm" isSelected={all} isIndeterminate={partial} isDisabled={pending}
-        onChange={on => onChange(on ? undefined : [])}
-        className={cx(MENU_ITEM, MENU_ITEM_INTERACTIVE, all && MENU_ITEM_ACTIVE)}>{t('shell:shared.all')}</Checkbox>
-      {rows.map(row => <Checkbox key={row.id} slot={null} size="sm" aria-label={row.label} isSelected={columnValueSelected(values, row.id)}
-        className={cx(MENU_ITEM, MENU_ITEM_INTERACTIVE, columnValueSelected(values, row.id) && MENU_ITEM_ACTIVE,
-          '[&>span:last-child]:flex [&>span:last-child]:min-w-0 [&>span:last-child]:flex-1 [&>span:last-child]:items-center [&>span:last-child]:gap-2')}
-        onChange={on => onChange(toggleColumnValue(values, row.id, on))}>
-        {row.leading}<span className="min-w-0 flex-1 truncate">{row.label}</span>
-        {row.count == null ? null : <span className="shrink-0 text-text-tertiary tabular-nums">{row.count.toLocaleString()}</span>}
-      </Checkbox>)}
+      <div className={cx(MENU_ITEM, MENU_ITEM_INTERACTIVE, all && MENU_ITEM_ACTIVE, 'focus-within:bg-dropdown-item-hover-background')}>
+        <Checkbox slot={null} size="sm" isSelected={all} isIndeterminate={partial} isDisabled={pending}
+          onChange={on => onChange(on ? undefined : [])} className="w-full">{t('shell:shared.all')}</Checkbox>
+      </div>
+      {rows.map(row => <div key={row.id} className={cx(MENU_ITEM, MENU_ITEM_INTERACTIVE,
+        columnValueSelected(values, row.id) && MENU_ITEM_ACTIVE, 'focus-within:bg-dropdown-item-hover-background')}>
+        <Checkbox slot={null} size="sm" aria-label={row.label} isSelected={columnValueSelected(values, row.id)}
+          className="w-full min-w-0 [&>span:last-child]:min-w-0 [&>span:last-child]:flex-1"
+          onChange={on => onChange(toggleColumnValue(values, row.id, on))}>
+          <span className="flex min-w-0 flex-1 items-center gap-2">
+            {row.leading}<span className="min-w-0 flex-1 truncate">{row.label}</span>
+            {row.count == null ? null : <span className="shrink-0 text-text-tertiary tabular-nums">{row.count.toLocaleString()}</span>}
+          </span>
+        </Checkbox>
+      </div>)}
       {load && result.hasNextPage ? <Button variant="secondary" size="small" disabled={result.isFetchingNextPage}
         onClick={() => void result.fetchNextPage({ cancelRefetch: false })}>
         {t(result.isFetchingNextPage ? 'shell:spinner.loadingMore' : 'catalog:shared.loadMore')}</Button> : null}

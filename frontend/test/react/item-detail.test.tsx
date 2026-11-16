@@ -16,7 +16,7 @@ import {
 import { ItemDetailPage } from '../../src/react/item-detail/item-detail-page';
 import { tagLabel } from '../../src/core/tags';
 import { queryClient } from '../../src/react/query';
-import { click, mount, pending, settle, type } from './render';
+import { hold, click, mount, pending, settle, type } from './render';
 
 afterEach(() => { queryClient.clear(); localStorage.removeItem('peach.recentTags') });
 notifyManager.setScheduler((notify) => notify());
@@ -123,7 +123,7 @@ describe('标签身份', () => {
     await click(host.querySelector('[data-item-edit-open]'));
     const dialog = document.querySelector<HTMLDialogElement>('dialog[data-item-edit-dialog]')!;
     expect(dialog.open).toBe(true);
-    await click(dialog.querySelector('[data-item-edit] [data-remove-tag="剧情"]'));
+    await hold(dialog.querySelector('[data-item-edit] [data-remove-tag="剧情"]'));
     await click(dialog.querySelector('#tagPlus'));
     await type(dialog.querySelector('#tagPickSearch') as HTMLInputElement, '新标签');
     await act(async () => { dialog.querySelector('#tagPickSearch')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })) });
@@ -479,7 +479,7 @@ describe('写完之后', () => {
   it('移入回收站之后交给壳：这一档可能要把它从列表里拿掉', async () => {
     serve(() => ({ feedback: null, disposal: 'trash' }));
     const { host, actions: done } = await show(item(1));
-    await click(host.querySelector('[data-kind="dispose"]'));
+    await hold(host.querySelector('[data-kind="dispose"]'));
     await settle();
     expect(done.trashChanged).toHaveBeenCalledWith('trash', false);
     expect(done.toast.mock.calls[0]![0]).toBe('已移入回收站');

@@ -57,7 +57,7 @@ it('全选覆盖未加载项，取消一项后续页仍按排除项选择', asyn
   await click(buttonNamed('载入更多'));
   await settle();
   expect(load.mock.calls.map(call => call[2])).toEqual([0, 24]);
-  expect(document.querySelector<HTMLInputElement>('input[aria-label="Person 24"]')?.checked).toBe(true);
+  await vi.waitFor(() => expect(document.querySelector<HTMLInputElement>('input[aria-label="Person 24"]')?.checked).toBe(true));
   await click(document.querySelector('[data-column-filter-options] label'));
   expect(changed).toHaveBeenLastCalledWith(undefined);
   await click(document.querySelector('[data-column-filter-options] label'));
@@ -86,6 +86,7 @@ it('艺人选项按完整范围延迟读取，切换时保留其它列条件', a
   expect(Object.fromEntries(params)).toMatchObject({ column: 'people', scope_kind: 'studio', scope_name: 'Studio', loc: '115' });
   expect(JSON.parse(params.get('column_filters')!)).toEqual({ tags: ['Tag'] });
   expect(params.has('creator')).toBe(false);
+  await vi.waitFor(() => expect(document.querySelector('input[aria-label="Another Person"]')).not.toBeNull());
   await click(document.querySelector('input[aria-label="Another Person"]'));
   expect(JSON.parse(changed.mock.calls.at(-1)![0].column_filters)).toEqual({ tags: ['Tag'], people: ['creator:Creator', 'performer:Another Person'] });
 });

@@ -92,12 +92,12 @@ export function Duration({ host, filters, commit: onCommit = host.setDuration }:
       <span data-sidebar-range-base="" /><span data-sidebar-range-fill="" />
       <input id="durMin" type="range" min="0" max={scaleMax} step="1" value={lo}
         aria-label={t('navigation:durationFilter.minimum')} ref={minInput}
-        style={{ zIndex: active === 'min' ? 2 : 1 }}
+        data-active={active === 'min' ? '' : undefined}
         onChange={event => move('min', Number(event.currentTarget.value))} />
       <input id="durMax" type="range" min="0" max={scaleMax} step="1" value={hi ?? scaleMax}
         aria-label={t('navigation:durationFilter.maximum')} ref={maxInput}
         aria-valuetext={hi === null ? t('navigation:durationFilter.noLimit') : t('navigation:durationFilter.minutes', { count: hi })}
-        style={{ zIndex: active === 'max' ? 2 : 1 }}
+        data-active={active === 'max' ? '' : undefined}
         onChange={event => move('max', Number(event.currentTarget.value) >= scaleMax ? null : Math.max(1 / 60, Number(event.currentTarget.value)))} />
     </div>
   </div>;

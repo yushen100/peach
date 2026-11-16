@@ -147,6 +147,48 @@ class MagnetChainTests(unittest.TestCase):
         self.assertIn('gid=45622883496', url)
         self.assertEqual((referer, headers), ('https://www.javbus.com/ABC-123', {'X-Requested-With': 'XMLHttpRequest'}))
 
+    def test_partial_javdb_failures_reach_browser_and_wishlist_searches(self):
+        from peach.magnet_chain import Fetcher, search
+        for stop in (True, False):
+            for failure in ('magnet_failed', 'comments_failed'):
+                with self.subTest(stop=stop, failure=failure), \
+                        patch.object(Fetcher, 'manko', return_value=[]), \
+                        patch.object(Fetcher, 'sukebei', return_value=[]), \
+                        patch.object(Fetcher, 'javbus', return_value=[]), \
+                        patch('peach.magnet_chain.PUBLIC_API.resources', return_value={
+                            'items': [], 'warnings': ['JavDB partial failure'], failure: True}):
+                    result = search(Path('.'), 'ABC-123', transport=object(), stop_on_preferred=stop)
+                self.assertEqual(result['state'], 'error')
+                self.assertEqual(result['unfetched_sources'], ['JavDB'])
+                self.assertEqual(result['warnings'], ['JavDB partial failure'])
+
+    def test_partial_javdb_failure_preserves_links_from_other_sources(self):
+        from peach.magnet_chain import Fetcher, search
+        for stop in (True, False):
+            with self.subTest(stop=stop), patch.object(Fetcher, 'manko', return_value=[]), \
+                    patch.object(Fetcher, 'sukebei', return_value=[]), \
+                    patch.object(Fetcher, 'javbus', return_value=[item(HASH_A, source='JavBus')]), \
+                    patch('peach.magnet_chain.PUBLIC_API.resources', return_value={
+                        'items': [], 'warnings': ['JavDB partial failure'], 'magnet_failed': True}):
+                result = search(Path('.'), 'ABC-123', transport=object(), stop_on_preferred=stop)
+            self.assertEqual((result['state'], result['error']), ('ready', ''))
+            self.assertEqual(result['items'][0]['source'], 'JavBus')
+            self.assertEqual(result['unfetched_sources'], ['JavDB'])
+            self.assertEqual(result['warnings'], ['JavDB partial failure'])
+
+    def test_wishlist_keeps_comment_links_when_the_magnet_section_is_unavailable(self):
+        from peach.magnet_chain import Fetcher, search
+        link = {'protocol': 'ed2k', 'uri': 'ed2k://|file|ABC-123|1234|' + 'a' * 32 + '|/', 'files': ''}
+        with patch.object(Fetcher, 'manko', return_value=[]), \
+                patch.object(Fetcher, 'sukebei', return_value=[]), \
+                patch.object(Fetcher, 'javbus', return_value=[]), \
+                patch('peach.magnet_chain.PUBLIC_API.resources', return_value={
+                    'items': [link], 'warnings': ['JavDB partial failure'], 'magnet_failed': True}):
+            result = search(Path('.'), 'ABC-123', transport=object(), stop_on_preferred=False)
+        self.assertEqual((result['state'], result['error']), ('ready', ''))
+        self.assertEqual(result['linked_resources'], [link])
+        self.assertEqual(result['unfetched_sources'], ['JavDB'])
+
     def test_javdb_identity_ambiguity_is_reported_with_source_ids(self):
         from peach.javdb_public import PublicIdentityAmbiguous
         from peach.magnet_chain import Fetcher, search
@@ -176,7 +218,7 @@ class MagnetChainTests(unittest.TestCase):
                 patch('peach.magnet_chain.PUBLIC_API.movie', side_effect=PublicNotFound('errors.javdbPublic.notFound')):
             unlisted = search(root, 'ABC-123', transport=object())
         self.assertEqual((unlisted['unfetched_sources'], unlisted['retry_after']), ([], None))
-        self.assertEqual(len(unlisted['warnings']), 1)
+        self.assertEqual((unlisted['state'], unlisted['warnings']), ('ready', []))
 
     def test_base91_decodes_the_api_envelope_payload(self):
         # basE91 官方示例：编码后的这一段解回 ASCII "test"。

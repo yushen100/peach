@@ -359,6 +359,26 @@ def _column_filter_predicate(contract, selected):
     return conditions, parameters
 
 
+def _catalog_entity_filters(contract, args):
+    """实体筛选与详情页根范围分别解析，多个关系共同约束作品。"""
+    subjects = [(kind, args[kind]) for kind in ("creator", "performer", "studio", "series", "agency")
+                if args.get(kind)]
+    scope_kind, scope_name = args.get("scope_kind", ""), args.get("scope_name", "")
+    if scope_kind or scope_name:
+        if scope_kind not in {"creator", "performer", "studio", "series", "agency", "tag"} or not scope_name:
+            raise ValueError("invalid catalog scope")
+        subjects.append((scope_kind, scope_name))
+    if not subjects:
+        return [], []
+    where, parameters = [], []
+    with contract.read_connection() as connection:
+        for kind, name in subjects:
+            clause, values = _entity_asset_filter(connection, kind, name)
+            where.append(clause)
+            parameters.extend(values)
+    return where, parameters
+
+
 def catalog_filter(contract: WebContract, args):
     """视频列表与侧栏使用同一组筛选条件。"""
     trash = args.get("state") == "trash"
@@ -383,19 +403,9 @@ def catalog_filter(contract: WebContract, args):
     if args.get("loc"):
         locs = [x for x in args["loc"].split(",") if x]
         where.append("a.location IN (%s)" % ",".join("?" * len(locs))); par += locs
-    subjects = [(kind, args[kind]) for kind in ("creator", "performer", "studio", "series", "agency")
-                if args.get(kind)]
-    scope_kind, scope_name = args.get("scope_kind", ""), args.get("scope_name", "")
-    if scope_kind or scope_name:
-        if scope_kind not in {"creator", "performer", "studio", "series", "agency", "tag"} or not scope_name:
-            raise ValueError("invalid catalog scope")
-        subjects.append((scope_kind, scope_name))
-    if subjects:
-        with contract.read_connection() as connection:
-            for kind, name in subjects:
-                clause, values = _entity_asset_filter(connection, kind, name)
-                where.append(clause)
-                par.extend(values)
+    entity_where, entity_parameters = _catalog_entity_filters(contract, args)
+    where.extend(entity_where)
+    par.extend(entity_parameters)
     # 没有署名人的那批也是一类，和「某某的作品」并列，不是一句写在详情页上的说明。
     if args.get("owner") == "none":
         where.append(UNOWNED_ASSET_CLAUSE)
@@ -1674,6 +1684,53 @@ def _release_year_facets(contract, connection, scope, values, state, filters, as
                 "WHERE a.medium='video' "+scope+' GROUP BY k ORDER BY k DESC', values)]
 
 
+def _column_facets(contract, connection, scope, scope_params, column, column_query, column_offset, column_limit):
+    """当前范围的分页列选项，按列保留计数、别名和身份展示字段。"""
+    kinds = "'creator','performer'" if column == "people" else "'tag'"
+    visible = ("AND " + tag_not_hidden('ae.asset_id', 'e.normalized_name') +
+               " AND " + tag_is_not_a_performer_name('e.normalized_name')) if column == "tags" else ""
+    search, search_params = column_search(column_query)
+    search = 'AND ' + search if search else ''
+    rows = list(connection.execute(
+        "SELECT e.id,e.kind,e.canonical_name AS k,count(DISTINCT ae.asset_id) AS n "
+        "FROM asset_entity ae JOIN entity e ON e.id=ae.entity_id "
+        f"WHERE e.kind IN ({kinds}) {visible} AND ae.asset_id IN ("
+        "SELECT a.id FROM asset a WHERE a.medium='video' " + scope + ") " + search + " "
+        "GROUP BY e.id,e.kind,e.canonical_name ORDER BY n DESC,e.canonical_name,e.kind,e.id LIMIT ? OFFSET ?",
+        [*scope_params, *search_params, column_limit + 1, column_offset]))
+    items = [dict(row) for row in rows[:column_limit]]
+    if column == 'people':
+        attach_entity_aliases(connection, items)
+        for item in items:
+            item.update(entity_ref(contract, item['kind'], item['id'], item['k']))
+        attach_creator_reference_details(contract, [item for item in items if item['kind'] == 'creator'])
+    more = len(rows) > column_limit
+    return {"column": column, "items": items, "has_more": more,
+            "next_offset": column_offset + len(items) if more else None}
+
+
+def _facet_scope(contract, connection, jav, state, filters, asset_id, scope_kind, scope_name):
+    """筛选选项的根范围沿用作品、实体、媒体库与可见性约束。"""
+    scope = (PRESENT_ASSET_CLAUSE + (JAV_ASSET_CLAUSE if jav else "")
+             + state_clause(state))
+    scope_params: list[object] = []
+    if filters and filters.get("library") and asset_id is None:
+        library_clause, library_params = media_libraries.predicate(settings_file.active(), filters["library"])
+        scope += "AND " + library_clause + " "
+        scope_params.extend(library_params)
+    if asset_id is not None:
+        scope += "AND a.id=? "
+        scope_params.append(int(asset_id))
+    elif scope_kind or scope_name:
+        if (scope_kind not in {"creator", "performer", "studio", "series", "agency", "tag"}
+                or not scope_name):
+            raise ValueError("invalid facet scope")
+        clause, values = _entity_asset_filter(connection, scope_kind, scope_name)
+        scope += "AND " + clause + " "
+        scope_params.extend(values)
+    return scope, scope_params
+
+
 def q_facets(
     contract: WebContract,
     jav: bool = False,
@@ -1696,23 +1753,7 @@ def q_facets(
     if column not in {"", "people", "tags"}:
         raise ValueError("invalid facet column")
     with contract.read_connection() as c:
-        scope = (PRESENT_ASSET_CLAUSE + (JAV_ASSET_CLAUSE if jav else "")
-                 + state_clause(state))
-        scope_params: list[object] = []
-        if filters and filters.get("library") and asset_id is None:
-            library_clause, library_params = media_libraries.predicate(settings_file.active(), filters["library"])
-            scope += "AND " + library_clause + " "
-            scope_params.extend(library_params)
-        if asset_id is not None:
-            scope += "AND a.id=? "
-            scope_params.append(int(asset_id))
-        elif scope_kind or scope_name:
-            if (scope_kind not in {"creator", "performer", "studio", "series", "agency", "tag"}
-                    or not scope_name):
-                raise ValueError("invalid facet scope")
-            clause, values = _entity_asset_filter(c, scope_kind, scope_name)
-            scope += "AND " + clause + " "
-            scope_params.extend(values)
+        scope, scope_params = _facet_scope(contract, c, jav, state, filters, asset_id, scope_kind, scope_name)
         out = {}
         if not column:
             out["locations"] = [dict(r) for r in c.execute(
@@ -1726,27 +1767,7 @@ def q_facets(
             scope += "AND " + " AND ".join(conditions) + " "
             scope_params.extend(parameters)
         if column:
-            kinds = "'creator','performer'" if column == "people" else "'tag'"
-            visible = ("AND " + tag_not_hidden('ae.asset_id', 'e.normalized_name') +
-                       " AND " + tag_is_not_a_performer_name('e.normalized_name')) if column == "tags" else ""
-            search, search_params = column_search(column_query)
-            search = 'AND ' + search if search else ''
-            rows = list(c.execute(
-                "SELECT e.id,e.kind,e.canonical_name AS k,count(DISTINCT ae.asset_id) AS n "
-                "FROM asset_entity ae JOIN entity e ON e.id=ae.entity_id "
-                f"WHERE e.kind IN ({kinds}) {visible} AND ae.asset_id IN ("
-                "SELECT a.id FROM asset a WHERE a.medium='video' " + scope + ") " + search + " "
-                "GROUP BY e.id,e.kind,e.canonical_name ORDER BY n DESC,e.canonical_name,e.kind,e.id LIMIT ? OFFSET ?",
-                [*scope_params, *search_params, column_limit + 1, column_offset]))
-            items = [dict(row) for row in rows[:column_limit]]
-            if column == 'people':
-                attach_entity_aliases(c, items)
-                for item in items:
-                    item.update(entity_ref(contract, item['kind'], item['id'], item['k']))
-                attach_creator_reference_details(contract, [item for item in items if item['kind'] == 'creator'])
-            more = len(rows) > column_limit
-            return {"column": column, "items": items, "has_more": more,
-                    "next_offset": column_offset + len(items) if more else None}
+            return _column_facets(contract, c, scope, scope_params, column, column_query, column_offset, column_limit)
         out["orientations"] = [dict(r) for r in c.execute(
             "SELECT a.ctx_orient AS k,count(*) AS n FROM asset a "
             "WHERE a.medium='video' AND a.ctx_orient IS NOT NULL AND a.ctx_orient<>'' " + scope +

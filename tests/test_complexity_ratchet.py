@@ -49,7 +49,7 @@ BASELINE: dict[str, int] = {
     "src/peach/web_catalog.py:q_item": 38,
     "src/peach/web_follow.py:_follow_author_rows": 35,
     "src/peach/taste_history.py:_taste_analysis": 34,
-    "src/peach/web_catalog.py:catalog_filter": 40,
+    "src/peach/web_catalog.py:catalog_filter": 36,
     "scripts/audit_domain_codes.py:collect": 39,
     "scripts/harvest_social_avatars.py:harvest_entity": 36,
     "scripts/merge_duplicate_identities.py:collect_repeated_projections": 34,

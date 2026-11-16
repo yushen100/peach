@@ -4303,9 +4303,9 @@
       "allFailed": "No indexer finished the search"
     },
     "javdbPublic": {
-      "magnetsUnfetched": "Magnet list not found: {{error}}",
+      "magnetsUnfetched": "JavDB magnet search incomplete: {{error}}",
       "reviewPagesQueried": "Checked links in the first {{pages}} pages of comments.",
-      "commentsUnfetched": "Links in comments not found: {{error}}"
+      "commentsUnfetched": "JavDB comment search incomplete: {{error}}"
     },
     "javdb": {
       "commentSource": "JavDB comments"
@@ -4313,8 +4313,8 @@
     "magnetChain": {
       "staleReused": "Reused the previous result: {{error}}",
       "sourceFailed": "{{source}}: {{error}}",
-      "sourceUnfetched": "{{source}}: couldn't be reached",
-      "incomplete": "Some sources couldn't be reached. Try again later or check the source connections."
+      "sourceUnfetched": "{{source}}: search incomplete",
+      "incomplete": "Some source searches are incomplete. Try searching again later."
     },
     "wantsMagnets": {
       "linksUnfetched": "Couldn't get the download links. Try again later or check the source connections.",

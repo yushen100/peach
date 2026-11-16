@@ -1,6 +1,9 @@
 import { fmtSize } from '@peach/legacy/core';
 import { t } from '../../i18n';
 
+export const resourceSourceKey = (source: string) =>
+  source === 'manko.fun' ? 'manko' : source === 'javdb-comments' ? 'javdb' : source.toLowerCase();
+
 /** 来源的字节数按馆藏容量口径展示，其他来源单位保留；来源没给大小时显示未知。 */
 export function resourceSize(value: string | null | undefined): string {
   const text = (value ?? '').trim();
