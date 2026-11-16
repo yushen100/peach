@@ -62,7 +62,7 @@ def manifest(root: Path) -> dict:
             mode = stat.S_IMODE(path.stat().st_mode)
             index_mode = modes.get(name, "100755" if policy and mode & 0o111 else "100644")
             files[name] = [mode, hashlib.sha256(content).hexdigest(), index_mode]
-            if name.endswith(".py") or name in {*change_impact.PACKAGE_FILES, "pyproject.toml"}:
+            if name.endswith(".py") or name in {*change_impact.PACKAGE_FILES, "pyproject.toml", change_impact.REGISTRY}:
                 try:
                     signatures[name] = change_impact.signatures(name, content.decode("utf-8"))
                 except UnicodeError:
@@ -302,8 +302,8 @@ def valid_manifest(manifest) -> bool:
             return False
     return all(isinstance(name, str) and isinstance(value, dict)
                and all(isinstance(key, str) and (
-                           key == 'scope_entries' and name == 'scripts/test_runner.py'
-                           and change_impact.valid_scope_entries(stamp)
+                           key == 'registry' and name == change_impact.REGISTRY
+                           and change_impact.valid_registry(stamp)
                            or isinstance(stamp, str) and _STATE.fullmatch(stamp))
                        for key, stamp in value.items())
                for name, value in manifest.get('signatures', {}).items())

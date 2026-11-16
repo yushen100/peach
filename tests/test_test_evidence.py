@@ -829,6 +829,8 @@ class SubprocessResumeTests(unittest.TestCase):
                  '.gitattributes': '* text=auto eol=lf\n'}
         files.update({'scripts/' + name + '.py': (source / 'scripts' / (name + '.py')).read_text(encoding='utf8')
                       for name in modules})
+        # 运行器在导入时读选测登记表。
+        files['scripts/scope_registry.toml'] = (source / 'scripts/scope_registry.toml').read_text(encoding='utf8')
         files['entry.py'] = (
             'from scripts import test_runner as runner\nraise SystemExit(runner.main())\n')
         sample = ('from pathlib import Path\nimport unittest\nclass Suite(unittest.TestCase):\n'
