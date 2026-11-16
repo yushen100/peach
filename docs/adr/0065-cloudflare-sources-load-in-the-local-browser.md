@@ -4,7 +4,7 @@
 - 日期：2026-09-25
 - 修订：ADR-0060 第五条（UA 走整站、Cookie 由用户贴）与「后果」第二条（自动过验证不做）；[开发约定](../../AGENTS.md) 「被 Cloudflare 拦的站一律放弃」那一条
 - 依据：ADR-0060 的实测（两站只认浏览器过完验证发下的 `cf_clearance`）、`peach-reuse-first`（OpenAver 的做法作参照）
-- 被修订：第二条的上屏与「不用无头模式」、「后果」第三条由 [ADR-0169](0169-scraping-browser-window-or-headless.md) 修订：窗口不再自己上屏，另有无窗口模式可选
+- 被修订：第二条的上屏与「不用无头模式」、「后果」第三条由 [ADR-0171](0171-scraping-browser-window-or-headless.md) 修订：窗口不再自己上屏，另有无窗口模式可选
 
 ## 背景
 
@@ -53,7 +53,7 @@ Cookie、User-Agent 与出口三者天然一致，不再要用户贴 Cookie；�
 计数涨），等多久、点哪里都没用；2026-09-25 用生产 profile 实测，全新 profile 5 到 7 秒直接过，生产 profile
 30 秒只转圈，删掉 `cf_clearance` 与 `cf_chl_rc_ni` 重载 5 秒就过，启动参数、语言头、资源屏蔽、出口节点都排除。
 重载后 `AUTO_SECONDS`（40 秒）内过了就读文档，窗口不动。没过时的做法现由
-[ADR-0169](0169-scraping-browser-window-or-headless.md) 规定：保留窗口模式登记到 `browser_transport.attention()`
+[ADR-0171](0171-scraping-browser-window-or-headless.md) 规定：保留窗口模式登记到 `browser_transport.attention()`
 （`/healthz` 带出去），窗口留在屏幕外、不顶到前面，再等 `CLICK_SECONDS`（120 秒）让人从任务栏点开它点一下，
 只有用户点开后才把窗口放回屏幕内（先 `windowState: normal` 再给坐标，两步）；无窗口模式不等点击。托盘不弹系统通知：
 验证转圈时页上常常没有可点的框，通知只会打扰。还没过就报 `ChallengeUnsolved`，`SourceTransport` 按拒绝访问那一档冷却
@@ -106,7 +106,7 @@ FC2PPV-DB 的年龄确认页（`/age-verify`）。
   能出来。`cf_clearance` 半小时过期只表现为多一次自动过验证（几秒），不再整站冷却。
 - 处理任务跑着时屏幕外多一个浏览器进程（约 150 MB 内存），10 分钟不用自己退出。它有自己的 profile，
   不碰用户日常用的浏览器和它的登录态。
-- 验证真的要人点时，窗口不自己上屏，用户从任务栏点开才出现在屏幕上（ADR-0169）；不点，两分钟后这一站冷却，链照常往下走，同一站之后不再等。
+- 验证真的要人点时，窗口不自己上屏，用户从任务栏点开才出现在屏幕上（ADR-0171）；不点，两分钟后这一站冷却，链照常往下走，同一站之后不再等。
 - 读回的是浏览器解析后再序列化的 DOM，不是服务器发的原始字节：解析器拿到的 HTML 结构相同、字面略有出入
   （属性引号、自闭合标签、脚本已执行后的插入）。状态码来自 Navigation Timing，读不到时按 200。
 - 导航走的是浏览器的网络栈：代理按来源连接方式换成启动参数，`environment` 模式跟系统代理，
