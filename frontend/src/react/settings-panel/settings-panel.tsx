@@ -601,9 +601,10 @@ function NameLanguageSetting({ host: current, epoch }: { host: SettingsPanelHost
         value={pending ?? language ?? current.store.value.performerNameLanguage}
         disabled={query.isPending || query.isError || save.isPending || !language} busy={save.isPending}
         onPick={(value) => {
-          if (save.isPending || !NAME_LANGUAGES.includes(value as NameLanguage) || value === language) return;
-          setPending(value);
-          save.mutate({ performerNameLanguage: value }, {
+          const choice = value as NameLanguage;
+          if (save.isPending || !NAME_LANGUAGES.includes(choice) || choice === language) return;
+          setPending(choice);
+          save.mutate({ performerNameLanguage: choice }, {
             onSuccess: (saved) => { current.syncRemote(saved); current.receipt(t('settings:performerNameLanguage.saved')) },
             onError: (error) => current.failure(t('settings:performerNameLanguage.saveFailed'), error),
             onSettled: () => setPending(null),
