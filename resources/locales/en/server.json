@@ -306,7 +306,7 @@
         "title": "Metadata and code cleanup"
       },
       "cover-artwork": {
-        "summary": "Re-crop front covers with the new rules and switch to DVD sleeves of similar quality. Originals are backed up first.",
+        "summary": "After an upgrade, re-crops covers saved by earlier versions in the background and switches to DVD sleeves of similar quality. Originals are backed up first.",
         "title": "Layout of installed covers"
       },
       "dangling-candidates": {
@@ -1854,10 +1854,6 @@
     "coverArtwork": {
       "userCoverKept": "This video uses a cover you set, so automatic collection won't replace it"
     },
-    "coverRepair": {
-      "estimating": "Still counting covers to process. Try again later.",
-      "running": "Processing covers. Wait for this run to finish."
-    },
     "itemCover": {
       "tooLarge": "The image is too large, 32 MB at most",
       "empty": "No image was received",
@@ -2939,7 +2935,8 @@
     },
     "coverRepair": {
       "runLabel": "Re-check cover layouts",
-      "stoppedByUser": "Stopped by the user"
+      "stoppedByUser": "Stopped by the user",
+      "serviceStopped": "The service stopped; it continues on the next start"
     },
     "followScheduler": {
       "runtimeUnavailable": "Status of the last automatic check was not found",

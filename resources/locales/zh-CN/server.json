@@ -306,7 +306,7 @@
         "title": "资料与番号整理"
       },
       "cover-artwork": {
-        "summary": "按新规则重新切正封，换用清晰度相近的 DVD 封套，原图先备份",
+        "summary": "升级后在后台按新规则重新切旧版本装的封面，换用清晰度相近的 DVD 封套，原图先备份",
         "title": "已装封面的版式"
       },
       "dangling-candidates": {
@@ -1854,10 +1854,6 @@
     "coverArtwork": {
       "userCoverKept": "这部片用的是你换上的封面，自动采集不替换"
     },
-    "coverRepair": {
-      "estimating": "还在统计要处理的封面，请稍后再试",
-      "running": "正在处理封面，请等这一次做完"
-    },
     "itemCover": {
       "tooLarge": "图片太大，最多 32 MB",
       "empty": "没有收到图片",
@@ -2939,7 +2935,8 @@
     },
     "coverRepair": {
       "runLabel": "重判封面版式",
-      "stoppedByUser": "用户停止任务"
+      "stoppedByUser": "用户停止任务",
+      "serviceStopped": "服务关闭，下次启动接着做"
     },
     "followScheduler": {
       "runtimeUnavailable": "上次自动检查的运行状态未取得",

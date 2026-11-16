@@ -754,7 +754,8 @@ def create_app(
         # 握手要等 cloudflared 连上边缘，断网时会等满 `wait_timeout`；放在后台，本机访问
         # 不等公网入口。连接进度由 `tunnel_manager.snapshot()` 报告。
         tunnel_startup = asyncio.create_task(asyncio.to_thread(_start_tunnel, settings, tunnel_manager))
-        services = (follow_scheduler, feed_scheduler, push_discovery, downloads, recovery_service, jav_browser, upgrade_repairs)
+        services = (follow_scheduler, feed_scheduler, push_discovery, downloads, recovery_service, jav_browser, upgrade_repairs,
+                    _app.state.cover_repair)
         activation = _LedgerActivation(_app, settings, contract, services, automatic_updates, sharing)
         _app.state.ledger_activation = activation
         ledger_ready = await activation.start()
@@ -853,7 +854,8 @@ def create_app(
                                         runs=contract.task_runs)
     from .cover_repair import CoverRepair
     app.state.cover_repair = CoverRepair(contract.cover_root, upgrade_repairs.root, contract,
-                                         contract.follow_secrets_root, runs=contract.task_runs)
+                                         contract.follow_secrets_root, runs=contract.task_runs,
+                                         available=lambda: upgrade_repairs.available and contract.task_runs.enabled)
     app.state.push_discovery = push_discovery
     app.state.downloads = downloads
     app.state.jav_browser = jav_browser

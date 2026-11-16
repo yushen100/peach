@@ -33,7 +33,6 @@ from .images import measure_image_file, measure_image_size
 from .jav_cover_fetch import (AWS_MODERN, PACKAGE_PREFERENCE, HostLimitedTransport, Unavailable, candidate_for,
                               dmm_evidence, dmm_portrait, dmm_portrait_url, official_image, package_cid, probe_size)
 from .scraping_access import SourceTransport
-from .user_messages import UserValueError
 
 LOGGER = logging.getLogger(__name__)
 TASK_KEY = 'cover-artwork-repair'
@@ -260,21 +259,56 @@ def face_of(path: Path, detector, parts=None) -> dict | None:
 # ---------------------------------------------------------------- 修复与迁移里的封面一项
 
 class CoverRepair:
-    """「修复与迁移」里的封面补修：估算待处理的封面数，用户确认后在后台按上面三步做完。
+    """「修复与迁移」里的封面补修：升级后服务起来，估算出有待处理的封面就在后台按上面三步做完。
 
-    补判要联网逐部取 DMM 竖版图，重算切点要逐张认字，几千张封面要几十分钟，所以等用户确认。
-    查过 DMM 却没有竖版图的记进 `checked`（按图片尺寸）：素人系本来就没有，不该每次都算待处理。
+    只改程序算出来的取景、主脸与来源查得到的封面，手工框与用户换的封面不碰，改前整组备份，所以按
+    自动修复处理，不等确认。几千张封面要逐张认字、可能还要联网补判，几十分钟到一两个小时：开服务后
+    先等 `START_DELAY` 秒避开启动时的高负载，每张之前过一次任务中心的 `checkpoint`，暂停与低占用档
+    都在那里生效；中途停了下次启动接着做。查过 DMM 却没有竖版图或比不出结论的记进 `checked`（按图片
+    尺寸）：素人系本来就没有，不该每次都算待处理。
     """
 
-    def __init__(self, cover_root: Path, state_root: Path, database, secrets_root: Path, runs=None):
+    #: 服务起来后等这么久再估算与开工。
+    START_DELAY = 300.0
+
+    def __init__(self, cover_root: Path, state_root: Path, database, secrets_root: Path, runs=None,
+                 available=lambda: True):
         self.cover_root = Path(cover_root)
         self.state_root = Path(state_root)
         self.database = database
         self.secrets_root = Path(secrets_root)
         self.runs = runs
+        #: 本机能不能写（`UpgradeRepairs.available`）：只读副本不动封面。
+        self.available = available
         self._lock = threading.Lock()
         self._state: dict = {'phase': 'idle'}
         self.worker: threading.Thread | None = None
+        self._stopping = threading.Event()
+        self._service: threading.Thread | None = None
+
+    def start(self, delay: float | None = None) -> None:
+        """后台服务的启动：等一会儿，估算，有待处理的就开工。服务装配时随其他后台服务一起调。"""
+        if self._service is not None and self._service.is_alive():
+            return
+        self._stopping.clear()
+        wait = self.START_DELAY if delay is None else delay
+        self._service = threading.Thread(target=self._automatic, args=(wait,), name='cover-artwork-service',
+                                         daemon=True)
+        self._service.start()
+
+    def stop(self) -> None:
+        """服务关停：不再开工；在做的那一轮到下一张封面前停下，下次启动接着做。"""
+        self._stopping.set()
+
+    def _automatic(self, wait: float) -> None:
+        if self._stopping.wait(wait) or not self.available():
+            return
+        self.status()
+        worker = self.worker
+        if worker is not None:
+            worker.join()
+        if not self._stopping.is_set() and self.status().get('covers'):
+            self.begin()
 
     @property
     def checked_path(self) -> Path:
@@ -321,17 +355,15 @@ class CoverRepair:
         with self._lock:
             self._state = state
 
-    def start(self) -> dict:
+    def begin(self) -> bool:
+        """估算好了就开工；还在估算或已经在做时什么都不做，返回 False。"""
         with self._lock:
-            phase = self._state['phase']
-            if phase == 'running':
-                raise UserValueError("errors.coverRepair.running")
-            if phase != 'ready':
-                raise UserValueError("errors.coverRepair.estimating")
+            if self._state['phase'] != 'ready':
+                return False
             self._state = {'phase': 'running', 'done': 0, 'total': 0}
             self.worker = threading.Thread(target=self._run, name='cover-artwork-repair', daemon=True)
             self.worker.start()
-            return dict(self._state)
+            return True
 
     def _task(self, call):
         """任务中心记录写不进去不影响补修本身：只记日志。"""
@@ -349,14 +381,15 @@ class CoverRepair:
         counts: Counter = Counter()
         status, error = 'succeeded', None
         backup = self.state_root / f'cover-artwork-{time.strftime("%Y%m%d-%H%M%S")}'
-        run = self._task(lambda: self.runs.start(TASK_KEY, trigger='manual', mutex_key=TASK_KEY,
+        run = self._task(lambda: self.runs.start(TASK_KEY, trigger='scheduled', mutex_key=TASK_KEY,
                                                  label=Said('labels.coverRepair.runLabel')))
         run_id = getattr(run, 'id', None)
         try:
             with bind(self.runs, run_id) if self.runs is not None else nullcontext():
                 counts = self._repair(backup, run_id, checkpoint)
         except Cancelled:
-            status, error = 'cancelled', Said('labels.coverRepair.stoppedByUser')
+            status, error = 'cancelled', Said('labels.coverRepair.serviceStopped' if self._stopping.is_set()
+                                              else 'labels.coverRepair.stoppedByUser')
         except Exception as exc:  # noqa: BLE001 — 改了多少照实记进历史
             LOGGER.exception('Cover repair interrupted')
             status, error = 'failed', str(exc)
@@ -380,6 +413,7 @@ class CoverRepair:
         from . import body_parts, spine_label
         from .face_detect import FaceDetector
         from .fsutil import atomic_write_text
+        from .task_control import Cancelled
 
         # 模型装封面时只用本机已有的，这里取一次；取不到的那一步退回原有判据，不拦着做。
         spine_label.default_reader(allow_download=True)
@@ -392,6 +426,8 @@ class CoverRepair:
 
         def step() -> None:
             nonlocal done
+            if self._stopping.is_set():
+                raise Cancelled()
             checkpoint('scan')
             done += 1
             with self._lock:

@@ -1012,20 +1012,6 @@ def reclaim_follow_evidence(request: Request, _args=Depends(require_auth)):
         raise HTTPException(409, error_detail(exc)) from exc
 
 
-@router.post('/api/configuration/repairs/cover-artwork')
-def repair_cover_artwork(request: Request, _args=Depends(require_auth)):
-    """已装封面按当前判据重判：要联网逐部取 DMM 竖版图、逐张认字，由用户在「修复与迁移」里确认后在后台做。"""
-    local_only(request)
-    same_origin(request)
-    try:
-        if not request.app.state.upgrade_repairs.available:
-            raise UserValueError('api.configuration.primaryOnly')
-        request.app.state.cover_repair.start()
-        return _repair_center(request)
-    except ValueError as exc:
-        raise HTTPException(409, error_detail(exc)) from exc
-
-
 @router.get('/api/configuration/upgrade-repairs/review')
 def upgrade_repairs_review(request: Request, _args=Depends(require_auth)):
     local_only(request)

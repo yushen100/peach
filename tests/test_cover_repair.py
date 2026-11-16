@@ -1,4 +1,4 @@
-"""「修复与迁移」的封面一项：估算哪些封面要补修、确认后按三步做完、做过的不再算待处理。"""
+"""「修复与迁移」的封面一项：估算哪些封面要补修、服务起来后自动按三步做完、做过的不再算待处理。"""
 from __future__ import annotations
 
 import io
@@ -88,7 +88,7 @@ class CoverRepairTests(unittest.TestCase):
                 patch.object(cover_repair, "SourceTransport"):
             self.repair.status()
             self.repair.worker.join()
-            self.repair.start()
+            self.repair.begin()
             self.repair.worker.join()
         self.assertEqual(self.repair.plan()["judge"], [])
         promo.write_bytes(jpeg((820, 578)))
@@ -105,7 +105,7 @@ class CoverRepairTests(unittest.TestCase):
                 patch.object(cover_repair, "SourceTransport"):
             self.repair.status()
             self.repair.worker.join()
-            self.repair.start()
+            self.repair.begin()
             self.repair.worker.join()
         self.assertEqual(self.repair.plan()["judge"], [])
 
@@ -119,7 +119,7 @@ class CoverRepairTests(unittest.TestCase):
             self.assertEqual(self.repair.status()["phase"], "estimating")
             self.repair.worker.join()
             self.assertEqual(self.repair.status(), {"phase": "ready", "covers": 1})
-            self.repair.start()
+            self.repair.begin()
             self.repair.worker.join()
         self.assertEqual(jav_poster_crop.read_sidecar(old)["rules"], jav_poster_crop.CROP_RULES)
         (row_id, result), = self.database.rows()
@@ -127,18 +127,39 @@ class CoverRepairTests(unittest.TestCase):
         self.assertIn("recropped", json.loads(result))
         self.assertEqual(self.repair.plan()["crop"], [])
 
-    def test_starting_before_the_estimate_is_refused(self):
-        from peach.user_messages import UserValueError
-        with self.assertRaises(UserValueError):
-            self.repair.start()
+    def test_nothing_starts_before_the_estimate(self):
+        self.assertFalse(self.repair.begin())
+
+    def test_the_service_starts_on_its_own_after_the_delay(self):
+        """升级后不等人点：服务起来、估算出有待处理的就开工；只读副本不动封面。"""
+        old = self.cover("SSIS-002", rules=False)
+        with patch("peach.spine_label.default_reader"), patch("peach.body_parts.default_detector", return_value=None),                 patch("peach.face_detect.FaceDetector"), patch.object(cover_repair, "HostLimitedTransport"),                 patch.object(cover_repair, "SourceTransport"),                 patch.object(cover_repair, "judge", return_value={"code": "SSIS-002", "status": "no_portrait"}),                 patch("peach.cover_artwork.spine_box", return_value=None),                 patch("peach.cover_artwork.text_across_file", return_value=lambda cut: 0):
+            self.repair.start(delay=0)
+            self.repair._service.join()
+            self.repair.worker.join()
+        self.assertEqual(jav_poster_crop.read_sidecar(old)["rules"], jav_poster_crop.CROP_RULES)
+        replica = cover_repair.CoverRepair(self.covers, self.state, self.database, self.root, available=lambda: False)
+        self.cover("SSIS-003", rules=False)
+        replica.start(delay=0)
+        replica._service.join()
+        self.assertEqual(replica.status()["phase"] if replica.worker else "idle", "idle")
+
+    def test_a_stopped_service_does_not_start(self):
+        self.cover("SSIS-002", rules=False)
+        self.repair.stop()
+        self.repair.start(delay=0.2)
+        self.repair.stop()
+        self.repair._service.join()
+        self.assertIsNone(self.repair.worker)
 
 
 class RepairCenterTests(unittest.TestCase):
-    def test_the_item_waits_with_a_cover_count_and_then_reports_the_last_run(self):
+    def test_the_item_queues_with_a_cover_count_and_then_reports_the_last_run(self):
         self.assertEqual(repair_center._cover_artwork({"phase": "ready", "covers": 12}, []),
-                         {"state": "waiting", "covers": 12})
+                         {"state": "pending", "covers": 12})
         self.assertEqual(repair_center._cover_artwork({"phase": "estimating"}, []),
-                         {"state": "waiting", "estimating": True})
+                         {"state": "pending", "estimating": True})
+        self.assertIn(("cover-artwork", "auto"), repair_center.ITEMS)
         rows = [(f"{cover_repair.RECEIPT_PREFIX}1", 1.0, {"judged": 3, "recropped": 40, "faces": 7, "failed": 1})]
         self.assertEqual(repair_center._cover_artwork({"phase": "ready", "covers": 0}, rows),
                          {"state": "done", "changed": 50})

@@ -22,7 +22,7 @@ ITEMS = (
     ('catalog', 'auto'), ('display-local', 'auto'), ('display-cloud', 'confirm'), ('system-files', 'auto'),
     ('garbled-people', 'auto'), ('dangling-candidates', 'auto'), ('javdb-entries', 'auto'),
     ('resolution-tags', 'auto'), ('video-medium', 'auto'), ('quality-bands', 'auto'), ('interface-text', 'auto'), ('follow-evidence', 'confirm'),
-    ('cover-artwork', 'confirm'),
+    ('cover-artwork', 'auto'),
 )
 #: 历史里的规则：账本行 id 的前缀、计哪个字段（`None` 为资料整理的改动合计）。
 #: 前缀去掉末尾的连字符就是规则 id，名字在 `server:repairCenter.history.<id>`。
@@ -131,7 +131,7 @@ def _follow_evidence(status: dict | None, rows) -> dict:
 
 
 def _cover_artwork(status: dict | None, rows) -> dict:
-    """封面补修：在做就报进度，估算出有待处理的封面就等确认，做过且没剩下的报上一次改了多少张。"""
+    """封面补修：在做就报进度，估算出有待处理的封面就报排队（服务起来后自动开工），做过且没剩下的报上一次改了多少张。"""
     status = status or {}
     phase = status.get('phase')
     if phase == 'running':
@@ -139,9 +139,9 @@ def _cover_artwork(status: dict | None, rows) -> dict:
     if phase == 'failed':
         return {'state': 'failed', 'error': status.get('error', '')}
     if phase == 'estimating':
-        return {'state': 'waiting', 'estimating': True}
+        return {'state': 'pending', 'estimating': True}
     if phase == 'ready' and status.get('covers'):
-        return {'state': 'waiting', 'covers': status['covers']}
+        return {'state': 'pending', 'covers': status['covers']}
     last = next((result for row_id, _, result in rows if row_id.startswith(cover_repair.RECEIPT_PREFIX)), None)
     return ({'state': 'done', 'changed': sum(_count(last.get(key)) for key in ('judged', 'recropped', 'faces'))}
             if last else {'state': 'none'})
