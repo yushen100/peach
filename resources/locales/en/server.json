@@ -312,7 +312,9 @@
       "descriptive-performers": "Descriptions saved as performers",
       "code-folder-creators": "Code folders as creators",
       "case-duplicates": "Same file listed twice",
-      "r18-merges": "English names from r18.dev"
+      "r18-merges": "English names from r18.dev",
+      "rule34video-characters": "rule34video character tags",
+      "rule34-details": "rule34.xxx tag types and upload times"
     },
     "items": {
       "catalog": {
@@ -422,6 +424,14 @@
       "r18-merges": {
         "title": "English names from r18.dev",
         "summary": "Performers and series created under an r18.dev English name are merged into the same person or series under the Japanese name."
+      },
+      "rule34video-characters": {
+        "title": "rule34video character tags",
+        "summary": "Reads each video page and records the characters the site lists separately as characters instead of general tags, one per second."
+      },
+      "rule34-details": {
+        "title": "rule34.xxx tag types and upload times",
+        "summary": "Asks rule34.xxx for each item's tag types, upload time, and video length, filling in only what's missing, about one every 2 seconds."
       }
     }
   },
@@ -522,6 +532,7 @@
     "feed-check": "Feed fetch",
     "feed-cover": "New release cover fetch",
     "feed-scrape": "New release metadata fetch",
+    "follow-backfill": "Follow item backfill",
     "follow-check": "Follow check",
     "follow-creator": "Followed creator setup",
     "follow-evidence-reclaim": "Old follow snapshot cleanup",
@@ -2841,6 +2852,10 @@
       "outsideRoots": "Only mounted media directories can be browsed. Type a newly mounted path into the media directory field.",
       "timedOut": "Reading the media directory timed out. Try again later or type the path.",
       "unreadable": "The media directory can't be read. Check the mount and the directory permissions."
+    },
+    "followBackfill": {
+      "credentialMissing": "Add your rule34.xxx API credentials in the followed sources first.",
+      "running": "Backfilling. Wait for this run to finish."
     }
   },
   "jobMessage": {
@@ -4326,6 +4341,10 @@
     },
     "browserTransport": {
       "trafficUnobserved": "Browser fetch traffic isn't measured"
+    },
+    "followBackfill": {
+      "rule34-details": "Fill in rule34.xxx details",
+      "rule34video-characters": "Record rule34video characters"
     }
   },
   "taste": {

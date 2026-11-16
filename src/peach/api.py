@@ -411,6 +411,24 @@ def _start_ledger_services(settings: PeachSettings, contract, services, migratio
     return True
 
 
+def _configure_follow_backfill(contract, upgrade_repairs):
+    """「修复与迁移」里两项 rule34 补填的后台执行；每趟开始前备份账本，备份与确认项同名同处。"""
+    import time
+    from .follow_backfill import Backfill
+    from .follow_secrets import credential_store_for
+    from .migrations import sqlite_backup
+
+    def backup(prefix: str):
+        path = contract.db_path.with_name(f'ledger.pre-{prefix}{time.time_ns()}.db')
+        sqlite_backup(contract.db_path, path)
+        return path
+
+    return Backfill(contract, runs=contract.task_runs, backup=backup,
+                    credentials=credential_store_for(contract.follow_secrets_root,
+                                                     shared_root=contract.follow_shared_root),
+                    available=lambda: upgrade_repairs.available)
+
+
 async def _warm_ledger_aggregates(ledger_ready: bool, contract, stopping: asyncio.Event) -> None:
     """走和真实请求同一条分派，缓存键一致，页面第一次打开就是现成的。"""
     if not ledger_ready:
@@ -749,6 +767,7 @@ def create_app(
         available=managed_configuration() and bool(settings.configured),
     )
     upgrade_repairs = _configure_upgrade_repairs(settings, contract, sync)
+    follow_backfill = _configure_follow_backfill(contract, upgrade_repairs)
     _configure_capacity_guard(settings, contract,
         (transcode_service, hls_service, entity_thumb_service, cover_thumb_service, cover_small_thumb_service))
 
@@ -775,7 +794,8 @@ def create_app(
         # 握手要等 cloudflared 连上边缘，断网时会等满 `wait_timeout`；放在后台，本机访问
         # 不等公网入口。连接进度由 `tunnel_manager.snapshot()` 报告。
         tunnel_startup = asyncio.create_task(asyncio.to_thread(_start_tunnel, settings, tunnel_manager))
-        services = (follow_scheduler, feed_scheduler, push_discovery, downloads, recovery_service, jav_browser, upgrade_repairs)
+        services = (follow_scheduler, feed_scheduler, push_discovery, downloads, recovery_service, jav_browser, upgrade_repairs,
+                    follow_backfill)
         activation = _LedgerActivation(_app, settings, contract, services, automatic_updates, sharing)
         _app.state.ledger_activation = activation
         ledger_ready = await activation.start()
@@ -805,6 +825,7 @@ def create_app(
             feed_scheduler.stop()
             await asyncio.to_thread(automatic_updates.stop)
             await asyncio.to_thread(upgrade_repairs.stop)
+            await asyncio.to_thread(follow_backfill.stop)
             await asyncio.to_thread(sharing.stop)
             push_discovery.stop()
             await asyncio.to_thread(jav_browser.stop)
@@ -872,6 +893,7 @@ def create_app(
     from .follow_evidence import Reclaim
     app.state.follow_evidence = Reclaim(Path(contract.follow_sources_root) / "follow", contract,
                                         runs=contract.task_runs)
+    app.state.follow_backfill = follow_backfill
     app.state.push_discovery = push_discovery
     app.state.downloads = downloads
     app.state.jav_browser = jav_browser

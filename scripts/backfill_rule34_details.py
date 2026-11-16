@@ -12,8 +12,9 @@ posts DAPI 的默认 JSON 只回扁平标签和最后修改时间，三样东西
 - 视频时长只在原文件头的 `mvhd` 里，接口都不给。
 
 常规「检查更新」只看第一页，而且已经补齐过类型的条目不再进第二阶段，存量行靠
-它永远改不过来，所以要这一趟。判据不重写，直接复用连接器的 `_detail` 与
-`_video_seconds`：判据只能有一处。
+它永远改不过来。「设置 › 修复与迁移」里有同一项（只挑缺类型或缺时长的行），确认后在后台限速
+跑完；这份脚本留给要先出复核 CSV、或要每条都核对上传时间的场合。判据（待补条目、`plan_update`、
+连接器的 `_detail` 与 `_video_seconds`、写入）都在 `peach.follow_backfill`：判据只能有一处。
 
 默认 dry-run，只写复核 CSV。`--apply` 必须同时给 `--backup`，与本仓库其它真实写入
 脚本一致。`--resume` 跳过同一份 CSV 里已经写入的条目，中断后用原命令加它接着跑。
@@ -28,7 +29,6 @@ posts DAPI 的默认 JSON 只回扁平标签和最后修改时间，三样东西
 from __future__ import annotations
 
 import argparse
-import json
 import sqlite3
 import time
 import sys
@@ -41,8 +41,12 @@ if str(SRC_DIR) not in sys.path:
 sys.path.append(str(Path(__file__).resolve().parent))
 
 from peach.config import GENERATED_DIR, SECRETS_DIR, SHARED_CREDENTIAL_ROOT
+from peach.follow_backfill import (
+    MISSED, MISS_STREAK_LIMIT, NOTES, POST_COOLDOWN, POST_DELAY, YES,
+    inspect_duration as _inspect_duration, inspect_post, post_pending, write_update,
+)
 from peach.follow_secrets import CredentialError, credential_store_for
-from peach.follow_sources import FollowSourceError, build_connector
+from peach.follow_sources import build_connector
 from peach.interface_text import dev as t
 from peach.review_csv import read_rows, write_rows
 from peach.scripting import (
@@ -52,20 +56,8 @@ from legacy_values import RULE34_WRITTEN
 
 FIELDS = ("item_id", "external_id", "result", "published_before", "published_after",
           "duration", "tag_types_added", "written", "note")
-#: `result` 列：有要写的列、没取到（留给下一趟）、不是帖子号、取到了但不用改。
-FOUND, MISSED, SKIPPED, UNCHANGED = "found", "missed", "skipped", "unchanged"
-#: `written` 与 `tag_types_added` 列；续跑只认 `written=yes`。
-YES, NO = "yes", "no"
-
-#: 每条之间的最小间隔。rule34.xxx 自己公布的口径是每 60 秒 60 次，`_detail` 每条
-#: 问两次 dapi（JSON 的分类、XML 的上传时间），所以每条至少 2 秒；留一点余量。
-#: 首轮按 0.35 秒跑过一次：400 条里 372 条被限流挡了，被读成「没有类型」——速度
-#: 换来的全是白跑的请求。视频文件头在另一个主机上，在这段间隔里发，不另占时间。
-DEFAULT_DELAY = 2.2
-#: 连续这么多条取不到就认定是被限流，而不是这一段恰好都取不到。
-MISS_STREAK_LIMIT = 8
-#: 限流后的静默时长，按站方公布的窗口取满一格。
-COOLDOWN_SECONDS = 60.0
+DEFAULT_DELAY = POST_DELAY
+COOLDOWN_SECONDS = POST_COOLDOWN
 #: 每这么多条落一次库、写一次 CSV。
 FLUSH_EVERY = 50
 
@@ -101,126 +93,31 @@ def was_written(row: dict) -> bool:
 def pending_rows(connection: sqlite3.Connection, limit: int,
                  done: set[int] = frozenset(), *, duration_only: bool = False,
                  missing_types: bool = False) -> list[dict]:
-    """待补条目：rule34xxx 来源的全部条目，扣掉上一趟已经写入的。
-
-    上传时间错没错，不问 dapi 就看不出来——被改过的帖子 `change` 晚于上传，没改过的
-    两者逐秒相同，账本里长得一样。所以每条都要问一遍，续跑靠 CSV 而不是账本里的值。
-    只补时长时缺不缺看账本就知道，只挑 `duration` 为空的 mp4；只补类型时同理，只挑
-    metadata 里没有 `tag_types` 的。
-    """
-    rows = []
-    query = (
-        "SELECT i.id, i.external_id, i.media_url, i.published_at, i.duration,"
-        " i.metadata_json FROM follow_item i JOIN follow_source s ON s.id=i.source_id"
-        " WHERE s.provider='rule34xxx'"
-        + (" AND i.duration IS NULL" if duration_only else "")
-        + " ORDER BY i.id"
-    )
-    for row in connection.execute(query):
-        if row["id"] in done or (duration_only and not _is_mp4(row["media_url"])):
-            continue
-        try:
-            metadata = json.loads(row["metadata_json"] or "{}")
-        except ValueError:
-            metadata = {}
-        # 空表与缺键同样算缺：`plan_update` 也只在没有非空类型时才补。
-        if missing_types and isinstance(metadata, dict) and metadata.get("tag_types"):
-            continue
-        rows.append({"id": row["id"], "external_id": str(row["external_id"] or ""),
-                     "media_url": row["media_url"], "published_at": row["published_at"],
-                     "duration": row["duration"],
-                     "metadata": metadata if isinstance(metadata, dict) else {}})
-        if limit and len(rows) >= limit:
-            break
-    return rows
+    """待补条目：`follow_backfill.post_pending`，扣掉上一趟已经写入的。"""
+    return post_pending(connection, limit, done, duration_only=duration_only,
+                        missing_types=missing_types)
 
 
-def plan_update(row: dict, detail: dict, duration: float | None) -> dict | None:
-    """这一条要改哪几列。没有可写的就是 None。
-
-    只补不抹：dapi 没给上传时间就不动 `published_at`；已有时长不覆盖；已有非空
-    类型不覆盖。取不到的留待下一趟，不写空值冒充已补。
-    """
-    update: dict = {}
-    posted = detail.get("published_at")
-    if posted and posted != row["published_at"]:
-        update["published_at"] = posted
-    if duration and row["duration"] is None:
-        update["duration"] = duration
-    tag_types = detail.get("tag_types")
-    if tag_types and not row["metadata"].get("tag_types"):
-        update["metadata_json"] = json.dumps(
-            {**row["metadata"], "tag_types": dict(tag_types)}, ensure_ascii=False)
-    return update or None
+def _localized(result: tuple[dict, dict | None]) -> tuple[dict, dict | None]:
+    entry, update = result
+    if entry["note"] in NOTES:
+        entry["note"] = t(f"backfill_rule34_details.{entry['note']}")
+    return entry, update
 
 
 def inspect_row(connector, row: dict) -> tuple[dict, dict | None]:
-    """问一条：dapi 的分类与上传时间，缺时长的视频再问一次文件头。返回 CSV 行和要写的列。
-
-    分类没取到时 `result` 是 `missed`：被限流挡回来与帖子已删都是这样，不能当成
-    「这条没有」写进去，留给下一趟再问。
-    """
-    post_id = row["external_id"]
-    entry = {"item_id": row["id"], "external_id": post_id, "result": "",
-             "published_before": row["published_at"] or "", "published_after": "",
-             "duration": row["duration"] if row["duration"] is not None else "",
-             "tag_types_added": "", "written": NO, "note": ""}
-    if not post_id.isdigit():
-        entry.update(result=SKIPPED, note=t("backfill_rule34_details.notPostId"))
-        return entry, None
-    try:
-        detail = connector._detail(post_id)
-    except (FollowSourceError, OSError) as error:
-        detail, entry["note"] = {}, f"{type(error).__name__}: {error}"[:120]
-    if not detail.get("tag_types"):
-        entry.update(result=MISSED, note=entry["note"] or t("backfill_rule34_details.noTagTypes"))
-        return entry, None
-    duration = (connector._video_seconds(row["media_url"])
-                if row["duration"] is None else None)
-    update = plan_update(row, detail, duration) or {}
-    entry.update(result=FOUND if update else UNCHANGED,
-                 published_after=detail.get("published_at") or "",
-                 duration=update.get("duration", entry["duration"]),
-                 tag_types_added=YES if "metadata_json" in update else "")
-    if not detail.get("published_at"):
-        entry["note"] = t("backfill_rule34_details.noCreatedAt")
-    elif _is_mp4(row["media_url"]) and row["duration"] is None and not duration:
-        entry["note"] = t("backfill_rule34_details.durationMissing")
-    return entry, update or None
+    """问一条（`follow_backfill.inspect_post`），固定原因换成界面语言。"""
+    return _localized(inspect_post(connector, row))
 
 
 def inspect_duration(connector, row: dict) -> tuple[dict, dict | None]:
-    """只补时长：读一次原文件头，读到就只写 `duration`。
-
-    读不到记 `missed` 而不是写空：`moov` 在文件结尾、CDN 一时不通都会这样，
-    留给下一趟再问，不冒充测过。
-    """
-    entry = {"item_id": row["id"], "external_id": row["external_id"], "result": "",
-             "published_before": row["published_at"] or "", "published_after": "",
-             "duration": "", "tag_types_added": "", "written": NO, "note": ""}
-    seconds = connector._video_seconds(row["media_url"])
-    if not seconds:
-        entry.update(result=MISSED, note=t("backfill_rule34_details.durationMissing"))
-        return entry, None
-    entry.update(result=FOUND, duration=seconds)
-    return entry, {"duration": seconds}
-
-
-def _is_mp4(url: str | None) -> bool:
-    return str(url or "").lower().split("?")[0].endswith(".mp4")
+    """只补时长（`follow_backfill.inspect_duration`）。"""
+    return _localized(_inspect_duration(connector, row))
 
 
 def _apply(writer: sqlite3.Connection, updates: list[tuple[int, dict]]) -> None:
     for item_id, update in updates:
-        if "published_at" in update:
-            writer.execute("UPDATE follow_item SET published_at=?, published_precision='exact'"
-                           " WHERE id=?", (update["published_at"], item_id))
-        if "duration" in update:
-            writer.execute("UPDATE follow_item SET duration=? WHERE id=? AND duration IS NULL",
-                           (update["duration"], item_id))
-        if "metadata_json" in update:
-            writer.execute("UPDATE follow_item SET metadata_json=? WHERE id=?",
-                           (update["metadata_json"], item_id))
+        write_update(writer, item_id, update)
     writer.commit()
 
 

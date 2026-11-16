@@ -36,7 +36,7 @@ const TABLE: Record<ActivityKind, readonly string[]> = {
   ],
   blocks: [
     'organize', 'batch', 'library-processing', 'media-repair', 'mp4-header-repair', 'taste-refresh', 'diagnostic-export',
-    'amane-bridge', 'timeline-thumbnails', 'upgrade-library', 'upgrade-repairs', 'follow-evidence-reclaim',
+    'amane-bridge', 'timeline-thumbnails', 'upgrade-library', 'upgrade-repairs', 'follow-evidence-reclaim', 'follow-backfill',
     'stage:library.preparePreviews', 'stage:library.makePreviews', 'stage:backup.migrateBackup', 'stage:mediaRepair.repair',
     'stage:organize.running', 'stage:organize.rollingBack', 'stage:download.isolateExtras',
     'step:media',

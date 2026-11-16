@@ -2,7 +2,8 @@
  *
  *  历史里列出每次修复前留下的账本备份：还在的去「账本备份」恢复，清退了的照实写。页头的面包屑由管理区页头画。
  *  首屏数据随路由预取（`repair-center-data.ts`），等待时画路由骨架；有项在跑或还在统计时每 2 秒重读，做完就停。
- *  等确认的项还没开始，只写待处理的量和「开始」；开始之后才有进度条，「开始」换成状态标签。 */
+ *  等确认的项还没开始，只写待处理的量和「开始」；开始之后才有进度条，「开始」换成状态标签。
+ *  逐条联网的项（rule34 补填）在后台限速跑，确认弹层写条数和估计耗时。 */
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { RiArrowRightLine } from '@remixicon/react';
@@ -47,6 +48,7 @@ function reading(item: RepairItem) {
   if (item.state === 'failed' && item.error) return item.error;
   // 行里只写体积，手机宽度下才不挤说明列；文件数在确认弹层里点名。
   if (item.files) return t('settings:repairCenter.reclaimable', { size: fmtSize(item.bytes || 0) });
+  if (item.state === 'waiting' && item.online) return t('settings:repairCenter.pendingChecks', { count: item.pending || 0 });
   if (item.state === 'waiting' && item.backed_up) return t('settings:repairCenter.pendingFixes', { count: item.pending || 0 });
   if (item.state === 'waiting') return item.pending ? t('settings:repairCenter.pendingRecheck', { count: item.pending }) : '';
   if (progressing(item)) return '';
@@ -92,7 +94,9 @@ export function RepairCenterPage() {
   const start = (item: RepairItem) => item.backed_up
     ? void confirmModal({
       title: t('settings:repairCenter.applyTitle', { title: item.title }),
-      body: t('settings:repairCenter.applyBody', { count: item.pending || 0 }),
+      body: item.online
+        ? t('settings:repairCenter.onlineBody', { count: item.pending || 0, minutes: item.minutes || 1 })
+        : t('settings:repairCenter.applyBody', { count: item.pending || 0 }),
       confirmLabel: t('settings:shared.start'),
       onConfirm: async () => update(await post(item)),
     })

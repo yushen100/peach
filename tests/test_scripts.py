@@ -20,7 +20,7 @@ from unittest import mock
 
 from datetime import datetime, timezone
 
-from peach import follow_image_dims, scripting
+from peach import follow_backfill, follow_image_dims, scripting
 from peach.follow_sources import FollowCandidate, SourceFetch
 from peach.follow_store import FollowStore
 from peach.http import HttpResponse
@@ -1699,10 +1699,12 @@ class OperationalScriptTests(unittest.TestCase):
     def test_rule34_detail_backfill_reuses_the_connector_and_is_resumable(self):
         """标签类型、上传时间要另问 dapi，视频时长在原文件头里，存量行靠常规检查补不到。
 
-        抓取判据不重写，直接复用连接器的 `_detail` 与 `_video_seconds`；备份先做、
+        判据与「修复与迁移」的后台项共用 `follow_backfill` 一份；备份先做、
         分批提交，续跑只跳过上一趟真正写入的条目。
         """
         backfill = load_script("backfill_rule34_details")
+        self.assertIs(backfill.post_pending, follow_backfill.post_pending)
+        self.assertIs(backfill.write_update, follow_backfill.write_update)
         # 连接与备份走共享的 `open_for_write`／`open_readonly`，WAL 正确性由
         # `scripting` 那条回归测试守住；这里只钉「用的是那一份」。断言源码里有没有
         # `reader.backup(writer)` 这串字符的话，脚本一改成调用共享实现就会红——
@@ -1732,13 +1734,13 @@ class OperationalScriptTests(unittest.TestCase):
         # 只补不抹：已有的类型与时长不覆盖，帖子页没给上传时间就不动它。
         typed, untyped = pending
         detail = {"tag_types": {"a": "artist"}, "published_at": "2026-05-01T16:32:21Z"}
-        self.assertEqual(backfill.plan_update(typed, detail, 60.054),
+        self.assertEqual(follow_backfill.plan_update(typed, detail, 60.054),
                          {"published_at": "2026-05-01T16:32:21Z"})
-        plan = backfill.plan_update(untyped, detail, 60.054)
+        plan = follow_backfill.plan_update(untyped, detail, 60.054)
         self.assertEqual((plan["published_at"], plan["duration"]),
                          ("2026-05-01T16:32:21Z", 60.054))
         self.assertEqual(json.loads(plan["metadata_json"]), {"tag_types": {"a": "artist"}})
-        self.assertIsNone(backfill.plan_update(
+        self.assertIsNone(follow_backfill.plan_update(
             typed, {"tag_types": {"a": "artist"}, "published_at": None}, None))
 
         # 写入与续跑：写过的条目在 CSV 里记 `written=yes`，下一趟 `--resume` 跳过它。
@@ -1803,6 +1805,7 @@ class OperationalScriptTests(unittest.TestCase):
         """存量行只把站方 Characters 组里的名字改记 character，别的类型与列一格不动。"""
         backfill = load_script("backfill_rule34video_characters")
         self.assertIs(backfill.open_for_write, scripting.open_for_write)
+        self.assertIs(backfill.inspect_video, follow_backfill.inspect_video)
         root = Path(tempfile.mkdtemp()).resolve()
         self.addCleanup(shutil.rmtree, root, True)
         database = root / "ledger.db"

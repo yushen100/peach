@@ -11,6 +11,8 @@ export interface RepairItem {
   files?: number; bytes?: number; estimating?: boolean; error?: string;
   /** 改账本的确认项：确认前先说明会先备份账本，`pending` 是还剩几处要改。 */
   backed_up?: boolean;
+  /** 逐条联网核对的确认项：`pending` 是还剩几条要问，`minutes` 是按限速估的耗时。 */
+  online?: boolean; minutes?: number;
 }
 /** `rule` 是修复规则的 id，按它取译文；`id` 是这一次执行的记录号。 */
 export interface RepairHistory { id: string; rule: string; title: string; at: number; changed: number; backups: { name: string; exists: boolean }[] }

@@ -3,7 +3,8 @@
 开销小、只改自动写入的值（用户手改的不动）的修复在升级后自动执行，这里只列结果；开销大或
 可能改错的（例如逐部读取网盘视频）不自动做，在这里等用户确认后才执行。
 数据只读本机升级回执（`upgrade-repairs/receipt.json`）与账本的 `ledger_upgrade_repair`；
-关注快照清理的估算与进度由 `follow_evidence.Reclaim` 在后台算好交进来。
+关注快照清理的估算与进度由 `follow_evidence.Reclaim` 在后台算好交进来，rule34 补填的待问条数与进度由
+`follow_backfill.Backfill` 交进来。
 
 只列这台机器真碰到的项：馆藏里没有网盘视频、没有 NAS 系统目录、没有乱码人物的，对应那项不出现；
 历史里没改动的那几次也不列。平台、媒体来源与馆藏的差别都落在这些读数上，不另按系统判断。
@@ -13,7 +14,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import follow_evidence, interface_text, legacy_repairs, system_file_repair
+from . import follow_backfill, follow_evidence, interface_text, legacy_repairs, system_file_repair
 from .media_sources import CLOUD_LOCATIONS
 
 #: 列给用户看的修复：id 与是否自动执行，顺序就是页面顺序。标题与一句说明在
@@ -24,6 +25,7 @@ ITEMS = (
     ('garbled-people', 'auto'), ('dangling-candidates', 'auto'), ('javdb-entries', 'auto'),
     ('resolution-tags', 'auto'), ('video-medium', 'auto'), ('quality-bands', 'auto'), ('interface-text', 'auto'),
     *((rule.item, 'auto') for rule in legacy_repairs.RULES), ('follow-evidence', 'confirm'),
+    *((job.item, 'confirm') for job in follow_backfill.JOBS),
     *((rule.item, 'confirm') for rule in legacy_repairs.CONFIRMS),
 )
 #: 历史里的规则：账本行 id 的前缀、计哪个字段（`None` 为资料整理的改动合计）。
@@ -44,6 +46,7 @@ RULES = (
     ('interface-text-codes-', ('rows', 'attempts')),
     *((rule.prefix, ('changed',)) for rule in (*legacy_repairs.RULES, *legacy_repairs.CONFIRMS)),
     (follow_evidence.RECEIPT_PREFIX, ('files',)),
+    *((job.prefix, ('changed',)) for job in follow_backfill.JOBS),
 )
 #: 资料整理回执里不算「改动」的计数：重新探测、转人工与来源快照失效只是排队或让缓存重取，不是改了资料。
 _NOT_CHANGES = ('probe_retry', 'text_review', 'text_snapshots_invalidated')
@@ -167,6 +170,18 @@ def _display_cloud(pending: int, included: bool, done: int, total: int) -> dict:
             **({'done': done, 'total': total} if total else {})}
 
 
+def _backfill(status: dict | None, rows, prefix: str) -> dict:
+    """联网补填：在跑就报进度；还有待问的条目就等确认，带按限速估的分钟数；没有了报上一次改了几处。"""
+    status = status or {}
+    if status.get('phase') == 'running':
+        return {'state': 'running', 'done': status.get('done', 0), 'total': status.get('total', 0)}
+    last = _receipt_fact(rows, prefix, 'changed')
+    if status.get('pending'):
+        return {'state': 'waiting', 'pending': status['pending'], 'minutes': status.get('minutes', 0),
+                'online': True, 'backed_up': True, 'changed': last['changed']}
+    return last
+
+
 def _confirmed(rows, prefix: str, pending: int) -> dict:
     """等确认的存量修正：还有要改的就等确认（`pending` 是几处），没有了报上一次改了几处。"""
     last = _receipt_fact(rows, prefix, 'changed')
@@ -176,7 +191,8 @@ def _confirmed(rows, prefix: str, pending: int) -> dict:
 
 
 def snapshot(connection, receipt: dict, *, cloud_pending: int, backup_directories=(),
-             follow_evidence_status: dict | None = None, confirm_pending: dict | None = None) -> dict:
+             follow_evidence_status: dict | None = None, confirm_pending: dict | None = None,
+             follow_backfill_status: dict | None = None) -> dict:
     rows = sorted(((row[0], float(row[1] or 0), json.loads(row[2] or '{}')) for row in connection.execute(
         'SELECT id, applied_at, result_json FROM ledger_upgrade_repair')), key=lambda row: row[1], reverse=True)
     local = receipt.get('local', {})
@@ -205,6 +221,8 @@ def snapshot(connection, receipt: dict, *, cloud_pending: int, backup_directorie
         'avatar-faces': _receipt_fact(rows, 'avatar-faces-', 'written'),
         'interface-text': _receipt_fact(rows, 'interface-text-codes-', 'rows', 'attempts'),
         'follow-evidence': _follow_evidence(follow_evidence_status, rows),
+        **{job.item: _backfill((follow_backfill_status or {}).get(job.item), rows, job.prefix)
+           for job in follow_backfill.JOBS},
         **{rule.item: _receipt_fact(rows, rule.prefix, 'changed') for rule in legacy_repairs.RULES},
         **{rule.item: _confirmed(rows, rule.prefix, (confirm_pending or {}).get(rule.item, 0))
            for rule in legacy_repairs.CONFIRMS},

@@ -966,6 +966,7 @@ def _repair_center(request: Request) -> dict:
     except (OSError, ValueError):
         pass
     reclaim = getattr(request.app.state, 'follow_evidence', None)
+    backfill = getattr(request.app.state, 'follow_backfill', None)
     from . import legacy_repairs
     with request.app.state.web_contract.read_connection() as connection:
         result = repair_center.snapshot(connection, receipt, backup_directories=directories,
@@ -975,7 +976,9 @@ def _repair_center(request: Request) -> dict:
                                             connection, service.contract,
                                             revision=(str(service.contract.db_path),
                                                       request.app.state.web_contract.ledger_revision()))
-                                        if service.available else {})
+                                        if service.available else {},
+                                        follow_backfill_status=backfill.snapshot(connection)
+                                        if backfill and service.available else None)
     return {**result, 'available': service.available}
 
 
@@ -1018,15 +1021,21 @@ def reclaim_follow_evidence(request: Request, _args=Depends(require_auth)):
 
 @router.post('/api/configuration/repairs/{item}')
 async def apply_confirmed_repair(item: str, request: Request, _args=Depends(require_auth)):
-    """要解除关联、删实体或合并记录的存量修正（`legacy_repairs.CONFIRMS`）：用户看过还剩几处、确认后才做。"""
+    """要解除关联、删实体或合并记录的存量修正（`legacy_repairs.CONFIRMS`）：用户看过还剩几处、确认后才做。
+
+    rule34 补填（`follow_backfill.JOBS`）要逐条联网，确认后在后台限速执行，这里只是开始。"""
     import asyncio
+    from . import follow_backfill
     local_only(request)
     same_origin(request)
     try:
         service = request.app.state.upgrade_repairs
         if not service.available:
             raise UserValueError('api.configuration.primaryOnly')
-        await asyncio.to_thread(service.apply_confirmed, item)
+        if follow_backfill.job(item) is not None:
+            await asyncio.to_thread(request.app.state.follow_backfill.begin, item)
+        else:
+            await asyncio.to_thread(service.apply_confirmed, item)
         return _repair_center(request)
     except (ValueError, OSError, Timeout) as exc:
         raise HTTPException(409, error_detail(exc)) from exc

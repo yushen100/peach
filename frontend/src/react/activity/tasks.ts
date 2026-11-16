@@ -230,6 +230,7 @@ export function problemDestination(run: TaskRunPayload, latest = true): { href: 
     'media-repair': ['/data-cleanup#mediaRepair', t('manage:taskLinks.mediaRepair')],
     'taste-refresh': ['/taste', t('manage:taskLinks.tasteSources')],
     'follow-evidence-reclaim': ['/settings/maintenance/repairs', t('manage:taskLinks.repairs')],
+    'follow-backfill': ['/settings/maintenance/repairs', t('manage:taskLinks.repairs')],
   };
   const target = targets[run.task_key];
   return target ? { href: target[0], label: target[1] } : null;
