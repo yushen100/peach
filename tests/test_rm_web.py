@@ -3861,13 +3861,17 @@ class JavModeAndCoverTests(unittest.TestCase):
         self.contract.cache_bust()
         # 竖版正封文件不在：页面照旧用横图，不去取一张 404。
         self.assertEqual(self.contract.cover_frame("ABW-232"), {"layout": "still"})
+        version = self.covers.stat().st_mtime_ns
         (self.covers / "front").mkdir()
         (self.covers / "front" / "ABW-232.jpg").write_bytes(b"x")
+        # 这条只核对投影，显式推进目录版本，避免连续写入落在同一 NTFS 时钟刻度。
+        os.utime(self.covers, ns=(0, version + 1_000_000))
         self.contract.cache_bust()
         self.assertEqual(self.contract.cover_frame("ABW-232"), {"layout": "still", "front": True})
         self.assertIsNone(self.contract.poster_box("ABW-232"))
         (self.covers / "ABW-232.face.json").write_text(
             '{"ratio":1.42,"face":{"cx":0.3,"cy":0.2}}', encoding="utf-8")
+        os.utime(self.covers, ns=(0, version + 2_000_000))
         self.contract.cache_bust()
         self.assertEqual(self.contract.cover_frame("ABW-232"),
                          {"cx": 0.3, "cy": 0.2, "layout": "still", "front": True})
