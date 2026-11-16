@@ -51,6 +51,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 - **Library**: Spineless covers (VR, streaming-only sets, SOD two-panel art) are no longer cut in half; large cards use DMM's portrait, and SOD prefers the DVD sleeve (#538). / **馆藏**：VR、配信限定合集、SOD 双栏这类没有书脊的封面不再被切掉一半，大图改用 DMM 竖版正封，SOD 优先用 DVD 封套（#538）。
 - **Library**: Cover crops follow the code printed on the spine, so the front panel no longer keeps a strip of spine or loses its left edge (#538). / **馆藏**：正封按书脊上印的番号定位切点，不再带进一截书脊或切掉正封左边（#538）。
+- **Library**: Promotional covers whose headline runs across the would-be fold are shown whole, and large cards frame their biggest figure instead of a small face in a corner (#538). / **馆藏**：标题横跨切线的整幅宣传封面整张显示，大图卡片对准画面里最大的人物主体，不再对着角落里的一张小脸（#538）。
 - **Sourcing**: Blu-ray editions in New releases merge into their DMM streaming edition, so they get the official cover and no longer appear twice (#694). / **采集**：新作里的蓝光版并入 DMM 配信版，能取到官方封面，也不再和配信版重复列出（#694）。
 - **Library**: The Keep dropdown in Merge tags under tag management shows its options again (#187). / **馆藏**：标签管理里「合并标签」的「保留」下拉能看到选项了（#187）。
 - **Playback**: When a cloud drive hangs, playback, thumbnails, subtitles, Show in folder and delete fail within 10 seconds instead of spinning or stalling the server (#689). / **播放**：网盘卡住时，播放、缩略图、字幕、打开所在位置和删除都在 10 秒内报错，不再一直转圈，也不再拖垮整个服务（#689）。
