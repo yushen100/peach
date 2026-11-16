@@ -2111,6 +2111,35 @@ class LibraryNfoTests(unittest.TestCase):
             provider.cover('FC2-PPV-3', covers)
         self.assertEqual((covers / 'FC2-PPV-3.jpg').read_bytes(), before)
 
+    def test_an_upgrade_attempt_blocked_by_an_official_source_keeps_a_usable_cover_without_retrying(self):
+        """本机已有一张能用的封面（800×539），这一趟只是想换更大的：官方那一档被挡（CloudFront 403，来源层
+        已让它冷却），别处给的又不比本机大，就按「没换到更大的」收，一周内不为升级重问整条链；原因留给诊断（#144）。
+        连接抖动这类说不准的失败照旧下趟再问，见上一条用例。"""
+        from peach.jav_cover_fetch import Candidate
+        from peach.library_processing import CoverKept, LibraryMetadataProvider
+        provider = LibraryMetadataProvider.__new__(LibraryMetadataProvider)
+        provider.transport = Mock()
+        provider._official_candidates = Mock(return_value=())
+        provider.community = Mock(return_value=[])
+        provider.community_problems = Mock(return_value=[])
+        covers = self.root / 'covers'
+        covers.mkdir()
+        buffer = io.BytesIO()
+        Image.new('RGB', (800, 539), 'gray').save(buffer, format='JPEG')
+        (covers / 'ABF-002.jpg').write_bytes(buffer.getvalue())
+        (covers / 'ABF-002.scraping.json').write_text(json.dumps(
+            {'source_url': 'https://pics.dmm.co.jp/mono/movie/adult/118abf002/118abf002pl.jpg'}), encoding='utf-8')
+        same = (Candidate('pics.dmm.co.jp', 'https://pics.dmm.co.jp/x.jpg'), (800, 539), b'same')
+        from peach.scraping_access import SourcePaused
+        blocked = SourcePaused('errors.javCoverFetch.coolingDown')
+        for verified in ((*same, ('javdb',)), NotFound('errors.libraryProcessing.communitySaidNo')):
+            with self.subTest(community=type(verified).__name__),                     patch('peach.jav_cover_fetch.best_cover', side_effect=blocked),                     patch('peach.community_catalog.verified_cover',
+                          **({'side_effect': verified} if isinstance(verified, Exception) else {'return_value': verified})),                     self.assertRaises(CoverKept):
+                provider.cover('ABF-002', covers)
+            self.assertEqual(len(provider.cover_problems), 1, '被挡的那一处原因留着')
+        with Image.open(covers / 'ABF-002.jpg') as kept:
+            self.assertEqual(kept.size, (800, 539))
+
     def test_a_verified_cover_replaces_a_wider_unverified_picture_of_something_else(self):
         """官方那一档按尺寸挑中的是正片截图：同页竖版商品图经 javdb 印证后，窄一点也换上。
 
@@ -3712,6 +3741,33 @@ class LibraryWatchdogTests(unittest.TestCase):
         self.assertEqual(state['notes'].get('partial_cover'), 1)
         rows = Path(state['issues_log']).read_text(encoding='utf-8')
         self.assertIn('JavBus', rows)
+
+    @windows_ledger_roots
+    def test_a_kept_cover_with_a_blocked_source_is_a_note_and_is_not_asked_again_this_week(self):
+        """升级没成（来源被挡、别处不更大）：不记问题、不进重试名单，留一条告知项；下一趟直接短路（#144）。"""
+        from peach.library_processing import CoverKept, phrase
+        media = self.root / 'media'
+        media.mkdir()
+        (media / 'ABW-218.mp4').write_bytes(b'video')
+        db = fresh_ledger(self.root)
+        process_library(self._config(media), db, self.root / 'generated', self.root / 'covers', stage='scan')
+        provider = self._provider()
+
+        def cover(code, cover_root, **_):
+            provider.cover_problems = [(phrase('errors.libraryProcessing.sourceProblem',
+                                               {'source': 'MGStage', 'problem': 'HTTP 403'}), False)]
+            raise CoverKept('errors.libraryProcessing.coverNotImproved', {'width': 800, 'height': 539})
+
+        provider.cover.side_effect = cover
+        run = lambda: process_library(self._config(media), db, self.root / 'generated', self.root / 'covers',
+                                      stage='covers', provider_factory=lambda: provider)
+        state = run()
+        self.assertEqual((state['status'], state['issue_count'], state['retryable_asset_ids']), ('complete', 0, []))
+        self.assertEqual(state['notes'].get('partial_cover'), 1)
+        self.assertIn('MGStage', Path(state['issues_log']).read_text(encoding='utf-8'))
+        provider.cover.reset_mock()
+        run()
+        provider.cover.assert_not_called()
 
     @windows_ledger_roots
     def test_the_covers_stage_asks_only_for_covers(self):

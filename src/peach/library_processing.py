@@ -908,6 +908,7 @@ class LibraryMetadataProvider:
         from .jav_cover_fetch import SMALL_MIN_WIDTH, Unavailable, best_cover
         from .scraping_access import SourcePaused
         target = cover_root / (code + '.jpg')
+        self.cover_problems = []
         if cover_settled(target):
             return False
         kept = measure_image_file(target)
@@ -939,7 +940,18 @@ class LibraryMetadataProvider:
                 pass
             except (Unavailable, SourcePaused) as error:
                 problems.append((describe_failure(error), source_paused(error)))
+        # 本机已有一张能用的封面（宽到 `MIN_WIDTH`）时，这一趟只是在找更大的那张。没答上的来源全是被拦着的
+        # （出口被 CloudFront 挡掉的 403、限流，来源层已经让它冷却，一时半会好不了）就按「没换到更大的」收：
+        # 一周内不为升级重问整条链，不记问题项，原因留一条告知项（#144）。连接抖动、超时这类说不准下一趟
+        # 就好的照旧记成未取得；本机没有封面或只有小图的也照旧，下趟再问。
+        from .scraping_access import BUDGET_SPENT
+        spent = set(BUDGET_SPENT.values())
+        # 本趟预算到顶也算「被拦着」（`source_paused`），可它下一趟就重新计数，不能因此一周不问。
+        kept_usable = (kept is not None and max(kept) >= MIN_WIDTH and bool(problems)
+                       and all(paused and said.get('code') not in spent for said, paused in problems))
         if chosen is None:
+            if kept_usable:
+                raise CoverKept('errors.libraryProcessing.coverNotImproved', {'width': kept[0], 'height': kept[1]})
             raise _unreached(problems) if problems else NotFound('errors.libraryProcessing.noCover')
         candidate, size, data = chosen
         # 官方图可替换社区转存图；同类来源按像素面积升级。
@@ -955,8 +967,8 @@ class LibraryMetadataProvider:
                                     else size[0] * size[1] > kept[0] * kept[1] * 1.01)
         if (not improves and not official_replacement
                 and not _corrects_kept_cover(target, candidate, data, verified_by)):
-            if problems:
-                # 有来源这一趟没问成（冷却、配额、超时），它那里可能有原图：不能记成一周不问。
+            if problems and not kept_usable:
+                # 有来源这一趟没问成（冷却、配额、超时），它那里可能有原图：本机还没有能用的封面时不能记成一周不问。
                 raise _unreached(problems)
             raise CoverKept('errors.libraryProcessing.coverNotImproved', {'width': size[0], 'height': size[1]})
         from .cover_artwork import install_cover
@@ -2206,6 +2218,10 @@ class _RemoteSession:
             issue(row, phrase('errors.libraryProcessing.coverDeadline'), action=action, retryable=True)
         except CoverKept:
             self._record_miss('cover', code, lineup)
+            raw = getattr(self._provider, 'cover_problems', None)
+            if isinstance(raw, list) and raw:
+                issue(row, phrase('errors.libraryProcessing.someCoverSourcesUnfetched',
+                                  {'problems': joined_phrases([said for said, _paused in raw])}), action=action)
         except NotFound:
             self._record_miss('cover', code, lineup)
             issue(row, MISS_MESSAGES[action], action=action, retryable=True)

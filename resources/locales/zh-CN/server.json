@@ -2072,7 +2072,7 @@
       "previewFailed": "生成预览图失败，请检查 FFmpeg 与目录权限后重试",
       "toolsNotPrepared": "采集工具准备失败：{{error}}",
       "someSourcesUnfetched": "已从其他来源取到资料；没答上的来源：{{problems}}",
-      "someCoverSourcesUnfetched": "已取到封面；没答上的图源：{{problems}}"
+      "someCoverSourcesUnfetched": "封面已有；没答上的图源：{{problems}}"
     },
     "followStream": {
       "coolingDown": "{{provider}} 限流冷却中，{{seconds}} 秒后再试",

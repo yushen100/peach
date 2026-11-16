@@ -52,6 +52,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Fixed / 修复
 
+- **Sourcing**: Videos that already have a usable cover no longer re-ask every source each run when an official source is blocked; they wait a week and log a note (#144). / **采集**：已有可用封面的影片在官方来源被拦时，不再每趟把来源全问一遍，改为一周后再试并留一条告知（#144）。
 - **Library**: Link check retries links that time out, are throttled or hit a server error a few times, and marks the ones still failing as temporary (#566). / **馆藏**：链接检查对超时、限流和服务器故障的链接自动再试几轮，仍打不开的注明是临时故障（#566）。
 - **Sourcing**: When one source answers, the reasons other sources failed (timeout, throttling, refusal, image download) stay in the run log and diagnostics (#573). / **采集**：有来源答上时，其余来源超时、限流、被拒或图片下载失败的原因照样留在运行日志和诊断里（#573）。
 - **Sourcing**: The background collection browser no longer jumps to the front; Sources settings can switch it to no window, where a failed check pauses that source (#309). / **采集**：后台采集浏览器不再跳到前台；「来源与采集」里可改为无窗口，验证过不了就暂停该来源（#309）。

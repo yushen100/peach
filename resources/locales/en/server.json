@@ -2072,7 +2072,7 @@
       "previewFailed": "Couldn't generate the preview. Check FFmpeg and directory permissions, then try again",
       "toolsNotPrepared": "Couldn't prepare the fetch tools: {{error}}",
       "someSourcesUnfetched": "Got metadata from other sources; these did not answer: {{problems}}",
-      "someCoverSourcesUnfetched": "Got a cover; these image sources did not answer: {{problems}}"
+      "someCoverSourcesUnfetched": "A cover is in place; these image sources did not answer: {{problems}}"
     },
     "followStream": {
       "coolingDown": "{{provider}} is cooling down after rate limiting. Try again in {{seconds}} seconds.",
