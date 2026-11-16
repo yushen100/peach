@@ -3,6 +3,7 @@
 - 状态：Accepted
 - 日期：2026-09-25
 - 依据：ADR-0040「任务后继」、ADR-0052「证据充分即落库」
+- 关系：在线补取的来源顺序由 [ADR-0168](0168-no-single-source-for-outside-works.md) 修订：有码作品 DMM 之后再问 r18.dev
 
 ## 背景
 

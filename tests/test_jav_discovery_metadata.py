@@ -187,6 +187,36 @@ class DiscoveryMetadataTests(unittest.TestCase):
         self.now[0] += 365 * 86400
         self.assertEqual(restarted.peek('EXM-001')[1]['metadata_state'], 'ready')
 
+    def test_official_catalogue_stands_in_when_javdb_does_not_answer(self):
+        stand_in = {'number': 'SSIS-001', 'title': '官方标题', 'tags': ['単体作品'], 'duration': 150,
+                    'actors': [{'name': '葵つかさ', 'gender': 'female'}], 'fallback_source': 'dmm'}
+        asked = []
+        cache = DiscoveryMetadata(self.path.with_name('fallback.json'), api=self.api, clock=lambda: self.now[0],
+                                  fallback=lambda code: asked.append(code) or (stand_in if code == 'SSIS-001' else None))
+        self.addCleanup(cache.stop)
+        with patch.object(self.api, 'movie', side_effect=PublicSourceUnavailable('errors.javdbPublic.sourcePaused')):
+            cache.ensure(['SSIS-001', 'SSIS-002'])
+            cache.job.thread.join(5)
+        self.assertEqual(asked, ['SSIS-001', 'SSIS-002'])
+        movie, state = cache.peek('SSIS-001')
+        self.assertEqual((movie['title'], movie['fallback_source'], movie['tags']), ('官方标题', 'dmm', ['単体作品']))
+        self.assertEqual(state['metadata_message'], '')
+        self.assertEqual(cache.job.snapshot()['stop_reason'], '')
+        # 一天之内不再问；之后照常再问 JavDB。
+        self.assertEqual(cache._pending_codes(['SSIS-001'], set(), False), [])
+        self.now[0] += 86400
+        self.assertEqual(cache._pending_codes(['SSIS-001'], set(), False), ['SSIS-001'])
+
+    def test_official_payload_maps_to_the_work_fields(self):
+        from peach.jav_discovery_metadata import movie_from_payload
+        payload = {'title': 'T', 'release_date': '2026-11-01', 'maker': 'S1', 'series': 'X', 'runtime': 120,
+                   'genres': ['単体作品', ''], 'actresses': [{'japanese_name': '甲'}, {'japanese_name': ''}]}
+        self.assertEqual(movie_from_payload('ssis-001', payload, 'r18dev'), {
+            'number': 'SSIS-001', 'title': 'T', 'release_date': '2026-11-01', 'maker_name': 'S1',
+            'series_name': 'X', 'duration': 120, 'tags': ['単体作品'],
+            'actors': [{'name': '甲', 'gender': 'female'}], 'fallback_source': 'r18dev'})
+        self.assertIsNone(movie_from_payload('SSIS-001', {'title': ''}, 'dmm'))
+
     def test_source_cache_read_and_failed_refresh_do_not_renew_source_timestamp(self):
         source = {'number': 'EXM-001', 'release_date': '2020-01-01', 'tags': [], 'score': 4, 'duration': 120}
         self.cache.remember('EXM-001', source, checked_at=100)

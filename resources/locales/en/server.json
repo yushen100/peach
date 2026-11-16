@@ -2835,9 +2835,6 @@
     "jobRecovery": {
       "unreadable": "Can't read the task recovery record. Start the task again."
     },
-    "webJavDetail": {
-      "resourcesFailed": "Couldn't fetch resources from magnets or comments"
-    },
     "nasDirectories": {
       "invalidPurpose": "Choose a media directory or a data directory.",
       "invalidOffset": "The directory page position is invalid. Read the directory again.",

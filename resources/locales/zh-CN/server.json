@@ -2835,9 +2835,6 @@
     "jobRecovery": {
       "unreadable": "任务恢复记录无法读取，请重新发起任务。"
     },
-    "webJavDetail": {
-      "resourcesFailed": "磁力与评论里的资源都没有取到"
-    },
     "nasDirectories": {
       "invalidPurpose": "请选择媒体目录或数据目录",
       "invalidOffset": "目录分页位置无效，请重新读取目录",

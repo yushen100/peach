@@ -19,8 +19,7 @@ from .metadata import relay_args
 from .sources.javdb import maker_writing, page_reader
 from .remote_media_cache import AVATAR_REFRESH_SECONDS, cache_for
 from .preview_cache import PreviewCache
-from .coded_text import parallel
-from .user_messages import UserValueError, failure_fields, message_fields
+from .user_messages import UserValueError, message_fields
 
 
 def detail_code(args) -> str:
@@ -105,8 +104,8 @@ def q_jav_detail(contract, args) -> dict:
     source = None
     message = ""
     ambiguous = False
+    stored, _ = discovery_metadata(contract).peek(code)
     try:
-        stored, _ = discovery_metadata(contract).peek(code)
         PUBLIC_API.remember_movie_identity(code, stored or {})
         source = PUBLIC_API.movie(code, refresh=True) if args.get('refresh') == '1' else PUBLIC_API.movie(code)
         discovery_metadata(contract).remember(code, source, checked_at=cache_checked_at('movie:'))
@@ -116,22 +115,38 @@ def q_jav_detail(contract, args) -> dict:
         message = str(error)
         ambiguous = isinstance(error, PublicIdentityAmbiguous)
         discovery_metadata(contract).remember(code, error=message)
+        if not ambiguous:
+            source = _stand_in(contract, code, stored)
     if source:
         item.update(title=source.get("origin_title") or source.get("title") or item.get("title"),
                     release_date=source.get("release_date") or item.get("release_date"),
                     studio=source.get("maker_name") or item.get("studio"))
-    payload = {"ok": True, "state": "ready" if source else "partial", "message": message,
+    payload = {"ok": True, "state": "ready" if source and not source.get("fallback_source") else "partial",
+               "message": message,
                "code": code, "title": item.get("title") or code,
                "release_date": item.get("release_date"), "studio": item.get("studio")}
     with contract.database.read_connection() as connection:
         decisions = load_genre_decisions(connection)
     payload.update(_source_fields(source or {}, decisions))
-    payload.update(_artwork_fields(contract, code, item, source or {}, refresh=args.get('refresh') == '1',
+    # 官方目录退路没有 JavDB 作品 id：样张、预告与来源链接只按 JavDB 那份算，退路只补标题、厂牌、类别与演员。
+    javdb = source if source and source.get("id") else {}
+    payload.update(_artwork_fields(contract, code, item, javdb, refresh=args.get('refresh') == '1',
                                    ambiguous=ambiguous))
     if payload.get('preview_message'):
         payload['message'] = '；'.join(filter(None, (payload['message'], payload['preview_message'])))
     payload.update(_identity_fields(contract, code, item, source or {}))
     return payload
+
+
+def _stand_in(contract, code, stored):
+    """JavDB 没答上时的作品资料：边车里已有的官方目录资料，没有就现问 DMM、r18.dev（有码作品）。"""
+    from .jav_discovery_metadata import official_movie
+    if stored and stored.get("fallback_source"):
+        return stored
+    movie = official_movie(contract.follow_secrets_root, code)
+    if movie:
+        discovery_metadata(contract).remember(code, movie)
+    return movie
 
 
 def visible_actors(connection, source, excluded=None):
@@ -371,29 +386,18 @@ def _preview_fields(contract, code, source, *, refresh=False):
     return {'preview_video_url': f"/jav-preview/{code}/{ref}{'.m3u8' if playlist else ''}", 'preview_state': 'ready'}
 
 
-#: 磁力与评论两路都没取到时的总述。
-RESOURCES_FAILED_CODE = "errors.webJavDetail.resourcesFailed"
 
-
-@_source_cache
 def q_jav_resources(contract, args) -> dict:
-    """公开资源列表；只返回候选，下载提交由既有入口接受用户选择。"""
-    import time
+    """公开资源列表；只返回候选，下载提交由既有入口接受用户选择。
+
+    与想要清单同一份查询（`wants_magnets.MagnetSearch`）：manko、JavDB、sukebei、JavBus 四个磁链来源，
+    加 JavDB 评论里的 ed2k 与网页链接。JavDB 不可用时其余来源照给；同时只查一部，其余返回 busy 由界面稍后再取。
+    """
+    from .wants_magnets import search_for
 
     code = detail_code(args)
-    try:
-        found = PUBLIC_API.resources(code, refresh=args.get('refresh') == '1')
-    except PublicSourceUnavailable as error:
-        return {"state": "error", "items": [], **failure_fields(error), "checked_at": None}
-    warnings = found["warnings"]
-    magnet_failed, comments_failed = found["magnet_failed"], found["comments_failed"]
-    failed = magnet_failed and comments_failed and not found["items"]
-    # 都没取到时 `error` 仍是几条提醒连成的原文（旧前端照原文显示）；界面按 code 显示一句总述，
-    # 各条提醒按 `warning_codes` 逐条显示。
-    failure = ({"error": "；".join(warnings), "error_code": RESOURCES_FAILED_CODE, "error_params": {}}
-               if failed else {"error": ""})
-    return {"state": "error" if failed else "ready", "items": found["items"],
-            **failure, "source_url": found["source_url"],
-            "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "warnings": warnings,
-            **parallel("warning", warnings),
-            "cache_stale": magnet_failed or comments_failed, "complete": not (magnet_failed or comments_failed)}
+    with public_cache_scope(contract.cover_root.parent / 'jav-public'), _jav_pages(contract) as pages, \
+            PUBLIC_API.page_reader(pages):
+        found = search_for(contract.follow_secrets_root).query(code, refresh=args.get('refresh') == '1')
+    # 查询结果是共享缓存里的那一份，交出去的是副本。
+    return {**found, "items": list(found.get("items") or []), "warnings": list(found.get("warnings") or [])}

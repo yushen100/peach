@@ -970,6 +970,24 @@ class FeedWebTest(FeedWebFixture):
         identity.assert_not_called()
         source_image.assert_not_called()
 
+    def test_fc2_cover_falls_back_to_issuer_and_community_pictures(self):
+        """FC2 的官方渠道一家都没有：带上发行方与存档站的图，再落空就用社区两个图源对得上的那张。"""
+        from peach.jav_cover_fetch import Candidate, NotFound
+        from peach.library_processing import LibraryMetadataProvider
+        issuer = Candidate('storage.fc2.com', 'https://storage.fc2.com/x.jpg', 'https://adult.contents.fc2.com/')
+        picked = Candidate('javbus', 'https://www.javbus.com/pics/cover/x.jpg', '')
+        works = [('javbus', {'cover_urls': [picked.url]})]
+        with patch('peach.jav_cover_fetch.best_cover', side_effect=NotFound('errors.javCoverFetch.noCandidates')) as best, \
+                patch.object(LibraryMetadataProvider, '_official_candidates', return_value=(issuer,)) as official, \
+                patch.object(LibraryMetadataProvider, 'community', return_value=works), \
+                patch('peach.community_catalog.verified_cover',
+                      return_value=(picked, (800, 450), b'jpeg', ('javbus', 'avbase'))) as verified:
+            data, size, evidence = self._fetch_cover(self.contract, 'FC2-PPV-4137487')
+        self.assertEqual((data, size, evidence['source_url']), (b'jpeg', (800, 450), picked.url))
+        self.assertIn(issuer, best.call_args.kwargs['prior_candidates'])
+        self.assertEqual(official.call_args.kwargs['absent'], feed_followup.FC2_BROWSER_SITES)
+        self.assertEqual(verified.call_args.args[2], works)
+
     def test_recorded_source_url_returns_as_an_official_candidate(self):
         from peach.jav_cover_fetch import Unavailable
         recorded = 'https://awsimgsrc.dmm.co.jp/pics_dig/digital/amateur/deas082/deas082jp.jpg'
@@ -1151,6 +1169,38 @@ class FeedWebTest(FeedWebFixture):
             self._collect(Silent(), "SSIS-950")
         self.assertLessEqual(seen["remaining"], ACTION_BUDGETS["querying_metadata"])
         self.assertGreater(seen["remaining"], ACTION_BUDGETS["querying_metadata"] - 5)
+
+    def test_fc2_shell_asks_fc2_archives_before_the_community_stage(self):
+        """FC2 的综合索引那一档只剩 JavDB：FC2 自己与存档站给齐了就不问它，都没有才照常问。"""
+        asked = []
+        full = {"title": "标题", "performers": ["甲"], "studio": "卖家", "release_date": "2026-11-01",
+                "cover_url": "https://storage.fc2.com/x.jpg"}
+
+        class Archives:
+            def __init__(self, answer):
+                self.answer = answer
+
+            def fc2(self, code, *, deadline=None, route=None):
+                asked.append(("fc2", tuple(route)))
+                if self.answer is None:
+                    raise LookupError("没有")
+                return [("fc2cmadb", self.answer)]
+
+            def community(self, code, *, deadline=None, route=None):
+                asked.append(("community", tuple(route)))
+                return [("javdb", {"title": "JavDB 标题"})]
+
+        with patch("peach.feed_followup.extract_peach_fields",
+                   side_effect=lambda payload: {key: {"value": value} for key, value in payload.items()
+                                                if key != "cover_url"}), \
+                patch("peach.feed_followup._cover", side_effect=lambda payload: payload.get("cover_url")):
+            fields, cover = self._collect(Archives(full), "FC2-PPV-4137487")
+            self.assertEqual((fields["title"], cover), ("标题", "https://storage.fc2.com/x.jpg"))
+            self.assertEqual(asked, [("fc2", feed_followup.FC2_FEED_SITES)])
+            asked.clear()
+            fields, _ = self._collect(Archives(None), "FC2-PPV-4137487")
+        self.assertEqual(fields["title"], "JavDB 标题")
+        self.assertEqual([name for name, _ in asked], ["fc2", "community"])
 
     def test_codes_already_queued_are_not_planned_again(self):
         """在队里的那一批还没跑完，下一轮检查只带新的番号，不把同一批换个组合再派一条。"""

@@ -6,7 +6,7 @@
    地址由代码判定，直接落，`source` 记 `auto:sample-images@<任务行 id>`，只填空，撤回就是删除。
 2. **来源**：先读本机来源快照（`sources/library-metadata/<番号>-<站>.json`，处理链问过的站已经
    把样张地址带回来了，一次网络都不用），再按番号分档问官方站：有码问 DMM 的 GraphQL
-   （`sources/dmm.py` 那一站），素人问 MGS 商品页。FC2、无码与其余档没有核实过的官方样张面，不问。
+   （`sources/dmm.py` 那一站），没有再问 r18.dev 的 combined 页，素人问 MGS 商品页。FC2、无码与其余档没有核实过的官方样张面，不问。
 3. **失败记忆**：按站记「这一站说没有」，7 天内不再问同一站。冷却与预算用完不记：那是本趟
    没轮到，不是没有。
 4. **缓存**：地址进账本，图不进。第一次有人看才下载到 `generated/sample-cache/<番号>/<n>.jpg`，
@@ -114,12 +114,19 @@ def usable(urls: Iterable[str]) -> list[str]:
 
 
 def urls_from_payload(payload: dict) -> list[str]:
-    """来源快照里的样张列：DMM 那一站叫 `sample_images`，amane 桥交的叫 `screenshot_urls`。"""
+    """来源快照里的样张列：DMM 那一站叫 `sample_images`，amane 桥交的叫 `screenshot_urls`，r18.dev 在 combined 页。"""
     for key in ("sample_images", "screenshot_urls"):
         values = payload.get(key) if isinstance(payload, dict) else None
         if isinstance(values, list) and values:
             return [str(value) for value in values if value]
-    return []
+    return r18dev_gallery(payload)
+
+
+def r18dev_gallery(payload: dict) -> list[str]:
+    """r18.dev 的 combined 页 `gallery[].image_full`：与 DMM 同一套 `pics.dmm.co.jp` 原图。"""
+    combined = payload.get("combined") if isinstance(payload, dict) else None
+    rows = combined.get("gallery") if isinstance(combined, dict) else None
+    return [str(row["image_full"]) for row in rows or () if isinstance(row, dict) and row.get("image_full")]
 
 
 # ── 账本 ─────────────────────────────────────────────────────────────
@@ -216,11 +223,12 @@ def revert(connection: sqlite3.Connection, source: str, batch: str = "") -> int:
 # ── 来源 ─────────────────────────────────────────────────────────────
 
 
-def site_for(code: str) -> str | None:
-    """这个番号该问哪一站的样张：有码问 DMM，素人问 MGS，其余没有核实过的官方样张面。"""
+def sites_for(code: str) -> tuple[str, ...]:
+    """这个番号按顺序问哪几站的样张：有码先问 DMM，没有、出错或冷却时问 r18.dev（同一份目录的镜像）；
+    素人问 MGS；其余没有核实过的官方样张面。"""
     from .metadata_routes import classify
     kind = classify(code)
-    return {"censored": "dmm", "amateur": "mgstage"}.get(kind)
+    return {"censored": ("dmm", "r18dev"), "amateur": ("mgstage",)}.get(kind, ())
 
 
 def snapshot_index(sources_root: Path) -> dict[str, list[Path]]:
@@ -291,7 +299,14 @@ def fetch_mgs(transport, code: str, *, deadline: float | None = None) -> list[st
     return parser.urls
 
 
-FETCHERS: dict[str, Callable] = {"dmm": fetch_dmm, "mgstage": fetch_mgs}
+def fetch_r18dev(transport, code: str, *, deadline: float | None = None) -> list[str]:
+    """r18.dev 那一站给的样张（combined 页）。没有这部片抛 `SourceFailure(NOT_FOUND)`。"""
+    from .sources import R18DevSource, Session
+    record = R18DevSource().query(code, session=Session(transport, deadline))
+    return r18dev_gallery(record.extra)
+
+
+FETCHERS: dict[str, Callable] = {"dmm": fetch_dmm, "r18dev": fetch_r18dev, "mgstage": fetch_mgs}
 
 
 class Misses:
@@ -345,10 +360,9 @@ def pending(connection: sqlite3.Connection, has_cover: Callable[[str], bool], mi
         key = code_key(row[0])
         if not key or key in done or key in found or not has_cover(key):
             continue
-        site = site_for(key)
         if key in snapshots and not misses.fresh("snapshot", key):
             found.append(key)
-        elif site and not misses.fresh(site, key):
+        elif any(not misses.fresh(site, key) for site in sites_for(key)):
             found.append(key)
         if len(found) >= limit:
             break

@@ -698,7 +698,7 @@ JAV 默认封面（官方封面／预览图）与视频默认大小（大图／�
 
 图片尺寸档复用 `previews.DerivedImageService`：实体图默认取长边 640 的 `/entity-image?thumb=1`，只有资料页大位取原件；卡片封面按屏幕像素密度从 `/cover?thumb=2`（长边 800）或 `thumb=1`（长边 1600）起步，`framing.upgradeCover` 量过显示尺寸再逐档换到原件。两档封面同在 `generated/cover-thumbs/`，按长边分文件名、按需生成。侧栏与登录卡的站标用 `scripts/generate_brand_assets.py` 缩出的 64 与 128 px 小图，以 `srcset` 挑选。
 
-新作封面复用 `best_cover` 的官方候选与 `cover_artwork.install_cover`，保存本地封面、正封框、人脸坐标与来源证据。JavDB 图片仅作来源复核证据，不进入安装、封面索引、详情封面投影或缺图时的后备；`scripts/quarantine_javdb_covers.py` 将有来源证据的历史图片及边车移入可恢复归档。未取得合格来源时显示未取得状态，详见 ADR-0107。
+新作封面复用 `best_cover` 的官方候选与 `cover_artwork.install_cover`，保存本地封面、正封框、人脸坐标与来源证据。FC2、无码与素人作品的官方渠道只剩一家或一家都没有，另带上 `LibraryMetadataProvider._official_candidates` 的发行方与存档站图，官方仍落空时用 `community_catalog.verified_cover` 取社区来源两个图源对得上的那张（ADR-0168）。JavDB 图片仅作来源复核证据，不进入安装、封面索引、详情封面投影或缺图时的后备；`scripts/quarantine_javdb_covers.py` 将有来源证据的历史图片及边车移入可恢复归档。未取得合格来源时显示未取得状态，详见 ADR-0107。
 
 无快照的有码作品由封面入口复用现有 `DmmSource` 的 GraphQL 查询与精确身份核验；成功快照直接展开 DMM 图片候选，r18.dev 与 DMM 使用同一份目录证据。FC2 来源快照通过 `storage_original` 提取发行方存储原件，排除社区图床。目录查询沿用来源冷却，HTTP、网络与解析失败分别保留未取得状态。
 
