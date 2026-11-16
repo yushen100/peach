@@ -79,6 +79,8 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Library**: `peach scan` reads SMB storage set in media.mounts, and a folder that can't be listed stops with an error instead of reporting 0 files and missing items (#693). / **馆藏**：`peach scan` 能读 media.mounts 里的 SMB 来源；目录列不出来时报错，不再报 0 个文件并把已有影片算作消失（#693）。
 - **Settings**: Running from source on macOS or Linux with LAN access, first-run setup reports a missing OpenSSL instead of returning to setup each time (#395). / **配置**：macOS、Linux 源码运行并对局域网开放时，首次设置缺 OpenSSL 会直接报出，不再反复回到设置页（#395）。
 - **Library**: Large scans retry a batch on a fresh ledger connection when the journal file is briefly blocked, instead of failing with unable to open database file (#138). / **馆藏**：大目录扫描遇到账本日志文件被短暂占用时换新连接重试当前批次，不再报 unable to open database file 中断（#138）。
+- **Playback**: Followed media and previews cached on disk stay intact when two requests save the same item at once or the cache folder is cleaned meanwhile (#521). / **播放**：两个请求同时缓存同一段媒体，或缓存目录正被清理时，缓存不再错配或让播放失败（#521）。
+- **Playback**: JAV previews play again when Peach's data folder sits in a long Windows path (#521). / **播放**：数据目录在 Windows 较深的路径下时，JAV 预告片重新能播（#521）。
 
 ## [0.58.0] - 2026-11-14
 
