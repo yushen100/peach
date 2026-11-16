@@ -774,6 +774,28 @@ class ScrapingAccessTests(unittest.TestCase):
                          "dropped after the handshake; set the DMM / FANZA connection to the Peach proxy.")
 
 
+    def test_the_dmm_check_asks_the_catalog_api_instead_of_the_age_gated_home_page(self):
+        """DMM 首页 301 到 fanza.jp 再落到年龄确认页，按首页查永远是「要登录」（#144）；采集走的是
+        不设年龄门的 GraphQL 接口，检查问它。"""
+        sent = []
+
+        def respond(request, timeout, max_bytes):
+            sent.append(request)
+            if request.url.startswith("https://api.video.dmm.co.jp/"):
+                return HttpResponse(200, {"content-type": "application/json"},
+                                    b'{"data":{"__typename":"Query"}}', request.url)
+            buffer = io.BytesIO()
+            Image.new("RGB", (800, 538)).save(buffer, format="JPEG")
+            return HttpResponse(206, {"content-type": "image/jpeg"}, buffer.getvalue(), request.url)
+
+        with patch("peach.source_checks.SourceTransport") as factory:
+            factory.return_value.side_effect = respond
+            checks = {item["target"]: item for item in
+                      w_scraping_check(SimpleNamespace(follow_secrets_root=self.root), {"source": "dmm"})["results"]}
+        self.assertEqual((checks["page"]["ok"], checks["page"]["reason"]), (True, "ok"))
+        self.assertEqual((sent[0].method, sent[0].url), ("POST", "https://api.video.dmm.co.jp/graphql"))
+        self.assertTrue(checks["cdn"]["ok"])
+
 class BrowserFallbackTests(unittest.TestCase):
     """登记了 `browser_fallback` 的来源（minnano-av）：HTTP 客户端被拦时由本机浏览器验证一页，
     取到就固定走浏览器；浏览器也没取到才照 HTTP 客户端被拦那样冷却。"""

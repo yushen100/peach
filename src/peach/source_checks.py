@@ -53,6 +53,13 @@ def _connection_message(detail, reason):
     return Said("labels.sourceChecks.reason", reason=reason) if reason else Said("labels.sourceChecks.unavailable")
 
 
+#: 页面那一跳不按「打开首页」查的来源：首页之后的路与采集用的那条不是一回事。DMM 首页现在 301 到
+#: fanza.jp、再落到年龄确认页，没贴年龄 Cookie 的人永远查出「要登录」（#144）；采集走的是不设年龄门的
+#: GraphQL 接口（`sources.dmm`），只收 POST，问一句 `{__typename}` 就知道通不通。
+PAGE_PROBES = {"dmm": lambda: HttpRequest("POST", "https://api.video.dmm.co.jp/graphql",
+                                         {"Content-Type": "application/json"}, b'{"query":"{__typename}"}')}
+
+
 def _target(target):
     """一跳的身份与说法：`target` 是 `page` 或 `cdn`，`label` 是 zh-CN 原文，`label_code` 给界面取译文。"""
     return {"target": target, **coded("label", Said(TARGET_LABELS[target]))}
@@ -79,7 +86,10 @@ def check_source(secrets_root, source, *, preflight=False):
             result = {**_target(target), "ok": False}
             started = time.monotonic()
             try:
-                response = transport(HttpRequest("GET", url, {"Range": "bytes=0-65535"}), 10, 65536)
+                probe = PAGE_PROBES.get(source) if target == PAGE else None
+                request = probe() if probe else HttpRequest("GET", url, {"Range": "bytes=0-65535"})
+                url = request.url
+                response = transport(request, 10, 65536)
                 # 鉴权失败与「站点挂了」是两件事，页面上要分得开：前者要人去官网登录
                 # 或换一份 Cookie，后者只要等。判据和元数据来源共用一份；重定向终点
                 # 只在真的跳转过时才算数，否则配置里本身就指向登录页的来源会自判失败。
