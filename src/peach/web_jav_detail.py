@@ -19,8 +19,7 @@ from .metadata import relay_args
 from .sources.javdb import maker_writing, page_reader
 from .remote_media_cache import AVATAR_REFRESH_SECONDS, cache_for
 from .preview_cache import PreviewCache
-from .coded_text import parallel
-from .user_messages import UserValueError, failure_fields, message_fields
+from .user_messages import UserValueError, message_fields
 
 
 def detail_code(args) -> str:
@@ -371,29 +370,18 @@ def _preview_fields(contract, code, source, *, refresh=False):
     return {'preview_video_url': f"/jav-preview/{code}/{ref}{'.m3u8' if playlist else ''}", 'preview_state': 'ready'}
 
 
-#: 磁力与评论两路都没取到时的总述。
-RESOURCES_FAILED_CODE = "errors.webJavDetail.resourcesFailed"
 
-
-@_source_cache
 def q_jav_resources(contract, args) -> dict:
-    """公开资源列表；只返回候选，下载提交由既有入口接受用户选择。"""
-    import time
+    """公开资源列表；只返回候选，下载提交由既有入口接受用户选择。
+
+    与想要清单同一份查询（`wants_magnets.MagnetSearch`）：manko、JavDB、sukebei、JavBus 四个磁链来源，
+    加 JavDB 评论里的 ed2k 与网页链接。JavDB 不可用时其余来源照给；同时只查一部，其余返回 busy 由界面稍后再取。
+    """
+    from .wants_magnets import search_for
 
     code = detail_code(args)
-    try:
-        found = PUBLIC_API.resources(code, refresh=args.get('refresh') == '1')
-    except PublicSourceUnavailable as error:
-        return {"state": "error", "items": [], **failure_fields(error), "checked_at": None}
-    warnings = found["warnings"]
-    magnet_failed, comments_failed = found["magnet_failed"], found["comments_failed"]
-    failed = magnet_failed and comments_failed and not found["items"]
-    # 都没取到时 `error` 仍是几条提醒连成的原文（旧前端照原文显示）；界面按 code 显示一句总述，
-    # 各条提醒按 `warning_codes` 逐条显示。
-    failure = ({"error": "；".join(warnings), "error_code": RESOURCES_FAILED_CODE, "error_params": {}}
-               if failed else {"error": ""})
-    return {"state": "error" if failed else "ready", "items": found["items"],
-            **failure, "source_url": found["source_url"],
-            "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "warnings": warnings,
-            **parallel("warning", warnings),
-            "cache_stale": magnet_failed or comments_failed, "complete": not (magnet_failed or comments_failed)}
+    with public_cache_scope(contract.cover_root.parent / 'jav-public'), _jav_pages(contract) as pages, \
+            PUBLIC_API.page_reader(pages):
+        found = search_for(contract.follow_secrets_root).query(code, refresh=args.get('refresh') == '1')
+    # 查询结果是共享缓存里的那一份，交出去的是副本。
+    return {**found, "items": list(found.get("items") or []), "warnings": list(found.get("warnings") or [])}
