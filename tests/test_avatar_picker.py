@@ -979,11 +979,13 @@ class CoverFocusTests(AssetArtworkTests):
         self.assertEqual(self.whole_cover_history(269)["focus"], {"x0": 211, "y0": 0, "x1": 400, "y1": 269})
 
     def test_a_whole_cover_does_not_borrow_the_frame_of_a_replaced_cover(self):
-        """#565：封面后来换成别的图，本机边车量的是新图；历史里那张旧封面不套新图的脸框。"""
-        self.cover.write_bytes(picture(400, 260, "red"))
-        sidecar_path(self.cover).write_text(json.dumps(face_record(400, 260)), "utf-8")
-        self.assertEqual(self.whole_cover_history()["focus"],
-                         {"x0": 217, "y0": 0, "x1": 400, "y1": 260})
+        """#565：封面后来换成别的图，本机边车量的是新图；历史里那张旧封面不套新图的脸框，按没有脸框的封套退回正封。
+
+        用标准封套比例：比例不标准又没有折痕的整幅宣传图不切（#538），退回的就不是正封了。"""
+        self.cover.write_bytes(picture(400, 269, "red"))
+        sidecar_path(self.cover).write_text(json.dumps(face_record(400, 269)), "utf-8")
+        self.assertEqual(self.whole_cover_history(269)["focus"],
+                         {"x0": 211, "y0": 0, "x1": 400, "y1": 269})
 
     def test_a_cover_face_crop_counts_as_nothing_once_its_cover_is_replaced(self):
         """#565：封面截图记着源图指纹；封面换了，旧截图按 0 算，后继按现封面重截。"""
