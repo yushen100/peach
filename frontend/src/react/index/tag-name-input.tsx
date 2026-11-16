@@ -42,6 +42,9 @@ export function TagNameInput({ value, onChange }: { value: string; onChange(valu
       inputValue={value} onInputChange={onChange} items={options}>
       <InputBase autoFocus maxLength={80} leadingIcon={busy ? TagLoadingIcon : RiSearchLine}
         placeholder={t('shell:tagPicker.searchPlaceholder')}
+        onKeyDownCapture={event => {
+          if (event.key === 'Escape' && event.currentTarget.getAttribute('aria-expanded') === 'true') event.preventDefault();
+        }}
         onCompositionStart={() => setComposing(true)} onCompositionEnd={() => setComposing(false)} />
       <Popover isNonModal placement="bottom start" offset={4}
         className={cx(MENU_POPOVER_SURFACE, 'flex w-(--trigger-width) flex-col overflow-hidden p-0')}>

@@ -556,6 +556,12 @@ describe('设计决定：数据管理、索引页与资料页头', () => {
         });
         assert.ok(geometry.edgeGap >= 0 && geometry.edgeGap <= 2, '滚动条没有贴在候选面板右边缘');
         assert.ok(geometry.countGaps.every(gap => gap >= 4), '滚动条命中区与标签计数重叠');
+        await input.press('Escape');
+        await page.getByRole('listbox', { name: '搜索结果' }).waitFor({ state: 'hidden' });
+        assert.equal(await page.locator('dialog[open]').count(), 1, '收起候选时关闭了标签表单');
+        assert.equal(await input.inputValue(), 'tag');
+        await input.press('Escape');
+        await page.locator('dialog[open]').waitFor({ state: 'hidden' });
         assert.deepEqual(opened.problems, []);
       } finally {
         release();
