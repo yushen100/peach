@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { androidIntent, clientPlatform, schemePlayers } from '../src/player/external-schemes';
 
-const url = 'https://peach.local:8443/external-stream/3?ticket=a%2Bb&origin=https%3A%2F%2Fpeach.local%3A8443';
+const url = 'https://192.0.2.10:8443/external-stream/3?ticket=a%2Bb&origin=https%3A%2F%2F192.0.2.10%3A8443';
 const links = (platform: Parameters<typeof schemePlayers>[0]) =>
   Object.fromEntries(schemePlayers(platform).map(player => [player.id, player.link(url)]));
 
@@ -31,9 +31,9 @@ it('各平台的协议链接按播放器的写法包装播放地址', () => {
 });
 
 it('Android intent 保留主机、端口、路径与查询，只把协议挪进 scheme 字段', () => {
-  expect(androidIntent(url)).toBe('intent://peach.local:8443/external-stream/3?ticket=a%2Bb&origin=https%3A%2F%2Fpeach.local%3A8443'
+  expect(androidIntent(url)).toBe('intent://192.0.2.10:8443/external-stream/3?ticket=a%2Bb&origin=https%3A%2F%2F192.0.2.10%3A8443'
     + '#Intent;scheme=https;action=android.intent.action.VIEW;type=video/*;end');
-  expect(androidIntent('http://192.168.1.2:8099/external-stream/3?ticket=t', 'com.mxtech.videoplayer.ad'))
-    .toBe('intent://192.168.1.2:8099/external-stream/3?ticket=t#Intent;scheme=http;action=android.intent.action.VIEW;'
+  expect(androidIntent('http://198.51.100.2:8099/external-stream/3?ticket=t', 'com.mxtech.videoplayer.ad'))
+    .toBe('intent://198.51.100.2:8099/external-stream/3?ticket=t#Intent;scheme=http;action=android.intent.action.VIEW;'
       + 'type=video/*;package=com.mxtech.videoplayer.ad;end');
 });
