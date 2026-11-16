@@ -19,7 +19,8 @@ from typing import Protocol
 
 from . import wants
 from .catalog_rules import CodePatternError, compile_code_patterns
-from .feeds import DEFAULT_HIDDEN_COMPILATIONS, EXCERPT, GROUP_COMPILATION, SOLO_COMPILATION
+from . import feeds
+from .feeds import FEED_COMPILATION_SWITCHES
 from .media_sources import SCANNABLE_LOCATIONS
 from .remote_media_cache import AVATAR_REFRESH_SECONDS, FAVICON_REFRESH_SECONDS
 from .system_language import system_language
@@ -79,12 +80,6 @@ SYNCED_SETTING_KEYS = frozenset({
 WANT_CADENCE_KEYS = (
     ("wantStaleSearchDays", wants.normalise_stale_search_days, wants.STALE_SEARCH_DAY_CHOICES),
     ("wantStaleAttemptLimit", wants.normalise_stale_attempt_limit, wants.STALE_ATTEMPT_LIMITS),
-)
-#: 三个收起开关的键与各自对应的那一类，缺省值取 `feeds.DEFAULT_HIDDEN_COMPILATIONS`。
-FEED_COMPILATION_SWITCHES = (
-    ("feedHideGroupCompilations", GROUP_COMPILATION),
-    ("feedHideSoloCompilations", SOLO_COMPILATION),
-    ("feedHideExcerpts", EXCERPT),
 )
 
 
@@ -236,16 +231,9 @@ def _stored_code_patterns(payload: dict) -> list[str]:
         return []
 
 
-def _feed_switches(payload: dict) -> dict[str, bool]:
-    return {key: payload[key] if isinstance(payload.get(key), bool)
-            else kind in DEFAULT_HIDDEN_COMPILATIONS
-            for key, kind in FEED_COMPILATION_SWITCHES}
-
-
 def hidden_compilations(contract: SettingsContract) -> frozenset[str]:
-    """新作那一行收起哪几类合集。"""
-    switches = _feed_switches(_stored(contract))
-    return frozenset(kind for key, kind in FEED_COMPILATION_SWITCHES if switches[key])
+    """新作那一行收起哪几类合集（规则在 `feeds.hidden_compilations`）。"""
+    return feeds.hidden_compilations(_stored(contract))
 
 
 def _stored(contract: SettingsContract) -> dict:
@@ -279,7 +267,7 @@ def q_settings(contract: SettingsContract, _args=None) -> dict:
         "postSetupTutorialDone": payload.get("postSetupTutorialDone") is True,
         "organizeTemplates": normalise_organize_templates(payload.get("organizeTemplates")),
         "codePatterns": _stored_code_patterns(payload),
-        **_feed_switches(payload),
+        **feeds.compilation_switches(payload),
         "searchHistoryLimit": normalise_search_history_limit(payload.get("searchHistoryLimit")),
         "performerNameLanguage": (payload["performerNameLanguage"]
                                   if payload.get("performerNameLanguage") in NAME_LANGUAGE_CHOICES else "zh-CN"),

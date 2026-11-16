@@ -1114,10 +1114,12 @@ class UpgradeRepairs:
 
         和其余存量补修一样由调度器在服务起来后跑，失败只记日志、不挡后台服务；有要补的才先备份。
         """
-        from . import feed_overflow_repair, web_settings
+        from . import feed_overflow_repair
+        from .feeds import hidden_compilations
+        from .profiles import read_settings
         try:
-            hidden = web_settings.hidden_compilations(self.contract.database)
             with self.contract.database.read_connection() as connection:
+                hidden = hidden_compilations(read_settings(connection))
                 if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
                                       (feed_overflow_repair.RECEIPT_KEY,)).fetchone():
                     return

@@ -96,6 +96,25 @@ GROUP_COMPILATION = "group"
 EXCERPT = "excerpt"
 EXCERPT_STUDIOS = frozenset({"ハイライト"})
 DEFAULT_HIDDEN_COMPILATIONS = frozenset({GROUP_COMPILATION, EXCERPT})
+#: 三个收起开关在设置里的键与各自对应的那一类，没设过的取 `DEFAULT_HIDDEN_COMPILATIONS`。
+FEED_COMPILATION_SWITCHES = (
+    ("feedHideGroupCompilations", GROUP_COMPILATION),
+    ("feedHideSoloCompilations", SOLO_COMPILATION),
+    ("feedHideExcerpts", EXCERPT),
+)
+
+
+def compilation_switches(settings: dict) -> dict[str, bool]:
+    """设置载荷里三个收起开关的值；没设过或不是布尔的按缺省。"""
+    return {key: settings[key] if isinstance(settings.get(key), bool)
+            else kind in DEFAULT_HIDDEN_COMPILATIONS
+            for key, kind in FEED_COMPILATION_SWITCHES}
+
+
+def hidden_compilations(settings: dict) -> frozenset[str]:
+    """按设置载荷，新作那一行收起哪几类合集。"""
+    switches = compilation_switches(settings)
+    return frozenset(kind for key, kind in FEED_COMPILATION_SWITCHES if switches[key])
 
 
 def compilation_kind(title: str | None, performers: str | None,
