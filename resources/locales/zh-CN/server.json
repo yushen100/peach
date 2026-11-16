@@ -286,6 +286,7 @@
       "catalog": "资料与番号整理",
       "dangling-candidates": "失效的复核候选",
       "follow-evidence-reclaim": "清理关注抓取的旧快照",
+      "cover-artwork": "已装封面的版式",
       "javdb-actor-records": "人物页的 JavDB 入口",
       "quality-resolution": "画质分档",
       "source-resolution-tags": "来源的 4K 标签",
@@ -322,6 +323,10 @@
       "catalog": {
         "summary": "按新规则修正番号、标题等自动写入的资料，你手动改过的不动",
         "title": "资料与番号整理"
+      },
+      "cover-artwork": {
+        "summary": "升级后在后台按新规则重新切旧版本装的封面，换用清晰度相近的 DVD 封套，原图先备份",
+        "title": "已装封面的版式"
       },
       "dangling-candidates": {
         "summary": "资产删除后留下的候选改挂到同一文件的新编号，对不上的撤下",
@@ -526,6 +531,7 @@
     "amane-bridge": "amane 桥重建",
     "batch": "批量操作",
     "code-samples": "番号样张采集",
+    "cover-artwork-repair": "封面版式补修",
     "creator-identity": "创作者身份查找",
     "diagnostic-export": "诊断导出",
     "download-postprocess": "云下载后处理",
@@ -3042,6 +3048,11 @@
         "pushDiscovery": "推送发现",
         "downloads": "下载设置"
       }
+    },
+    "coverRepair": {
+      "runLabel": "重判封面版式",
+      "stoppedByUser": "用户停止任务",
+      "serviceStopped": "服务关闭，下次启动接着做"
     },
     "followScheduler": {
       "runtimeUnavailable": "上次自动检查的运行状态未取得",

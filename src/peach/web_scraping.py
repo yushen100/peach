@@ -104,7 +104,7 @@ def _result(code: str, **params) -> dict:
 
 def _fetch_cover(contract, code):
     from .cover_artwork import install_cover, is_user_cover
-    from .jav_cover_fetch import (best_cover, HostLimitedTransport, Unavailable,
+    from .jav_cover_fetch import (best_cover, HostLimitedTransport, Unavailable, dmm_portrait,
                                  fc2_cover_candidates, logged_success_evidence)
     from .review_csv import read_rows
     target = contract.cover_root / (code + ".jpg")
@@ -157,7 +157,8 @@ def _fetch_cover(contract, code):
                     "raw_sha256": hashlib.sha256(data).hexdigest(),
                     "installed_sha256": hashlib.sha256(data).hexdigest(),
                     "checked_at": time.time(), "resolver": "peach-jav-cover-v1"}
-        install_cover(target, code, data, size, evidence=evidence)
+        install_cover(target, code, data, size, evidence=evidence,
+                      portrait=dmm_portrait(observed, candidate.url))
         return {"ok": True, "code": code, **_result("labels.webScraping.coverSaved"), "width": size[0],
                 "height": size[1], "requests": raw.requests, "bytes": raw.bytes}
     except Unavailable as exc:

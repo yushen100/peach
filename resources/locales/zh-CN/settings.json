@@ -974,6 +974,7 @@
     "pendingChecks_other": "{{count, number}} 条待核对",
     "pendingFixes_one": "待修正 {{count, number}} 处",
     "pendingFixes_other": "待修正 {{count, number}} 处",
+    "pendingCovers": "{{count, number}} 张封面待处理",
     "pendingRecheck": "{{count, number}} 部待补测",
     "preRepairBackup": "修复前的账本备份",
     "queued": "等待执行",

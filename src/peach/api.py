@@ -795,7 +795,7 @@ def create_app(
         # 不等公网入口。连接进度由 `tunnel_manager.snapshot()` 报告。
         tunnel_startup = asyncio.create_task(asyncio.to_thread(_start_tunnel, settings, tunnel_manager))
         services = (follow_scheduler, feed_scheduler, push_discovery, downloads, recovery_service, jav_browser, upgrade_repairs,
-                    follow_backfill)
+                    follow_backfill, _app.state.cover_repair)
         activation = _LedgerActivation(_app, settings, contract, services, automatic_updates, sharing)
         _app.state.ledger_activation = activation
         ledger_ready = await activation.start()
@@ -894,6 +894,10 @@ def create_app(
     app.state.follow_evidence = Reclaim(Path(contract.follow_sources_root) / "follow", contract,
                                         runs=contract.task_runs)
     app.state.follow_backfill = follow_backfill
+    from .cover_repair import CoverRepair
+    app.state.cover_repair = CoverRepair(contract.cover_root, upgrade_repairs.root, contract,
+                                         contract.follow_secrets_root, runs=contract.task_runs,
+                                         available=lambda: upgrade_repairs.available and contract.task_runs.enabled)
     app.state.push_discovery = push_discovery
     app.state.downloads = downloads
     app.state.jav_browser = jav_browser

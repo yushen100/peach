@@ -1,7 +1,11 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
+<<<<<<<< HEAD:web/dist/peach-app.activity-page-CHHVyef6.js
 		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "b58bb1da-90e8-4eaf-bd77-dc3459726c9d", e._sentryDebugIdIdentifier = "sentry-dbid-b58bb1da-90e8-4eaf-bd77-dc3459726c9d");
+========
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "9429452f-d8e4-4eb6-a4a4-de46f842c570", e._sentryDebugIdIdentifier = "sentry-dbid-9429452f-d8e4-4eb6-a4a4-de46f842c570");
+>>>>>>>> 487f6a196c99786291e70eec0120b231da6b0eec:web/dist/peach-app.activity-page-BGir7Pe2.js
 	} catch {}
 })();
 import { Button as e, Bx as t, Chip as n, DataTableFooter as r, Disclosure as i, DownloadsPanel as a, EmptyState as o, Gg as s, HN as c, IssueRow as l, LinkButton as u, Lo as d, Ma as f, NameLink as p, Note as m, OV as h, Pf as g, ProcessingMode as _, RB as v, RUNNING_POLL_MS as y, Rk as b, Su as x, TASKS_KEY as S, TRIGGER_LABELS as C, TaskProgress as w, Xl as T, __toESM as E, activityKind as D, apiGet as O, apiSend as ee, busyProps as k, cardClass as A, codedText as j, confirmModal as te, controlTask as ne, cx as re, elapsedText as ie, errorMessage as M, fetchTasks as ae, fmtSize as oe, foldByKind as se, foldRoutine as ce, followupDetail as le, followupTally as N, groupFollowups as ue, hasResultProblems as P, i2 as F, interfaceLanguage as de, isActive as I, isRoutine as fe, latestOfKind as pe, momentText as L, notifyManager as me, oe as he, pollInterval as ge, problemDestination as _e, progressLabel as ve, progressText as ye, readableErrorHeadline as be, replaceEqualDeep as xe, require_jsx_runtime as Se, require_react as Ce, runError as R, setTaskSpeed as we, statusLabel as Te, summaryItems as Ee, t as z, taskIssues as De, taskName as B, taskSubject as Oe, um as ke, uo as Ae, useMutation as V, useQuery as H, useQueryClient as U, vl as je, withBackoff as W } from "./peach-app.js";
@@ -255,7 +259,8 @@ var Ke = new Map([
 		"jav-covers",
 		"code-samples",
 		"timeline-thumbnails",
-		"entity-avatar"
+		"entity-avatar",
+		"cover-artwork-repair"
 	]],
 	[g, [
 		"performer-profile",
@@ -824,4 +829,8 @@ function lt() {
 }
 export { lt as ActivityPage };
 
+<<<<<<<< HEAD:web/dist/peach-app.activity-page-CHHVyef6.js
 //# debugId=b58bb1da-90e8-4eaf-bd77-dc3459726c9d
+========
+//# debugId=9429452f-d8e4-4eb6-a4a4-de46f842c570
+>>>>>>>> 487f6a196c99786291e70eec0120b231da6b0eec:web/dist/peach-app.activity-page-BGir7Pe2.js

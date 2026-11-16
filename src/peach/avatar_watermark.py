@@ -25,6 +25,9 @@ r"""头像上的站点水印：检出、裁掉或修掉。
 from __future__ import annotations
 
 import hashlib
+import io
+import zipfile
+
 import httpx
 from .peach_proxy import read_url
 from dataclasses import dataclass
@@ -33,10 +36,10 @@ from pathlib import Path
 from .config import TOOLS_DIR
 from .user_messages import UserFacingError
 
-#: opencv_zoo 的 PP-OCRv3 定版检测模型。走 media. 域名的原因和 YuNet 一样：
-#: 仓库用 Git LFS，raw. 域名只会回一个指针文件。
+#: opencv_zoo 的 PP-OCRv3 定版检测模型，钉在人脸模型那个提交（`face_detect.ZOO_COMMIT`）。走 media. 域名的
+#: 原因和 YuNet 一样：仓库用 Git LFS，raw. 域名只会回一个指针文件。
 MODEL_URL = (
-    "https://media.githubusercontent.com/media/opencv/opencv_zoo/main/"
+    "https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/"
     "models/text_detection_ppocr/text_detection_en_ppocrv3_2023may.onnx"
 )
 MODEL_SHA256 = "03f550c6b406fda8bf54bd8327815f6c7e2edd98cea02348c93d879254366587"
@@ -103,25 +106,39 @@ def _digest(path: Path) -> str:
     return digest.hexdigest()
 
 
-def ensure_model(path: Path | None = None, *, allow_download: bool = True) -> Path:
-    """本地那份校验通过就用，否则按固定 URL 取一次再校验。"""
+def ensure_model(path: Path | None = None, *, allow_download: bool = True,
+                 url: str = MODEL_URL, sha256: str = MODEL_SHA256, member: str | None = None) -> Path:
+    """本地那份校验通过就用，否则按固定 URL 取一次再校验。
+
+    `url` 与 `sha256` 给其他定版模型用，例如书脊番号识别的 CRNN（`spine_label`）。`member` 是
+    `url` 指向的压缩包（例如 PyPI 的 wheel）里模型的路径：取下整包、解出这一个文件，校验的是解出来的模型。
+    """
     target = Path(path) if path is not None else MODEL_PATH
-    if target.is_file() and _digest(target) == MODEL_SHA256:
+    # 安装包与 Docker 镜像随包带着（`scripts/fetch_face_models.py`，和人脸模型同一个目录）：先用那一份。
+    from .face_detect import bundled_model
+    bundled = bundled_model(target.name, sha256)
+    if bundled is not None:
+        return bundled
+    if target.is_file() and _digest(target) == sha256:
         return target
     if not allow_download:
         raise WatermarkModelUnavailable("errors.avatarWatermark.modelMissing", {"path": str(target)})
     target.parent.mkdir(parents=True, exist_ok=True)
     partial = target.with_suffix(target.suffix + ".part")
     try:
-        partial.write_bytes(read_url(MODEL_URL, timeout=60))
-    except (OSError, httpx.HTTPError) as error:
+        payload = read_url(url, timeout=120)
+        if member is not None:
+            with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+                payload = archive.read(member)
+        partial.write_bytes(payload)
+    except (OSError, httpx.HTTPError, zipfile.BadZipFile, KeyError) as error:
         partial.unlink(missing_ok=True)
         raise WatermarkModelUnavailable("errors.avatarWatermark.downloadFailed", {"error": str(error)}) from error
     digest = _digest(partial)
-    if digest != MODEL_SHA256:
+    if digest != sha256:
         partial.unlink(missing_ok=True)
         raise WatermarkModelUnavailable("errors.avatarWatermark.checksumMismatch",
-                                        {"expected": MODEL_SHA256, "actual": digest})
+                                        {"expected": sha256, "actual": digest})
     partial.replace(target)
     return target
 

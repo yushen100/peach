@@ -1,6 +1,6 @@
 """人脸模型随安装包分发：取模型的脚本、Docker 镜像的同一组文件，以及完整包到运行时的整条路。
 
-真模型不进测试、不出网：四个文件换成小字节，哈希按它们重算。
+真模型不进测试、不出网：每个文件换成小字节，哈希按它们重算；从 wheel 里解出的那几个装进一个小 zip。
 """
 import hashlib
 import json
@@ -9,9 +9,10 @@ import re
 import tempfile
 import unittest
 from unittest.mock import patch
+import io
 import zipfile
 
-from peach import face_detect, face_match, face_models, update_packages
+from peach import avatar_watermark, body_parts, face_detect, face_match, face_models, spine_label, update_packages
 from support.outcomes import told
 from scripts import fetch_face_models
 from scripts.package_windows_release import package as package_release
@@ -24,15 +25,21 @@ def sha(payload: bytes) -> str:
 
 
 class FixtureCase(unittest.TestCase):
-    """四个文件换成小字节；`FILES` 与两个运行时模块的哈希一起换，脚本与运行时仍是同一组判据。"""
+    """每个文件换成小字节；`FILES` 与两个运行时模块的哈希一起换，脚本与运行时仍是同一组判据。"""
 
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name).resolve()
-        self.payloads = {name: f"fixture {name}".encode() for name, _, _ in fetch_face_models.FILES}
-        self.urls = {url: name for name, url, _ in fetch_face_models.FILES}
-        files = tuple((name, url, sha(self.payloads[name])) for name, url, _ in fetch_face_models.FILES)
+        self.payloads = {name: f"fixture {name}".encode() for name, *_ in fetch_face_models.FILES}
+        self.urls = {url: name for name, url, _, *member in fetch_face_models.FILES if not member}
+        wheel = io.BytesIO()
+        with zipfile.ZipFile(wheel, "w") as archive:
+            for name, _, _, *member in fetch_face_models.FILES:
+                if member:
+                    archive.writestr(member[0], self.payloads[name])
+        self.wheel = wheel.getvalue()
+        files = tuple((name, url, sha(self.payloads[name]), *member) for name, url, _, *member in fetch_face_models.FILES)
         for patcher in (
                 patch.object(fetch_face_models, "FILES", files),
                 patch.object(face_detect, "MODEL_SHA256", sha(self.payloads[face_detect.MODEL_PATH.name])),
@@ -44,7 +51,7 @@ class FixtureCase(unittest.TestCase):
 
     def fetch(self, url: str) -> bytes:
         self.fetched.append(url)
-        return self.payloads[self.urls[url]]
+        return self.wheel if url == fetch_face_models.WHEEL else self.payloads[self.urls[url]]
 
 
 class FetchScriptTests(FixtureCase):
@@ -57,14 +64,18 @@ class FetchScriptTests(FixtureCase):
         self.assertEqual(manifest["commit"], face_detect.ZOO_COMMIT)
         self.assertEqual({model["file"]: (model["license"], model["license_file"]) for model in manifest["models"]},
                          {face_detect.MODEL_PATH.name: ("MIT", "LICENSE-yunet.txt"),
-                          face_match.MODEL_PATH.name: ("Apache-2.0", "LICENSE-sface.txt")})
+                          face_match.MODEL_PATH.name: ("Apache-2.0", "LICENSE-sface.txt"),
+                          avatar_watermark.MODEL_PATH.name: ("Apache-2.0", "LICENSE-ppocr.txt"),
+                          spine_label.RECOGNIZER_PATH.name: ("Apache-2.0", "LICENSE-crnn.txt"),
+                          body_parts.MODEL_PATH.name: ("AGPL-3.0", "LICENSE-nudenet.txt")})
 
     def test_a_verified_cache_is_reused_without_network(self):
         cache = self.root / "cache"
         fetch_face_models.install(self.root / "first", cache=cache, fetch=self.fetch)
-        self.assertEqual(len(self.fetched), 4)
+        downloads = len(self.urls) + 1
+        self.assertEqual(len(self.fetched), downloads, "同一个 wheel 只取一次")
         fetch_face_models.install(self.root / "second", cache=cache, fetch=self.fetch)
-        self.assertEqual(len(self.fetched), 4, "缓存里哈希对得上的文件不再联网")
+        self.assertEqual(len(self.fetched), downloads, "缓存里哈希对得上的文件不再联网")
         self.assertEqual((self.root / "first" / "manifest.json").read_bytes(),
                          (self.root / "second" / "manifest.json").read_bytes(), "清单内容固定，工具包哈希可复现")
 
@@ -75,9 +86,13 @@ class FetchScriptTests(FixtureCase):
         self.assertEqual(list(cache.iterdir()), [])
 
     def test_the_pinned_files_point_at_one_opencv_zoo_commit(self):
-        for name, url, digest in fetch_face_models.FILES:
+        """opencv_zoo 的都钉在同一个提交；从 wheel 里解的钉在 PyPI 上那一个版本的 wheel。"""
+        for name, url, digest, *member in fetch_face_models.FILES:
             with self.subTest(name=name):
-                self.assertEqual(url.split("/opencv_zoo/", 1)[1].split("/", 1)[0], face_detect.ZOO_COMMIT)
+                if member:
+                    self.assertEqual(url, body_parts.MODEL_URL)
+                else:
+                    self.assertEqual(url.split("/opencv_zoo/", 1)[1].split("/", 1)[0], face_detect.ZOO_COMMIT)
                 self.assertTrue(re.fullmatch(r"[0-9a-f]{64}", digest))
 
 
@@ -87,7 +102,13 @@ class DockerImageTests(unittest.TestCase):
         added = {Path(target).name: (url, digest) for digest, url, target in re.findall(
             r"ADD --chmod=a\+rX --checksum=sha256:([0-9a-f]{64}) \\\n\s+(\S+) \\\n\s+(/app/tools/face-models/\S+)",
             dockerfile)}
-        self.assertEqual(added, {name: (url, digest) for name, url, digest in fetch_face_models.FILES})
+        self.assertEqual(added, {name: (url, digest) for name, url, digest, *member in fetch_face_models.FILES
+                                 if not member})
+        self.assertIn(fetch_face_models.WHEEL, dockerfile)
+        for name, _, _, *member in fetch_face_models.FILES:
+            if member:
+                with self.subTest(name=name):
+                    self.assertIn(f"/app/tools/face-models/{name}', 'wb').write(z.read('{member[0]}'))", dockerfile)
         self.assertEqual(re.findall(r"PEACH_FACE_MODELS=(\S+)", dockerfile), ["/app/tools/face-models"])
 
 

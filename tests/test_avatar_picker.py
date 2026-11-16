@@ -943,9 +943,10 @@ class CoverFocusTests(AssetArtworkTests):
     def test_a_face_found_on_another_size_of_the_cover_is_not_trusted(self):
         """封面换成更大的那张之后，旧记录的脸心落在新图上是一块错位的区域。"""
         self.add_asset(11, "ABW-232")
-        sidecar_path(self.cover).write_text(json.dumps(face_record(200, 130)), "utf-8")
-        # 退回正封：400×260 是封套，正封按比例从右缘量回去 0.704 倍高。
-        self.assertEqual(self.focus_of(), {"x0": 217, "y0": 0, "x1": 400, "y1": 260})
+        self.cover.write_bytes(picture(400, 269, "green"))
+        sidecar_path(self.cover).write_text(json.dumps(face_record(200, 134)), "utf-8")
+        # 退回正封：400×269 是标准封套比例，正封按比例从右缘量回去 0.704 倍高。
+        self.assertEqual(self.focus_of(), {"x0": 211, "y0": 0, "x1": 400, "y1": 269})
 
     def test_a_sleeve_with_a_framed_front_panel_uses_that_panel(self):
         self.add_asset(11, "ABW-232")
@@ -959,8 +960,8 @@ class CoverFocusTests(AssetArtworkTests):
         self.add_asset(21, "FC2-PPV-1")
         self.assertIsNone(self.focus_of())
 
-    def whole_cover_history(self) -> dict:
-        self.remember(picture(400, 260, "green"), provider="cover-fallback",
+    def whole_cover_history(self, height: int = 260) -> dict:
+        self.remember(picture(400, height, "green"), provider="cover-fallback",
                       external_id="ABW-232")
         listed = avatar_picker.choices(self.connection, self.providers, self.avatars,
                                        "performer", 7792, cover_root=self.covers)
@@ -974,8 +975,8 @@ class CoverFocusTests(AssetArtworkTests):
         self.assertEqual(choice["focus"], {"x0": 296, "y0": 54, "x1": 344, "y1": 102})
 
     def test_a_whole_cover_without_a_face_record_falls_back_to_the_front_panel(self):
-        self.assertEqual(self.whole_cover_history()["focus"],
-                         {"x0": 217, "y0": 0, "x1": 400, "y1": 260})
+        """标准封套比例才退回正封；比例不标准又没有折痕的是整幅宣传图（`jav_poster_crop._sleeve`）。"""
+        self.assertEqual(self.whole_cover_history(269)["focus"], {"x0": 211, "y0": 0, "x1": 400, "y1": 269})
 
     def test_a_whole_cover_does_not_borrow_the_frame_of_a_replaced_cover(self):
         """#565：封面后来换成别的图，本机边车量的是新图；历史里那张旧封面不套新图的脸框。"""
@@ -1013,12 +1014,13 @@ class CoverFocusTests(AssetArtworkTests):
         """合演封面上最大那张脸多半是领衔的另一位：只标人数，取景退回正封。"""
         self.add_asset(11, "ABW-232")
         self.co_star(11)
-        sidecar_path(self.cover).write_text(json.dumps(face_record(400, 260)), "utf-8")
+        self.cover.write_bytes(picture(400, 269, "green"))
+        sidecar_path(self.cover).write_text(json.dumps(face_record(400, 269)), "utf-8")
         listed = avatar_picker.choices(self.connection, self.providers, self.avatars,
                                        "performer", 7792, cover_root=self.covers)
         choice = next(one for one in listed["choices"] if one["source"] == "asset")
         self.assertEqual(choice["cast"], 2)
-        self.assertEqual(choice["focus"], {"x0": 217, "y0": 0, "x1": 400, "y1": 260})
+        self.assertEqual(choice["focus"], {"x0": 211, "y0": 0, "x1": 400, "y1": 269})
 
     def test_her_own_work_counts_one(self):
         self.add_asset(11, "ABW-232")
@@ -1030,14 +1032,14 @@ class CoverFocusTests(AssetArtworkTests):
     def test_a_whole_shared_cover_shares_the_work_and_skips_the_face(self):
         self.add_asset(11, "ABW-232")
         self.co_star(11)
-        sidecar_path(self.cover).write_text(json.dumps(face_record(400, 260)), "utf-8")
-        self.remember(picture(400, 260, "green"), provider="cover-fallback",
+        self.cover.write_bytes(picture(400, 269, "green"))
+        sidecar_path(self.cover).write_text(json.dumps(face_record(400, 269)), "utf-8")
+        self.remember(picture(400, 269, "green"), provider="cover-fallback",
                       external_id="ABW-232")
         listed = avatar_picker.choices(self.connection, self.providers, self.avatars,
                                        "performer", 7792, cover_root=self.covers)
         choice = next(one for one in listed["choices"] if one["source"] == "asset")
-        self.assertEqual((choice["cast"], choice["focus"]),
-                         (2, {"x0": 217, "y0": 0, "x1": 400, "y1": 260}))
+        self.assertEqual((choice["cast"], choice["focus"]), (2, {"x0": 211, "y0": 0, "x1": 400, "y1": 269}))
         self.assertFalse(any(one["source"] == "history" for one in listed["choices"]))
 
 

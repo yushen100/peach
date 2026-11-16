@@ -966,6 +966,7 @@ def _repair_center(request: Request) -> dict:
     reclaim = getattr(request.app.state, 'follow_evidence', None)
     backfill = getattr(request.app.state, 'follow_backfill', None)
     from . import legacy_repairs
+    covers = getattr(request.app.state, 'cover_repair', None)
     with request.app.state.web_contract.read_connection() as connection:
         result = repair_center.snapshot(connection, receipt, backup_directories=directories,
                                         cloud_pending=service.cloud_display_videos() if service.available else 0,
@@ -976,7 +977,8 @@ def _repair_center(request: Request) -> dict:
                                                       request.app.state.web_contract.ledger_revision()))
                                         if service.available else {},
                                         follow_backfill_status=backfill.snapshot(connection)
-                                        if backfill and service.available else None)
+                                        if backfill and service.available else None,
+                                        cover_repair_status=covers.status() if covers and service.available else None)
     return {**result, 'available': service.available}
 
 

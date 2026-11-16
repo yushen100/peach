@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import follow_backfill, follow_evidence, interface_text, legacy_repairs, system_file_repair
+from . import cover_repair, follow_backfill, follow_evidence, interface_text, legacy_repairs, system_file_repair
 from .media_sources import CLOUD_LOCATIONS
 
 #: 页面上的分组与组内顺序：按改动落在哪类数据上分，组名在 `settings:repairCenter.groups.<组>`。
@@ -23,7 +23,7 @@ GROUPS = (
     ('files', ('display-local', 'display-cloud', 'video-medium', 'quality-bands', 'system-files', 'sidecar-assets',
                'case-duplicates')),
     ('catalog', ('catalog', 'scrape-mark-titles', 'fc2-studios', 'resolution-tags', 'tag-vocabulary',
-                 'dangling-candidates')),
+                 'dangling-candidates', 'cover-artwork')),
     ('people', ('garbled-people', 'avatar-faces', 'javdb-entries', 'entity-links', 'alias-flat-names',
                 'unconfirmed-fc2-cast', 'descriptive-performers', 'code-folder-creators', 'r18-merges')),
     ('follow', ('rule34video-characters', 'rule34-details', 'bluray-duplicates', 'want-acquired', 'follow-evidence')),
@@ -57,6 +57,7 @@ RULES = (
     *((rule.prefix, ('changed',)) for rule in (*legacy_repairs.RULES, *legacy_repairs.CONFIRMS)),
     (follow_evidence.RECEIPT_PREFIX, ('files',)),
     *((job.prefix, ('changed',)) for job in follow_backfill.JOBS),
+    (cover_repair.RECEIPT_PREFIX, ('judged', 'recropped', 'faces')),
 )
 #: 资料整理回执里不算「改动」的计数：重新探测、转人工与来源快照失效只是排队或让缓存重取，不是改了资料。
 _NOT_CHANGES = ('probe_retry', 'text_review', 'text_snapshots_invalidated')
@@ -147,6 +148,23 @@ def _follow_evidence(status: dict | None, rows) -> dict:
     return {'state': 'done', 'changed': _count(last.get('files'))} if last else {'state': 'none'}
 
 
+def _cover_artwork(status: dict | None, rows) -> dict:
+    """封面补修：在做就报进度，估算出有待处理的封面就报排队（服务起来后自动开工），做过且没剩下的报上一次改了多少张。"""
+    status = status or {}
+    phase = status.get('phase')
+    if phase == 'running':
+        return {'state': 'running', 'done': status.get('done', 0), 'total': status.get('total', 0)}
+    if phase == 'failed':
+        return {'state': 'failed', 'error': status.get('error', '')}
+    if phase == 'estimating':
+        return {'state': 'pending', 'estimating': True}
+    if phase == 'ready' and status.get('covers'):
+        return {'state': 'pending', 'covers': status['covers']}
+    last = next((result for row_id, _, result in rows if row_id.startswith(cover_repair.RECEIPT_PREFIX)), None)
+    return ({'state': 'done', 'changed': sum(_count(last.get(key)) for key in ('judged', 'recropped', 'faces'))}
+            if last else {'state': 'none'})
+
+
 def _display_progress(connection) -> dict[bool, tuple[int, int]]:
     """显示尺寸补测按来源拆开的进度：`{是否网盘: (完成几部, 一共几部)}`。
 
@@ -203,7 +221,7 @@ def _confirmed(rows, prefix: str, pending: int) -> dict:
 
 def snapshot(connection, receipt: dict, *, cloud_pending: int, backup_directories=(),
              follow_evidence_status: dict | None = None, confirm_pending: dict | None = None,
-             follow_backfill_status: dict | None = None) -> dict:
+             follow_backfill_status: dict | None = None, cover_repair_status: dict | None = None) -> dict:
     rows = sorted(((row[0], float(row[1] or 0), json.loads(row[2] or '{}')) for row in connection.execute(
         'SELECT id, applied_at, result_json FROM ledger_upgrade_repair')), key=lambda row: row[1], reverse=True)
     local = receipt.get('local', {})
@@ -237,6 +255,7 @@ def snapshot(connection, receipt: dict, *, cloud_pending: int, backup_directorie
         **{rule.item: _receipt_fact(rows, rule.prefix, 'changed') for rule in legacy_repairs.RULES},
         **{rule.item: _confirmed(rows, rule.prefix, (confirm_pending or {}).get(rule.item, 0))
            for rule in legacy_repairs.CONFIRMS},
+        'cover-artwork': _cover_artwork(cover_repair_status, rows),
     }
     items = [{'id': key, 'group': group, 'title': interface_text.text(f'server:repairCenter.items.{key}.title'),
               'summary': interface_text.text(f'server:repairCenter.items.{key}.summary'), 'mode': mode, **facts[key]}

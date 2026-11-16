@@ -286,6 +286,7 @@
       "catalog": "Metadata and code cleanup",
       "dangling-candidates": "Stale review candidates",
       "follow-evidence-reclaim": "Old follow snapshots removed",
+      "cover-artwork": "Layout of installed covers",
       "javdb-actor-records": "JavDB links on people pages",
       "quality-resolution": "Quality bands",
       "source-resolution-tags": "4K tags from sources",
@@ -322,6 +323,10 @@
       "catalog": {
         "summary": "Fixes codes, titles, and other automatic metadata under the new rules. Your manual edits are kept.",
         "title": "Metadata and code cleanup"
+      },
+      "cover-artwork": {
+        "summary": "After an upgrade, re-crops covers saved by earlier versions in the background and switches to DVD sleeves of similar quality. Originals are backed up first.",
+        "title": "Layout of installed covers"
       },
       "dangling-candidates": {
         "summary": "Candidates left by deleted assets move to the file's new ID. Ones that don't match are withdrawn.",
@@ -526,6 +531,7 @@
     "amane-bridge": "amane bridge rebuild",
     "batch": "Batch action",
     "code-samples": "Sample image fetch",
+    "cover-artwork-repair": "Cover layout repair",
     "creator-identity": "Creator identity lookup",
     "diagnostic-export": "Diagnostic export",
     "download-postprocess": "Cloud download post-processing",
@@ -3042,6 +3048,11 @@
         "pushDiscovery": "Push discovery",
         "downloads": "Download settings"
       }
+    },
+    "coverRepair": {
+      "runLabel": "Re-check cover layouts",
+      "stoppedByUser": "Stopped by the user",
+      "serviceStopped": "The service stopped; it continues on the next start"
     },
     "followScheduler": {
       "runtimeUnavailable": "Status of the last automatic check was not found",

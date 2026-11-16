@@ -63,6 +63,7 @@ function reading(item: RepairItem) {
   if (item.files) return t('settings:repairCenter.reclaimable', { size: fmtSize(item.bytes || 0) });
   if (item.state === 'pending' && item.online) return t('settings:repairCenter.pendingChecks', { count: item.pending || 0 });
   if (item.state === 'waiting' && item.backed_up) return t('settings:repairCenter.pendingFixes', { count: item.pending || 0 });
+  if (item.covers) return t('settings:repairCenter.pendingCovers', { count: item.covers });
   if (item.state === 'waiting') return item.pending ? t('settings:repairCenter.pendingRecheck', { count: item.pending }) : '';
   if (progressing(item)) return '';
   if (item.total) return `${number(item.done)} / ${number(item.total)}`;

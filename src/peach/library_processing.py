@@ -994,12 +994,13 @@ class LibraryMetadataProvider:
                 raise _unreached(problems)
             raise CoverKept('errors.libraryProcessing.coverNotImproved', {'width': size[0], 'height': size[1]})
         from .cover_artwork import install_cover
-        from .jav_cover_fetch import is_javdb_image
+        from .jav_cover_fetch import dmm_portrait, is_javdb_image
         title = artwork_title(snapshots)
+        portrait = dmm_portrait(self.transport, candidate.url, deadline=_extended(deadline, self.excused - mark))
         install_cover(target, code, data, size, evidence=dict(source=candidate.source, title=title,
             source_url=candidate.url, width=size[0], height=size[1], verified_by=list(verified_by),
             raw_sha256=hashlib.sha256(data).hexdigest(), checked_at=time.time(),
-            **({'watermarked': True} if is_javdb_image(candidate.url, candidate.source) else {})))
+            **({'watermarked': True} if is_javdb_image(candidate.url, candidate.source) else {})), portrait=portrait)
         return True
 
     def reset(self):

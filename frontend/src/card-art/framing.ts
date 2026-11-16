@@ -83,8 +83,14 @@ export function coverAnchor(img: HTMLImageElement, ratio?: number): void {
   ['--panel-aspect', '--panel-clip', '--panel-left', '--panel-top', '--panel-height', '--cover-x', '--cover-y']
     .forEach(name => img.style.removeProperty(name));
   const code = img.dataset.coverCode || new URL(img.currentSrc || img.src, location.href).searchParams.get('code') || '';
-  // FC2 封面是整幅画面，横向取景跟随人脸；宽高比不代表有 DVD 正封。
-  img.dataset.frame = img.dataset.coverLayout === 'still' || /^FC2(?:-PPV)?-/i.test(code) ? 'still' : wideSleeve(img) ? 'sleeve' : r >= 1.65 ? 'still' : r > 1.2 ? 'sleeve' : 'front';
+  /* 装好的 DMM 竖版正封本身就是正封：人脸、整幅标记和正封框描述的都是横图，这张一概不用。
+     FC2 封面是整幅画面，横向取景跟随人脸；宽高比不代表有 DVD 正封。 */
+  img.dataset.frame = showsFront(img) ? 'front'
+    : img.dataset.coverLayout === 'still' || /^FC2(?:-PPV)?-/i.test(code) ? 'still' : wideSleeve(img) ? 'sleeve' : r >= 1.65 ? 'still' : r > 1.2 ? 'sleeve' : 'front';
+  if (img.dataset.frame === 'front' && showsFront(img)) {
+    if (Math.abs(r / car - 1) > .02) coverBackdrop(img);
+    return;
+  }
   /* `object-position` 的百分比说的是「图片上这个点对齐可见窗口的同一个百分比位置」，
      不是「这个点落到窗口正中」。所以人脸中心原样当锚点只能保证脸还在画面里：0.81
      那种偏右的脸会贴着窗口右缘，图片右边还剩一截永远露不出来。可见窗口占图片 w 时，
@@ -141,6 +147,11 @@ export function posterPanel(img: HTMLImageElement, ratio: number): void {
 function coverBackdrop(img: HTMLImageElement): void {
   const src = (img.dataset.thumbSrc || img.currentSrc || img.src).replace(/"/g, '%22');
   img.closest<HTMLElement>('.pic,[data-media-pic]')?.style.setProperty('--cover-blur', `url("${src}")`);
+}
+
+/** 这一格现在显示的是装好的竖版正封吗：地址带 `front=1`。 */
+function showsFront(img: HTMLImageElement): boolean {
+  return Boolean(img.dataset.coverFront) && /[?&]front=1(?=&|$)/.test(img.getAttribute('src') || '');
 }
 
 function wideSleeve(img: HTMLImageElement): boolean {

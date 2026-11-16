@@ -14,6 +14,8 @@ export interface RepairItem {
   backed_up?: boolean;
   /** 逐条联网补填的自动项：`pending` 是还剩几条要问，等下次启动接着补。 */
   online?: boolean;
+  /** 封面版式补修：等确认时待处理的封面数。 */
+  covers?: number;
 }
 /** `rule` 是修复规则的 id，按它取译文；`id` 是这一次执行的记录号。 */
 export interface RepairHistory { id: string; rule: string; title: string; at: number; changed: number; backups: { name: string; exists: boolean }[] }

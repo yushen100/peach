@@ -231,6 +231,7 @@ export function problemDestination(run: TaskRunPayload, latest = true): { href: 
     'taste-refresh': ['/taste', t('manage:taskLinks.tasteSources')],
     'follow-evidence-reclaim': ['/settings/maintenance/repairs', t('manage:taskLinks.repairs')],
     'follow-backfill': ['/settings/maintenance/repairs', t('manage:taskLinks.repairs')],
+    'cover-artwork-repair': ['/settings/maintenance/repairs', t('manage:taskLinks.repairs')],
   };
   const target = targets[run.task_key];
   return target ? { href: target[0], label: target[1] } : null;

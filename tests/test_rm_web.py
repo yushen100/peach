@@ -3822,6 +3822,27 @@ class JavModeAndCoverTests(unittest.TestCase):
                 rm_web.q_items(self.contract, {"jav": "1", "limit": "20"})["items"]}
         self.assertIsNone(rows[1]["poster_box"])
 
+    def test_a_whole_picture_and_its_front_image_reach_the_card_frame(self):
+        """竖版图证明不是封套时人脸边车不一定在，卡片仍得知道不能切、大图位改用竖版正封。"""
+        (self.covers / "ABW-232.jpg").write_bytes(b"x")
+        (self.covers / "ABW-232.poster.json").write_text(json.dumps({
+            "version": jav_poster_crop.ALGORITHM_VERSION, "px": [2184, 1542], "layout": "still",
+            "front": [1536, 2184], "box": {"x0": 0, "y0": 0, "x1": 2184, "y1": 1542, "method": "none"},
+        }), encoding="utf-8")
+        self.contract.cache_bust()
+        # 竖版正封文件不在：页面照旧用横图，不去取一张 404。
+        self.assertEqual(self.contract.cover_frame("ABW-232"), {"layout": "still"})
+        (self.covers / "front").mkdir()
+        (self.covers / "front" / "ABW-232.jpg").write_bytes(b"x")
+        self.contract.cache_bust()
+        self.assertEqual(self.contract.cover_frame("ABW-232"), {"layout": "still", "front": True})
+        self.assertIsNone(self.contract.poster_box("ABW-232"))
+        (self.covers / "ABW-232.face.json").write_text(
+            '{"ratio":1.42,"face":{"cx":0.3,"cy":0.2}}', encoding="utf-8")
+        self.contract.cache_bust()
+        self.assertEqual(self.contract.cover_frame("ABW-232"),
+                         {"cx": 0.3, "cy": 0.2, "layout": "still", "front": True})
+
     def test_a_stale_or_corrupt_poster_sidecar_is_ignored(self):
         (self.covers / "ABW-232.jpg").write_bytes(b"x")
         (self.covers / "ABW-232.poster.json").write_text("{not json", encoding="utf-8")
