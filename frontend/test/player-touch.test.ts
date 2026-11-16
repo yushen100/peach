@@ -23,10 +23,11 @@ function fixture(paused = false, touchEnabled = true) {
 }
 
 describe('播放器按实际输入区分触摸和鼠标', () => {
-  it('外部接管手势的无控制条播放器不接管触摸', () => {
-    const { video, root, pointer, abort } = fixture(false, false);
+  it('外部接管手势的无控制条播放器不接管触摸，画面单击也交给宿主', () => {
+    const { video, root, pointer, click, abort } = fixture(false, false); const pause = vi.spyOn(video, 'pause');
     pointer('pointerdown', 100); pointer('pointermove', 800); pointer('pointerup', 800);
-    expect(video.currentTime).toBe(1200); expect(root.dataset.playerInput).toBeUndefined(); abort.abort();
+    expect(video.currentTime).toBe(1200); expect(root.dataset.playerInput).toBeUndefined();
+    click(); expect(pause).not.toHaveBeenCalled(); abort.abort();
   });
   it('鼠标点击的中央提示在媒体状态切换前取值', () => {
     const { video, root, click, abort } = fixture(); let paused = false;

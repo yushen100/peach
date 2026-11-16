@@ -208,7 +208,8 @@ export function wirePlayerInteractions(root: HTMLElement, video: HTMLVideoElemen
       event.preventDefault(); event.stopImmediatePropagation(); return;
     }
   }, { signal, capture: true });
-  video.addEventListener('click', () => {
+  // 没有控件条的播放器（沉浸模式每一格）由宿主自己管画面点击：这里再切一次，一下单击就切两次等于没切。
+  if (touchEnabled) video.addEventListener('click', () => {
     if (video.paused) void video.play().catch(() => {}); else video.pause();
   }, { signal });
   root.addEventListener('dblclick', event => {
