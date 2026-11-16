@@ -2954,6 +2954,21 @@ class UpgradeRepairTests(unittest.TestCase):
         self.assertEqual(prune_local_evidence(path, {}), 1)
         self.assertEqual(prune_local_evidence(self.root / 'absent.json', {}), 0)
 
+    def test_local_evidence_the_cross_run_index_points_at_survives_a_new_run(self):
+        """新一轮的状态从空开始，跨任务索引（#587）指着的证据与索引本身照样留着，其余收走。"""
+        from peach.library_processing import prune_local_evidence
+        path = self.root / 'state' / 'library-processing.json'
+        items = path.parent / 'library-processing-items'
+        items.mkdir(parents=True)
+        for name in ('1-aaa.json', '2-bbb.json', '3-ccc.json'):
+            (items / name).write_text('{}', encoding='utf-8')
+        (items / 'index.json').write_text(json.dumps({'entries': {'1:x': ['stamp', '1-aaa.json']}}), encoding='utf-8')
+        self.assertEqual(prune_local_evidence(path, {'2:y': str(items / '2-bbb.json')}), 1)
+        self.assertEqual(sorted(item.name for item in items.iterdir()), ['1-aaa.json', '2-bbb.json', 'index.json'])
+        (items / 'index.json').write_text('not json', encoding='utf-8')
+        self.assertEqual(prune_local_evidence(path, {}), 2)
+        self.assertEqual([item.name for item in items.iterdir()], ['index.json'])
+
     def test_a_new_text_rule_does_not_resume_completed_metadata_from_the_old_rule(self):
         from peach.settings_file import load_config
         self.contract.upgrade_config = load_config(environ={'PEACH_DATA_ROOT': str(self.root)})
