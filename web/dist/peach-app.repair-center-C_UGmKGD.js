@@ -1,15 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-<<<<<<<< HEAD:web/dist/peach-app.repair-center-6s5n1y2T.js
-<<<<<<<< HEAD:web/dist/peach-app.repair-center-6s5n1y2T.js
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "0c360de7-83bc-4a15-8c9e-c999ec5b5886", e._sentryDebugIdIdentifier = "sentry-dbid-0c360de7-83bc-4a15-8c9e-c999ec5b5886");
-========
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "d64a0682-7762-4af1-aa34-0dad88861608", e._sentryDebugIdIdentifier = "sentry-dbid-d64a0682-7762-4af1-aa34-0dad88861608");
->>>>>>>> 487f6a196c99786291e70eec0120b231da6b0eec:web/dist/peach-app.repair-center-Cv0UDHlA.js
-========
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "6d5aeb10-d2fd-4c75-913a-e45bb6ad5d6f", e._sentryDebugIdIdentifier = "sentry-dbid-6d5aeb10-d2fd-4c75-913a-e45bb6ad5d6f");
->>>>>>>> 6f98f7af4 (build(web): 并入主线最新改动后按合并源码重建前端产物):web/dist/peach-app.repair-center-DbgoFrj8.js
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "329f7d51-af2f-4b03-8ab8-d6b584784308", e._sentryDebugIdIdentifier = "sentry-dbid-329f7d51-af2f-4b03-8ab8-d6b584784308");
 	} catch {}
 })();
 import { Button as e, LinkButton as t, Note as n, Progress as r, REPAIRS_KEY as i, RESULT_PANEL as a, RESULT_SECTION as o, SectionHeading as s, StatusLabel as c, apiSend as l, confirmModal as u, fetchRepairs as d, fmtSize as f, i2 as p, interfaceLanguage as m, localizeRepairs as h, queryClient as g, repairCenterPanelSkeleton as _, require_jsx_runtime as v, t as y, useAction as b, useQuery as x, withBackoff as S } from "./peach-app.js";
@@ -42,19 +34,9 @@ var w = v(), T = {
 }), A = (e) => y("settings:repairCenter.filesAndSize", {
 	count: e.files || 0,
 	size: f(e.bytes || 0)
-<<<<<<<< HEAD:web/dist/peach-app.repair-center-6s5n1y2T.js
 }), j = (e) => e.state === "running" && !!e.total, M = (e) => !!e.estimating || e.state === "running", N = S((e) => e?.items.some(M) ? 2e3 : !1);
 function P(e) {
-	return e.estimating ? y("settings:repairCenter.estimating") : e.state === "failed" && e.error ? e.error : e.files ? y("settings:repairCenter.reclaimable", { size: f(e.bytes || 0) }) : e.state === "pending" && e.online ? y("settings:repairCenter.pendingChecks", { count: e.pending || 0 }) : e.state === "waiting" && e.backed_up ? y("settings:repairCenter.pendingFixes", { count: e.pending || 0 }) : e.state === "waiting" ? e.pending ? y("settings:repairCenter.pendingRecheck", { count: e.pending }) : "" : j(e) ? "" : e.total ? `${O(e.done)} / ${O(e.total)}` : e.changed ? y("settings:repairCenter.changedCount", { count: e.changed }) : "";
-========
-}), k = (e) => e.state === "running" && !!e.total, A = (e) => !!e.estimating || e.state === "running", j = S((e) => e?.items.some(A) ? 2e3 : !1);
-function M(e) {
-<<<<<<<< HEAD:web/dist/peach-app.repair-center-6s5n1y2T.js
-	return e.estimating ? y("settings:repairCenter.estimating") : e.state === "failed" && e.error ? e.error : e.files ? y("settings:repairCenter.reclaimable", { size: f(e.bytes || 0) }) : e.covers ? y("settings:repairCenter.pendingCovers", { count: e.covers }) : e.state === "waiting" ? e.pending ? y("settings:repairCenter.pendingRecheck", { count: e.pending }) : "" : k(e) ? "" : e.total ? `${E(e.done)} / ${E(e.total)}` : e.mode === "confirm" ? "" : e.changed ? y("settings:repairCenter.changedCount", { count: e.changed }) : "";
->>>>>>>> 487f6a196c99786291e70eec0120b231da6b0eec:web/dist/peach-app.repair-center-Cv0UDHlA.js
-========
-	return e.estimating ? y("settings:repairCenter.estimating") : e.state === "failed" && e.error ? e.error : e.files ? y("settings:repairCenter.reclaimable", { size: f(e.bytes || 0) }) : e.state === "waiting" && e.backed_up ? y("settings:repairCenter.pendingFixes", { count: e.pending || 0 }) : e.covers ? y("settings:repairCenter.pendingCovers", { count: e.covers }) : e.state === "waiting" ? e.pending ? y("settings:repairCenter.pendingRecheck", { count: e.pending }) : "" : k(e) ? "" : e.total ? `${E(e.done)} / ${E(e.total)}` : e.mode === "confirm" ? "" : e.changed ? y("settings:repairCenter.changedCount", { count: e.changed }) : "";
->>>>>>>> 6f98f7af4 (build(web): 并入主线最新改动后按合并源码重建前端产物):web/dist/peach-app.repair-center-DbgoFrj8.js
+	return e.estimating ? y("settings:repairCenter.estimating") : e.state === "failed" && e.error ? e.error : e.files ? y("settings:repairCenter.reclaimable", { size: f(e.bytes || 0) }) : e.state === "pending" && e.online ? y("settings:repairCenter.pendingChecks", { count: e.pending || 0 }) : e.state === "waiting" && e.backed_up ? y("settings:repairCenter.pendingFixes", { count: e.pending || 0 }) : e.covers ? y("settings:repairCenter.pendingCovers", { count: e.covers }) : e.state === "waiting" ? e.pending ? y("settings:repairCenter.pendingRecheck", { count: e.pending }) : "" : j(e) ? "" : e.total ? `${O(e.done)} / ${O(e.total)}` : e.changed ? y("settings:repairCenter.changedCount", { count: e.changed }) : "";
 }
 function F({ title: e, description: t, progress: n, children: r }) {
 	return /* @__PURE__ */ (0, w.jsxs)("div", {
@@ -226,12 +208,4 @@ function L() {
 }
 export { L as RepairCenterPage, N as repairsInterval };
 
-<<<<<<<< HEAD:web/dist/peach-app.repair-center-6s5n1y2T.js
-<<<<<<<< HEAD:web/dist/peach-app.repair-center-6s5n1y2T.js
-//# debugId=0c360de7-83bc-4a15-8c9e-c999ec5b5886
-========
-//# debugId=d64a0682-7762-4af1-aa34-0dad88861608
->>>>>>>> 487f6a196c99786291e70eec0120b231da6b0eec:web/dist/peach-app.repair-center-Cv0UDHlA.js
-========
-//# debugId=6d5aeb10-d2fd-4c75-913a-e45bb6ad5d6f
->>>>>>>> 6f98f7af4 (build(web): 并入主线最新改动后按合并源码重建前端产物):web/dist/peach-app.repair-center-DbgoFrj8.js
+//# debugId=329f7d51-af2f-4b03-8ab8-d6b584784308
