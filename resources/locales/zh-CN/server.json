@@ -4181,7 +4181,7 @@
       "mobileBroadbandHint": "中国移动宽带直连 DMM 图片主机常在握手后被断开，请把 DMM / FANZA 的连接方式设成 Peach 代理。",
       "target": {
         "page": "来源页面",
-        "cdn": "高清图片 CDN"
+        "cdn": "图片 CDN"
       },
       "cooldown": "来源正在冷却，请稍后重试。",
       "proxy": "代理连接失败，请检查 Peach 代理。",
@@ -4194,7 +4194,8 @@
       "signIn": "来源要求登录或验证，请在官网完成登录后重试。",
       "reason": "{{reason}}。",
       "unavailable": "来源暂不可用，请稍后重试。",
-      "needsCode": "片商官网按番号选择，请输入馆藏番号检查高清封面。"
+      "needsCode": "片商官网按番号选择，请输入馆藏番号检查高清封面。",
+      "noImageHost": "这个来源没有固定的图片主机，图片这一跳未检查。"
     },
     "sourcePreflight": {
       "outcome": {

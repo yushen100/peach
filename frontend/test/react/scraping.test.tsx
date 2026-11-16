@@ -196,7 +196,7 @@ it('保存失败时原因留在卡内，列表和刚填的内容都不动', asyn
 it('连接结果按来源名称与这一跳查的是什么说成一句话', async () => {
   const results: Check[] = [
     { target: 'page', label: '来源页面', ok: true, width: 800, height: 538 },
-    { target: 'cdn', label: '高清图片 CDN', ok: false, status: 403, message: '需要登录' },
+    { target: 'cdn', label: '图片 CDN', ok: false, status: 403, message: '需要登录' },
   ];
   const { host } = await open({
     ...quiet(),
@@ -208,7 +208,25 @@ it('连接结果按来源名称与这一跳查的是什么说成一句话', asyn
   expect(host.querySelector('[role=status] [data-connection-tone="success"]')?.textContent).toBe('可访问');
   expect(host.querySelector('[role=status]')?.textContent).toContain('JavBus：可连接 · 800 × 538');
   expect(host.querySelector('[role=alert] [data-connection-tone="error"]')?.textContent).toBe('连接失败');
-  expect(host.querySelector('[role=alert]')?.textContent).toContain('JavBus 高清图片：不能连接。需要登录');
+  expect(host.querySelector('[role=alert]')?.textContent).toContain('JavBus 图片：不能连接。需要登录');
+});
+
+it('没有固定图片主机的来源，图片那一跳标未检查，不显示成连接失败', async () => {
+  const results: Check[] = [
+    { target: 'page', label: '来源页面', ok: true },
+    { target: 'cdn', label: '图片 CDN', ok: false, kind: 'unchecked', message: '这个来源没有固定的图片主机，图片这一跳未检查。' },
+  ];
+  const { host } = await open({
+    ...quiet(),
+    'POST /api/scraping/check': () => ({ body: { results } }),
+  });
+  await click(buttonNamed('检查连接', host));
+  await settle();
+
+  const unchecked = host.querySelector('[data-connection-tone="neutral"]');
+  expect(unchecked?.textContent).toBe('未检查');
+  expect(host.querySelector('[data-connection-tone="error"]')).toBeNull();
+  expect(host.textContent).toContain('JavBus 图片：未检查');
 });
 
 it('Cookie 二选一：切过去的那一种才交，另一种连输入都不留', async () => {

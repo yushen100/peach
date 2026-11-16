@@ -56,6 +56,7 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Following**: Subscriptions skip an actress's JavDB censored page while her DMM catalogue fetches fine (#704). / **关注**：女优的 DMM 片单抓取正常时，订阅跳过她在 JavDB 的有码页（#704）。
 - **Sourcing**: Scheduled Wants checks skip JavDB once manko already has 1080p or better (#704). / **采集**：「想要」定时查找在 manko 已有 1080p 以上时不再问 JavDB（#704）。
 - **Sourcing**: Complete work details fetched after release are kept as local metadata instead of being refetched (#704). / **采集**：发行后取齐的作品资料留作本地资料，不再定期重取（#704）。
+- **Sourcing**: Check connection and Check all also test the image hosts of r18.dev, JavDB, JavBus and MGStage, and mark sources without a fixed image host as not checked (#377). / **采集**：「检查连接」与「全部检查」也检查 r18.dev、JavDB、JavBus、MGStage 的图片主机，没有固定图片主机的来源标为未检查（#377）。
 - **Library**: Tags in details and Following details are read-only; add or remove them in Edit details, or with Edit tags at the end of the tag row (#187). / **馆藏**：详情与关注详情的标签平时只读，增删分别移到「编辑资料」和标签行尾的「编辑标签」里（#187）。
 - **Interface**: Regions read Japanese, Korean, Chinese and Western in the English interface (#187). / **界面**：英文界面的产地统一写作 Japanese、Korean、Chinese、Western（#187）。
 - **Interface**: Batch actions ask for confirmation first, and the reversible ones offer Undo (#690). / **界面**：批量操作都先确认再执行，能撤回的带撤销（#690）。

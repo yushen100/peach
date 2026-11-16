@@ -222,11 +222,14 @@ function SourceCard({ source, toast }: { source: Source } & ScrapingProps) {
               </div>}
         </> : null}
         {problem ? <ErrorText>{problem}</ErrorText> : null}
-        {results.map((result) => (
-          <Note key={result.label} tone={result.ok ? 'success' : 'error'}>
-            <span className="flex flex-col items-start gap-1"><ConnectionStatus tone={result.ok ? 'success' : 'error'}>{result.ok ? t('manage:sourceSettings.reachable') : t('manage:sourceSettings.connectionFailed')}</ConnectionStatus><span>{checkText(result, codedText(source, 'label'))}</span></span>
-          </Note>
-        ))}
+        {results.map((result) => {
+          const tone = result.kind === 'unchecked' ? 'neutral' : result.ok ? 'success' : 'error';
+          const status = result.kind === 'unchecked' ? t('manage:sourceSettings.unchecked')
+            : result.ok ? t('manage:sourceSettings.reachable') : t('manage:sourceSettings.connectionFailed');
+          return <Note key={result.label} tone={tone}>
+            <span className="flex flex-col items-start gap-1"><ConnectionStatus tone={tone}>{status}</ConnectionStatus><span>{checkText(result, codedText(source, 'label'))}</span></span>
+          </Note>;
+        })}
       </Stack> : null}
       {/* 主体动作在最右。次级动作先出现，`保存` 是这张卡唯一的写入，放在一行的末尾；
           表单里只有它一个 `type=submit`，所以挪位置不影响回车提交。 */}

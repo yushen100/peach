@@ -4181,7 +4181,7 @@
       "mobileBroadbandHint": "On China Mobile broadband, direct connections to DMM image hosts are often dropped after the handshake; set the DMM / FANZA connection to the Peach proxy.",
       "target": {
         "page": "Source page",
-        "cdn": "HD image CDN"
+        "cdn": "Image CDN"
       },
       "cooldown": "The source is cooling down. Try again later.",
       "proxy": "The proxy connection failed. Check the Peach proxy.",
@@ -4194,7 +4194,8 @@
       "signIn": "The source requires sign-in or verification. Sign in on the official site, then try again.",
       "reason": "{{reason}}.",
       "unavailable": "The source is unavailable right now. Try again later.",
-      "needsCode": "Studio sites are picked by code. Enter a code from your collection to check the HD cover."
+      "needsCode": "Studio sites are picked by code. Enter a code from your collection to check the HD cover.",
+      "noImageHost": "This source has no fixed image host, so images weren't checked."
     },
     "sourcePreflight": {
       "outcome": {

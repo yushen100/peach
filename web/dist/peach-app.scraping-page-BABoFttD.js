@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "3dc77063-be10-461e-84cb-a2973a5afe44", e._sentryDebugIdIdentifier = "sentry-dbid-3dc77063-be10-461e-84cb-a2973a5afe44");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "52fdab35-e74d-4709-859e-3081f9fd253f", e._sentryDebugIdIdentifier = "sentry-dbid-52fdab35-e74d-4709-859e-3081f9fd253f");
 	} catch {}
 })();
 import { $fe21c36db05242bb$export$d7b12c4107be0d61 as e, AMANE_BRIDGE_CHECK_URL as t, AMANE_BRIDGE_KEY as n, AMANE_BRIDGE_REBUILD_URL as r, Button as i, CHECK_ALL_KEY as a, COVER_JOB_KEY as o, CUSTOM_SOURCES_KEY as s, CUSTOM_SOURCES_URL as c, Checkbox as l, Disclosure as u, ErrorText as d, ExternalLink as f, Fact as p, FactList as m, FieldLabel as h, Footer as g, Help as _, Input as v, IssueRow as y, LinkButton as ee, Note as b, Rows as te, SCRAPING_CHECK_ALL_URL as x, SCRAPING_CHECK_URL as ne, SCRAPING_COVER_URL as S, SCRAPING_KEY as C, SCRAPING_SETTINGS_URL as re, SEGMENT as ie, SEGMENTED_TRACK as ae, Section as w, SegmentedRadioGroup as oe, Select$1 as se, SelectField as T, SelectItem as ce, SettingsRow as le, Stack as E, StatusLabel as D, TaskProgress as O, __toESM as k, activityKind as A, apiSend as j, busyProps as M, checkText as ue, codedText as N, composingKey as P, confirmModal as de, errorMessage as F, esc as fe, fetchAmaneBridge as I, fetchCheckAllJob as L, fetchCoverJob as R, fetchCustomSources as z, fetchSources as pe, i2 as me, interfaceLanguage as he, jobText as B, joinList as ge, momentText as _e, partsLabel as ve, queryClient as V, require_jsx_runtime as ye, require_react as be, serverLabel as xe, spinnerHtml as Se, t as H, useAction as U, useBackgroundJob as W, useMutation as G, useQuery as K } from "./peach-app.js";
@@ -407,16 +407,19 @@ function Pe({ source: t, toast: n }) {
 						})
 					] }) : null,
 					L ? /* @__PURE__ */ (0, X.jsx)(d, { children: L }) : null,
-					R.map((e) => /* @__PURE__ */ (0, X.jsx)(b, {
-						tone: e.ok ? "success" : "error",
-						children: /* @__PURE__ */ (0, X.jsxs)("span", {
-							className: "flex flex-col items-start gap-1",
-							children: [/* @__PURE__ */ (0, X.jsx)(Ce, {
-								tone: e.ok ? "success" : "error",
-								children: e.ok ? H("manage:sourceSettings.reachable") : H("manage:sourceSettings.connectionFailed")
-							}), /* @__PURE__ */ (0, X.jsx)("span", { children: ue(e, N(t, "label")) })]
-						})
-					}, e.label))
+					R.map((e) => {
+						let n = e.kind === "unchecked" ? "neutral" : e.ok ? "success" : "error", r = e.kind === "unchecked" ? H("manage:sourceSettings.unchecked") : e.ok ? H("manage:sourceSettings.reachable") : H("manage:sourceSettings.connectionFailed");
+						return /* @__PURE__ */ (0, X.jsx)(b, {
+							tone: n,
+							children: /* @__PURE__ */ (0, X.jsxs)("span", {
+								className: "flex flex-col items-start gap-1",
+								children: [/* @__PURE__ */ (0, X.jsx)(Ce, {
+									tone: n,
+									children: r
+								}), /* @__PURE__ */ (0, X.jsx)("span", { children: ue(e, N(t, "label")) })]
+							})
+						}, e.label);
+					})
 				]
 			}) : null,
 			/* @__PURE__ */ (0, X.jsxs)(g, { children: [
@@ -738,4 +741,4 @@ function Ve({ toast: e }) {
 }
 export { Ve as ScrapingPage, je as linkHost, Ae as networkOptions };
 
-//# debugId=3dc77063-be10-461e-84cb-a2973a5afe44
+//# debugId=52fdab35-e74d-4709-859e-3081f9fd253f
