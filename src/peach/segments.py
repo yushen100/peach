@@ -214,10 +214,12 @@ class HlsSegmentService:
         _, size, mtime = self.fingerprint(source)
         # 版本号跟着转码命令走：命令一变，磁盘上按另一套命令转出来的片段就得失效，
         # 否则换了解码器，播放器拿到的仍是缓存里那些绿帧。
-        # 画质上限同理：原画沿用旧目录名，换一档就是另一套片段。
+        # v3：QSV 全硬件链等后端改了命令却没换目录，v2 目录里的旧片段与新片段可能出自不同编码器，
+        # 同一次播放混着放会在片段交界处换参数集；升级后旧目录不再命中，按需重转、按容量淘汰。
+        # 画质上限同理：原画不带后缀，换一档就是另一套片段。
         # 只转音轨与 MKV 码流复制各用一套目录：命令、切点与视频重编码那套都不同。
         quality = f"-{max_height}p" if max_height in QUALITY_BITRATES else ""
-        flavor = (f'-h264-v2{quality}' if transcode else '-aac-v2' if audio_transcode
+        flavor = (f'-h264-v3{quality}' if transcode else '-aac-v2' if audio_transcode
                   else '-mkv-v1' if source.suffix.lower() == '.mkv' else '')
         return self.work_root / str(asset_id) / f"{size}-{mtime}-{self.segment_seconds}{flavor}" / f"{index}.ts"
 

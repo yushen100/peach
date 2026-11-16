@@ -22,6 +22,8 @@ BROWSER_NATIVE_SUFFIXES = frozenset({".mp4", ".m4v", ".webm", ".ogv", ".ogg"})
 #: 起播前先探编码，解得了就整片换封装成 MP4（`-copy` 缓存），不按 6 秒分片重编码。
 REMUX_SUFFIXES = frozenset({".ts", ".m2ts", ".mts"})
 DIRECT_MP4_PIXEL_FORMATS = frozenset({"yuv420p", "yuvj420p"})
+#: 原文件试播时浏览器普遍能出声的音轨；AC-3、DTS、PCM 这类多半静音照放，不报错也就不会回退。
+ORIGINAL_AUDIO_CODECS = frozenset({"", "aac", "mp3", "opus", "flac", "vorbis"})
 #: 浏览器在 `decode=` 里能报的解码能力：HEVC 8 位、HEVC 10 位、认不认 `hev1` 标签（Safari 只认 `hvc1`）。
 DECODE_CAPABILITIES = frozenset({"hevc", "hevc10", "hev1"})
 #: 杜比视界的 codec tag。ffprobe 报的编码仍是 hevc，浏览器直放会偏色或解不出，一律转码。
@@ -208,6 +210,21 @@ class TranscodeService:
                 or profile.decode_order_timestamps):
             return "transcode"
         return "copy" if profile.audio_codec in {"", "aac", "mp3"} else "audio"
+
+    def original_playable(self, source: Path, *, session: str = "", registry=None,
+                          decode: frozenset[str] = frozenset()) -> bool:
+        """值不值得先让浏览器试原文件：MP4、M4V、MKV 里视频解得了、音轨浏览器认、时间戳没错乱。
+
+        浏览器遇到解不了的视频常常不报错，只出声音或黑屏；认不了的音轨则静音照放。这两种都
+        触发不了回退，所以只给编码上能放的片子原文件地址，其余直接走分片。容器（如 Safari 不认
+        MKV）交给浏览器报格式错误再退。
+        """
+        if source.suffix.lower() not in {".mp4", ".m4v", ".mkv"} or self.resolver.ffprobe() is None:
+            return False
+        profile = self._profile_for(source, session, registry)
+        return bool(profile and video_decodes(profile, decode)
+                    and profile.audio_codec in ORIGINAL_AUDIO_CODECS
+                    and not profile.decode_order_timestamps)
 
     def decode_order_timestamps(self, source: Path, *, session: str = "", registry=None, stat=None,
                                 decode: frozenset[str] = frozenset()) -> bool:

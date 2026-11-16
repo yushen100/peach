@@ -13,24 +13,48 @@ export function newStreamSession(): string {
 }
 
 export function directStreamSource(item: PlayerItem, session: string): PlayerSource {
-  const mkv = String(item.name || '').toLowerCase().endsWith('.mkv');
   return {
-    src: `/stream?id=${item.id}&session=${encodeURIComponent(session)}${mkv ? '&original=1' : ''}`,
-    type: mkv ? 'video/x-matroska' : String(item.name || '').toLowerCase().endsWith('.webm') ? 'video/webm' : 'video/mp4',
+    src: `/stream?id=${item.id}&session=${encodeURIComponent(session)}`,
+    type: String(item.name || '').toLowerCase().endsWith('.webm') ? 'video/webm' : 'video/mp4',
   };
 }
 
-/** 媒体不兼容时顺次取下一条片源，同一地址只尝试一次；网络故障不消耗兼容回退。 */
-export function streamFallbackChain(source: PlayerSource): (error: unknown) => PlayerSource | null {
+const isSegmented = (source: PlayerSource): boolean => String(source.type || '').includes('mpegurl');
+
+/** 要不要盯着首帧：原文件试播与按能力直放的片子，浏览器解不了时可能不报错，只出声音或黑屏。 */
+export const watchesDecoding = (source: PlayerSource): boolean => Boolean(source.trial || source.decode);
+
+/** 换源用的那类错误：3 解码、4 格式不支持。分片地址的网络错误（2）也算：hls.js 重试过才报致命，
+ *  多半是服务端切不出这一段（503），换到下一种处理方式才有救；原文件的网络错误不换，
+ *  断网时退到转码只会白占服务端。中止（1）一律不算。 */
+function fallbackError(error: unknown, failed: PlayerSource): boolean {
+  const code = Number((error as { code?: number } | null)?.code);
+  return code === 3 || code === 4 || (code === 2 && isSegmented(failed));
+}
+
+/** 片源失败时顺次取下一条：原文件 → 保留视频码流的分片 → 视频重编码，同一地址只试一次。
+ *
+ *  `failed` 是出错时挂着的那条片源：同一次失败常从媒体元素和播放器各报一遍，只有挂着的
+ *  正是链上当前那条才前进，重复的那次拿到 null。按能力直放（带 `decode`）的片子链走到头时，
+ *  调 `retry`（`fallbackStreamSource`：记下这台浏览器解不了，换一份不报能力的计划）接着退。 */
+export function streamFallbackChain(
+  source: PlayerSource, retry?: () => Promise<PlayerSource>,
+): (error: unknown, failed: PlayerSource) => Promise<PlayerSource | null> {
   const tried = new Set([source.src]);
-  let next = source.fallback;
-  return (error) => {
-    const code = Number((error as { code?: number } | null)?.code);
-    if (![3, 4].includes(code) || !next || tried.has(next.src)) return null;
-    const selected = next;
-    tried.add(selected.src);
-    next = selected.fallback;
-    return selected;
+  let current = source, pending = retry, spent: PlayerSource | null = null;
+  return async (error, failed) => {
+    if (failed !== current || spent === current || !fallbackError(error, failed)) return null;
+    spent = current;
+    let next = current.fallback;
+    if (!next && current.decode && pending) {
+      const load = pending;
+      pending = undefined;
+      next = await load().catch(() => undefined);
+    }
+    if (!next || tried.has(next.src)) return null;
+    tried.add(next.src);
+    current = next;
+    return next;
   };
 }
 
@@ -57,16 +81,19 @@ export async function playableStreamSource(
     const plan = await api(`/api/stream-plan?id=${item.id}&session=${encodeURIComponent(session)}`
       + (decode ? `&decode=${decode}` : '')) as
       { protocol?: string; src?: string; mime_type?: string; original_src?: string; original_mime_type?: string;
-        fallback_src?: string } | null;
+        fallback_src?: string; fallback_mime_type?: string } | null;
     if (plan?.src) {
       const hls = plan.protocol === 'hls';
-      const segmented: PlayerSource = { src: plan.src, type: plan.mime_type || (hls ? 'application/vnd.apple.mpegurl' : 'video/mp4'),
-        ...(decode && !hls ? { decode } : {}) };
-      if (plan.fallback_src) segmented.fallback = { src: plan.fallback_src, type: 'application/vnd.apple.mpegurl' };
-      if (plan.original_src) {
-        return { src: plan.original_src, type: plan.original_mime_type || 'video/mp4', fallback: segmented };
+      const original = !hls && plan.src.includes('original=1');
+      const planned: PlayerSource = { src: plan.src, type: plan.mime_type || (hls ? 'application/vnd.apple.mpegurl' : 'video/mp4'),
+        ...(decode && !hls ? { decode } : {}), ...(original ? { trial: true } : {}) };
+      if (plan.fallback_src) {
+        planned.fallback = { src: plan.fallback_src, type: plan.fallback_mime_type || 'application/vnd.apple.mpegurl' };
       }
-      return segmented;
+      if (plan.original_src) {
+        return { src: plan.original_src, type: plan.original_mime_type || 'video/mp4', trial: true, fallback: planned };
+      }
+      return planned;
     }
   } catch { /* 取不到计划就直读 */ }
   return directStreamSource(item, session);
@@ -102,6 +129,7 @@ function ensureDetailSession(): string {
 
 export const directDetailSource = (item: PlayerItem): PlayerSource => directStreamSource(item, ensureDetailSession());
 export const detailStreamSource = (item: PlayerItem): Promise<PlayerSource> => playableStreamSource(item, ensureDetailSession());
+export const detailFallbackSource = (item: PlayerItem): Promise<PlayerSource> => fallbackStreamSource(item, ensureDetailSession());
 
 export function cancelDetailStream(): void {
   const session = detailSession;

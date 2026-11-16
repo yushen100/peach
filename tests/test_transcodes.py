@@ -107,6 +107,27 @@ class TranscodeServiceTests(unittest.TestCase):
             self.assertNotIn(str(source), str(report))
             self.assertEqual(service.hardware.diagnostic_snapshot()['probe_status'], 'not-probed')
 
+    def test_original_trial_only_for_streams_the_browser_can_decode_and_hear(self):
+        for name, codec, pixel, audio, decode, expected in (
+            ("movie.mkv", "h264", "yuv420p", "aac", frozenset(), True),
+            ("movie.mkv", "h264", "yuv420p", "opus", frozenset(), True),
+            ("movie.mkv", "h264", "yuv420p", "ac3", frozenset(), False),
+            ("movie.mkv", "hevc", "yuv420p", "aac", frozenset(), False),
+            ("movie.mkv", "hevc", "yuv420p", "aac", frozenset({"hevc"}), True),
+            ("movie.mkv", "h264", "yuv420p10le", "aac", frozenset(), False),
+            ("movie.avi", "h264", "yuv420p", "aac", frozenset(), False),
+        ):
+            with self.subTest(name=name, codec=codec, audio=audio, decode=sorted(decode)), \
+                    tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp).resolve()
+                source = root / name
+                source.write_bytes(b"source")
+                service = TranscodeService(_Resolver(root / "ffmpeg", root / "ffprobe"), root / "cache")
+                streams = [{"codec_type": "video", "codec_name": codec, "pix_fmt": pixel},
+                           {"codec_type": "audio", "codec_name": audio}]
+                with patch("peach.transcodes.subprocess.Popen", side_effect=_media_process([], streams)):
+                    self.assertIs(service.original_playable(source, decode=decode), expected)
+
     def test_hls_processing_preserves_compatible_video_and_audio_independently(self):
         for codec, pixel, audio, mode in (
             ("h264", "yuv420p", "aac", "copy"),

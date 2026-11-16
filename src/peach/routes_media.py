@@ -439,12 +439,8 @@ def stream_plan(request: Request, id: int, session: str = "", mode: str = "", de
             source_path, session=session, registry=state.stream_sessions, decode=capabilities):
         # 视频浏览器解得了，只差音轨、`hev1` 标签或容器（`.ts` 一类）：`/stream` 整片换封装，不重编码视频。
         conversion, reason = False, "remux"
-    original_trial = (
-        conversion
-        and source_path.suffix.lower() in {".mp4", ".m4v", ".mkv"}
-        and not state.transcode_service.decode_order_timestamps(
-            source_path, session=session, registry=state.stream_sessions)
-    )
+    original_trial = conversion and state.transcode_service.original_playable(
+        source_path, session=session, registry=state.stream_sessions, decode=capabilities)
     original_mime = "video/x-matroska" if source_path.suffix.lower() == ".mkv" else "video/mp4"
     resolved = (_hls_plan(state, id, session, conversion)
                 if conversion or plan.protocol == "hls" else None)
@@ -465,22 +461,26 @@ def stream_plan(request: Request, id: int, session: str = "", mode: str = "", de
             result["original_mime_type"] = original_mime
         if resolved[3] != "transcode":
             result["fallback_src"] = f"/stream/hls/{id}/index.m3u8?session={quote(session, safe='')}&transcode=1"
+            result["fallback_mime_type"] = "application/vnd.apple.mpegurl"
         return _record_stream_plan(state, id, source_path, result, capabilities)
     source = f"/stream?id={id}"
     if session:
         source += f"&session={quote(session, safe='')}"
-    if original_trial:
-        source += "&original=1"
     if capabilities:
         source += f"&decode={','.join(sorted(capabilities))}"
-    return _record_stream_plan(state, id, source_path, {
+    result = {
         "id": id,
         "protocol": "range",
-        "mime_type": original_mime if original_trial else plan.mime_type,
+        "mime_type": plan.mime_type,
         "duration": asset.duration,
         "src": source,
         "reason": reason,
-    }, capabilities)
+    }
+    if original_trial and session:
+        # 切不了分片（时长或关键帧都拿不到）时先试原文件，浏览器放不了再要整片转换的那条。
+        result.update(src=f"/stream?id={id}&original=1&session={quote(session, safe='')}",
+                      mime_type=original_mime, fallback_src=source, fallback_mime_type="video/mp4")
+    return _record_stream_plan(state, id, source_path, result, capabilities)
 
 
 def _record_stream_plan(state, asset_id: int, source: Path, plan: dict,

@@ -3509,7 +3509,7 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
         con.commit()
         con.close()
         with patch.object(self.app.state.transcode_service, 'requires_conversion', return_value=True), \
-                patch.object(self.app.state.transcode_service, 'decode_order_timestamps', return_value=False), \
+                patch.object(self.app.state.transcode_service, 'original_playable', return_value=True), \
                 patch.object(self.app.state.transcode_service, 'browser_path',
                              side_effect=AssertionError('whole movie conversion')):
             response = await self.client.get('/api/stream-plan?id=1&session=s&t=secret')
@@ -3556,6 +3556,42 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
             original = await self.client.get(plan["original_src"] + "&t=secret", headers={"Range": "bytes=0-3"})
             self.assertEqual(original.status_code, 206)
             self.assertEqual(original.headers["content-type"], "video/x-matroska")
+
+    async def test_mkv_with_a_silent_audio_track_skips_the_original_trial(self):
+        """AC-3 这类音轨浏览器静音照放、不报错，回退触发不了：不给原文件地址，直接走分片。"""
+        from peach.transcodes import _MediaProfile
+        from peach.ffmpeg import BinaryChoice
+        from support.mkv import minimal_mkv
+
+        source = self.media_root / "clip.mkv"
+        source.write_bytes(minimal_mkv())
+        with closing(sqlite3.connect(self.db)) as connection, connection:
+            connection.execute("UPDATE asset SET path=?, duration=13.5 WHERE id=1", (str(source),))
+        service = self.app.state.transcode_service
+        with patch.object(service.resolver, "ffprobe", return_value=BinaryChoice(Path("ffprobe"), "test")), \
+                patch.object(service, "_probe", return_value=_MediaProfile("h264", "yuv420p", "ac3")):
+            plan = (await self.client.get("/api/stream-plan?id=1&session=ac3&t=secret")).json()
+        self.assertEqual((plan["protocol"], plan["processing"]), ("hls", "audio"))
+        self.assertNotIn("original_src", plan)
+
+    async def test_original_trial_without_segments_falls_back_to_whole_file_conversion(self):
+        """时长拿不到切不了分片时，先试原文件，回退地址是原来那条整片转换。"""
+        from peach.transcodes import _MediaProfile
+        from peach.ffmpeg import BinaryChoice
+        from support.mkv import minimal_mkv
+
+        source = self.media_root / "clip.mkv"
+        source.write_bytes(minimal_mkv())
+        with closing(sqlite3.connect(self.db)) as connection, connection:
+            connection.execute("UPDATE asset SET path=?, duration=NULL WHERE id=1", (str(source),))
+        service = self.app.state.transcode_service
+        with patch.object(service.resolver, "ffprobe", return_value=BinaryChoice(Path("ffprobe"), "test")), \
+                patch.object(service, "_probe", return_value=_MediaProfile("h264", "yuv420p", "aac")):
+            plan = (await self.client.get("/api/stream-plan?id=1&session=nodur&t=secret")).json()
+        self.assertEqual(plan["protocol"], "range")
+        self.assertEqual(plan["src"], "/stream?id=1&original=1&session=nodur")
+        self.assertEqual(plan["mime_type"], "video/x-matroska")
+        self.assertEqual((plan["fallback_src"], plan["fallback_mime_type"]), ("/stream?id=1&session=nodur", "video/mp4"))
 
     async def test_mkv_audio_conversion_and_forced_video_conversion_reach_the_segment_service(self):
         from unittest.mock import AsyncMock
@@ -3757,11 +3793,14 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
         con.execute("UPDATE asset SET path=?, duration=13.5 WHERE id=1", (str(self.hls_file),))
         con.commit()
         con.close()
+        from peach.transcodes import _MediaProfile
         service = self.app.state.transcode_service
         asked: list[int] = []
 
         with patch.object(service, "requires_conversion", return_value=True), \
                 patch.object(service, "decode_order_timestamps", return_value=True), \
+                patch.object(service, "_profile_for", return_value=_MediaProfile(
+                    "h264", "yuv420p", "aac", 13.5, decode_order_timestamps=True)), \
                 patch.object(self.app.state.header_repairs, "lookup", return_value=None), \
                 patch.object(self.app.state.header_repairs, "request",
                              new=lambda asset_id, source: asked.append(asset_id)):
@@ -3769,6 +3808,7 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(plan["protocol"], "hls")
         self.assertNotIn("original_src", plan)
+        self.assertEqual(plan["processing"], "transcode")
         self.assertEqual(asked, [1])
 
     async def test_transcoded_stream_has_browser_mime_and_marker(self):
