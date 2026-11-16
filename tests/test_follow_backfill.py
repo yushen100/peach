@@ -1,4 +1,4 @@
-"""「修复与迁移」里两项 rule34 补填：等确认、后台限速、回执记原值、中断续跑。
+"""「修复与迁移」里两项 rule34 补填：升级后自动在后台限速补、回执记原值、中断续跑；页面的分组与排序。
 
 用临时账本和假连接器，不访问真实站点。等待只记秒数不真睡。
 """
@@ -88,7 +88,7 @@ class FollowBackfillTests(unittest.TestCase):
 
     # ---- rule34video ----
 
-    def test_video_characters_wait_for_confirmation_then_retype_only_the_site_character_group(self):
+    def test_video_characters_start_by_themselves_and_retype_only_the_site_character_group(self):
         source_id = self.source("rule34video")
         old = {"tags": ["harry potter (harry potter)", "sex"],
                "tag_types": {"harry potter (harry potter)": "general", "sex": "general"}}
@@ -114,12 +114,11 @@ class FollowBackfillTests(unittest.TestCase):
             return pages[video].pop(0)
 
         backfill = self.backfill(Rule34VideoConnector(transport=transport, sleeper=lambda _: None))
-        waiting, _ = self.center_item(backfill, "rule34video-characters")
-        self.assertEqual((waiting["mode"], waiting["state"], waiting["pending"], waiting["online"], waiting["minutes"]),
-                         ("confirm", "waiting", 4, True, 1))
-        self.assertEqual(asked, [], "确认前不联网")
-
-        backfill.begin("rule34video-characters")
+        # 判据确定、只补缺的、回执记着原值：不等确认，账本就绪就自动开始。
+        queued, _ = self.center_item(backfill, "rule34video-characters")
+        self.assertEqual((queued["mode"], queued["group"], queued["state"], queued["pending"], queued["online"]),
+                         ("auto", "follow", "pending", 4, True))
+        backfill.start()
         self.settle(backfill)
         # 每条 1 次详情页；429 静默 120 秒后重问同一条。
         self.assertEqual(asked, ["1", "2", "3", "4", "4"])
@@ -158,9 +157,17 @@ class FollowBackfillTests(unittest.TestCase):
         _, receipt = self.receipt(follow_backfill.VIDEO)
         # 5xx 取不到的下一趟再问；连着三次 429 停下，剩下的也留着。
         self.assertEqual((receipt["state"], receipt["checked"], receipt["missed"]), ("failed", [], [first]))
-        waiting, _ = self.center_item(backfill, "rule34video-characters")
-        self.assertEqual((waiting["state"], waiting["pending"]), ("waiting", 2))
+        queued, _ = self.center_item(backfill, "rule34video-characters")
+        self.assertEqual((queued["state"], queued["pending"]), ("pending", 2))
         self.assertEqual(self.runs.query(task_key="follow-backfill")[0].status, "failed")
+        # 下次启动再补，接着用第一趟的备份，不再备份账本。
+        answers.extend([HttpResponse(200, {}, PLAIN_PAGE)] * 2)
+        backups = []
+        backfill.backup = backups.append
+        backfill.start()
+        self.settle(backfill)
+        self.assertEqual(backups, [])
+        self.assertEqual(self.center_item(backfill, "rule34video-characters")[0], None)
 
     # ---- rule34.xxx ----
 
@@ -183,14 +190,19 @@ class FollowBackfillTests(unittest.TestCase):
                 heads.append(url)
                 return 60.054
 
+        # 没有 dapi 凭据就起不来：页面报原因，不联网。
         backfill = self.backfill(Connector())
+        backfill.start()
+        self.settle(backfill)
         with self.assertRaises(UserValueError) as missing:
             backfill.begin("rule34-details")
         self.assertEqual(missing.exception.code, "errors.followBackfill.credentialMissing")
+        blocked, _ = self.center_item(backfill, "rule34-details")
+        self.assertEqual((blocked["state"], blocked["pending"]), ("failed", 2))
+        self.assertIn("API", blocked["error"])
+        self.assertEqual(detail_asked, [])
 
         backfill = self.backfill(Connector(), credential=object())
-        waiting, _ = self.center_item(backfill, "rule34-details")
-        self.assertEqual((waiting["state"], waiting["pending"]), ("waiting", 2))
         backfill.begin("rule34-details")
         self.settle(backfill)
         # 缺类型的问 dapi，只缺时长的只读文件头；齐全的不问。每条间隔 2.2 秒。
@@ -299,6 +311,32 @@ class FollowBackfillTests(unittest.TestCase):
         self.assertEqual((receipt["state"], len(receipt["checked"])), ("running", 2))
         with self.database.read_connection() as connection:
             self.assertEqual(len(follow_backfill.pending(connection, follow_backfill.VIDEO)), 1)
+
+
+    # ---- 页面分组 ----
+
+    def test_every_repair_item_sits_in_one_group_and_items_needing_attention_lead_each_group(self):
+        from peach import legacy_repairs
+        placed = [item for item, _, _ in repair_center.ITEMS]
+        self.assertEqual(len(placed), len(set(placed)))
+        self.assertLessEqual({*(rule.item for rule in legacy_repairs.RULES), *(rule.item for rule in legacy_repairs.CONFIRMS),
+                              *(job.item for job in follow_backfill.JOBS)}, set(placed))
+        modes = {item: mode for item, mode, _ in repair_center.ITEMS}
+        self.assertEqual({item for item, mode in modes.items() if mode == "confirm"},
+                         {"display-cloud", "follow-evidence", *(rule.item for rule in legacy_repairs.CONFIRMS)})
+        # 关注组里补填在跑、旧快照等确认、蓝光去重做完：等确认的排最前，做完的垫底；组按登记顺序。
+        with self.database.write_transaction() as connection:
+            connection.execute("INSERT INTO ledger_upgrade_repair(id,applied_at,result_json) VALUES(?,?,?)",
+                               ("feed-bluray-duplicates-1", "1", '{"changed": 3}'))
+            connection.execute("INSERT INTO ledger_upgrade_repair(id,applied_at,result_json) VALUES(?,?,?)",
+                               ("interface-text-codes-1", "1", '{"rows": [1]}'))
+        with self.database.read_connection() as connection:
+            center = repair_center.snapshot(
+                connection, {}, cloud_pending=0, follow_evidence_status={"phase": "ready", "files": 4, "bytes": 9},
+                follow_backfill_status={"rule34video-characters": {"phase": "running", "done": 1, "total": 3}})
+        self.assertEqual([(row["group"], row["id"], row["state"]) for row in center["items"]], [
+            ("follow", "follow-evidence", "waiting"), ("follow", "rule34video-characters", "running"),
+            ("follow", "bluray-duplicates", "done"), ("records", "interface-text", "done")])
 
 
 if __name__ == "__main__":

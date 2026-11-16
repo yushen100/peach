@@ -3,7 +3,7 @@
  *  历史里列出每次修复前留下的账本备份：还在的去「账本备份」恢复，清退了的照实写。页头的面包屑由管理区页头画。
  *  首屏数据随路由预取（`repair-center-data.ts`），等待时画路由骨架；有项在跑或还在统计时每 2 秒重读，做完就停。
  *  等确认的项还没开始，只写待处理的量和「开始」；开始之后才有进度条，「开始」换成状态标签。
- *  逐条联网的项（rule34 补填）在后台限速跑，确认弹层写条数和估计耗时。 */
+ *  各项按改动落在哪类数据上分组（服务端 `repair_center.GROUPS`），组内先列等确认、在跑与要重试的。 */
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { RiArrowRightLine } from '@remixicon/react';
@@ -31,6 +31,18 @@ const STATES: Record<string, [string, StatusTone]> = {
   running: [t('settings:shared.inProgress'), 'progress'], pending: [t('settings:repairCenter.queued'), 'neutral'], waiting: [t('settings:repairCenter.awaitingConfirmation'), 'warning'],
   failed: [t('settings:repairCenter.needsRetry'), 'error'], none: [t('settings:repairCenter.nothingToDo'), 'neutral'],
 };
+const GROUPS: Record<string, string> = {
+  files: t('settings:repairCenter.groups.files'), catalog: t('settings:repairCenter.groups.catalog'),
+  people: t('settings:repairCenter.groups.people'), follow: t('settings:repairCenter.groups.follow'),
+  records: t('settings:repairCenter.groups.records'),
+};
+/** 服务端已按组排好序，这里只把相邻的同组项收成一段。 */
+const grouped = (items: RepairItem[]) => items.reduce<[string, RepairItem[]][]>((groups, item) => {
+  const last = groups[groups.length - 1];
+  if (last && last[0] === item.group) last[1].push(item);
+  else groups.push([item.group, [item]]);
+  return groups;
+}, []);
 const number = (value = 0) => value.toLocaleString();
 const stamp = (seconds: number) => new Date(seconds * 1000).toLocaleString(interfaceLanguage, {
   year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -48,7 +60,7 @@ function reading(item: RepairItem) {
   if (item.state === 'failed' && item.error) return item.error;
   // 行里只写体积，手机宽度下才不挤说明列；文件数在确认弹层里点名。
   if (item.files) return t('settings:repairCenter.reclaimable', { size: fmtSize(item.bytes || 0) });
-  if (item.state === 'waiting' && item.online) return t('settings:repairCenter.pendingChecks', { count: item.pending || 0 });
+  if (item.state === 'pending' && item.online) return t('settings:repairCenter.pendingChecks', { count: item.pending || 0 });
   if (item.state === 'waiting' && item.backed_up) return t('settings:repairCenter.pendingFixes', { count: item.pending || 0 });
   if (item.state === 'waiting') return item.pending ? t('settings:repairCenter.pendingRecheck', { count: item.pending }) : '';
   if (progressing(item)) return '';
@@ -94,9 +106,7 @@ export function RepairCenterPage() {
   const start = (item: RepairItem) => item.backed_up
     ? void confirmModal({
       title: t('settings:repairCenter.applyTitle', { title: item.title }),
-      body: item.online
-        ? t('settings:repairCenter.onlineBody', { count: item.pending || 0, minutes: item.minutes || 1 })
-        : t('settings:repairCenter.applyBody', { count: item.pending || 0 }),
+      body: t('settings:repairCenter.applyBody', { count: item.pending || 0 }),
       confirmLabel: t('settings:shared.start'),
       onConfirm: async () => update(await post(item)),
     })
@@ -115,31 +125,36 @@ export function RepairCenterPage() {
 
   return <Page>
     {failure ? <Note tone="error">{failure}</Note> : null}
-    <section aria-labelledby="repair-items" className="flex flex-col gap-4">
-      <SectionHeading id="repair-items">{t('settings:repairCenter.itemsHeading')}</SectionHeading>
-      {!data
-        // 预取失败后在页内重取：画与路由骨架同一份占位，不留一张空卡。
-        ? <div className="contents" data-skeleton="" aria-busy="true" aria-label={t('settings:repairCenter.loadingItems')}
-            dangerouslySetInnerHTML={{ __html: repairCenterPanelSkeleton() }} />
-        : !data.items.length
-        ? <p className="text-body-2-regular text-text-secondary">{t('settings:repairCenter.empty')}</p>
-        : <div className={RESULT_PANEL}>
-        {data.items.map(item => {
-          const [label, tone] = STATES[item.state] || STATES.none;
-          const text = reading(item);
-          return (
-            <Row key={item.id} title={item.title} description={item.summary}
-              progress={progressing(item) ? <ItemProgress item={item} /> : null}>
-              {text ? <span className="text-body-2-regular text-text-secondary">{text}</span> : null}
-              {item.mode === 'confirm' && item.state === 'waiting'
-                ? <Button size="small" disabled={!data.available || !!action.busy || item.estimating}
-                    onClick={() => start(item)}>{t('settings:shared.start')}</Button>
-                : <StatusLabel tone={tone}>{label}</StatusLabel>}
-            </Row>
-          );
-        })}
-      </div>}
-    </section>
+    {!data?.items.length
+      ? <section aria-labelledby="repair-items" className="flex flex-col gap-4">
+        <SectionHeading id="repair-items">{t('settings:repairCenter.itemsHeading')}</SectionHeading>
+        {!data
+          // 预取失败后在页内重取：画与路由骨架同一份占位，不留一张空卡。
+          ? <div className="contents" data-skeleton="" aria-busy="true" aria-label={t('settings:repairCenter.loadingItems')}
+              dangerouslySetInnerHTML={{ __html: repairCenterPanelSkeleton() }} />
+          : <p className="text-body-2-regular text-text-secondary">{t('settings:repairCenter.empty')}</p>}
+      </section>
+      : grouped(data.items).map(([group, items]) => (
+        <section key={group} aria-labelledby={`repair-group-${group}`} className="flex flex-col gap-4">
+          <SectionHeading id={`repair-group-${group}`}>{GROUPS[group] || group}</SectionHeading>
+          <div className={RESULT_PANEL}>
+            {items.map(item => {
+              const [label, tone] = STATES[item.state] || STATES.none;
+              const text = reading(item);
+              return (
+                <Row key={item.id} title={item.title} description={item.summary}
+                  progress={progressing(item) ? <ItemProgress item={item} /> : null}>
+                  {text ? <span className="text-body-2-regular text-text-secondary">{text}</span> : null}
+                  {item.mode === 'confirm' && item.state === 'waiting'
+                    ? <Button size="small" disabled={!data.available || !!action.busy || item.estimating}
+                        onClick={() => start(item)}>{t('settings:shared.start')}</Button>
+                    : <StatusLabel tone={tone}>{label}</StatusLabel>}
+                </Row>
+              );
+            })}
+          </div>
+        </section>
+      ))}
     {data?.history.length ? <section aria-labelledby="repair-history" className="flex flex-col gap-4">
       <SectionHeading id="repair-history">{t('settings:repairCenter.history')}</SectionHeading>
       <div className={RESULT_PANEL}>

@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "15d75bcf-3383-409d-a082-36ee1d15d11c", e._sentryDebugIdIdentifier = "sentry-dbid-15d75bcf-3383-409d-a082-36ee1d15d11c");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "ad4f6427-96e0-4120-96fe-c3f579d3ab8b", e._sentryDebugIdIdentifier = "sentry-dbid-ad4f6427-96e0-4120-96fe-c3f579d3ab8b");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -6746,6 +6746,13 @@ var He = "peach.settings.v1", Ue = {
 		estimating: "Calculating",
 		filesAndSize_one: "{{count, number}} file · {{size}}",
 		filesAndSize_other: "{{count, number}} files · {{size}}",
+		groups: {
+			files: "Library files",
+			catalog: "Titles and metadata",
+			people: "People and studios",
+			follow: "Follows, new releases, and wants",
+			records: "Downloads and task records"
+		},
 		history: "History",
 		itemProgress: "{{title}} progress",
 		itemsHeading: "Repairs",
@@ -6753,8 +6760,6 @@ var He = "peach.settings.v1", Ue = {
 		needsRetry: "Retry needed",
 		noChanges: "No changes",
 		nothingToDo: "Nothing to do",
-		onlineBody_one: "Checks {{count, number}} item online, which takes about {{minutes, number}} minutes. The database is backed up first, and an interrupted run picks up where it stopped.",
-		onlineBody_other: "Checks {{count, number}} items online, which takes about {{minutes, number}} minutes. The database is backed up first, and an interrupted run picks up where it stopped.",
 		pendingChecks_one: "{{count, number}} item to check",
 		pendingChecks_other: "{{count, number}} items to check",
 		pendingFixes_one: "{{count, number}} to fix",
@@ -13908,6 +13913,13 @@ var He = "peach.settings.v1", Ue = {
 		empty: "没有要修复或迁移的内容。",
 		estimating: "正在统计",
 		filesAndSize: "{{count, number}} 个文件 · {{size}}",
+		groups: {
+			files: "馆藏文件",
+			catalog: "作品资料",
+			people: "人物与厂牌",
+			follow: "关注、新作与想要",
+			records: "下载与任务记录"
+		},
 		history: "历史记录",
 		itemProgress: "{{title}}进度",
 		itemsHeading: "修复项目",
@@ -13915,8 +13927,6 @@ var He = "peach.settings.v1", Ue = {
 		needsRetry: "需要重试",
 		noChanges: "无改动",
 		nothingToDo: "无需处理",
-		onlineBody_one: "逐条联网核对 {{count, number}} 条，约需 {{minutes, number}} 分钟。执行前先备份账本，中断后会接着跑。",
-		onlineBody_other: "逐条联网核对 {{count, number}} 条，约需 {{minutes, number}} 分钟。执行前先备份账本，中断后会接着跑。",
 		pendingChecks_one: "{{count, number}} 条待核对",
 		pendingChecks_other: "{{count, number}} 条待核对",
 		pendingFixes_one: "待修正 {{count, number}} 处",
@@ -39421,4 +39431,4 @@ jt();
 var Kb = document.getElementById("peach-page"), qb = Kb ? Gb[Kb.dataset.page ?? ""] : void 0;
 Kb && qb && (0, Bt.createRoot)(Kb).render(/* @__PURE__ */ (0, V.jsx)(Wb, { children: /* @__PURE__ */ (0, V.jsx)(qb, { data: { ...Kb.dataset } }) }));
 
-//# debugId=15d75bcf-3383-409d-a082-36ee1d15d11c
+//# debugId=ad4f6427-96e0-4120-96fe-c3f579d3ab8b

@@ -958,6 +958,13 @@
     "estimating": "Calculating",
     "filesAndSize_one": "{{count, number}} file · {{size}}",
     "filesAndSize_other": "{{count, number}} files · {{size}}",
+    "groups": {
+      "files": "Library files",
+      "catalog": "Titles and metadata",
+      "people": "People and studios",
+      "follow": "Follows, new releases, and wants",
+      "records": "Downloads and task records"
+    },
     "history": "History",
     "itemProgress": "{{title}} progress",
     "itemsHeading": "Repairs",
@@ -965,8 +972,6 @@
     "needsRetry": "Retry needed",
     "noChanges": "No changes",
     "nothingToDo": "Nothing to do",
-    "onlineBody_one": "Checks {{count, number}} item online, which takes about {{minutes, number}} minutes. The database is backed up first, and an interrupted run picks up where it stopped.",
-    "onlineBody_other": "Checks {{count, number}} items online, which takes about {{minutes, number}} minutes. The database is backed up first, and an interrupted run picks up where it stopped.",
     "pendingChecks_one": "{{count, number}} item to check",
     "pendingChecks_other": "{{count, number}} items to check",
     "pendingFixes_one": "{{count, number}} to fix",

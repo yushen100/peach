@@ -942,6 +942,13 @@
     "empty": "没有要修复或迁移的内容。",
     "estimating": "正在统计",
     "filesAndSize": "{{count, number}} 个文件 · {{size}}",
+    "groups": {
+      "files": "馆藏文件",
+      "catalog": "作品资料",
+      "people": "人物与厂牌",
+      "follow": "关注、新作与想要",
+      "records": "下载与任务记录"
+    },
     "history": "历史记录",
     "itemProgress": "{{title}}进度",
     "itemsHeading": "修复项目",
@@ -949,8 +956,6 @@
     "needsRetry": "需要重试",
     "noChanges": "无改动",
     "nothingToDo": "无需处理",
-    "onlineBody_one": "逐条联网核对 {{count, number}} 条，约需 {{minutes, number}} 分钟。执行前先备份账本，中断后会接着跑。",
-    "onlineBody_other": "逐条联网核对 {{count, number}} 条，约需 {{minutes, number}} 分钟。执行前先备份账本，中断后会接着跑。",
     "pendingChecks_one": "{{count, number}} 条待核对",
     "pendingChecks_other": "{{count, number}} 条待核对",
     "pendingFixes_one": "待修正 {{count, number}} 处",

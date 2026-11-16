@@ -5,14 +5,15 @@ import { serverLabel } from '../../core/server-text';
 import { queryClient } from '../query';
 
 export interface RepairItem {
-  id: string; title: string; summary: string; mode: 'auto' | 'confirm';
+  /** `group` 是页面上的分组，组名在 `settings:repairCenter.groups.<group>`。 */
+  id: string; group: string; title: string; summary: string; mode: 'auto' | 'confirm';
   state: string; changed?: number; done?: number; total?: number; pending?: number;
   /** 删除类确认项：能回收的文件数与字节数；`estimating` 为还在后台统计。 */
   files?: number; bytes?: number; estimating?: boolean; error?: string;
   /** 改账本的确认项：确认前先说明会先备份账本，`pending` 是还剩几处要改。 */
   backed_up?: boolean;
-  /** 逐条联网核对的确认项：`pending` 是还剩几条要问，`minutes` 是按限速估的耗时。 */
-  online?: boolean; minutes?: number;
+  /** 逐条联网补填的自动项：`pending` 是还剩几条要问，等下次启动接着补。 */
+  online?: boolean;
 }
 /** `rule` 是修复规则的 id，按它取译文；`id` 是这一次执行的记录号。 */
 export interface RepairHistory { id: string; rule: string; title: string; at: number; changed: number; backups: { name: string; exists: boolean }[] }

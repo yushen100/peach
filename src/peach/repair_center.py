@@ -17,17 +17,25 @@ from pathlib import Path
 from . import follow_backfill, follow_evidence, interface_text, legacy_repairs, system_file_repair
 from .media_sources import CLOUD_LOCATIONS
 
-#: 列给用户看的修复：id 与是否自动执行，顺序就是页面顺序。标题与一句说明在
-#: `server:repairCenter.items.<id>`（ADR-0159），响应里同层的中文按 zh-CN 渲染。
-ITEMS = (
-    ('catalog', 'auto'), ('display-local', 'auto'), ('display-cloud', 'confirm'), ('system-files', 'auto'),
-    ('sidecar-assets', 'auto'), ('avatar-faces', 'auto'),
-    ('garbled-people', 'auto'), ('dangling-candidates', 'auto'), ('javdb-entries', 'auto'),
-    ('resolution-tags', 'auto'), ('video-medium', 'auto'), ('quality-bands', 'auto'), ('interface-text', 'auto'),
-    *((rule.item, 'auto') for rule in legacy_repairs.RULES), ('follow-evidence', 'confirm'),
-    *((job.item, 'confirm') for job in follow_backfill.JOBS),
-    *((rule.item, 'confirm') for rule in legacy_repairs.CONFIRMS),
+#: 页面上的分组与组内顺序：按改动落在哪类数据上分，组名在 `settings:repairCenter.groups.<组>`。
+#: 每一项的标题与一句说明在 `server:repairCenter.items.<id>`（ADR-0159），响应里同层的中文按 zh-CN 渲染。
+GROUPS = (
+    ('files', ('display-local', 'display-cloud', 'video-medium', 'quality-bands', 'system-files', 'sidecar-assets',
+               'case-duplicates')),
+    ('catalog', ('catalog', 'scrape-mark-titles', 'fc2-studios', 'resolution-tags', 'tag-vocabulary',
+                 'dangling-candidates')),
+    ('people', ('garbled-people', 'avatar-faces', 'javdb-entries', 'entity-links', 'alias-flat-names',
+                'unconfirmed-fc2-cast', 'descriptive-performers', 'code-folder-creators', 'r18-merges')),
+    ('follow', ('rule34video-characters', 'rule34-details', 'bluray-duplicates', 'want-acquired', 'follow-evidence')),
+    ('records', ('download-text', 'interface-text')),
 )
+#: 等用户确认才做的项：要读网盘（流量与网盘缓存）、删了不能恢复，或判据不是百分之百、要解除关联或合并实体
+#: （`legacy_repairs.CONFIRMS`）。其余判据确定、只改自动写入的值、回执记着原值，升级后自动做。
+CONFIRM = frozenset({'display-cloud', 'follow-evidence', *(rule.item for rule in legacy_repairs.CONFIRMS)})
+#: `(id, 模式, 组)`，顺序就是页面的默认顺序。
+ITEMS = tuple((item, 'confirm' if item in CONFIRM else 'auto', group) for group, items in GROUPS for item in items)
+#: 组内先列要用户处理或正在进行的：等确认、在跑、要重试、排队，然后才是做完的。
+_STATE_ORDER = {'waiting': 0, 'running': 1, 'failed': 2, 'pending': 3}
 #: 历史里的规则：账本行 id 的前缀、计哪个字段（`None` 为资料整理的改动合计）。
 #: 前缀去掉末尾的连字符就是规则 id，名字在 `server:repairCenter.history.<id>`。
 RULES = (
@@ -171,14 +179,15 @@ def _display_cloud(pending: int, included: bool, done: int, total: int) -> dict:
 
 
 def _backfill(status: dict | None, rows, prefix: str) -> dict:
-    """联网补填：在跑就报进度；还有待问的条目就等确认，带按限速估的分钟数；没有了报上一次改了几处。"""
+    """联网补填（升级后自动在后台跑）：在跑就报进度；还剩待问条目的排着等下次启动，缺凭据的报原因；
+    没有了报上一次改了几处。"""
     status = status or {}
     if status.get('phase') == 'running':
         return {'state': 'running', 'done': status.get('done', 0), 'total': status.get('total', 0)}
     last = _receipt_fact(rows, prefix, 'changed')
     if status.get('pending'):
-        return {'state': 'waiting', 'pending': status['pending'], 'minutes': status.get('minutes', 0),
-                'online': True, 'backed_up': True, 'changed': last['changed']}
+        return {'state': 'failed' if status.get('error') else 'pending', 'pending': status['pending'],
+                'online': True, 'changed': last['changed'], **({'error': status['error']} if status.get('error') else {})}
     return last
 
 
@@ -227,7 +236,9 @@ def snapshot(connection, receipt: dict, *, cloud_pending: int, backup_directorie
         **{rule.item: _confirmed(rows, rule.prefix, (confirm_pending or {}).get(rule.item, 0))
            for rule in legacy_repairs.CONFIRMS},
     }
-    items = [{'id': key, 'title': interface_text.text(f'server:repairCenter.items.{key}.title'),
+    items = [{'id': key, 'group': group, 'title': interface_text.text(f'server:repairCenter.items.{key}.title'),
               'summary': interface_text.text(f'server:repairCenter.items.{key}.summary'), 'mode': mode, **facts[key]}
-             for key, mode in ITEMS if _touched(facts[key])]
+             for key, mode, group in ITEMS if _touched(facts[key])]
+    groups = [group for group, _ in GROUPS]
+    items.sort(key=lambda item: (groups.index(item['group']), _STATE_ORDER.get(item['state'], len(_STATE_ORDER))))
     return {'items': items, 'history': _history(rows, backup_directories)}

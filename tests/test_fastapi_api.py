@@ -531,17 +531,6 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 200)
         apply.assert_called_once_with('case-duplicates')
 
-    async def test_online_backfill_starts_in_the_background_instead_of_one_write_transaction(self):
-        """rule34 补填要逐条联网：确认后交给后台限速执行，不进 `apply_confirmed` 的同步写事务。"""
-        service = self.app.state.upgrade_repairs
-        with patch.object(service, 'available', True), patch.object(service, 'apply_confirmed') as apply, patch.object(
-                self.app.state.follow_backfill, 'begin', return_value={'phase': 'running'}) as begin, patch(
-                'peach.routes_configuration._repair_center', return_value={'items': [], 'history': [], 'available': True}):
-            response = await self.client.post('/api/configuration/repairs/rule34-details?t=secret', json={})
-        self.assertEqual(response.status_code, 200)
-        begin.assert_called_once_with('rule34-details')
-        apply.assert_not_called()
-
     async def test_installation_confirmation_rejects_manual_repairs(self):
         with patch('peach.api._installation_in_progress', return_value=True), patch.object(
                 self.app.state.upgrade_repairs, 'retry') as retry:

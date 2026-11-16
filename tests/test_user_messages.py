@@ -117,7 +117,7 @@ def registered_keys() -> set[str]:
     keys |= {f"release.channel.{key}" for key in release_updates.CHANNELS}
     keys |= {f"release.message.{key}" for key in release_updates.MESSAGES}
     keys |= {f"release.dockerStep.{step}" for step, _ in release_updates.DOCKER_STEPS}
-    keys |= {f"repairCenter.items.{key}.{field}" for key, _ in repair_center.ITEMS for field in ("title", "summary")}
+    keys |= {f"repairCenter.items.{key}.{field}" for key, _, _ in repair_center.ITEMS for field in ("title", "summary")}
     keys |= {f"repairCenter.history.{prefix.rstrip('-')}" for prefix, _ in repair_center.RULES}
     keys |= {f"download.state.{key}" for key in downloads.STATES}
     keys |= {f"download.postprocess.{key}" for key in downloads.POSTPROCESS_STATES}

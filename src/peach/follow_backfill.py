@@ -10,9 +10,9 @@
 
 只补不抹：只把已经记过类型的名字改成 `character`；dapi 没给的上传时间不动，已有的时长与非空类型不覆盖。
 
-后台执行（`Backfill`）在用户确认后开始，按站方口径限速，每批改动与回执在同一个写事务里提交：回执 id 是
+后台执行（`Backfill`）随账本就绪自动开始，按站方口径限速，每批改动与回执在同一个写事务里提交：回执 id 是
 `<前缀><开始时刻>`，记着问过的条目（续跑跳过）和每处改动前的 `tag_types`／`published_at`／`duration`。
-服务退出时停在批与批之间，下次启动接着跑；在活动页取消的，剩下的重新等确认。
+服务退出时停在批与批之间，下次启动接着跑；取不到、被限流或在活动页取消的，下次启动再补。
 """
 from __future__ import annotations
 
@@ -321,12 +321,10 @@ class Job:
     #: 回执 id 前缀（含末尾连字符）；去掉连字符就是历史里的规则 id。
     prefix: str
     provider: str
-    #: 每条之间的最小间隔（秒），也是估算耗时的口径。
-    delay: float
 
 
-VIDEO = Job("rule34video-characters", "rule34video-characters-", "rule34video", VIDEO_DELAY)
-POST = Job("rule34-details", "rule34-details-", "rule34xxx", POST_DELAY)
+VIDEO = Job("rule34video-characters", "rule34video-characters-", "rule34video")
+POST = Job("rule34-details", "rule34-details-", "rule34xxx")
 JOBS = (VIDEO, POST)
 #: 每这么多条提交一次改动与回执；中断最多重问这么多条。
 FLUSH_EVERY = 20
@@ -369,7 +367,7 @@ class _Stopped(Exception):
 
 
 class Backfill:
-    """「修复与迁移」里两项 rule34 补填的后台执行，写法同 `follow_evidence.Reclaim`。
+    """「修复与迁移」里两项 rule34 补填的后台执行，进度写法同 `follow_evidence.Reclaim`。
 
     `database` 提供 `read_connection()`／`write_transaction()`（`WebContract`）；`runs` 是任务中心，
     每一趟在活动页登记、报进度，暂停与取消在条与条之间生效。`credentials` 是关注凭据仓库，rule34.xxx 的
@@ -399,7 +397,7 @@ class Backfill:
             return dict(self._state.get(item) or {'phase': 'idle'})
 
     def snapshot(self, connection) -> dict[str, dict]:
-        """各项给「修复与迁移」的读数：在跑的报进度，没跑的报还剩几条、按限速估要几分钟。"""
+        """各项给「修复与迁移」的读数：在跑的报进度；没跑的报还剩几条，缺凭据跑不了的带上原因。"""
         result = {}
         for spec in JOBS:
             state = self.status(spec.item)
@@ -411,17 +409,16 @@ class Backfill:
             except Exception:  # noqa: BLE001 — 旧库缺表时这一项按没有算
                 count = 0
             result[spec.item] = {'phase': 'idle', 'pending': count,
-                                 'minutes': max(1, round(count * spec.delay / 60)) if count else 0}
+                                 **({'error': state['error']} if count and state.get('error') else {})}
         return result
 
     # ---- 开始、续跑与退出 ----
 
-    def begin(self, item: str, *, resume_id: str | None = None) -> dict:
-        """用户在页面上确认后开始一项；有待问条目就在后台跑，返回当前读数。"""
+    def begin(self, item: str, *, resume_id: str | None = None, backup: bool = True) -> dict:
+        """开始一项；有待问条目就在后台跑，返回当前读数。`backup` 为假时不先备份账本（续跑与重试）。"""
         spec = job(item)
         if spec is None:
             raise UserValueError('api.configuration.repairUnknown', {'item': item})
-        credential = self._credential(spec)
         with self._lock:
             if (self._state.get(item) or {}).get('phase') == 'running':
                 raise UserValueError('errors.followBackfill.running')
@@ -434,26 +431,38 @@ class Backfill:
                         connection.execute("UPDATE ledger_upgrade_repair SET result_json=json_set(result_json,"
                                            "'$.state','done') WHERE id=?", (resume_id,))
                 return {'phase': 'idle'}
+            try:
+                credential = self._credential(spec)
+            except UserValueError as error:
+                self._state[item] = {'phase': 'idle', 'error': str(error)}
+                raise
             self._state[item] = {'phase': 'running', 'done': 0, 'total': len(rows)}
-            worker = threading.Thread(target=self._run, args=(spec, rows, credential, resume_id),
+            worker = threading.Thread(target=self._run, args=(spec, rows, credential, resume_id, backup),
                                       name=f'follow-backfill-{item}', daemon=True)
             self.workers[item] = worker
             worker.start()
             return dict(self._state[item])
 
     def start(self) -> None:
-        """上次没跑完（服务退出时停下）的项接着跑。用户已经确认过，不再等确认。"""
+        """账本就绪后自动补：上次没跑完的接着写同一张回执，还有待问条目的开新一趟。
+
+        判据确定、只补缺的、回执记着原值，所以不等确认（见 ADR-0052）。只有第一趟先备份账本；续跑与重试
+        （上次取不到、被限流停下、在活动页取消）都在下次启动时再来，不再备份。缺凭据的 rule34.xxx 记下原因，
+        页面照实显示，补好凭据后下次启动再补。"""
         if not self.available():
             return
         self._stopping.clear()
-        with self.database.read_connection() as connection:
-            unfinished = [(spec, rows[0][0]) for spec in JOBS
-                          if (rows := receipts(connection, spec)) and rows[0][1].get('state') == 'running']
-        for spec, receipt_id in unfinished:
+        for spec in JOBS:
             try:
-                self.begin(spec.item, resume_id=receipt_id)
-            except Exception:  # noqa: BLE001 — 续不上（凭据被删了）就等用户在页面上再点
-                LOGGER.warning('Follow backfill %s could not resume', spec.item, exc_info=True)
+                with self.database.read_connection() as connection:
+                    previous = receipts(connection, spec)
+                latest = previous[0] if previous else None
+                self.begin(spec.item, backup=not previous,
+                           resume_id=latest[0] if latest and latest[1].get('state') == 'running' else None)
+            except UserValueError:
+                LOGGER.info('Follow backfill %s waits for credentials', spec.item)
+            except Exception:  # noqa: BLE001 — 这一项起不来不影响其它服务
+                LOGGER.warning('Follow backfill %s could not start', spec.item, exc_info=True)
 
     def stop(self) -> None:
         self._stopping.set()
@@ -494,14 +503,14 @@ class Backfill:
             self.sleep(step)
             remaining -= step
 
-    def _run(self, spec: Job, rows: list[dict], credential, resume_id: str | None) -> None:
+    def _run(self, spec: Job, rows: list[dict], credential, resume_id: str | None, backup: bool) -> None:
         from .task_control import Cancelled, bind
         receipt_id = resume_id or f'{spec.prefix}{time.time_ns()}'
         receipt = {'state': 'running', 'checked': [], 'missed': [], 'rows': [], 'changed': 0}
         if resume_id:
             with self.database.read_connection() as connection:
                 receipt.update(dict(receipts(connection, spec)).get(resume_id) or {}, state='running')
-        elif self.backup is not None:
+        elif backup and self.backup is not None:
             try:
                 receipt['backup'] = str(self.backup(spec.prefix))
             except Exception as error:  # noqa: BLE001 — 没有备份就不写
@@ -509,7 +518,7 @@ class Backfill:
                 with self._lock:
                     self._state[spec.item] = {'phase': 'idle', 'error': str(error)}
                 return
-        run = self._task(lambda: self.runs.start(TASK_KEY, trigger='manual', mutex_key=f'{TASK_KEY}:{spec.item}',
+        run = self._task(lambda: self.runs.start(TASK_KEY, trigger='startup', mutex_key=f'{TASK_KEY}:{spec.item}',
                                                  total=len(rows), label=Said(f'labels.followBackfill.{spec.item}')))
         run_id = getattr(run, 'id', None)
         staged: list[tuple[dict, object]] = []
