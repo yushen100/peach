@@ -597,9 +597,32 @@ class ScrapingAccessTests(unittest.TestCase):
         self.assertEqual(caught.exception.reason, "account_suspended")
         self.assertIn("账号被临时停用", str(caught.exception))
         self.assertIn("换出口没用", str(caught.exception))
+        # 恢复时刻说成「今晚 21:39」「明天 09:00」这类，不写月日时间戳；按显示语言渲染。
+        local = datetime.fromtimestamp(resume.timestamp())
+        self.assertIn(f" {local:%H:%M} 自动恢复", str(caught.exception))
+        self.assertNotIn(f"{local:%m-%d}", str(caught.exception))
+        self.assertTrue(caught.exception.params["time"]["code"].startswith("labels.resumeAt."))
         until, blocks = cooldown_state(self.root, "javdb")
         self.assertAlmostEqual(until, resume.timestamp(), delta=1)
         self.assertEqual(blocks, 0, "账号停用不往出口封禁那档翻倍")
+
+    def test_a_resume_moment_reads_as_tonight_or_tomorrow_in_each_language(self):
+        """恢复时刻按本机时间说成今晚、明天、后天，再远带月日；英文同一句也这样说。"""
+        from datetime import datetime
+        from peach.scraping_access import resume_phrase
+        now = datetime(2026, 11, 16, 20, 0).timestamp()
+        cases = [(datetime(2026, 11, 16, 21, 39), "今晚 21:39", "at 21:39 tonight"),
+                 (datetime(2026, 11, 16, 3, 0), "今天凌晨 03:00", "at 03:00 today"),
+                 (datetime(2026, 11, 17, 9, 0), "明天 09:00", "at 09:00 tomorrow"),
+                 (datetime(2026, 11, 17, 2, 30), "明天凌晨 02:30", "at 02:30 tomorrow"),
+                 (datetime(2026, 11, 17, 22, 0), "明晚 22:00", "at 22:00 tomorrow night"),
+                 (datetime(2026, 11, 18, 8, 0), "后天 08:00", "at 08:00 the day after tomorrow"),
+                 (datetime(2026, 11, 22, 10, 5), "11月22日 10:05", "at 10:05 on 11/22")]
+        for moment, chinese, english in cases:
+            phrase = resume_phrase(moment.timestamp(), now)
+            self.assertTrue(interface_text.nested(phrase), phrase)
+            self.assertEqual(interface_text.text(f"server:{phrase['code']}", phrase["params"]), chinese)
+            self.assertEqual(interface_text.text(f"server:{phrase['code']}", phrase["params"], "en"), english)
 
     def test_a_new_cookie_lifts_the_pause_the_old_one_earned(self):
         """过期的 `cf_clearance` 撞出 403 后整站冷却；用户换了新 Cookie 就该立刻再试，不等旧账到期。"""

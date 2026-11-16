@@ -2928,6 +2928,16 @@
   },
   "labels": {
     "listSeparator": "、",
+    "resumeAt": {
+      "earlyToday": "今天凌晨 {{clock}}",
+      "today": "今天 {{clock}}",
+      "tonight": "今晚 {{clock}}",
+      "earlyTomorrow": "明天凌晨 {{clock}}",
+      "tomorrow": "明天 {{clock}}",
+      "tomorrowNight": "明晚 {{clock}}",
+      "dayAfter": "后天 {{clock}}",
+      "date": "{{month}}月{{day}}日 {{clock}}"
+    },
     "runtimePrepare": {
       "writer": {
         "standalone": "replication.enabled = false，按独立写者",
@@ -4288,6 +4298,8 @@
       "submitFailed": "搜索或云下载提交失败，请在 Peach 检查来源和下载渠道后重试",
       "retryWaiting": "暂时不可用，等待自动重试",
       "sourcesWaiting": "{{sources}} 未取得，等待自动重试",
+      "sourcesUnfetched": "{{sources}} 未取得",
+      "searchFailedWaiting": "资源搜索失败：{{error}}；等待自动重试",
       "sourcesExhausted": "{{sources}} 自动重试 {{attempts}} 次后仍未取得，请在 Peach 检查来源后重试"
     },
     "followCreators": {

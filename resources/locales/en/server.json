@@ -1635,7 +1635,7 @@
       "noValidCookie": "No unexpired cookies for this source were found",
       "redirectNotHttps": "Fetch redirects must use HTTPS",
       "tooManyRedirects": "Too many fetch redirects",
-      "accountSuspended": "{{label}} temporarily suspended the account for browsing too fast. It resumes at {{time}}; the account is blocked, not the exit, so Peach pauses requests to it until then",
+      "accountSuspended": "{{label}} temporarily suspended the account for browsing too fast. It resumes {{time}}; the account is blocked, not the exit, so Peach pauses requests to it until then",
       "geoRestricted": "{{label}} isn't available in the region of your current exit. In your proxy, route it through an exit in a region it accepts; requests to it are paused for {{minutes}} minutes",
       "ipBanned": "{{label}} has banned your current exit IP. Requests to it are paused for a while; you can also route it through a different exit in your proxy",
       "requestBudgetSpent": "This run's fetch request limit is used up. Run it again to continue; existing images are kept",
@@ -2928,6 +2928,16 @@
   },
   "labels": {
     "listSeparator": ", ",
+    "resumeAt": {
+      "earlyToday": "at {{clock}} today",
+      "today": "at {{clock}} today",
+      "tonight": "at {{clock}} tonight",
+      "earlyTomorrow": "at {{clock}} tomorrow",
+      "tomorrow": "at {{clock}} tomorrow",
+      "tomorrowNight": "at {{clock}} tomorrow night",
+      "dayAfter": "at {{clock}} the day after tomorrow",
+      "date": "at {{clock}} on {{month}}/{{day}}"
+    },
     "runtimePrepare": {
       "writer": {
         "standalone": "replication.enabled = false, acting as the only primary computer",
@@ -4288,6 +4298,8 @@
       "submitFailed": "The search or cloud download submission failed. Check the sources and download channels in Peach, then retry",
       "retryWaiting": "Temporarily unavailable. Waiting to retry automatically",
       "sourcesWaiting": "Couldn't reach {{sources}}. Waiting to retry automatically",
+      "sourcesUnfetched": "Couldn't reach {{sources}}",
+      "searchFailedWaiting": "Resource search failed: {{error}}. Waiting to retry automatically",
       "sourcesExhausted": "Still couldn't reach {{sources}} after {{attempts}} automatic retries. Check the sources in Peach, then retry"
     },
     "followCreators": {
