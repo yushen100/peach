@@ -191,6 +191,31 @@ def discard_checkpoint(state_file: Path) -> None:
         _remove(path)
 
 
+def _job_id(rule: str, asset_id) -> str:
+    """状态表里这条影片规则（`media:<规则>`）下单部补修的任务号，续跑状态文件里记的就是它。"""
+    return f'{MEDIA_TASK}:{rule[len("media:"):]}:{asset_id}'.replace(':', '-')
+
+
+def _job_of(state_file: Path) -> str:
+    """单部补修续跑状态里记的任务号；文件不在或读不出是空串。"""
+    try:
+        value = json.loads(state_file.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return ''
+    return str(value.get('job_id') or '') if isinstance(value, dict) else ''
+
+
+def _discard_settled(root: Path, rule: str, asset_ids) -> None:
+    """这几部片在这条规则下有了结论：单部补修留下的续跑状态属于这条规则的，一并删掉。
+
+    一部片先单部跑失败、后来编进一批跑完时，批次只删自己的状态，单部那份没人再删。
+    """
+    for asset_id in asset_ids:
+        state_file = root / f'{asset_id}.json'
+        if _job_of(state_file) == _job_id(rule, asset_id):
+            discard_checkpoint(state_file)
+
+
 def _batched(planned) -> list:
     """同一规则的影片补全按 `BATCH_SIZE` 合成一批；显示尺寸补测与资料后继不动。"""
     from .followups import Followup
@@ -1556,29 +1581,40 @@ class UpgradeRepairs:
             LOGGER.exception('Failed to clean up control files of finished tasks')
 
     def _prune_repair_checkpoints(self) -> None:
-        """旧版补修完不删的续跑状态一次清掉；之后每部、每批有了结论就当场删（`discard_checkpoint`）。
+        """补修完不删的续跑状态一次清掉；之后每部、每批有了结论就当场删（`discard_checkpoint`、`_discard_settled`）。
 
-        留下的只有还用得上的：回执队列里在跑的键，以及状态表里待补、延后、失败的影片（重派时接着跑）。
-        一小时内动过的也不碰，免得和刚派出的任务抢同一份文件。回执记删掉的文件数与字节数。
+        留下的只有还用得上的：回执队列里在跑的键，以及状态表里这部片在**这条规则**下待补、延后、
+        失败的（重派同一个键时接着跑）。单部的续跑状态按文件里的 `job_id` 认是哪条规则留下的：
+        上一版按影片汇总，一部片只要在任意规则下还有失败，各条规则已做完的状态也一直留着。
+        读不出 `job_id` 的按影片判。一小时内动过的也不碰，免得和刚派出的任务抢同一份文件。
+        回执记删掉的文件数与字节数；`-1` 是上一版判据的回执，这一版换新键再清一遍。
         """
         import re
-        key = 'upgrade-repair-checkpoints-1'
+        key = 'upgrade-repair-checkpoints-2'
         try:
             with self.contract.database.read_connection() as connection:
                 if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?', (key,)).fetchone():
                     return
-                keep = {str(row[0]) for row in connection.execute(
-                    "SELECT DISTINCT asset_id FROM ledger_upgrade_item WHERE rule LIKE 'media:%'"
-                    " AND state IN ('pending','queued','deferred','failed')")}
+                open_items = [(row[0], str(row[1])) for row in connection.execute(
+                    "SELECT rule,asset_id FROM ledger_upgrade_item WHERE rule LIKE 'media:%'"
+                    " AND state IN ('pending','queued','deferred','failed')")]
             queued = list(_read(self.receipt).get('queued', {}))
-            keep |= {member.rsplit(':', 1)[1] for queued_key in queued for member in member_keys(queued_key)}
-            keep |= {f'batch-{_batch_digest(queued_key)}' for queued_key in queued if batch_members(queued_key)}
+            members = [member for queued_key in queued for member in member_keys(queued_key)]
+            # 每部片还用得上的续跑状态是哪几条规则的（按 `job_id` 认），以及这部片有没有任何还用得上的。
+            wanted = {member.replace(':', '-') for member in members}
+            wanted |= {_job_id(rule, asset_id) for rule, asset_id in open_items}
+            assets = {asset_id for _rule, asset_id in open_items} | {member.rsplit(':', 1)[1] for member in members}
+            batches = {f'batch-{_batch_digest(queued_key)}' for queued_key in queued if batch_members(queued_key)}
             pattern = re.compile(r'^(\d+|batch-[0-9a-f]{16})(\.json|\.issues\.jsonl|-items)$')
             cutoff = time.time() - 3600
             removed = size = 0
-            for path in self.root.iterdir() if self.root.is_dir() else ():
-                found = pattern.match(path.name)
-                if not found or found.group(1) in keep:
+            found = [(path, matched.group(1)) for path in (self.root.iterdir() if self.root.is_dir() else ())
+                     if (matched := pattern.match(path.name)) and matched.group(1) not in batches]
+            # 先把每部片认完再删：状态文件删掉之后，同名的问题日志与逐项目录就认不出规则了。
+            jobs = {name: _job_of(self.root / f'{name}.json') for _path, name in found if not name.startswith('batch-')}
+            for path, name in found:
+                job_id = jobs.get(name)
+                if job_id is not None and ((job_id in wanted) if job_id else (name in assets)):
                     continue
                 try:
                     if path.stat().st_mtime > cutoff:
@@ -1980,6 +2016,10 @@ class UpgradeRepairs:
         if settled_rows is not None:
             self._save_receipt(receipt, [('settle', settled_rows)])
             prune_settled_failures(self.contract.task_runs, receipt.get('queued', {}).values())
+            # 完成与取消的不会再按同一个键接着跑（取消的重试也不重派）：续跑状态用不上了。
+            for row in settled_rows:
+                if row['state'] in ('done', 'cancelled'):
+                    _discard_settled(self.root, row['rule'], [row['asset_id']])
         if receipt.get('dispatch_complete'):
             with self.contract.database.read_connection() as connection:
                 seed = self._seed_pending(connection)
@@ -2420,6 +2460,7 @@ def _settle_batch(contract, handle, rule: str, asset_ids, offline, cooling) -> d
               'retry_at': now + COOLDOWN_RETRY_SECONDS} for asset_id in cooling]
     with contract.database.write_transaction(notify=False) as connection:
         upsert_items(connection, rows, mode='finish')
+    _discard_settled(Path(contract.follow_state_root) / 'upgrade-repairs', item_rule, done)
     deferred = len(offline) + len(cooling)
     outcome = joined([part('videosUpgraded', count=len(done)),
                       part('videosDeferred', count=deferred) if deferred else []])

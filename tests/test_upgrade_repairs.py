@@ -2658,10 +2658,11 @@ class UpgradeRepairTests(unittest.TestCase):
         self.assertEqual(process.call_args.kwargs['asset_ids'], [1])
         self.assertTrue(process.call_args.kwargs['recheck_existing'])
 
-    def checkpoint(self, name):
+    def checkpoint(self, name, job_id=None):
         """在补修状态目录里放一份续跑状态：状态文件、问题日志与逐项检查点目录。"""
         self.service.root.mkdir(parents=True, exist_ok=True)
-        (self.service.root / f'{name}.json').write_text('{}', encoding='utf-8')
+        (self.service.root / f'{name}.json').write_text(json.dumps({'job_id': job_id} if job_id else {}),
+                                                        encoding='utf-8')
         (self.service.root / f'{name}.issues.jsonl').write_text('{}\n', encoding='utf-8')
         (self.service.root / f'{name}-items').mkdir()
         (self.service.root / f'{name}-items' / 'a.json').write_text('{}', encoding='utf-8')
@@ -2723,13 +2724,57 @@ class UpgradeRepairTests(unittest.TestCase):
         self.assertEqual(kept, sorted(expected))
         with self.database.read_connection() as connection:
             result = json.loads(connection.execute("SELECT result_json FROM ledger_upgrade_repair "
-                                                   "WHERE id='upgrade-repair-checkpoints-1'").fetchone()[0])
+                                                   "WHERE id='upgrade-repair-checkpoints-2'").fetchone()[0])
         # 1、4、6 与旧批次各三个文件。
         self.assertEqual(result['removed'], 12)
         self.checkpoint('10')
         os.utime(self.service.root / '10.json', (stale, stale))
         self.service._prune_repair_checkpoints()
         self.assertTrue((self.service.root / '10.json').exists())
+
+    def test_checkpoints_are_kept_only_for_the_rule_that_still_needs_them(self):
+        """一部片在别的规则下失败，不再替这条已做完的规则留着续跑状态。"""
+        import os
+        self.service.prepare()
+        stale = time.time() - 7200
+        names = {
+            # 处理规则已做完，失败的是已撤下的旧显示尺寸规则。
+            '1': self.checkpoint('1', 'upgrade-library-processing-v2-1'),
+            # 同一条规则还在等重试。
+            '2': self.checkpoint('2', 'upgrade-library-processing-v2-2'),
+            # 状态属于旧的文字规则，现在只剩处理规则在等。
+            '3': self.checkpoint('3', 'upgrade-library-processing-v2-text-4-3'),
+            # 回执队列里正排着这条规则的键。
+            '4': self.checkpoint('4', 'upgrade-library-processing-v2-text-4-4'),
+        }
+        for path in self.service.root.iterdir():
+            os.utime(path, (stale, stale))
+        with self.database.write_transaction() as connection:
+            upgrade_repairs.upsert_items(connection, [
+                {'rule': 'media:processing-v2', 'asset_id': 1, 'state': 'done'},
+                {'rule': 'media:display-dimensions-1', 'asset_id': 1, 'state': 'failed'},
+                {'rule': 'media:processing-v2', 'asset_id': 2, 'state': 'failed'},
+                {'rule': 'media:processing-v2', 'asset_id': 3, 'state': 'failed'}], mode='finish')
+        receipt = upgrade_repairs._read(self.service.receipt)
+        receipt['queued'] = {'upgrade-library:processing-v2:text-4:4': 1}
+        self.service._save_receipt(receipt)
+        self.service._prune_repair_checkpoints()
+        kept = sorted(path.name for path in self.service.root.iterdir()
+                      if path.name[0].isdigit())
+        self.assertEqual(kept, sorted(names['2'] + names['4']))
+
+    def test_a_film_finished_in_a_batch_drops_its_earlier_single_checkpoint(self):
+        from peach.settings_file import load_config
+        self.contract.upgrade_config = load_config(environ={'PEACH_DATA_ROOT': str(self.root)})
+        for key in (1, 2):
+            self.asset(key, duration=10)
+        single = self.checkpoint('1', 'upgrade-library-processing-v2-1')
+        other = self.checkpoint('2', 'upgrade-library-processing-v2-text-4-2')
+        with patch('peach.library_processing.process_library', return_value={'status': 'complete'}), \
+                patch.object(upgrade_repairs, 'mount_unreachable', return_value=False):
+            upgrade_repairs._media_run(self.contract, 'upgrade-library:batch:processing-v2:1,2', Mock(run_id=None))
+        self.assertEqual(sorted(path.name for path in self.service.root.iterdir()), sorted(other))
+        self.assertFalse(any((self.service.root / name).exists() for name in single))
 
     def test_a_new_text_rule_does_not_resume_completed_metadata_from_the_old_rule(self):
         from peach.settings_file import load_config
