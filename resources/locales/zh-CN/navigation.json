@@ -8,8 +8,11 @@
     "network": "网络与访问"
   },
   "durationFilter": {
+    "invalid": "请输入有效的非负时长，上限须大于 0",
     "maximum": "最长时长（分钟）",
+    "maximumLabel": "最长（分）",
     "minimum": "最短时长（分钟）",
+    "minimumLabel": "最短（分）",
     "minutes": "{{count, number}} 分钟",
     "noLimit": "不限"
   },
@@ -98,6 +101,11 @@
     "releaseYear": "发行年份",
     "storage": "来源",
     "videoProperties": "影片属性"
+  },
+  "sidebarWidth": {
+    "label": "调整侧栏宽度，双击或按回车重置",
+    "pixels": "{{count}} px",
+    "resetHint": "双击重置"
   },
   "sidebarReorder": {
     "canceled": "已取消排序",

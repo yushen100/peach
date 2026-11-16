@@ -238,6 +238,8 @@ npm 安装沿用 Node.js 24 LTS 附带的官方 [`npm ci`](https://docs.npmjs.co
 
 导航位置由 `history/page-navigation.ts` 统一保存与恢复，同一标签页保留各栏目的筛选、分页和内容缓存；普通栏目往返平滑恢复位置，双击导航请求回顶。左侧导航排序复用 `moveSidebarKey` 与现有设置保存入口，指针移动只更新插入提示和避让，松手时保存一次；键盘使用 Alt + 方向键。动效参数与证据边界见[导航拖动参考](reference-snapshots/kubai-sidebar-reorder.md)，未新增依赖。
 
+侧栏宽度复用已安装 React Aria 的 `useMove`，数字时长复用 BoardUI 输入组合与现有双滑块、目录和关注筛选入口。常用宽度吸附、浏览器记忆、键盘调节及重置由 Peach 的固定侧栏管理，未新增依赖。热门组件库的实测范围与取舍见[侧栏宽度参考](reference-snapshots/sidebar-resize.md)。
+
 全站滚动区通过 `observeScrollRegions` 按实际 `overflow` 接入现有 `attachOverlayScrollbar`，动态新增子树、样式启用和响应式布局复用同一入口；样式读取与轨道写入分批，行内样式变化只复核当前元素。普通内容区使用同级轨道，定位浮层与原生顶层内的轨道保持在自身层级并补偿滚动位置。组件卸载释放监听、观察器及轨道。横向手势导航保留 `wireHorizontalScroller` 的拖动和渐隐。路由冒烟统一检查所有实际溢出的滚动区，搜索回归覆盖滑块拖动、滚轮、关闭重开和轨道数量。没有新增依赖。
 
 来源筛选与所有表格的显示列弹层共用 `SelectionPopover`，组合现有 React Aria `Popover`、`MenuDialog`、BoardUI `Checkbox` 和按钮。宽度由选项和操作组的内容决定，并受视口上限约束；长选项在限宽内折行。选项靠近触发器，批量操作根据 React Aria 的实际展开方向放在远端，DOM 顺序随之调整。`SelectionActions` 区分短操作并排与长操作铺满整行；来源筛选附带箭头的 `LinkButton` 凭据链接，列设置保留显示全部和默认显示。复核作品样本的全选、清空也复用同一操作条，保留计数及禁用条件。颜色配色器与人物说明浮层的交互含义不同，继续使用各自组件。没有新增依赖。

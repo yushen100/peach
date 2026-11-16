@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "464c8960-bc2d-4730-93ba-3b359c556cf3", e._sentryDebugIdIdentifier = "sentry-dbid-464c8960-bc2d-4730-93ba-3b359c556cf3");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "fe836395-841a-4206-baea-384f8549eba7", e._sentryDebugIdIdentifier = "sentry-dbid-fe836395-841a-4206-baea-384f8549eba7");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -5132,8 +5132,11 @@ var He = "peach.settings.v1", Ue = {
 		network: "Network"
 	},
 	durationFilter: {
+		invalid: "Enter a valid non-negative duration. The maximum must be greater than 0.",
 		maximum: "Maximum duration (minutes)",
+		maximumLabel: "Max (min)",
 		minimum: "Minimum duration (minutes)",
+		minimumLabel: "Min (min)",
 		minutes_one: "{{count, number}} min",
 		minutes_other: "{{count, number}} min",
 		noLimit: "No limit"
@@ -5221,6 +5224,11 @@ var He = "peach.settings.v1", Ue = {
 		releaseYear: "Release year",
 		storage: "Storage",
 		videoProperties: "Video properties"
+	},
+	sidebarWidth: {
+		label: "Resize sidebar, double-click or press Enter to reset",
+		pixels: "{{count}} px",
+		resetHint: "Double-click to reset"
 	},
 	sidebarReorder: {
 		canceled: "Reordering canceled",
@@ -12439,8 +12447,11 @@ var He = "peach.settings.v1", Ue = {
 		network: "网络与访问"
 	},
 	durationFilter: {
+		invalid: "请输入有效的非负时长，上限须大于 0",
 		maximum: "最长时长（分钟）",
+		maximumLabel: "最长（分）",
 		minimum: "最短时长（分钟）",
+		minimumLabel: "最短（分）",
 		minutes: "{{count, number}} 分钟",
 		noLimit: "不限"
 	},
@@ -12527,6 +12538,11 @@ var He = "peach.settings.v1", Ue = {
 		releaseYear: "发行年份",
 		storage: "来源",
 		videoProperties: "影片属性"
+	},
+	sidebarWidth: {
+		label: "调整侧栏宽度，双击或按回车重置",
+		pixels: "{{count}} px",
+		resetHint: "双击重置"
 	},
 	sidebarReorder: {
 		canceled: "已取消排序",
@@ -39729,4 +39745,4 @@ jt();
 var Xb = document.getElementById("peach-page"), Zb = Xb ? Yb[Xb.dataset.page ?? ""] : void 0;
 Xb && Zb && (0, Bt.createRoot)(Xb).render(/* @__PURE__ */ (0, V.jsx)(Jb, { children: /* @__PURE__ */ (0, V.jsx)(Zb, { data: { ...Xb.dataset } }) }));
 
-//# debugId=464c8960-bc2d-4730-93ba-3b359c556cf3
+//# debugId=fe836395-841a-4206-baea-384f8549eba7

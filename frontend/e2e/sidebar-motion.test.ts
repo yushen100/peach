@@ -76,7 +76,7 @@ async function toggle(page: Page): Promise<Toggle> {
           drawerRight: drawerBox.right,
           mainLeft: mainBox.left,
           mainRight: mainBox.right,
-          railW: parseFloat(getComputedStyle(document.body).getPropertyValue('--railW')),
+          railW: parseFloat(getComputedStyle(document.body).paddingLeft),
           viewport: document.documentElement.clientWidth,
           frames,
         });
