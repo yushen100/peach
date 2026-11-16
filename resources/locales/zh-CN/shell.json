@@ -698,7 +698,19 @@
   },
   "sourceLink": {
     "blog": "博客",
-    "officialSite": "官方网站"
+    "catalogList": "{{name}} 作品列表",
+    "catalogPage": "{{name}} 作品页",
+    "fanCommunity": "粉丝社区 {{name}}",
+    "labelPage": "{{name}} 厂牌页",
+    "linkHub": "链接集（{{name}}）",
+    "namedBlog": "博客 {{name}}",
+    "officialArchive": "官网存档（{{name}}）",
+    "officialBlog": "官方博客",
+    "officialChannel": "官方频道页",
+    "officialShop": "官方商店",
+    "officialSite": "官方网站",
+    "recruiting": "{{name}}（招募）",
+    "seriesPage": "{{name}} 系列页"
   },
   "sourcePicture": {
     "coverAlt": "{{code}} 封面",

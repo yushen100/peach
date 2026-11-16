@@ -751,7 +751,19 @@
   },
   "sourceLink": {
     "blog": "Blog",
-    "officialSite": "Official site"
+    "catalogList": "{{name}} title list",
+    "catalogPage": "{{name}} title page",
+    "fanCommunity": "Fan community {{name}}",
+    "labelPage": "{{name}} label page",
+    "linkHub": "Link hub ({{name}})",
+    "namedBlog": "Blog: {{name}}",
+    "officialArchive": "Official site archive ({{name}})",
+    "officialBlog": "Official blog",
+    "officialChannel": "Official channel",
+    "officialShop": "Official shop",
+    "officialSite": "Official site",
+    "recruiting": "{{name}} (recruiting)",
+    "seriesPage": "{{name}} series page"
   },
   "sourcePicture": {
     "coverAlt": "{{code}} cover",

@@ -6,6 +6,8 @@
 """
 from __future__ import annotations
 
+import re
+
 # 下面几项由 `catalog_rules` 定义（它是最底层纯规则，不能反过来导入这里），在这里对外提供：
 # `PERFORMER_TAG_PREFIX` 是 `asset_tag` 里出演者标记的前缀，`performer:<名字>` 是出演者投影，不是内容标签；
 # 版次 id 与 FC2 卷 id 的说明见下。
@@ -117,7 +119,23 @@ LEGACY_QUALITY_BANDS = {"低画质": QUALITY_BANDS[-1]}
 LEGACY_PERFORMER_TAG_PREFIX = "演员:"
 #: 旧版 `entity_link.label` 的通用链接名，值是 `content_words` 里的 id（这里写字面量，免得两份内容数据互相导入）。
 LEGACY_LINK_LABELS = {"官方网站": "official-site", "官网": "official-site", "K-MIB 官网": "official-site",
-                      "博客": "blog"}
+                      "博客": "blog", "官方博客": "official-blog", "官方频道页": "official-channel",
+                      "官方商店": "official-shop"}
+#: 带专名的旧版通用链接名：`id:专名`，界面按 id 取当前语言的写法、专名原样代入。冒号前不在这里的
+#: 链接名（平台名、公司名）界面原样显示，所以 id 只从这张表里来。
+LEGACY_LINK_LABEL_PATTERNS = (
+    (re.compile(r"官网存档（(\d{4}-\d{2})）"), "official-archive"),
+    (re.compile(r"博客 (.+)"), "blog"),
+    (re.compile(r"(.+) 作品页"), "catalog-page"),
+    (re.compile(r"(.+) 厂牌页"), "label-page"),
+    (re.compile(r"(.+) 系列页"), "series-page"),
+    (re.compile(r"(.+) 作品列表"), "catalog-list"),
+    (re.compile(r"粉丝社区 (.+)"), "fan-community"),
+    (re.compile(r"(.+)（招募）"), "recruiting"),
+    (re.compile(r"链接集（(.+)）"), "link-hub"),
+)
+#: 夹在专名里的「官方」：`nanairo 官方 X @_scute` 去掉它就是专名本身。
+LEGACY_LINK_LABEL_OFFICIAL_INFIX = re.compile(r"^(\S.*?) 官方 (\S.*)$")
 
 
 def current_orientation(value: str) -> str:
@@ -138,8 +156,15 @@ def current_tag(value: str) -> str:
 
 
 def current_link_label(value: str) -> str:
-    """链接名：旧版通用链接名换成 id，其余（平台名、公司名）原样。"""
-    return LEGACY_LINK_LABELS.get(value, value)
+    """链接名：旧版通用链接名换成 id（带专名的写成 `id:专名`），其余（平台名、公司名）原样。"""
+    if value in LEGACY_LINK_LABELS:
+        return LEGACY_LINK_LABELS[value]
+    for pattern, label in LEGACY_LINK_LABEL_PATTERNS:
+        if match := pattern.fullmatch(value):
+            return f"{label}:{match.group(1)}"
+    if match := LEGACY_LINK_LABEL_OFFICIAL_INFIX.fullmatch(value):
+        return f"{match.group(1)} {match.group(2)}"
+    return value
 
 
 def is_performer_marker(value: str) -> bool:

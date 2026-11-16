@@ -35,6 +35,9 @@ describe('显示名', () => {
     expect(orientLabel('landscape')).toBe('横屏');
     expect(linkLabel('official-site')).toBe('官方网站');
     expect(linkLabel('blog')).toBe('博客');
+    expect(linkLabel('official-archive:2022-05')).toBe('官网存档（2022-05）');
+    expect(linkLabel('blog:旬の果実')).toBe('博客 旬の果実');
+    expect(linkLabel('catalog-page:KMP')).toBe('KMP 作品页');
   });
 
   it('英文界面按 id 取译文，专名原样', async () => {
@@ -46,5 +49,14 @@ describe('显示名', () => {
     expect(linkLabel('blog')).toBe('Blog');
     expect(linkLabel('T-POWERS')).toBe('T-POWERS');
     expect(linkLabel(undefined)).toBe('');
+  });
+
+  it('带专名的通用链接名把专名代进译文，冒号前不认识的照原文', async () => {
+    const { linkLabel } = await load('en');
+    expect(linkLabel('official-blog')).toBe('Official blog');
+    expect(linkLabel('official-archive:2022-05')).toBe('Official site archive (2022-05)');
+    expect(linkLabel('blog:旬の果実')).toBe('Blog: 旬の果実');
+    expect(linkLabel('series-page:TeamSkeet')).toBe('TeamSkeet series page');
+    expect(linkLabel('Note: 12')).toBe('Note: 12');
   });
 });

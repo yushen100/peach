@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "68a016ca-251f-44b3-b46f-545f9849082c", e._sentryDebugIdIdentifier = "sentry-dbid-68a016ca-251f-44b3-b46f-545f9849082c");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "12527e7d-e00a-438f-9598-9c8438ef1ff2", e._sentryDebugIdIdentifier = "sentry-dbid-12527e7d-e00a-438f-9598-9c8438ef1ff2");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -8742,7 +8742,19 @@ var He = "peach.settings.v1", Ue = {
 	},
 	sourceLink: {
 		blog: "Blog",
-		officialSite: "Official site"
+		catalogList: "{{name}} title list",
+		catalogPage: "{{name}} title page",
+		fanCommunity: "Fan community {{name}}",
+		labelPage: "{{name}} label page",
+		linkHub: "Link hub ({{name}})",
+		namedBlog: "Blog: {{name}}",
+		officialArchive: "Official site archive ({{name}})",
+		officialBlog: "Official blog",
+		officialChannel: "Official channel",
+		officialShop: "Official shop",
+		officialSite: "Official site",
+		recruiting: "{{name}} (recruiting)",
+		seriesPage: "{{name}} series page"
 	},
 	sourcePicture: {
 		coverAlt: "{{code}} cover",
@@ -15734,7 +15746,19 @@ var He = "peach.settings.v1", Ue = {
 	},
 	sourceLink: {
 		blog: "博客",
-		officialSite: "官方网站"
+		catalogList: "{{name}} 作品列表",
+		catalogPage: "{{name}} 作品页",
+		fanCommunity: "粉丝社区 {{name}}",
+		labelPage: "{{name}} 厂牌页",
+		linkHub: "链接集（{{name}}）",
+		namedBlog: "博客 {{name}}",
+		officialArchive: "官网存档（{{name}}）",
+		officialBlog: "官方博客",
+		officialChannel: "官方频道页",
+		officialShop: "官方商店",
+		officialSite: "官方网站",
+		recruiting: "{{name}}（招募）",
+		seriesPage: "{{name}} 系列页"
 	},
 	sourcePicture: {
 		coverAlt: "{{code}} 封面",
@@ -39207,4 +39231,4 @@ jt();
 var Kb = document.getElementById("peach-page"), qb = Kb ? Gb[Kb.dataset.page ?? ""] : void 0;
 Kb && qb && (0, Bt.createRoot)(Kb).render(/* @__PURE__ */ (0, V.jsx)(Wb, { children: /* @__PURE__ */ (0, V.jsx)(qb, { data: { ...Kb.dataset } }) }));
 
-//# debugId=68a016ca-251f-44b3-b46f-545f9849082c
+//# debugId=12527e7d-e00a-438f-9598-9c8438ef1ff2
