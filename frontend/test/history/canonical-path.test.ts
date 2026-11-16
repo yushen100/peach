@@ -20,6 +20,12 @@ it('三类对象与队列兼容地址保留筛选和播放位置', () => {
   }
 });
 
+it('关注管理的标签旧入口转向在线标签，并保留搜索与编辑状态', () => {
+  expect(canonicalPath('/subscriptions?tab=tags')).toBe('/tags?scope=online');
+  expect(canonicalPath('/follow-manage?tab=tags&page=2&sort=name&dir=asc&q=word&edit'))
+    .toBe('/tags?q=word&edit=&scope=online');
+});
+
 it('规范名优先于同名别名，歧义别名交给服务器解析', () => {
   registerResponseEntities('/api/entity/shapes', { entities: [
     { kind: 'performer', id: 801, names: ['Canonical Alice', 'Shared Alias'] },
