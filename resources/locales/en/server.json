@@ -290,6 +290,7 @@
       "quality-resolution": "Quality bands",
       "source-resolution-tags": "4K tags from sources",
       "video-medium": "Reclassified as videos",
+      "sidecar-assets": "NFO files and posters removed from the collection",
       "stale-filename-codes": "Misread codes cleared",
       "studio-unbounded-misses": "Label lookup cache",
       "verification-settlement": "Verification differences settled",
@@ -356,6 +357,10 @@
       "system-files": {
         "summary": "Moves NAS system thumbnails, macOS ._ files, and similar extras out of the collection. The files aren't deleted.",
         "title": "System extras"
+      },
+      "sidecar-assets": {
+        "summary": "NFO files, posters, fanart, and screenshot thumbnails that older versions listed as works leave the collection. The files aren't touched.",
+        "title": "NFO files and posters"
       },
       "interface-text": {
         "title": "Interface text in task records",

@@ -446,6 +446,8 @@ RESOLUTION_TAGS_KEY = f'source-resolution-tags-{upgrade_rules.SOURCE_RESOLUTION_
 
 
 VIDEO_MEDIUM_KEY = f'video-medium-{upgrade_rules.VIDEO_MEDIUM}'
+#: 附属文件删行（`_remove_sidecar_assets`）的回执键；规则版本见 `upgrade_rules`。
+SIDECAR_ASSETS_KEY = f'sidecar-assets-{upgrade_rules.SIDECAR_ASSETS}'
 #: 旧版永不清退的失败后继行（`_prune_failed_followups`）的回执键。
 FAILED_FOLLOWUPS_KEY = 'failed-followups-1'
 #: 处理任务积下的状态文件（`_prune_processing_state`）的回执键。
@@ -1098,6 +1100,7 @@ class UpgradeRepairs:
                 self._settle_dangling_candidates()
                 self._settle_javdb_records()
                 self._reclassify_videos()
+                self._remove_sidecar_assets()
                 self._settle_resolution_tags()
                 self._settle_quality()
                 self._convert_interface_text()
@@ -1151,6 +1154,7 @@ class UpgradeRepairs:
             self._settle_dangling_candidates()
             self._settle_javdb_records()
             self._reclassify_videos()
+            self._remove_sidecar_assets()
             self._settle_resolution_tags()
             self._settle_quality()
             self._convert_interface_text()
@@ -1426,6 +1430,37 @@ class UpgradeRepairs:
             return
         LOGGER.info('JavDB actor pages: recorded %s record types, stopped offering %s entries, disabled %s feeds',
                     len(result['recorded']), len(result['hidden']), len(result['disabled_feeds']))
+
+    def _remove_sidecar_assets(self) -> None:
+        """旧扫描登记成作品的 NFO、海报、剧照与截图缩略图从账本删行（`sidecar_asset_repair`），只做一次。
+
+        盘上文件不动、不进回收站（理由见 `sidecar_asset_repair`）。有要删的才先备份；删掉的行与引用
+        整行记进回执，`sidecar_asset_repair.restore` 按它插回。在 `prepare` 里、任务恢复之前做，
+        那时没有处理任务拿着这些行。出错只记日志，下次启动再试。
+        """
+        from . import sidecar_asset_repair as repair
+        try:
+            with self.contract.database.read_connection() as connection:
+                if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
+                                      (SIDECAR_ASSETS_KEY,)).fetchone():
+                    return
+                rows = repair.collect(connection)
+            backup = self._upgrade_backup() if rows else None
+            with self.contract.database.write_transaction() as connection:
+                if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
+                                      (SIDECAR_ASSETS_KEY,)).fetchone():
+                    return
+                removed = repair.apply(connection, rows)
+                result = {'rule': upgrade_rules.SIDECAR_ASSETS, repair.REMOVED: removed}
+                if backup is not None:
+                    result['backup'] = str(backup)
+                connection.execute('INSERT INTO ledger_upgrade_repair(id,applied_at,result_json) VALUES(?,?,?)',
+                                   (SIDECAR_ASSETS_KEY, str(time.time()),
+                                    json.dumps(result, ensure_ascii=False, default=str)))
+        except Exception:
+            LOGGER.exception('Sidecar asset row removal failed')
+            return
+        LOGGER.info('Sidecar files registered as works: removed %s ledger rows', len(removed))
 
     def _reclassify_videos(self) -> None:
         """记成 other、按现行扩展名规则是视频的行（`misfiled_videos`）改成视频，只做一次。

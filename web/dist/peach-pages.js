@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "1ae54671-b36c-494a-9387-3d8e44289f57", e._sentryDebugIdIdentifier = "sentry-dbid-1ae54671-b36c-494a-9387-3d8e44289f57");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "260db3d0-17dd-4d8f-922b-579e16f640d6", e._sentryDebugIdIdentifier = "sentry-dbid-260db3d0-17dd-4d8f-922b-579e16f640d6");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -7394,6 +7394,7 @@ var He = "peach.settings.v1", Ue = {
 			"quality-resolution": "Quality bands",
 			"source-resolution-tags": "4K tags from sources",
 			"video-medium": "Reclassified as videos",
+			"sidecar-assets": "NFO files and posters removed from the collection",
 			"stale-filename-codes": "Misread codes cleared",
 			"studio-unbounded-misses": "Label lookup cache",
 			"verification-settlement": "Verification differences settled",
@@ -7460,6 +7461,10 @@ var He = "peach.settings.v1", Ue = {
 			"system-files": {
 				summary: "Moves NAS system thumbnails, macOS ._ files, and similar extras out of the collection. The files aren't deleted.",
 				title: "System extras"
+			},
+			"sidecar-assets": {
+				summary: "NFO files, posters, fanart, and screenshot thumbnails that older versions listed as works leave the collection. The files aren't touched.",
+				title: "NFO files and posters"
 			},
 			"interface-text": {
 				title: "Interface text in task records",
@@ -14521,6 +14526,7 @@ var He = "peach.settings.v1", Ue = {
 			"quality-resolution": "画质分档",
 			"source-resolution-tags": "来源的 4K 标签",
 			"video-medium": "改登记为视频",
+			"sidecar-assets": "移出馆藏的 NFO 与海报",
 			"stale-filename-codes": "清除误认的番号",
 			"studio-unbounded-misses": "厂牌查询缓存",
 			"verification-settlement": "核查差异结算",
@@ -14587,6 +14593,10 @@ var He = "peach.settings.v1", Ue = {
 			"system-files": {
 				summary: "NAS 系统目录里的缩略图、macOS 的 ._ 附属文件等移出馆藏，文件本身不删",
 				title: "系统附属文件"
+			},
+			"sidecar-assets": {
+				summary: "旧版当成作品登记的 NFO、海报、剧照和截图缩略图移出馆藏，文件本身不动",
+				title: "NFO 与海报"
 			},
 			"interface-text": {
 				title: "任务记录的界面文字",
@@ -39371,4 +39381,4 @@ jt();
 var Kb = document.getElementById("peach-page"), qb = Kb ? Gb[Kb.dataset.page ?? ""] : void 0;
 Kb && qb && (0, Bt.createRoot)(Kb).render(/* @__PURE__ */ (0, V.jsx)(Wb, { children: /* @__PURE__ */ (0, V.jsx)(qb, { data: { ...Kb.dataset } }) }));
 
-//# debugId=1ae54671-b36c-494a-9387-3d8e44289f57
+//# debugId=260db3d0-17dd-4d8f-922b-579e16f640d6

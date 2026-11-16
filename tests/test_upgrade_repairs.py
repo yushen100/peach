@@ -930,6 +930,50 @@ class UpgradeRepairTests(unittest.TestCase):
         with self.database.read_connection() as connection:
             self.assertEqual(connection.execute('SELECT medium FROM asset WHERE id=1').fetchone()[0], 'other')
 
+    def test_sidecars_registered_as_works_leave_the_ledger_once_and_can_be_put_back(self):
+        """0.35 之前登记成作品的 NFO、海报、剧照与截图：只删账本行，受保护的留着，回执能原样插回。"""
+        from peach import repair_center, sidecar_asset_repair
+        rows = [  # (id, 路径, 媒介, 处置, 评分, 反馈)
+            (1, r'R:\media\ABC-001\ABC-001.mp4', 'video', None, None, None),
+            (2, r'R:\media\ABC-001\ABC-001.nfo', 'other', None, None, None),
+            (3, r'R:\media\ABC-001\poster.jpg', 'image', None, None, None),
+            (4, r'R:\media\ABC-001\extrafanart\fanart1.jpg', 'image', None, None, None),
+            (5, r'R:\media\gallery\cover.jpg', 'image', None, None, None),       # 图集自己的封面
+            (6, r'R:\media\ABC-001\ABC-001-fanart.jpg', 'image', None, 4, None),  # 带个人记录
+            (7, r'R:\media\ABC-001\ABC-001-thumb.jpg', 'image', None, None, 'like'),
+            (8, r'R:\media\shots\clip_4x4_thumb.jpg', 'image', None, None, None),
+            (9, r'R:\media\ABC-001\old.nfo', 'other', 'trash', None, None),
+            (10, r'R:\media\ABC-001\folder.jpg', 'image', None, None, None),     # 垃圾复核判为不是垃圾
+        ]
+        with self.database.write_transaction() as connection:
+            for key, path, medium, disposal, rating, feedback in rows:
+                connection.execute('INSERT INTO asset(id,location,path,name,medium,disposal,rating,feedback) '
+                                   "VALUES(?,'local',?,?,?,?,?,?)",
+                                   (key, path, PureWindowsPath(path).name, medium, disposal, rating, feedback))
+            connection.execute("INSERT INTO asset_tag(asset_id,tag,source) VALUES(3,'海报','scan')")
+            connection.execute("INSERT INTO review_decision(category,item_key,status,updated_at) "
+                               "VALUES('junk_file','10','rejected','now')")
+        self.service.prepare()
+        with self.database.read_connection() as connection:
+            left = [row[0] for row in connection.execute('SELECT id FROM asset ORDER BY id')]
+            stored = json.loads(connection.execute('SELECT result_json FROM ledger_upgrade_repair WHERE id=?',
+                                                   (upgrade_repairs.SIDECAR_ASSETS_KEY,)).fetchone()[0])
+            center = repair_center.snapshot(connection, {}, cloud_pending=0)
+        self.assertEqual(left, [1, 5, 6, 7, 9, 10])
+        self.assertEqual(sorted(record['asset']['id'] for record in stored['removed']), [2, 3, 4, 8])
+        self.assertTrue(Path(stored['backup']).is_file())
+        self.assertEqual(next(item['changed'] for item in center['items'] if item['id'] == 'sidecar-assets'), 4)
+        self.assertIn('sidecar-assets', [row['rule'] for row in center['history']])
+        # 回执在就不再重做；按回执插回的行与引用和原来一样。
+        with self.database.write_transaction() as connection:
+            self.assertEqual(sidecar_asset_repair.restore(connection, stored['removed']), 4)
+        self.service.prepare()
+        with self.database.read_connection() as connection:
+            self.assertEqual(len(connection.execute('SELECT id FROM asset').fetchall()), 10)
+            self.assertEqual(connection.execute('SELECT tag,source FROM asset_tag WHERE asset_id=3').fetchone()[:],
+                             ('海报', 'scan'))
+            self.assertEqual(connection.execute('PRAGMA foreign_key_check').fetchall(), [])
+
     def test_prior_restore_uses_windows_path_identity_without_exempting_other_paths(self):
         from peach import system_file_repair
         with self.database.write_transaction() as connection:
@@ -1136,12 +1180,12 @@ class UpgradeRepairTests(unittest.TestCase):
             row=connection.execute('SELECT catalog_title,field_owners FROM asset WHERE id=1').fetchone()
             self.assertEqual(row[0], '元の題名')
             self.assertEqual(json.loads(row[1])['catalog_title'], 'auto:dmm')
-            # 悬空候选、JavDB 记录类型、视频改登记、来源分辨率标签、画质分档与旧记录转换六条补修各记一行，这里只数更新已有资料的回执。
-            self.assertEqual(connection.execute('SELECT count(*) FROM ledger_upgrade_repair WHERE id NOT IN (?,?,?,?,?,?) '
+            # 悬空候选、JavDB 记录类型、视频改登记、附属文件删行、来源分辨率标签、画质分档与旧记录转换七条补修，以及旧版数据补修各记一行，这里只数更新已有资料的回执。
+            self.assertEqual(connection.execute('SELECT count(*) FROM ledger_upgrade_repair WHERE id NOT IN (?,?,?,?,?,?,?) '
                                                 'AND id NOT IN (SELECT value FROM json_each(?))',
                                                 (upgrade_repairs.DANGLING_KEY,
                                                  upgrade_repairs.JAVDB_RECORDS_KEY,
-                                                 upgrade_repairs.VIDEO_MEDIUM_KEY,
+                                                 upgrade_repairs.VIDEO_MEDIUM_KEY, upgrade_repairs.SIDECAR_ASSETS_KEY,
                                                  upgrade_repairs.RESOLUTION_TAGS_KEY, quality_repair.KEY,
                                                  interface_text_upgrade.RECEIPT_KEY,
                                                  json.dumps([rule.key for rule in legacy_repairs.RULES]))).fetchone()[0], 2)
@@ -1769,12 +1813,12 @@ class UpgradeRepairTests(unittest.TestCase):
         with self.database.read_connection() as connection:
             rows = connection.execute('SELECT id,code,duration FROM asset ORDER BY id').fetchall()
             self.assertEqual([tuple(row) for row in rows], [(1, 'SSIS-123', None), (2, 'BAD-001', None)])
-            # 悬空候选、JavDB 记录类型、视频改登记、来源分辨率标签、画质分档与旧记录转换六条补修各记一行，这里只数更新已有资料的回执。
-            self.assertEqual(connection.execute('SELECT count(*) FROM ledger_upgrade_repair WHERE id NOT IN (?,?,?,?,?,?) '
+            # 悬空候选、JavDB 记录类型、视频改登记、附属文件删行、来源分辨率标签、画质分档与旧记录转换七条补修，以及旧版数据补修各记一行，这里只数更新已有资料的回执。
+            self.assertEqual(connection.execute('SELECT count(*) FROM ledger_upgrade_repair WHERE id NOT IN (?,?,?,?,?,?,?) '
                                                 'AND id NOT IN (SELECT value FROM json_each(?))',
                                                 (upgrade_repairs.DANGLING_KEY,
                                                  upgrade_repairs.JAVDB_RECORDS_KEY,
-                                                 upgrade_repairs.VIDEO_MEDIUM_KEY,
+                                                 upgrade_repairs.VIDEO_MEDIUM_KEY, upgrade_repairs.SIDECAR_ASSETS_KEY,
                                                  upgrade_repairs.RESOLUTION_TAGS_KEY, quality_repair.KEY,
                                                  interface_text_upgrade.RECEIPT_KEY,
                                                  json.dumps([rule.key for rule in legacy_repairs.RULES]))).fetchone()[0], 1)

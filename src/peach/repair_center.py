@@ -20,6 +20,7 @@ from .media_sources import CLOUD_LOCATIONS
 #: `server:repairCenter.items.<id>`（ADR-0159），响应里同层的中文按 zh-CN 渲染。
 ITEMS = (
     ('catalog', 'auto'), ('display-local', 'auto'), ('display-cloud', 'confirm'), ('system-files', 'auto'),
+    ('sidecar-assets', 'auto'),
     ('garbled-people', 'auto'), ('dangling-candidates', 'auto'), ('javdb-entries', 'auto'),
     ('resolution-tags', 'auto'), ('video-medium', 'auto'), ('quality-bands', 'auto'), ('interface-text', 'auto'),
     *((rule.item, 'auto') for rule in legacy_repairs.RULES), ('follow-evidence', 'confirm'),
@@ -37,6 +38,7 @@ RULES = (
     ('javdb-actor-records-', ('hidden', 'disabled_feeds')),
     ('source-resolution-tags-', ('tags',)),
     ('video-medium-', ('video',)),
+    ('sidecar-assets-', ('removed',)),
     ('quality-resolution-', ('assets',)),
     ('interface-text-codes-', ('rows', 'attempts')),
     *((rule.prefix, ('changed',)) for rule in (*legacy_repairs.RULES, *legacy_repairs.CONFIRMS)),
@@ -198,6 +200,7 @@ def snapshot(connection, receipt: dict, *, cloud_pending: int, backup_directorie
         'resolution-tags': _receipt_fact(rows, 'source-resolution-tags-', 'tags'),
         'quality-bands': _receipt_fact(rows, 'quality-resolution-', 'assets'),
         'video-medium': _receipt_fact(rows, 'video-medium-', 'video'),
+        'sidecar-assets': _receipt_fact(rows, 'sidecar-assets-', 'removed'),
         'interface-text': _receipt_fact(rows, 'interface-text-codes-', 'rows', 'attempts'),
         'follow-evidence': _follow_evidence(follow_evidence_status, rows),
         **{rule.item: _receipt_fact(rows, rule.prefix, 'changed') for rule in legacy_repairs.RULES},

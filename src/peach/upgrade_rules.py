@@ -28,3 +28,5 @@ SOURCE_RESOLUTION_TAGS = 1
 VIDEO_MEDIUM = 1
 #: 旧任务行与补全记录里的界面文字转成 code（ADR-0159 第五条）。模板措辞改了就加一，升级时按新措辞再认一遍。
 INTERFACE_TEXT_CODES = 1
+#: 旧扫描登记成作品的 NFO、海报、剧照与截图缩略图从账本删行（`sidecar_asset_repair`）。判据改了就加一，升级时再对存量做一遍。
+SIDECAR_ASSETS = 1

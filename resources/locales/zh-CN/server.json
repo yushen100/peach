@@ -290,6 +290,7 @@
       "quality-resolution": "画质分档",
       "source-resolution-tags": "来源的 4K 标签",
       "video-medium": "改登记为视频",
+      "sidecar-assets": "移出馆藏的 NFO 与海报",
       "stale-filename-codes": "清除误认的番号",
       "studio-unbounded-misses": "厂牌查询缓存",
       "verification-settlement": "核查差异结算",
@@ -356,6 +357,10 @@
       "system-files": {
         "summary": "NAS 系统目录里的缩略图、macOS 的 ._ 附属文件等移出馆藏，文件本身不删",
         "title": "系统附属文件"
+      },
+      "sidecar-assets": {
+        "summary": "旧版当成作品登记的 NFO、海报、剧照和截图缩略图移出馆藏，文件本身不动",
+        "title": "NFO 与海报"
       },
       "interface-text": {
         "title": "任务记录的界面文字",

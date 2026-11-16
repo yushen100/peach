@@ -47,6 +47,27 @@ def _chunks(ids: list[int]) -> Iterable[list[int]]:
         yield ids[offset:offset + _CHUNK]
 
 
+def delete_asset_rows(connection, asset_ids: Iterable[int]) -> None:
+    """物理删掉这些 `asset` 行及指向它们的引用，不碰盘上文件；在调用方的写事务里做。
+
+    播放列表与关注条目只断开引用，引用表（`ASSET_REFERENCE_TABLES`）里的行删掉；按文件出的
+    资料候选键是 `asset:<编号>:<字段>`，资产删了，这些复核决定就没有可指的东西（#486）。
+    """
+    wanted = sorted({int(asset_id) for asset_id in asset_ids})
+    for batch in _chunks(wanted):
+        marks = ",".join("?" * len(batch))
+        connection.execute(f"UPDATE playlist SET current_asset_id=NULL WHERE current_asset_id IN ({marks})", batch)
+        connection.execute(f"UPDATE playlist SET source_seed_asset_id=NULL WHERE source_seed_asset_id IN ({marks})",
+                           batch)
+        connection.execute(f"UPDATE follow_item SET asset_id=NULL WHERE asset_id IN ({marks})", batch)
+        for table in ASSET_REFERENCE_TABLES:
+            connection.execute(f"DELETE FROM {table} WHERE asset_id IN ({marks})", batch)
+        connection.executemany(
+            "DELETE FROM review_decision WHERE category='metadata_fields' AND item_key GLOB ?",
+            [(f"asset:{asset_id}:*",) for asset_id in batch])
+        connection.execute(f"DELETE FROM asset WHERE id IN ({marks})", batch)
+
+
 def record_holders(connection, asset_ids: Iterable[int]) -> set[int]:
     """这些行里带个人记录的那几个 id：六张表里有记录，或行上四列记过。"""
     wanted = sorted({int(asset_id) for asset_id in asset_ids})
