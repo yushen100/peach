@@ -16,6 +16,7 @@ import { normalizeNavigationOrders, type NavigationOrders } from '../navigation-
 import { SORT_ALIASES, SORT_KEYS } from '../sort-preferences';
 import { DEFAULT_ACCENT, DEFAULT_HOME_GLOW, normalizeAccent, normalizeHomeGlow, type HomeGlow } from './home-glow';
 import { NAME_LANGUAGES, type NameLanguage } from '../core/entity-names';
+import { configureGestureSettings, normalizeGestures, type GestureSettings } from '../player/gesture-settings';
 
 export { SETTINGS_KEY };
 /* 主题三档，键名与 <html> 上的 data-theme 同一套写法：web/css/01-base.css 的色板
@@ -45,6 +46,13 @@ export interface AppSettings {
   hoverDelaySeconds: number;
   /** 卡片悬停时播放视频预览；关掉后悬停只显示静态图（#170）。 */
   hoverPreview: boolean;
+  /** 播放器画面手势（触屏与鼠标的长按、拖动、双击）的总开关与数值，播放器经 `wireGestureSettings` 现读。 */
+  touchGestures: boolean;
+  holdRate: number;
+  swipeMinutes: number;
+  doubleTapPercent: number;
+  /** 手机、平板上点播放时横版视频自动全屏（#618）。 */
+  autoFullscreen: boolean;
   seekSeconds: number;
   searchHistoryLimit: number;
   relatedLimit: number;
@@ -133,6 +141,12 @@ export function normalizeAppSettings(raw: unknown): { settings: AppSettings; mig
   settings.defaultSort = allowedSetting(settings.defaultSort, SORT_KEYS, 'seed');
   settings.hoverDelaySeconds = boundedPreference(+(settings.hoverDelaySeconds as number), 0, 60, 5);
   settings.hoverPreview = settings.hoverPreview !== false;
+  const gestures = normalizeGestures(settings as Partial<GestureSettings>);
+  settings.touchGestures = gestures.touchGestures;
+  settings.holdRate = gestures.holdRate;
+  settings.swipeMinutes = gestures.swipeMinutes;
+  settings.doubleTapPercent = gestures.doubleTapPercent;
+  settings.autoFullscreen = gestures.autoFullscreen;
   settings.seekSeconds = boundedPreference(+(settings.seekSeconds as number), 1, 300, 10);
   delete settings.loginDays;
   delete settings.metadataRefreshDays;
@@ -190,6 +204,12 @@ export function appSettingsStore(): SettingsStore<AppSettings> {
   store = createSettingsStore(SETTINGS_KEY, settings);
   if (migrated) store.save();
   return store;
+}
+
+/** 播放器的手势数值读这份偏好：交一个现读的取值函数，设置面板改完不用再通知播放器，下一次手势就用新值。
+ *  跳转秒数沿用「快进 / 快退步长」那一项。 */
+export function wireGestureSettings(target: SettingsStore<AppSettings> = appSettingsStore()): void {
+  configureGestureSettings(() => target.value);
 }
 
 /** 数据库那一份要求某个壳侧效果跟着做时报的名字（同设置面板的效果名）。 */

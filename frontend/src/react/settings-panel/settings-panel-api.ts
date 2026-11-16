@@ -43,6 +43,11 @@ export interface PanelSettings {
   feedHideExcerpts: boolean;
   hoverDelaySeconds: number;
   hoverPreview: boolean;
+  touchGestures: boolean;
+  holdRate: number;
+  swipeMinutes: number;
+  doubleTapPercent: number;
+  autoFullscreen: boolean;
   detailAutoplay: boolean;
   autoChineseSubtitles: boolean;
   afterPlayback: AfterPlayback;

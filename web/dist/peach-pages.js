@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "bc4087e6-6f83-4414-b186-4e2f9aa25475", e._sentryDebugIdIdentifier = "sentry-dbid-bc4087e6-6f83-4414-b186-4e2f9aa25475");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "cb234708-7c6d-477a-916a-e3323bddd60b", e._sentryDebugIdIdentifier = "sentry-dbid-cb234708-7c6d-477a-916a-e3323bddd60b");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -6601,6 +6601,13 @@ var He = {
 		shuffle: "Shuffle",
 		stop: "Stop",
 		title: "When a video ends"
+	},
+	playbackGestures: {
+		autoFullscreen: "Play landscape videos full screen on phones",
+		doubleTapPercent: "Double-tap seek area width",
+		holdRate: "Hold speed",
+		swipeMinutes: "A full-width drag skips",
+		touch: "Picture gestures (hold, drag, double-tap)"
 	},
 	playbackTranscode: {
 		qualitySaved: "Quality limit saved",
@@ -13670,6 +13677,13 @@ var He = {
 		shuffle: "随机播放",
 		stop: "停下",
 		title: "播完之后"
+	},
+	playbackGestures: {
+		autoFullscreen: "手机上播放横版视频时自动全屏",
+		doubleTapPercent: "双击快进快退的区域宽度",
+		holdRate: "长按倍速",
+		swipeMinutes: "横向拖过整个画面跳转",
+		touch: "画面手势（长按、拖动、双击）"
 	},
 	playbackTranscode: {
 		qualitySaved: "已保存画质上限",
@@ -39171,4 +39185,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=bc4087e6-6f83-4414-b186-4e2f9aa25475
+//# debugId=cb234708-7c6d-477a-916a-e3323bddd60b
