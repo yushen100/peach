@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "d7ff2307-b342-4a5b-bffd-bb936cf9577e", e._sentryDebugIdIdentifier = "sentry-dbid-d7ff2307-b342-4a5b-bffd-bb936cf9577e");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "1384cb34-1190-4d75-afdc-c317e99dba8f", e._sentryDebugIdIdentifier = "sentry-dbid-1384cb34-1190-4d75-afdc-c317e99dba8f");
 	} catch {}
 })();
 import { $2ec61d1d4f780267$export$a8a3e93435678ff9 as e, $542a13ca2fa5b484$export$5b6b19405a83ff9d as t, Button as n, EmptyFocusButton as r, EmptyState as i, Input as a, MENU_ITEM as o, MENU_ITEM_INTERACTIVE as s, MENU_POPOVER_SURFACE as c, MenuDialog as l, MixCard as u, ModalFrame as d, ObjectOrderDialog as f, PLAYLISTS_KEY as p, RetryNote as m, __toESM as h, busyProps as g, confirmModal as _, createPlaylist as v, cx as y, deletePlaylist as b, errorMessage as x, fetchPlaylist as S, fetchPlaylists as C, keepPlaylist as w, posterUrl as T, recreatePlaylist as E, refreshPlaylists as D, renamePlaylist as O, reorderPlaylist as k, require_jsx_runtime as A, require_react as j, resumeAssetId as M, spriteGlyph as N, t as P, useMutation as F, useQuery as I } from "./peach-app.js";
@@ -191,6 +191,7 @@ function Y({ openPlaylist: e, openEntity: t, canFlip: n, toast: a, revision: o }
 			body: P("catalog:playlistsPage.deleteConfirmBody"),
 			confirmLabel: P("catalog:playlistsPage.delete"),
 			danger: !0,
+			holdToConfirm: !0,
 			onConfirm: async () => {
 				let t = await w(e.id);
 				await b(e.id), D(), a(P("catalog:playlistsPage.deleted"), t ? { undo: G(() => E(t)) } : void 0);
@@ -306,4 +307,4 @@ function X({ row: e, close: t, toast: r }) {
 }
 export { Y as PlaylistsPage };
 
-//# debugId=d7ff2307-b342-4a5b-bffd-bb936cf9577e
+//# debugId=1384cb34-1190-4d75-afdc-c317e99dba8f

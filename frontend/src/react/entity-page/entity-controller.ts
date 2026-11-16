@@ -1,4 +1,4 @@
-import { entityPath } from '@peach/legacy/core';
+import { entityPath, ENTITY_ROUTES } from '@peach/legacy/core';
 import { nextSortState } from '../../sort-preferences';
 import type { EntityFilters, EntityMedia, EntityPageActions, EntityPageHelpers, EntityPageProps } from './entity-page';
 import { emptyEntityFilters, entityViewPath } from './entity-route';
@@ -81,6 +81,7 @@ export function createEntityController(ports: EntityControllerPorts, helpers: En
         if (replace) ports.route(entityPath(target, to) + ports.suffix(), true);
         else ports.openEntity(target, to);
       },
+      openIndex: () => ports.route(`/${ENTITY_ROUTES[kind]}`, true),
       painted: (view, wall) => {
         const wasPhotos = ports.photoViewActive();
         ports.recordPainted(view, !!wall);

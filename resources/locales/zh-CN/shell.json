@@ -1,4 +1,8 @@
 {
+  "holdToConfirm": {
+    "label": "按住{{action}}",
+    "instruction": "按住鼠标、空格键或回车键 2 秒确认，提前松开取消。"
+  },
   "accessSetup": {
     "enterWithoutPassword": "免登录进入",
     "lanPasswordHint": "局域网访问建议设置密码，否则同一网络中的设备可直接进入。",

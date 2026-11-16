@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "71b6d25b-7de9-4beb-a74e-2838b25d7809", e._sentryDebugIdIdentifier = "sentry-dbid-71b6d25b-7de9-4beb-a74e-2838b25d7809");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "af2ac8bf-6e1a-4050-8e2e-b3636a1c3d14", e._sentryDebugIdIdentifier = "sentry-dbid-af2ac8bf-6e1a-4050-8e2e-b3636a1c3d14");
 	} catch {}
 })();
 import { $542a13ca2fa5b484$export$5b6b19405a83ff9d as e, $b4f18e3395fe64d7$export$3d96ec278d3efce4 as t, $b4f18e3395fe64d7$export$3e41faf802a29e71 as n, $b4f18e3395fe64d7$export$b2539bed5023c21c as r, Button as i, ButtonLink as a, Disclosure as o, E3 as s, EmptyState as c, FLOW_LABEL_X as l, FLOW_VIEWBOX as u, Gg as d, Input as f, M6 as p, MENU_ITEM as m, MENU_ITEM_INTERACTIVE as h, MENU_POPOVER_SURFACE as g, MenuDialog as _, Note as v, OV as y, Progress as b, Rf as x, SEGMENT as ee, SEGMENTED_TRACK as te, STAT_STRIP as ne, SegmentedTabList as re, Select$1 as ie, SelectItem as ae, StatCard as S, TASTE_REFRESH_KEY as oe, TASTE_REFRESH_TASK as se, TASTE_WINDOWS as ce, TaskProgress as le, Wt as C, Xt as ue, _8 as w, __toESM as de, aB as fe, activityKind as pe, avatarInner as me, busyProps as T, cB as he, cardClass as E, clsx as D, codedText as O, configureTasteBrowser as k, confirmModal as A, cx as j, errorMessage as M, f1 as N, fetchTaste as ge, fetchTasteJob as _e, firstGrapheme as ve, flowGraph as ye, flowLabel as be, fmtSize as xe, g4 as Se, historySpan as Ce, importTasteExport as we, jobText as Te, joinList as Ee, keepPreviousData as De, mM as Oe, pv as P, queryClient as F, r2 as ke, radarRows as Ae, rankDetail as je, rankShares as Me, removeTasteSource as Ne, require_jsx_runtime as Pe, require_react as Fe, serverLabel as Ie, serverLabelList as Le, siteMarkUrl as Re, startTasteRefresh as ze, statCardClass as Be, t as I, tasteDate as Ve, tasteDimensions as He, tasteHours as Ue, tasteKey as L, tasteRefetchInterval as We, tasteTime as Ge, topScores as Ke, uo as qe, useBackgroundJob as Je, useMutation as Ye, useQuery as Xe } from "./peach-app.js";
@@ -1587,6 +1587,7 @@ function Bi({ browsers: e, sources: t, range: n, children: r }) {
 											body: I("manage:tasteSources.deleteBrowserBody"),
 											confirmLabel: I("manage:tasteSources.deleteBrowser"),
 											danger: !0,
+											holdToConfirm: !0,
 											onConfirm: () => m.mutateAsync({
 												operation: "delete_browser",
 												id: e.id
@@ -2035,6 +2036,7 @@ function va({ sources: e, browsers: t, window: n, toast: r, emptyActions: a }) {
 							title: I("manage:taste.removeSource"),
 							body: aa,
 							confirmLabel: I("manage:taste.removeSource"),
+							holdToConfirm: !0,
 							onConfirm: () => o.mutateAsync(e.source_key)
 						});
 					}
@@ -2507,4 +2509,4 @@ function ba({ term: e, value: t, rest: n }) {
 }
 export { oa as TASTE_GUIDE_KEY, ya as TastePage };
 
-//# debugId=71b6d25b-7de9-4beb-a74e-2838b25d7809
+//# debugId=af2ac8bf-6e1a-4050-8e2e-b3636a1c3d14

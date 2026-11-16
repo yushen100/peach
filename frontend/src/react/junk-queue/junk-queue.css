@@ -191,7 +191,7 @@
   font: inherit;
   font-size: var(--fs-xs);
 }
-.peach-react [data-junk-actions] button[data-junk-action="dispose"]::before {
+.peach-react [data-junk-actions] button[data-junk-action="dispose"]:not([data-hold-confirm])::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -203,7 +203,7 @@
   transition: opacity .15s ease;
 }
 .peach-react [data-junk-actions] button[data-junk-action="dispose"]:hover:not([aria-busy]) { background: var(--board-red); color: #fff; }
-.peach-react [data-junk-actions] button[data-junk-action="dispose"]:hover:not([aria-busy])::before { opacity: 1; }
+.peach-react [data-junk-actions] button[data-junk-action="dispose"]:not([data-hold-confirm]):hover:not([aria-busy])::before { opacity: 1; }
 .peach-react [data-junk-actions] button[data-junk-action="dispose"]:active { background: var(--board-red-active); }
 .peach-react [data-junk-state] { grid-column: 1 / -1; color: var(--drop); font-size: var(--fs-xs); }
 .peach-react [data-junk-state]:empty { display: none; }

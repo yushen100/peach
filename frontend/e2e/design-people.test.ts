@@ -554,6 +554,46 @@ describe('设计决定：人物与厂牌资料页', () => {
     });
   }
 
+  for (const viewport of [DESKTOP, MOBILE]) {
+    it(`删除菜单悬停保留红底白字，三个长按范围与右侧取消键完整可见（${viewport.name}）`, { timeout: 60_000 }, async () => {
+      const opened = await openProfiledPerformer(browser, viewport);
+      try {
+        const page = opened.page;
+        await page.route('**/api/entity-batch/plan?*', route => route.fulfill({ status: 200,
+          contentType: 'application/json', body: JSON.stringify({names:[PROFILED.name],assets:3,bytes:1024,shared:1,token:'demo'}) }));
+        await page.locator('[data-namepick-toggle]').click();
+        const entry = page.locator('[data-namepick-delete]');
+        await entry.hover();
+        const hover = await entry.evaluate(element => ({
+          background: getComputedStyle(element).backgroundImage,
+          color: getComputedStyle(element).color,
+        }));
+        assert.notEqual(hover.background, 'none');
+        assert.equal(hover.color, 'rgb(255, 255, 255)');
+        await entry.click();
+        const modal = page.locator('dialog[data-modal-choices]');
+        await modal.waitFor({state:'visible'});
+        assert.equal(await modal.locator('[data-modal-confirm][data-hold-confirm]').count(), 3);
+        const bounds = await modal.evaluate(element => {
+          const modal = element.getBoundingClientRect();
+          const cancel = element.querySelector('[data-modal-cancel]')!.getBoundingClientRect();
+          const body = element.querySelector('.ui-geist-modal-body')!;
+          return {modal:{left:modal.left,right:modal.right},cancelRight:cancel.right,
+            expectedRight:modal.right-parseFloat(getComputedStyle(body).paddingRight),
+            overflow:body.scrollWidth-body.clientWidth};
+        });
+        assert.ok(bounds.modal.left >= 0 && bounds.modal.right <= viewport.width);
+        assert.ok(Math.abs(bounds.cancelRight-bounds.expectedRight)<1);
+        assert.ok(bounds.overflow <= 1);
+        await page.mouse.click(1, 1);
+        await modal.waitFor({state:'hidden'});
+        assert.deepEqual(opened.problems, []);
+      } finally {
+        await opened.close();
+      }
+    });
+  }
+
   /* 尺寸按身份列有哪几行定：外链与看片那一行都在是 160px，缺一行是 120px。取行高百分比的话
      圆框宽、列宽、别名折行、行高绕成一个圈，折行多出的那截压进卡底内边距。
      有资料的女优默认只有外链那一行，两行都在的那位要补上看片标识与订阅开关；七沢みあ只有看片那一行。 */

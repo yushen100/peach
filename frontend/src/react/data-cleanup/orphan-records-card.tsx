@@ -54,6 +54,7 @@ function OrphanActions({ item, toast }: { item: OrphanRecord; toast(message: str
   const remove = () => {
     void confirmModal({
       title: t('cleanup:orphans.deleteRecord'),
+      holdToConfirm: true,
       body: recordsText(item.records)
         ? t('cleanup:orphans.deleteBodyWithActivity', { name: item.name, records: recordsText(item.records) })
         : t('cleanup:orphans.deleteBody', { name: item.name }),
@@ -118,7 +119,7 @@ export function OrphanRecordsCard({ toast }: { toast(message: string): void }) {
   const purgeSelected = (count: number): BulkAction<OrphanRecord> => {
     let outcome: Awaited<ReturnType<typeof purgeOrphan>> | null = null;
     return {
-      key: 'purge', label: t('cleanup:orphans.deleteSelectedCount', { count }), reversal: 'irreversible', danger: true,
+      key: 'purge', label: t('cleanup:orphans.deleteSelectedCount', { count }), reversal: 'irreversible', danger: true, holdToConfirm: true,
       confirm: (chosen) => ({ title: t('cleanup:orphans.deleteSelectedTitle'), danger: true,
         body: t('cleanup:orphans.deleteSelectedBody', { count: chosen.length }), items: chosen.map((item) => item.name) }),
       run: async (chosen) => { outcome = await purgeOrphan(chosen.map((item) => item.id)) },

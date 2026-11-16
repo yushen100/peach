@@ -16,6 +16,8 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Added / 新增
 
+- **Library**: Delete profiles individually or in batches, with choices to keep works, move them to Trash or permanently delete their media (#738). / **馆藏**：资料页与名册多选支持删除档案，可选择保留作品、移入回收站或连同媒体永久删除（#738）。
+- **Interface**: Deletion buttons require a two-second hold with progress fill and release to cancel, while scope dialogs stay available (#738). / **界面**：删除执行键统一长按两秒确认，填充显示进度，提前松开取消，并保留范围说明弹窗（#738）。
 - **Library**: Profile name menus can merge duplicate actress, label, creator, series and agency profiles; a new alias that another profile already uses offers it too (#207). / **馆藏**：女优、厂牌、创作者、系列与事务所的名字菜单可合并重复档案，添加的别名已被另一份档案使用时也会提示合并（#207）。
 - **Library**: Edit details next to the title changes the code, title, date, region, performers, label, series and tags; edited values aren't overwritten by collection (#187). / **馆藏**：详情标题旁新增「编辑资料」，可改番号、标题、日期、产地、演员、厂牌、系列与标签，改过的值不再被采集覆盖（#187）。
 - **Library**: Performers, labels and series not found in Edit details can be created on the spot and carry a Custom tag in rosters and details (#549). / **馆藏**：编辑资料里搜不到的演员、厂牌、系列可直接新建，名册与详情上带「自建」标记（#549）。

@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "0c360de7-83bc-4a15-8c9e-c999ec5b5886", e._sentryDebugIdIdentifier = "sentry-dbid-0c360de7-83bc-4a15-8c9e-c999ec5b5886");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "b4c9be3f-b2e5-4131-97b4-c447d9af767e", e._sentryDebugIdIdentifier = "sentry-dbid-b4c9be3f-b2e5-4131-97b4-c447d9af767e");
 	} catch {}
 })();
 import { Button as e, LinkButton as t, Note as n, Progress as r, REPAIRS_KEY as i, RESULT_PANEL as a, RESULT_SECTION as o, SectionHeading as s, StatusLabel as c, apiSend as l, confirmModal as u, fetchRepairs as d, fmtSize as f, i2 as p, interfaceLanguage as m, localizeRepairs as h, queryClient as g, repairCenterPanelSkeleton as _, require_jsx_runtime as v, t as y, useAction as b, useQuery as x, withBackoff as S } from "./peach-app.js";
@@ -98,6 +98,7 @@ function L() {
 		body: y("settings:repairCenter.deleteBody", { amount: A(e) }),
 		confirmLabel: y("settings:repairCenter.deleteSnapshots"),
 		danger: !0,
+		holdToConfirm: !0,
 		onConfirm: async () => m(await v(e))
 	}), O = (e) => e.filter((e) => e.mode === "confirm" && e.state === "waiting" && !e.estimating), M = (e, t) => void u({
 		title: t,
@@ -108,6 +109,7 @@ function L() {
 		})),
 		confirmLabel: y("settings:shared.start"),
 		danger: e.some((e) => e.files !== void 0),
+		holdToConfirm: e.some((e) => e.files !== void 0),
 		onConfirm: async () => {
 			for (let t of e) m(await v(t));
 		}
@@ -208,4 +210,4 @@ function L() {
 }
 export { L as RepairCenterPage, N as repairsInterval };
 
-//# debugId=0c360de7-83bc-4a15-8c9e-c999ec5b5886
+//# debugId=b4c9be3f-b2e5-4131-97b4-c447d9af767e

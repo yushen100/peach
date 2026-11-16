@@ -123,6 +123,8 @@ export interface EntityHeroActions {
   addAlias(): void;
   /** 打开「合并重复档案」弹层；这一类不能合并时不给（菜单里就没有这一项）。 */
   mergeDuplicate?: () => void;
+  /** 确认后删除当前档案并返回名册。 */
+  deleteProfile?: () => void;
   /** 订阅或取消订阅新作。失败时壳已发过失败回执，这里会收到抛出的错误。 */
   follow(on: boolean): Promise<void>;
   /** 刚订上：等服务端这一轮拉取跑完，再把新作那一行重取一遍。 */

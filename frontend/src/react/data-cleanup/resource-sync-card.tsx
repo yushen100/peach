@@ -117,6 +117,7 @@ export function ResourceSyncCard(
 
   /* 执行那一步只认这次检查的候选，逐条复核后再删；删了就没有撤销。 */
   const runApply = (payload: ResourceScanState) => void confirmModal({
+    holdToConfirm: true,
     title: APPLY_LABEL,
     body: applyConfirmText(payload),
     confirmLabel: APPLY_LABEL,

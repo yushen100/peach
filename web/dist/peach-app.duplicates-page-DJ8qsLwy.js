@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "9662d6f4-54a0-4074-9185-c16d99763dbb", e._sentryDebugIdIdentifier = "sentry-dbid-9662d6f4-54a0-4074-9185-c16d99763dbb");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "0715ad9f-2d2b-4990-8309-e72954ebc648", e._sentryDebugIdIdentifier = "sentry-dbid-0715ad9f-2d2b-4990-8309-e72954ebc648");
 	} catch {}
 })();
 import { Button as e, Checkbox as t, CollectionSummary as n, DUPLICATES_KEY as r, EmptyState as i, FilterGlass as a, GlassPill as o, KEEP_LABELS as s, KEPT_DUPLICATES_KEY as ee, LOC as c, MEDIA_SOURCES_KEY as te, MEDIA_SOURCE_ICONS as l, Note as u, SelectionDock as ne, SourceLabel as d, SourceMark as f, TRASH_KEY as p, __toESM as m, batchOperate as h, bulkCloudPreferences as re, busyProps as ie, cardClass as ae, cloudLocations as oe, confirmModal as se, distinctName as g, duplicateVictims as _, enterPageSelection as v, errorMessage as y, exitPageSelection as ce, fetchDuplicates as le, fetchKeptDuplicates as ue, fetchMediaSources as de, fmtDur as b, fmtSize as x, groupKey as S, keepGroup as C, keepGroups as w, mixedCloudPreferences as fe, queryClient as T, require_jsx_runtime as E, require_react as D, runBulkAction as pe, sharedNamePrefix as me, spriteGlyph as O, t as k, useMutation as A, usePageSelection as he, useQuery as j, victimBytes as M } from "./peach-app.js";
@@ -23,6 +23,7 @@ function H(e, t) {
 		label: t,
 		reversal: "undo",
 		danger: e === "all",
+		holdToConfirm: !0,
 		confirm: (t) => {
 			let n = _(t, e);
 			return {
@@ -227,6 +228,7 @@ function G({ openItem: l, toast: f, failure: p }) {
 				size: x(M(e, r))
 			}) + k("shell:bulkAction.canUndo"),
 			confirmLabel: k("cleanup:duplicates.moveToTrash"),
+			holdToConfirm: !0,
 			onConfirm: () => (E(n), L.mutateAsync(r))
 		});
 	}, Q = (e) => ie(T === e && (L.isPending || z.isPending)), Ce = (e, t, n) => {
@@ -464,4 +466,4 @@ function G({ openItem: l, toast: f, failure: p }) {
 }
 export { G as DuplicatesPage };
 
-//# debugId=9662d6f4-54a0-4074-9185-c16d99763dbb
+//# debugId=0715ad9f-2d2b-4990-8309-e72954ebc648

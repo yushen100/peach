@@ -19,15 +19,17 @@ import { MENU_POPOVER_SURFACE } from '@/components/base/dropdown/menu-styles';
 import { Glyph } from './glyph';
 import { t } from '../../i18n';
 
-export function NamePicker({ current, choices, onChoose, onAddAlias, onMerge }: {
+export function NamePicker({ current, choices, onChoose, onAddAlias, onMerge, onDelete }: {
   current: string;
   choices: { value: string; label: string }[];
   onChoose(name: string): void;
   onAddAlias(): void;
   onMerge?: () => void;
+  onDelete?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const toggle = useRef<HTMLButtonElement>(null);
+  const textEdit = useRef(false);
   /* title 给壳的提示条用（board-controls 只认 [title]），和旧资料卡那枚一样悬停就出字。
      react-aria 的 Button 不收 title，挂载后直接写到节点上；提示条收起时会把它放回来。 */
   useEffect(() => { toggle.current?.setAttribute('title', t('catalog:namePicker.title')) }, []);
@@ -38,8 +40,12 @@ export function NamePicker({ current, choices, onChoose, onAddAlias, onMerge }: 
       </Button>
       {/* 离按钮 8px：旧锚定菜单 wireAnchoredMenu 就是 anchor.bottom + 8，另两枚弹层也是 8。 */}
       <Popover placement="bottom start" offset={8} containerPadding={8} className={MENU_POPOVER_SURFACE}
+        isNonModal={new URLSearchParams(window.location.search).has('edit')}
+        shouldCloseOnInteractOutside={element => !element.closest('[data-copy-editor]')}
         data-namepick-menu="">
-        <Menu aria-label={t('catalog:namePicker.title')} data-namepick-list="">
+        <Menu aria-label={t('catalog:namePicker.title')} data-namepick-list="" data-copy-interact=""
+          onPointerDownCapture={event => { textEdit.current = event.altKey }}
+          onKeyDownCapture={event => { textEdit.current = event.altKey }}>
           <MenuSection selectionMode="single" disallowEmptySelection selectedKeys={[current]}
             onSelectionChange={(keys) => {
               const chosen = [...(keys as Set<string>)][0];
@@ -62,6 +68,17 @@ export function NamePicker({ current, choices, onChoose, onAddAlias, onMerge }: 
               </MenuItem>
             ) : null}
           </MenuSection>
+          {onDelete ? <Separator data-namepick-rule="" /> : null}
+          {onDelete ? <MenuSection>
+            <MenuItem id="delete" textValue={t('catalog:rosterActions.delete')} data-namepick-delete=""
+              shouldCloseOnSelect={false} onAction={() => {
+                if (textEdit.current) return;
+                setOpen(false);
+                onDelete();
+              }}>
+              <Glyph name="trash" /><span>{t('catalog:rosterActions.deleteMenu')}</span>
+            </MenuItem>
+          </MenuSection> : null}
         </Menu>
       </Popover>
     </MenuTrigger>

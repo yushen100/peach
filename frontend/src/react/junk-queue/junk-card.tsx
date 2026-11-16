@@ -11,6 +11,7 @@
 import { memo, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
 import { esc, fmtSize } from '@peach/legacy/core';
 import { spinnerHtml } from '@peach/legacy/ui';
+import { HoldActionButton } from '../components/hold-button';
 
 import {
   junkDecision, junkKindMeta,
@@ -127,10 +128,10 @@ function JunkCardView({ item, view, selected, selectMode, helpers, actions }: Ju
           {...busyAttrs(decision.operation)} onClick={operate(decision.operation)}>
           <Icon name={decision.glyph} /><span data-junk-label="">{decision.label}</span>
         </button>
-        <button type="button" data-junk-action="dispose" title={t('cleanup:duplicates.moveToTrash')} aria-label={t('cleanup:duplicates.moveToTrash')}
+        <HoldActionButton data-junk-action="dispose" title={t('cleanup:duplicates.moveToTrash')} aria-label={t('cleanup:duplicates.moveToTrash')}
           {...busyAttrs('dispose')} onClick={operate('dispose')}>
           <Icon name="trash" /><span data-junk-label="">{t('cleanup:duplicates.moveToTrash')}</span>
-        </button>
+        </HoldActionButton>
         <span data-junk-state="" aria-live="polite">{status}</span>
       </footer>
     </article>

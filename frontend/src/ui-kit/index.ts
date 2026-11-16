@@ -26,3 +26,4 @@ export {
   wireIconSwitch,
 } from './controls';
 export { confirmModal, formModal } from './modal';
+export { attachHoldToConfirm } from './hold-to-confirm';

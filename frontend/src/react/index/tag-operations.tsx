@@ -92,7 +92,7 @@ export function tagOperation(command: Omit<Command, 'ids'>, label = TAG_ACTION_L
   const named = op === 'block' && !!command.name;
   const body = (ids: readonly TagId[]): Command => ({ ...command, ids: named ? [] : [...ids] });
   return {
-    key: op, label, reversal: TAG_REVERSAL[op],
+    key: op, label, reversal: TAG_REVERSAL[op], holdToConfirm: op === 'delete',
     confirm: async (ids) => {
       plan ??= await previewTagOperation(body(ids));
       return { title: TAG_ACTION_LABELS[op], body: consequence(body(ids), plan) };

@@ -1,4 +1,8 @@
 {
+  "holdToConfirm": {
+    "label": "Hold to {{action}}",
+    "instruction": "Hold the mouse button, Space or Enter for 2 seconds to confirm. Release early to cancel."
+  },
   "accessSetup": {
     "enterWithoutPassword": "Continue without sign-in",
     "lanPasswordHint": "Recommended for LAN access. Without one, any device on the same network can get in.",

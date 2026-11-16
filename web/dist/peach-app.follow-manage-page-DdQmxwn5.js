@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "06aab636-612c-42ca-b61c-8e8a34cb241e", e._sentryDebugIdIdentifier = "sentry-dbid-06aab636-612c-42ca-b61c-8e8a34cb241e");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "be37c1df-ff18-46a7-b215-c7d3355bbe12", e._sentryDebugIdIdentifier = "sentry-dbid-be37c1df-ff18-46a7-b215-c7d3355bbe12");
 	} catch {}
 })();
 import { $2ec61d1d4f780267$export$a8a3e93435678ff9 as e, $542a13ca2fa5b484$export$5b6b19405a83ff9d as t, $76d00c5a4edb230a$export$76ccd210b9029917 as n, $76d00c5a4edb230a$export$816b5d811295e6bc as r, $76d00c5a4edb230a$export$b59bdbef9ce70de2 as i, $76d00c5a4edb230a$export$f6f0c3fe4ec306ea as a, $76d00c5a4edb230a$export$f850895b287ef28e as o, $ea3928288112382f$export$439d29a4e110a164 as s, $l as c, ActivityStatus as l, Button as u, ButtonLink as d, Bx as f, COLUMN_SORT as p, Checkbox as m, ChevronSortDown as h, Chip as g, CollapseChevron as _, CollapseRegion as v, DataTableFooter as y, DataTableFrame as ee, DataTableSort as b, EmptyFocusButton as x, EmptyState as S, ErrorText as C, ExternalLink as w, FEEDS_KEY as T, FOLLOW_CHECK_KEY as E, FOLLOW_CHECK_TASK as D, FOLLOW_CREDENTIALS_KEY as O, FOLLOW_MANAGE_KEY as k, FOLLOW_MANAGE_NAV as A, FOLLOW_RESOLVE_KEY as j, FieldLabel as M, Help as N, Input as P, LAYOUTS as F, M6 as I, MENU_ITEM as L, MENU_ITEM_INTERACTIVE as R, MENU_POPOVER_SURFACE as z, ModalFrame as te, Note as B, P7 as ne, SORT_DEFAULT_DIR as V, SORT_OPTIONS as re, STAT_STRIP_SIX as H, Select as ie, SelectItem as ae, SelectionDock as oe, SelectionPopover as U, SiteLabel as W, SortDirectionIcon as se, SortableBoardTabs as ce, Switch as le, Table as ue, TableColumnControls as de, TableColumnResizer as fe, TableSelectionHeader as pe, TagManager as me, TaskProgress as he, Un as G, Wt as ge, Xf as _e, __toESM as ve, activityKind as ye, addAlias as be, addSource as xe, authorGroups as Se, authorName as Ce, avatarInner as we, busyProps as K, cardClass as Te, checkEvidenceGap as Ee, checkFailures as De, checkFeeds as Oe, checkReceipt as ke, checkSummary as Ae, checkedText as je, clickedBlank as Me, codedText as Ne, columnVisibilityFeature as Pe, composingKey as Fe, confirmModal as Ie, createColumnHelper as Le, credentialDone as Re, cx as ze, dZ as Be, dropSources as Ve, du as He, enterPageSelection as Ue, errorHeadline as We, errorMessage as q, exitPageSelection as Ge, feedIntervalText as Ke, fetchCheckJob as qe, fetchCredentials as Je, fetchFeeds as Ye, fetchFollow as Xe, fetchResolveJob as Ze, fetchSuggestions as Qe, flexRender as $e, followFeedByName as et, followFeedEntity as tt, followSuggestKey as nt, groupByAuthor as rt, isBroken as it, isLayout as at, jobText as ot, joinList as st, keepSelected as ct, l7 as lt, localTime as ut, lookupFeedActor as dt, mapLimit as ft, markAllPending as pt, pageSizeOf as mt, pageWindow as ht, patchSource as gt, pv as _t, queryClient as vt, quoted as yt, reloadFollowManage as J, removeAlias as bt, removeFeed as xt, removeSource as St, renameAliasGroup as Ct, require_jsx_runtime as wt, require_react as Tt, resolveFollowSort as Et, rowPaginationFeature as Dt, rowSelectionFeature as Ot, rowSortingFeature as kt, runBulkAction as At, selectionState as jt, serverLabel as Mt, setFeedEnabled as Nt, setSourceEnabled as Pt, sortLabel as Ft, startCheck as It, startResolve as Lt, t as Y, tableFeatures as Rt, tableRows as zt, toggleGroup as Bt, unmarkItems as Vt, useAction as Ht, useBackgroundJob as Ut, useMutation as Wt, usePageSelection as Gt, useQuery as Kt, useTable as qt, useTablePreferences as Jt } from "./peach-app.js";
@@ -803,6 +803,7 @@ function Fn({ groups: e, suggestions: t, sources: s = [], readOnly: c, toast: l 
 		key: "remove",
 		reversal: "undo",
 		label: Y("follow:creatorAliases.removeSelectedCount", { count: 0 }),
+		holdToConfirm: !0,
 		confirm: (e) => ({
 			title: Y("follow:creatorAliases.removeSelectedTitle"),
 			body: Y("follow:creatorAliases.removeSelectedBody", { count: e.length }),
@@ -817,6 +818,7 @@ function Fn({ groups: e, suggestions: t, sources: s = [], readOnly: c, toast: l 
 	}, he = (e) => void Ie({
 		title: Y("follow:creatorAliases.removeTitle"),
 		body: Tn(e),
+		holdToConfirm: !0,
 		confirmLabel: Y("follow:creatorAliases.removeTitle"),
 		onConfirm: () => W.mutateAsync(e)
 	}), G = (0, X.useRef)({
@@ -1364,6 +1366,7 @@ function qn(e, t) {
 		body: n ? Y("follow:feedSources.removeOneBody", { name: Vn(n) }) : Y("follow:feedSources.removeManyBody"),
 		confirmLabel: Y(n ? "follow:feedSources.removeOne" : "follow:feedSources.removeSelected"),
 		danger: !0,
+		holdToConfirm: !0,
 		onConfirm: t
 	});
 }
@@ -1427,6 +1430,7 @@ function Jn({ readOnly: e, toast: t, onAdd: c, selection: l }) {
 		label: Y("follow:shared.remove"),
 		reversal: "irreversible",
 		danger: !0,
+		holdToConfirm: !0,
 		confirm: (e) => ({
 			title: Y("follow:feedSources.removeMany", { count: e.length }),
 			danger: !0,
@@ -2041,6 +2045,7 @@ function rr(e) {
 		body: Y("follow:sourceList.unfollowBody"),
 		confirmLabel: Y("follow:sourceList.unfollow"),
 		danger: !0,
+		holdToConfirm: !0,
 		onConfirm: () => Oe.mutateAsync(e.id)
 	}), Fe = Wt({
 		mutationFn: async (e) => {
@@ -2102,6 +2107,7 @@ function rr(e) {
 		label: Y("follow:shared.delete"),
 		reversal: "irreversible",
 		danger: !0,
+		holdToConfirm: !0,
 		confirm: (e) => ({
 			title: Y("follow:sourceList.deleteManyTitle", { count: e.length }),
 			danger: !0,
@@ -4410,4 +4416,4 @@ function Xs(e) {
 }
 export { Xs as FollowManagePage };
 
-//# debugId=06aab636-612c-42ca-b61c-8e8a34cb241e
+//# debugId=be37c1df-ff18-46a7-b215-c7d3355bbe12

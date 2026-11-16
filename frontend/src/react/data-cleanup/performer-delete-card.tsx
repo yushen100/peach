@@ -79,7 +79,7 @@ export function PerformerDeleteCard({ toast }: { toast(message: string): void })
     let plan: PerformerDeletePlan | null = null;
     let outcome: PerformerDeleteResult | null = null;
     return {
-      key: 'performer-delete', label: t('cleanup:performerDelete.deleteSelected'), reversal: 'irreversible', danger: true,
+      key: 'performer-delete', label: t('cleanup:performerDelete.deleteSelected'), reversal: 'irreversible', danger: true, holdToConfirm: true,
       confirm: async (chosen) => {
         setError('');
         const next = await fetchDeletePlan(chosen.map(person => person.entity_id));

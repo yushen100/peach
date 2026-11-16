@@ -62,7 +62,7 @@ const fileCount = (groups: readonly DuplicateGroup[]) => groups.reduce((sum, gro
 function keepRuleAction(keep: KeepRule, label: string): BulkAction<DuplicateGroup> {
   let moved: number[] = [];
   return {
-    key: `keep-${keep}`, label, reversal: 'undo', danger: keep === 'all',
+    key: `keep-${keep}`, label, reversal: 'undo', danger: keep === 'all', holdToConfirm: true,
     confirm: (groups) => {
       const ids = duplicateVictims(groups, keep);
       return { title: t('cleanup:duplicates.moveToTrash'), danger: keep === 'all',
@@ -245,6 +245,7 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
         count: ids.length, groups: chosenGroups.length, keep: KEEP_LABELS[rule] ?? KEEP_LABELS.largest, size: fmtSize(victimBytes(chosenGroups, ids)) })
         + t('shell:bulkAction.canUndo'),
       confirmLabel: t('cleanup:duplicates.moveToTrash'),
+      holdToConfirm: true,
       onConfirm: () => { setPending(key); return dispose.mutateAsync(ids) },
     });
   };

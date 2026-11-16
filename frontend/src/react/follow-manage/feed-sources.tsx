@@ -165,7 +165,7 @@ function confirmRemove(sources: FeedSource[], write: () => Promise<unknown>) {
     body: one
       ? t('follow:feedSources.removeOneBody', { name: feedName(one) })
       : t('follow:feedSources.removeManyBody'),
-    confirmLabel: one ? t('follow:feedSources.removeOne') : t('follow:feedSources.removeSelected'), danger: true,
+    confirmLabel: one ? t('follow:feedSources.removeOne') : t('follow:feedSources.removeSelected'), danger: true, holdToConfirm: true,
     onConfirm: write,
   });
 }
@@ -239,7 +239,7 @@ export function FeedSources({ readOnly, toast, onAdd, selection }: {
     receipt: (rows) => t(enable ? 'follow:feedSources.enabledMany' : 'follow:feedSources.pausedMany', { count: rows.length }),
   });
   const removeMany: BulkAction<FeedSource> = {
-    key: 'remove', label: t('follow:shared.remove'), reversal: 'irreversible', danger: true,
+    key: 'remove', label: t('follow:shared.remove'), reversal: 'irreversible', danger: true, holdToConfirm: true,
     confirm: (rows) => ({ title: t('follow:feedSources.removeMany', { count: rows.length }), danger: true,
       body: t('follow:feedSources.removeManyBody'), confirmLabel: t('follow:feedSources.removeSelected') }),
     run: async (rows) => { await bulk.mutateAsync({ ids: rows.map((row) => row.id), action: 'remove' }) },

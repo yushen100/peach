@@ -143,6 +143,7 @@ export function UninstallSettings(
   const [accepted, setAccepted] = useState('');
   const remove = () => void confirmModal({
     title: t('settings:uninstall.title'),
+    holdToConfirm: true,
     danger: true,
     body: removeData
       ? t('settings:uninstall.confirmFull')

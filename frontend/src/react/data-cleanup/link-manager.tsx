@@ -162,7 +162,7 @@ export function LinkManager() {
   };
   /* 删除是一趟后台任务，结论由任务那块回执说；删了撤不回，弹窗写明。`all` 时不带 id，删整份清单。 */
   const removeGone = (label: string, all = false): BulkAction<LinkRow> => ({
-    key: all ? 'prune-all' : 'prune', label, reversal: 'irreversible', danger: true,
+    key: all ? 'prune-all' : 'prune', label, reversal: 'irreversible', danger: true, holdToConfirm: true,
     confirm: (rows) => ({ title: t('cleanup:links.deleteDead'), danger: true,
       body: t('cleanup:links.deleteDeadBody', { count: rows.length }) }),
     run: async (rows) => { await prune.start.mutateAsync({ checkId, ids: all ? undefined : rows.map((row) => row.id) }) },

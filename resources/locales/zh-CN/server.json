@@ -1019,6 +1019,7 @@
       "nothingToDelete": "没有可删除的影片"
     },
     "entityBatch": {
+      "previewStale": "档案或馆藏已变化，请关闭确认框后重新选择删除范围",
       "selectionInvalid": "请选择有效的条目",
       "selectionChanged": "所选条目已变化，请刷新后重试",
       "operationInvalid": "不支持这项批量操作"

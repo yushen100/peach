@@ -72,7 +72,8 @@ export function BrowserSources({ browsers, sources, range, children }:
         <Button variant="secondary" size="small" iconOnly leadingIcon={RiDeleteBinLine} {...busyProps(change.isPending)}
           aria-label={t('manage:tasteSources.deleteBrowserTitle', { browser: browser.name })} onClick={() => {
             void confirmModal({ title: t('manage:tasteSources.deleteBrowserTitle', { browser: browser.name }), body: t('manage:tasteSources.deleteBrowserBody'),
-              confirmLabel: t('manage:tasteSources.deleteBrowser'), danger: true, onConfirm: () => change.mutateAsync({ operation: 'delete_browser', id: browser.id }) });
+              confirmLabel: t('manage:tasteSources.deleteBrowser'), danger: true, holdToConfirm: true,
+              onConfirm: () => change.mutateAsync({ operation: 'delete_browser', id: browser.id }) });
           }} />
         </span>
       </div>})}

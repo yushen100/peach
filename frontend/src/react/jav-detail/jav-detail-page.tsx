@@ -7,6 +7,7 @@ import { mountPreviewPlayer } from '../../player';
 import { apiGet, errorMessage } from '../../api';
 import { textLang } from '../../core/text-lang';
 import { Button, ButtonLink } from '@/components/base/buttons/button';
+import { HoldButton } from '../components/hold-button';
 import { CloudDownloadDialog, type DownloadPrefill } from '../activity/cloud-download-dialog';
 import { Note } from '../components/note';
 import { RetryNote } from '../components/grid-reveal';
@@ -98,7 +99,7 @@ function Work({ code, item, actions, readOnly, retry, retrying }: JavDetailProps
       <div data-jav-actions="">
         {item.source_url ? <ButtonLink data-button-link="" variant="secondary" trailingIcon={RiExternalLinkLine}
           href={item.source_url} target="_blank" rel="noopener noreferrer">{t('catalog:shared.viewOnSite')}</ButtonLink> : null}
-        <Button variant="secondary" disabled={readOnly} aria-pressed={!!wantId} {...busyProps(!!want.busy)} onClick={toggleWant}>{wantId ? t('catalog:javWant.remove') : t('catalog:javWant.want')}</Button>
+        <HoldButton variant="secondary" holdToConfirm={!!wantId} disabled={readOnly} aria-pressed={!!wantId} {...busyProps(!!want.busy)} onClick={toggleWant}>{wantId ? t('catalog:javWant.remove') : t('catalog:javWant.want')}</HoldButton>
         <Button variant="primary" onClick={() => setDownload({ code: item.code, title: item.title, performers: item.performers,
           studio: item.studio, release_date: item.release_date, origin: `jav:${item.code}` })}>{t('catalog:shared.searchTorrents')}</Button>
       </div>

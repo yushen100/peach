@@ -115,7 +115,7 @@ export function RepairCenterPage() {
     : void confirmModal({
       title: t('settings:repairCenter.deleteTitle', { title: item.title }),
       body: t('settings:repairCenter.deleteBody', { amount: reclaimable(item) }),
-      confirmLabel: t('settings:repairCenter.deleteSnapshots'), danger: true,
+      confirmLabel: t('settings:repairCenter.deleteSnapshots'), danger: true, holdToConfirm: true,
       onConfirm: async () => update(await post(item)),
     });
   /** 等确认、现在就能开始的项（还在统计的删除项除外）。 */
@@ -126,6 +126,7 @@ export function RepairCenterPage() {
     items: items.map(item => t('settings:repairCenter.startManyItem', {
       title: item.title, amount: item.files !== undefined ? reclaimable(item) : reading(item) })),
     confirmLabel: t('settings:shared.start'), danger: items.some(item => item.files !== undefined),
+    holdToConfirm: items.some(item => item.files !== undefined),
     onConfirm: async () => { for (const item of items) update(await post(item)); },
   });
   const backupNote = (row: RepairHistory) => !row.backups.length ? null : row.backups.some(backup => backup.exists)

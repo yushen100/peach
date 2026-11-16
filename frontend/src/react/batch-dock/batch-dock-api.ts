@@ -30,6 +30,7 @@ export interface BatchAction {
   label: string;
   glyph: string;
   danger?: boolean;
+  holdToConfirm?: boolean;
   /** 会写数据的键必填；「取消」不写数据，两项都没有。 */
   confirm?: BatchConfirm;
   reversal?: BulkReversal;
@@ -65,7 +66,7 @@ export function batchActions(context: BatchContext, junkDismissed = false): Batc
       return [
         { group: 'batch', operation: 'restore', label: t('manage:shared.restore'), glyph: 'rotate-ccw', reversal: 'undo',
           confirm: confirm(t('shell:batchCatalog.restoreSelected'), 'shell:batchCatalog.confirmRestore') },
-        { group: 'batch', operation: 'delete', label: t('manage:batchDock.deletePermanently'), glyph: 'trash', danger: true, reversal: 'irreversible',
+        { group: 'batch', operation: 'delete', label: t('manage:batchDock.deletePermanently'), glyph: 'trash', danger: true, reversal: 'irreversible', holdToConfirm: true,
           confirm: confirm(t('shell:batchCatalog.deleteSelected'), 'shell:batchCatalog.confirmDelete') },
         CLEAR,
       ];
@@ -76,7 +77,7 @@ export function batchActions(context: BatchContext, junkDismissed = false): Batc
               confirm: confirm(t('shell:batchJunk.recheckFiles'), 'shell:batchJunk.confirmRecheck') }
           : { group: 'junk', operation: 'dismiss-junk', label: t('manage:batchDock.notJunk'), glyph: 'check', reversal: 'undo',
               confirm: confirm(t('shell:batchJunk.markNotJunk'), 'shell:batchJunk.confirmNotJunk') },
-        { group: 'junk', operation: 'dispose', label: t('manage:shared.moveToTrash'), glyph: 'trash', danger: true, reversal: 'undo',
+        { group: 'junk', operation: 'dispose', label: t('manage:shared.moveToTrash'), glyph: 'trash', danger: true, reversal: 'undo', holdToConfirm: true,
           confirm: confirm(t('shell:shared.moveToTrash'), 'shell:batchJunk.confirmDispose') },
         CLEAR,
       ];
@@ -100,7 +101,7 @@ export function batchActions(context: BatchContext, junkDismissed = false): Batc
           confirm: confirm(t('shell:batchCatalog.addToWatchLater'), 'shell:batchCatalog.confirmLater') },
         { group: 'region', operation: 'region', label: t('manage:batchDock.setRegion'), glyph: 'globe', reversal: 'irreversible',
           confirm: confirm(t('shell:batchRegion.title'), 'shell:batchRegion.hint') },
-        { group: 'batch', operation: 'dispose', label: t('manage:shared.moveToTrash'), glyph: 'trash', danger: true, reversal: 'undo',
+        { group: 'batch', operation: 'dispose', label: t('manage:shared.moveToTrash'), glyph: 'trash', danger: true, reversal: 'undo', holdToConfirm: true,
           confirm: confirm(t('shell:shared.moveToTrash'), 'shell:batchCatalog.confirmDispose') },
         CLEAR,
       ];

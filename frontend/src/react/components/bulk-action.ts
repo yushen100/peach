@@ -23,6 +23,7 @@ export interface BulkConfirm {
   recovery?: string;
   /** 弹窗里列出的条目名。 */
   items?: readonly string[];
+  choices?: readonly { key: string; label: string; description: string }[];
 }
 
 export interface BulkAction<T> {
@@ -30,10 +31,11 @@ export interface BulkAction<T> {
   label: string;
   reversal: BulkReversal;
   danger?: boolean;
+  holdToConfirm?: boolean;
   /** 弹窗文案；要先向服务端要一份清单（删除计划、预览）时可以是异步的，拒绝就不弹窗。 */
   confirm(items: readonly T[]): BulkConfirm | Promise<BulkConfirm>;
   /** 写入；`reversal` 为 `undo` 时必须交回撤销函数。 */
-  run(items: readonly T[]): Promise<BulkUndo | void>;
+  run(items: readonly T[], choice?: string): Promise<BulkUndo | void>;
   /** 过去时回执；交回空串时不发（后台任务的结论由任务自己的回执说）。 */
   receipt(items: readonly T[], result: { undo?: BulkUndo }): string;
 }
@@ -68,19 +70,23 @@ export async function runBulkAction<T>(action: BulkAction<T>, items: readonly T[
   if (!items.length) return false;
   const confirm = await action.confirm(items);
   let undo: BulkUndo | undefined;
+  const run = async (choice?: string) => {
+    const result = await action.run(items, choice);
+    if (action.reversal === 'undo') {
+      if (typeof result !== 'function') throw new Error(`bulk action ${action.key} returned no undo`);
+      undo = result;
+    }
+  };
   const { confirmed } = await confirmModal({
     title: confirm.title,
     body: confirmBody(confirm.body, action.reversal, confirm.recovery),
     items: confirm.items,
     confirmLabel: confirm.confirmLabel ?? confirm.title,
     danger: confirm.danger ?? action.danger ?? false,
-    onConfirm: async () => {
-      const result = await action.run(items);
-      if (action.reversal === 'undo') {
-        if (typeof result !== 'function') throw new Error(`bulk action ${action.key} returned no undo`);
-        undo = result;
-      }
-    },
+    holdToConfirm: action.holdToConfirm ?? false,
+    choices: confirm.choices?.map(choice => ({ ...choice, danger: true, holdToConfirm: true,
+      onConfirm: () => run(choice.key) })),
+    onConfirm: run,
   });
   if (!confirmed) return false;
   const message = action.receipt(items, { undo });

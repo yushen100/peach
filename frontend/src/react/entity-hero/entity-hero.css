@@ -622,6 +622,11 @@
   color: var(--ink);
 }
 .peach-react [data-namepick-menu] [aria-checked="true"] svg { visibility: visible; }
+.peach-react [data-namepick-menu] [data-namepick-delete] { color: var(--color-text-error-primary); }
+.peach-react [data-namepick-menu] [data-namepick-delete]:is([data-hovered], [data-focus-visible]) {
+  background: var(--gradient-button-danger-default);
+  color: var(--color-text-white);
+}
 .peach-react [data-namepick-rule] { height: 0; margin: 4px 1px; border: 0; border-top: 1px solid var(--border-10); }
 
 /* ── 窄屏 ──

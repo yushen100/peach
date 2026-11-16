@@ -1216,6 +1216,27 @@
     "tryOtherSearch": "Try a different code, actress, or title."
   },
   "rosterActions": {
+    "delete": "Delete",
+    "deleteMenu": "Delete…",
+    "deleteConfirm_one": "The selected profile has {{assets, number}} library files using {{size}}. Choose what to delete.",
+    "deleteConfirm_other": "The {{count, number}} selected profiles have {{assets, number}} library files using {{size}}. Choose what to delete.",
+    "deleteShared_one": " {{count, number}} file also belongs to other profiles and will disappear from them after permanent deletion.",
+    "deleteShared_other": " {{count, number}} files also belong to other profiles and will disappear from them after permanent deletion.",
+    "deleteChoice": { "profile": "Delete profiles only", "trash": "Move works to trash", "purge": "Delete everything" },
+    "deleteDescription": {
+      "profile": "Delete profiles, aliases and identity links. Keep library works and media files. Scanning or scraping may create the profiles again.",
+      "trash": "Delete profiles and move their library works to trash. Keep media files. Works can be restored from trash later.",
+      "purge": "Delete profiles, their library works, media files and viewing records. Keep files and profiles that could not be deleted, and show the reasons."
+    },
+    "deleteDone": {
+      "profile_one": "Deleted {{count, number}} profile",
+      "profile_other": "Deleted {{count, number}} profiles",
+      "trash_one": "Deleted {{count, number}} profile and moved {{assets, number}} library files to trash",
+      "trash_other": "Deleted {{count, number}} profiles and moved {{assets, number}} library files to trash",
+      "purge_one": "Deleted {{count, number}} profile and {{assets, number}} library files",
+      "purge_other": "Deleted {{count, number}} profiles and {{assets, number}} library files"
+    },
+    "deleteBlocked": "Deleted {{profiles, number}} profiles and {{assets, number}} library files. Kept {{retained, number}} profiles with remaining files. Close this dialog and choose the scope again.\n{{failures}}",
     "deselectAll": "Deselect all",
     "dockLabel": "Bulk roster actions",
     "exit": "Cancel selection",

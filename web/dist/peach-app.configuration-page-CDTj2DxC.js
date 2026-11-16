@@ -1,32 +1,32 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "8845f7fc-109d-48dc-bf3c-caaf3c9e3be4", e._sentryDebugIdIdentifier = "sentry-dbid-8845f7fc-109d-48dc-bf3c-caaf3c9e3be4");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "be044ad3-1548-4fe1-811d-9904a82a5f26", e._sentryDebugIdIdentifier = "sentry-dbid-be044ad3-1548-4fe1-811d-9904a82a5f26");
 	} catch {}
 })();
-import { $2ec61d1d4f780267$export$a8a3e93435678ff9 as e, $3a442827418ebe87$export$eb2fcfdbd7ba97d4 as t, $542a13ca2fa5b484$export$5b6b19405a83ff9d as n, $72abaeab4d80592f$export$78efe591171d7d45 as r, $bd263d78e9bf3c56$export$f5c9f3c2c4054eec as i, $ea3928288112382f$export$439d29a4e110a164 as a, $f2ff30fde7b014be$export$3ddf2d174ce01153 as o, $fe21c36db05242bb$export$a98f0dcb43a68a25 as s, $fe21c36db05242bb$export$d7b12c4107be0d61 as c, ACCENTS as l, ActivityStatus as u, ApiError as d, Button as f, ButtonLink as p, CLOUD_LOCATIONS as m, CLOUD_PROXY_HELP as h, CONFIGURATION_KEY as g, CONFIGURATION_SECTIONS as _, CONFIGURATION_URL as v, CREDENTIAL_STATE as y, Checkbox as b, Chip as x, CommandSteps as S, Disclosure as C, ENTRY_LINKS_HELP as ee, ENTRY_LINKS_HINT as te, EmptyState as w, ErrorText as T, Eu as ne, ExternalLink as E, FOLLOW_CREDENTIALS_KEY as D, FOLLOW_INITIAL_RANGE_OPTIONS as re, Fact as O, FactList as ie, FieldLabel as ae, Footer as k, Help as A, HintText as oe, Input as j, L1 as se, LIBRARY_FOLDER_HELP as ce, LIBRARY_PROCESSING_KEY as le, Label as ue, LinkButton as de, M6 as fe, MEDIA_PROCESSING_KEY as pe, MEDIA_PROCESSING_URL as me, MEDIA_SOURCE_ICONS as he, MENU_POPOVER_SURFACE as ge, Note as M, PICK_FOLDER_URL as _e, POLICY_COLUMNS as ve, POLICY_COVER_NOTE as ye, POLICY_MATRIX as be, POLICY_SUMMARY as xe, PathLine as Se, ProcessingMode as Ce, Progress as we, RELEASE_NOTICE_EVENT as Te, REPAIR_CENTER_PATH as Ee, Rows as N, SCHEDULES as De, SEGMENT as Oe, SEGMENTED_TRACK as ke, SETTINGS_KEY as Ae, SETTINGS_URL as je, Section as P, SectionSkeleton as Me, SegmentedRadioGroup as Ne, Select as Pe, Select$1 as F, SelectItem as I, SettingsCard as Fe, SettingsRow as L, SiteLabel as Ie, SortableBoardTabs as Le, SourceLabel as Re, SourceMark as ze, Stack as R, StatusLabel as z, Switch as B, THUMBNAIL_JOBS_KEY as Be, TaskCenterLink as Ve, TaskProgress as He, TextField as Ue, TextFieldContext as We, Uz as Ge, __toESM as Ke, _p as qe, activityKind as Je, animate as Ye, apiGet as V, apiSend as H, appSettingsStore as Xe, bodyFieldErrors as Ze, boundedPreference as Qe, busyProps as U, cardClass as $e, checkClientUpdates as et, cloudProxySkeleton as tt, clsx as nt, cn as rt, codedText as W, confirmModal as it, credentialDone as at, credentialsSkeleton as ot, cx as st, d6 as ct, devicesSkeleton as lt, errorMessage as G, fetchConfiguration as ut, fetchCredentials as dt, fetchLibraryProcessing as ft, fetchMediaProcessing as pt, fetchSettings as mt, fetchThumbnailJobs as ht, fmtSize as K, i2 as gt, indexersSkeleton as _t, interfaceLanguage as vt, javBrowserSkeleton as yt, jobText as bt, joinList as xt, l1 as St, ledgerBackupsSkeleton as Ct, localizedFact as wt, momentText as Tt, motion as Et, overlayHost as Dt, peachHistory$1 as Ot, pickServerFolder as kt, pollUntil as At, previewLibraryColor as jt, processingActive as Mt, providerIcon as Nt, queryClient as Pt, randomId as Ft, rememberShape as It, require_jsx_runtime as Lt, require_react as Rt, restartEffectText as zt, saveCredential as Bt, schedulePollInterval as Vt, sectionTitle as Ht, serverLabel as q, serverLabelList as Ut, serverText as Wt, settingsPath as Gt, shellNavigate as Kt, sortCx as qt, sourceDefaultCost as Jt, stageText as Yt, t as J, translateWithNodes as Xt, useAction as Y, useClientUpdates as Zt, useLibraryTints as Qt, useMutation as $t, useOrderedLibraries as en, useQuery as X, useQueryClient as tn, useReducedMotion as nn, useRunSchedule as rn, useSaveSchedule as an, useSaveSettings as on, useSaveThumbnailMode as sn, we as cn, z3 as ln } from "./peach-app.js";
-import { ConnectionStatus as un } from "./peach-app.connection-status-BrXhLGSm.js";
-import { CodeBlock as dn } from "./peach-app.code-block-CXu10nIP.js";
-import { AnimatedItems as fn, Cell as pn, ChartBackground as mn, ChartContainer as hn, ChartLegend as gn, ChartLegendContent as _n, ChartTip as vn, ChartTooltip as yn, ChartTooltipContent as bn, Curve as xn, DATA_ITEM_GRAPHICAL_ITEM_ID_ATTRIBUTE_NAME as Sn, DATA_ITEM_INDEX_ATTRIBUTE_NAME as Cn, DefaultZIndexes as wn, EvilBarChart as Tn, LabelList as En, LabelListFromLabelProp as Dn, Layer as On, LoadingIndicator as kn, PolarChart as An, PolarLabelContextProvider as jn, PolarLabelListContextProvider as Mn, RegisterGraphicalItemId as Nn, Sector as Pn, SetPolarGraphicalItem as Fn, SetPolarLegendPayload as In, SetTooltipEntrySettings as Ln, Shape as Rn, TIP_SWATCH as zn, Text as Bn, ZIndexLayer as Vn, adaptEventsOfChild as Hn, arrayTooltipSearcher as Un, createSelector as Wn, defaultPolarChartProps as Gn, findAllByType as Kn, get as qn, getClassNameFromUnknown as Jn, getColorsCount as Yn, getMaxRadius as Xn, getPercentValue as Zn, getTooltipNameProp as Qn, getValueByDataKey as $n, interpolate as er, isNumber as tr, matchAppend as nr, mathSign as rr, polarToCartesian as ir, resolveDefaultProps as ar, selectActiveTooltipDataKey as or, selectActiveTooltipGraphicalItemId as sr, selectActiveTooltipIndex as cr, selectChartDataAndAlwaysIgnoreIndexes as lr, selectChartOffsetInternal as ur, selectUnfilteredPolarItems as dr, svgPropertiesNoEvents as fr, svgPropertiesNoEventsFromUnknown as pr, tone as mr, useAnimationCallbacks as hr, useAppSelector as gr, useMouseClickItemDispatch as _r, useMouseEnterItemDispatch as vr, useMouseLeaveItemDispatch as yr, usePolarChartLayout as br } from "./peach-app.chart-tip-CRxYp6KT.js";
-import { FolderField as xr, FolderFieldLine as Sr, FolderRow as Cr, MEDIA_SOURCES as wr, MediaReadPolicy as Tr, MediaReadPolicyHelp as Er, SourceSelect as Dr, isCloudSource as Or, sourceMark as kr, useFolderRows as Ar } from "./peach-app.folder-rows-C3hhF_90.js";
-import { BrowserIcon as jr, browserIconId as Mr } from "./peach-app.browser-icon-N9Od-bAf.js";
-import { SourceIcon as Nr } from "./peach-app.source-view-B-2OVj4g.js";
+import { $2ec61d1d4f780267$export$a8a3e93435678ff9 as e, $3a442827418ebe87$export$eb2fcfdbd7ba97d4 as t, $542a13ca2fa5b484$export$5b6b19405a83ff9d as n, $72abaeab4d80592f$export$78efe591171d7d45 as r, $bd263d78e9bf3c56$export$f5c9f3c2c4054eec as i, $ea3928288112382f$export$439d29a4e110a164 as a, $f2ff30fde7b014be$export$3ddf2d174ce01153 as o, $fe21c36db05242bb$export$a98f0dcb43a68a25 as s, $fe21c36db05242bb$export$d7b12c4107be0d61 as c, ACCENTS as l, ActivityStatus as u, ApiError as d, Button as f, ButtonLink as p, CLOUD_LOCATIONS as m, CLOUD_PROXY_HELP as h, CONFIGURATION_KEY as g, CONFIGURATION_SECTIONS as _, CONFIGURATION_URL as v, CREDENTIAL_STATE as y, Checkbox as b, Chip as x, CommandSteps as S, Disclosure as C, ENTRY_LINKS_HELP as ee, ENTRY_LINKS_HINT as te, EmptyState as w, ErrorText as T, Eu as ne, ExternalLink as E, FOLLOW_CREDENTIALS_KEY as D, FOLLOW_INITIAL_RANGE_OPTIONS as re, Fact as O, FactList as ie, FieldLabel as ae, Footer as k, Help as A, HintText as oe, HoldButton as se, Input as j, L1 as ce, LIBRARY_FOLDER_HELP as le, LIBRARY_PROCESSING_KEY as ue, Label as de, LinkButton as fe, M6 as pe, MEDIA_PROCESSING_KEY as me, MEDIA_PROCESSING_URL as he, MEDIA_SOURCE_ICONS as ge, MENU_POPOVER_SURFACE as _e, Note as M, PICK_FOLDER_URL as ve, POLICY_COLUMNS as ye, POLICY_COVER_NOTE as be, POLICY_MATRIX as xe, POLICY_SUMMARY as Se, PathLine as Ce, ProcessingMode as we, Progress as Te, RELEASE_NOTICE_EVENT as Ee, REPAIR_CENTER_PATH as De, Rows as N, SCHEDULES as Oe, SEGMENT as ke, SEGMENTED_TRACK as Ae, SETTINGS_KEY as je, SETTINGS_URL as Me, Section as P, SectionSkeleton as Ne, SegmentedRadioGroup as Pe, Select as Fe, Select$1 as F, SelectItem as I, SettingsCard as Ie, SettingsRow as L, SiteLabel as Le, SortableBoardTabs as Re, SourceLabel as ze, SourceMark as Be, Stack as R, StatusLabel as z, Switch as B, THUMBNAIL_JOBS_KEY as Ve, TaskCenterLink as He, TaskProgress as Ue, TextField as We, TextFieldContext as Ge, Uz as Ke, __toESM as qe, _p as Je, activityKind as Ye, animate as Xe, apiGet as V, apiSend as H, appSettingsStore as Ze, bodyFieldErrors as Qe, boundedPreference as $e, busyProps as U, cardClass as et, checkClientUpdates as tt, cloudProxySkeleton as nt, clsx as rt, cn as it, codedText as W, confirmModal as at, credentialDone as ot, credentialsSkeleton as st, cx as ct, d6 as lt, devicesSkeleton as ut, errorMessage as G, fetchConfiguration as dt, fetchCredentials as ft, fetchLibraryProcessing as pt, fetchMediaProcessing as mt, fetchSettings as ht, fetchThumbnailJobs as gt, fmtSize as K, i2 as _t, indexersSkeleton as vt, interfaceLanguage as yt, javBrowserSkeleton as bt, jobText as xt, joinList as St, l1 as Ct, ledgerBackupsSkeleton as wt, localizedFact as Tt, momentText as Et, motion as Dt, overlayHost as Ot, peachHistory$1 as kt, pickServerFolder as At, pollUntil as jt, previewLibraryColor as Mt, processingActive as Nt, providerIcon as Pt, queryClient as Ft, randomId as It, rememberShape as Lt, require_jsx_runtime as Rt, require_react as zt, restartEffectText as Bt, saveCredential as Vt, schedulePollInterval as Ht, sectionTitle as Ut, serverLabel as q, serverLabelList as Wt, serverText as Gt, settingsPath as Kt, shellNavigate as qt, sortCx as Jt, sourceDefaultCost as Yt, stageText as Xt, t as J, translateWithNodes as Zt, useAction as Y, useClientUpdates as Qt, useLibraryTints as $t, useMutation as en, useOrderedLibraries as tn, useQuery as X, useQueryClient as nn, useReducedMotion as rn, useRunSchedule as an, useSaveSchedule as on, useSaveSettings as sn, useSaveThumbnailMode as cn, we as ln, z3 as un } from "./peach-app.js";
+import { ConnectionStatus as dn } from "./peach-app.connection-status-BrXhLGSm.js";
+import { CodeBlock as fn } from "./peach-app.code-block-CXu10nIP.js";
+import { AnimatedItems as pn, Cell as mn, ChartBackground as hn, ChartContainer as gn, ChartLegend as _n, ChartLegendContent as vn, ChartTip as yn, ChartTooltip as bn, ChartTooltipContent as xn, Curve as Sn, DATA_ITEM_GRAPHICAL_ITEM_ID_ATTRIBUTE_NAME as Cn, DATA_ITEM_INDEX_ATTRIBUTE_NAME as wn, DefaultZIndexes as Tn, EvilBarChart as En, LabelList as Dn, LabelListFromLabelProp as On, Layer as kn, LoadingIndicator as An, PolarChart as jn, PolarLabelContextProvider as Mn, PolarLabelListContextProvider as Nn, RegisterGraphicalItemId as Pn, Sector as Fn, SetPolarGraphicalItem as In, SetPolarLegendPayload as Ln, SetTooltipEntrySettings as Rn, Shape as zn, TIP_SWATCH as Bn, Text as Vn, ZIndexLayer as Hn, adaptEventsOfChild as Un, arrayTooltipSearcher as Wn, createSelector as Gn, defaultPolarChartProps as Kn, findAllByType as qn, get as Jn, getClassNameFromUnknown as Yn, getColorsCount as Xn, getMaxRadius as Zn, getPercentValue as Qn, getTooltipNameProp as $n, getValueByDataKey as er, interpolate as tr, isNumber as nr, matchAppend as rr, mathSign as ir, polarToCartesian as ar, resolveDefaultProps as or, selectActiveTooltipDataKey as sr, selectActiveTooltipGraphicalItemId as cr, selectActiveTooltipIndex as lr, selectChartDataAndAlwaysIgnoreIndexes as ur, selectChartOffsetInternal as dr, selectUnfilteredPolarItems as fr, svgPropertiesNoEvents as pr, svgPropertiesNoEventsFromUnknown as mr, tone as hr, useAnimationCallbacks as gr, useAppSelector as _r, useMouseClickItemDispatch as vr, useMouseEnterItemDispatch as yr, useMouseLeaveItemDispatch as br, usePolarChartLayout as xr } from "./peach-app.chart-tip-CRxYp6KT.js";
+import { FolderField as Sr, FolderFieldLine as Cr, FolderRow as wr, MEDIA_SOURCES as Tr, MediaReadPolicy as Er, MediaReadPolicyHelp as Dr, SourceSelect as Or, isCloudSource as kr, sourceMark as Ar, useFolderRows as jr } from "./peach-app.folder-rows-DZwWTTTi.js";
+import { BrowserIcon as Mr, browserIconId as Nr } from "./peach-app.browser-icon-N9Od-bAf.js";
+import { SourceIcon as Pr } from "./peach-app.source-view-B-2OVj4g.js";
 // src/react/settings/configuration-panel.ts
-var Z = /* @__PURE__ */ Ke(Rt(), 1), Pr = "flex flex-col gap-6";
-function Fr(e) {
+var Z = /* @__PURE__ */ qe(zt(), 1), Fr = "flex flex-col gap-6";
+function Ir(e) {
 	return e ? {
-		className: e.active ? `${Pr} ui-board-group-active` : Pr,
+		className: e.active ? `${Fr} ui-board-group-active` : Fr,
 		"data-board-group": String(e.index),
 		id: e.id,
 		role: "tabpanel",
 		"aria-labelledby": e.labelledBy
-	} : { className: Pr };
+	} : { className: Fr };
 }
 // src/react/settings/userscript-probe.ts
-function Ir() {
+function Lr() {
 	let e = (0, Z.useRef)(null), [t, n] = (0, Z.useState)(0), [r, i] = (0, Z.useState)("checking");
 	return (0, Z.useEffect)(() => {
-		let t = Ft(), n = !1, r = e.current, a, o = () => {
+		let t = It(), n = !1, r = e.current, a, o = () => {
 			n = !0, clearInterval(u), i("missing");
 		}, s = () => {
 			n || (clearTimeout(a), a = setTimeout(o, 3e3), c());
@@ -54,14 +54,14 @@ function Ir() {
 	};
 }
 // src/react/settings/userscript-status.tsx
-var Q = Lt();
-function Lr(e, t) {
+var Q = Rt();
+function Rr(e, t) {
 	let n = e.split(".").map(Number), r = t.split(".").map(Number);
 	for (let e = 0; e < 3; e++) if (n[e] !== r[e]) return n[e] > r[e];
 	return !0;
 }
-function Rr({ enabled: e, release: t }) {
-	let { frame: n, attempt: r, status: i, retry: a } = Ir(), o = typeof i == "object", s = o && !Lr(i.version, t.minimum_version), c = o && !Lr(i.version, t.version), l = i === "checking" ? "progress" : i === "missing" ? "neutral" : s || c || !i.paired ? "warning" : "success", u = i === "checking" ? J("settings:userscriptStatus.checking") : i === "missing" ? J("settings:mediaLibraries.dependencyMissing") : s ? J("settings:userscriptStatus.updateRequired") : c ? J("settings:userscriptStatus.updateAvailable") : i.paired ? J("settings:userscriptStatus.connected") : J("settings:userscriptStatus.unpaired"), d = i === "checking" ? "checking" : i === "missing" ? "missing" : s ? "required" : c ? "available" : i.paired ? e ? "enabled" : "disabled" : "unpaired";
+function zr({ enabled: e, release: t }) {
+	let { frame: n, attempt: r, status: i, retry: a } = Lr(), o = typeof i == "object", s = o && !Rr(i.version, t.minimum_version), c = o && !Rr(i.version, t.version), l = i === "checking" ? "progress" : i === "missing" ? "neutral" : s || c || !i.paired ? "warning" : "success", u = i === "checking" ? J("settings:userscriptStatus.checking") : i === "missing" ? J("settings:mediaLibraries.dependencyMissing") : s ? J("settings:userscriptStatus.updateRequired") : c ? J("settings:userscriptStatus.updateAvailable") : i.paired ? J("settings:userscriptStatus.connected") : J("settings:userscriptStatus.unpaired"), d = i === "checking" ? "checking" : i === "missing" ? "missing" : s ? "required" : c ? "available" : i.paired ? e ? "enabled" : "disabled" : "unpaired";
 	return /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)("iframe", {
 		ref: n,
 		title: J("settings:userscriptStatus.probeFrame"),
@@ -70,7 +70,7 @@ function Rr({ enabled: e, release: t }) {
 	}, r), /* @__PURE__ */ (0, Q.jsxs)("div", {
 		"aria-live": "polite",
 		"data-userscript-status": "",
-		className: $e({
+		className: et({
 			variant: "raised",
 			bordered: "line",
 			className: "flex flex-col gap-3"
@@ -81,7 +81,7 @@ function Rr({ enabled: e, release: t }) {
 				children: [/* @__PURE__ */ (0, Q.jsx)("span", {
 					className: "text-body-medium text-text-primary",
 					children: J("settings:userscriptStatus.title")
-				}), /* @__PURE__ */ (0, Q.jsx)(un, {
+				}), /* @__PURE__ */ (0, Q.jsx)(dn, {
 					tone: l,
 					children: /* @__PURE__ */ (0, Q.jsx)("span", {
 						"data-copy-key": `userscript.${d}.status`,
@@ -139,32 +139,32 @@ function Rr({ enabled: e, release: t }) {
 	})] });
 }
 // src/react/settings/jav-browser-settings.tsx
-var zr = "/api/configuration/jav-browser";
-function Br({ receipt: e, refreshKey: t }) {
+var Br = "/api/configuration/jav-browser";
+function Vr({ receipt: e, refreshKey: t }) {
 	let n = X({
 		queryKey: ["jav-browser-settings", t],
-		queryFn: ({ signal: e }) => V(zr, e),
+		queryFn: ({ signal: e }) => V(Br, e),
 		refetchOnMount: "always",
 		refetchOnWindowFocus: "always"
 	});
-	return n.error && !n.data ? /* @__PURE__ */ (0, Q.jsx)(T, { children: G(n.error) }) : n.isFetching && !n.data ? /* @__PURE__ */ (0, Q.jsx)(Me, {
+	return n.error && !n.data ? /* @__PURE__ */ (0, Q.jsx)(T, { children: G(n.error) }) : n.isFetching && !n.data ? /* @__PURE__ */ (0, Q.jsx)(Ne, {
 		label: J("settings:browserAdd.loading"),
-		html: yt
-	}) : n.data ? /* @__PURE__ */ (0, Q.jsx)(Vr, {
+		html: bt
+	}) : n.data ? /* @__PURE__ */ (0, Q.jsx)(Hr, {
 		initial: n.data,
 		receipt: e
 	}) : null;
 }
-function Vr({ initial: e, receipt: t }) {
+function Hr({ initial: e, receipt: t }) {
 	let [n, r] = (0, Z.useState)(e), [i, a] = (0, Z.useState)(e.provider), [o, s] = (0, Z.useState)(""), c = Y();
 	(0, Z.useEffect)(() => {
-		It("javBrowser", {
+		Lt("javBrowser", {
 			enabled: e.enabled,
 			ready: e.providers.some((t) => t.key === e.provider && t.configured && t.target)
 		}), r(e), a((t) => e.providers.some((e) => e.key === t) ? t : e.provider), e.enabled || s("");
 	}, [e]);
 	let l = (e) => {
-		c.run(e, (t) => H(zr, {
+		c.run(e, (t) => H(Br, {
 			action: e,
 			provider: i
 		}, "POST", t), (n) => {
@@ -188,7 +188,7 @@ function Vr({ initial: e, receipt: t }) {
 		children: [/* @__PURE__ */ (0, Q.jsxs)(R, { children: [/* @__PURE__ */ (0, Q.jsxs)("div", {
 			className: "flex min-w-0 flex-col gap-4",
 			children: [
-				/* @__PURE__ */ (0, Q.jsx)(Rr, {
+				/* @__PURE__ */ (0, Q.jsx)(zr, {
 					enabled: n.enabled,
 					release: n.userscript
 				}),
@@ -205,7 +205,7 @@ function Vr({ initial: e, receipt: t }) {
 						children: n.providers.map((e) => /* @__PURE__ */ (0, Q.jsx)(I, {
 							id: e.key,
 							textValue: e.label,
-							children: /* @__PURE__ */ (0, Q.jsx)(Re, {
+							children: /* @__PURE__ */ (0, Q.jsx)(ze, {
 								source: e.key,
 								label: e.label
 							})
@@ -271,20 +271,20 @@ function Vr({ initial: e, receipt: t }) {
 	});
 }
 // src/react/settings/download-settings.tsx
-var Hr = "/api/configuration/downloads", Ur = "/api/configuration/downloads/check", Wr = "/api/configuration/downloads/folder", Gr = "/api/configuration/downloads/pikpak/login", Kr = "/api/configuration/downloads/pikpak/logout", qr = "/api/configuration/downloads/pikpak/browser-login", Jr = 2e3, Yr = 9e5, Xr = Nt("pikpak"), Zr = (e) => (e.problems ?? []).map((t, n) => {
+var Ur = "/api/configuration/downloads", Wr = "/api/configuration/downloads/check", Gr = "/api/configuration/downloads/folder", Kr = "/api/configuration/downloads/pikpak/login", qr = "/api/configuration/downloads/pikpak/logout", Jr = "/api/configuration/downloads/pikpak/browser-login", Yr = 2e3, Xr = 9e5, Zr = Pt("pikpak"), Qr = (e) => (e.problems ?? []).map((t, n) => {
 	let r = e.problem_codes?.[n];
 	return r?.code ? q(r.code, t, r.params) : t;
-}), Qr = (e) => e.missing.map((t, n) => q(e.missing_codes?.[n] ?? "", t));
-function $r({ initial: e, receipt: t, panel: n, issues: r }) {
+}), $r = (e) => e.missing.map((t, n) => q(e.missing_codes?.[n] ?? "", t));
+function ei({ initial: e, receipt: t, panel: n, issues: r }) {
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
-		...Fr(n),
-		children: [r, e ? /* @__PURE__ */ (0, Q.jsx)(ei, {
+		...Ir(n),
+		children: [r, e ? /* @__PURE__ */ (0, Q.jsx)(ti, {
 			initial: e,
 			receipt: t
 		}) : null]
 	});
 }
-function ei({ initial: e, receipt: t }) {
+function ti({ initial: e, receipt: t }) {
 	let [n, r] = (0, Z.useState)(e), [i, a] = (0, Z.useState)("");
 	(0, Z.useEffect)(() => {
 		r((t) => ({
@@ -295,20 +295,20 @@ function ei({ initial: e, receipt: t }) {
 	}, [e.media_sources, e.pikpak_roots]);
 	let o = n.media_sources ?? [], s = o.includes("pikpak"), c = o.some((e) => m.includes(e)), l = s && (n.pikpak.logged_in || !!i.trim());
 	return /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [
-		c ? /* @__PURE__ */ (0, Q.jsx)(ti, {
+		c ? /* @__PURE__ */ (0, Q.jsx)(ni, {
 			state: n,
 			settle: r,
 			receipt: t,
 			pikpakAccount: l
 		}) : null,
-		s ? /* @__PURE__ */ (0, Q.jsx)(ii, {
+		s ? /* @__PURE__ */ (0, Q.jsx)(ai, {
 			state: n,
 			settle: r,
 			receipt: t,
 			username: i,
 			setUsername: a
 		}) : null,
-		/* @__PURE__ */ (0, Q.jsx)(Br, {
+		/* @__PURE__ */ (0, Q.jsx)(Vr, {
 			receipt: t,
 			refreshKey: JSON.stringify([
 				n.media_sources,
@@ -319,8 +319,8 @@ function ei({ initial: e, receipt: t }) {
 		})
 	] });
 }
-function ti({ state: e, settle: t, receipt: n, pikpakAccount: r }) {
-	let [i, a] = (0, Z.useState)(e.config), [o, s] = (0, Z.useState)(""), [c, l] = (0, Z.useState)(String(e.config.wait_hours)), [d, p] = (0, Z.useState)(null), [m, h] = (0, Z.useState)(""), [g, _] = (0, Z.useState)(ni), [v, y] = (0, Z.useState)(""), [b, x] = (0, Z.useState)(!1), S = Y(), C = e.media_sources ?? [], ee = C.includes("115"), te = C.includes("pikpak"), w = (e) => i.targets[e] ?? "", ne = (e, t) => a({
+function ni({ state: e, settle: t, receipt: n, pikpakAccount: r }) {
+	let [i, a] = (0, Z.useState)(e.config), [o, s] = (0, Z.useState)(""), [c, l] = (0, Z.useState)(String(e.config.wait_hours)), [d, p] = (0, Z.useState)(null), [m, h] = (0, Z.useState)(""), [g, _] = (0, Z.useState)(ri), [v, y] = (0, Z.useState)(""), [b, x] = (0, Z.useState)(!1), S = Y(), C = e.media_sources ?? [], ee = C.includes("115"), te = C.includes("pikpak"), w = (e) => i.targets[e] ?? "", ne = (e, t) => a({
 		...i,
 		targets: {
 			...i.targets,
@@ -349,7 +349,7 @@ function ti({ state: e, settle: t, receipt: n, pikpakAccount: r }) {
 			target: !e.config.targets[115],
 			root: !e.config.pikpak_root
 		};
-		S.run("auto", (e) => V(Ur, e), (e) => D(e, t), (e) => y(G(e)));
+		S.run("auto", (e) => V(Wr, e), (e) => D(e, t), (e) => y(G(e)));
 	}, []), /* @__PURE__ */ (0, Q.jsxs)(P, {
 		guide: "download",
 		title: J("settings:cloudDownload.title"),
@@ -364,20 +364,20 @@ function ti({ state: e, settle: t, receipt: n, pikpakAccount: r }) {
 				token: o,
 				pikpak_account: r
 			};
-			S.run("save", (e) => H(Hr, d, "POST", e), (e) => {
+			S.run("save", (e) => H(Ur, d, "POST", e), (e) => {
 				let { report: r, ...i } = e;
 				t(i), a(i.config), l(String(i.config.wait_hours)), s(""), r ? D(r, {
 					address: !i.config.clouddrive_address,
 					target: u,
 					root: !i.config.pikpak_root
-				}, i.config.targets[115] ?? "") : (p(null), h(""), _(ni), x(!1), y("")), n(J("settings:shared.settingsSaved"));
+				}, i.config.targets[115] ?? "") : (p(null), h(""), _(ri), x(!1), y("")), n(J("settings:shared.settingsSaved"));
 			}, (e) => y(G(e)));
 		},
 		children: [
 			e.problems?.length ? /* @__PURE__ */ (0, Q.jsx)(R, { children: /* @__PURE__ */ (0, Q.jsx)(M, {
 				tone: "error",
 				title: J("settings:cloudDownload.needsAttention"),
-				children: Zr(e).join("\n")
+				children: Qr(e).join("\n")
 			}) }) : null,
 			/* @__PURE__ */ (0, Q.jsxs)(R, { children: [
 				/* @__PURE__ */ (0, Q.jsx)(j, {
@@ -404,7 +404,7 @@ function ti({ state: e, settle: t, receipt: n, pikpakAccount: r }) {
 					onChange: s
 				}),
 				ee ? /* @__PURE__ */ (0, Q.jsx)(j, {
-					label: /* @__PURE__ */ (0, Q.jsx)(Re, {
+					label: /* @__PURE__ */ (0, Q.jsx)(ze, {
 						source: "115",
 						label: J("settings:cloudDownload.target115")
 					}),
@@ -419,7 +419,7 @@ function ti({ state: e, settle: t, receipt: n, pikpakAccount: r }) {
 					onChange: (e) => ne("115", e)
 				}) : null,
 				te ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(j, {
-					label: /* @__PURE__ */ (0, Q.jsx)(Re, {
+					label: /* @__PURE__ */ (0, Q.jsx)(ze, {
 						source: "pikpak",
 						label: J("settings:cloudDownload.targetPikpak")
 					}),
@@ -432,7 +432,7 @@ function ti({ state: e, settle: t, receipt: n, pikpakAccount: r }) {
 					onChange: (e) => ne("pikpak", e)
 				}), /* @__PURE__ */ (0, Q.jsxs)("div", {
 					className: "flex flex-col gap-1",
-					children: [/* @__PURE__ */ (0, Q.jsx)(ae, { children: /* @__PURE__ */ (0, Q.jsx)(Re, {
+					children: [/* @__PURE__ */ (0, Q.jsx)(ae, { children: /* @__PURE__ */ (0, Q.jsx)(ze, {
 						source: "pikpak",
 						label: J("settings:cloudDownload.pikpakRootDirectory")
 					}) }), e.pikpak_roots.length ? /* @__PURE__ */ (0, Q.jsx)(F, {
@@ -468,7 +468,7 @@ function ti({ state: e, settle: t, receipt: n, pikpakAccount: r }) {
 					label: J("settings:cloudDownload.checking")
 				})
 			}) : null,
-			d ? /* @__PURE__ */ (0, Q.jsx)(ri, {
+			d ? /* @__PURE__ */ (0, Q.jsx)(ii, {
 				report: d,
 				detected: m,
 				suggested: g,
@@ -480,7 +480,7 @@ function ti({ state: e, settle: t, receipt: n, pikpakAccount: r }) {
 						pikpak_root: i.pikpak_root,
 						pikpak_account: r
 					};
-					S.run("folder", (e) => H(Wr, t, "POST", e), (t) => {
+					S.run("folder", (e) => H(Gr, t, "POST", e), (t) => {
 						p(t), _((t) => ({
 							...t,
 							target: {
@@ -512,7 +512,7 @@ function ti({ state: e, settle: t, receipt: n, pikpakAccount: r }) {
 							pikpak_root: i.pikpak_root,
 							pikpak_account: r
 						};
-						S.run("check", (e) => H(Ur, t, "POST", e), (t) => D(t, e), (e) => y(G(e)));
+						S.run("check", (e) => H(Wr, t, "POST", e), (t) => D(t, e), (e) => y(G(e)));
 					},
 					disabled: !e.available,
 					...U(S.busy === "check"),
@@ -527,12 +527,12 @@ function ti({ state: e, settle: t, receipt: n, pikpakAccount: r }) {
 		]
 	});
 }
-var ni = {
+var ri = {
 	target: null,
 	root: "",
 	saved: !1
 };
-function ri({ report: e, detected: t, suggested: n, create: r, creating: i }) {
+function ii({ report: e, detected: t, suggested: n, create: r, creating: i }) {
 	let a = n.target, o = !!(t || a || n.root || e.permissions.length || e.folder || e.quota);
 	return !o && !e.problems.length ? null : /* @__PURE__ */ (0, Q.jsxs)(R, {
 		divided: !0,
@@ -542,14 +542,14 @@ function ri({ report: e, detected: t, suggested: n, create: r, creating: i }) {
 				children: J("settings:cloudDownload.detectedAddress", { address: t })
 			}) : null,
 			a?.exists ? /* @__PURE__ */ (0, Q.jsx)(O, {
-				term: /* @__PURE__ */ (0, Q.jsx)(Re, {
+				term: /* @__PURE__ */ (0, Q.jsx)(ze, {
 					source: "115",
 					label: J("settings:cloudDownload.target115")
 				}),
 				children: n.saved ? J("settings:cloudDownload.filledSaved", { path: a.path }) : J("settings:cloudDownload.filledPending", { path: a.path })
 			}) : null,
 			a && !a.exists ? /* @__PURE__ */ (0, Q.jsxs)(O, {
-				term: /* @__PURE__ */ (0, Q.jsx)(Re, {
+				term: /* @__PURE__ */ (0, Q.jsx)(ze, {
 					source: "115",
 					label: J("settings:cloudDownload.target115")
 				}),
@@ -562,7 +562,7 @@ function ri({ report: e, detected: t, suggested: n, create: r, creating: i }) {
 				}) : null]
 			}) : null,
 			n.root ? /* @__PURE__ */ (0, Q.jsx)(O, {
-				term: /* @__PURE__ */ (0, Q.jsx)(Re, {
+				term: /* @__PURE__ */ (0, Q.jsx)(ze, {
 					source: "pikpak",
 					label: J("settings:cloudDownload.pikpakRoot")
 				}),
@@ -570,7 +570,7 @@ function ri({ report: e, detected: t, suggested: n, create: r, creating: i }) {
 			}) : null,
 			e.permissions.length ? /* @__PURE__ */ (0, Q.jsx)(O, {
 				term: J("settings:cloudDownload.offlinePermissions"),
-				children: e.missing.length ? Qr(e).map((e) => /* @__PURE__ */ (0, Q.jsx)(x, {
+				children: e.missing.length ? $r(e).map((e) => /* @__PURE__ */ (0, Q.jsx)(x, {
 					variant: "caption",
 					color: "yellow",
 					children: J("settings:cloudDownload.missingPermission", { permission: e })
@@ -585,7 +585,7 @@ function ri({ report: e, detected: t, suggested: n, create: r, creating: i }) {
 				children: e.folder.can_offline ? J("settings:cloudDownload.offlineSupported", { path: e.folder.path }) : J("settings:cloudDownload.offlineUnsupported", { path: e.folder.path })
 			}) : null,
 			e.quota ? /* @__PURE__ */ (0, Q.jsx)(O, {
-				term: /* @__PURE__ */ (0, Q.jsx)(Re, {
+				term: /* @__PURE__ */ (0, Q.jsx)(ze, {
 					source: "115",
 					label: J("settings:cloudDownload.quota115")
 				}),
@@ -594,33 +594,33 @@ function ri({ report: e, detected: t, suggested: n, create: r, creating: i }) {
 					total: e.quota.total
 				})
 			}) : null
-		] }) : null, Zr(e).map((e) => /* @__PURE__ */ (0, Q.jsx)(T, { children: e }, e))]
+		] }) : null, Qr(e).map((e) => /* @__PURE__ */ (0, Q.jsx)(T, { children: e }, e))]
 	});
 }
-function ii({ state: e, settle: t, receipt: n, username: r, setUsername: i }) {
+function ai({ state: e, settle: t, receipt: n, username: r, setUsername: i }) {
 	let [a, o] = (0, Z.useState)(""), [s, c] = (0, Z.useState)(!1), [l, d] = (0, Z.useState)(""), [p, m] = (0, Z.useState)(""), [h, g] = (0, Z.useState)(""), _ = Y(), v = e.pikpak, y = e.pikpak_browser, x = y.state === "waiting";
 	(0, Z.useEffect)(() => {
 		if (!x) return;
 		let e = new AbortController();
-		return At({
+		return jt({
 			signal: e.signal,
-			everyMs: Jr,
-			limitMs: Yr,
-			read: (e) => V(qr, e),
+			everyMs: Yr,
+			limitMs: Xr,
+			read: (e) => V(Jr, e),
 			apply: (e) => {
-				t(e), e.pikpak_browser.state === "done" ? n(J("settings:pikpakAccount.signedInReceipt")) : e.pikpak_browser.state !== "waiting" && g(bt(e.pikpak_browser));
+				t(e), e.pikpak_browser.state === "done" ? n(J("settings:pikpakAccount.signedInReceipt")) : e.pikpak_browser.state !== "waiting" && g(xt(e.pikpak_browser));
 			},
 			done: (e) => e.pikpak_browser.state !== "waiting",
 			failed: (e) => m(G(e))
 		}), () => e.abort();
 	}, [x]);
 	let S = () => {
-		g(""), _.run("browser", (e) => H(qr, {}, "POST", e), (e) => {
+		g(""), _.run("browser", (e) => H(Jr, {}, "POST", e), (e) => {
 			t(e), m("");
 		}, (e) => m(G(e)));
 	}, C = () => {
-		_.run("cancel", (e) => H(`${qr}/cancel`, {}, "POST", e), (e) => {
-			t(e), m(""), g(bt(e.pikpak_browser));
+		_.run("cancel", (e) => H(`${Jr}/cancel`, {}, "POST", e), (e) => {
+			t(e), m(""), g(xt(e.pikpak_browser));
 		}, (e) => m(G(e)));
 	}, ee = (e) => {
 		if (e.preventDefault(), v.logged_in) return;
@@ -629,11 +629,11 @@ function ii({ state: e, settle: t, receipt: n, username: r, setUsername: i }) {
 			password: a,
 			remember: s
 		};
-		_.run("login", (e) => H(Gr, i, "POST", e), (e) => {
+		_.run("login", (e) => H(Kr, i, "POST", e), (e) => {
 			t(e.settings), m(""), e.ok ? (d(""), o(""), n(J("settings:pikpakAccount.signedInReceipt"))) : d(e.captcha_url ?? "");
 		}, (e) => m(G(e)));
 	}, te = () => {
-		_.run("logout", (e) => H(Kr, {}, "POST", e), (e) => {
+		_.run("logout", (e) => H(qr, {}, "POST", e), (e) => {
 			t(e), m(""), n(J("settings:pikpakAccount.signedOutReceipt"));
 		}, (e) => m(G(e)));
 	}, w = /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [
@@ -683,7 +683,7 @@ function ii({ state: e, settle: t, receipt: n, username: r, setUsername: i }) {
 	return /* @__PURE__ */ (0, Q.jsxs)(P, {
 		guide: "pikpak",
 		title: J("settings:pikpakAccount.title"),
-		icon: /* @__PURE__ */ (0, Q.jsx)(Xr, {}),
+		icon: /* @__PURE__ */ (0, Q.jsx)(Zr, {}),
 		onSubmit: ee,
 		aside: /* @__PURE__ */ (0, Q.jsx)(z, {
 			tone: v.logged_in ? "success" : x ? "progress" : D ? "error" : "neutral",
@@ -710,7 +710,7 @@ function ii({ state: e, settle: t, receipt: n, username: r, setUsername: i }) {
 			/* @__PURE__ */ (0, Q.jsx)(k, {
 				status: !v.logged_in && x ? /* @__PURE__ */ (0, Q.jsx)(u, {
 					kind: "clock",
-					label: bt(y) || J("settings:pikpakAccount.waitingBrowser")
+					label: xt(y) || J("settings:pikpakAccount.waitingBrowser")
 				}) : null,
 				children: v.logged_in ? /* @__PURE__ */ (0, Q.jsx)(f, {
 					variant: "secondary",
@@ -737,41 +737,41 @@ function ii({ state: e, settle: t, receipt: n, username: r, setUsername: i }) {
 	});
 }
 // src/react/settings/ledger-backup-settings.tsx
-var ai = "/api/configuration/ledger-backups", oi = 1500, si = 36e5, ci = (e) => (/* @__PURE__ */ new Date(e.modified_at * 1e3)).toLocaleString(vt);
-function li(e) {
+var oi = "/api/configuration/ledger-backups", si = 1500, ci = 36e5, li = (e) => (/* @__PURE__ */ new Date(e.modified_at * 1e3)).toLocaleString(yt);
+function ui(e) {
 	return [e.source === "manual" ? J("settings:databaseBackups.manual") : J("settings:databaseBackups.automatic", { purpose: q(`ledgerBackup.purpose.${e.purpose_code}`, e.purpose) }), K(e.bytes)].join(" · ");
 }
-function ui({ job: e, task: t, label: n }) {
+function di({ job: e, task: t, label: n }) {
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
 		"aria-live": "polite",
 		className: "flex flex-col gap-2",
-		children: [/* @__PURE__ */ (0, Q.jsx)(He, {
+		children: [/* @__PURE__ */ (0, Q.jsx)(Ue, {
 			embedded: !0,
-			kind: Je(t, e.stage_code),
-			label: [n, Yt(e)].filter(Boolean).join(" · "),
+			kind: Ye(t, e.stage_code),
+			label: [n, Xt(e)].filter(Boolean).join(" · "),
 			value: e.done || 0,
 			total: e.total
-		}), /* @__PURE__ */ (0, Q.jsx)(Ve, {})]
+		}), /* @__PURE__ */ (0, Q.jsx)(He, {})]
 	});
 }
-function di({ receipt: e }) {
+function fi({ receipt: e }) {
 	let [t, n] = (0, Z.useState)(null), [r, i] = (0, Z.useState)(""), a = Y(), o = t?.backup.status === "running", s = t?.restore.status === "running", c = o || s, l = (0, Z.useRef)({
 		backup: !1,
 		restore: !1
 	});
 	if ((0, Z.useEffect)(() => {
 		let e = new AbortController();
-		return V(ai, e.signal).then(n, (t) => {
+		return V(oi, e.signal).then(n, (t) => {
 			e.signal.aborted || i(String(t?.message || t));
 		}), () => e.abort();
 	}, []), (0, Z.useEffect)(() => {
 		if (!c) return;
 		let e = new AbortController();
-		return At({
+		return jt({
 			signal: e.signal,
-			everyMs: oi,
-			limitMs: si,
-			read: (e) => V(ai, e),
+			everyMs: si,
+			limitMs: ci,
+			read: (e) => V(oi, e),
 			apply: n,
 			done: (e) => e.backup.status !== "running" && e.restore.status !== "running"
 		}), () => e.abort();
@@ -780,9 +780,9 @@ function di({ receipt: e }) {
 			let r = t[n];
 			r.status === "running" ? l.current[n] = !0 : l.current[n] && (l.current[n] = !1, r.status === "complete" && e(n === "backup" ? J("settings:databaseBackups.backedUp", { name: r.name }) : J("settings:databaseBackups.restored", { name: r.saved })));
 		}
-	}, [t]), !t && !r) return /* @__PURE__ */ (0, Q.jsx)(Me, {
+	}, [t]), !t && !r) return /* @__PURE__ */ (0, Q.jsx)(Ne, {
 		label: J("settings:databaseBackups.loading"),
-		html: Ct
+		html: wt
 	});
 	if (!t) return /* @__PURE__ */ (0, Q.jsx)(P, {
 		id: "ledgerBackups",
@@ -790,16 +790,16 @@ function di({ receipt: e }) {
 		title: J("settings:databaseBackups.title"),
 		children: /* @__PURE__ */ (0, Q.jsx)(R, { children: /* @__PURE__ */ (0, Q.jsx)(T, { children: r }) })
 	});
-	let u = () => void a.run("backup", (e) => H(`${ai}/backup`, {}, "POST", e), n), d = (e) => void it({
+	let u = () => void a.run("backup", (e) => H(`${oi}/backup`, {}, "POST", e), n), d = (e) => void at({
 		title: J("settings:databaseBackups.restoreTitle"),
 		danger: !0,
 		body: J("settings:databaseBackups.restoreBody", {
-			time: ci(e),
-			details: li(e)
+			time: li(e),
+			details: ui(e)
 		}),
 		confirmLabel: J("settings:databaseBackups.replaceCurrent"),
 		onConfirm: async () => {
-			l.current.restore = !0, n(await H(`${ai}/restore`, {
+			l.current.restore = !0, n(await H(`${oi}/restore`, {
 				id: e.id,
 				confirm: !0
 			}));
@@ -813,17 +813,17 @@ function di({ receipt: e }) {
 			/* @__PURE__ */ (0, Q.jsxs)(R, { children: [
 				/* @__PURE__ */ (0, Q.jsx)(A, { children: J("settings:databaseBackups.help") }),
 				t.writer ? null : /* @__PURE__ */ (0, Q.jsxs)(A, { children: [J("settings:databaseBackups.notPrimary"), W(t, "writer_reason")] }),
-				o ? /* @__PURE__ */ (0, Q.jsx)(ui, {
+				o ? /* @__PURE__ */ (0, Q.jsx)(di, {
 					job: t.backup,
 					task: "ledger-backup",
 					label: J("settings:databaseBackups.backupProgress")
 				}) : null,
-				s ? /* @__PURE__ */ (0, Q.jsx)(ui, {
+				s ? /* @__PURE__ */ (0, Q.jsx)(di, {
 					job: t.restore,
 					task: "ledger-restore",
 					label: J("settings:databaseBackups.restoreProgress")
 				}) : null,
-				p ? /* @__PURE__ */ (0, Q.jsx)(T, { children: bt(p, "error") || J("settings:databaseBackups.jobIncomplete") }) : null,
+				p ? /* @__PURE__ */ (0, Q.jsx)(T, { children: xt(p, "error") || J("settings:databaseBackups.jobIncomplete") }) : null,
 				m ? m.outcome === "kept" || m.outcome === "completed" ? /* @__PURE__ */ (0, Q.jsx)(A, { children: W(m, "message") }) : /* @__PURE__ */ (0, Q.jsx)(T, { children: W(m, "message") }) : null,
 				a.error ? /* @__PURE__ */ (0, Q.jsx)(T, { children: a.error }) : null
 			] }),
@@ -831,8 +831,8 @@ function di({ receipt: e }) {
 				className: "border-t border-separator-border",
 				"data-ledger-backups": "",
 				children: /* @__PURE__ */ (0, Q.jsx)(N, { children: t.backups.map((e) => /* @__PURE__ */ (0, Q.jsx)(L, {
-					label: ci(e),
-					description: li(e),
+					label: li(e),
+					description: ui(e),
 					children: /* @__PURE__ */ (0, Q.jsx)(f, {
 						variant: "secondary",
 						disabled: !t.writer || c,
@@ -854,23 +854,23 @@ function di({ receipt: e }) {
 	});
 }
 // src/react/settings/retention-settings.tsx
-var fi = "/api/configuration/retention", pi = ["retention-settings"], mi = [
+var pi = "/api/configuration/retention", mi = ["retention-settings"], hi = [
 	2,
 	5,
 	10,
 	20
-], hi = [
+], gi = [
 	30,
 	90,
 	183,
 	365
-], gi = (e) => e === 183 ? J("settings:retention.halfYear") : e === 365 ? J("settings:retention.oneYear") : J("settings:retention.days", { count: e });
-function _i({ receipt: e }) {
+], _i = (e) => e === 183 ? J("settings:retention.halfYear") : e === 365 ? J("settings:retention.oneYear") : J("settings:retention.days", { count: e });
+function vi({ receipt: e }) {
 	let t = X({
-		queryKey: pi,
-		queryFn: ({ signal: e }) => V(fi, e)
-	}), n = Y(), r = !t.data || !!n.busy, i = (t) => void n.run("save", (e) => H(fi, t, "POST", e), (t) => {
-		Pt.setQueryData(pi, t), e(J("settings:shared.settingsSaved"));
+		queryKey: mi,
+		queryFn: ({ signal: e }) => V(pi, e)
+	}), n = Y(), r = !t.data || !!n.busy, i = (t) => void n.run("save", (e) => H(pi, t, "POST", e), (t) => {
+		Ft.setQueryData(mi, t), e(J("settings:shared.settingsSaved"));
 	}), a = n.error || (t.error ? G(t.error) : "");
 	return /* @__PURE__ */ (0, Q.jsxs)(P, {
 		title: J("settings:retention.title"),
@@ -887,7 +887,7 @@ function _i({ receipt: e }) {
 					onSelectionChange: (e) => {
 						e !== null && i({ backup_keep: Number(e) });
 					},
-					children: mi.map((e) => /* @__PURE__ */ (0, Q.jsx)(I, {
+					children: hi.map((e) => /* @__PURE__ */ (0, Q.jsx)(I, {
 						id: String(e),
 						children: J("settings:retention.copies", { count: e })
 					}, e))
@@ -906,9 +906,9 @@ function _i({ receipt: e }) {
 					onSelectionChange: (e) => {
 						e !== null && i({ log_days: Number(e) });
 					},
-					children: hi.map((e) => /* @__PURE__ */ (0, Q.jsx)(I, {
+					children: gi.map((e) => /* @__PURE__ */ (0, Q.jsx)(I, {
 						id: String(e),
-						children: gi(e)
+						children: _i(e)
 					}, e))
 				})
 			})
@@ -919,7 +919,7 @@ function _i({ receipt: e }) {
 	});
 }
 // src/react/settings/library-sharing-settings.tsx
-function vi({ initial: e, receipt: t }) {
+function yi({ initial: e, receipt: t }) {
 	let [n, r] = (0, Z.useState)(e), [i, a] = (0, Z.useState)(null), [o, s] = (0, Z.useState)(!1), [c, l] = (0, Z.useState)(!1), u = (0, Z.useMemo)(() => i ? JSON.stringify(i.data, null, 2) : "", [i]), d = Y(), p = n.participation, m = {
 		"not-attempted": J("settings:librarySharing.notSent"),
 		queued: J("settings:librarySharing.waiting"),
@@ -983,7 +983,7 @@ function vi({ initial: e, receipt: t }) {
 				summary: J("settings:librarySharing.fieldsAndRules"),
 				children: [/* @__PURE__ */ (0, Q.jsx)("ul", {
 					className: "list-disc space-y-2 pl-5",
-					children: Ut(n.fields, n.field_codes).map((e) => /* @__PURE__ */ (0, Q.jsx)("li", { children: /* @__PURE__ */ (0, Q.jsx)(A, { children: e }) }, e))
+					children: Wt(n.fields, n.field_codes).map((e) => /* @__PURE__ */ (0, Q.jsx)("li", { children: /* @__PURE__ */ (0, Q.jsx)(A, { children: e }) }, e))
 				}), /* @__PURE__ */ (0, Q.jsx)(A, { children: W(n, "notice") })]
 			})
 		}),
@@ -996,7 +996,7 @@ function vi({ initial: e, receipt: t }) {
 					tone: p.pending_state ? "progress" : h[p.status] || "neutral",
 					children: p.pending_state ? p.pending_state === "disabled" ? J("settings:librarySharing.pendingOff") : J("settings:librarySharing.pendingOn") : m[p.status] || J("settings:librarySharing.resultUnknown")
 				})
-			}) }), n.last_sent_at ? /* @__PURE__ */ (0, Q.jsx)(A, { children: J("settings:librarySharing.lastSentAt", { date: new Date(n.last_sent_at).toLocaleDateString(vt) }) }) : null]
+			}) }), n.last_sent_at ? /* @__PURE__ */ (0, Q.jsx)(A, { children: J("settings:librarySharing.lastSentAt", { date: new Date(n.last_sent_at).toLocaleDateString(yt) }) }) : null]
 		}) : null,
 		n.enabled && n.last_attempt?.snapshot_id ? /* @__PURE__ */ (0, Q.jsxs)(R, {
 			divided: !0,
@@ -1061,7 +1061,7 @@ function vi({ initial: e, receipt: t }) {
 				/* @__PURE__ */ (0, Q.jsx)(C, {
 					summary: J("settings:librarySharing.previewData"),
 					defaultOpen: !0,
-					children: /* @__PURE__ */ (0, Q.jsx)(dn, {
+					children: /* @__PURE__ */ (0, Q.jsx)(fn, {
 						code: u,
 						language: "json",
 						label: J("settings:librarySharing.previewLabel"),
@@ -1124,7 +1124,7 @@ function vi({ initial: e, receipt: t }) {
 	] });
 }
 // src/react/settings/remote-reporting-settings.tsx
-function yi({ value: e, onChange: t, busy: n = !1 }) {
+function bi({ value: e, onChange: t, busy: n = !1 }) {
 	return /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(N, { children: /* @__PURE__ */ (0, Q.jsx)(L, {
 		label: J("settings:dataSharing.reportErrors"),
 		description: J("settings:dataSharing.reportErrorsHelp"),
@@ -1146,10 +1146,10 @@ function yi({ value: e, onChange: t, busy: n = !1 }) {
 		})
 	})] });
 }
-function bi({ initial: e, receipt: t }) {
+function xi({ initial: e, receipt: t }) {
 	let [n, r] = (0, Z.useState)(e), i = Y(), a = Object.values(n.delivery ?? {}).flatMap((e) => e.last_sent_at ? [Date.parse(e.last_sent_at)] : []).filter(Number.isFinite), o = a.length ? Math.max(...a) : null;
 	return /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [
-		/* @__PURE__ */ (0, Q.jsx)(yi, {
+		/* @__PURE__ */ (0, Q.jsx)(bi, {
 			value: n,
 			busy: i.busy === "save",
 			onChange: (e) => {
@@ -1170,7 +1170,7 @@ function bi({ initial: e, receipt: t }) {
 					/* @__PURE__ */ (0, Q.jsx)(A, { children: q(n.field_codes?.errors ?? "", n.fields.errors) }),
 					/* @__PURE__ */ (0, Q.jsx)(A, { children: W(n, "notice") })
 				]
-			}), o === null ? null : /* @__PURE__ */ (0, Q.jsx)(A, { children: J("settings:librarySharing.lastSentAt", { date: new Date(o).toLocaleDateString(vt) }) })]
+			}), o === null ? null : /* @__PURE__ */ (0, Q.jsx)(A, { children: J("settings:librarySharing.lastSentAt", { date: new Date(o).toLocaleDateString(yt) }) })]
 		}),
 		i.error ? /* @__PURE__ */ (0, Q.jsx)(R, {
 			divided: !0,
@@ -1179,16 +1179,16 @@ function bi({ initial: e, receipt: t }) {
 	] });
 }
 // src/react/components/animated-number.tsx
-var xi = .6;
-function Si({ value: e, format: t = (e) => Math.round(e).toLocaleString(), className: n }) {
-	let r = nn(), [i, a] = (0, Z.useState)(e), o = (0, Z.useRef)(e);
+var Si = .6;
+function Ci({ value: e, format: t = (e) => Math.round(e).toLocaleString(), className: n }) {
+	let r = rn(), [i, a] = (0, Z.useState)(e), o = (0, Z.useRef)(e);
 	return (0, Z.useEffect)(() => {
 		if (r || o.current === e) {
 			o.current = e, a(e);
 			return;
 		}
-		let t = Ye(o.current, e, {
-			duration: xi,
+		let t = Xe(o.current, e, {
+			duration: Si,
 			ease: "easeOut",
 			onUpdate: (e) => {
 				o.current = e, a(e);
@@ -1201,7 +1201,7 @@ function Si({ value: e, format: t = (e) => Math.round(e).toLocaleString(), class
 	});
 }
 // node_modules/recharts/es6/state/selectors/pieSelectors.js
-function Ci(e, t) {
+function wi(e, t) {
 	var n = Object.keys(e);
 	if (Object.getOwnPropertySymbols) {
 		var r = Object.getOwnPropertySymbols(e);
@@ -1211,30 +1211,30 @@ function Ci(e, t) {
 	}
 	return n;
 }
-function wi(e) {
+function Ti(e) {
 	for (var t = 1; t < arguments.length; t++) {
 		var n = arguments[t] == null ? {} : arguments[t];
-		t % 2 ? Ci(Object(n), !0).forEach(function(t) {
-			Ti(e, t, n[t]);
-		}) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(n)) : Ci(Object(n)).forEach(function(t) {
+		t % 2 ? wi(Object(n), !0).forEach(function(t) {
+			Ei(e, t, n[t]);
+		}) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(n)) : wi(Object(n)).forEach(function(t) {
 			Object.defineProperty(e, t, Object.getOwnPropertyDescriptor(n, t));
 		});
 	}
 	return e;
 }
-function Ti(e, t, n) {
-	return (t = Ei(t)) in e ? Object.defineProperty(e, t, {
+function Ei(e, t, n) {
+	return (t = Di(t)) in e ? Object.defineProperty(e, t, {
 		value: n,
 		enumerable: !0,
 		configurable: !0,
 		writable: !0
 	}) : e[t] = n, e;
 }
-function Ei(e) {
-	var t = Di(e, "string");
+function Di(e) {
+	var t = Oi(e, "string");
 	return typeof t == "symbol" ? t : t + "";
 }
-function Di(e, t) {
+function Oi(e, t) {
 	if (typeof e != "object" || !e) return e;
 	var n = e[Symbol.toPrimitive];
 	if (n !== void 0) {
@@ -1244,67 +1244,67 @@ function Di(e, t) {
 	}
 	return (t === "string" ? String : Number)(e);
 }
-var Oi = Wn([dr, (e, t) => t], (e, t) => e.filter((e) => e.type === "pie").find((e) => e.id === t)), ki = [], Ai = (e, t, n) => n?.length === 0 ? ki : n, ji = Wn([
-	lr,
-	Oi,
-	Ai
+var ki = Gn([fr, (e, t) => t], (e, t) => e.filter((e) => e.type === "pie").find((e) => e.id === t)), Ai = [], ji = (e, t, n) => n?.length === 0 ? Ai : n, Mi = Gn([
+	ur,
+	ki,
+	ji
 ], (e, t, n) => {
 	var r = e.chartData;
 	if (t != null) {
 		var i = t?.data != null && t.data.length > 0 ? t.data : r;
-		if (i && i.length || n == null || (i = n.map((e) => wi(wi({}, t.presentationProps), e.props))), i != null) return i;
+		if (i && i.length || n == null || (i = n.map((e) => Ti(Ti({}, t.presentationProps), e.props))), i != null) return i;
 	}
-}), Mi = Wn([
-	ji,
-	Oi,
-	Ai
+}), Ni = Gn([
+	Mi,
+	ki,
+	ji
 ], (e, t, n) => {
 	if (e != null && t != null) return e.map((e, r) => {
-		var i, a = $n(e, t.nameKey, t.name), o = n != null && (i = n[r]) != null && (i = i.props) != null && i.fill ? n[r].props.fill : typeof e == "object" && e && "fill" in e ? e.fill : t.fill;
+		var i, a = er(e, t.nameKey, t.name), o = n != null && (i = n[r]) != null && (i = i.props) != null && i.fill ? n[r].props.fill : typeof e == "object" && e && "fill" in e ? e.fill : t.fill;
 		return {
-			value: Qn(a, t.dataKey),
+			value: $n(a, t.dataKey),
 			dataKey: t.dataKey,
 			color: o,
 			payload: e,
 			type: t.legendType
 		};
 	});
-}), Ni = Wn([
+}), Pi = Gn([
+	Mi,
+	ki,
 	ji,
-	Oi,
-	Ai,
-	ur
+	dr
 ], (e, t, n, r) => {
-	if (t != null && e != null) return ia({
+	if (t != null && e != null) return aa({
 		offset: r,
 		pieSettings: t,
 		displayedData: e,
 		cells: n
 	});
-}), Pi = ["key"], Fi = [
+}), Fi = ["key"], Ii = [
 	"onMouseEnter",
 	"onClick",
 	"onMouseLeave"
-], Ii = ["id"], Li = ["id"];
-function Ri() {
-	return Ri = Object.assign ? Object.assign.bind() : function(e) {
+], Li = ["id"], Ri = ["id"];
+function zi() {
+	return zi = Object.assign ? Object.assign.bind() : function(e) {
 		for (var t = 1; t < arguments.length; t++) {
 			var n = arguments[t];
 			for (var r in n) ({}).hasOwnProperty.call(n, r) && (e[r] = n[r]);
 		}
 		return e;
-	}, Ri.apply(null, arguments);
+	}, zi.apply(null, arguments);
 }
-function zi(e, t) {
+function Bi(e, t) {
 	if (e == null) return {};
-	var n, r, i = Bi(e, t);
+	var n, r, i = Vi(e, t);
 	if (Object.getOwnPropertySymbols) {
 		var a = Object.getOwnPropertySymbols(e);
 		for (r = 0; r < a.length; r++) n = a[r], t.indexOf(n) === -1 && {}.propertyIsEnumerable.call(e, n) && (i[n] = e[n]);
 	}
 	return i;
 }
-function Bi(e, t) {
+function Vi(e, t) {
 	if (e == null) return {};
 	var n = {};
 	for (var r in e) if ({}.hasOwnProperty.call(e, r)) {
@@ -1313,7 +1313,7 @@ function Bi(e, t) {
 	}
 	return n;
 }
-function Vi(e, t) {
+function Hi(e, t) {
 	var n = Object.keys(e);
 	if (Object.getOwnPropertySymbols) {
 		var r = Object.getOwnPropertySymbols(e);
@@ -1326,27 +1326,27 @@ function Vi(e, t) {
 function $(e) {
 	for (var t = 1; t < arguments.length; t++) {
 		var n = arguments[t] == null ? {} : arguments[t];
-		t % 2 ? Vi(Object(n), !0).forEach(function(t) {
-			Hi(e, t, n[t]);
-		}) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(n)) : Vi(Object(n)).forEach(function(t) {
+		t % 2 ? Hi(Object(n), !0).forEach(function(t) {
+			Ui(e, t, n[t]);
+		}) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(n)) : Hi(Object(n)).forEach(function(t) {
 			Object.defineProperty(e, t, Object.getOwnPropertyDescriptor(n, t));
 		});
 	}
 	return e;
 }
-function Hi(e, t, n) {
-	return (t = Ui(t)) in e ? Object.defineProperty(e, t, {
+function Ui(e, t, n) {
+	return (t = Wi(t)) in e ? Object.defineProperty(e, t, {
 		value: n,
 		enumerable: !0,
 		configurable: !0,
 		writable: !0
 	}) : e[t] = n, e;
 }
-function Ui(e) {
-	var t = Wi(e, "string");
+function Wi(e) {
+	var t = Gi(e, "string");
 	return typeof t == "symbol" ? t : t + "";
 }
-function Wi(e, t) {
+function Gi(e, t) {
 	if (typeof e != "object" || !e) return e;
 	var n = e[Symbol.toPrimitive];
 	if (n !== void 0) {
@@ -1356,12 +1356,12 @@ function Wi(e, t) {
 	}
 	return (t === "string" ? String : Number)(e);
 }
-var Gi = Pn;
-function Ki(e) {
-	var t = (0, Z.useMemo)(() => Kn(e.children, pn), [e.children]), n = gr((n) => Mi(n, e.id, t));
-	return n == null ? null : /*#__PURE__*/ Z.createElement(In, { legendPayload: n });
-}
+var Ki = Fn;
 function qi(e) {
+	var t = (0, Z.useMemo)(() => qn(e.children, mn), [e.children]), n = _r((n) => Ni(n, e.id, t));
+	return n == null ? null : /*#__PURE__*/ Z.createElement(Ln, { legendPayload: n });
+}
+function Ji(e) {
 	if (e != null && typeof e != "boolean" && typeof e != "function") {
 		if (/*#__PURE__*/ Z.isValidElement(e)) {
 			var t = e.props?.fill;
@@ -1371,8 +1371,8 @@ function qi(e) {
 		return typeof n == "string" ? n : void 0;
 	}
 }
-var Ji = /*#__PURE__*/ Z.memo((e) => {
-	var t = e.dataKey, n = e.nameKey, r = e.sectors, i = e.stroke, a = e.strokeWidth, o = e.fill, s = e.name, c = e.hide, l = e.tooltipType, u = e.formatter, d = e.id, f = e.activeShape, p = qi(f), m = {
+var Yi = /*#__PURE__*/ Z.memo((e) => {
+	var t = e.dataKey, n = e.nameKey, r = e.sectors, i = e.stroke, a = e.strokeWidth, o = e.fill, s = e.name, c = e.hide, l = e.tooltipType, u = e.formatter, d = e.id, f = e.activeShape, p = Ji(f), m = {
 		dataDefinedOnItem: r.map((e) => {
 			var t = e.tooltipPayload;
 			return p == null || t == null ? t : t.map((e) => $($({}, e), {}, {
@@ -1387,7 +1387,7 @@ var Ji = /*#__PURE__*/ Z.memo((e) => {
 			fill: o,
 			dataKey: t,
 			nameKey: n,
-			name: Qn(s, t),
+			name: $n(s, t),
 			hide: c,
 			type: l,
 			color: o,
@@ -1396,68 +1396,68 @@ var Ji = /*#__PURE__*/ Z.memo((e) => {
 			graphicalItemId: d
 		}
 	};
-	return /*#__PURE__*/ Z.createElement(Ln, { tooltipEntrySettings: m });
-}), Yi = (e, t) => e > t ? "start" : e < t ? "end" : "middle", Xi = (e, t, n) => Zn(typeof t == "function" ? t(e) : t, n, n * .8), Zi = (e, t, n) => {
-	var r = t.top, i = t.left, a = t.width, o = t.height, s = Xn(a, o);
+	return /*#__PURE__*/ Z.createElement(Rn, { tooltipEntrySettings: m });
+}), Xi = (e, t) => e > t ? "start" : e < t ? "end" : "middle", Zi = (e, t, n) => Qn(typeof t == "function" ? t(e) : t, n, n * .8), Qi = (e, t, n) => {
+	var r = t.top, i = t.left, a = t.width, o = t.height, s = Zn(a, o);
 	return {
-		cx: i + Zn(e.cx, a, a / 2),
-		cy: r + Zn(e.cy, o, o / 2),
-		innerRadius: Zn(e.innerRadius, s, 0),
-		outerRadius: Xi(n, e.outerRadius, s),
+		cx: i + Qn(e.cx, a, a / 2),
+		cy: r + Qn(e.cy, o, o / 2),
+		innerRadius: Qn(e.innerRadius, s, 0),
+		outerRadius: Zi(n, e.outerRadius, s),
 		maxRadius: e.maxRadius || Math.sqrt(a * a + o * o) / 2
 	};
-}, Qi = (e, t) => rr(t - e) * Math.min(Math.abs(t - e), 360), $i = (e, t) => {
+}, $i = (e, t) => ir(t - e) * Math.min(Math.abs(t - e), 360), ea = (e, t) => {
 	if (/*#__PURE__*/ Z.isValidElement(e)) return /*#__PURE__*/ Z.cloneElement(e, t);
 	if (typeof e == "function") return e(t);
-	var n = nt("recharts-pie-label-line", typeof e == "boolean" ? "" : e.className);
+	var n = rt("recharts-pie-label-line", typeof e == "boolean" ? "" : e.className);
 	t.key;
-	var r = zi(t, Pi);
-	return /*#__PURE__*/ Z.createElement(xn, Ri({}, r, {
+	var r = Bi(t, Fi);
+	return /*#__PURE__*/ Z.createElement(Sn, zi({}, r, {
 		type: "linear",
 		className: n
 	}));
-}, ea = (e, t, n) => {
+}, ta = (e, t, n) => {
 	if (/*#__PURE__*/ Z.isValidElement(e)) return /*#__PURE__*/ Z.cloneElement(e, t);
 	var r = n;
 	if (typeof e == "function" && (r = e(t), /*#__PURE__*/ Z.isValidElement(r))) return r;
-	var i = nt("recharts-pie-label-text", Jn(e));
-	return /*#__PURE__*/ Z.createElement(Bn, Ri({}, t, {
+	var i = rt("recharts-pie-label-text", Yn(e));
+	return /*#__PURE__*/ Z.createElement(Vn, zi({}, t, {
 		alignmentBaseline: "middle",
 		className: i
 	}), r);
 };
-function ta(e) {
+function na(e) {
 	var t = e.sectors, n = e.props, r = e.showLabels, i = n.label, a = n.labelLine, o = n.dataKey;
 	if (!r || !i || !t) return null;
-	var s = fr(n), c = pr(i), l = pr(a), u = typeof i == "object" && "offsetRadius" in i && typeof i.offsetRadius == "number" && i.offsetRadius || 20, d = t.map((e, t) => {
-		var n = (e.startAngle + e.endAngle) / 2, r = ir(e.cx, e.cy, e.outerRadius + u, n), d = $($($($({}, s), e), {}, { stroke: "none" }, c), {}, {
+	var s = pr(n), c = mr(i), l = mr(a), u = typeof i == "object" && "offsetRadius" in i && typeof i.offsetRadius == "number" && i.offsetRadius || 20, d = t.map((e, t) => {
+		var n = (e.startAngle + e.endAngle) / 2, r = ar(e.cx, e.cy, e.outerRadius + u, n), d = $($($($({}, s), e), {}, { stroke: "none" }, c), {}, {
 			index: t,
-			textAnchor: Yi(r.x, e.cx)
+			textAnchor: Xi(r.x, e.cx)
 		}, r), f = $($($($({}, s), e), {}, {
 			fill: "none",
 			stroke: e.fill
 		}, l), {}, {
 			index: t,
-			points: [ir(e.cx, e.cy, e.outerRadius, n), r],
+			points: [ar(e.cx, e.cy, e.outerRadius, n), r],
 			key: "line"
 		});
-		return /*#__PURE__*/ Z.createElement(Vn, {
-			zIndex: wn.label,
+		return /*#__PURE__*/ Z.createElement(Hn, {
+			zIndex: Tn.label,
 			key: `label-${e.startAngle}-${e.endAngle}-${e.midAngle}-${t}`
-		}, /*#__PURE__*/ Z.createElement(On, null, a && $i(a, f), ea(i, d, $n(e, o))));
+		}, /*#__PURE__*/ Z.createElement(kn, null, a && ea(a, f), ta(i, d, er(e, o))));
 	});
-	return /*#__PURE__*/ Z.createElement(On, { className: "recharts-pie-labels" }, d);
+	return /*#__PURE__*/ Z.createElement(kn, { className: "recharts-pie-labels" }, d);
 }
-function na(e) {
+function ra(e) {
 	var t = e.sectors, n = e.props, r = e.showLabels, i = n.label;
-	return typeof i == "object" && i && "position" in i ? /*#__PURE__*/ Z.createElement(Dn, { label: i }) : /*#__PURE__*/ Z.createElement(ta, {
+	return typeof i == "object" && i && "position" in i ? /*#__PURE__*/ Z.createElement(On, { label: i }) : /*#__PURE__*/ Z.createElement(na, {
 		sectors: t,
 		props: n,
 		showLabels: r
 	});
 }
-function ra(e) {
-	var t = e.sectors, n = e.activeShape, r = e.inactiveShape, i = e.allOtherPieProps, a = e.shape, o = e.id, s = e.animationElapsedTime, c = e.isAnimating, l = e.isEntrance, u = gr(cr), d = gr(or), f = gr(sr), p = i.onMouseEnter, m = i.onClick, h = i.onMouseLeave, g = zi(i, Fi), _ = vr(p, i.dataKey, o), v = yr(h), y = _r(m, i.dataKey, o);
+function ia(e) {
+	var t = e.sectors, n = e.activeShape, r = e.inactiveShape, i = e.allOtherPieProps, a = e.shape, o = e.id, s = e.animationElapsedTime, c = e.isAnimating, l = e.isEntrance, u = _r(lr), d = _r(sr), f = _r(cr), p = i.onMouseEnter, m = i.onClick, h = i.onMouseLeave, g = Bi(i, Ii), _ = yr(p, i.dataKey, o), v = br(h), y = vr(m, i.dataKey, o);
 	return t == null || t.length === 0 ? null : /*#__PURE__*/ Z.createElement(Z.Fragment, null, t.map((e, p) => {
 		if (e?.startAngle === 0 && e?.endAngle === 0 && t.length !== 1) return null;
 		var m = f == null || f === o, h = String(p) === u && (d == null || i.dataKey === d) && m, b = n && h ? n : u ? r : null, x = $($({}, e), {}, {
@@ -1468,38 +1468,38 @@ function ra(e) {
 			animationElapsedTime: s,
 			isAnimating: c,
 			isEntrance: l,
-			[Cn]: p,
-			[Sn]: o
+			[wn]: p,
+			[Cn]: o
 		});
-		return /*#__PURE__*/ Z.createElement(On, Ri({
+		return /*#__PURE__*/ Z.createElement(kn, zi({
 			key: `sector-${e?.startAngle}-${e?.endAngle}-${e.midAngle}-${p}`,
 			tabIndex: -1,
 			className: "recharts-pie-sector"
-		}, Hn(g, e, p), {
+		}, Un(g, e, p), {
 			onMouseEnter: _(e, p),
 			onMouseLeave: v(e, p),
 			onClick: y(e, p)
-		}), /*#__PURE__*/ Z.createElement(Rn, {
+		}), /*#__PURE__*/ Z.createElement(zn, {
 			option: b ?? a,
-			DefaultShape: Gi,
+			DefaultShape: Ki,
 			shapeProps: x
 		}));
 	}));
 }
-function ia(e) {
-	var t = e.pieSettings, n = e.displayedData, r = e.cells, i = e.offset, a = t.cornerRadius, o = t.startAngle, s = t.endAngle, c = t.dataKey, l = t.nameKey, u = t.tooltipType, d = Math.abs(t.minAngle), f = Qi(o, s), p = Math.abs(f), m = n.length <= 1 ? 0 : t.paddingAngle ?? 0, h = n.filter((e) => $n(e, c, 0) !== 0).length, g = (p >= 360 ? h : h - 1) * m, _ = n.reduce((e, t) => {
-		var n = $n(t, c, 0);
-		return e + (tr(n) ? n : 0);
+function aa(e) {
+	var t = e.pieSettings, n = e.displayedData, r = e.cells, i = e.offset, a = t.cornerRadius, o = t.startAngle, s = t.endAngle, c = t.dataKey, l = t.nameKey, u = t.tooltipType, d = Math.abs(t.minAngle), f = $i(o, s), p = Math.abs(f), m = n.length <= 1 ? 0 : t.paddingAngle ?? 0, h = n.filter((e) => er(e, c, 0) !== 0).length, g = (p >= 360 ? h : h - 1) * m, _ = n.reduce((e, t) => {
+		var n = er(t, c, 0);
+		return e + (nr(n) ? n : 0);
 	}, 0), v = d > 0 && _ > 0 && n.some((e) => {
-		var t = $n(e, c, 0), n = (tr(t) ? t : 0) / _;
+		var t = er(e, c, 0), n = (nr(t) ? t : 0) / _;
 		return t !== 0 && n * p < d;
 	}) ? d : 0, y = p - h * v - g, b;
 	if (_ > 0) {
 		var x;
 		b = n.map((e, n) => {
-			var s = $n(e, c, 0), d = $n(e, l, n), p = Zi(t, i, e), h = (tr(s) ? s : 0) / _, g, b = $($({}, e), r && r[n] && r[n].props), S = b != null && "fill" in b && typeof b.fill == "string" ? b.fill : t.fill;
-			g = n ? x.endAngle + rr(f) * m * (s === 0 ? 0 : 1) : o;
-			var C = g + rr(f) * ((s === 0 ? 0 : v) + h * y), ee = (g + C) / 2, te = (p.innerRadius + p.outerRadius) / 2, w = [{
+			var s = er(e, c, 0), d = er(e, l, n), p = Qi(t, i, e), h = (nr(s) ? s : 0) / _, g, b = $($({}, e), r && r[n] && r[n].props), S = b != null && "fill" in b && typeof b.fill == "string" ? b.fill : t.fill;
+			g = n ? x.endAngle + ir(f) * m * (s === 0 ? 0 : 1) : o;
+			var C = g + ir(f) * ((s === 0 ? 0 : v) + h * y), ee = (g + C) / 2, te = (p.innerRadius + p.outerRadius) / 2, w = [{
 				name: d,
 				value: s,
 				payload: b,
@@ -1508,7 +1508,7 @@ function ia(e) {
 				color: S,
 				fill: S,
 				graphicalItemId: t.id
-			}], T = ir(p.cx, p.cy, te, ee);
+			}], T = ar(p.cx, p.cy, te, ee);
 			return x = $($($($({}, t.presentationProps), {}, {
 				percent: h,
 				cornerRadius: typeof a == "string" ? parseFloat(a) : a,
@@ -1523,13 +1523,13 @@ function ia(e) {
 				startAngle: g,
 				endAngle: C,
 				payload: b,
-				paddingAngle: s === 0 ? 0 : rr(f) * m
+				paddingAngle: s === 0 ? 0 : ir(f) * m
 			}), x;
 		});
 	}
 	return b;
 }
-function aa(e) {
+function oa(e) {
 	var t = e.showLabels, n = e.sectors, r = e.children, i = (0, Z.useMemo)(() => !t || !n ? [] : n.map((e) => ({
 		value: e.value,
 		payload: e.payload,
@@ -1546,22 +1546,22 @@ function aa(e) {
 		},
 		fill: e.fill
 	})), [n, t]);
-	return /*#__PURE__*/ Z.createElement(Mn, { value: t ? i : void 0 }, r);
+	return /*#__PURE__*/ Z.createElement(Nn, { value: t ? i : void 0 }, r);
 }
-var oa = (e, t) => {
+var sa = (e, t) => {
 	if (e == null) return [];
 	var n = [], r = e.find((e) => e.status !== "removed"), i = r ? r.next.startAngle : 0;
 	return e.forEach((e, r) => {
 		if (e.status !== "removed") {
-			var a = r > 0 ? qn(e.next, "paddingAngle", 0) : 0;
+			var a = r > 0 ? Jn(e.next, "paddingAngle", 0) : 0;
 			if (e.status === "matched") {
-				var o = er(e.prev.endAngle - e.prev.startAngle, e.next.endAngle - e.next.startAngle, t), s = $($({}, e.next), {}, {
+				var o = tr(e.prev.endAngle - e.prev.startAngle, e.next.endAngle - e.next.startAngle, t), s = $($({}, e.next), {}, {
 					startAngle: i + a,
 					endAngle: i + o + a
 				});
 				n.push(s), i = s.endAngle;
 			} else {
-				var c = er(0, e.next.endAngle - e.next.startAngle, t), l = $($({}, e.next), {}, {
+				var c = tr(0, e.next.endAngle - e.next.startAngle, t), l = $($({}, e.next), {}, {
 					startAngle: i + a,
 					endAngle: i + c + a
 				});
@@ -1570,14 +1570,14 @@ var oa = (e, t) => {
 		}
 	}), n;
 };
-function sa(e) {
-	var t = e.props, n = e.previousSectorsRef, r = e.id, i = t.sectors, a = t.activeShape, o = t.inactiveShape, s = t.animationInterpolateFn, c = hr(t.onAnimationStart, t.onAnimationEnd), l = c.isAnimating, u = c.handleAnimationStart, d = c.handleAnimationEnd, f = br();
+function ca(e) {
+	var t = e.props, n = e.previousSectorsRef, r = e.id, i = t.sectors, a = t.activeShape, o = t.inactiveShape, s = t.animationInterpolateFn, c = gr(t.onAnimationStart, t.onAnimationEnd), l = c.isAnimating, u = c.handleAnimationStart, d = c.handleAnimationEnd, f = xr();
 	if (f == null) return null;
 	var p = i[0];
-	return /*#__PURE__*/ Z.createElement(aa, {
+	return /*#__PURE__*/ Z.createElement(oa, {
 		showLabels: !l,
 		sectors: i
-	}, /*#__PURE__*/ Z.createElement(fn, {
+	}, /*#__PURE__*/ Z.createElement(pn, {
 		animationInput: t,
 		animationIdPrefix: "recharts-pie-",
 		items: i,
@@ -1591,7 +1591,7 @@ function sa(e) {
 		animationInterpolateFn: s,
 		animationMatchBy: t.animationMatchBy,
 		layout: f
-	}, (e, n, i) => /*#__PURE__*/ Z.createElement(On, null, /*#__PURE__*/ Z.createElement(ra, {
+	}, (e, n, i) => /*#__PURE__*/ Z.createElement(kn, null, /*#__PURE__*/ Z.createElement(ia, {
 		sectors: e,
 		activeShape: a,
 		inactiveShape: o,
@@ -1601,11 +1601,11 @@ function sa(e) {
 		animationElapsedTime: n,
 		isAnimating: l || n < 1,
 		isEntrance: i
-	}))), /*#__PURE__*/ Z.createElement(na, {
+	}))), /*#__PURE__*/ Z.createElement(ra, {
 		showLabels: !l,
 		sectors: i,
 		props: t
-	}), /*#__PURE__*/ Z.createElement(jn, {
+	}), /*#__PURE__*/ Z.createElement(Mn, {
 		cx: p?.cx ?? 0,
 		cy: p?.cy ?? 0,
 		innerRadius: p?.innerRadius ?? 0,
@@ -1615,12 +1615,12 @@ function sa(e) {
 		clockWise: !1
 	}, t.children));
 }
-var ca = {
+var la = {
 	animationBegin: 400,
 	animationDuration: 1500,
 	animationEasing: "ease",
-	animationInterpolateFn: oa,
-	animationMatchBy: nr,
+	animationInterpolateFn: sa,
+	animationMatchBy: rr,
 	cx: "50%",
 	cy: "50%",
 	dataKey: "value",
@@ -1637,17 +1637,17 @@ var ca = {
 	outerRadius: "80%",
 	paddingAngle: 0,
 	rootTabIndex: 0,
-	shape: Gi,
+	shape: Ki,
 	startAngle: 0,
 	stroke: "#fff",
-	zIndex: wn.area
+	zIndex: Tn.area
 };
-function la(e) {
-	var t = e.id, n = zi(e, Ii), r = e.hide, i = e.className, a = e.rootTabIndex, o = (0, Z.useMemo)(() => Kn(e.children, pn), [e.children]), s = gr((e) => Ni(e, t, o)), c = (0, Z.useRef)(null), l = nt("recharts-pie", i);
-	return r || s == null ? (c.current = null, /*#__PURE__*/ Z.createElement(On, {
+function ua(e) {
+	var t = e.id, n = Bi(e, Li), r = e.hide, i = e.className, a = e.rootTabIndex, o = (0, Z.useMemo)(() => qn(e.children, mn), [e.children]), s = _r((e) => Pi(e, t, o)), c = (0, Z.useRef)(null), l = rt("recharts-pie", i);
+	return r || s == null ? (c.current = null, /*#__PURE__*/ Z.createElement(kn, {
 		tabIndex: a,
 		className: l
-	})) : /*#__PURE__*/ Z.createElement(Vn, { zIndex: e.zIndex }, /*#__PURE__*/ Z.createElement(Ji, {
+	})) : /*#__PURE__*/ Z.createElement(Hn, { zIndex: e.zIndex }, /*#__PURE__*/ Z.createElement(Yi, {
 		dataKey: e.dataKey,
 		nameKey: e.nameKey,
 		sectors: s,
@@ -1660,21 +1660,21 @@ function la(e) {
 		formatter: e.formatter,
 		id: t,
 		activeShape: e.activeShape
-	}), /*#__PURE__*/ Z.createElement(On, {
+	}), /*#__PURE__*/ Z.createElement(kn, {
 		tabIndex: a,
 		className: l
-	}, /*#__PURE__*/ Z.createElement(sa, {
+	}, /*#__PURE__*/ Z.createElement(ca, {
 		props: $($({}, n), {}, { sectors: s }),
 		previousSectorsRef: c,
 		id: t
 	})));
 }
-function ua(e) {
-	var t = ar(e, ca), n = t.id, r = zi(t, Li), i = fr(r);
-	return /*#__PURE__*/ Z.createElement(Nn, {
+function da(e) {
+	var t = or(e, la), n = t.id, r = Bi(t, Ri), i = pr(r);
+	return /*#__PURE__*/ Z.createElement(Pn, {
 		id: n,
 		type: "pie"
-	}, (e) => /*#__PURE__*/ Z.createElement(Z.Fragment, null, /*#__PURE__*/ Z.createElement(Fn, {
+	}, (e) => /*#__PURE__*/ Z.createElement(Z.Fragment, null, /*#__PURE__*/ Z.createElement(In, {
 		type: "pie",
 		id: e,
 		data: r.data,
@@ -1698,12 +1698,12 @@ function ua(e) {
 		cornerRadius: r.cornerRadius,
 		presentationProps: i,
 		maxRadius: t.maxRadius
-	}), /*#__PURE__*/ Z.createElement(Ki, Ri({}, r, { id: e })), /*#__PURE__*/ Z.createElement(la, Ri({}, r, { id: e }))));
+	}), /*#__PURE__*/ Z.createElement(qi, zi({}, r, { id: e })), /*#__PURE__*/ Z.createElement(ua, zi({}, r, { id: e }))));
 }
-var da = ua;
-da.displayName = "Pie";
+var fa = da;
+fa.displayName = "Pie";
 // node_modules/recharts/es6/chart/PieChart.js
-function fa(e, t) {
+function pa(e, t) {
 	var n = Object.keys(e);
 	if (Object.getOwnPropertySymbols) {
 		var r = Object.getOwnPropertySymbols(e);
@@ -1713,30 +1713,30 @@ function fa(e, t) {
 	}
 	return n;
 }
-function pa(e) {
+function ma(e) {
 	for (var t = 1; t < arguments.length; t++) {
 		var n = arguments[t] == null ? {} : arguments[t];
-		t % 2 ? fa(Object(n), !0).forEach(function(t) {
-			ma(e, t, n[t]);
-		}) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(n)) : fa(Object(n)).forEach(function(t) {
+		t % 2 ? pa(Object(n), !0).forEach(function(t) {
+			ha(e, t, n[t]);
+		}) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(n)) : pa(Object(n)).forEach(function(t) {
 			Object.defineProperty(e, t, Object.getOwnPropertyDescriptor(n, t));
 		});
 	}
 	return e;
 }
-function ma(e, t, n) {
-	return (t = ha(t)) in e ? Object.defineProperty(e, t, {
+function ha(e, t, n) {
+	return (t = ga(t)) in e ? Object.defineProperty(e, t, {
 		value: n,
 		enumerable: !0,
 		configurable: !0,
 		writable: !0
 	}) : e[t] = n, e;
 }
-function ha(e) {
-	var t = ga(e, "string");
+function ga(e) {
+	var t = _a(e, "string");
 	return typeof t == "symbol" ? t : t + "";
 }
-function ga(e, t) {
+function _a(e, t) {
 	if (typeof e != "object" || !e) return e;
 	var n = e[Symbol.toPrimitive];
 	if (n !== void 0) {
@@ -1746,27 +1746,27 @@ function ga(e, t) {
 	}
 	return (t === "string" ? String : Number)(e);
 }
-var _a = ["item"], va = pa(pa({}, Gn), {}, {
+var va = ["item"], ya = ma(ma({}, Kn), {}, {
 	layout: "centric",
 	startAngle: 0,
 	endAngle: 360
-}), ya = /*#__PURE__*/ (0, Z.forwardRef)((e, t) => {
-	var n = ar(e, va);
-	return /*#__PURE__*/ Z.createElement(An, {
+}), ba = /*#__PURE__*/ (0, Z.forwardRef)((e, t) => {
+	var n = or(e, ya);
+	return /*#__PURE__*/ Z.createElement(jn, {
 		chartName: "PieChart",
 		defaultTooltipEventType: "item",
-		validateTooltipEventTypes: _a,
-		tooltipPayloadSearcher: Un,
+		validateTooltipEventTypes: va,
+		tooltipPayloadSearcher: Wn,
 		categoricalChartProps: n,
 		ref: t
 	});
-}), ba = 5, xa = 2e3, Sa = 0, Ca = "80%", wa = 0, Ta = 0, Ea = 0, Da = 360, Oa = [], ka = (0, Z.createContext)(null);
-function Aa() {
-	let e = (0, Z.use)(ka);
+}), xa = 5, Sa = 2e3, Ca = 0, wa = "80%", Ta = 0, Ea = 0, Da = 0, Oa = 360, ka = [], Aa = (0, Z.createContext)(null);
+function ja() {
+	let e = (0, Z.use)(Aa);
 	if (!e) throw Error("Pie chart parts (<Pie />, <Tooltip />, …) must be used within <EvilPieChart />");
 	return e;
 }
-function ja({ config: e, data: t, dataKey: n, nameKey: r, children: i, className: a, chartProps: o, defaultSelectedSector: s = null, onSelectionChange: c, isLoading: l = !1 }) {
+function Ma({ config: e, data: t, dataKey: n, nameKey: r, children: i, className: a, chartProps: o, defaultSelectedSector: s = null, onSelectionChange: c, isLoading: l = !1 }) {
 	let [u, d] = (0, Z.useState)(s), f = (0, Z.useCallback)((e) => {
 		if (d(e), e === null) {
 			c?.(null);
@@ -1799,12 +1799,12 @@ function ja({ config: e, data: t, dataKey: n, nameKey: r, children: i, className
 		u,
 		f
 	]);
-	return /* @__PURE__ */ (0, Q.jsx)(ka, {
+	return /* @__PURE__ */ (0, Q.jsx)(Aa, {
 		value: p,
-		children: /* @__PURE__ */ (0, Q.jsxs)(hn, {
+		children: /* @__PURE__ */ (0, Q.jsxs)(gn, {
 			className: a,
 			config: e,
-			children: [/* @__PURE__ */ (0, Q.jsx)(kn, { isLoading: l }), /* @__PURE__ */ (0, Q.jsx)(ya, {
+			children: [/* @__PURE__ */ (0, Q.jsx)(An, { isLoading: l }), /* @__PURE__ */ (0, Q.jsx)(ba, {
 				id: "evil-charts-pie-chart",
 				accessibilityLayer: !0,
 				...o,
@@ -1813,10 +1813,10 @@ function ja({ config: e, data: t, dataKey: n, nameKey: r, children: i, className
 		})
 	});
 }
-function Ma({ variant: e = "gradient", innerRadius: t = Sa, outerRadius: n = Ca, cornerRadius: r = wa, paddingAngle: i = Ta, startAngle: a = Ea, endAngle: o = Da, isClickable: s = !1, glowingSectors: c = Oa, children: l, pieProps: u }) {
-	let { config: d, data: f, dataKey: p, nameKey: m, isLoading: h, selectedSector: g, selectSector: _ } = Aa(), v = (0, Z.useId)().replace(/:/g, "");
-	if (h) return /* @__PURE__ */ (0, Q.jsx)(da, {
-		data: Ba,
+function Na({ variant: e = "gradient", innerRadius: t = Ca, outerRadius: n = wa, cornerRadius: r = Ta, paddingAngle: i = Ea, startAngle: a = Da, endAngle: o = Oa, isClickable: s = !1, glowingSectors: c = ka, children: l, pieProps: u }) {
+	let { config: d, data: f, dataKey: p, nameKey: m, isLoading: h, selectedSector: g, selectSector: _ } = ja(), v = (0, Z.useId)().replace(/:/g, "");
+	if (h) return /* @__PURE__ */ (0, Q.jsx)(fa, {
+		data: Va,
 		dataKey: "value",
 		nameKey: "name",
 		innerRadius: t,
@@ -1827,13 +1827,13 @@ function Ma({ variant: e = "gradient", innerRadius: t = Sa, outerRadius: n = Ca,
 		endAngle: o,
 		strokeWidth: 0,
 		isAnimationActive: !1,
-		shape: (e) => /* @__PURE__ */ (0, Q.jsx)(Va, { ...e })
+		shape: (e) => /* @__PURE__ */ (0, Q.jsx)(Ha, { ...e })
 	});
-	let y = La(l, p), b = f.map((e) => ({
+	let y = Ra(l, p), b = f.map((e) => ({
 		...e,
 		fill: `url(#${v}-colors-${e[m]})`
 	}));
-	return /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(da, {
+	return /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(fa, {
 		data: b,
 		dataKey: p,
 		nameKey: m,
@@ -1853,7 +1853,7 @@ function Ma({ variant: e = "gradient", innerRadius: t = Sa, outerRadius: n = Ca,
 		},
 		shape: (e) => {
 			let t = f[e.index ?? 0]?.[m], n = c.includes(t), r = s && g !== null && g !== t;
-			return /* @__PURE__ */ (0, Q.jsx)(Pn, {
+			return /* @__PURE__ */ (0, Q.jsx)(Fn, {
 				...e,
 				fill: `url(#${v}-colors-${t})`,
 				filter: n ? `url(#${v}-glow-${t})` : void 0,
@@ -1865,21 +1865,21 @@ function Ma({ variant: e = "gradient", innerRadius: t = Sa, outerRadius: n = Ca,
 		},
 		...u,
 		children: y
-	}), /* @__PURE__ */ (0, Q.jsxs)("defs", { children: [/* @__PURE__ */ (0, Q.jsx)(Ra, {
+	}), /* @__PURE__ */ (0, Q.jsxs)("defs", { children: [/* @__PURE__ */ (0, Q.jsx)(za, {
 		id: v,
 		config: d,
 		variant: e
-	}), c.length > 0 && /* @__PURE__ */ (0, Q.jsx)(za, {
+	}), c.length > 0 && /* @__PURE__ */ (0, Q.jsx)(Ba, {
 		id: v,
 		glowingSectors: c
 	})] })] });
 }
-var Na = () => null;
-function Pa({ variant: e, roundness: t, defaultIndex: n }) {
-	let { isLoading: r, nameKey: i } = Aa();
-	return r ? null : /* @__PURE__ */ (0, Q.jsx)(yn, {
+var Pa = () => null;
+function Fa({ variant: e, roundness: t, defaultIndex: n }) {
+	let { isLoading: r, nameKey: i } = ja();
+	return r ? null : /* @__PURE__ */ (0, Q.jsx)(bn, {
 		defaultIndex: n,
-		content: /* @__PURE__ */ (0, Q.jsx)(bn, {
+		content: /* @__PURE__ */ (0, Q.jsx)(xn, {
 			nameKey: i,
 			hideLabel: !0,
 			roundness: t,
@@ -1887,12 +1887,12 @@ function Pa({ variant: e, roundness: t, defaultIndex: n }) {
 		})
 	});
 }
-function Fa({ variant: e, align: t = "center", verticalAlign: n = "bottom", isClickable: r = !1 }) {
-	let { nameKey: i, selectedSector: a, selectSector: o } = Aa();
-	return /* @__PURE__ */ (0, Q.jsx)(gn, {
+function Ia({ variant: e, align: t = "center", verticalAlign: n = "bottom", isClickable: r = !1 }) {
+	let { nameKey: i, selectedSector: a, selectSector: o } = ja();
+	return /* @__PURE__ */ (0, Q.jsx)(_n, {
 		verticalAlign: n,
 		align: t,
-		content: /* @__PURE__ */ (0, Q.jsx)(_n, {
+		content: /* @__PURE__ */ (0, Q.jsx)(vn, {
 			selected: a,
 			onSelectChange: o,
 			isClickable: r,
@@ -1901,15 +1901,15 @@ function Fa({ variant: e, align: t = "center", verticalAlign: n = "bottom", isCl
 		})
 	});
 }
-function Ia({ variant: e = "dots" }) {
-	return /* @__PURE__ */ (0, Q.jsx)(mn, { variant: e });
+function La({ variant: e = "dots" }) {
+	return /* @__PURE__ */ (0, Q.jsx)(hn, { variant: e });
 }
-var La = (e, t) => {
+var Ra = (e, t) => {
 	let n = null;
 	return Z.Children.forEach(e, (e) => {
-		if (!(0, Z.isValidElement)(e) || e.type !== Na) return;
+		if (!(0, Z.isValidElement)(e) || e.type !== Pa) return;
 		let { dataKey: r, labelListProps: i } = e.props;
-		n = /* @__PURE__ */ (0, Q.jsx)(En, {
+		n = /* @__PURE__ */ (0, Q.jsx)(Dn, {
 			dataKey: r ?? t,
 			stroke: "none",
 			fontSize: 12,
@@ -1919,8 +1919,8 @@ var La = (e, t) => {
 			...i
 		});
 	}), n;
-}, Ra = ({ id: e, config: t }) => /* @__PURE__ */ (0, Q.jsx)(Q.Fragment, { children: Object.entries(t).map(([t, n]) => {
-	let r = Yn(n);
+}, za = ({ id: e, config: t }) => /* @__PURE__ */ (0, Q.jsx)(Q.Fragment, { children: Object.entries(t).map(([t, n]) => {
+	let r = Xn(n);
 	return /* @__PURE__ */ (0, Q.jsx)("linearGradient", {
 		id: `${e}-colors-${t}`,
 		x1: "0",
@@ -1941,7 +1941,7 @@ var La = (e, t) => {
 			}, i);
 		})
 	}, `${e}-colors-${t}`);
-}) }), za = ({ id: e, glowingSectors: t }) => /* @__PURE__ */ (0, Q.jsx)(Q.Fragment, { children: t.map((t) => /* @__PURE__ */ (0, Q.jsxs)("filter", {
+}) }), Ba = ({ id: e, glowingSectors: t }) => /* @__PURE__ */ (0, Q.jsx)(Q.Fragment, { children: t.map((t) => /* @__PURE__ */ (0, Q.jsxs)("filter", {
 	id: `${e}-glow-${t}`,
 	x: "-100%",
 	y: "-100%",
@@ -1961,12 +1961,12 @@ var La = (e, t) => {
 		}),
 		/* @__PURE__ */ (0, Q.jsxs)("feMerge", { children: [/* @__PURE__ */ (0, Q.jsx)("feMergeNode", { in: "glow" }), /* @__PURE__ */ (0, Q.jsx)("feMergeNode", { in: "SourceGraphic" })] })
 	]
-}, `${e}-glow-${t}`)) }), Ba = Array.from({ length: ba }, (e, t) => ({
+}, `${e}-glow-${t}`)) }), Va = Array.from({ length: xa }, (e, t) => ({
 	name: `loading${t}`,
-	value: 100 / ba
-})), Va = (e) => {
-	let { index: t = 0, ...n } = e, r = t / ba * (xa / 1e3);
-	return /* @__PURE__ */ (0, Q.jsx)(Et.g, {
+	value: 100 / xa
+})), Ha = (e) => {
+	let { index: t = 0, ...n } = e, r = t / xa * (Sa / 1e3);
+	return /* @__PURE__ */ (0, Q.jsx)(Dt.g, {
 		initial: { opacity: .15 },
 		animate: { opacity: [
 			.15,
@@ -1974,20 +1974,20 @@ var La = (e, t) => {
 			.15
 		] },
 		transition: {
-			duration: xa / 1e3,
+			duration: Sa / 1e3,
 			delay: r,
 			repeat: Infinity,
 			ease: "easeInOut"
 		},
-		children: /* @__PURE__ */ (0, Q.jsx)(Pn, {
+		children: /* @__PURE__ */ (0, Q.jsx)(Fn, {
 			...n,
 			fill: "currentColor"
 		})
 	});
 };
-ja.Pie = Ma, ja.Label = Na, ja.Tooltip = Pa, ja.Legend = Fa, ja.Background = Ia;
+Ma.Pie = Na, Ma.Label = Pa, Ma.Tooltip = Fa, Ma.Legend = Ia, Ma.Background = La;
 // src/react/settings/storage-charts.tsx
-var Ha = {
+var Ua = {
 	database: "var(--color-chart-1)",
 	backups: "var(--color-chart-2)",
 	playback: "var(--color-chart-3)",
@@ -1997,7 +1997,7 @@ var Ha = {
 	sources: "var(--color-chart-7)",
 	records: "var(--color-chart-8)",
 	tools: "var(--color-chart-9)"
-}, Ua = "var(--color-text-tertiary)", Wa = {
+}, Wa = "var(--color-text-tertiary)", Ga = {
 	database: "bg-chart-1",
 	backups: "bg-chart-2",
 	playback: "bg-chart-3",
@@ -2007,25 +2007,25 @@ var Ha = {
 	sources: "bg-chart-7",
 	records: "bg-chart-8",
 	tools: "bg-chart-9"
-}, Ga = (e) => K(e);
-function Ka(e) {
-	let t = e.filter((e) => Ha[e.key] && e.bytes > 0).map((e) => ({
+}, Ka = (e) => K(e);
+function qa(e) {
+	let t = e.filter((e) => Ua[e.key] && e.bytes > 0).map((e) => ({
 		key: e.key,
 		label: e.label,
 		bytes: e.bytes,
-		color: Ha[e.key]
-	})), n = e.filter((e) => !Ha[e.key]).reduce((e, t) => e + t.bytes, 0);
+		color: Ua[e.key]
+	})), n = e.filter((e) => !Ua[e.key]).reduce((e, t) => e + t.bytes, 0);
 	return n > 0 ? [...t, {
 		key: "rest",
 		label: J("settings:storageCharts.rest"),
 		bytes: n,
-		color: Ua
+		color: Wa
 	}] : t;
 }
-function qa({ storage: e }) {
-	let t = e.usage, n = Ka(t.categories), r = Object.fromEntries(n.map((e) => [e.key, {
+function Ja({ storage: e }) {
+	let t = e.usage, n = qa(t.categories), r = Object.fromEntries(n.map((e) => [e.key, {
 		label: e.label,
-		colors: mr(e.color)
+		colors: hr(e.color)
 	}])), i = n.map((e) => ({
 		slice: e.key,
 		value: e.bytes
@@ -2035,28 +2035,28 @@ function qa({ storage: e }) {
 		children: [/* @__PURE__ */ (0, Q.jsxs)("div", {
 			className: "relative mx-auto size-48 flex-none",
 			role: "img",
-			"aria-label": J("settings:storageCharts.categoryShare", { size: Ga(t.total_bytes) }),
-			children: [/* @__PURE__ */ (0, Q.jsxs)(ja, {
+			"aria-label": J("settings:storageCharts.categoryShare", { size: Ka(t.total_bytes) }),
+			children: [/* @__PURE__ */ (0, Q.jsxs)(Ma, {
 				data: i,
 				dataKey: "value",
 				nameKey: "slice",
 				config: r,
 				className: "aspect-square size-48 flex-none",
-				children: [/* @__PURE__ */ (0, Q.jsx)(ja.Pie, {
+				children: [/* @__PURE__ */ (0, Q.jsx)(Ma.Pie, {
 					innerRadius: "68%",
 					outerRadius: "100%",
 					paddingAngle: 1,
 					cornerRadius: 3
-				}), /* @__PURE__ */ (0, Q.jsx)(vn, {
+				}), /* @__PURE__ */ (0, Q.jsx)(yn, {
 					nameKey: "slice",
 					hideLabel: !0,
-					format: Ga
+					format: Ka
 				})]
 			}), /* @__PURE__ */ (0, Q.jsxs)("div", {
 				className: "pointer-events-none absolute inset-0 flex flex-col items-center justify-center",
 				children: [/* @__PURE__ */ (0, Q.jsx)("b", {
 					className: "text-title-2-medium tabular-nums text-text-primary",
-					children: Ga(t.total_bytes)
+					children: Ka(t.total_bytes)
 				}), /* @__PURE__ */ (0, Q.jsx)("small", {
 					className: "text-caption-1-regular tabular-nums text-text-secondary",
 					children: J("settings:storageCharts.fileCount", { count: t.total_files })
@@ -2072,33 +2072,33 @@ function qa({ storage: e }) {
 					children: [
 						/* @__PURE__ */ (0, Q.jsx)("i", {
 							"aria-hidden": !0,
-							className: `${zn} ${Wa[e.key] || "bg-text-tertiary"}`
+							className: `${Bn} ${Ga[e.key] || "bg-text-tertiary"}`
 						}),
 						e.label,
 						/* @__PURE__ */ (0, Q.jsx)("span", {
 							className: "tabular-nums text-text-primary",
-							children: Ga(e.bytes)
+							children: Ka(e.bytes)
 						})
 					]
 				}, e.key))
-			}), /* @__PURE__ */ (0, Q.jsx)(Ja, { storage: e })]
+			}), /* @__PURE__ */ (0, Q.jsx)(Ya, { storage: e })]
 		})]
 	});
 }
-function Ja({ storage: e }) {
+function Ya({ storage: e }) {
 	if (e.total_bytes === null || e.free_bytes === null || !e.usage) return null;
 	let t = Math.min(e.usage.total_bytes, e.total_bytes), n = e.free_bytes, r = Math.max(0, e.total_bytes - n - t), i = {
 		peach: {
 			label: J("settings:storageCharts.peachData"),
-			colors: mr("var(--color-border-focus-ring)")
+			colors: hr("var(--color-border-focus-ring)")
 		},
 		others: {
 			label: J("settings:storageCharts.otherFiles"),
-			colors: mr(Ua)
+			colors: hr(Wa)
 		},
 		free: {
 			label: J("settings:storageCharts.free"),
-			colors: mr("var(--color-background-tertiary-default)")
+			colors: hr("var(--color-background-tertiary-default)")
 		}
 	};
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
@@ -2106,15 +2106,15 @@ function Ja({ storage: e }) {
 		children: [/* @__PURE__ */ (0, Q.jsx)("p", {
 			className: "text-caption-1-regular text-text-secondary",
 			children: J("settings:storageCharts.diskSummary", {
-				total: Ga(e.total_bytes),
+				total: Ka(e.total_bytes),
 				systemDrive: e.system_drive ? J("settings:storageCharts.systemDrive") : "",
 				share: ((t) => {
 					let n = t / e.total_bytes * 100;
 					return n < .1 ? J("settings:storageCharts.underTenthPercent") : `${n.toFixed(+(n < 10))}%`;
 				})(t),
-				free: Ga(n)
+				free: Ka(n)
 			})
-		}), /* @__PURE__ */ (0, Q.jsxs)(Tn, {
+		}), /* @__PURE__ */ (0, Q.jsxs)(En, {
 			data: [{
 				disk: J("settings:libraryIcons.hardDrive"),
 				peach: t,
@@ -2133,45 +2133,45 @@ function Ja({ storage: e }) {
 			} },
 			className: "aspect-auto h-6 flex-none",
 			children: [
-				/* @__PURE__ */ (0, Q.jsx)(Tn.YAxis, {
+				/* @__PURE__ */ (0, Q.jsx)(En.YAxis, {
 					dataKey: "disk",
 					hide: !0
 				}),
-				/* @__PURE__ */ (0, Q.jsx)(Tn.XAxis, { hide: !0 }),
-				/* @__PURE__ */ (0, Q.jsx)(Tn.Bar, { dataKey: "peach" }),
-				/* @__PURE__ */ (0, Q.jsx)(Tn.Bar, { dataKey: "others" }),
-				/* @__PURE__ */ (0, Q.jsx)(Tn.Bar, { dataKey: "free" }),
-				/* @__PURE__ */ (0, Q.jsx)(vn, {
+				/* @__PURE__ */ (0, Q.jsx)(En.XAxis, { hide: !0 }),
+				/* @__PURE__ */ (0, Q.jsx)(En.Bar, { dataKey: "peach" }),
+				/* @__PURE__ */ (0, Q.jsx)(En.Bar, { dataKey: "others" }),
+				/* @__PURE__ */ (0, Q.jsx)(En.Bar, { dataKey: "free" }),
+				/* @__PURE__ */ (0, Q.jsx)(yn, {
 					hideLabel: !0,
-					format: Ga
+					format: Ka
 				})
 			]
 		})]
 	});
 }
 // src/react/components/configuration-fields.tsx
-function Ya({ id: e, label: t, value: n, onChange: r, options: i, isDisabled: a, isInvalid: o, children: s }) {
+function Xa({ id: e, label: t, value: n, onChange: r, options: i, isDisabled: a, isInvalid: o, children: s }) {
 	let l = `${e}-label`;
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
 		className: "flex flex-col gap-1.5",
 		children: [
-			/* @__PURE__ */ (0, Q.jsx)(ue, {
+			/* @__PURE__ */ (0, Q.jsx)(de, {
 				id: l,
 				elementType: "span",
 				children: t
 			}),
-			/* @__PURE__ */ (0, Q.jsx)(Ne, {
+			/* @__PURE__ */ (0, Q.jsx)(Pe, {
 				id: e,
 				"aria-labelledby": l,
 				orientation: "horizontal",
-				className: ke,
+				className: Ae,
 				value: n,
 				onChange: r,
 				isDisabled: a,
 				isInvalid: o,
 				children: i.map((e) => /* @__PURE__ */ (0, Q.jsx)(c, {
 					value: e.value,
-					className: Oe,
+					className: ke,
 					children: e.label
 				}, e.value))
 			}),
@@ -2179,10 +2179,10 @@ function Ya({ id: e, label: t, value: n, onChange: r, options: i, isDisabled: a,
 		]
 	});
 }
-function Xa({ prefix: e, suffix: t, unit: n, fieldClassName: r, ...i }) {
+function Za({ prefix: e, suffix: t, unit: n, fieldClassName: r, ...i }) {
 	let a = () => /* @__PURE__ */ (0, Q.jsx)("span", {
 		"aria-hidden": n ? !0 : void 0,
-		className: st("shrink-0 text-body-regular text-text-secondary", n ? "w-10" : "pr-1"),
+		className: ct("shrink-0 text-body-regular text-text-secondary", n ? "w-10" : "pr-1"),
 		children: n ? /* @__PURE__ */ (0, Q.jsx)("span", {
 			className: "absolute inset-y-0 right-0 flex items-center border-l border-border-button-default px-2",
 			children: n
@@ -2199,7 +2199,7 @@ function Xa({ prefix: e, suffix: t, unit: n, fieldClassName: r, ...i }) {
 	});
 }
 // src/react/settings/storage-budget-settings.tsx
-var Za = [
+var Qa = [
 	[
 		"minimum_free_gib",
 		J("settings:storageLimits.reservedSpace"),
@@ -2215,8 +2215,8 @@ var Za = [
 		J("settings:storageLimits.cacheLimit"),
 		J("settings:storageLimits.cacheLimitHelp")
 	]
-], Qa = (e) => Ut(e.reasons, e.reason_codes?.map((e) => e?.code ?? null), e.reason_codes?.map((e) => e?.params ?? null));
-function $a({ initial: e, after: t, receipt: n }) {
+], $a = (e) => Wt(e.reasons, e.reason_codes?.map((e) => e?.code ?? null), e.reason_codes?.map((e) => e?.params ?? null));
+function eo({ initial: e, after: t, receipt: n }) {
 	let [r, i] = (0, Z.useState)(e.policy), a = Y(W(e, "error")), [o, s] = (0, Z.useState)("");
 	(0, Z.useEffect)(() => {
 		if (!r?.enabled || e.policy?.external_cache_path) return;
@@ -2254,10 +2254,10 @@ function $a({ initial: e, after: t, receipt: n }) {
 					isDisabled: !!a.busy,
 					onChange: (e) => c("enabled", e)
 				})
-			}), r.enabled ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [Za.map(([e, t, n]) => /* @__PURE__ */ (0, Q.jsx)(L, {
+			}), r.enabled ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [Qa.map(([e, t, n]) => /* @__PURE__ */ (0, Q.jsx)(L, {
 				label: t,
 				description: n,
-				children: /* @__PURE__ */ (0, Q.jsx)(Xa, {
+				children: /* @__PURE__ */ (0, Q.jsx)(Za, {
 					"aria-label": J("settings:storageLimits.limitGib", { label: t }),
 					unit: "GiB",
 					inputMode: "numeric",
@@ -2295,7 +2295,7 @@ function $a({ initial: e, after: t, receipt: n }) {
 			r.enabled && r.external_cache_path ? /* @__PURE__ */ (0, Q.jsx)(N, { children: /* @__PURE__ */ (0, Q.jsx)(L, {
 				label: J("settings:storageLimits.externalCacheLimit"),
 				description: J("settings:storageLimits.externalCacheLimitHelp"),
-				children: /* @__PURE__ */ (0, Q.jsx)(Xa, {
+				children: /* @__PURE__ */ (0, Q.jsx)(Za, {
 					"aria-label": J("settings:storageLimits.externalCacheLimitGib"),
 					unit: "GiB",
 					size: "small",
@@ -2312,7 +2312,7 @@ function $a({ initial: e, after: t, receipt: n }) {
 				divided: !0,
 				children: [
 					r.enabled ? /* @__PURE__ */ (0, Q.jsx)(A, { children: J("settings:storageLimits.limitsHelp") }) : null,
-					r.enabled && l?.paused ? /* @__PURE__ */ (0, Q.jsx)(T, { children: J("settings:storageLimits.pausedWithReasons", { reasons: Qa(l).join(J("shell:format.semicolonSeparator")) }) }) : null,
+					r.enabled && l?.paused ? /* @__PURE__ */ (0, Q.jsx)(T, { children: J("settings:storageLimits.pausedWithReasons", { reasons: $a(l).join(J("shell:format.semicolonSeparator")) }) }) : null,
 					a.error ? /* @__PURE__ */ (0, Q.jsx)(T, { children: a.error }) : null
 				]
 			}),
@@ -2328,8 +2328,8 @@ function $a({ initial: e, after: t, receipt: n }) {
 	});
 }
 // src/react/settings/storage-settings.tsx
-var eo = "/api/configuration/storage", to = 1500, no = 36e5, ro = 864e5, io = (e) => e instanceof d && Ze(e.body)?.target || G(e);
-function ao(e) {
+var to = "/api/configuration/storage", no = 1500, ro = 36e5, io = 864e5, ao = (e) => e instanceof d && Qe(e.body)?.target || G(e);
+function oo(e) {
 	if (e.free_bytes === null || e.total_bytes === null) return J("settings:shared.notFound");
 	let t = J("settings:storageSpace.diskFreeOfTotal", {
 		free: K(e.free_bytes),
@@ -2337,19 +2337,19 @@ function ao(e) {
 	});
 	return e.system_drive ? J("settings:storageSpace.systemDriveSuffix", { summary: t }) : t;
 }
-var oo = (e) => e.cleanable && e.reclaimable > 0, so = (e) => ({
+var so = (e) => e.cleanable && e.reclaimable > 0, co = (e) => ({
 	...e,
 	label: q(`storage.category.${e.key}.label`, e.label),
 	description: q(`storage.category.${e.key}.description`, e.description),
 	note: q(`storage.category.${e.key}.note`, e.note)
-}), co = (e) => [W(e, "message"), ...(e.notes ?? []).map((t, n) => q(e.note_codes?.[n]?.code ?? "", t, e.note_codes?.[n]?.params))], lo = (e) => ({
+}), lo = (e) => [W(e, "message"), ...(e.notes ?? []).map((t, n) => q(e.note_codes?.[n]?.code ?? "", t, e.note_codes?.[n]?.params))], uo = (e) => ({
 	text: W(e, "text"),
 	command: W(e, "command")
 });
-function uo({ job: e }) {
+function fo({ job: e }) {
 	let t = e.files || 0, n = e.expected_files || 0, r = {
-		files: /* @__PURE__ */ (0, Q.jsx)(Si, { value: t }),
-		size: /* @__PURE__ */ (0, Q.jsx)(Si, {
+		files: /* @__PURE__ */ (0, Q.jsx)(Ci, { value: t }),
+		size: /* @__PURE__ */ (0, Q.jsx)(Ci, {
 			value: e.bytes || 0,
 			format: K
 		})
@@ -2357,21 +2357,21 @@ function uo({ job: e }) {
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
 		"aria-live": "polite",
 		className: "flex flex-col gap-2",
-		children: [n ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(we, {
+		children: [n ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(Te, {
 			label: J("settings:storageSpace.measureProgress"),
 			value: Math.min(t, n * .99),
 			max: n
-		}), /* @__PURE__ */ (0, Q.jsx)(A, { children: Xt("settings:storageSpace.measuringOfLast", {
+		}), /* @__PURE__ */ (0, Q.jsx)(A, { children: Zt("settings:storageSpace.measuringOfLast", {
 			count: t,
 			expected: n
 		}, r) })] }) : /* @__PURE__ */ (0, Q.jsx)(u, {
 			kind: "radar",
 			label: J("settings:storageSpace.measuringLabel")
-		}), n ? null : /* @__PURE__ */ (0, Q.jsx)(A, { children: Xt("settings:storageSpace.measuring", { count: t }, r) })]
+		}), n ? null : /* @__PURE__ */ (0, Q.jsx)(A, { children: Zt("settings:storageSpace.measuring", { count: t }, r) })]
 	});
 }
-function fo({ category: e, selected: t, disabled: n, onToggle: r }) {
-	let i = oo(e), a = e.cleanable ? e.reclaimable > 0 ? J("settings:storageSpace.afterCleanup", { effect: e.note }) : J("settings:storageSpace.nothingToClean") : J("settings:storageSpace.cannotClean", { reason: e.note });
+function po({ category: e, selected: t, disabled: n, onToggle: r }) {
+	let i = so(e), a = e.cleanable ? e.reclaimable > 0 ? J("settings:storageSpace.afterCleanup", { effect: e.note }) : J("settings:storageSpace.nothingToClean") : J("settings:storageSpace.cannotClean", { reason: e.note });
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
 		"data-category": e.key,
 		className: "flex min-h-13 w-full items-start gap-3 border-b border-separator-border py-2.5 pr-3 last:border-b-0",
@@ -2390,7 +2390,7 @@ function fo({ category: e, selected: t, disabled: n, onToggle: r }) {
 						className: "flex items-center gap-2 text-body-regular text-text-primary",
 						children: [/* @__PURE__ */ (0, Q.jsx)("i", {
 							"aria-hidden": !0,
-							className: `size-2.5 shrink-0 rounded-xs ${Wa[e.key] || "bg-text-tertiary"}`
+							className: `size-2.5 shrink-0 rounded-xs ${Ga[e.key] || "bg-text-tertiary"}`
 						}), e.label]
 					}),
 					/* @__PURE__ */ (0, Q.jsx)("p", {
@@ -2405,7 +2405,7 @@ function fo({ category: e, selected: t, disabled: n, onToggle: r }) {
 			}),
 			/* @__PURE__ */ (0, Q.jsxs)("div", {
 				className: "flex shrink-0 flex-col items-end gap-0.5 text-right",
-				children: [/* @__PURE__ */ (0, Q.jsx)(Si, {
+				children: [/* @__PURE__ */ (0, Q.jsx)(Ci, {
 					value: e.bytes,
 					format: K,
 					className: "text-body-regular text-text-primary"
@@ -2421,49 +2421,50 @@ function fo({ category: e, selected: t, disabled: n, onToggle: r }) {
 		]
 	});
 }
-function po({ initial: e, receipt: t }) {
+function mo({ initial: e, receipt: t }) {
 	let [n, r] = (0, Z.useState)(e), [i, a] = (0, Z.useState)(""), [o, s] = (0, Z.useState)(/* @__PURE__ */ new Set()), c = Y(), l = n.job.state !== "idle", u = (0, Z.useRef)(l);
 	(0, Z.useEffect)(() => {
-		e.usage || e.job.state !== "idle" || document.body.classList.contains("peach-guiding") || c.run("measure", (e) => H(`${eo}/measure`, {}, "POST", e), r);
+		e.usage || e.job.state !== "idle" || document.body.classList.contains("peach-guiding") || c.run("measure", (e) => H(`${to}/measure`, {}, "POST", e), r);
 	}, []), (0, Z.useEffect)(() => {
 		if (!l) return;
 		let e = new AbortController();
-		return At({
+		return jt({
 			signal: e.signal,
-			everyMs: to,
-			limitMs: no,
-			read: (e) => V(eo, e),
+			everyMs: no,
+			limitMs: ro,
+			read: (e) => V(to, e),
 			apply: r,
 			done: (e) => e.job.state === "idle"
 		}), () => e.abort();
 	}, [l]), (0, Z.useEffect)(() => {
 		l ? u.current = !0 : u.current && (u.current = !1, s(/* @__PURE__ */ new Set()), n.job.error || t(W(n.job, "message") || J("settings:storageSpace.measured")));
 	}, [l]);
-	let d = () => void c.run("measure", (e) => H(`${eo}/measure`, {}, "POST", e), r), p = n.usage && {
+	let d = () => void c.run("measure", (e) => H(`${to}/measure`, {}, "POST", e), r), p = n.usage && {
 		...n.usage,
-		categories: n.usage.categories.map(so)
-	}, m = p?.categories.filter(oo) ?? [], h = m.filter((e) => o.has(e.key)), g = (e, t) => {
+		categories: n.usage.categories.map(co)
+	}, m = p?.categories.filter(so) ?? [], h = m.filter((e) => o.has(e.key)), g = (e, t) => {
 		if (!e.length) return;
 		let n = e.reduce((e, t) => e + t.reclaimable, 0);
-		it({
+		at({
 			title: t,
 			body: J("settings:storageSpace.cleanBody", {
 				size: K(n),
-				items: xt(e.map((e) => J("settings:storageSpace.cleanItem", {
+				items: St(e.map((e) => J("settings:storageSpace.cleanItem", {
 					label: e.label,
 					size: K(e.reclaimable),
 					effect: e.note
 				})))
 			}),
 			confirmLabel: J("settings:storageSpace.cleanSize", { size: K(n) }),
+			holdToConfirm: !0,
 			danger: e.some((e) => e.key === "backups"),
-			onConfirm: async () => r(await H(`${eo}/clean`, { categories: e.map((e) => e.key) }))
+			onConfirm: async () => r(await H(`${to}/clean`, { categories: e.map((e) => e.key) }))
 		});
 	}, _ = () => void c.run("relocate", async (e) => {
-		let t = await kt(n.data_root, (t) => H(_e, t, "POST", e), "data");
+		let t = await At(n.data_root, (t) => H(ve, t, "POST", e), "data");
 		if (!t) return;
 		let r = n.usage ? K(n.usage.total_bytes) : "";
-		await it({
+		await at({
 			title: J("settings:storageSpace.moveDataDirectory"),
 			body: J("settings:storageSpace.moveConfirm", {
 				size: r,
@@ -2473,16 +2474,16 @@ function po({ initial: e, receipt: t }) {
 			confirmLabel: J("settings:storageSpace.moveDataDirectory"),
 			onConfirm: async () => {
 				try {
-					a(Wt(await H(`${eo}/relocate`, { target: t })));
+					a(Gt(await H(`${to}/relocate`, { target: t })));
 				} catch (e) {
-					throw Error(io(e));
+					throw Error(ao(e));
 				}
 			}
 		});
-	}, () => void 0), v = n.relocation.last, y = v && (v.state === "error" || (v.notes?.length ?? 0) > 0 || Date.now() - v.finished_at * 1e3 < ro), b = p?.categories.find((e) => e.key === n.job.category)?.label, x = i || (n.job.state === "cleaning" ? J("settings:storageSpace.cleaningCategory", { category: b || "" }) : n.job.state === "measuring" ? J("settings:storageSpace.measuringStatus") : h.length ? J("settings:storageSpace.selectedSummary", {
+	}, () => void 0), v = n.relocation.last, y = v && (v.state === "error" || (v.notes?.length ?? 0) > 0 || Date.now() - v.finished_at * 1e3 < io), b = p?.categories.find((e) => e.key === n.job.category)?.label, x = i || (n.job.state === "cleaning" ? J("settings:storageSpace.cleaningCategory", { category: b || "" }) : n.job.state === "measuring" ? J("settings:storageSpace.measuringStatus") : h.length ? J("settings:storageSpace.selectedSummary", {
 		count: h.length,
 		size: K(h.reduce((e, t) => e + t.reclaimable, 0))
-	}) : p ? J("settings:storageSpace.measuredAt", { time: (/* @__PURE__ */ new Date(p.measured_at * 1e3)).toLocaleString(vt) }) : ""), C = l || !!i, ee = (e) => (t) => s((n) => {
+	}) : p ? J("settings:storageSpace.measuredAt", { time: (/* @__PURE__ */ new Date(p.measured_at * 1e3)).toLocaleString(yt) }) : ""), C = l || !!i, ee = (e) => (t) => s((n) => {
 		let r = new Set(n);
 		return t ? r.add(e) : r.delete(e), r;
 	});
@@ -2493,19 +2494,19 @@ function po({ initial: e, receipt: t }) {
 		children: [
 			/* @__PURE__ */ (0, Q.jsxs)(ie, { children: [/* @__PURE__ */ (0, Q.jsx)(O, {
 				term: J("settings:shared.dataDirectory"),
-				children: /* @__PURE__ */ (0, Q.jsx)(Se, {
+				children: /* @__PURE__ */ (0, Q.jsx)(Ce, {
 					path: n.data_root,
 					className: "text-body-regular text-text-primary",
 					onRevealed: t
 				})
 			}), /* @__PURE__ */ (0, Q.jsx)(O, {
 				term: J("settings:diskUsage.disk"),
-				children: ao(n)
+				children: oo(n)
 			})] }),
 			/* @__PURE__ */ (0, Q.jsxs)(R, {
 				divided: !0,
 				children: [
-					n.job.state === "measuring" ? /* @__PURE__ */ (0, Q.jsx)(uo, { job: n.job }) : null,
+					n.job.state === "measuring" ? /* @__PURE__ */ (0, Q.jsx)(fo, { job: n.job }) : null,
 					p?.capacity_error ? /* @__PURE__ */ (0, Q.jsxs)(T, { children: [J("settings:storageSpace.capacityIncomplete"), p.capacity_error] }) : null,
 					p?.allocated_bytes == null ? null : /* @__PURE__ */ (0, Q.jsxs)(A, { children: [
 						J("settings:storageSpace.allocatedOnDisk"),
@@ -2514,20 +2515,20 @@ function po({ initial: e, receipt: t }) {
 					] }),
 					p ? /* @__PURE__ */ (0, Q.jsxs)("div", {
 						"data-storage-result": "",
-						className: $e({
+						className: et({
 							variant: "outlined",
 							padding: "none",
 							className: "flex flex-col"
 						}),
 						children: [/* @__PURE__ */ (0, Q.jsx)("div", {
 							className: "border-b border-separator-border p-4",
-							children: /* @__PURE__ */ (0, Q.jsx)(qa, { storage: p ? {
+							children: /* @__PURE__ */ (0, Q.jsx)(Ja, { storage: p ? {
 								...n,
 								usage: p
 							} : n })
 						}), /* @__PURE__ */ (0, Q.jsx)("div", {
 							className: "flex flex-col pl-4",
-							children: p.categories.map((e) => /* @__PURE__ */ (0, Q.jsx)(fo, {
+							children: p.categories.map((e) => /* @__PURE__ */ (0, Q.jsx)(po, {
 								category: e,
 								selected: o.has(e.key),
 								disabled: C,
@@ -2538,11 +2539,11 @@ function po({ initial: e, receipt: t }) {
 					n.relocation.available ? null : /* @__PURE__ */ (0, Q.jsx)(A, { children: W(n.relocation, "message") }),
 					!n.relocation.available && n.relocation.steps?.length ? /* @__PURE__ */ (0, Q.jsx)(S, {
 						label: J("settings:storageSpace.moveOnHost"),
-						steps: n.relocation.steps.map(lo)
+						steps: n.relocation.steps.map(uo)
 					}) : null,
 					n.job.error ? /* @__PURE__ */ (0, Q.jsx)(T, { children: W(n.job, "message") }) : null,
 					c.error ? /* @__PURE__ */ (0, Q.jsx)(T, { children: c.error }) : null,
-					y && v ? v.state === "error" ? /* @__PURE__ */ (0, Q.jsx)(T, { children: co(v).join(J("shell:format.semicolonSeparator")) }) : /* @__PURE__ */ (0, Q.jsx)(A, { children: co(v).join(J("shell:format.semicolonSeparator")) }) : null
+					y && v ? v.state === "error" ? /* @__PURE__ */ (0, Q.jsx)(T, { children: lo(v).join(J("shell:format.semicolonSeparator")) }) : /* @__PURE__ */ (0, Q.jsx)(A, { children: lo(v).join(J("shell:format.semicolonSeparator")) }) : null
 				]
 			}),
 			/* @__PURE__ */ (0, Q.jsxs)(k, {
@@ -2579,63 +2580,63 @@ function po({ initial: e, receipt: t }) {
 				]
 			})
 		]
-	}), n.budget ? /* @__PURE__ */ (0, Q.jsx)($a, {
+	}), n.budget ? /* @__PURE__ */ (0, Q.jsx)(eo, {
 		initial: n.budget,
 		after: r,
 		receipt: t
 	}) : null] });
 }
 // src/react/settings/maintenance-settings.tsx
-var mo = [
+var ho = [
 	["6", J("settings:automaticUpdates.every6Hours")],
 	["24", J("settings:automaticUpdates.daily")],
 	["168", J("settings:automaticUpdates.weekly")]
 ];
-function ho({ data: e, receipt: t, reopenTutorial: n, panel: r }) {
+function go({ data: e, receipt: t, reopenTutorial: n, panel: r }) {
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
-		...Fr(r),
+		...Ir(r),
 		children: [
-			e.storage ? /* @__PURE__ */ (0, Q.jsx)(po, {
+			e.storage ? /* @__PURE__ */ (0, Q.jsx)(mo, {
 				initial: e.storage,
 				receipt: t
 			}) : null,
-			e.storage ? /* @__PURE__ */ (0, Q.jsx)(di, { receipt: t }) : null,
-			e.storage ? /* @__PURE__ */ (0, Q.jsx)(_i, { receipt: t }) : null,
+			e.storage ? /* @__PURE__ */ (0, Q.jsx)(fi, { receipt: t }) : null,
+			e.storage ? /* @__PURE__ */ (0, Q.jsx)(vi, { receipt: t }) : null,
 			e.remote_reporting || e.library_sharing ? /* @__PURE__ */ (0, Q.jsxs)(P, {
 				id: "librarySharing",
 				guide: "reporting",
 				title: J("settings:dataSharing.title"),
-				children: [e.remote_reporting ? /* @__PURE__ */ (0, Q.jsx)(bi, {
+				children: [e.remote_reporting ? /* @__PURE__ */ (0, Q.jsx)(xi, {
 					initial: e.remote_reporting,
 					receipt: t
 				}) : null, e.library_sharing ? /* @__PURE__ */ (0, Q.jsx)("div", {
 					className: "border-t border-separator-border",
-					children: /* @__PURE__ */ (0, Q.jsx)(vi, {
+					children: /* @__PURE__ */ (0, Q.jsx)(yi, {
 						initial: e.library_sharing,
 						receipt: t
 					})
 				}) : null]
 			}) : null,
-			/* @__PURE__ */ (0, Q.jsx)(vo, {
+			/* @__PURE__ */ (0, Q.jsx)(yo, {
 				facts: e.facts,
 				receipt: t
 			}),
-			/* @__PURE__ */ (0, Q.jsx)(go, {
+			/* @__PURE__ */ (0, Q.jsx)(_o, {
 				receipt: t,
 				reopenTutorial: n
 			}),
-			e.uninstall ? /* @__PURE__ */ (0, Q.jsx)(yo, {
+			e.uninstall ? /* @__PURE__ */ (0, Q.jsx)(bo, {
 				uninstall: e.uninstall,
 				receipt: t
 			}) : null
 		]
 	});
 }
-function go({ reopenTutorial: e }) {
+function _o({ reopenTutorial: e }) {
 	return /* @__PURE__ */ (0, Q.jsx)("section", {
 		"aria-label": J("settings:tour.guidedTour"),
 		className: "w-full",
-		children: /* @__PURE__ */ (0, Q.jsx)(Fe, { children: /* @__PURE__ */ (0, Q.jsx)(N, { children: /* @__PURE__ */ (0, Q.jsx)(L, {
+		children: /* @__PURE__ */ (0, Q.jsx)(Ie, { children: /* @__PURE__ */ (0, Q.jsx)(N, { children: /* @__PURE__ */ (0, Q.jsx)(L, {
 			label: J("settings:tour.guidedTour"),
 			description: J("settings:tour.reopenDescription"),
 			children: /* @__PURE__ */ (0, Q.jsx)(f, {
@@ -2646,7 +2647,7 @@ function go({ reopenTutorial: e }) {
 		}) }) })
 	});
 }
-function _o({ initial: e, receipt: t }) {
+function vo({ initial: e, receipt: t }) {
 	let [n, r] = (0, Z.useState)(e.mode), [i, a] = (0, Z.useState)(e.interval_hours), o = Y(e.error ? W(e, "error") : e.error), s = (r) => {
 		r.preventDefault(), e.available && o.run("save", (e) => H("/api/configuration/automatic-updates", {
 			mode: n,
@@ -2689,7 +2690,7 @@ function _o({ initial: e, receipt: t }) {
 						onSelectionChange: (e) => {
 							e !== null && a(Number(e));
 						},
-						children: mo.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(I, {
+						children: ho.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(I, {
 							id: e,
 							children: t
 						}, e))
@@ -2709,9 +2710,9 @@ function _o({ initial: e, receipt: t }) {
 		]
 	});
 }
-function vo({ facts: e, receipt: t }) {
+function yo({ facts: e, receipt: t }) {
 	let [n, r] = (0, Z.useState)(null), i = n ?? e, a = Y(), o = (e) => void a.run(e, (t) => H("/api/configuration/media-tools", { tool: e }, "POST", t), (e) => {
-		r(e.facts.map(wt)), t(Wt(e) || e.message);
+		r(e.facts.map(Tt)), t(Gt(e) || e.message);
 	});
 	return /* @__PURE__ */ (0, Q.jsxs)(P, {
 		guide: "facts",
@@ -2737,9 +2738,10 @@ function vo({ facts: e, receipt: t }) {
 		}, e)) }), a.error ? /* @__PURE__ */ (0, Q.jsx)(T, { children: a.error }) : null]
 	});
 }
-function yo({ uninstall: e, receipt: t }) {
-	let [n, r] = (0, Z.useState)(!1), [i, a] = (0, Z.useState)(""), o = () => void it({
+function bo({ uninstall: e, receipt: t }) {
+	let [n, r] = (0, Z.useState)(!1), [i, a] = (0, Z.useState)(""), o = () => void at({
 		title: J("settings:uninstall.title"),
+		holdToConfirm: !0,
 		danger: !0,
 		body: J(n ? "settings:uninstall.confirmFull" : "settings:uninstall.confirmAppOnly"),
 		confirmLabel: J("settings:uninstall.title"),
@@ -2748,7 +2750,7 @@ function yo({ uninstall: e, receipt: t }) {
 				delete_data: n,
 				confirmation: "uninstall-peach"
 			});
-			a(Wt(e) || e.message);
+			a(Gt(e) || e.message);
 		}
 	}), s = i || W(e, "message"), c = [.../* @__PURE__ */ new Set([e.data_root, ...e.directories])];
 	return /* @__PURE__ */ (0, Q.jsxs)(P, {
@@ -2771,7 +2773,7 @@ function yo({ uninstall: e, receipt: t }) {
 				divided: !0,
 				children: /* @__PURE__ */ (0, Q.jsx)(C, {
 					summary: J("settings:shared.dataDirectory"),
-					children: c.map((e) => /* @__PURE__ */ (0, Q.jsx)(Se, {
+					children: c.map((e) => /* @__PURE__ */ (0, Q.jsx)(Ce, {
 						path: e,
 						className: "text-body-2-regular text-text-secondary",
 						onRevealed: t
@@ -2794,10 +2796,10 @@ function yo({ uninstall: e, receipt: t }) {
 	});
 }
 // src/react/settings/docker-update.tsx
-var bo = 3e3, xo = 9e5;
-async function So(e, t, n) {
+var xo = 3e3, So = 9e5;
+async function Co(e, t, n) {
 	let r = "";
-	return await At({
+	return await jt({
 		read: n.read || ((e) => V("/api/client-updates", e)),
 		apply: (t) => {
 			let n = t.runtime?.version;
@@ -2805,7 +2807,7 @@ async function So(e, t, n) {
 		},
 		done: () => !!r,
 		signal: t,
-		everyMs: bo,
+		everyMs: xo,
 		limitMs: Math.max(1, n.limitMs),
 		pause: n.pause
 	}), t.aborted ? null : r ? {
@@ -2813,12 +2815,12 @@ async function So(e, t, n) {
 		version: r
 	} : { state: "timeout" };
 }
-function Co(e) {
+function wo(e) {
 	let [t, n] = (0, Z.useState)({ state: "idle" }), r = Y(), i = (0, Z.useRef)(0);
 	return (0, Z.useEffect)(() => {
 		if (t.state !== "updating") return;
 		let r = new AbortController();
-		return So(e, r.signal, { limitMs: xo - (Date.now() - i.current) }).then((e) => {
+		return Co(e, r.signal, { limitMs: So - (Date.now() - i.current) }).then((e) => {
 			e && n(e);
 		}), () => r.abort();
 	}, [t.state, e]), {
@@ -2830,8 +2832,8 @@ function Co(e) {
 		error: r.error
 	};
 }
-function wo({ job: e }) {
-	return e.state === "updating" ? /* @__PURE__ */ (0, Q.jsx)(He, {
+function To({ job: e }) {
+	return e.state === "updating" ? /* @__PURE__ */ (0, Q.jsx)(Ue, {
 		embedded: !0,
 		kind: "clock",
 		label: J("settings:dockerUpdate.updating")
@@ -2850,35 +2852,35 @@ function wo({ job: e }) {
 	})] }) : null;
 }
 // src/react/settings/release-updates.tsx
-var To = /* @__PURE__ */ new Set([
+var Eo = /* @__PURE__ */ new Set([
 	"downloading",
 	"verifying",
 	"extracting",
 	"preparing",
 	"restarting",
 	"installing"
-]), Eo = [
+]), Do = [
 	65,
 	75,
 	90
-], Do = 7, Oo = "https://github.com/peach-mitao/peach/releases", ko = /((?:[\w.-]+\/[\w.-]+)?#\d+)/;
-function Ao(e) {
+], Oo = 7, ko = "https://github.com/peach-mitao/peach/releases", Ao = /((?:[\w.-]+\/[\w.-]+)?#\d+)/;
+function jo(e) {
 	let [t, n] = e.split("#");
 	return `https://github.com/${t || "peach-mitao/peach"}/issues/${n}`;
 }
-function jo({ text: e }) {
-	return /* @__PURE__ */ (0, Q.jsx)(Q.Fragment, { children: e.split("`").map((e, t) => t % 2 ? /* @__PURE__ */ (0, Q.jsx)("code", { children: e }, t) : e.split(ko).map((e, n) => n % 2 ? /* @__PURE__ */ (0, Q.jsx)("a", {
-		href: Ao(e),
+function Mo({ text: e }) {
+	return /* @__PURE__ */ (0, Q.jsx)(Q.Fragment, { children: e.split("`").map((e, t) => t % 2 ? /* @__PURE__ */ (0, Q.jsx)("code", { children: e }, t) : e.split(Ao).map((e, n) => n % 2 ? /* @__PURE__ */ (0, Q.jsx)("a", {
+		href: jo(e),
 		target: "_blank",
 		rel: "noopener noreferrer",
 		className: "text-accent-600 hover:underline",
 		children: e
 	}, `${t}-${n}`) : e)) });
 }
-function Mo({ notes: e }) {
-	let t = vt === "zh-CN" ? "zh-CN" : "en";
+function No({ notes: e }) {
+	let t = yt === "zh-CN" ? "zh-CN" : "en";
 	return /* @__PURE__ */ (0, Q.jsx)(C, {
-		summary: J("settings:releaseUpdates.changelogTitle", { versions: xt(e.map((e) => e.version)) }),
+		summary: J("settings:releaseUpdates.changelogTitle", { versions: St(e.map((e) => e.version)) }),
 		children: /* @__PURE__ */ (0, Q.jsx)("div", {
 			className: "flex flex-col gap-5 pt-3",
 			children: e.map((e) => /* @__PURE__ */ (0, Q.jsxs)("section", {
@@ -2897,17 +2899,17 @@ function Mo({ notes: e }) {
 					children: e[t].map((e, t) => /* @__PURE__ */ (0, Q.jsxs)("li", { children: [e.title ? /* @__PURE__ */ (0, Q.jsx)("span", {
 						className: "text-body-2-medium",
 						children: J("settings:releaseUpdates.highlightTitle", { title: e.title })
-					}) : null, /* @__PURE__ */ (0, Q.jsx)(jo, { text: e.text })] }, t))
+					}) : null, /* @__PURE__ */ (0, Q.jsx)(Mo, { text: e.text })] }, t))
 				})]
 			}, e.version))
 		})
 	});
 }
-function No({ initial: e, initialJob: t }) {
+function Po({ initial: e, initialJob: t }) {
 	let [n, r] = (0, Z.useState)(e), [i, a] = (0, Z.useState)(t || {
 		state: "idle",
 		progress: 0
-	}), { snapshot: o, failures: s } = Zt(), c = (0, Z.useRef)(o), l = Y(), u = (0, Z.useRef)(!1), d = (0, Z.useRef)(!0), m = To.has(i.state), h = Co(e.current_version), g = n.state === "available" && !!n.one_click?.available, _ = h.job.state === "updating", v = n.installation_code === "standalone", y = () => void it({
+	}), { snapshot: o, failures: s } = Qt(), c = (0, Z.useRef)(o), l = Y(), u = (0, Z.useRef)(!1), d = (0, Z.useRef)(!0), m = Eo.has(i.state), h = wo(e.current_version), g = n.state === "available" && !!n.one_click?.available, _ = h.job.state === "updating", v = n.installation_code === "standalone", y = () => void at({
 		title: J("settings:releaseUpdates.oneClickUpdate"),
 		body: J("settings:releaseUpdates.dockerUpdateBody", { version: n.latest_version || "" }),
 		confirmLabel: J("settings:releaseUpdates.startUpdate"),
@@ -2919,8 +2921,8 @@ function No({ initial: e, initialJob: t }) {
 	}), []);
 	let b = async () => {
 		let e = await H("/api/configuration/update-restart", {});
-		d.current && a(e), et();
-	}, x = () => void it({
+		d.current && a(e), tt();
+	}, x = () => void at({
 		title: J("settings:releaseUpdates.updateReady"),
 		body: J("settings:releaseUpdates.installAfterRestart", { version: i.version || "" }),
 		confirmLabel: J("settings:releaseUpdates.restartNow"),
@@ -2941,14 +2943,14 @@ function No({ initial: e, initialJob: t }) {
 	}, [o]);
 	let C = () => {
 		m || (u.current = !1, l.run("download", (e) => H("/api/configuration/update", {}, "POST", e), (e) => {
-			a(e), et();
+			a(e), tt();
 		}));
 	}, ee = () => void l.run("check", (e) => V("/api/configuration/updates", e), r, (t) => {
 		r({
 			...e,
 			state: "error"
 		}), l.setError(G(t));
-	}), te = s >= Do ? J("settings:releaseUpdates.connectionLost") : "", w = l.error || te || h.error, ne = Wt(n), D = n.installation_code === "standalone" && (n.state === "available" || i.state !== "idle") ? n.package_kind : void 0, re = D === "update" ? J("settings:releaseUpdates.updatePackageHelp") : D === "full" ? J("settings:releaseUpdates.includesMediaTools") : D === "installer" ? J("settings:releaseUpdates.installerHelp") : "", ae = i.state === "downloading" && i.total ? `${((i.downloaded || 0) / 1048576).toFixed(1)} / ${(i.total / 1048576).toFixed(1)} MB` : `${i.progress}%`;
+	}), te = s >= Oo ? J("settings:releaseUpdates.connectionLost") : "", w = l.error || te || h.error, ne = Gt(n), D = n.installation_code === "standalone" && (n.state === "available" || i.state !== "idle") ? n.package_kind : void 0, re = D === "update" ? J("settings:releaseUpdates.updatePackageHelp") : D === "full" ? J("settings:releaseUpdates.includesMediaTools") : D === "installer" ? J("settings:releaseUpdates.installerHelp") : "", ae = i.state === "downloading" && i.total ? `${((i.downloaded || 0) / 1048576).toFixed(1)} / ${(i.total / 1048576).toFixed(1)} MB` : `${i.progress}%`;
 	return /* @__PURE__ */ (0, Q.jsxs)(P, {
 		id: "releaseUpdates",
 		guide: "updates",
@@ -2984,12 +2986,12 @@ function No({ initial: e, initialJob: t }) {
 			n.state === "unchecked" && !n.checked_at && !w && i.state === "idle" ? null : /* @__PURE__ */ (0, Q.jsxs)(R, {
 				divided: !0,
 				children: [
-					n.checked_at ? /* @__PURE__ */ (0, Q.jsx)(A, { children: J("settings:releaseUpdates.checkedAt", { time: (/* @__PURE__ */ new Date(n.checked_at * 1e3)).toLocaleString(vt) }) }) : null,
+					n.checked_at ? /* @__PURE__ */ (0, Q.jsx)(A, { children: J("settings:releaseUpdates.checkedAt", { time: (/* @__PURE__ */ new Date(n.checked_at * 1e3)).toLocaleString(yt) }) }) : null,
 					h.job.state === "done" ? null : n.state === "available" && !w ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(M, {
 						tone: "info",
 						title: J("settings:releaseUpdates.updateAvailable"),
 						children: ne
-					}), n.notes?.length ? /* @__PURE__ */ (0, Q.jsx)(Mo, { notes: n.notes }) : null] }) : w || n.state === "error" ? /* @__PURE__ */ (0, Q.jsx)(T, { children: w || ne }) : n.state === "unchecked" ? null : /* @__PURE__ */ (0, Q.jsx)(A, {
+					}), n.notes?.length ? /* @__PURE__ */ (0, Q.jsx)(No, { notes: n.notes }) : null] }) : w || n.state === "error" ? /* @__PURE__ */ (0, Q.jsx)(T, { children: w || ne }) : n.state === "unchecked" ? null : /* @__PURE__ */ (0, Q.jsx)(A, {
 						role: "status",
 						children: ne
 					}),
@@ -3000,21 +3002,21 @@ function No({ initial: e, initialJob: t }) {
 							text: q(`release.dockerStep.${e.id}`, e.text)
 						}))
 					}), /* @__PURE__ */ (0, Q.jsx)(A, { children: (n.one_click?.reason ? W(n.one_click, "reason") : "") || J("settings:releaseUpdates.watchtowerHint") })] }) : null,
-					/* @__PURE__ */ (0, Q.jsx)(wo, { job: h.job }),
-					i.state === "error" ? /* @__PURE__ */ (0, Q.jsx)(T, { children: bt(i) }) : null,
+					/* @__PURE__ */ (0, Q.jsx)(To, { job: h.job }),
+					i.state === "error" ? /* @__PURE__ */ (0, Q.jsx)(T, { children: xt(i) }) : null,
 					i.state !== "idle" && i.state !== "error" ? /* @__PURE__ */ (0, Q.jsxs)("div", {
 						"aria-live": "polite",
 						className: "flex flex-col gap-2",
 						children: [
-							/* @__PURE__ */ (0, Q.jsx)(we, {
+							/* @__PURE__ */ (0, Q.jsx)(Te, {
 								label: J("settings:releaseUpdates.progressLabel"),
 								value: i.progress,
-								stops: Eo
+								stops: Do
 							}),
 							/* @__PURE__ */ (0, Q.jsxs)(A, { children: [
 								J("settings:releaseUpdates.progressSteps"),
 								" ",
-								bt(i)
+								xt(i)
 							] }),
 							/* @__PURE__ */ (0, Q.jsx)(A, { children: ae })
 						]
@@ -3034,7 +3036,7 @@ function No({ initial: e, initialJob: t }) {
 							children: "GitHub"
 						}),
 						/* @__PURE__ */ (0, Q.jsx)(E, {
-							href: n.release_url || Oo,
+							href: n.release_url || ko,
 							children: J("settings:releaseUpdates.releasePage")
 						})
 					]
@@ -3042,7 +3044,7 @@ function No({ initial: e, initialJob: t }) {
 				children: [
 					/* @__PURE__ */ (0, Q.jsx)(f, {
 						variant: "ghost",
-						onClick: () => document.dispatchEvent(new Event(Te)),
+						onClick: () => document.dispatchEvent(new Event(Ee)),
 						children: J("settings:releaseUpdates.whatsNew")
 					}),
 					/* @__PURE__ */ (0, Q.jsx)(f, {
@@ -3083,16 +3085,16 @@ function No({ initial: e, initialJob: t }) {
 	});
 }
 // src/react/settings/upgrade-repairs.tsx
-var Po = {
+var Fo = {
 	pending: J("settings:upgradeRepairs.pending"),
 	running: J("settings:upgradeRepairs.repairing"),
 	failed: J("settings:repairCenter.needsRetry"),
 	review: J("settings:upgradeRepairs.needsReview"),
 	complete: J("settings:shared.completed"),
 	unavailable: J("settings:upgradeRepairs.unavailable")
-}, Fo = (e) => Xt("settings:upgradeRepairs.itemCount", { count: e }, { value: /* @__PURE__ */ (0, Q.jsx)(Si, { value: e }) });
-function Io() {
-	let { snapshot: e } = Zt(), [t, n] = (0, Z.useState)(null), r = Y();
+}, Io = (e) => Zt("settings:upgradeRepairs.itemCount", { count: e }, { value: /* @__PURE__ */ (0, Q.jsx)(Ci, { value: e }) });
+function Lo() {
+	let { snapshot: e } = Qt(), [t, n] = (0, Z.useState)(null), r = Y();
 	(0, Z.useEffect)(() => n(null), [e]);
 	let i = t ?? e?.repairs, a = i?.state || "pending", o = i?.items.reduce((e, t) => e + (t.pending || 0), 0) || 0, s = i?.items.reduce((e, t) => e + (t.failed || 0), 0) || 0, c = i?.items.reduce((e, t) => e + (t.review_count || 0), 0) || 0;
 	return /* @__PURE__ */ (0, Q.jsxs)(P, {
@@ -3102,42 +3104,42 @@ function Io() {
 			tone: a === "failed" ? "error" : a === "running" ? "progress" : a === "review" ? "warning" : a === "complete" ? "success" : "neutral",
 			children: /* @__PURE__ */ (0, Q.jsx)("span", {
 				"data-copy-key": `upgradeRepairs.${a}.status`,
-				children: Po[a] || J("settings:shared.notFound")
+				children: Fo[a] || J("settings:shared.notFound")
 			}, a)
 		}),
 		children: [
 			/* @__PURE__ */ (0, Q.jsxs)(ie, { children: [
 				/* @__PURE__ */ (0, Q.jsx)(O, {
 					term: J("settings:upgradeRepairs.toDo"),
-					children: /* @__PURE__ */ (0, Q.jsx)("span", { children: Fo(o) })
+					children: /* @__PURE__ */ (0, Q.jsx)("span", { children: Io(o) })
 				}),
 				/* @__PURE__ */ (0, Q.jsx)(O, {
 					term: J("settings:shared.failed"),
-					children: /* @__PURE__ */ (0, Q.jsx)("span", { children: Fo(s) })
+					children: /* @__PURE__ */ (0, Q.jsx)("span", { children: Io(s) })
 				}),
 				/* @__PURE__ */ (0, Q.jsx)(O, {
 					term: J("settings:upgradeRepairs.toReview"),
-					children: /* @__PURE__ */ (0, Q.jsx)("span", { children: Fo(c) })
+					children: /* @__PURE__ */ (0, Q.jsx)("span", { children: Io(c) })
 				})
 			] }),
 			i?.message || r.error ? /* @__PURE__ */ (0, Q.jsx)(R, { children: /* @__PURE__ */ (0, Q.jsx)(T, { children: r.error || W(i, "message") }) }) : null,
-			a === "running" ? /* @__PURE__ */ (0, Q.jsxs)(R, { children: [/* @__PURE__ */ (0, Q.jsx)(A, { children: J("settings:upgradeRepairs.runningHelp") }), /* @__PURE__ */ (0, Q.jsx)(Ve, {})] }) : null,
+			a === "running" ? /* @__PURE__ */ (0, Q.jsxs)(R, { children: [/* @__PURE__ */ (0, Q.jsx)(A, { children: J("settings:upgradeRepairs.runningHelp") }), /* @__PURE__ */ (0, Q.jsx)(He, {})] }) : null,
 			/* @__PURE__ */ (0, Q.jsxs)(k, {
 				status: c ? /* @__PURE__ */ (0, Q.jsx)(E, {
 					href: "/api/configuration/upgrade-repairs/review",
 					children: J("settings:upgradeRepairs.downloadReviewLog")
 				}) : null,
-				children: [/* @__PURE__ */ (0, Q.jsx)(de, {
-					href: Ee,
+				children: [/* @__PURE__ */ (0, Q.jsx)(fe, {
+					href: De,
 					size: "small",
-					trailingIcon: gt,
+					trailingIcon: _t,
 					children: J("settings:upgradeRepairs.repairCenterLink")
 				}), /* @__PURE__ */ (0, Q.jsx)(f, {
 					size: "small",
 					variant: "secondary",
 					disabled: !i?.available || a === "running" || !!r.busy || !s && a !== "failed",
 					onClick: () => void r.run("retry", (e) => H("/api/configuration/upgrade-repairs/retry", {}, "POST", e), (e) => {
-						n(e), et();
+						n(e), tt();
 					}),
 					children: J("settings:upgradeRepairs.retryFailed")
 				})]
@@ -3146,27 +3148,27 @@ function Io() {
 	});
 }
 // src/react/settings/general-settings.tsx
-function Lo({ data: e, receipt: t, panel: n }) {
+function Ro({ data: e, receipt: t, panel: n }) {
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
-		...Fr(n),
+		...Ir(n),
 		children: [
-			e.updates ? /* @__PURE__ */ (0, Q.jsx)(No, {
+			e.updates ? /* @__PURE__ */ (0, Q.jsx)(Po, {
 				initial: e.updates,
 				initialJob: e.update_job
 			}) : null,
-			/* @__PURE__ */ (0, Q.jsx)(Io, {}),
-			e.automatic_updates ? /* @__PURE__ */ (0, Q.jsx)(_o, {
+			/* @__PURE__ */ (0, Q.jsx)(Lo, {}),
+			e.automatic_updates ? /* @__PURE__ */ (0, Q.jsx)(vo, {
 				initial: e.automatic_updates,
 				receipt: t
 			}) : null,
-			e.startup ? /* @__PURE__ */ (0, Q.jsx)(Ro, {
+			e.startup ? /* @__PURE__ */ (0, Q.jsx)(zo, {
 				startup: e.startup,
 				receipt: t
 			}) : null
 		]
 	});
 }
-function Ro({ startup: e, receipt: t }) {
+function zo({ startup: e, receipt: t }) {
 	let [n, r] = (0, Z.useState)(e.enabled), [i, a] = (0, Z.useState)(e.silent), [o, s] = (0, Z.useState)(e.desktop), c = Y(), l = e.available && !e.desktop_message, u = W(e, "desktop_message"), d = W(e, "message");
 	return /* @__PURE__ */ (0, Q.jsxs)(P, {
 		guide: "startup",
@@ -3224,7 +3226,7 @@ function Ro({ startup: e, receipt: t }) {
 	});
 }
 // src/react/restart-redirect.ts
-var zo = 8e3, Bo = [
+var Bo = 8e3, Vo = [
 	{
 		name: J("settings:cloudDriveGuide.tierHdd"),
 		cache: "10–20 GiB",
@@ -3243,12 +3245,12 @@ var zo = 8e3, Bo = [
 		read: "256 / 128 KB",
 		task: J("settings:cloudDriveGuide.tasksTwoPlus")
 	}
-], Vo = [
+], Ho = [
 	["cache", J("settings:cloudDriveGuide.cacheLimit")],
 	["read", J("settings:cloudDriveGuide.readLength")],
 	["task", J("settings:cloudDriveGuide.concurrentVideos")]
 ];
-function Ho() {
+function Uo() {
 	return /* @__PURE__ */ (0, Q.jsx)("div", {
 		className: "@container flex flex-col gap-3",
 		children: /* @__PURE__ */ (0, Q.jsxs)(C, {
@@ -3263,14 +3265,14 @@ function Ho() {
 				/* @__PURE__ */ (0, Q.jsx)("ul", {
 					"aria-label": J("settings:cloudDriveGuide.tiersLabel"),
 					className: "flex flex-col gap-2",
-					children: Bo.map((e) => /* @__PURE__ */ (0, Q.jsxs)("li", {
+					children: Vo.map((e) => /* @__PURE__ */ (0, Q.jsxs)("li", {
 						className: "flex flex-col gap-2 rounded-2lg border border-separator-border bg-background-primary-default p-3",
 						children: [/* @__PURE__ */ (0, Q.jsx)("p", {
 							className: "text-body-medium text-text-primary",
 							children: e.name
 						}), /* @__PURE__ */ (0, Q.jsx)("dl", {
 							className: "inline-grid grid-cols-1 gap-2 @md:grid-cols-3",
-							children: Vo.map(([t, n]) => /* @__PURE__ */ (0, Q.jsxs)("div", {
+							children: Ho.map(([t, n]) => /* @__PURE__ */ (0, Q.jsxs)("div", {
 								className: "flex flex-col",
 								children: [/* @__PURE__ */ (0, Q.jsx)("dt", {
 									className: "text-caption-1-regular text-text-secondary",
@@ -3300,15 +3302,15 @@ function Ho() {
 	});
 }
 // src/react/settings/cloud-proxy-settings.tsx
-var Uo = "/api/configuration/cloud-proxies", Wo = [
+var Wo = "/api/configuration/cloud-proxies", Go = [
 	["direct", J("settings:cloudProxy.direct")],
 	["system", J("settings:shared.followSystem")],
 	["http", J("settings:cloudProxy.http")],
 	["socks5", J("settings:cloudProxy.socks5")]
 ];
-function Go({ receipt: e }) {
+function Ko({ receipt: e }) {
 	let [t, n] = (0, Z.useState)(null), [r, i] = (0, Z.useState)(!0), a = (0, Z.useRef)(/* @__PURE__ */ new Set()), o = (0, Z.useRef)(/* @__PURE__ */ new Set()), [s, c] = (0, Z.useState)(!1), l = (0, Z.useRef)(() => void 0), u = Y(), d = () => {
-		o.current.size || u.run("refresh", (e) => V(Uo, e), (e) => {
+		o.current.size || u.run("refresh", (e) => V(Wo, e), (e) => {
 			a.current.clear(), n(e), i(!1);
 		}, (e) => {
 			i(!1), u.setError(e instanceof Error ? e.message : J("settings:cloudProxy.loadFailed"));
@@ -3323,14 +3325,14 @@ function Go({ receipt: e }) {
 	}, []), (0, Z.useEffect)(() => {
 		if (!t) return;
 		let e = (e) => e.mode === "http" || e.mode === "socks5";
-		It("cloudProxy", {
+		Lt("cloudProxy", {
 			configured: t.configured !== !1,
 			unlinked: t.unlinked?.length ?? 0,
 			accounts: t.accounts.map((t) => [e(t.data), e(t.api)])
 		});
-	}, [t]), r ? /* @__PURE__ */ (0, Q.jsx)(Me, {
+	}, [t]), r ? /* @__PURE__ */ (0, Q.jsx)(Ne, {
 		label: J("settings:cloudProxy.loading"),
-		html: tt
+		html: nt
 	}) : /* @__PURE__ */ (0, Q.jsxs)(P, {
 		guide: "cloud-proxy",
 		title: J("settings:cloudProxy.title"),
@@ -3343,7 +3345,7 @@ function Go({ receipt: e }) {
 					children: [
 						u.error,
 						" ",
-						/* @__PURE__ */ (0, Q.jsx)(de, {
+						/* @__PURE__ */ (0, Q.jsx)(fe, {
 							href: "/settings/downloads",
 							size: "small",
 							children: J("settings:cloudProxy.downloadSettingsLink")
@@ -3353,7 +3355,7 @@ function Go({ receipt: e }) {
 				t?.configured === !1 ? /* @__PURE__ */ (0, Q.jsxs)(A, { children: [
 					J("settings:cloudProxy.notConfigured"),
 					" ",
-					/* @__PURE__ */ (0, Q.jsx)(de, {
+					/* @__PURE__ */ (0, Q.jsx)(fe, {
 						href: "/settings/downloads",
 						size: "small",
 						children: J("settings:cloudProxy.downloadSettingsLink")
@@ -3363,10 +3365,10 @@ function Go({ receipt: e }) {
 					className: "flex min-w-0 flex-col gap-1",
 					children: [/* @__PURE__ */ (0, Q.jsx)(ae, { children: /* @__PURE__ */ (0, Q.jsxs)("span", {
 						className: "inline-flex items-center gap-2",
-						children: [/* @__PURE__ */ (0, Q.jsx)(ze, { mark: kr(e.location) }), e.name]
+						children: [/* @__PURE__ */ (0, Q.jsx)(Be, { mark: Ar(e.location) }), e.name]
 					}) }), /* @__PURE__ */ (0, Q.jsx)(A, { children: J("settings:cloudProxy.unmatched") })]
 				}, e.root)),
-				t?.accounts.map((t) => /* @__PURE__ */ (0, Q.jsx)(Ko, {
+				t?.accounts.map((t) => /* @__PURE__ */ (0, Q.jsx)(qo, {
 					initial: t,
 					receipt: e,
 					onDirty: () => a.current.add(t.id),
@@ -3390,8 +3392,8 @@ function Go({ receipt: e }) {
 		}) })]
 	});
 }
-function Ko({ initial: e, receipt: t, onDirty: n, onSaved: r, onSaving: i }) {
-	let [a, o] = (0, Z.useState)(e), [s, c] = (0, Z.useState)([]), l = xt(a.libraries?.map((e) => e.name) ?? []) || a.name, u = Y(), d = (e, t) => {
+function qo({ initial: e, receipt: t, onDirty: n, onSaved: r, onSaving: i }) {
+	let [a, o] = (0, Z.useState)(e), [s, c] = (0, Z.useState)([]), l = St(a.libraries?.map((e) => e.name) ?? []) || a.name, u = Y(), d = (e, t) => {
 		o((n) => ({
 			...n,
 			[e]: t
@@ -3400,7 +3402,7 @@ function Ko({ initial: e, receipt: t, onDirty: n, onSaved: r, onSaving: i }) {
 	return /* @__PURE__ */ (0, Q.jsxs)("form", {
 		"aria-label": J("settings:cloudProxy.accountForm", { name: l }),
 		onSubmit: (e) => {
-			e.preventDefault(), i(!0), u.run("save", (e) => H(Uo, {
+			e.preventDefault(), i(!0), u.run("save", (e) => H(Wo, {
 				id: a.id,
 				revision: a.revision,
 				...s.includes("api") ? { api: a.api } : {},
@@ -3413,20 +3415,20 @@ function Ko({ initial: e, receipt: t, onDirty: n, onSaved: r, onSaving: i }) {
 		children: [
 			/* @__PURE__ */ (0, Q.jsx)(ae, { children: /* @__PURE__ */ (0, Q.jsxs)("span", {
 				className: "inline-flex items-center gap-2",
-				children: [/* @__PURE__ */ (0, Q.jsx)(ze, { mark: kr(a.libraries?.[0]?.location || (a.cloud === "115open" ? "115" : a.cloud.toLowerCase())) }), l]
+				children: [/* @__PURE__ */ (0, Q.jsx)(Be, { mark: Ar(a.libraries?.[0]?.location || (a.cloud === "115open" ? "115" : a.cloud.toLowerCase())) }), l]
 			}) }),
 			/* @__PURE__ */ (0, Q.jsxs)(A, { children: [
 				a.name,
 				" · ",
 				a.path
 			] }),
-			/* @__PURE__ */ (0, Q.jsx)(qo, {
+			/* @__PURE__ */ (0, Q.jsx)(Jo, {
 				label: J("settings:cloudProxy.dataProxy"),
 				value: a.data,
 				disabled: !a.writable || !!u.busy,
 				onChange: (e) => d("data", e)
 			}),
-			/* @__PURE__ */ (0, Q.jsx)(qo, {
+			/* @__PURE__ */ (0, Q.jsx)(Jo, {
 				label: J("settings:cloudProxy.apiProxy"),
 				value: a.api,
 				disabled: !a.writable || !!u.busy,
@@ -3450,7 +3452,7 @@ function Ko({ initial: e, receipt: t, onDirty: n, onSaved: r, onSaving: i }) {
 		]
 	});
 }
-function qo({ label: e, value: t, disabled: n, onChange: r }) {
+function Jo({ label: e, value: t, disabled: n, onChange: r }) {
 	let i = t.mode === "http" || t.mode === "socks5";
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
 		className: "flex min-w-0 flex-col gap-3",
@@ -3469,7 +3471,7 @@ function qo({ label: e, value: t, disabled: n, onChange: r }) {
 				children: [t.mode === "unknown" ? /* @__PURE__ */ (0, Q.jsx)(I, {
 					id: "unknown",
 					children: J("settings:cloudProxy.unknownType")
-				}) : null, Wo.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(I, {
+				}) : null, Go.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(I, {
 					id: e,
 					children: t
 				}, e))]
@@ -3537,7 +3539,7 @@ function qo({ label: e, value: t, disabled: n, onChange: r }) {
 	});
 }
 // src/react/settings/library-icon-picker.tsx
-var Jo = [
+var Yo = [
 	["", J("settings:libraryIcons.auto")],
 	["hard-drive", J("settings:libraryIcons.hardDrive")],
 	["database", J("settings:libraryIcons.database")],
@@ -3581,13 +3583,13 @@ var Jo = [
 	["star", J("settings:libraryIcons.favorites")],
 	["tags", J("settings:libraryIcons.topics")]
 ];
-function Yo(e) {
-	let t = e === "local" ? "" : he[e];
+function Xo(e) {
+	let t = e === "local" ? "" : ge[e];
 	return t ? [t, J("settings:libraryIcons.auto")] : ["hard-drive", J("settings:libraryIcons.default")];
 }
-var Xo = "auto";
-function Zo({ value: t, label: r, kind: i = "local", onChange: a }) {
-	let l = (0, Z.useRef)(null), [u, d] = (0, Z.useState)(!1), [p, m] = (0, Z.useState)(t), [h, g] = Yo(i);
+var Zo = "auto";
+function Qo({ value: t, label: r, kind: i = "local", onChange: a }) {
+	let l = (0, Z.useRef)(null), [u, d] = (0, Z.useState)(!1), [p, m] = (0, Z.useState)(t), [h, g] = Xo(i);
 	return /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(f, {
 		ref: l,
 		variant: "secondary",
@@ -3601,7 +3603,7 @@ function Zo({ value: t, label: r, kind: i = "local", onChange: a }) {
 		children: /* @__PURE__ */ (0, Q.jsxs)("span", {
 			"data-icon-choice": !0,
 			className: "flex items-center gap-2",
-			children: [/* @__PURE__ */ (0, Q.jsx)(ze, { mark: t || h }), ((e) => e && Jo.find(([t]) => t === e)?.[1] || g)(t)]
+			children: [/* @__PURE__ */ (0, Q.jsx)(Be, { mark: t || h }), ((e) => e && Yo.find(([t]) => t === e)?.[1] || g)(t)]
 		})
 	}), /* @__PURE__ */ (0, Q.jsx)(n, {
 		triggerRef: l,
@@ -3609,7 +3611,7 @@ function Zo({ value: t, label: r, kind: i = "local", onChange: a }) {
 		onOpenChange: d,
 		placement: "bottom start",
 		offset: 4,
-		className: ge,
+		className: _e,
 		children: /* @__PURE__ */ (0, Q.jsxs)(o, {
 			"aria-label": J("settings:libraryIcons.dialogLabel", { label: r }),
 			className: "flex w-72 flex-col gap-3 outline-none",
@@ -3621,15 +3623,15 @@ function Zo({ value: t, label: r, kind: i = "local", onChange: a }) {
 				}),
 				/* @__PURE__ */ (0, Q.jsx)(s, {
 					"aria-label": J("settings:libraryIcons.choices"),
-					value: p || Xo,
-					onChange: (e) => m(e === Xo ? "" : e),
+					value: p || Zo,
+					onChange: (e) => m(e === Zo ? "" : e),
 					className: "inline-grid grid-cols-7 gap-1",
-					children: Jo.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(c, {
-						value: e || Xo,
+					children: Yo.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(c, {
+						value: e || Zo,
 						"aria-label": e ? t : g,
 						className: "flex h-10 cursor-pointer items-center justify-center rounded-lg text-foreground-icon-secondary outline-none hover:bg-dropdown-item-hover-background focus-visible:ring-2 focus-visible:ring-border-focus-ring data-selected:bg-dropdown-item-hover-background data-selected:text-text-primary",
-						children: /* @__PURE__ */ (0, Q.jsx)(ze, { mark: e || h })
-					}, e || Xo))
+						children: /* @__PURE__ */ (0, Q.jsx)(Be, { mark: e || h })
+					}, e || Zo))
 				}),
 				/* @__PURE__ */ (0, Q.jsxs)("div", {
 					className: "flex justify-end gap-2 border-t border-separator-border pt-2.5",
@@ -3650,19 +3652,19 @@ function Zo({ value: t, label: r, kind: i = "local", onChange: a }) {
 	})] });
 }
 // src/react/settings/library-policy-settings.tsx
-var Qo = [
+var $o = [
 	["probe", J("settings:libraryPolicy.stepProbe")],
 	["metadata", J("settings:libraryPolicy.stepMetadata")],
 	["cover", J("settings:libraryPolicy.stepCovers")],
 	["people", J("settings:libraryPolicy.stepAvatars")],
 	["preview", J("settings:libraryPolicy.stepContactSheet")]
-], $o = [
+], es = [
 	"probe",
 	"metadata",
 	"cover",
 	"people",
 	"preview"
-], es = [
+], ts = [
 	[
 		"auto",
 		J("settings:libraryPolicy.auto"),
@@ -3679,11 +3681,11 @@ var Qo = [
 		J("settings:libraryPolicy.customHint")
 	]
 ];
-function ts() {
+function ns() {
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
 		"data-policy-legend": "",
 		className: "flex flex-col gap-1",
-		children: [/* @__PURE__ */ (0, Q.jsx)(A, { children: xe }), /* @__PURE__ */ (0, Q.jsxs)(C, {
+		children: [/* @__PURE__ */ (0, Q.jsx)(A, { children: Se }), /* @__PURE__ */ (0, Q.jsxs)(C, {
 			summary: J("settings:libraryPolicy.compare"),
 			children: [/* @__PURE__ */ (0, Q.jsxs)("table", {
 				"data-policy-matrix": "",
@@ -3691,10 +3693,10 @@ function ts() {
 				children: [/* @__PURE__ */ (0, Q.jsx)("thead", { children: /* @__PURE__ */ (0, Q.jsxs)("tr", { children: [/* @__PURE__ */ (0, Q.jsx)("th", {
 					scope: "col",
 					children: /* @__PURE__ */ (0, Q.jsx)(a, { children: J("settings:libraryPolicy.step") })
-				}), ve.map((e) => /* @__PURE__ */ (0, Q.jsx)("th", {
+				}), ye.map((e) => /* @__PURE__ */ (0, Q.jsx)("th", {
 					scope: "col",
 					children: e
-				}, e))] }) }), /* @__PURE__ */ (0, Q.jsx)("tbody", { children: be.map(([e, ...t]) => /* @__PURE__ */ (0, Q.jsxs)("tr", { children: [/* @__PURE__ */ (0, Q.jsx)("th", {
+				}, e))] }) }), /* @__PURE__ */ (0, Q.jsx)("tbody", { children: xe.map(([e, ...t]) => /* @__PURE__ */ (0, Q.jsxs)("tr", { children: [/* @__PURE__ */ (0, Q.jsx)("th", {
 					scope: "row",
 					children: e
 				}), t.map((e, t) => /* @__PURE__ */ (0, Q.jsx)("td", {
@@ -3706,13 +3708,13 @@ function ts() {
 						"aria-label": J("settings:libraryPolicy.notIncluded"),
 						children: "—"
 					}) : e
-				}, ve[t]))] }, e)) })]
-			}), /* @__PURE__ */ (0, Q.jsx)(A, { children: ye })]
+				}, ye[t]))] }, e)) })]
+			}), /* @__PURE__ */ (0, Q.jsx)(A, { children: be })]
 		})]
 	});
 }
-function ns({ name: e, value: t, onChange: n }) {
-	return /* @__PURE__ */ (0, Q.jsx)(Pe, {
+function rs({ name: e, value: t, onChange: n }) {
+	return /* @__PURE__ */ (0, Q.jsx)(Fe, {
 		"data-guide-target": "library-policy",
 		className: "w-full",
 		"aria-label": J("settings:libraryPolicy.modeLabel", { name: e }),
@@ -3720,10 +3722,10 @@ function ns({ name: e, value: t, onChange: n }) {
 		prefix: J("settings:libraryPolicy.mode"),
 		renderValue: /* @__PURE__ */ (0, Q.jsx)("span", {
 			className: "truncate",
-			children: es.find(([e]) => e === t)?.[1]
+			children: ts.find(([e]) => e === t)?.[1]
 		}),
 		onSelectionChange: (e) => n(String(e)),
-		children: es.map(([e, t, n]) => /* @__PURE__ */ (0, Q.jsx)(I, {
+		children: ts.map(([e, t, n]) => /* @__PURE__ */ (0, Q.jsx)(I, {
 			id: e,
 			textValue: t,
 			children: /* @__PURE__ */ (0, Q.jsxs)("span", {
@@ -3736,19 +3738,19 @@ function ns({ name: e, value: t, onChange: n }) {
 		}, e))
 	});
 }
-function rs({ name: e, value: t, onChange: n, previewsOff: r = !1 }) {
+function is({ name: e, value: t, onChange: n, previewsOff: r = !1 }) {
 	return /* @__PURE__ */ (0, Q.jsxs)(C, {
 		defaultOpen: !0,
 		summary: J("settings:libraryPolicy.stepsSummary", {
 			name: e,
 			selected: t.length,
-			total: Qo.length
+			total: $o.length
 		}),
 		children: [/* @__PURE__ */ (0, Q.jsx)("div", {
 			className: "flex flex-wrap gap-x-6 gap-y-2",
 			role: "group",
 			"aria-label": J("settings:libraryPolicy.stepsLabel", { name: e }),
-			children: Qo.map(([e, i]) => /* @__PURE__ */ (0, Q.jsx)(b, {
+			children: $o.map(([e, i]) => /* @__PURE__ */ (0, Q.jsx)(b, {
 				isSelected: t.includes(e),
 				isDisabled: r && e === "preview",
 				onChange: (r) => n(r ? [...t, e] : t.filter((t) => t !== e)),
@@ -3757,9 +3759,9 @@ function rs({ name: e, value: t, onChange: n, previewsOff: r = !1 }) {
 		}), r ? /* @__PURE__ */ (0, Q.jsx)(A, { children: J("settings:libraryPolicy.previewsOff") }) : null]
 	});
 }
-function is({ id: e, name: t, value: i, onChange: a }) {
+function as({ id: e, name: t, value: i, onChange: a }) {
 	let s = (0, Z.useRef)(null), [c, u] = (0, Z.useState)(!1), d = l.find(([e]) => e === i)?.[1] || J("settings:libraryColor.none"), f = (t) => {
-		a(t), jt(e, t), u(!1);
+		a(t), Mt(e, t), u(!1);
 	};
 	return /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsxs)("button", {
 		ref: s,
@@ -3793,7 +3795,7 @@ function is({ id: e, name: t, value: i, onChange: a }) {
 			/* @__PURE__ */ (0, Q.jsx)("span", { children: d })
 		]
 	}), /* @__PURE__ */ (0, Q.jsx)(r, {
-		getContainer: () => Dt(s.current),
+		getContainer: () => Ot(s.current),
 		children: /* @__PURE__ */ (0, Q.jsx)(n, {
 			triggerRef: s,
 			isOpen: c,
@@ -3801,7 +3803,7 @@ function is({ id: e, name: t, value: i, onChange: a }) {
 			placement: "bottom start",
 			offset: 8,
 			containerPadding: 12,
-			className: ge,
+			className: _e,
 			children: /* @__PURE__ */ (0, Q.jsxs)(o, {
 				"aria-label": J("settings:libraryColor.dialogLabel", { name: t || J("settings:mediaLibraries.untitled") }),
 				className: "outline-none",
@@ -3843,8 +3845,8 @@ function is({ id: e, name: t, value: i, onChange: a }) {
 	})] });
 }
 // src/react/settings/push-discovery-settings.tsx
-var as = "/api/configuration/push-discovery", os = "/api/configuration/push-discovery/secret";
-function ss({ initial: e, receipt: t }) {
+var os = "/api/configuration/push-discovery", ss = "/api/configuration/push-discovery/secret";
+function cs({ initial: e, receipt: t }) {
 	let [n, r] = (0, Z.useState)(e), [i, a] = (0, Z.useState)(e.prefixes), [o, s] = (0, Z.useState)(""), c = Y(), l = n.media_roots, [u, d] = (0, Z.useState)(e), p = (e, n) => {
 		r(e), d(e), a(e.prefixes), s(""), t(n);
 	}, m = (e, t) => a((n) => n.map((n, r) => r === e ? {
@@ -3858,14 +3860,14 @@ function ss({ initial: e, receipt: t }) {
 			cloud: n.cloud,
 			prefixes: i
 		};
-		c.run("save", (e) => H(as, t, "POST", e), (e) => p(e, J("settings:shared.settingsSaved")), (e) => s(G(e)));
+		c.run("save", (e) => H(os, t, "POST", e), (e) => p(e, J("settings:shared.settingsSaved")), (e) => s(G(e)));
 	}, g = () => {
-		c.run("secret", (e) => H(os, {}, "POST", e), (e) => p(e, J("settings:pushDiscovery.secretRotated")), (e) => s(G(e)));
+		c.run("secret", (e) => H(ss, {}, "POST", e), (e) => p(e, J("settings:pushDiscovery.secretRotated")), (e) => s(G(e)));
 	}, _ = [
 		J("settings:pushDiscovery.ingestedCount", { count: u.queue.ingested }),
 		u.queue.failed ? J("settings:pushDiscovery.failedCount", { count: u.queue.failed }) : "",
 		u.queue.pending ? J("settings:pushDiscovery.pendingCount", { count: u.queue.pending }) : ""
-	].filter(Boolean).join(J("shell:format.clauseSeparator")), v = u.local_running ? J("settings:pushDiscovery.monitoring", { paths: xt(u.local_roots) }) : (u.local_message ? W(u, "local_message") : "") || J("settings:pushDiscovery.notRunningDetail");
+	].filter(Boolean).join(J("shell:format.clauseSeparator")), v = u.local_running ? J("settings:pushDiscovery.monitoring", { paths: St(u.local_roots) }) : (u.local_message ? W(u, "local_message") : "") || J("settings:pushDiscovery.notRunningDetail");
 	return /* @__PURE__ */ (0, Q.jsxs)(P, {
 		id: "pushDiscovery",
 		guide: "discovery",
@@ -3941,7 +3943,7 @@ function ss({ initial: e, receipt: t }) {
 					className: "flex flex-col gap-3",
 					children: /* @__PURE__ */ (0, Q.jsxs)(C, {
 						summary: J("settings:fileDiscovery.viewConfig"),
-						children: [/* @__PURE__ */ (0, Q.jsx)(dn, {
+						children: [/* @__PURE__ */ (0, Q.jsx)(fn, {
 							code: u.config_toml,
 							language: "toml",
 							label: J("settings:pushDiscovery.configLabel"),
@@ -3975,7 +3977,7 @@ function ss({ initial: e, receipt: t }) {
 										value: e.prefix,
 										onChange: (e) => m(t, { prefix: e })
 									}),
-									/* @__PURE__ */ (0, Q.jsx)(Pe, {
+									/* @__PURE__ */ (0, Q.jsx)(Fe, {
 										"aria-label": J("settings:pushDiscovery.prefixRootLabel", { index: t + 1 }),
 										prefix: J("settings:pushDiscovery.mapsTo"),
 										selectedKey: e.root,
@@ -3987,10 +3989,10 @@ function ss({ initial: e, receipt: t }) {
 											children: e
 										}, e))
 									}),
-									/* @__PURE__ */ (0, Q.jsx)(f, {
+									/* @__PURE__ */ (0, Q.jsx)(se, {
 										variant: "danger",
 										iconOnly: !0,
-										leadingIcon: fe,
+										leadingIcon: pe,
 										"aria-label": J("settings:pushDiscovery.removeRow"),
 										onClick: () => a((e) => e.filter((e, n) => n !== t))
 									})
@@ -4028,34 +4030,34 @@ function ss({ initial: e, receipt: t }) {
 	});
 }
 // src/react/settings/media-settings.tsx
-async function cs(e) {
+async function ls(e) {
 	let t;
 	try {
-		t = await ft();
+		t = await pt();
 	} catch {
 		return !0;
 	}
-	if (!Mt(t)) return !0;
-	let { confirmed: n } = await it({
+	if (!Nt(t)) return !0;
+	let { confirmed: n } = await at({
 		title: J("settings:mediaLibraries.processingRunning"),
-		body: zt(t, e),
+		body: Bt(t, e),
 		confirmLabel: J("settings:mediaLibraries.saveAnyway")
 	});
 	return n;
 }
-var ls = (e) => wr.find(([t]) => t === e)?.[1] ?? e, us = [...wr, ["smb", J("settings:mediaLibraries.smbShare")]], ds = (e) => e.library_icon || Yo(e.transport === "smb" ? "smb" : e.location)[0], fs = async (e) => kt(e, (e) => H(_e, e)), ps = (e) => ({
+var us = (e) => Tr.find(([t]) => t === e)?.[1] ?? e, ds = [...Tr, ["smb", J("settings:mediaLibraries.smbShare")]], fs = (e) => e.library_icon || Xo(e.transport === "smb" ? "smb" : e.location)[0], ps = async (e) => At(e, (e) => H(ve, e)), ms = (e) => ({
 	library_id: e.library_id,
 	library: e.library,
 	library_icon: e.library_icon,
 	library_color: e.library_color,
 	library_policy: e.library_policy,
 	library_stages: e.library_stages
-}), ms = (e) => e.library_stages ? $o.filter((t) => e.library_stages.split(",").includes(t)) : [], hs = (e = "") => ({
+}), hs = (e) => e.library_stages ? es.filter((t) => e.library_stages.split(",").includes(t)) : [], gs = (e = "") => ({
 	path: e,
 	transport: e.startsWith("smb://") ? "smb" : "filesystem",
 	location: "local",
 	root: "",
-	library_id: Ft(),
+	library_id: It(),
 	library: "",
 	library_icon: "",
 	library_color: "",
@@ -4063,8 +4065,8 @@ var ls = (e) => wr.find(([t]) => t === e)?.[1] ?? e, us = [...wr, ["smb", J("set
 	library_stages: "",
 	cost: "free"
 });
-function gs(e) {
-	let t = e.media_sources?.filter((e) => wr.some(([t]) => t === e.location));
+function _s(e) {
+	let t = e.media_sources?.filter((e) => Tr.some(([t]) => t === e.location));
 	return t?.length ? t.map((e) => ({
 		transport: e.transport === "smb" || e.path.startsWith("smb://") ? "smb" : "filesystem",
 		smb_username: e.smb_username,
@@ -4080,24 +4082,24 @@ function gs(e) {
 		library_policy: e.library_policy || "auto",
 		library_stages: e.library_stages || "",
 		root_id: e.root_id,
-		library_id: e.library_id || Ft(),
-		cost: e.cost ?? Jt(e.location)
-	})) : (e.media_dirs.length ? e.media_dirs : [""]).map((e) => hs(e));
+		library_id: e.library_id || It(),
+		cost: e.cost ?? Yt(e.location)
+	})) : (e.media_dirs.length ? e.media_dirs : [""]).map((e) => gs(e));
 }
-var _s = (e) => !(e instanceof d) || e.status !== 400 ? null : Ze(e.body) ?? null;
-function vs({ data: e, receipt: t, panel: n }) {
-	let r = !!e.media_sources?.some((e) => Or(e.location));
+var vs = (e) => !(e instanceof d) || e.status !== 400 ? null : Qe(e.body) ?? null;
+function ys({ data: e, receipt: t, panel: n }) {
+	let r = !!e.media_sources?.some((e) => kr(e.location));
 	return (0, Z.useEffect)(() => {
 		if (e.editable) {
 			let t = /* @__PURE__ */ new Map();
-			for (let n of gs(e)) t.set(n.library_id, (t.get(n.library_id) ?? 0) + 1);
-			It("media", {
+			for (let n of _s(e)) t.set(n.library_id, (t.get(n.library_id) ?? 0) + 1);
+			Lt("media", {
 				folders: [...t.values()],
 				cloud: r
 			});
 		}
 		let t = e.push_discovery;
-		t && It("discovery", {
+		t && Lt("discovery", {
 			enabled: t.enabled,
 			watchLocal: t.watch_local,
 			cloud: t.cloud,
@@ -4105,9 +4107,9 @@ function vs({ data: e, receipt: t, panel: n }) {
 			prefixes: t.prefixes.length
 		});
 	}, [e, r]), /* @__PURE__ */ (0, Q.jsxs)("div", {
-		...Fr(n),
+		...Ir(n),
 		children: [
-			e.editable ? /* @__PURE__ */ (0, Q.jsx)(ys, {
+			e.editable ? /* @__PURE__ */ (0, Q.jsx)(bs, {
 				data: e,
 				receipt: t
 			}) : /* @__PURE__ */ (0, Q.jsx)(M, {
@@ -4115,31 +4117,31 @@ function vs({ data: e, receipt: t, panel: n }) {
 				title: J("settings:mediaLibraries.readOnly"),
 				children: e.notice
 			}),
-			e.editable ? null : /* @__PURE__ */ (0, Q.jsx)(xs, { data: e }),
-			r ? /* @__PURE__ */ (0, Q.jsx)(Go, { receipt: t }) : null,
-			e.push_discovery ? /* @__PURE__ */ (0, Q.jsx)(ss, {
+			e.editable ? null : /* @__PURE__ */ (0, Q.jsx)(Ss, { data: e }),
+			r ? /* @__PURE__ */ (0, Q.jsx)(Ko, { receipt: t }) : null,
+			e.push_discovery ? /* @__PURE__ */ (0, Q.jsx)(cs, {
 				initial: e.push_discovery,
 				receipt: t
 			}) : null
 		]
 	});
 }
-function ys({ data: e, receipt: t }) {
-	let { rows: n, edit: r, add: i, remove: a, errors: o, setErrors: s, picking: c, pick: l, inputRef: u } = Ar({
-		initial: () => gs(e),
-		blank: () => hs(),
-		pickFolder: fs,
+function bs({ data: e, receipt: t }) {
+	let { rows: n, edit: r, add: i, remove: a, errors: o, setErrors: s, picking: c, pick: l, inputRef: u } = jr({
+		initial: () => _s(e),
+		blank: () => gs(),
+		pickFolder: ps,
 		describe: G
 	}), [d, p] = (0, Z.useState)(!1), m = X({
-		queryKey: pe,
-		queryFn: ({ signal: e }) => pt(e)
-	}, Pt).data?.metadata_only === !0, [h, g] = (0, Z.useState)(!1), [_, y] = (0, Z.useState)(""), [x, S] = (0, Z.useState)({}), [C, ee] = (0, Z.useState)(null), te = (0, Z.useRef)(e.revision), w = (0, Z.useRef)(!1), T = Y();
-	Qt();
+		queryKey: me,
+		queryFn: ({ signal: e }) => mt(e)
+	}, Ft).data?.metadata_only === !0, [h, g] = (0, Z.useState)(!1), [_, y] = (0, Z.useState)(""), [x, S] = (0, Z.useState)({}), [C, ee] = (0, Z.useState)(null), te = (0, Z.useRef)(e.revision), w = (0, Z.useRef)(!1), T = Y();
+	$t();
 	let ne = (e, t) => {
 		n.forEach((i, a) => {
 			i.library_id === n[e].library_id && r(a, t);
 		});
-	}, D = en([...n.reduce((e, t) => e.has(t.library_id) ? e : e.set(t.library_id, t), /* @__PURE__ */ new Map()).values()], (e) => e.library_id), [re, O] = (0, Z.useState)(null);
+	}, D = tn([...n.reduce((e, t) => e.has(t.library_id) ? e : e.set(t.library_id, t), /* @__PURE__ */ new Map()).values()], (e) => e.library_id), [re, O] = (0, Z.useState)(null);
 	(0, Z.useEffect)(() => {
 		if (!re) return;
 		let e = document.querySelector(`[data-library-key="${CSS.escape(re)}"] [data-library-head] input`);
@@ -4148,10 +4150,10 @@ function ys({ data: e, receipt: t }) {
 	let ie = (e, t) => {
 		let i = n.find((e) => e.library_id === t);
 		if (i) {
-			r(e, ps(i));
+			r(e, ms(i));
 			return;
 		}
-		let a = Ft();
+		let a = It();
 		r(e, {
 			library_id: a,
 			library: "",
@@ -4163,7 +4165,7 @@ function ys({ data: e, receipt: t }) {
 	};
 	(0, Z.useEffect)(() => {
 		if (!C) return;
-		let e = setTimeout(() => location.assign(C.url), zo);
+		let e = setTimeout(() => location.assign(C.url), Bo);
 		return () => clearTimeout(e);
 	}, [C]);
 	let ae = (e) => {
@@ -4173,7 +4175,7 @@ function ys({ data: e, receipt: t }) {
 			g(!0);
 			let n = e.currentTarget;
 			requestAnimationFrame(() => n.querySelector(`[data-media-read-policy="${t}"] button`)?.focus());
-		} else T.busy || w.current || (y(""), w.current = !0, cs(d).then((e) => {
+		} else T.busy || w.current || (y(""), w.current = !0, ls(d).then((e) => {
 			w.current = !1, e && oe();
 		}));
 	}, oe = () => {
@@ -4186,7 +4188,7 @@ function ys({ data: e, receipt: t }) {
 		}, "POST", t), (e) => {
 			te.current = e.revision, s([]), t(J("settings:shared.settingsSaved")), ee(e);
 		}, (e) => {
-			let t = _s(e);
+			let t = vs(e);
 			s(t?.media_dirs ?? []), (!t || t.port) && y(t?.port || G(e));
 		});
 	};
@@ -4198,7 +4200,7 @@ function ys({ data: e, receipt: t }) {
 			title: J("settings:shared.configSaved"),
 			children: [
 				J("settings:mediaLibraries.restartingRedirect"),
-				/* @__PURE__ */ (0, Q.jsx)(de, {
+				/* @__PURE__ */ (0, Q.jsx)(fe, {
 					href: C.url,
 					size: "small",
 					children: J("settings:mediaLibraries.goToCollection")
@@ -4207,13 +4209,13 @@ function ys({ data: e, receipt: t }) {
 			]
 		}) })
 	});
-	let se = (t) => e.media_sources?.find((e) => e.root_id === t.root_id && e.path === t.path), le = n.some((e) => Or(e.location)), ue = le ? (e.mount_dependencies ?? []).filter((e) => !e.available) : [];
+	let se = (t) => e.media_sources?.find((e) => e.root_id === t.root_id && e.path === t.path), ce = n.some((e) => kr(e.location)), ue = ce ? (e.mount_dependencies ?? []).filter((e) => !e.available) : [];
 	return /* @__PURE__ */ (0, Q.jsxs)(P, {
 		guide: "media",
 		title: J("settings:libraryFolders.title"),
 		onSubmit: ae,
 		children: [/* @__PURE__ */ (0, Q.jsxs)(R, { children: [
-			/* @__PURE__ */ (0, Q.jsx)(ts, {}),
+			/* @__PURE__ */ (0, Q.jsx)(ns, {}),
 			/* @__PURE__ */ (0, Q.jsx)("div", {
 				role: "group",
 				"aria-label": J("settings:libraryFolders.title"),
@@ -4226,7 +4228,7 @@ function ys({ data: e, receipt: t }) {
 					return /* @__PURE__ */ (0, Q.jsxs)("div", {
 						"data-library-block": "",
 						"data-library-key": e.library_id,
-						className: $e({
+						className: et({
 							variant: "raised",
 							padding: "none",
 							className: "flex flex-col p-2"
@@ -4236,7 +4238,7 @@ function ys({ data: e, receipt: t }) {
 							/* @__PURE__ */ (0, Q.jsxs)("div", {
 								"data-library-head": "",
 								children: [
-									/* @__PURE__ */ (0, Q.jsx)(Zo, {
+									/* @__PURE__ */ (0, Q.jsx)(Qo, {
 										label: J("settings:mediaLibraries.iconLabel", { name: p }),
 										value: e.library_icon,
 										kind: e.transport === "smb" ? "smb" : e.location,
@@ -4250,33 +4252,33 @@ function ys({ data: e, receipt: t }) {
 										value: e.library,
 										onChange: (e) => ne(t, { library: e })
 									}),
-									/* @__PURE__ */ (0, Q.jsx)(is, {
+									/* @__PURE__ */ (0, Q.jsx)(as, {
 										id: e.library_id,
 										name: e.library,
 										value: e.library_color,
 										onChange: (e) => ne(t, { library_color: e })
 									}),
-									/* @__PURE__ */ (0, Q.jsx)(ns, {
+									/* @__PURE__ */ (0, Q.jsx)(rs, {
 										name: p,
 										value: d,
 										onChange: (n) => ne(t, {
 											library_policy: n,
-											library_stages: n === "custom" ? e.library_stages || $o.join(",") : ""
+											library_stages: n === "custom" ? e.library_stages || es.join(",") : ""
 										})
 									})
 								]
 							}),
-							d === "custom" ? /* @__PURE__ */ (0, Q.jsx)(rs, {
+							d === "custom" ? /* @__PURE__ */ (0, Q.jsx)(is, {
 								name: p,
-								value: ms(e),
+								value: hs(e),
 								previewsOff: m,
-								onChange: (e) => ne(t, { library_stages: $o.filter((t) => e.includes(t)).join(",") })
+								onChange: (e) => ne(t, { library_stages: es.filter((t) => e.includes(t)).join(",") })
 							}) : null,
 							/* @__PURE__ */ (0, Q.jsxs)("div", {
 								"data-library-folders": "",
 								role: "group",
 								"aria-label": J("settings:mediaLibraries.directoriesLabel", { name: p }),
-								children: [s.map(({ row: t, index: i }) => /* @__PURE__ */ (0, Q.jsxs)(Cr, {
+								children: [s.map(({ row: t, index: i }) => /* @__PURE__ */ (0, Q.jsxs)(wr, {
 									label: J("settings:mediaLibraries.directoryLabel", { index: i + 1 }),
 									path: t.path,
 									onPath: (e) => r(i, {
@@ -4288,12 +4290,12 @@ function ys({ data: e, receipt: t }) {
 									picking: c === i,
 									onPick: () => void l(i),
 									onRemove: n.length > 1 ? () => a(i) : void 0,
-									status: se(t) ? /* @__PURE__ */ (0, Q.jsx)(bs, { online: se(t)?.online }) : null,
-									children: [/* @__PURE__ */ (0, Q.jsxs)(Sr, { children: [
-										/* @__PURE__ */ (0, Q.jsx)(Dr, {
+									status: se(t) ? /* @__PURE__ */ (0, Q.jsx)(xs, { online: se(t)?.online }) : null,
+									children: [/* @__PURE__ */ (0, Q.jsxs)(Cr, { children: [
+										/* @__PURE__ */ (0, Q.jsx)(Or, {
 											index: i,
 											value: t.transport === "smb" ? "smb" : t.location,
-											options: us,
+											options: ds,
 											onChange: (e) => {
 												let n = e === "smb";
 												r(i, {
@@ -4307,13 +4309,13 @@ function ys({ data: e, receipt: t }) {
 												});
 											}
 										}),
-										/* @__PURE__ */ (0, Q.jsx)(Tr, {
+										/* @__PURE__ */ (0, Q.jsx)(Er, {
 											index: i,
 											cost: t.cost,
 											onChange: (e) => r(i, { cost: e }),
 											error: h && !t.cost ? J("settings:mediaLibraries.readPolicyRequired") : void 0
 										}),
-										t.root_id && !se(t) ? /* @__PURE__ */ (0, Q.jsx)(xr, {
+										t.root_id && !se(t) ? /* @__PURE__ */ (0, Q.jsx)(Sr, {
 											label: J("settings:mediaLibraries.changeType"),
 											className: "w-full @lg:w-auto @lg:flex-1",
 											children: /* @__PURE__ */ (0, Q.jsxs)(F, {
@@ -4337,7 +4339,7 @@ function ys({ data: e, receipt: t }) {
 												})]
 											})
 										}) : null,
-										D.length > 1 ? /* @__PURE__ */ (0, Q.jsx)(xr, {
+										D.length > 1 ? /* @__PURE__ */ (0, Q.jsx)(Sr, {
 											label: J("settings:mediaLibraries.moveTo"),
 											className: "w-full @lg:w-48",
 											children: /* @__PURE__ */ (0, Q.jsxs)(F, {
@@ -4346,7 +4348,7 @@ function ys({ data: e, receipt: t }) {
 												selectedKey: t.library_id,
 												renderValue: /* @__PURE__ */ (0, Q.jsxs)("span", {
 													className: "flex min-w-0 items-center gap-2",
-													children: [/* @__PURE__ */ (0, Q.jsx)(ze, { mark: ds(e) }), /* @__PURE__ */ (0, Q.jsx)("span", {
+													children: [/* @__PURE__ */ (0, Q.jsx)(Be, { mark: fs(e) }), /* @__PURE__ */ (0, Q.jsx)("span", {
 														className: "truncate",
 														children: p
 													})]
@@ -4359,7 +4361,7 @@ function ys({ data: e, receipt: t }) {
 													textValue: e.library || J("settings:mediaLibraries.untitled"),
 													children: /* @__PURE__ */ (0, Q.jsxs)("span", {
 														className: "flex min-w-0 items-center gap-2",
-														children: [/* @__PURE__ */ (0, Q.jsx)(ze, { mark: ds(e) }), /* @__PURE__ */ (0, Q.jsx)("span", {
+														children: [/* @__PURE__ */ (0, Q.jsx)(Be, { mark: fs(e) }), /* @__PURE__ */ (0, Q.jsx)("span", {
 															className: "truncate",
 															children: e.library || J("settings:mediaLibraries.untitled")
 														})]
@@ -4369,7 +4371,7 @@ function ys({ data: e, receipt: t }) {
 													textValue: J("settings:mediaLibraries.newLibrary"),
 													children: /* @__PURE__ */ (0, Q.jsxs)("span", {
 														className: "flex min-w-0 items-center gap-2",
-														children: [/* @__PURE__ */ (0, Q.jsx)(ze, { mark: "plus" }), /* @__PURE__ */ (0, Q.jsx)("span", { children: J("settings:mediaLibraries.newLibrary") })]
+														children: [/* @__PURE__ */ (0, Q.jsx)(Be, { mark: "plus" }), /* @__PURE__ */ (0, Q.jsx)("span", { children: J("settings:mediaLibraries.newLibrary") })]
 													})
 												}) : null]
 											})
@@ -4377,7 +4379,7 @@ function ys({ data: e, receipt: t }) {
 									] }), t.transport === "smb" ? /* @__PURE__ */ (0, Q.jsxs)("div", {
 										className: "flex w-full flex-col gap-2",
 										children: [
-											/* @__PURE__ */ (0, Q.jsxs)(Sr, { children: [/* @__PURE__ */ (0, Q.jsx)(xr, {
+											/* @__PURE__ */ (0, Q.jsxs)(Cr, { children: [/* @__PURE__ */ (0, Q.jsx)(Sr, {
 												label: J("settings:smbShare.account"),
 												className: "w-full @lg:flex-1",
 												children: /* @__PURE__ */ (0, Q.jsx)(j, {
@@ -4387,7 +4389,7 @@ function ys({ data: e, receipt: t }) {
 													isDisabled: t.smb_clear,
 													onChange: (e) => r(i, { smb_username: e })
 												})
-											}), /* @__PURE__ */ (0, Q.jsx)(xr, {
+											}), /* @__PURE__ */ (0, Q.jsx)(Sr, {
 												label: J("settings:smbShare.password"),
 												className: "w-full @lg:flex-1",
 												children: /* @__PURE__ */ (0, Q.jsx)(j, {
@@ -4459,7 +4461,7 @@ function ys({ data: e, receipt: t }) {
 										"aria-label": J("settings:mediaLibraries.addDirectoryLabel", { name: p }),
 										onClick: () => {
 											i(), r(n.length, {
-												...ps(e),
+												...ms(e),
 												location: e.location,
 												cost: e.cost
 											});
@@ -4478,8 +4480,8 @@ function ys({ data: e, receipt: t }) {
 				onClick: i,
 				children: J("settings:mediaLibraries.addLibrary")
 			}),
-			/* @__PURE__ */ (0, Q.jsx)(A, { children: ce }),
-			le ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(Er, {}), /* @__PURE__ */ (0, Q.jsx)(Ho, {})] }) : null,
+			/* @__PURE__ */ (0, Q.jsx)(A, { children: le }),
+			ce ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(Dr, {}), /* @__PURE__ */ (0, Q.jsx)(Uo, {})] }) : null,
 			ue.map((e) => /* @__PURE__ */ (0, Q.jsxs)(A, { children: [
 				J("settings:mediaLibraries.dependencyMissingName", { name: e.name }),
 				J("shell:format.sentenceGap"),
@@ -4512,18 +4514,18 @@ function ys({ data: e, receipt: t }) {
 		})]
 	});
 }
-function bs({ online: e }) {
-	return /* @__PURE__ */ (0, Q.jsx)(un, { online: e });
+function xs({ online: e }) {
+	return /* @__PURE__ */ (0, Q.jsx)(dn, { online: e });
 }
-function xs({ data: e }) {
+function Ss({ data: e }) {
 	let t = e.media_sources, n = Y();
 	return t ? /* @__PURE__ */ (0, Q.jsxs)(P, {
 		guide: "mounts",
 		title: J("settings:mountStatus.title"),
 		children: [
 			/* @__PURE__ */ (0, Q.jsx)(ie, { children: t.map((e, t) => /* @__PURE__ */ (0, Q.jsxs)(O, {
-				term: /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(ze, { mark: kr(e.location) }), ls(e.location)] }),
-				children: [e.path || J("settings:mountStatus.notConfigured"), /* @__PURE__ */ (0, Q.jsx)(bs, { online: e.online })]
+				term: /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(Be, { mark: Ar(e.location) }), us(e.location)] }),
+				children: [e.path || J("settings:mountStatus.notConfigured"), /* @__PURE__ */ (0, Q.jsx)(xs, { online: e.online })]
 			}, t)) }),
 			n.error ? /* @__PURE__ */ (0, Q.jsx)(R, {
 				divided: !0,
@@ -4531,7 +4533,7 @@ function xs({ data: e }) {
 			}) : null,
 			/* @__PURE__ */ (0, Q.jsx)(k, { children: /* @__PURE__ */ (0, Q.jsx)(f, {
 				variant: "secondary",
-				onClick: () => void n.run("refresh", (e) => ut(e), (e) => Pt.setQueryData(g, e)),
+				onClick: () => void n.run("refresh", (e) => dt(e), (e) => Ft.setQueryData(g, e)),
 				...U(n.busy === "refresh"),
 				children: J("settings:mountStatus.refresh")
 			}) })
@@ -4539,22 +4541,22 @@ function xs({ data: e }) {
 	}) : null;
 }
 // src/react/settings/service-preferences.tsx
-var Ss = [
+var Cs = [
 	["off", J("settings:timelineThumbnails.off")],
 	["precise", J("settings:timelineThumbnails.precise")],
 	["coarse", J("settings:timelineThumbnails.coarse")]
 ];
-function Cs({ receipt: e }) {
+function ws({ receipt: e }) {
 	let t = X({
-		queryKey: Ae,
-		queryFn: ({ signal: e }) => mt(e)
-	}), n = on(), r = n.error || t.error;
+		queryKey: je,
+		queryFn: ({ signal: e }) => ht(e)
+	}), n = sn(), r = n.error || t.error;
 	return /* @__PURE__ */ (0, Q.jsxs)(P, {
 		title: J("settings:taskSpeed.title"),
 		children: [/* @__PURE__ */ (0, Q.jsx)(N, { children: /* @__PURE__ */ (0, Q.jsx)(L, {
 			label: J("settings:taskSpeed.defaultSpeed"),
 			description: J("settings:taskSpeed.defaultSpeedHelp"),
-			children: /* @__PURE__ */ (0, Q.jsx)(Ce, {
+			children: /* @__PURE__ */ (0, Q.jsx)(we, {
 				value: t.data?.taskSpeedMode || "standard",
 				busy: !t.data || n.isPending,
 				onChange: (t) => n.mutate({ taskSpeedMode: t }, { onSuccess: () => e(J("settings:taskSpeed.saved")) })
@@ -4565,12 +4567,12 @@ function Cs({ receipt: e }) {
 		}) : null]
 	});
 }
-function ws({ epoch: e = 0, disabled: t = !1 }) {
+function Ts({ epoch: e = 0, disabled: t = !1 }) {
 	let n = X({
-		queryKey: Be,
-		queryFn: ({ signal: e }) => ht(e),
+		queryKey: Ve,
+		queryFn: ({ signal: e }) => gt(e),
 		refetchOnMount: "always"
-	}), r = sn(), i = r.reset;
+	}), r = cn(), i = r.reset;
 	(0, Z.useEffect)(() => {
 		i();
 	}, [e, i]);
@@ -4588,7 +4590,7 @@ function ws({ epoch: e = 0, disabled: t = !1 }) {
 					onSelectionChange: (e) => {
 						e !== null && r.mutate(String(e));
 					},
-					children: Ss.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(I, {
+					children: Cs.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(I, {
 						id: e,
 						children: t
 					}, e))
@@ -4597,15 +4599,15 @@ function ws({ epoch: e = 0, disabled: t = !1 }) {
 		}) }),
 		r.isPending || a?.status === "running" ? /* @__PURE__ */ (0, Q.jsxs)(R, {
 			divided: !0,
-			children: [r.isPending ? /* @__PURE__ */ (0, Q.jsx)(He, {
+			children: [r.isPending ? /* @__PURE__ */ (0, Q.jsx)(Ue, {
 				embedded: !0,
 				kind: "gather",
 				label: J("settings:shared.saving")
-			}) : /* @__PURE__ */ (0, Q.jsx)(He, {
+			}) : /* @__PURE__ */ (0, Q.jsx)(Ue, {
 				embedded: !0,
-				kind: Je("timeline-thumbnails"),
+				kind: Ye("timeline-thumbnails"),
 				label: J("settings:timelineThumbnails.generating")
-			}), r.isPending ? null : /* @__PURE__ */ (0, Q.jsx)(Ve, {})]
+			}), r.isPending ? null : /* @__PURE__ */ (0, Q.jsx)(He, {})]
 		}) : null,
 		o ? /* @__PURE__ */ (0, Q.jsx)(R, {
 			divided: !0,
@@ -4613,20 +4615,20 @@ function ws({ epoch: e = 0, disabled: t = !1 }) {
 		}) : null
 	] });
 }
-function Ts({ receipt: e }) {
-	let t = Xe();
+function Es({ receipt: e }) {
+	let t = Ze();
 	(0, Z.useSyncExternalStore)(t.subscribe, t.version);
 	let n = X({
-		queryKey: Ae,
-		queryFn: ({ signal: e }) => mt(e),
+		queryKey: je,
+		queryFn: ({ signal: e }) => ht(e),
 		refetchOnMount: "always"
-	}), r = on(), i = n.data?.followInitialDays ?? t.value.followInitialDays, a = r.error || n.error;
+	}), r = sn(), i = n.data?.followInitialDays ?? t.value.followInitialDays, a = r.error || n.error;
 	return /* @__PURE__ */ (0, Q.jsxs)(P, {
 		guide: "follow-options",
 		title: J("settings:followFetch.title"),
 		children: [/* @__PURE__ */ (0, Q.jsxs)(N, { children: [
-			/* @__PURE__ */ (0, Q.jsx)(Ds, { kind: "follow" }),
-			/* @__PURE__ */ (0, Q.jsx)(Ds, { kind: "feed" }),
+			/* @__PURE__ */ (0, Q.jsx)(Os, { kind: "follow" }),
+			/* @__PURE__ */ (0, Q.jsx)(Os, { kind: "feed" }),
 			/* @__PURE__ */ (0, Q.jsx)(L, {
 				label: J("settings:followFetch.initialRange"),
 				description: J("settings:followFetch.initialRangeHelp"),
@@ -4671,7 +4673,7 @@ function Ts({ receipt: e }) {
 		}) : null]
 	});
 }
-var Es = {
+var Ds = {
 	follow: {
 		id: "followScheduleSetting",
 		label: () => J("settings:followFetch.autoCheck"),
@@ -4693,13 +4695,13 @@ var Es = {
 		failure: () => J("settings:followSchedule.lastFetchFailed")
 	}
 };
-function Ds({ kind: e }) {
-	let t = Es[e], { key: n, fetch: r, fallback: i } = De[e], a = X({
+function Os({ kind: e }) {
+	let t = Ds[e], { key: n, fetch: r, fallback: i } = Oe[e], a = X({
 		queryKey: n,
 		queryFn: ({ signal: e }) => r(e),
 		refetchOnMount: "always",
-		refetchInterval: Vt
-	}), o = an(e), s = a.data, c = `peach.number.${t.id}`, l = (0, Z.useRef)(Qe(Number(localStorage.getItem(c)), 15, 10080, i)), [u, d] = (0, Z.useState)(String(i)), [f, p] = (0, Z.useState)(!1);
+		refetchInterval: Ht
+	}), o = on(e), s = a.data, c = `peach.number.${t.id}`, l = (0, Z.useRef)($e(Number(localStorage.getItem(c)), 15, 10080, i)), [u, d] = (0, Z.useState)(String(i)), [f, p] = (0, Z.useState)(!1);
 	(0, Z.useEffect)(() => {
 		s?.enabled && (l.current = s.interval_minutes, d(String(s.interval_minutes)));
 	}, [s]);
@@ -4748,16 +4750,16 @@ function Ds({ kind: e }) {
 			})
 		}),
 		f ? /* @__PURE__ */ (0, Q.jsx)(R, { children: /* @__PURE__ */ (0, Q.jsx)(T, { children: J("settings:followSchedule.invalidInterval") }) }) : null,
-		o.isPending || s?.running ? /* @__PURE__ */ (0, Q.jsx)(R, { children: o.isPending ? /* @__PURE__ */ (0, Q.jsx)(He, {
+		o.isPending || s?.running ? /* @__PURE__ */ (0, Q.jsx)(R, { children: o.isPending ? /* @__PURE__ */ (0, Q.jsx)(Ue, {
 			embedded: !0,
 			kind: "gather",
 			label: J("settings:shared.saving")
-		}) : /* @__PURE__ */ (0, Q.jsx)(He, {
+		}) : /* @__PURE__ */ (0, Q.jsx)(Ue, {
 			embedded: !0,
-			kind: Je(t.activity),
+			kind: Ye(t.activity),
 			label: t.running()
 		}) }) : null,
-		/* @__PURE__ */ (0, Q.jsx)(Os, {
+		/* @__PURE__ */ (0, Q.jsx)(ks, {
 			kind: e,
 			status: s,
 			title: t.failure()
@@ -4765,10 +4767,10 @@ function Ds({ kind: e }) {
 		g ? /* @__PURE__ */ (0, Q.jsx)(R, { children: /* @__PURE__ */ (0, Q.jsx)(T, { children: G(g) }) }) : null
 	] });
 }
-function Os({ kind: e, status: t, title: n }) {
-	let r = rn(e);
+function ks({ kind: e, status: t, title: n }) {
+	let r = an(e);
 	if (!t?.enabled || t.running || !t.last_error) return null;
-	let i = t.consecutive_failures ?? 0, a = Tt(t.next_run_at), o = [i > 1 ? J("settings:followSchedule.consecutiveFailures", { count: i }) : "", a ? J("settings:followSchedule.nextRun", { time: a }) : ""].filter(Boolean).join(J("shell:format.clauseSeparator")), s = [
+	let i = t.consecutive_failures ?? 0, a = Et(t.next_run_at), o = [i > 1 ? J("settings:followSchedule.consecutiveFailures", { count: i }) : "", a ? J("settings:followSchedule.nextRun", { time: a }) : ""].filter(Boolean).join(J("shell:format.clauseSeparator")), s = [
 		t.last_error,
 		o,
 		r.error ? J("settings:followSchedule.retryFailed", { error: G(r.error) }) : ""
@@ -4788,10 +4790,10 @@ function Os({ kind: e, status: t, title: n }) {
 	}) });
 }
 // src/react/settings/media-processing-settings.tsx
-function ks({ receipt: e }) {
+function As({ receipt: e }) {
 	let t = X({
-		queryKey: pe,
-		queryFn: ({ signal: e }) => pt(e)
+		queryKey: me,
+		queryFn: ({ signal: e }) => mt(e)
 	}), n = Y(), r = n.error || (t.error ? G(t.error) : ""), i = !t.data || t.isFetching || !!n.busy;
 	return /* @__PURE__ */ (0, Q.jsxs)(P, {
 		guide: "preview",
@@ -4804,12 +4806,12 @@ function ks({ receipt: e }) {
 					"aria-label": J("settings:videoPreviews.generate"),
 					isSelected: !!t.data && !t.data.metadata_only,
 					isDisabled: i,
-					onChange: (t) => void n.run("save", (e) => H(me, { metadata_only: !t }, "POST", e), (t) => {
-						Pt.setQueryData(pe, t), Pt.invalidateQueries({ queryKey: Be }), Pt.invalidateQueries({ queryKey: le }), e(t.metadata_only ? J("settings:videoPreview.turnedOff") : J("settings:videoPreview.turnedOn"));
+					onChange: (t) => void n.run("save", (e) => H(he, { metadata_only: !t }, "POST", e), (t) => {
+						Ft.setQueryData(me, t), Ft.invalidateQueries({ queryKey: Ve }), Ft.invalidateQueries({ queryKey: ue }), e(t.metadata_only ? J("settings:videoPreview.turnedOff") : J("settings:videoPreview.turnedOn"));
 					})
 				})
 			}) }),
-			/* @__PURE__ */ (0, Q.jsx)(ws, { disabled: !t.data || t.data.metadata_only || !!n.busy }),
+			/* @__PURE__ */ (0, Q.jsx)(Ts, { disabled: !t.data || t.data.metadata_only || !!n.busy }),
 			/* @__PURE__ */ (0, Q.jsx)(N, { children: /* @__PURE__ */ (0, Q.jsx)(L, {
 				label: J("settings:videoPreviews.decoder"),
 				description: J("settings:videoPreviews.decoderHelp"),
@@ -4820,8 +4822,8 @@ function ks({ receipt: e }) {
 						selectedKey: t.data?.preview_acceleration || "auto",
 						isDisabled: i || !!t.data?.metadata_only,
 						onSelectionChange: (t) => {
-							t !== null && n.run("preview_acceleration", (e) => H(me, { preview_acceleration: String(t) }, "POST", e), (t) => {
-								Pt.setQueryData(pe, t), e(J("settings:videoPreview.decodingSaved"));
+							t !== null && n.run("preview_acceleration", (e) => H(he, { preview_acceleration: String(t) }, "POST", e), (t) => {
+								Ft.setQueryData(me, t), e(J("settings:videoPreview.decodingSaved"));
 							});
 						},
 						children: [/* @__PURE__ */ (0, Q.jsx)(I, {
@@ -4836,7 +4838,7 @@ function ks({ receipt: e }) {
 			}) }),
 			n.busy ? /* @__PURE__ */ (0, Q.jsx)(R, {
 				divided: !0,
-				children: /* @__PURE__ */ (0, Q.jsx)(He, {
+				children: /* @__PURE__ */ (0, Q.jsx)(Ue, {
 					embedded: !0,
 					kind: "gather",
 					label: J("settings:shared.saving")
@@ -4849,16 +4851,16 @@ function ks({ receipt: e }) {
 		]
 	});
 }
-var As = [
+var js = [
 	0,
 	1080,
 	720,
 	480
 ];
-function js({ receipt: e }) {
+function Ms({ receipt: e }) {
 	let t = X({
-		queryKey: pe,
-		queryFn: ({ signal: e }) => pt(e)
+		queryKey: me,
+		queryFn: ({ signal: e }) => mt(e)
 	}), n = Y(), r = n.error || (t.error ? G(t.error) : ""), i = !t.data || t.isFetching || !!n.busy;
 	return /* @__PURE__ */ (0, Q.jsxs)(P, {
 		guide: "transcode",
@@ -4874,8 +4876,8 @@ function js({ receipt: e }) {
 						selectedKey: t.data?.playback_acceleration || "auto",
 						isDisabled: i,
 						onSelectionChange: (t) => {
-							t !== null && n.run("playback_acceleration", (e) => H(me, { playback_acceleration: String(t) }, "POST", e), (t) => {
-								Pt.setQueryData(pe, t), e(J("settings:playbackTranscode.saved"));
+							t !== null && n.run("playback_acceleration", (e) => H(he, { playback_acceleration: String(t) }, "POST", e), (t) => {
+								Ft.setQueryData(me, t), e(J("settings:playbackTranscode.saved"));
 							});
 						},
 						children: [/* @__PURE__ */ (0, Q.jsx)(I, {
@@ -4897,11 +4899,11 @@ function js({ receipt: e }) {
 						selectedKey: String(t.data?.playback_max_height ?? 0),
 						isDisabled: i,
 						onSelectionChange: (t) => {
-							t !== null && n.run("playback_max_height", (e) => H(me, { playback_max_height: Number(t) }, "POST", e), (t) => {
-								Pt.setQueryData(pe, t), e(J("settings:playbackTranscode.qualitySaved"));
+							t !== null && n.run("playback_max_height", (e) => H(he, { playback_max_height: Number(t) }, "POST", e), (t) => {
+								Ft.setQueryData(me, t), e(J("settings:playbackTranscode.qualitySaved"));
 							});
 						},
-						children: As.map((e) => /* @__PURE__ */ (0, Q.jsx)(I, {
+						children: js.map((e) => /* @__PURE__ */ (0, Q.jsx)(I, {
 							id: String(e),
 							children: e ? J("settings:transcoding.qualityHeight", { height: e }) : J("settings:transcoding.original")
 						}, e))
@@ -4910,7 +4912,7 @@ function js({ receipt: e }) {
 			})] }),
 			n.busy ? /* @__PURE__ */ (0, Q.jsx)(R, {
 				divided: !0,
-				children: /* @__PURE__ */ (0, Q.jsx)(He, {
+				children: /* @__PURE__ */ (0, Q.jsx)(Ue, {
 					embedded: !0,
 					kind: "gather",
 					label: J("settings:shared.saving")
@@ -4924,7 +4926,7 @@ function js({ receipt: e }) {
 	});
 }
 // src/react/boardui/components/base/textarea/textarea.tsx
-var Ms = qt({
+var Ns = Jt({
 	field: "relative flex w-full flex-col rounded-2lg bg-background-tertiary-default text-foreground-icon-tertiary ring-2 ring-inset ring-transparent transition-[background-color,box-shadow,color] duration-[var(--input-transition-ms)] ease",
 	fieldSize: {
 		medium: "p-2",
@@ -4937,9 +4939,9 @@ var Ms = qt({
 	},
 	footer: "flex w-full items-start justify-between gap-3",
 	count: "ms-auto shrink-0 pt-px text-caption-1-medium text-text-tertiary tabular-nums"
-}), Ns = 20;
-function Ps({ size: e, rows: n = 3, autoResize: r = !1, maxRows: a, resize: o = "vertical", fieldClassName: s, className: c, ref: l, groupRef: u, onInput: d, ...f }) {
-	let p = (0, Z.useContext)(We), m = e ?? p.size ?? "medium", h = (0, Z.useRef)(null), g = (e) => {
+}), Ps = 20;
+function Fs({ size: e, rows: n = 3, autoResize: r = !1, maxRows: a, resize: o = "vertical", fieldClassName: s, className: c, ref: l, groupRef: u, onInput: d, ...f }) {
+	let p = (0, Z.useContext)(Ge), m = e ?? p.size ?? "medium", h = (0, Z.useRef)(null), g = (e) => {
 		h.current = e, typeof l == "function" ? l(e) : l && (l.current = e);
 	}, _ = () => {
 		let e = h.current;
@@ -4948,14 +4950,14 @@ function Ps({ size: e, rows: n = 3, autoResize: r = !1, maxRows: a, resize: o = 
 			e.style.height = "", e.style.maxHeight = "", e.style.overflowY = "";
 			return;
 		}
-		let t = parseFloat(window.getComputedStyle(e).lineHeight) || Ns, i = a ? a * t : Infinity;
+		let t = parseFloat(window.getComputedStyle(e).lineHeight) || Ps, i = a ? a * t : Infinity;
 		e.style.height = "0px";
 		let o = Math.max(e.scrollHeight, n * t);
 		e.style.height = `${Math.min(o, i)}px`, e.style.maxHeight = a ? `${i}px` : "", e.style.overflowY = o > i ? "auto" : "hidden";
 	};
 	return (0, Z.useLayoutEffect)(_), /* @__PURE__ */ (0, Q.jsx)(t, {
 		ref: u,
-		className: ({ isFocusWithin: e, isHovered: t, isDisabled: n, isInvalid: r }) => st(Ms.field, Ms.fieldSize[m], t && !e && !n && !r && "ring-border-button-hover", e && !n && !r && "ring-border-button-active", n && "bg-input-disabled-background text-input-disabled-foreground", r && "bg-background-tertiary-error text-foreground-icon-error", p.fieldClassName, s),
+		className: ({ isFocusWithin: e, isHovered: t, isDisabled: n, isInvalid: r }) => ct(Ns.field, Ns.fieldSize[m], t && !e && !n && !r && "ring-border-button-hover", e && !n && !r && "ring-border-button-active", n && "bg-input-disabled-background text-input-disabled-foreground", r && "bg-background-tertiary-error text-foreground-icon-error", p.fieldClassName, s),
 		children: /* @__PURE__ */ (0, Q.jsx)(i, {
 			ref: g,
 			rows: n,
@@ -4963,14 +4965,14 @@ function Ps({ size: e, rows: n = 3, autoResize: r = !1, maxRows: a, resize: o = 
 			onInput: (e) => {
 				_(), d?.(e);
 			},
-			className: st(Ms.textarea, Ms.resize[r ? "none" : o], p.inputClassName, c)
+			className: ct(Ns.textarea, Ns.resize[r ? "none" : o], p.inputClassName, c)
 		})
 	});
 }
-Ps.displayName = "TextareaBase";
-function Fs({ label: e, hint: t, tooltip: n, placeholder: r, rows: i, autoResize: a, maxRows: o, resize: s, maxLength: c, showCount: l = !1, fieldClassName: u, ref: d, groupRef: f, className: p, value: m, defaultValue: h, onChange: g, ..._ }) {
+Fs.displayName = "TextareaBase";
+function Is({ label: e, hint: t, tooltip: n, placeholder: r, rows: i, autoResize: a, maxRows: o, resize: s, maxLength: c, showCount: l = !1, fieldClassName: u, ref: d, groupRef: f, className: p, value: m, defaultValue: h, onChange: g, ..._ }) {
 	let [v, y] = (0, Z.useState)(() => (h ?? "").length), b = m === void 0 ? v : m.length;
-	return /* @__PURE__ */ (0, Q.jsx)(Ue, {
+	return /* @__PURE__ */ (0, Q.jsx)(We, {
 		..._,
 		value: m,
 		defaultValue: h,
@@ -4980,13 +4982,13 @@ function Fs({ label: e, hint: t, tooltip: n, placeholder: r, rows: i, autoResize
 		className: p,
 		"aria-label": _["aria-label"] ?? (!e && typeof r == "string" ? r : void 0),
 		children: ({ isRequired: p, isInvalid: m }) => /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [
-			e && /* @__PURE__ */ (0, Q.jsx)(ue, {
+			e && /* @__PURE__ */ (0, Q.jsx)(de, {
 				isRequired: p,
 				isInvalid: m,
 				tooltip: n,
 				children: e
 			}),
-			/* @__PURE__ */ (0, Q.jsx)(Ps, {
+			/* @__PURE__ */ (0, Q.jsx)(Fs, {
 				ref: d,
 				groupRef: f,
 				placeholder: r,
@@ -4998,25 +5000,25 @@ function Fs({ label: e, hint: t, tooltip: n, placeholder: r, rows: i, autoResize
 				fieldClassName: u
 			}),
 			(t || l) && /* @__PURE__ */ (0, Q.jsxs)("div", {
-				className: Ms.footer,
+				className: Ns.footer,
 				children: [t && /* @__PURE__ */ (0, Q.jsx)(oe, {
 					isInvalid: m,
 					children: t
 				}), l && /* @__PURE__ */ (0, Q.jsx)("span", {
-					className: st(Ms.count, m && "text-text-error-primary"),
+					className: ct(Ns.count, m && "text-text-error-primary"),
 					children: c ? `${b}/${c}` : b
 				})]
 			})
 		] })
 	});
 }
-Fs.displayName = "Textarea";
+Is.displayName = "Textarea";
 // src/react/settings/code-pattern-settings.tsx
-var Is = "^\\+{3}\\s*(?<code>FC2-PPV-\\d+)\n\\[(?<code>[A-Z]+-\\d+)\\]";
-function Ls({ receipt: e }) {
+var Ls = "^\\+{3}\\s*(?<code>FC2-PPV-\\d+)\n\\[(?<code>[A-Z]+-\\d+)\\]";
+function Rs({ receipt: e }) {
 	let t = X({
-		queryKey: Ae,
-		queryFn: ({ signal: e }) => mt(e)
+		queryKey: je,
+		queryFn: ({ signal: e }) => ht(e)
 	}), [n, r] = (0, Z.useState)(null), i = Y(), a = n ?? (t.data?.codePatterns ?? []).join("\n"), o = i.error || (t.error ? G(t.error) : "");
 	return /* @__PURE__ */ (0, Q.jsxs)(P, {
 		guide: "codes",
@@ -5024,11 +5026,11 @@ function Ls({ receipt: e }) {
 		onSubmit: (t) => {
 			t.preventDefault();
 			let n = a.split("\n").map((e) => e.trim()).filter(Boolean);
-			i.run("save", (e) => H(je, { codePatterns: n }, "POST", e), (t) => {
-				Pt.setQueryData(Ae, t), r(null), e(J("settings:shared.settingsSaved"));
+			i.run("save", (e) => H(Me, { codePatterns: n }, "POST", e), (t) => {
+				Ft.setQueryData(je, t), r(null), e(J("settings:shared.settingsSaved"));
 			});
 		},
-		children: [/* @__PURE__ */ (0, Q.jsxs)(R, { children: [/* @__PURE__ */ (0, Q.jsx)(A, { children: J("settings:codePatterns.help") }), /* @__PURE__ */ (0, Q.jsx)(Fs, {
+		children: [/* @__PURE__ */ (0, Q.jsxs)(R, { children: [/* @__PURE__ */ (0, Q.jsx)(A, { children: J("settings:codePatterns.help") }), /* @__PURE__ */ (0, Q.jsx)(Is, {
 			id: "codePatternSetting",
 			"aria-label": J("settings:codePatterns.title"),
 			rows: 3,
@@ -5036,7 +5038,7 @@ function Ls({ receipt: e }) {
 			maxRows: 12,
 			spellCheck: "false",
 			autoComplete: "off",
-			placeholder: Is,
+			placeholder: Ls,
 			value: a,
 			isDisabled: !t.data,
 			isInvalid: !!o,
@@ -5050,7 +5052,7 @@ function Ls({ receipt: e }) {
 	});
 }
 // src/react/settings/password-pair.tsx
-function Rs({ label: e, password: t, confirmation: n, onPassword: r, onConfirmation: i, disabled: a = !1, passwordError: o, passwordHint: s, confirmationError: c, confirmationInvalid: l = !1 }) {
+function zs({ label: e, password: t, confirmation: n, onPassword: r, onConfirmation: i, disabled: a = !1, passwordError: o, passwordHint: s, confirmationError: c, confirmationInvalid: l = !1 }) {
 	return /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(j, {
 		id: "access-password",
 		type: "password",
@@ -5080,12 +5082,12 @@ function Rs({ label: e, password: t, confirmation: n, onPassword: r, onConfirmat
 	})] });
 }
 // src/react/settings/access-settings.tsx
-var zs = {
+var Bs = {
 	legacy: J("settings:accessPassword.legacyHelp"),
 	locked: J("settings:accessPassword.lockedHelp"),
 	password: J("settings:accessPassword.passwordHelp")
 };
-function Bs({ initial: e, receipt: t, devices: n, after: r, onSaved: i }) {
+function Vs({ initial: e, receipt: t, devices: n, after: r, onSaved: i }) {
 	let [a, o] = (0, Z.useState)(e), [s, c] = (0, Z.useState)(""), [l, u] = (0, Z.useState)(""), [p, m] = (0, Z.useState)(""), [h, g] = (0, Z.useState)(!1), [_, v] = (0, Z.useState)({}), y = (0, Z.useRef)(null), x = Y(), S = (e) => {
 		e.preventDefault();
 		let n = {};
@@ -5099,10 +5101,10 @@ function Bs({ initial: e, receipt: t, devices: n, after: r, onSaved: i }) {
 		}, "POST", e), (e) => {
 			o(e), c(""), u(""), m(""), g(!1), v({}), i?.(e), t(e.mode === "open" ? J("settings:accessPassword.turnedOff") : J("settings:shared.settingsSaved"));
 		}, (e) => {
-			let t = e instanceof d ? e.body : null, n = Ze(t) || Ze(t?.detail);
+			let t = e instanceof d ? e.body : null, n = Qe(t) || Qe(t?.detail);
 			n ? v(n) : x.setError(G(e));
 		});
-	}, C = zs[a.mode], ee = a.mode !== "locked";
+	}, C = Bs[a.mode], ee = a.mode !== "locked";
 	return /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [
 		/* @__PURE__ */ (0, Q.jsxs)(P, {
 			guide: "access",
@@ -5135,7 +5137,7 @@ function Bs({ initial: e, receipt: t, devices: n, after: r, onSaved: i }) {
 						isInvalid: !!_.current_password,
 						hint: _.current_password
 					}) : null,
-					ee && !h ? /* @__PURE__ */ (0, Q.jsx)(Rs, {
+					ee && !h ? /* @__PURE__ */ (0, Q.jsx)(zs, {
 						label: a.mode === "password" ? J("settings:accessPassword.new") : J("settings:accessPassword.set"),
 						password: l,
 						confirmation: p,
@@ -5163,13 +5165,13 @@ function Bs({ initial: e, receipt: t, devices: n, after: r, onSaved: i }) {
 	] });
 }
 // src/react/settings/api-token-settings.tsx
-var Vs = "/api/configuration/access/token/rotate";
-function Hs(e, t) {
+var Hs = "/api/configuration/access/token/rotate";
+function Us(e, t) {
 	let n = J("settings:accessToken.scriptsInvalidated"), r = J(e === "legacy" ? "settings:accessToken.rotateEffectLegacy" : e === "open" ? "settings:accessToken.rotateEffectOpen" : "settings:accessToken.rotateEffectPassword", { scripts: n });
 	return t ? J("settings:accessToken.rotateEffectPaired", { sentence: r }) : r;
 }
-function Us({ initial: e, mode: t, receipt: n }) {
-	let [r, i] = (0, Z.useState)(e), [a, o] = (0, Z.useState)(null), s = Y(), c = tn();
+function Ws({ initial: e, mode: t, receipt: n }) {
+	let [r, i] = (0, Z.useState)(e), [a, o] = (0, Z.useState)(null), s = Y(), c = nn();
 	return /* @__PURE__ */ (0, Q.jsxs)(P, {
 		title: J("settings:accessToken.title"),
 		children: [/* @__PURE__ */ (0, Q.jsxs)(R, { children: [
@@ -5213,12 +5215,12 @@ function Us({ initial: e, mode: t, receipt: n }) {
 			status: J("settings:accessToken.immediate"),
 			children: /* @__PURE__ */ (0, Q.jsx)(f, {
 				variant: "secondary",
-				onClick: () => void it({
+				onClick: () => void at({
 					title: J("settings:accessToken.rotateTitle"),
-					body: Hs(t, r.paired),
+					body: Us(t, r.paired),
 					confirmLabel: J("settings:accessToken.rotate"),
 					onConfirm: async () => {
-						let e = await H(Vs, {});
+						let e = await H(Hs, {});
 						i(e), o(e), e.mode === "legacy" && c.invalidateQueries({ queryKey: ["access-sessions"] }), n(e.signed_out ? J("settings:accessToken.rotatedSignedOut", { count: e.signed_out }) : J("settings:accessToken.rotated"));
 					}
 				}),
@@ -5228,7 +5230,7 @@ function Us({ initial: e, mode: t, receipt: n }) {
 	});
 }
 // src/react/settings/certificate-trust.tsx
-function Ws({ rows: e, label: t }) {
+function Gs({ rows: e, label: t }) {
 	let n = e.length + 8, r = e.flatMap((e, t) => [...e].flatMap((e, n) => e === "1" ? [`M${n + 4} ${t + 4}h1v1h-1z`] : [])).join("");
 	return /* @__PURE__ */ (0, Q.jsx)("svg", {
 		role: "img",
@@ -5242,12 +5244,12 @@ function Ws({ rows: e, label: t }) {
 		})
 	});
 }
-var Gs = [
+var Ks = [
 	[J("settings:certificateTrust.iosDevices"), J("settings:certificateTrust.iosSteps")],
 	["Android", J("settings:certificateTrust.androidSteps")],
 	[J("settings:certificateTrust.computer"), J("settings:certificateTrust.computerSteps")]
 ];
-function Ks({ initial: e }) {
+function qs({ initial: e }) {
 	let t = X({
 		queryKey: ["ca-certificate"],
 		initialData: e,
@@ -5265,7 +5267,7 @@ function Ks({ initial: e }) {
 		children: [
 			/* @__PURE__ */ (0, Q.jsxs)(R, { children: [/* @__PURE__ */ (0, Q.jsx)(A, { children: J("settings:certificateTrust.help") }), /* @__PURE__ */ (0, Q.jsxs)("div", {
 				className: "flex min-w-0 flex-wrap items-start gap-4",
-				children: [/* @__PURE__ */ (0, Q.jsx)(Ws, {
+				children: [/* @__PURE__ */ (0, Q.jsx)(Gs, {
 					rows: t.qr,
 					label: J("settings:certificateTrust.qrLabel")
 				}), /* @__PURE__ */ (0, Q.jsxs)("div", {
@@ -5285,7 +5287,7 @@ function Ks({ initial: e }) {
 					})] }), /* @__PURE__ */ (0, Q.jsx)(A, { children: J("settings:certificateTrust.qrHelp") })]
 				})]
 			})] }),
-			/* @__PURE__ */ (0, Q.jsx)(N, { children: Gs.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(L, {
+			/* @__PURE__ */ (0, Q.jsx)(N, { children: Ks.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(L, {
 				label: e,
 				description: t
 			}, e)) }),
@@ -5296,147 +5298,147 @@ function Ks({ initial: e }) {
 			/* @__PURE__ */ (0, Q.jsx)(k, { children: /* @__PURE__ */ (0, Q.jsx)(p, {
 				href: t.download,
 				download: "peach-local-ca.crt",
-				leadingIcon: cn,
+				leadingIcon: ln,
 				children: J("settings:certificateTrust.download")
 			}) })
 		]
 	});
 }
 // src/react/settings/device-sessions.tsx
-var qs = "/api/configuration/access/sessions", Js = (e) => e.device || J("settings:deviceSessions.unknownBrowser"), Ys = {
-	glyph: se,
+var Js = "/api/configuration/access/sessions", Ys = (e) => e.device || J("settings:deviceSessions.unknownBrowser"), Xs = {
+	glyph: ce,
 	brand: "apple"
-}, Xs = {
-	glyph: St,
-	brand: "android"
 }, Zs = {
+	glyph: Ct,
+	brand: "android"
+}, Qs = {
 	iPhone: {
-		platform: Ys,
-		terminal: qe
+		platform: Xs,
+		terminal: Je
 	},
 	iPad: {
-		platform: Ys,
+		platform: Xs,
 		terminal: ne
 	},
 	Android: {
-		platform: Xs,
-		terminal: qe
+		platform: Zs,
+		terminal: Je
 	},
 	"Android tablet": {
-		platform: Xs,
+		platform: Zs,
 		terminal: ne,
 		label: () => J("settings:deviceSessions.androidTablet")
 	},
 	ChromeOS: {
 		platform: { browser: "chrome" },
-		terminal: ln
+		terminal: un
 	},
 	Windows: {
 		platform: {
-			glyph: Ge,
+			glyph: Ke,
 			brand: "windows"
 		},
-		terminal: ln
+		terminal: un
 	},
 	macOS: {
-		platform: Ys,
-		terminal: ln
+		platform: Xs,
+		terminal: un
 	},
-	Linux: { terminal: ln }
-}, Qs = "inline size-4 -mt-0.5 mr-1 align-middle";
-function $s({ platform: e }) {
-	if ("browser" in e) return /* @__PURE__ */ (0, Q.jsx)(jr, {
+	Linux: { terminal: un }
+}, $s = "inline size-4 -mt-0.5 mr-1 align-middle";
+function ec({ platform: e }) {
+	if ("browser" in e) return /* @__PURE__ */ (0, Q.jsx)(Mr, {
 		name: e.browser,
-		className: Qs
+		className: $s
 	});
 	let { glyph: t, brand: n } = e;
 	return /* @__PURE__ */ (0, Q.jsx)(t, {
 		"aria-hidden": !0,
 		"data-platform-mark": n,
-		className: Qs
+		className: $s
 	});
 }
-function ec({ row: e }) {
-	if (!e.device) return Js(e);
-	let t = e.device.split(" · "), n = Zs[t.at(-1) ?? ""] ? t.pop() : "", r = t.join(" · "), i = n ? Zs[n].platform : void 0;
+function tc({ row: e }) {
+	if (!e.device) return Ys(e);
+	let t = e.device.split(" · "), n = Qs[t.at(-1) ?? ""] ? t.pop() : "", r = t.join(" · "), i = n ? Qs[n].platform : void 0;
 	return /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [
-		r ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [Mr(r) ? /* @__PURE__ */ (0, Q.jsx)(jr, {
+		r ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [Nr(r) ? /* @__PURE__ */ (0, Q.jsx)(Mr, {
 			name: r,
-			className: Qs
+			className: $s
 		}) : null, r] }) : null,
 		r && n ? " · " : null,
-		n ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [i ? /* @__PURE__ */ (0, Q.jsx)($s, { platform: i }) : null, Zs[n].label?.() ?? n] }) : null
+		n ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [i ? /* @__PURE__ */ (0, Q.jsx)(ec, { platform: i }) : null, Qs[n].label?.() ?? n] }) : null
 	] });
 }
-function tc({ row: e }) {
-	let t = Zs[e.device.split(" · ").at(-1) ?? ""]?.terminal ?? ct;
+function nc({ row: e }) {
+	let t = Qs[e.device.split(" · ").at(-1) ?? ""]?.terminal ?? lt;
 	return /* @__PURE__ */ (0, Q.jsx)(t, {
 		"aria-hidden": !0,
 		className: "size-5 shrink-0 text-foreground-icon-secondary"
 	});
 }
-function nc({ row: e, children: t }) {
+function rc({ row: e, children: t }) {
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
 		className: "flex min-h-13 w-full items-center justify-between gap-4 border-b border-separator-border py-2.5 pr-2.5 last:border-b-0",
 		children: [/* @__PURE__ */ (0, Q.jsxs)("div", {
 			className: "flex min-w-0 items-center gap-3",
-			children: [/* @__PURE__ */ (0, Q.jsx)(tc, { row: e }), /* @__PURE__ */ (0, Q.jsxs)("div", {
+			children: [/* @__PURE__ */ (0, Q.jsx)(nc, { row: e }), /* @__PURE__ */ (0, Q.jsxs)("div", {
 				className: "flex min-w-0 flex-col",
 				children: [/* @__PURE__ */ (0, Q.jsx)("p", {
 					className: "text-body-regular text-text-primary",
-					children: /* @__PURE__ */ (0, Q.jsx)(ec, { row: e })
+					children: /* @__PURE__ */ (0, Q.jsx)(tc, { row: e })
 				}), /* @__PURE__ */ (0, Q.jsx)("p", {
 					className: "text-body-2-regular text-text-secondary",
-					children: ac(e)
+					children: oc(e)
 				})]
 			})]
 		}), t]
 	});
 }
-function rc(e, t = Date.now() / 1e3) {
+function ic(e, t = Date.now() / 1e3) {
 	let n = Math.max(0, t - e);
-	return n < 60 ? J("settings:deviceSessions.justNow") : n < 3600 ? J("settings:deviceSessions.minutesAgo", { count: Math.floor(n / 60) }) : n < 86400 ? J("settings:deviceSessions.hoursAgo", { count: Math.floor(n / 3600) }) : n < 2592e3 ? J("settings:deviceSessions.daysAgo", { count: Math.floor(n / 86400) }) : (/* @__PURE__ */ new Date(e * 1e3)).toLocaleDateString(vt);
+	return n < 60 ? J("settings:deviceSessions.justNow") : n < 3600 ? J("settings:deviceSessions.minutesAgo", { count: Math.floor(n / 60) }) : n < 86400 ? J("settings:deviceSessions.hoursAgo", { count: Math.floor(n / 3600) }) : n < 2592e3 ? J("settings:deviceSessions.daysAgo", { count: Math.floor(n / 86400) }) : (/* @__PURE__ */ new Date(e * 1e3)).toLocaleDateString(yt);
 }
-function ic(e) {
+function ac(e) {
 	return e.network === "loopback" ? J("settings:deviceSessions.loopback") : e.network ? e.remote ? J("settings:deviceSessions.viaRemoteAccess", { network: e.network }) : e.network : "";
 }
-var ac = (e) => [J("settings:deviceSessions.lastActive", { time: rc(e.last_seen) }), ic(e)].filter(Boolean).join(" · ");
-function oc({ revision: e, receipt: t }) {
+var oc = (e) => [J("settings:deviceSessions.lastActive", { time: ic(e.last_seen) }), ac(e)].filter(Boolean).join(" · ");
+function sc({ revision: e, receipt: t }) {
 	let n = X({
 		queryKey: ["access-sessions", e],
 		refetchOnMount: "always",
-		queryFn: ({ signal: e }) => V(qs, e)
+		queryFn: ({ signal: e }) => V(Js, e)
 	});
 	return n.error ? /* @__PURE__ */ (0, Q.jsx)(P, {
 		title: J("settings:signedInDevices.title"),
 		children: /* @__PURE__ */ (0, Q.jsx)(R, { children: /* @__PURE__ */ (0, Q.jsx)(T, { children: G(n.error) }) })
-	}) : n.isFetching || !n.data ? /* @__PURE__ */ (0, Q.jsx)(Me, {
+	}) : n.isFetching || !n.data ? /* @__PURE__ */ (0, Q.jsx)(Ne, {
 		label: J("settings:deviceSessions.loading"),
-		html: lt
-	}) : /* @__PURE__ */ (0, Q.jsx)(sc, {
+		html: ut
+	}) : /* @__PURE__ */ (0, Q.jsx)(cc, {
 		initial: n.data,
 		receipt: t
 	});
 }
-function sc({ initial: e, receipt: t }) {
+function cc({ initial: e, receipt: t }) {
 	let [n, r] = (0, Z.useState)(e);
 	(0, Z.useEffect)(() => r(e), [e]);
 	let i = n.sessions.filter((e) => !e.current);
 	(0, Z.useEffect)(() => {
-		It("devices", {
+		Lt("devices", {
 			rows: Math.min(n.sessions.length, 8),
 			manageable: n.manageable && i.length > 0
 		});
 	}, [n, i.length]);
-	let a = (e) => void it({
+	let a = (e) => void at({
 		title: J("settings:deviceSessions.revokeTitle"),
 		body: J("settings:deviceSessions.revokeBody", {
-			device: Js(e),
-			details: ac(e)
+			device: Ys(e),
+			details: oc(e)
 		}),
 		confirmLabel: J("settings:deviceSessions.revokeConfirm"),
 		onConfirm: async () => {
-			r(await H(`${qs}/revoke`, {
+			r(await H(`${Js}/revoke`, {
 				revision: n.revision,
 				id: e.id
 			})), t(J("settings:deviceSessions.revoked"));
@@ -5445,7 +5447,7 @@ function sc({ initial: e, receipt: t }) {
 	return /* @__PURE__ */ (0, Q.jsxs)(P, {
 		title: J("settings:signedInDevices.title"),
 		children: [
-			n.sessions.length ? /* @__PURE__ */ (0, Q.jsx)(N, { children: n.sessions.map((e) => /* @__PURE__ */ (0, Q.jsx)(nc, {
+			n.sessions.length ? /* @__PURE__ */ (0, Q.jsx)(N, { children: n.sessions.map((e) => /* @__PURE__ */ (0, Q.jsx)(rc, {
 				row: e,
 				children: e.current ? /* @__PURE__ */ (0, Q.jsx)(x, {
 					color: "blue",
@@ -5454,7 +5456,7 @@ function sc({ initial: e, receipt: t }) {
 				}) : n.manageable ? /* @__PURE__ */ (0, Q.jsx)(f, {
 					size: "small",
 					variant: "secondary",
-					"aria-label": J("settings:deviceSessions.revokeDevice", { device: Js(e) }),
+					"aria-label": J("settings:deviceSessions.revokeDevice", { device: Ys(e) }),
 					onClick: () => a(e),
 					children: J("settings:deviceSessions.revoke")
 				}) : null
@@ -5467,12 +5469,12 @@ function sc({ initial: e, receipt: t }) {
 				status: J("settings:signedInDevices.passwordChangeNotice"),
 				children: /* @__PURE__ */ (0, Q.jsx)(f, {
 					variant: "secondary",
-					onClick: () => void it({
+					onClick: () => void at({
 						title: J("settings:deviceSessions.revokeOthersTitle"),
 						body: J("settings:deviceSessions.revokeOthersBody", { count: i.length }),
 						confirmLabel: J("settings:deviceSessions.revokeConfirm"),
 						onConfirm: async () => {
-							let e = await H(`${qs}/revoke`, {
+							let e = await H(`${Js}/revoke`, {
 								revision: n.revision,
 								scope: "others"
 							});
@@ -5486,18 +5488,18 @@ function sc({ initial: e, receipt: t }) {
 	});
 }
 // src/react/settings/port-settings.tsx
-var cc = [{
+var lc = [{
 	value: "0.0.0.0",
 	label: J("settings:accessAddress.lanDevices")
 }, {
 	value: "127.0.0.1",
 	label: J("settings:accessAddress.thisComputerOnly")
 }];
-function lc({ data: e, receipt: t }) {
+function uc({ data: e, receipt: t }) {
 	let n = e.network, r = n ? n.editable : e.editable && e.port_editable !== !1, [i, a] = (0, Z.useState)(n?.host ?? "127.0.0.1"), [o, s] = (0, Z.useState)(n?.mdns_name ?? "peach"), [c, l] = (0, Z.useState)(String(e.port)), [u, p] = (0, Z.useState)({}), [m, h] = (0, Z.useState)(null), g = Y();
 	return (0, Z.useEffect)(() => {
 		if (!m) return;
-		let e = setTimeout(() => location.assign(m.url), zo);
+		let e = setTimeout(() => location.assign(m.url), Bo);
 		return () => clearTimeout(e);
 	}, [m]), m ? /* @__PURE__ */ (0, Q.jsx)(P, {
 		guide: "port",
@@ -5505,7 +5507,7 @@ function lc({ data: e, receipt: t }) {
 		children: /* @__PURE__ */ (0, Q.jsx)(R, { children: /* @__PURE__ */ (0, Q.jsxs)(M, {
 			tone: "success",
 			title: J("settings:shared.configSaved"),
-			children: [J("settings:accessAddress.restarting"), /* @__PURE__ */ (0, Q.jsx)(de, {
+			children: [J("settings:accessAddress.restarting"), /* @__PURE__ */ (0, Q.jsx)(fe, {
 				href: m.url,
 				size: "small",
 				children: J("settings:accessAddress.backToNetwork")
@@ -5528,38 +5530,38 @@ function lc({ data: e, receipt: t }) {
 			}, "POST", t), (e) => {
 				h({ url: new URL("/settings/network", e.url).href }), t(J("settings:shared.settingsSaved"));
 			}, (e) => {
-				let t = e instanceof d && e.status === 400 ? Ze(e.body) : null;
+				let t = e instanceof d && e.status === 400 ? Qe(e.body) : null;
 				t && (t.port || t.host || t.mdns_name) ? p(t) : g.setError(G(e));
 			});
 		} : void 0,
 		children: [/* @__PURE__ */ (0, Q.jsxs)(R, { children: [
-			n ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(uc, {
+			n ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(dc, {
 				label: J("settings:accessAddress.localUrl"),
 				value: n.local_url,
 				receipt: t
 			}), n.lan_url || n.ip_url ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [
-				/* @__PURE__ */ (0, Q.jsx)(uc, {
+				/* @__PURE__ */ (0, Q.jsx)(dc, {
 					label: J("settings:accessAddress.phoneUrl"),
 					value: n.lan_url || n.ip_url,
 					receipt: t
 				}),
-				n.lan_url && n.ip_url ? /* @__PURE__ */ (0, Q.jsx)(uc, {
+				n.lan_url && n.ip_url ? /* @__PURE__ */ (0, Q.jsx)(dc, {
 					label: J("settings:accessAddress.alternateIp"),
 					value: n.ip_url,
 					receipt: t
 				}) : null,
 				/* @__PURE__ */ (0, Q.jsxs)(A, { children: [J("settings:accessAddress.sameWifi"), n.ip_url && n.lan_url ? J("settings:accessAddress.tryIp") : ""] })
 			] }) : /* @__PURE__ */ (0, Q.jsx)(A, { children: n.scope === "local" ? J("settings:accessAddress.localOnly") : J("settings:accessAddress.lanUnavailable") })] }) : null,
-			r ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [n?.editable ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(Ya, {
+			r ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [n?.editable ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(Xa, {
 				id: "configHost",
 				label: J("settings:accessAddress.whoCanConnect"),
 				value: i,
 				onChange: a,
-				options: cc,
+				options: lc,
 				isDisabled: !!g.busy,
 				isInvalid: !!u.host,
 				children: u.host ? /* @__PURE__ */ (0, Q.jsx)(T, { children: u.host }) : null
-			}), i === "0.0.0.0" ? /* @__PURE__ */ (0, Q.jsx)(Xa, {
+			}), i === "0.0.0.0" ? /* @__PURE__ */ (0, Q.jsx)(Za, {
 				id: "configMdnsName",
 				label: J("settings:accessUrls.lanUrl"),
 				value: o,
@@ -5573,7 +5575,7 @@ function lc({ data: e, receipt: t }) {
 				validationBehavior: "aria",
 				isInvalid: !!u.mdns_name,
 				hint: u.mdns_name || void 0
-			}) : null] }) : null, /* @__PURE__ */ (0, Q.jsx)(Xa, {
+			}) : null] }) : null, /* @__PURE__ */ (0, Q.jsx)(Za, {
 				id: "configPort",
 				label: J("settings:accessUrls.port"),
 				prefix: "localhost:",
@@ -5601,7 +5603,7 @@ function lc({ data: e, receipt: t }) {
 		}) : null]
 	});
 }
-function uc({ label: e, value: t, receipt: n }) {
+function dc({ label: e, value: t, receipt: n }) {
 	let r = Y();
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
 		className: "flex min-w-0 flex-col gap-2",
@@ -5626,12 +5628,12 @@ function uc({ label: e, value: t, receipt: n }) {
 	});
 }
 // src/react/settings/peach-proxy-fields.tsx
-var dc = [
+var fc = [
 	["environment", J("settings:peachProxy.environment")],
 	["direct", J("settings:cloudProxy.direct")],
 	["proxy", J("settings:shared.custom")]
 ];
-function fc({ mode: e, onChange: t, labelledBy: n }) {
+function pc({ mode: e, onChange: t, labelledBy: n }) {
 	return /* @__PURE__ */ (0, Q.jsx)(F, {
 		"aria-label": n ? void 0 : J("settings:peachProxy.mode"),
 		"aria-labelledby": n,
@@ -5639,13 +5641,13 @@ function fc({ mode: e, onChange: t, labelledBy: n }) {
 		onSelectionChange: (e) => {
 			e !== null && t(String(e));
 		},
-		children: dc.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(I, {
+		children: fc.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(I, {
 			id: e,
 			children: t
 		}, e))
 	});
 }
-function pc({ id: e, value: t, onChange: n, saved: r = !1, error: i }) {
+function mc({ id: e, value: t, onChange: n, saved: r = !1, error: i }) {
 	return /* @__PURE__ */ (0, Q.jsx)(j, {
 		id: e,
 		type: "password",
@@ -5661,11 +5663,11 @@ function pc({ id: e, value: t, onChange: n, saved: r = !1, error: i }) {
 	});
 }
 // src/react/settings/tunnel-settings.tsx
-var mc = 2e3, hc = 3e5, gc = [["quick", J("settings:cloudflareTunnel.quick")], ["named", J("settings:cloudflareTunnel.named")]], _c = {
+var hc = 2e3, gc = 3e5, _c = [["quick", J("settings:cloudflareTunnel.quick")], ["named", J("settings:cloudflareTunnel.named")]], vc = {
 	quick: J("settings:remoteAccess.quickHelp"),
 	named: J("settings:remoteAccess.namedHelp")
 };
-function vc({ revision: e, initial: t, receipt: n, blocked: r = !1 }) {
+function yc({ revision: e, initial: t, receipt: n, blocked: r = !1 }) {
 	let [i, a] = (0, Z.useState)(t);
 	(0, Z.useEffect)(() => {
 		r && a((e) => e.state === "stopped" ? e : {
@@ -5679,13 +5681,13 @@ function vc({ revision: e, initial: t, receipt: n, blocked: r = !1 }) {
 	(0, Z.useEffect)(() => {
 		if (i.state !== "starting") return;
 		let e = new AbortController();
-		return At({
+		return jt({
 			signal: e.signal,
-			everyMs: mc,
-			limitMs: hc,
-			read: (e) => ut(e),
+			everyMs: hc,
+			limitMs: gc,
+			read: (e) => dt(e),
 			apply: (e) => {
-				e.tunnel && (Pt.setQueryData(g, e), a(e.tunnel), s(e.revision));
+				e.tunnel && (Ft.setQueryData(g, e), a(e.tunnel), s(e.revision));
 			},
 			done: (e) => !!e.tunnel && e.tunnel.state !== "starting"
 		}), () => e.abort();
@@ -5700,7 +5702,7 @@ function vc({ revision: e, initial: t, receipt: n, blocked: r = !1 }) {
 		}, "POST", e), (e) => {
 			a(e), s(e.revision), u(e.mode), m(e.hostname), _(""), n(e);
 		}, (e) => {
-			let t = e instanceof d ? e.body : null, n = Ze(t) || Ze(t?.detail);
+			let t = e instanceof d ? e.body : null, n = Qe(t) || Qe(t?.detail);
 			n ? y(n) : b.setError(G(e));
 		});
 	};
@@ -5716,19 +5718,19 @@ function vc({ revision: e, initial: t, receipt: n, blocked: r = !1 }) {
 			children: i.error ? J("settings:cloudflareTunnel.connectionFailed") : i.state === "running" ? J("settings:shared.running") : i.state === "starting" ? J("settings:cloudflareTunnel.connectingStatus") : J("settings:shared.stopped")
 		}),
 		children: [/* @__PURE__ */ (0, Q.jsxs)(R, { children: [
-			i.named_available ? /* @__PURE__ */ (0, Q.jsx)(Ne, {
+			i.named_available ? /* @__PURE__ */ (0, Q.jsx)(Pe, {
 				"aria-label": J("settings:cloudflareTunnel.modeLabel"),
 				value: l,
 				isDisabled: x || r,
 				onChange: (e) => u(e),
-				className: ke,
-				children: gc.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(c, {
+				className: Ae,
+				children: _c.map(([e, t]) => /* @__PURE__ */ (0, Q.jsx)(c, {
 					value: e,
-					className: Oe,
+					className: ke,
 					children: t
 				}, e))
 			}) : null,
-			/* @__PURE__ */ (0, Q.jsx)(A, { children: _c[S ? "named" : "quick"] }),
+			/* @__PURE__ */ (0, Q.jsx)(A, { children: vc[S ? "named" : "quick"] }),
 			S ? /* @__PURE__ */ (0, Q.jsxs)(Q.Fragment, { children: [/* @__PURE__ */ (0, Q.jsx)(j, {
 				id: "tunnel-hostname",
 				label: J("settings:remoteAccess.hostname"),
@@ -5786,45 +5788,45 @@ function vc({ revision: e, initial: t, receipt: n, blocked: r = !1 }) {
 	});
 }
 // src/react/settings/network-settings.tsx
-function yc({ data: e, receipt: t, panel: n, issues: r }) {
+function bc({ data: e, receipt: t, panel: n, issues: r }) {
 	let [i, a] = (0, Z.useState)(e.access?.mode), o = i === "open" || i === "locked";
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
-		...Fr(n),
+		...Ir(n),
 		children: [
 			r,
-			e.network || e.editable && e.port_editable !== !1 && !e.section_errors?.media_sources ? /* @__PURE__ */ (0, Q.jsx)(lc, {
+			e.network || e.editable && e.port_editable !== !1 && !e.section_errors?.media_sources ? /* @__PURE__ */ (0, Q.jsx)(uc, {
 				data: e,
 				receipt: t
 			}) : null,
-			e.access ? /* @__PURE__ */ (0, Q.jsx)(Bs, {
+			e.access ? /* @__PURE__ */ (0, Q.jsx)(Vs, {
 				initial: e.access,
 				receipt: t,
 				onSaved: (e) => a(e.mode),
-				devices: (e) => /* @__PURE__ */ (0, Q.jsx)(oc, {
+				devices: (e) => /* @__PURE__ */ (0, Q.jsx)(sc, {
 					revision: e.revision,
 					receipt: t
 				}),
-				after: e.api_token ? (n) => /* @__PURE__ */ (0, Q.jsx)(Us, {
+				after: e.api_token ? (n) => /* @__PURE__ */ (0, Q.jsx)(Ws, {
 					initial: e.api_token,
 					mode: n.mode,
 					receipt: t
 				}) : void 0
 			}) : null,
-			e.certificate ? /* @__PURE__ */ (0, Q.jsx)(Ks, { initial: e.certificate }) : null,
-			e.tunnel ? /* @__PURE__ */ (0, Q.jsx)(vc, {
+			e.certificate ? /* @__PURE__ */ (0, Q.jsx)(qs, { initial: e.certificate }) : null,
+			e.tunnel ? /* @__PURE__ */ (0, Q.jsx)(yc, {
 				revision: e.revision,
 				initial: e.tunnel,
 				receipt: t,
 				blocked: o
 			}) : null,
-			e.peach_proxy ? /* @__PURE__ */ (0, Q.jsx)(bc, {
+			e.peach_proxy ? /* @__PURE__ */ (0, Q.jsx)(xc, {
 				initial: e.peach_proxy,
 				receipt: t
 			}) : null
 		]
 	});
 }
-function bc({ initial: e, receipt: t }) {
+function xc({ initial: e, receipt: t }) {
 	let [n, r] = (0, Z.useState)(e), [i, a] = (0, Z.useState)(e.mode), [o, s] = (0, Z.useState)(""), c = Y();
 	return /* @__PURE__ */ (0, Q.jsxs)(P, {
 		id: "peachProxy",
@@ -5842,7 +5844,7 @@ function bc({ initial: e, receipt: t }) {
 			/* @__PURE__ */ (0, Q.jsx)(N, { children: /* @__PURE__ */ (0, Q.jsx)(L, {
 				label: J("settings:peachProxy.mode"),
 				description: J("settings:peachProxy.modeHelp"),
-				children: /* @__PURE__ */ (0, Q.jsx)(fc, {
+				children: /* @__PURE__ */ (0, Q.jsx)(pc, {
 					mode: i,
 					onChange: a
 				})
@@ -5850,7 +5852,7 @@ function bc({ initial: e, receipt: t }) {
 			i === "proxy" || n.needs_selection || c.error ? /* @__PURE__ */ (0, Q.jsxs)(R, {
 				divided: !0,
 				children: [
-					i === "proxy" ? /* @__PURE__ */ (0, Q.jsx)(pc, {
+					i === "proxy" ? /* @__PURE__ */ (0, Q.jsx)(mc, {
 						id: "peachProxyAddress",
 						value: o,
 						onChange: s,
@@ -5873,12 +5875,12 @@ function bc({ initial: e, receipt: t }) {
 	});
 }
 // src/react/follow-manage/credentials.tsx
-var xc = J("follow:sourceCredentials.clearBody"), Sc = J("follow:sourceCredentials.worldReadable");
-function Cc(e, t) {
+var Sc = J("follow:sourceCredentials.clearBody"), Cc = J("follow:sourceCredentials.worldReadable");
+function wc(e, t) {
 	return (e.shared_fields || []).includes(t) ? J("follow:sourceCredentials.fromSharedHint") : e.fields.includes(t) ? J("follow:sourceCredentials.savedHint") : J("follow:sourceCredentials.notSet");
 }
-function wc({ row: e }) {
-	if (at(e)) return /* @__PURE__ */ (0, Q.jsx)(x, {
+function Tc({ row: e }) {
+	if (ot(e)) return /* @__PURE__ */ (0, Q.jsx)(x, {
 		variant: "caption",
 		color: "lime",
 		children: J("follow:sourceCredentials.configured")
@@ -5890,11 +5892,11 @@ function wc({ row: e }) {
 		children: y[e.requirement] || ""
 	});
 }
-function Tc({ row: e, readOnly: t, toast: n }) {
-	let [r, i] = (0, Z.useState)({}), [a, o] = (0, Z.useState)(""), s = at(e), c = $t({
-		mutationFn: (t) => Bt(e.provider, t),
+function Ec({ row: e, readOnly: t, toast: n }) {
+	let [r, i] = (0, Z.useState)({}), [a, o] = (0, Z.useState)(""), s = ot(e), c = en({
+		mutationFn: (t) => Vt(e.provider, t),
 		onSuccess: (e, t) => {
-			e.note ? o(q(e.note_code ?? "", e.note)) : (o(""), i({}), Pt.invalidateQueries({
+			e.note ? o(q(e.note_code ?? "", e.note)) : (o(""), i({}), Ft.invalidateQueries({
 				queryKey: D,
 				exact: !0
 			}), n(Object.keys(t).length ? J("follow:sourceCredentials.saved") : J("follow:sourceCredentials.cleared")));
@@ -5917,7 +5919,7 @@ function Tc({ row: e, readOnly: t, toast: n }) {
 				children: (e.needs || []).map((n) => /* @__PURE__ */ (0, Q.jsx)(j, {
 					type: "password",
 					label: n,
-					placeholder: Cc(e, n),
+					placeholder: wc(e, n),
 					autoComplete: "off",
 					spellCheck: "false",
 					isDisabled: t,
@@ -5935,11 +5937,12 @@ function Tc({ row: e, readOnly: t, toast: n }) {
 					variant: "danger",
 					disabled: t,
 					...U(c.isPending),
-					onClick: () => void it({
+					onClick: () => void at({
 						title: J("follow:sourceCredentials.clearTitle"),
-						body: xc,
+						body: Sc,
 						confirmLabel: J("follow:sourceCredentials.clearTitle"),
 						danger: !0,
+						holdToConfirm: !0,
 						onConfirm: () => c.mutateAsync({})
 					}),
 					children: J("follow:shared.clear")
@@ -5954,11 +5957,11 @@ function Tc({ row: e, readOnly: t, toast: n }) {
 			a ? /* @__PURE__ */ (0, Q.jsx)(T, { children: a }) : null,
 			(e.shared_fields || []).length ? /* @__PURE__ */ (0, Q.jsx)(A, { children: J("follow:sourceCredentials.sharedFieldsHint", {
 				count: e.shared_fields.length,
-				fields: xt(e.shared_fields)
+				fields: St(e.shared_fields)
 			}) }) : null,
 			e.path ? /* @__PURE__ */ (0, Q.jsx)(C, {
 				summary: J("follow:sourceCredentials.credentialsFile"),
-				children: /* @__PURE__ */ (0, Q.jsx)(Se, {
+				children: /* @__PURE__ */ (0, Q.jsx)(Ce, {
 					path: e.path,
 					className: "font-mono text-caption-1-regular text-text-tertiary",
 					onRevealed: n
@@ -5967,19 +5970,19 @@ function Tc({ row: e, readOnly: t, toast: n }) {
 		]
 	});
 }
-function Ec({ row: e, readOnly: t, toast: n }) {
+function Dc({ row: e, readOnly: t, toast: n }) {
 	let r = /* @__PURE__ */ (0, Q.jsxs)("span", {
 		className: "flex min-w-0 flex-wrap items-center gap-2",
 		children: [
 			/* @__PURE__ */ (0, Q.jsx)("span", {
 				className: "inline-flex size-3.5 shrink-0 items-center justify-center",
-				children: /* @__PURE__ */ (0, Q.jsx)(Nr, { provider: e.provider })
+				children: /* @__PURE__ */ (0, Q.jsx)(Pr, { provider: e.provider })
 			}),
 			/* @__PURE__ */ (0, Q.jsx)("b", {
 				className: "min-w-0 text-body-medium wrap-anywhere text-text-primary",
 				children: e.provider_label
 			}),
-			/* @__PURE__ */ (0, Q.jsx)(wc, { row: e }),
+			/* @__PURE__ */ (0, Q.jsx)(Tc, { row: e }),
 			e.missing.map((e) => /* @__PURE__ */ (0, Q.jsx)(x, {
 				variant: "caption",
 				color: "rose",
@@ -5995,9 +5998,9 @@ function Ec({ row: e, readOnly: t, toast: n }) {
 		children: [
 			r,
 			/* @__PURE__ */ (0, Q.jsx)(C, {
-				summary: at(e) ? J("follow:sourceCredentials.editCredentials") : J("follow:sourceCredentials.enterCredentials"),
-				defaultOpen: e.requirement === "required" && !at(e),
-				children: /* @__PURE__ */ (0, Q.jsx)(Tc, {
+				summary: ot(e) ? J("follow:sourceCredentials.editCredentials") : J("follow:sourceCredentials.enterCredentials"),
+				defaultOpen: e.requirement === "required" && !ot(e),
+				children: /* @__PURE__ */ (0, Q.jsx)(Ec, {
 					row: e,
 					readOnly: t,
 					toast: n
@@ -6006,18 +6009,18 @@ function Ec({ row: e, readOnly: t, toast: n }) {
 			e.world_readable ? /* @__PURE__ */ (0, Q.jsx)(M, {
 				tone: "error",
 				title: J("follow:sourceCredentials.permissionsTooOpen"),
-				children: Sc
+				children: Cc
 			}) : null
 		]
 	});
 }
-function Dc({ data: e, readOnly: t, toast: n, embedded: r = !1 }) {
-	let i = e.providers || [], a = i.filter((e) => e.requirement === "required" && !at(e));
+function Oc({ data: e, readOnly: t, toast: n, embedded: r = !1 }) {
+	let i = e.providers || [], a = i.filter((e) => e.requirement === "required" && !ot(e));
 	if ((0, Z.useEffect)(() => {
-		It("credentials", { done: i.filter(at).map((e) => e.provider) });
+		Lt("credentials", { done: i.filter(ot).map((e) => e.provider) });
 	}, [e]), !i.length) return /* @__PURE__ */ (0, Q.jsx)(w, {
 		size: "compact",
-		icon: rt,
+		icon: it,
 		title: J("follow:sourceCredentials.emptyTitle"),
 		children: J("follow:sourceCredentials.emptyHint")
 	});
@@ -6044,12 +6047,12 @@ function Dc({ data: e, readOnly: t, toast: n, embedded: r = !1 }) {
 			className: "text-body-medium text-text-secondary",
 			children: e.title
 		}), /* @__PURE__ */ (0, Q.jsx)("div", {
-			className: $e({
+			className: et({
 				variant: "outlined",
 				padding: "none",
 				className: "flex flex-col overflow-hidden"
 			}),
-			children: e.rows.map((e) => /* @__PURE__ */ (0, Q.jsx)(Ec, {
+			children: e.rows.map((e) => /* @__PURE__ */ (0, Q.jsx)(Dc, {
 				row: e,
 				readOnly: t,
 				toast: n
@@ -6065,7 +6068,7 @@ function Dc({ data: e, readOnly: t, toast: n, embedded: r = !1 }) {
 			children: s
 		}) })
 	}) : /* @__PURE__ */ (0, Q.jsxs)("div", {
-		className: $e({
+		className: et({
 			padding: "none",
 			className: "flex flex-col gap-4 px-6 py-5 max-sm:px-4"
 		}),
@@ -6079,7 +6082,7 @@ function Dc({ data: e, readOnly: t, toast: n, embedded: r = !1 }) {
 	});
 }
 // src/react/settings/entry-links-settings.tsx
-function Oc({ initial: e, receipt: t }) {
+function kc({ initial: e, receipt: t }) {
 	let [n, r] = (0, Z.useState)(e.sites), i = Y(), a = (e, t) => r((n) => n.map((n) => n.key === e ? {
 		...n,
 		host: t
@@ -6098,7 +6101,7 @@ function Oc({ initial: e, receipt: t }) {
 			/* @__PURE__ */ (0, Q.jsx)(A, { children: ee }),
 			n.map((e) => /* @__PURE__ */ (0, Q.jsx)(j, {
 				id: `entry-link-${e.key}`,
-				label: /* @__PURE__ */ (0, Q.jsx)(Ie, {
+				label: /* @__PURE__ */ (0, Q.jsx)(Le, {
 					site: e.key,
 					label: J("settings:entryLinks.siteAddress", { site: e.label })
 				}),
@@ -6119,31 +6122,31 @@ function Oc({ initial: e, receipt: t }) {
 	});
 }
 // src/react/settings/indexer-settings.tsx
-var kc = "/api/configuration/indexers";
-function Ac({ receipt: e }) {
+var Ac = "/api/configuration/indexers";
+function jc({ receipt: e }) {
 	let t = X({
 		queryKey: ["indexers"],
-		queryFn: ({ signal: e }) => V(kc, e),
+		queryFn: ({ signal: e }) => V(Ac, e),
 		refetchOnMount: "always"
 	});
-	return t.error ? /* @__PURE__ */ (0, Q.jsx)(T, { children: G(t.error) }) : t.isFetching ? /* @__PURE__ */ (0, Q.jsx)(Me, {
+	return t.error ? /* @__PURE__ */ (0, Q.jsx)(T, { children: G(t.error) }) : t.isFetching ? /* @__PURE__ */ (0, Q.jsx)(Ne, {
 		label: J("settings:indexers.loading"),
-		html: _t
-	}) : t.data ? /* @__PURE__ */ (0, Q.jsx)(Nc, {
+		html: vt
+	}) : t.data ? /* @__PURE__ */ (0, Q.jsx)(Pc, {
 		initial: t.data,
 		receipt: e
 	}) : null;
 }
-function jc(e) {
+function Mc(e) {
 	try {
 		return new globalThis.URL(e).host;
 	} catch {
 		return e;
 	}
 }
-function Mc({ row: e, index: t }) {
+function Nc({ row: e, index: t }) {
 	let n = [
-		e.url ? jc(e.url) : J("settings:indexers.noUrl"),
+		e.url ? Mc(e.url) : J("settings:indexers.noUrl"),
 		e.enabled ? J("settings:shared.enabled") : J("settings:shared.disabled"),
 		e.api_key_set && !e.clear_api_key ? J("settings:indexers.apiKeySaved") : e.api_key ? J("settings:indexers.apiKeyUnsaved") : J("settings:indexers.noApiKey")
 	];
@@ -6158,10 +6161,10 @@ function Mc({ row: e, index: t }) {
 		})]
 	});
 }
-function Nc({ initial: e, receipt: t }) {
+function Pc({ initial: e, receipt: t }) {
 	let [n, r] = (0, Z.useState)(e.indexers), i = Y();
 	(0, Z.useEffect)(() => {
-		It("indexers", { open: e.indexers.map((e) => !e.url) });
+		Lt("indexers", { open: e.indexers.map((e) => !e.url) });
 	}, [e]);
 	let a = (e, t) => r((n) => n.map((n) => n.key === e ? {
 		...n,
@@ -6171,7 +6174,7 @@ function Nc({ initial: e, receipt: t }) {
 		guide: "indexers",
 		title: J("settings:indexers.title"),
 		onSubmit: (e) => {
-			e.preventDefault(), i.run("save", (e) => H(kc, { indexers: n }, "POST", e), (e) => {
+			e.preventDefault(), i.run("save", (e) => H(Ac, { indexers: n }, "POST", e), (e) => {
 				r(e.indexers), t(J("settings:indexers.saved"));
 			});
 		},
@@ -6191,7 +6194,7 @@ function Nc({ initial: e, receipt: t }) {
 				className: "min-w-0 border-t border-separator-border pt-2",
 				children: /* @__PURE__ */ (0, Q.jsx)(C, {
 					defaultOpen: !e.url,
-					summary: /* @__PURE__ */ (0, Q.jsx)(Mc, {
+					summary: /* @__PURE__ */ (0, Q.jsx)(Nc, {
 						row: e,
 						index: t
 					}),
@@ -6241,7 +6244,7 @@ function Nc({ initial: e, receipt: t }) {
 										onChange: (t) => a(e.key, { clear_api_key: t }),
 										children: J("settings:indexers.clearApiKey")
 									}) : null,
-									/* @__PURE__ */ (0, Q.jsx)(f, {
+									/* @__PURE__ */ (0, Q.jsx)(se, {
 										variant: "danger",
 										type: "button",
 										size: "small",
@@ -6261,7 +6264,7 @@ function Nc({ initial: e, receipt: t }) {
 			type: "button",
 			disabled: !!i.busy || n.length >= e.max_indexers,
 			onClick: () => r([...n, {
-				key: Ft(),
+				key: It(),
 				name: "",
 				url: "",
 				enabled: !0,
@@ -6276,25 +6279,25 @@ function Nc({ initial: e, receipt: t }) {
 	});
 }
 // src/react/settings/want-search-settings.tsx
-var Pc = [
+var Fc = [
 	1,
 	3,
 	7,
 	14,
 	30
-], Fc = [
+], Ic = [
 	1,
 	3,
 	5,
 	10,
 	0
-], Ic = (e) => e === 1 ? J("settings:wantSearch.daily") : J("settings:wantSearch.everyDays", { count: e }), Lc = (e) => e === 0 ? J("settings:wantSearch.never") : J("settings:wantSearch.attempts", { count: e });
-function Rc({ receipt: e }) {
+], Lc = (e) => e === 1 ? J("settings:wantSearch.daily") : J("settings:wantSearch.everyDays", { count: e }), Rc = (e) => e === 0 ? J("settings:wantSearch.never") : J("settings:wantSearch.attempts", { count: e });
+function zc({ receipt: e }) {
 	let t = X({
-		queryKey: Ae,
-		queryFn: ({ signal: e }) => mt(e),
+		queryKey: je,
+		queryFn: ({ signal: e }) => ht(e),
 		refetchOnMount: "always"
-	}), n = on("want-search"), r = !t.data || n.isPending, i = (t) => n.mutate(t, { onSuccess: () => e(J("settings:shared.settingsSaved")) }), a = n.error || t.error;
+	}), n = sn("want-search"), r = !t.data || n.isPending, i = (t) => n.mutate(t, { onSuccess: () => e(J("settings:shared.settingsSaved")) }), a = n.error || t.error;
 	return /* @__PURE__ */ (0, Q.jsxs)(P, {
 		title: J("settings:wantSearch.title"),
 		children: [/* @__PURE__ */ (0, Q.jsxs)(N, { children: [/* @__PURE__ */ (0, Q.jsx)(L, {
@@ -6310,9 +6313,9 @@ function Rc({ receipt: e }) {
 					onSelectionChange: (e) => {
 						e !== null && i({ wantStaleSearchDays: Number(e) });
 					},
-					children: Pc.map((e) => /* @__PURE__ */ (0, Q.jsx)(I, {
+					children: Fc.map((e) => /* @__PURE__ */ (0, Q.jsx)(I, {
 						id: String(e),
-						children: Ic(e)
+						children: Lc(e)
 					}, e))
 				})
 			})
@@ -6329,9 +6332,9 @@ function Rc({ receipt: e }) {
 					onSelectionChange: (e) => {
 						e !== null && i({ wantStaleAttemptLimit: Number(e) });
 					},
-					children: Fc.map((e) => /* @__PURE__ */ (0, Q.jsx)(I, {
+					children: Ic.map((e) => /* @__PURE__ */ (0, Q.jsx)(I, {
 						id: String(e),
-						children: Lc(e)
+						children: Rc(e)
 					}, e))
 				})
 			})
@@ -6342,15 +6345,15 @@ function Rc({ receipt: e }) {
 	});
 }
 // src/react/settings/source-settings.tsx
-function zc({ data: e, receipt: t, panel: n, issues: r }) {
+function Bc({ data: e, receipt: t, panel: n, issues: r }) {
 	let i = X({
 		queryKey: D,
-		queryFn: ({ signal: e }) => dt(e),
+		queryFn: ({ signal: e }) => ft(e),
 		enabled: n?.active !== !1,
 		refetchOnMount: "always"
 	});
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
-		...Fr(n),
+		...Ir(n),
 		children: [
 			r,
 			/* @__PURE__ */ (0, Q.jsx)("div", {
@@ -6361,7 +6364,7 @@ function zc({ data: e, receipt: t, panel: n, issues: r }) {
 					children: J("settings:sourceSettings.sourcesLink")
 				})
 			}),
-			i.data ? /* @__PURE__ */ (0, Q.jsx)(Dc, {
+			i.data ? /* @__PURE__ */ (0, Q.jsx)(Oc, {
 				data: i.data,
 				readOnly: !!e.ledger_read_only,
 				toast: t,
@@ -6370,14 +6373,14 @@ function zc({ data: e, receipt: t, panel: n, issues: r }) {
 				tone: "error",
 				title: J("settings:sourceSettings.credentialsFailed"),
 				children: G(i.error)
-			}) : n?.active === !1 ? null : /* @__PURE__ */ (0, Q.jsx)(Me, {
+			}) : n?.active === !1 ? null : /* @__PURE__ */ (0, Q.jsx)(Ne, {
 				label: J("settings:sourceSettings.loadingCredentials"),
-				html: ot
+				html: st
 			}),
-			/* @__PURE__ */ (0, Q.jsx)(Ts, { receipt: t }),
-			/* @__PURE__ */ (0, Q.jsx)(Rc, { receipt: t }),
-			/* @__PURE__ */ (0, Q.jsx)(Ac, { receipt: t }),
-			e.entry_links ? /* @__PURE__ */ (0, Q.jsx)(Oc, {
+			/* @__PURE__ */ (0, Q.jsx)(Es, { receipt: t }),
+			/* @__PURE__ */ (0, Q.jsx)(zc, { receipt: t }),
+			/* @__PURE__ */ (0, Q.jsx)(jc, { receipt: t }),
+			e.entry_links ? /* @__PURE__ */ (0, Q.jsx)(kc, {
 				initial: e.entry_links,
 				receipt: t
 			}) : null
@@ -6385,7 +6388,7 @@ function zc({ data: e, receipt: t, panel: n, issues: r }) {
 	});
 }
 // src/react/settings/configuration-shape.ts
-function Bc(e) {
+function Vc(e) {
 	let t = e.downloads;
 	if (!t) return null;
 	let n = t.media_sources ?? [];
@@ -6398,7 +6401,7 @@ function Bc(e) {
 		browserLogin: t.pikpak_browser.available
 	};
 }
-function Vc(e) {
+function Hc(e) {
 	let t = e.tunnel;
 	return {
 		port: !!(e.editable && e.port_editable !== !1),
@@ -6412,7 +6415,7 @@ function Vc(e) {
 		tunnelNote: !!(t && (!t.available || t.state === "starting" || t.state === "running" && t.url))
 	};
 }
-function Hc(e) {
+function Uc(e) {
 	let t = e.updates, n = e.update_job?.state ?? "idle", r = !t || t.state === "unchecked" && !t.checked_at && n === "idle", i = +!!t?.package_kind + (r ? 0 : +!!t?.checked_at + (t?.state === "unchecked" ? 0 : 1) + (n === "idle" ? 0 : 1)), a = e.automatic_updates, o = e.storage;
 	return {
 		releaseFacts: t?.package_kind ? 5 : 4,
@@ -6433,12 +6436,12 @@ function Hc(e) {
 	};
 }
 // src/react/settings/configuration-page.tsx
-function Uc({ receipt: e, reopenTutorial: t, section: n = "", diagnostics: r }) {
+function Wc({ receipt: e, reopenTutorial: t, section: n = "", diagnostics: r }) {
 	let i = X({
 		queryKey: g,
-		queryFn: ({ signal: e }) => ut(e)
+		queryFn: ({ signal: e }) => dt(e)
 	}), a = i.data;
-	return a ? /* @__PURE__ */ (0, Q.jsx)(Kc, {
+	return a ? /* @__PURE__ */ (0, Q.jsx)(qc, {
 		data: a,
 		receipt: e,
 		reopenTutorial: t,
@@ -6457,7 +6460,7 @@ function Uc({ receipt: e, reopenTutorial: t, section: n = "", diagnostics: r }) 
 		})
 	});
 }
-function Wc({ data: e, sections: t, reload: n, refreshing: r }) {
+function Gc({ data: e, sections: t, reload: n, refreshing: r }) {
 	return /* @__PURE__ */ (0, Q.jsx)(Q.Fragment, { children: t.map((t) => {
 		let i = e.section_errors?.[t];
 		return i ? /* @__PURE__ */ (0, Q.jsx)(M, {
@@ -6474,14 +6477,14 @@ function Wc({ data: e, sections: t, reload: n, refreshing: r }) {
 		}, t) : null;
 	}) });
 }
-var Gc = 0;
-function Kc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i, reload: a, refreshing: o }) {
-	let [s] = (0, Z.useState)(() => `board-tabs-${++Gc}`), [c, l] = (0, Z.useState)(r), u = (0, Z.useRef)(null), d = (0, Z.useRef)(c);
+var Kc = 0;
+function qc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i, reload: a, refreshing: o }) {
+	let [s] = (0, Z.useState)(() => `board-tabs-${++Kc}`), [c, l] = (0, Z.useState)(r), u = (0, Z.useRef)(null), d = (0, Z.useRef)(c);
 	(0, Z.useEffect)(() => {
 		l(r);
 	}, [r]), (0, Z.useEffect)(() => {
-		let t = Bc(e);
-		t && It("downloads", t), It("network", Vc(e)), It("maintenance", Hc(e));
+		let t = Vc(e);
+		t && Lt("downloads", t), Lt("network", Hc(e)), Lt("maintenance", Uc(e));
 	}, [e]), (0, Z.useLayoutEffect)(() => {
 		if (d.current === c) return;
 		d.current = c;
@@ -6493,9 +6496,9 @@ function Kc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 		window.scrollTo(0, Math.max(0, window.scrollY + t.getBoundingClientRect().top - r));
 	}, [c]);
 	let f = (e) => {
-		l(e), Kt(Gt(e), {
+		l(e), qt(Kt(e), {
 			replace: !0,
-			state: Ot.navigation.location.state
+			state: kt.navigation.location.state
 		});
 	}, [p, m] = (0, Z.useState)(() => matchMedia("(max-width:900px)").matches);
 	(0, Z.useEffect)(() => {
@@ -6505,7 +6508,7 @@ function Kc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 	let h = {
 		data: e,
 		receipt: t
-	}, g = (t) => /* @__PURE__ */ (0, Q.jsx)(Wc, {
+	}, g = (t) => /* @__PURE__ */ (0, Q.jsx)(Gc, {
 		data: e,
 		sections: t,
 		reload: a,
@@ -6521,24 +6524,24 @@ function Kc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 			id: "library",
 			title: _.library,
 			body: (n) => /* @__PURE__ */ (0, Q.jsxs)("div", {
-				...Fr(n),
+				...Ir(n),
 				children: [
 					g([
 						"media_sources",
 						"library_count",
 						"mount_dependencies"
 					]),
-					!e.section_errors?.media_sources && !e.section_errors?.library_count ? /* @__PURE__ */ (0, Q.jsx)(vs, { ...h }) : null,
-					/* @__PURE__ */ (0, Q.jsx)(Ls, { receipt: t }),
-					/* @__PURE__ */ (0, Q.jsx)(ks, { receipt: t }),
-					/* @__PURE__ */ (0, Q.jsx)(Cs, { receipt: t })
+					!e.section_errors?.media_sources && !e.section_errors?.library_count ? /* @__PURE__ */ (0, Q.jsx)(ys, { ...h }) : null,
+					/* @__PURE__ */ (0, Q.jsx)(Rs, { receipt: t }),
+					/* @__PURE__ */ (0, Q.jsx)(As, { receipt: t }),
+					/* @__PURE__ */ (0, Q.jsx)(ws, { receipt: t })
 				]
 			})
 		},
 		{
 			id: "sources",
 			title: _.subscriptions,
-			body: (e) => /* @__PURE__ */ (0, Q.jsx)(zc, {
+			body: (e) => /* @__PURE__ */ (0, Q.jsx)(Bc, {
 				...h,
 				panel: e,
 				issues: g(["entry_links"])
@@ -6547,7 +6550,7 @@ function Kc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 		...b || e.section_errors?.downloads ? [{
 			id: "downloads",
 			title: _.downloads,
-			body: (e) => /* @__PURE__ */ (0, Q.jsx)($r, {
+			body: (e) => /* @__PURE__ */ (0, Q.jsx)(ei, {
 				initial: b,
 				receipt: t,
 				panel: e,
@@ -6557,7 +6560,7 @@ function Kc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 		...y ? [{
 			id: "network",
 			title: _.network,
-			body: (e) => /* @__PURE__ */ (0, Q.jsx)(yc, {
+			body: (e) => /* @__PURE__ */ (0, Q.jsx)(bc, {
 				...h,
 				panel: e,
 				issues: g(v)
@@ -6567,7 +6570,7 @@ function Kc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 			id: "maintenance",
 			title: _.maintenance,
 			body: (e) => /* @__PURE__ */ (0, Q.jsxs)("div", {
-				...Fr(e),
+				...Ir(e),
 				children: [
 					g([
 						"startup",
@@ -6580,9 +6583,9 @@ function Kc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 						"automatic_updates",
 						"facts"
 					]),
-					/* @__PURE__ */ (0, Q.jsx)(Lo, { ...h }),
-					/* @__PURE__ */ (0, Q.jsx)(js, { receipt: t }),
-					/* @__PURE__ */ (0, Q.jsx)(ho, {
+					/* @__PURE__ */ (0, Q.jsx)(Ro, { ...h }),
+					/* @__PURE__ */ (0, Q.jsx)(Ms, { receipt: t }),
+					/* @__PURE__ */ (0, Q.jsx)(go, {
 						...h,
 						reopenTutorial: n
 					})
@@ -6593,18 +6596,18 @@ function Kc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 			id: "diagnostics",
 			title: _.diagnostics,
 			body: (e) => /* @__PURE__ */ (0, Q.jsx)("div", {
-				...Fr(e),
+				...Ir(e),
 				children: e.active ? i : null
 			})
 		}
-	], S = Math.max(0, x.findIndex((e) => e.title === Ht(c)));
+	], S = Math.max(0, x.findIndex((e) => e.title === Ut(c)));
 	return /* @__PURE__ */ (0, Q.jsxs)("div", {
 		ref: u,
 		className: "ui-configpage",
 		children: [/* @__PURE__ */ (0, Q.jsx)("div", {
 			className: "ui-board-local-nav",
 			"data-section-nav": "",
-			children: /* @__PURE__ */ (0, Q.jsx)(Le, {
+			children: /* @__PURE__ */ (0, Q.jsx)(Re, {
 				group: "configuration",
 				label: J("settings:configurationPage.sectionsLabel"),
 				value: x[S].id,
@@ -6629,6 +6632,6 @@ function Kc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 		})] }, t))]
 	});
 }
-export { Uc as ConfigurationPage };
+export { Wc as ConfigurationPage };
 
-//# debugId=8845f7fc-109d-48dc-bf3c-caaf3c9e3be4
+//# debugId=be044ad3-1548-4fe1-811d-9904a82a5f26

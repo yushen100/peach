@@ -371,7 +371,7 @@ export function paintCatalogCount(nextTotal,n){
 
 export function emptyTrash(){
   const count=selectionState.trashCount?.total??0;
-  return confirmModal({title:tr('shell:trash.empty'),body:confirmBody(tr('shell:trash.emptyConfirm',{count}),'irreversible'),confirmLabel:tr('shell:trash.empty'),danger:true,onConfirm:async()=>{
+  return confirmModal({title:tr('shell:trash.empty'),body:confirmBody(tr('shell:trash.emptyConfirm',{count}),'irreversible'),confirmLabel:tr('shell:trash.empty'),danger:true,holdToConfirm:true,onConfirm:async()=>{
     try{
       const r=await api('/api/trash/empty',{method:'POST'});
       /* 删不掉的文件（占用中、网盘离线）会连同数据库行一起留在回收站，必须说出来，

@@ -398,6 +398,7 @@ function SourceList(
                   if (remove.isPending) return;
                   void confirmModal({
                     title: t('manage:taste.removeSource'), body: REMOVE_BODY, confirmLabel: t('manage:taste.removeSource'),
+                    holdToConfirm: true,
                     onConfirm: () => remove.mutateAsync(source.source_key),
                   });
                 }} />

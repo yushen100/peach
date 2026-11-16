@@ -1019,6 +1019,7 @@
       "nothingToDelete": "No videos to delete"
     },
     "entityBatch": {
+      "previewStale": "Profiles or library files have changed. Close this dialog and choose the deletion scope again",
       "selectionInvalid": "Select valid items",
       "selectionChanged": "The selection changed. Refresh and try again",
       "operationInvalid": "This bulk action isn't supported"

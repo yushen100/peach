@@ -109,6 +109,8 @@ export interface EntityPageActions {
   setPhotoLayout(layout: string): void;
   /** 站内跳转，走遗留路由的同一个入口。 */
   openEntity(kind: string, name: string, replace?: boolean): void;
+  /** 删除当前档案后返回同类名册。 */
+  openIndex(): void;
   /** 这一页是不是 JAV 语境（按第一页作品的 `is_jav` 推）：壳的排序项、侧栏取数与卡片版式都读它。 */
   javContext(on: boolean): void;
   /** 换了视图或换了一批内容：壳重算吸顶，顶栏的大小图键按是不是照片墙（`wall`：照片视图，或在线

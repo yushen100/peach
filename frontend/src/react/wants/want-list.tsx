@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { RiStarLine, RiExternalLinkLine, RiDeleteBinLine } from '@remixicon/react';
 
 import { Button, ButtonLink } from '@/components/base/buttons/button';
+import { HoldButton } from '../components/hold-button';
 import { Checkbox } from '@/components/base/checkbox/checkbox';
 import { Input } from '@/components/base/input/input';
 
@@ -89,8 +90,8 @@ function WantRow({ want, readOnly, busy, onReset, onRemove, onCloudDownload, dow
         {want.scrape_error ? <ErrorLine text={want.scrape_error} prefix={t('catalog:wants.metadataNotFound')} tone="muted" /> : null}
         <div className="mt-1 flex flex-wrap items-center gap-2">
           {source ? <ButtonLink data-button-link="" variant="secondary" size="small" trailingIcon={RiExternalLinkLine} href={source} target="_blank" rel="noopener noreferrer">{t('catalog:wants.sourcePage')}</ButtonLink> : null}
-          <Button variant="secondary" size="small" leadingIcon={RiDeleteBinLine} disabled={readOnly} {...busyProps(busy === `remove:${want.id}`)}
-            onClick={onRemove}>{t('catalog:shared.remove')}</Button>
+          <HoldButton variant="secondary" size="small" leadingIcon={RiDeleteBinLine} disabled={readOnly} {...busyProps(busy === `remove:${want.id}`)}
+            onClick={onRemove}>{t('catalog:shared.remove')}</HoldButton>
           {want.phase === 'given_up' ? (
             <Button variant="secondary" size="small" disabled={readOnly} {...busyProps(busy === `reset:${want.id}`)}
               onClick={onReset}>{t('catalog:wants.searchAgain')}</Button>
@@ -204,7 +205,7 @@ export function WantList({ readOnly, toast, query = '', clearQuery }: WantListPr
   const allPicked = items.length > 0 && chosen.length === items.length;
   const host = { receipt: toast };
   const removeMany: BulkAction<Want> = {
-    key: 'remove', label: t('catalog:shared.remove'), reversal: 'undo', danger: true,
+    key: 'remove', label: t('catalog:shared.remove'), reversal: 'undo', danger: true, holdToConfirm: true,
     confirm: (rows) => ({ title: t('catalog:wants.removeMany'), body: t('catalog:wants.removeManyBody', { count: rows.length }) }),
     run: async (rows) => {
       const { previous } = await removeWants(rows.map((want) => want.id));
