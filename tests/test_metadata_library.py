@@ -1089,6 +1089,12 @@ class LibraryNfoTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             read_nfo(path)
 
+    def test_unescaped_ampersand_in_nfo_tolerated(self):
+        path = self.root / 'unescaped.nfo'
+        path.write_text('<movie><title>Test &amp; Demo</title><plot>A & B</plot></movie>', encoding='utf-8')
+        payload, _ = read_nfo(path)
+        self.assertEqual(payload['title'], 'Test & Demo')
+
     def test_art_cannot_escape_media_directory(self):
         folder = self.root / 'film'
         folder.mkdir()

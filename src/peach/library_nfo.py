@@ -101,7 +101,11 @@ def read_nfo(path: Path):
     declarations = raw.replace(b'\x00', b'').upper()
     if len(raw) > 1024 * 1024 or b'<!DOCTYPE' in declarations or b'<!ENTITY' in declarations:
         raise UserValueError('errors.libraryNfo.tooLargeOrEntities')
-    root = ET.fromstring(raw)
+    try:
+        root = ET.fromstring(raw)
+    except ET.ParseError:
+        sanitized = re.sub(rb'&(?!(?:amp|lt|gt|apos|quot|#\d+|#x[0-9a-fA-F]+);)', b'&amp;', raw)
+        root = ET.fromstring(sanitized)
     if root.tag not in {'movie', 'episodedetails', 'musicvideo'}:
         raise UserValueError('errors.libraryNfo.notVideo')
     def text(*keys):
