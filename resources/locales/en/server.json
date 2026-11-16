@@ -305,7 +305,11 @@
       "tag-vocabulary": "Retired tags",
       "feed-bluray-duplicates": "Duplicate Blu-ray releases",
       "want-image-acquired": "Wants marked acquired by a cover",
-      "download-text-codes": "Cloud download notes"
+      "download-text-codes": "Cloud download notes",
+      "unconfirmed-fc2-cast": "Unverified cast on FC2 titles",
+      "descriptive-performers": "Descriptions saved as performers",
+      "code-folder-creators": "Code folders as creators",
+      "case-duplicates": "Same file listed twice"
     },
     "items": {
       "catalog": {
@@ -387,6 +391,22 @@
       "download-text": {
         "title": "Cloud download notes",
         "summary": "Notes on older cloud downloads show in your interface language."
+      },
+      "unconfirmed-fc2-cast": {
+        "title": "Unverified cast on FC2 titles",
+        "summary": "Performers JavDB added to FC2 titles without a confirmed identity are removed and go back to Review."
+      },
+      "descriptive-performers": {
+        "title": "Descriptions saved as performers",
+        "summary": "Performers named after a title description, such as a height or a headcount, are removed."
+      },
+      "code-folder-creators": {
+        "title": "Code folders as creators",
+        "summary": "Creators made from release code or site post folders are removed; codes go to the full video."
+      },
+      "case-duplicates": {
+        "title": "Same file listed twice",
+        "summary": "Rows for the same file whose paths differ only in letter case are merged, keeping your records."
       }
     }
   },
@@ -793,6 +813,7 @@
       "qrExpired": "The QR code has expired. Scan it again from Settings.",
       "relocateBusy": "A migration request is already being processed.",
       "relocateRejected": "Can't move data to this location.",
+      "repairUnknown": "There is no repair named {{item}}.",
       "restoreConfirmRequired": "Restoring replaces the current database. Confirm first.",
       "retentionBusy": "Retention settings are being saved. Try again shortly.",
       "serverManagedByLaunch": "Access scope and name are managed by the service startup configuration.",

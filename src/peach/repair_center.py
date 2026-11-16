@@ -23,6 +23,7 @@ ITEMS = (
     ('garbled-people', 'auto'), ('dangling-candidates', 'auto'), ('javdb-entries', 'auto'),
     ('resolution-tags', 'auto'), ('video-medium', 'auto'), ('quality-bands', 'auto'), ('interface-text', 'auto'),
     *((rule.item, 'auto') for rule in legacy_repairs.RULES), ('follow-evidence', 'confirm'),
+    *((rule.item, 'confirm') for rule in legacy_repairs.CONFIRMS),
 )
 #: 历史里的规则：账本行 id 的前缀、计哪个字段（`None` 为资料整理的改动合计）。
 #: 前缀去掉末尾的连字符就是规则 id，名字在 `server:repairCenter.history.<id>`。
@@ -38,7 +39,7 @@ RULES = (
     ('video-medium-', ('video',)),
     ('quality-resolution-', ('assets',)),
     ('interface-text-codes-', ('rows', 'attempts')),
-    *((rule.prefix, ('changed',)) for rule in legacy_repairs.RULES),
+    *((rule.prefix, ('changed',)) for rule in (*legacy_repairs.RULES, *legacy_repairs.CONFIRMS)),
     (follow_evidence.RECEIPT_PREFIX, ('files',)),
 )
 #: 资料整理回执里不算「改动」的计数：重新探测、转人工与来源快照失效只是排队或让缓存重取，不是改了资料。
@@ -163,8 +164,16 @@ def _display_cloud(pending: int, included: bool, done: int, total: int) -> dict:
             **({'done': done, 'total': total} if total else {})}
 
 
+def _confirmed(rows, prefix: str, pending: int) -> dict:
+    """等确认的存量修正：还有要改的就等确认（`pending` 是几处），没有了报上一次改了几处。"""
+    last = _receipt_fact(rows, prefix, 'changed')
+    if pending:
+        return {'state': 'waiting', 'pending': pending, 'changed': last['changed'], 'backed_up': True}
+    return last
+
+
 def snapshot(connection, receipt: dict, *, cloud_pending: int, backup_directories=(),
-             follow_evidence_status: dict | None = None) -> dict:
+             follow_evidence_status: dict | None = None, confirm_pending: dict | None = None) -> dict:
     rows = sorted(((row[0], float(row[1] or 0), json.loads(row[2] or '{}')) for row in connection.execute(
         'SELECT id, applied_at, result_json FROM ledger_upgrade_repair')), key=lambda row: row[1], reverse=True)
     local = receipt.get('local', {})
@@ -192,6 +201,8 @@ def snapshot(connection, receipt: dict, *, cloud_pending: int, backup_directorie
         'interface-text': _receipt_fact(rows, 'interface-text-codes-', 'rows', 'attempts'),
         'follow-evidence': _follow_evidence(follow_evidence_status, rows),
         **{rule.item: _receipt_fact(rows, rule.prefix, 'changed') for rule in legacy_repairs.RULES},
+        **{rule.item: _confirmed(rows, rule.prefix, (confirm_pending or {}).get(rule.item, 0))
+           for rule in legacy_repairs.CONFIRMS},
     }
     items = [{'id': key, 'title': interface_text.text(f'server:repairCenter.items.{key}.title'),
               'summary': interface_text.text(f'server:repairCenter.items.{key}.summary'), 'mode': mode, **facts[key]}

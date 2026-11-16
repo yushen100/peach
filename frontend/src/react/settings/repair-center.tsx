@@ -47,6 +47,7 @@ function reading(item: RepairItem) {
   if (item.state === 'failed' && item.error) return item.error;
   // 行里只写体积，手机宽度下才不挤说明列；文件数在确认弹层里点名。
   if (item.files) return t('settings:repairCenter.reclaimable', { size: fmtSize(item.bytes || 0) });
+  if (item.state === 'waiting' && item.backed_up) return t('settings:repairCenter.pendingFixes', { count: item.pending || 0 });
   if (item.state === 'waiting') return item.pending ? t('settings:repairCenter.pendingRecheck', { count: item.pending }) : '';
   if (progressing(item)) return '';
   if (item.total) return `${number(item.done)} / ${number(item.total)}`;
@@ -88,7 +89,14 @@ export function RepairCenterPage() {
   const update = (next: RepairCenterData) => queryClient.setQueryData(REPAIRS_KEY, next);
   const post = async (item: RepairItem, signal?: AbortSignal) => localizeRepairs(await apiSend<RepairCenterData>(
     `/api/configuration/repairs/${item.id}`, {}, 'POST', signal));
-  const start = (item: RepairItem) => item.files === undefined
+  const start = (item: RepairItem) => item.backed_up
+    ? void confirmModal({
+      title: t('settings:repairCenter.applyTitle', { title: item.title }),
+      body: t('settings:repairCenter.applyBody', { count: item.pending || 0 }),
+      confirmLabel: t('settings:shared.start'),
+      onConfirm: async () => update(await post(item)),
+    })
+    : item.files === undefined
     ? void action.run(item.id, signal => post(item, signal), update)
     : void confirmModal({
       title: t('settings:repairCenter.deleteTitle', { title: item.title }),

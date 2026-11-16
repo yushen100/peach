@@ -9,6 +9,8 @@ export interface RepairItem {
   state: string; changed?: number; done?: number; total?: number; pending?: number;
   /** 删除类确认项：能回收的文件数与字节数；`estimating` 为还在后台统计。 */
   files?: number; bytes?: number; estimating?: boolean; error?: string;
+  /** 改账本的确认项：确认前先说明会先备份账本，`pending` 是还剩几处要改。 */
+  backed_up?: boolean;
 }
 /** `rule` 是修复规则的 id，按它取译文；`id` 是这一次执行的记录号。 */
 export interface RepairHistory { id: string; rule: string; title: string; at: number; changed: number; backups: { name: string; exists: boolean }[] }

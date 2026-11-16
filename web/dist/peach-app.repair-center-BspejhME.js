@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "f766b37a-6a9c-420f-8056-bbae3fd9490f", e._sentryDebugIdIdentifier = "sentry-dbid-f766b37a-6a9c-420f-8056-bbae3fd9490f");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "7bdf989a-91ae-4a5e-8d5e-ebc6e1aeebd7", e._sentryDebugIdIdentifier = "sentry-dbid-7bdf989a-91ae-4a5e-8d5e-ebc6e1aeebd7");
 	} catch {}
 })();
 import { Button as e, LinkButton as t, Note as n, Progress as r, REPAIRS_KEY as i, RESULT_PANEL as a, RESULT_SECTION as o, SectionHeading as s, StatusLabel as c, apiSend as l, confirmModal as u, fetchRepairs as d, fmtSize as f, i2 as p, interfaceLanguage as m, localizeRepairs as h, queryClient as g, repairCenterPanelSkeleton as _, require_jsx_runtime as v, t as y, useAction as b, useQuery as x, withBackoff as S } from "./peach-app.js";
@@ -27,7 +27,7 @@ var w = v(), T = {
 	size: f(e.bytes || 0)
 }), k = (e) => e.state === "running" && !!e.total, A = (e) => !!e.estimating || e.state === "running", j = S((e) => e?.items.some(A) ? 2e3 : !1);
 function M(e) {
-	return e.estimating ? y("settings:repairCenter.estimating") : e.state === "failed" && e.error ? e.error : e.files ? y("settings:repairCenter.reclaimable", { size: f(e.bytes || 0) }) : e.state === "waiting" ? e.pending ? y("settings:repairCenter.pendingRecheck", { count: e.pending }) : "" : k(e) ? "" : e.total ? `${E(e.done)} / ${E(e.total)}` : e.mode === "confirm" ? "" : e.changed ? y("settings:repairCenter.changedCount", { count: e.changed }) : "";
+	return e.estimating ? y("settings:repairCenter.estimating") : e.state === "failed" && e.error ? e.error : e.files ? y("settings:repairCenter.reclaimable", { size: f(e.bytes || 0) }) : e.state === "waiting" && e.backed_up ? y("settings:repairCenter.pendingFixes", { count: e.pending || 0 }) : e.state === "waiting" ? e.pending ? y("settings:repairCenter.pendingRecheck", { count: e.pending }) : "" : k(e) ? "" : e.total ? `${E(e.done)} / ${E(e.total)}` : e.mode === "confirm" ? "" : e.changed ? y("settings:repairCenter.changedCount", { count: e.changed }) : "";
 }
 function N({ title: e, description: t, progress: n, children: r }) {
 	return /* @__PURE__ */ (0, w.jsxs)("div", {
@@ -79,7 +79,12 @@ function F() {
 		queryKey: i,
 		queryFn: ({ signal: e }) => d(e),
 		refetchInterval: j
-	}), o = r.data, f = b(), m = (e) => g.setQueryData(i, e), v = async (e, t) => h(await l(`/api/configuration/repairs/${e.id}`, {}, "POST", t)), S = (e) => e.files === void 0 ? void f.run(e.id, (t) => v(e, t), m) : void u({
+	}), o = r.data, f = b(), m = (e) => g.setQueryData(i, e), v = async (e, t) => h(await l(`/api/configuration/repairs/${e.id}`, {}, "POST", t)), S = (e) => e.backed_up ? void u({
+		title: y("settings:repairCenter.applyTitle", { title: e.title }),
+		body: y("settings:repairCenter.applyBody", { count: e.pending || 0 }),
+		confirmLabel: y("settings:shared.start"),
+		onConfirm: async () => m(await v(e))
+	}) : e.files === void 0 ? void f.run(e.id, (t) => v(e, t), m) : void u({
 		title: y("settings:repairCenter.deleteTitle", { title: e.title }),
 		body: y("settings:repairCenter.deleteBody", { amount: O(e) }),
 		confirmLabel: y("settings:repairCenter.deleteSnapshots"),
@@ -157,4 +162,4 @@ function F() {
 }
 export { F as RepairCenterPage, j as repairsInterval };
 
-//# debugId=f766b37a-6a9c-420f-8056-bbae3fd9490f
+//# debugId=7bdf989a-91ae-4a5e-8d5e-ebc6e1aeebd7

@@ -1110,6 +1110,29 @@ class UpgradeRepairs:
                 continue
             LOGGER.info('Legacy repair %s: changed %s', rule.key, result.get('changed', 0))
 
+    def apply_confirmed(self, item: str) -> dict:
+        """用户在「修复与迁移」确认的存量修正（`legacy_repairs.CONFIRMS`）：备份账本，在一个写事务里重算、
+        改写，回执 id 是 `<前缀><时刻>`。返回回执；没有要改的返回 `{'changed': 0}` 且不写回执。"""
+        from . import legacy_repairs
+        rule = legacy_repairs.confirm_rule(item)
+        if rule is None:
+            raise UserValueError('api.configuration.repairUnknown', {'item': item})
+        with self.contract.database.read_connection() as connection:
+            if not rule.find(connection, self.contract):
+                return {'changed': 0}
+        backup = self.contract.db_path.with_name(f'ledger.pre-{rule.prefix}{time.time_ns()}.db')
+        sqlite_backup(self.contract.db_path, backup)
+        with self.contract.database.write_transaction() as connection:
+            found = rule.find(connection, self.contract)
+            result = rule.fix(connection, found, self.contract) if found else {'changed': 0}
+            if found:
+                result['backup'] = str(backup)
+                connection.execute('INSERT INTO ledger_upgrade_repair(id,applied_at,result_json) VALUES(?,?,?)',
+                                   (f'{rule.prefix}{time.time_ns()}', str(time.time()),
+                                    json.dumps(result, ensure_ascii=False, default=str)))
+        LOGGER.info('Confirmed repair %s: changed %s', item, result.get('changed', 0))
+        return result
+
     def _prepare_display_dimensions(self) -> None:
         from . import display_dimensions_repair
         key = display_dimensions_repair.RECEIPT_KEY

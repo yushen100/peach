@@ -305,7 +305,11 @@
       "tag-vocabulary": "退役标签",
       "feed-bluray-duplicates": "重复的蓝光版",
       "want-image-acquired": "被封面标成已到手的想要",
-      "download-text-codes": "云下载说明"
+      "download-text-codes": "云下载说明",
+      "unconfirmed-fc2-cast": "FC2 作品上未核实的演员",
+      "descriptive-performers": "建成女优的描述称呼",
+      "code-folder-creators": "当成创作者的番号目录",
+      "case-duplicates": "同一文件登记了两次"
     },
     "items": {
       "catalog": {
@@ -387,6 +391,22 @@
       "download-text": {
         "title": "云下载说明",
         "summary": "旧云下载记录的说明按界面语言显示。"
+      },
+      "unconfirmed-fc2-cast": {
+        "title": "FC2 作品上未核实的演员",
+        "summary": "JavDB 给 FC2 作品自动填入、身份没有核实的演员解除关联，回到复核。"
+      },
+      "descriptive-performers": {
+        "title": "建成女优的描述称呼",
+        "summary": "把身高、人数这类标题描述建成的女优去掉。"
+      },
+      "code-folder-creators": {
+        "title": "当成创作者的番号目录",
+        "summary": "由番号目录或站点帖子目录建成的创作者去掉，番号补给正片。"
+      },
+      "case-duplicates": {
+        "title": "同一文件登记了两次",
+        "summary": "路径只差大小写的同一文件合成一行，个人记录保留。"
       }
     }
   },
@@ -793,6 +813,7 @@
       "qrExpired": "二维码已过期，请在配置页重新扫码",
       "relocateBusy": "迁移请求正在处理",
       "relocateRejected": "无法迁移到这个位置",
+      "repairUnknown": "没有名为 {{item}} 的修复。",
       "restoreConfirmRequired": "恢复会替换当前账本，请先确认",
       "retentionBusy": "保留期限正在保存，请稍后再试",
       "serverManagedByLaunch": "访问范围与名称由服务启动配置管理",

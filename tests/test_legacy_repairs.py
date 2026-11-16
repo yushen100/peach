@@ -38,7 +38,9 @@ class LinkValueTests(unittest.TestCase):
                 self.assertEqual(current_link_label(new), new)
 
 
-class LegacyRepairTests(unittest.TestCase):
+class LedgerCase(unittest.TestCase):
+    """临时账本与一份升级补修服务。"""
+
     def setUp(self):
         capacity = patch('peach.storage_budget.CapacityGuard.check')
         capacity.start()
@@ -78,6 +80,8 @@ class LegacyRepairTests(unittest.TestCase):
                   json.dumps(owners or {}), *fields.values()]
         self.execute(f'INSERT INTO asset({",".join(columns)}) VALUES({",".join("?" * len(values))})', values)
 
+
+class LegacyRepairTests(LedgerCase):
     def test_entity_links_are_repaired_once_with_a_backup(self):
         performer = self.entity('performer', '某女优')
         link = "INSERT INTO entity_link(entity_id,link_kind,label,url,hostname,created_at,updated_at) VALUES(?,?,?,?,?,?,?)"
@@ -244,6 +248,113 @@ class LegacyRepairTests(unittest.TestCase):
         self.assertIsNotNone(self.receipt(legacy_repairs.RULES[1].key))
         self.service.prepare()
         self.assertEqual(self.receipt(rule.key), {'changed': 0})
+
+
+class ConfirmedRepairTests(LedgerCase):
+    """要解除关联、删实体或合并记录的那几类：页面列出还剩几处，用户确认后备份账本再改，每次记一行历史。"""
+
+    def center(self):
+        with self.database.read_connection() as connection:
+            pending = legacy_repairs.confirm_pending(connection, self.contract)
+            return {item['id']: item for item in repair_center.snapshot(
+                connection, {}, cloud_pending=0, confirm_pending=pending)['items']}
+
+    def performer_link(self, asset_id, entity_id, source='javinizer:javdb:performer'):
+        self.execute("INSERT INTO asset_entity(asset_id,entity_id,role,source,confidence,metadata_json,"
+                     "first_seen_at,last_seen_at) VALUES(?,?,'performer',?,1.0,'{}',?,?)",
+                     (asset_id, entity_id, source, STAMP, STAMP))
+
+    def test_unverified_javdb_cast_on_fc2_titles_goes_back_to_review_after_confirmation(self):
+        guess = self.entity('performer', 'RINA')
+        known = self.entity('performer', '三上悠亜')
+        self.execute("INSERT INTO entity_external_ref(entity_id,provider,external_kind,external_id)"
+                     " VALUES(?,'minnano-av','actress','1')", (known,))
+        self.asset(1, code='FC2-PPV-1111111')
+        self.asset(2, code='SSIS-001')
+        for asset_id, entity_id in ((1, guess), (1, known), (2, guess)):
+            self.performer_link(asset_id, entity_id)
+        self.execute("INSERT INTO asset_tag(asset_id,tag,source) VALUES(1,'performer:RINA','javinizer:javdb:performer')")
+        self.execute("INSERT INTO review_decision(category,item_key,status,note,updated_at) VALUES"
+                     "('metadata_fields','asset:1:performers','approved',?,?)",
+                     (json.dumps({'value': 'RINA、三上悠亜', 'auto_applied': True}, ensure_ascii=False), STAMP))
+
+        self.service.prepare()
+        item = self.center()['unconfirmed-fc2-cast']
+        self.assertEqual((item['mode'], item['state'], item['pending'], item['backed_up']), ('confirm', 'waiting', 1, True))
+        self.assertEqual(self.rows('SELECT count(*) FROM asset_entity'), [(3,)])
+
+        result = self.service.apply_confirmed('unconfirmed-fc2-cast')
+
+        self.assertEqual(self.rows('SELECT asset_id,entity_id FROM asset_entity ORDER BY asset_id,entity_id'),
+                         [(1, known), (2, guess)])
+        self.assertEqual(self.rows('SELECT count(*) FROM asset_tag'), [(0,)])
+        self.assertEqual(self.rows('SELECT count(*) FROM review_decision'), [(0,)])
+        self.assertEqual(result['changed'], 1)
+        self.assertTrue(Path(result['backup']).is_file())
+        item = self.center()['unconfirmed-fc2-cast']
+        self.assertEqual((item['state'], item['changed']), ('done', 1))
+        self.assertEqual(self.service.apply_confirmed('unconfirmed-fc2-cast'), {'changed': 0})
+
+    def test_descriptive_performer_is_removed_unless_someone_curated_it(self):
+        scraped = self.entity('performer', '美女6名')
+        curated = self.entity('performer', '145cm色白お嬢様')
+        self.asset(1, code='FC2-PPV-1')
+        self.performer_link(1, scraped)
+        self.performer_link(1, curated, source='user:manual')
+        avatars = self.root / 'avatars'
+        avatars.mkdir()
+        (avatars / f'performer-{scraped}.jpg').write_bytes(b'x')
+        self.contract.avatar_root = avatars
+
+        result = self.service.apply_confirmed('descriptive-performers')
+
+        self.assertEqual(self.rows("SELECT id FROM entity WHERE kind='performer'"), [(curated,)])
+        self.assertEqual(result['people'][0]['disposed']['action'], 'removed')
+        self.assertTrue((self.root / 'avatars-superseded' / f'performer-{scraped}.jpg').is_file())
+
+    def test_code_folder_creators_use_the_existing_cleanup(self):
+        creator = self.entity('creator', 'ABP-123')
+        row = {'entity_id': creator, 'creator': 'ABP-123', 'verdict': 'release-code', 'identity': 'ABP-123'}
+        with patch('peach.code_creators.collect', return_value=[row, {**row, 'verdict': 'unclear'}]), \
+                patch('peach.code_creators.apply_rows', return_value={'links': 1}) as apply_rows:
+            self.assertEqual(self.center()['code-folder-creators']['pending'], 1)
+            result = self.service.apply_confirmed('code-folder-creators')
+        apply_rows.assert_called_once()
+        self.assertEqual([row['verdict'] for row in apply_rows.call_args.args[1]], ['release-code'])
+        self.assertEqual(result['counts'], {'links': 1})
+
+    def test_rows_differing_only_in_case_merge_into_the_one_with_records(self):
+        for asset_id, path in ((1, r'B:\media\ABC-001.mp4'), (2, r'B:\media\abc-001.MP4'), (3, r'B:\media\other.mp4')):
+            self.execute("INSERT INTO asset(id,location,path,name,medium,size) VALUES(?,'115',?,?,'video',100)",
+                         (asset_id, path, path.rsplit('\\', 1)[1]))
+        self.execute("INSERT INTO asset_preference(profile_id,asset_id,liked,reason,updated_at)"
+                     " VALUES('local-default',2,1,'',?)", (STAMP,))
+
+        result = self.service.apply_confirmed('case-duplicates')
+
+        self.assertEqual(self.rows('SELECT id FROM asset ORDER BY id'), [(2,), (3,)])
+        self.assertEqual(self.rows('SELECT asset_id,liked FROM asset_preference'), [(2, 1)])
+        self.assertEqual([(row['from'], row['to']) for row in result['moved']], [(1, 2)])
+        self.assertEqual(self.rows('SELECT source,old_asset_id FROM record_rehome'),
+                         [(legacy_repairs.CASE_DUPLICATE_SOURCE, 1)])
+
+    def test_unknown_repair_is_refused(self):
+        from peach.user_messages import UserValueError
+        with self.assertRaises(UserValueError):
+            self.service.apply_confirmed('nope')
+
+    def test_pending_counts_are_reused_while_the_ledger_is_unchanged(self):
+        self.addCleanup(legacy_repairs._PENDING.clear)
+        rule = legacy_repairs.CONFIRMS[0]
+        counted = Mock(return_value=[{}])
+        with patch.object(legacy_repairs, 'CONFIRMS', (legacy_repairs.Confirm(rule.item, rule.prefix, counted, rule.fix),)), \
+                self.database.read_connection() as connection:
+            first = legacy_repairs.confirm_pending(connection, revision=('ledger', 7))
+            again = legacy_repairs.confirm_pending(connection, revision=('ledger', 7))
+            changed = legacy_repairs.confirm_pending(connection, revision=('ledger', 8))
+            unknown = legacy_repairs.confirm_pending(connection, revision=('ledger', None))
+        self.assertEqual((first, again, changed, unknown), ({rule.item: 1},) * 4)
+        self.assertEqual(counted.call_count, 3)
 
 
 if __name__ == '__main__':

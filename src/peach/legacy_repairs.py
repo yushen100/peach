@@ -7,6 +7,8 @@
 
 回执里存着改动前的原值（`changed` 是改了几处，界面「设置 › 修复与迁移」按它报数），撤回按原值写回。
 只改自动写入的值：真相字段经 `write_owned_fields`，用户填写与复核批准的不动。不联网、不读媒体文件。
+
+要解除关联、删实体或合并记录的另成一组（`CONFIRMS`，见文件后半），升级时只列出还剩几处，等用户确认。
 """
 from __future__ import annotations
 
@@ -419,6 +421,227 @@ def fix_download_text_codes(connection, found: list[dict]) -> dict:
                                f" AND COALESCE({column}_code,'')=''", (item["code"], params, row_id))
             rows.append({"table": table, "column": column, "id": row_id})
     return {"changed": len(rows), "rows": rows, "codes": sorted({item["code"] for item in found})}
+
+
+# ======== 等用户确认的存量修正 ========
+# 下面几类要解除关联、删实体或合并记录，判据不是百分之百（或撤不回），升级时不自动做：「设置 › 修复与迁移」
+# 列出还剩几处，用户确认后备份账本、在一个写事务里改完，回执 id 是 `<前缀><时刻>`，每做一次记一行历史。
+# `find` 每次打开页面都会跑，只查账本、不读文件。
+
+
+@dataclass(frozen=True)
+class Confirm:
+    item: str
+    #: 回执 id 前缀（含末尾连字符）；去掉连字符就是历史里的规则 id。
+    prefix: str
+    find: Callable
+    fix: Callable
+
+
+#: 刮削写下出演关系与出演者标签用的来源前缀（javinizer 桥）。
+_SCRAPED = "javinizer:"
+
+
+def _auto_decision_names(note: str) -> str:
+    try:
+        parsed = json.loads(note or "{}")
+    except ValueError:
+        return ""
+    return str(parsed.get("value") or "") if isinstance(parsed, dict) and parsed.get("auto_applied") else ""
+
+
+def _unlink_scraped_performer(connection, asset_id: int, entity_id: int, name: str) -> dict:
+    """解除一部作品上刮削挂的这位出演者：关系、出演者标签，以及自动批准的出演者决定（撤掉后这一项回到
+    复核页的候选，由人决定）。被删的行原样返回。"""
+    from .catalog_rules import PERFORMER_TAG_PREFIX
+    removed = {"links": [], "tags": [], "decisions": []}
+    columns = [row[1] for row in connection.execute("PRAGMA table_info(asset_entity)")]
+    for row in _rows(connection, "SELECT * FROM asset_entity WHERE asset_id=? AND entity_id=? AND source LIKE ?",
+                     (asset_id, entity_id, _SCRAPED + "%")):
+        removed["links"].append(dict(zip(columns, row)))
+    connection.execute("DELETE FROM asset_entity WHERE asset_id=? AND entity_id=? AND source LIKE ?",
+                       (asset_id, entity_id, _SCRAPED + "%"))
+    tag = PERFORMER_TAG_PREFIX + name
+    removed["tags"] = [dict(zip(("asset_id", "tag", "confidence", "source"), row)) for row in _rows(
+        connection, "SELECT asset_id,tag,confidence,source FROM asset_tag WHERE asset_id=? AND tag=? AND source LIKE ?",
+        (asset_id, tag, _SCRAPED + "%"))]
+    connection.execute("DELETE FROM asset_tag WHERE asset_id=? AND tag=? AND source LIKE ?",
+                       (asset_id, tag, _SCRAPED + "%"))
+    key = f"asset:{asset_id}:performers"
+    columns = [row[1] for row in connection.execute("PRAGMA table_info(review_decision)")]
+    for row in _rows(connection, "SELECT * FROM review_decision WHERE category='metadata_fields' AND item_key=?"
+                                 " AND status='approved'", (key,)):
+        decision = dict(zip(columns, row))
+        if name in _auto_decision_names(decision.get("note") or ""):
+            removed["decisions"].append(decision)
+            connection.execute("DELETE FROM review_decision WHERE category='metadata_fields' AND item_key=?", (key,))
+    return removed
+
+
+# ---- FC2 作品上身份未确认、被自动挂上的 JavDB 演员（0.57 起不再自动填） ----
+
+def find_unconfirmed_fc2_cast(connection, context=None) -> list[dict]:
+    """FC2 作品上只由 javdb 刮削挂上、本机没有身份依据（`confirmed_performers` 不通过）的出演关系。
+    别的来源也给了同一位的不算。"""
+    from .metadata_alias_resolve import confirmed_performers
+    found, verdicts = [], {}
+    for asset_id, entity_id, name in _rows(
+            connection, "SELECT ae.asset_id,ae.entity_id,e.canonical_name FROM asset_entity ae"
+                        " JOIN asset a ON a.id=ae.asset_id JOIN entity e ON e.id=ae.entity_id"
+                        " WHERE e.kind='performer' AND upper(a.code) LIKE 'FC2%'"
+                        " AND ae.source='javinizer:javdb:performer' AND NOT EXISTS(SELECT 1 FROM asset_entity o"
+                        " WHERE o.asset_id=ae.asset_id AND o.entity_id=ae.entity_id AND o.source<>ae.source)"):
+        if entity_id not in verdicts:
+            verdicts[entity_id] = confirmed_performers(connection, [{"name": name}])
+        if not verdicts[entity_id]:
+            found.append({"asset_id": asset_id, "entity_id": entity_id, "name": name})
+    return found
+
+
+def fix_unconfirmed_fc2_cast(connection, found: list[dict], context=None) -> dict:
+    rows = [{**row, **_unlink_scraped_performer(connection, row["asset_id"], row["entity_id"], row["name"])}
+            for row in found]
+    return {"changed": len(rows), "rows": rows}
+
+
+# ---- 描述性称呼建成的女优（ADR-0054） ----
+
+def find_descriptive_performers(connection, context=None) -> list[dict]:
+    """规范名是描述性称呼（`145cm色白お嬢様`、`美女6名`）、关系全由刮削写下、名字没被人改过的女优实体。"""
+    from .metadata_alias_resolve import is_descriptive
+    from .upgrade_repairs import _manual_name
+    found = []
+    for entity_id, name in _rows(connection, "SELECT id,canonical_name FROM entity WHERE kind='performer'"):
+        if not is_descriptive(name) or _manual_name(connection, entity_id):
+            continue
+        links = _rows(connection, "SELECT asset_id,source FROM asset_entity WHERE entity_id=?", (entity_id,))
+        if any(not str(source).startswith(_SCRAPED) for _, source in links):
+            continue
+        found.append({"id": entity_id, "name": name, "assets": sorted({asset_id for asset_id, _ in links})})
+    return found
+
+
+def fix_descriptive_performers(connection, found: list[dict], context=None) -> dict:
+    """解除刮削关联后按孤儿实体处置（`metadata_text_repair._dispose`：没有人维护的引用才删，子表行连同
+    实体行快照进回执）；删掉的那几位的头像挪进 `avatars-superseded/`，实体 id 复用时才不会顶到别人头上。"""
+    import shutil
+    from pathlib import Path
+    from .metadata_text_repair import _dispose
+    people = []
+    for person in found:
+        unlinked = [_unlink_scraped_performer(connection, asset_id, person["id"], person["name"])
+                    for asset_id in person["assets"]]
+        people.append({**person, "unlinked": unlinked, "disposed": _dispose(connection, person["id"])})
+    moved = []
+    avatar_root = getattr(context, "avatar_root", None)
+    if avatar_root:
+        roots = (Path(avatar_root), Path(avatar_root).parent / "avatar-thumbs")
+        superseded = Path(avatar_root).parent / "avatars-superseded"
+        for person in people:
+            if person["disposed"].get("action") != "removed":
+                continue
+            for root in roots:
+                for path in sorted(root.glob(f"performer-{person['id']}.*")) if root.is_dir() else ():
+                    superseded.mkdir(parents=True, exist_ok=True)
+                    shutil.move(str(path), str(superseded / path.name))
+                    moved.append({"from": str(path), "to": str(superseded / path.name)})
+    return {"changed": len(people), "people": people, "avatars": moved}
+
+
+# ---- 番号目录被当成创作者 ----
+
+def find_code_folder_creators(connection, context=None) -> list[dict]:
+    """旧导入器把番号目录、站点帖子目录投影成了创作者：`code_creators.collect` 按文件级证据判为发行番号或
+    站点帖子的那几条。复核页这一类只记决定，点「通过」不清理。"""
+    from . import code_creators
+    return [row for row in code_creators.collect(connection) if row["verdict"] in code_creators.SETTLED_VERDICTS]
+
+
+def fix_code_folder_creators(connection, found: list[dict], context=None) -> dict:
+    from . import code_creators
+    snapshot = [{"entity_id": row["entity_id"], "creator": row["creator"], "verdict": row["verdict"],
+                 "identity": row["identity"],
+                 "assets": [asset_id for (asset_id,) in _rows(
+                     connection, "SELECT asset_id FROM asset_entity WHERE entity_id=? AND role='creator'",
+                     (row["entity_id"],))]} for row in found]
+    counts = code_creators.apply_rows(connection, found)
+    return {"changed": len(snapshot), "creators": snapshot, "counts": counts}
+
+
+# ---- 只差大小写的两行同一文件 ----
+
+#: 记录搬移表里这条修正的来源。
+CASE_DUPLICATE_SOURCE = "upgrade:case-duplicates"
+
+
+def _personal_records(connection, asset_id: int) -> int:
+    from .record_rehome import MOVED_TABLES
+    tables = _tables(connection)
+    return sum(connection.execute(f"SELECT count(*) FROM {table} WHERE asset_id=?", (asset_id,)).fetchone()[0]
+               for table in MOVED_TABLES if table in tables)
+
+
+def find_case_duplicates(connection, context=None) -> list[dict]:
+    """同一来源、路径只差大小写、体积相同、都在库的几行（#487 之前扫描按大小写敏感登记）。保留个人记录多的
+    那行，一样多留编号小的。"""
+    found = []
+    for location, lowered, size in _rows(
+            connection, "SELECT location,lower(path),size FROM asset WHERE disposal IS NULL"
+                        " GROUP BY location,lower(path),size HAVING count(*)>1 AND count(DISTINCT path)=count(*)"):
+        ids = [asset_id for (asset_id,) in _rows(
+            connection, "SELECT id FROM asset WHERE disposal IS NULL AND location=? AND lower(path)=? AND size IS ?"
+                        " ORDER BY id", (location, lowered, size))]
+        keep = max(ids, key=lambda asset_id: (_personal_records(connection, asset_id), -asset_id))
+        found.append({"keep": keep, "drop": [asset_id for asset_id in ids if asset_id != keep]})
+    return found
+
+
+def fix_case_duplicates(connection, found: list[dict], context=None) -> dict:
+    """多出的那行标成已消失，再走资源同步接回记录的同一条路径（`record_rehome.move`）把个人记录并到保留行、
+    删掉多出的行；搬移前的整行快照记在 `record_rehome`，可按来源撤回。"""
+    from .record_rehome import move
+    moved = []
+    for row in found:
+        for asset_id in row["drop"]:
+            connection.execute("UPDATE asset SET disposal='vanished' WHERE id=?", (asset_id,))
+            batch = move(connection, asset_id, row["keep"], source=CASE_DUPLICATE_SOURCE, rule="case-duplicate")
+            moved.append({"from": asset_id, "to": row["keep"], "rehome": batch})
+    return {"changed": len(moved), "moved": moved}
+
+
+CONFIRMS = (
+    Confirm("unconfirmed-fc2-cast", "unconfirmed-fc2-cast-", find_unconfirmed_fc2_cast, fix_unconfirmed_fc2_cast),
+    Confirm("descriptive-performers", "descriptive-performers-", find_descriptive_performers,
+            fix_descriptive_performers),
+    Confirm("code-folder-creators", "code-folder-creators-", find_code_folder_creators, fix_code_folder_creators),
+    Confirm("case-duplicates", "case-duplicates-", find_case_duplicates, fix_case_duplicates),
+)
+
+
+def confirm_rule(item: str) -> Confirm | None:
+    return next((rule for rule in CONFIRMS if rule.item == item), None)
+
+
+#: 上一次算出的待处理数与它对应的 `(账本路径, 账本版本)`：几项合计要扫几秒，页面每次打开都重算太慢。
+_PENDING: dict = {}
+
+
+def confirm_pending(connection, context=None, *, revision=None) -> dict[str, int]:
+    """各确认项还剩几处要改。某项查不出来（库还没迁移到有那张表）按 0 算。
+
+    给了 `revision`（`(账本路径, ledger_revision)`，版本取不到时为 None）就按它缓存：账本没变就用上一次的数。"""
+    import sqlite3
+    if revision is not None and revision[1] is not None and _PENDING.get("revision") == revision:
+        return dict(_PENDING["pending"])
+    pending = {}
+    for rule in CONFIRMS:
+        try:
+            pending[rule.item] = len(rule.find(connection, context))
+        except sqlite3.OperationalError:
+            pending[rule.item] = 0
+    if revision is not None and revision[1] is not None:
+        _PENDING.update(revision=revision, pending=dict(pending))
+    return pending
 
 
 def _stamp() -> str:
