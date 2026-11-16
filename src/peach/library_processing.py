@@ -2609,10 +2609,10 @@ def _collection_rows(db_path, *, locations, online_roots, asset_ids):
     return rows, genre_decisions
 
 
-def _processing_issue_log(config, path, job_id, isolated, *, resume=False):
+def _processing_issue_log(config, path, job_id, isolated, *, resume=False, retrying=False):
     """每趟任务保留独立问题清单，仅初始化本趟文件。"""
     log_path = path.with_suffix('.issues.jsonl') if isolated else issues_path(config, job_id)
-    if not resume:
+    if retrying or not resume:
         log_path.unlink(missing_ok=True)
     return log_path
 
@@ -3103,13 +3103,15 @@ def _processing_workload(config, rows, stage, database, completed_previews, allo
     return pending
 
 
-def _restore_processing_counts(state, previous):
-    """同一处理任务沿用累计数、问题清单和已保存证据索引。"""
+def _restore_processing_counts(state, previous, *, retrying=False):
+    """沿用已完成工作与证据索引，重试时由本趟重新记录问题。"""
     previous = previous or {}
-    for key in ('started_at', 'identified', 'covers', 'previews', 'probed', 'issue_count', 'paused_count',
-                'issue_preview', 'issues_truncated', 'notes', 'retryable_asset_ids', 'paused_asset_ids',
-                'junk_isolated', 'junk_review',
-                'offline_skipped', 'budget_skipped', 'budget_reason'):
+    keys = ['started_at', 'identified', 'covers', 'previews', 'probed',
+            'junk_isolated', 'junk_review', 'offline_skipped']
+    if not retrying:
+        keys += ['issue_count', 'paused_count', 'issue_preview', 'issues_truncated', 'notes',
+                 'retryable_asset_ids', 'paused_asset_ids', 'budget_skipped', 'budget_reason']
+    for key in keys:
         if key in previous:
             state[key] = previous[key]
     for key in ('scan_checkpoints', 'local_metadata'):
@@ -3331,7 +3333,7 @@ def process_library(config, db_path, candidate_root, cover_root, *, location='co
             traffic.unknown_files = True
         state['steps'] = _processing_steps(stage, scope_ids,
             metadata_only_enabled=metadata_only(config.directory('state')))
-        _restore_processing_counts(state, resume_state)
+        _restore_processing_counts(state, resume_state, retrying=retrying)
         estimate = ProcessingEstimate(config, state, control)
         # 实体表的水位在开工前记一次：比它大的实体就是这一轮建出来的（`_entity_followups`）。
         checkpoints = _LibraryCheckpoints(state, resume_state, database, db_path)
@@ -3340,7 +3342,7 @@ def process_library(config, db_path, candidate_root, cover_root, *, location='co
         covered = []
         stages_of = _library_stages(config)
         log_path = _processing_issue_log(config, path, state['job_id'], state_file is not None,
-                                         resume=bool(resume_state))
+                                         resume=bool(resume_state), retrying=retrying)
         # 界面只展示前 20 条，完整清单在这个文件里；地址跟着状态一起给出，
         # 不让人按 job_id 自己去拼路径。
         state['issues_log'] = str(log_path)
