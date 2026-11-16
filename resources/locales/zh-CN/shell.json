@@ -167,6 +167,9 @@
     "spacerColumn": "行空白区域",
     "toolbar": "{{label}}工具栏"
   },
+  "detailFailure": {
+    "title": "详情未取得"
+  },
   "detailTags": {
     "hideTag": "从此内容隐藏该标签",
     "moreCount": "还有 {{count, number}} 个",

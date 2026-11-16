@@ -9,7 +9,7 @@ import { textLang } from '../../core/text-lang';
 import { Button, ButtonLink } from '@/components/base/buttons/button';
 import { CloudDownloadDialog, type DownloadPrefill } from '../activity/cloud-download-dialog';
 import { Note } from '../components/note';
-import { RetryNote } from '../components/grid-reveal';
+import { DetailFailure } from '../components/detail-failure';
 import { IdentityCell, IdentitySeries } from '../components/identity-cell';
 import { SourceAvatar } from '../components/source-avatar';
 import { SourcePicture as JavPicture } from '../components/source-picture';
@@ -38,9 +38,9 @@ export function JavDetailPage(props: JavDetailProps) {
   }, staleTime: 6 * 3600_000 });
   const retry = () => { refresh.current = true; void result.refetch() };
   return <div data-jav-detail="" data-item-detail="" data-stage-grid="">
-    {result.data ? <Work key={props.code} {...props} item={result.data} retry={retry} retrying={result.isFetching} /> : <div data-jav-failure="">
+    {result.data ? <Work key={props.code} {...props} item={result.data} retry={retry} retrying={result.isFetching} /> : <div data-jav-failure="" data-detail-failure="">
       <Close close={props.actions.close} />
-      {result.error ? <RetryNote message={errorMessage(result.error)} onRetry={retry} /> : null}
+      {result.error ? <DetailFailure detail={`${props.code} · ${errorMessage(result.error)}`} busy={result.isFetching} onRetry={retry} /> : null}
     </div>}
   </div>;
 }
@@ -51,6 +51,7 @@ const Close = ({ close }: { close(): void }) => <button type="button" data-stage
 function Work({ code, item, actions, readOnly, retry, retrying }: JavDetailProps & { item: JavDetail; retry(): void; retrying: boolean }) {
   useEffect(() => { actions.canonicalCode?.(item.code) }, [actions, item.code]);
   useEffect(() => { if (item.state === 'ready') void queryClient.invalidateQueries({ queryKey: ['jav-discoveries', 'external'] }) }, [item.code, item.state]);
+  // 没有封面时仍停在封面那一格（说明与重试），不自动跳到样张：样张第一张常是来源的封面小图，放大满屏是糊的。
   const [preview, setPreview] = useState(-1);
   const media = [{ index: -1, label: t('catalog:shared.cover') }, ...Array.from({ length: item.preview_count }, (_, index) => ({ index, label: t('catalog:detailMedia.sampleNumber', { number: index + 1 }) })),
     ...(item.preview_video_url ? [{ index: -2, label: t('catalog:javDetail.sampleVideo'), video: true }] : [])];
@@ -72,7 +73,11 @@ function Work({ code, item, actions, readOnly, retry, retrying }: JavDetailProps
     <div data-stage-media="" data-jav-art="" data-jav-playing={preview === -2 ? '' : undefined}>
       <Close close={actions.close} />
       {item.preview_video_url ? <button type="button" data-jav-preview-toggle="" aria-pressed={preview === -2}
-        onClick={() => setPreview(preview === -2 ? -1 : -2)}><Glyph name={preview === -2 ? 'image' : 'play'} />{preview === -2 ? t('catalog:detailMedia.viewImages') : t('catalog:javDetail.sampleVideo')}</button> : null}
+        onClick={() => setPreview(preview === -2 ? -1 : -2)}><Glyph name={preview === -2 ? 'image' : 'play'} />{preview === -2 ? t('catalog:detailMedia.viewImages') : t('catalog:javDetail.sampleVideo')}</button>
+        // 预告没取到：说在预告本来出现的位置，点一下就重取，原因在悬停提示里。
+        : item.preview_message ? <button type="button" data-jav-preview-toggle="" data-unavailable="" title={item.preview_message}
+          aria-label={t('catalog:javDetail.retryPreview', { reason: item.preview_message })} {...busyProps(retrying)} onClick={retry}>
+          <Glyph name="play" />{t('catalog:javDetail.sampleVideoFailed')}</button> : null}
       {preview === -2 && item.preview_video_url ? <PreviewVideo key={item.preview_video_url} src={item.preview_video_url} />
         : <JavPicture key={item.code} item={item} image={preview === -1 ? 'cover' : String(preview)} />}
       <MediaCarousel items={media} position={Math.max(0, media.findIndex(entry => entry.index === preview))} onSelect={setPreview}

@@ -1,9 +1,19 @@
 .peach-react [data-jav-detail] [data-jav-art] { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; min-height: 260px; }
 .peach-react [data-jav-picture] { display: block; width: 100%; height: auto; max-height: calc(76vh - 112px); object-fit: contain; min-height: 0; }
+/* 原图太小的来源图按原尺寸摆在舞台中间，不放大成一片糊（`source-picture.tsx` 的 `NATIVE_SIZE_BELOW`）。 */
+.peach-react [data-jav-picture][data-native-size] { width: auto; max-width: 100%; }
 /* 来源图片读取中藏着但留在原位；大图与缩略图条都给 img 写了 display，这里压回去。 */
 .peach-react img[data-source-picture][hidden] { display: none !important; }
 .peach-react [data-jav-picture-wait] { display: grid; place-items: center; width: 100%; min-width: 0; min-height: 300px; padding: 24px; }
-.peach-react [data-jav-picture-wait] > [data-empty-state] { max-width: 32rem; }
+/* 图没取到时舞台里那一格：舞台恒为黑底，字色按 `--on-media` 叠，不跟页面主题走，也不套卡片。 */
+.peach-react [data-jav-picture-gap] { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; text-align: center; color: color-mix(in srgb, var(--on-media) 64%, transparent); }
+.peach-react [data-jav-picture-gap] [data-gap-glyph] { width: 32px; height: 32px; margin-bottom: 4px; }
+.peach-react [data-jav-picture-gap] strong { color: var(--on-media); font-size: var(--fs-md); font-weight: 600; }
+.peach-react [data-jav-picture-gap] p { max-width: 28rem; margin: 0; font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.peach-react [data-jav-picture-gap] button { margin-top: 8px; }
+/* 缩略条里没图的那一格只放一枚图标，说明在悬停提示里。 */
+.peach-react [data-thumbnail-gap] { display: grid; place-items: center; width: 100%; height: 100%; color: color-mix(in srgb, var(--on-media) 48%, transparent); }
+.peach-react [data-thumbnail-gap] svg { width: 20px; height: 20px; }
 .peach-react [data-jav-picture-wait] [class~="skeleton-sheen"] { width: 100%; min-height: 260px; }
 .peach-react [data-jav-info] { min-width: 0; }
 .peach-react [data-jav-info] > * { flex-shrink: 0; }
@@ -18,6 +28,9 @@
 .peach-react [data-jav-video] > [role="note"] { box-sizing: border-box; width: calc(100% - 32px); max-width: 32rem; margin: 16px; }
 .peach-react [data-jav-preview-toggle] { box-sizing: border-box; position: absolute; z-index: 5; top: 11px; left: 11px; height: 40px; display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; border: 0; border-radius: var(--pill-radius); background: rgba(0, 0, 0, .6); color: #fff; font-size: var(--fs-xs); line-height: 1; white-space: nowrap; cursor: pointer; }
 .peach-react [data-jav-preview-toggle]:hover { background: rgba(0, 0, 0, .78); }
+/* 预告没取到：同一位置、同一形状，字色压暗，表明这里本该有预告、点了是重取。 */
+.peach-react [data-jav-preview-toggle][data-unavailable] { color: color-mix(in srgb, var(--on-media) 60%, transparent); }
+.peach-react [data-jav-preview-toggle][data-unavailable]:hover { color: var(--on-media); }
 .peach-react [data-jav-preview-toggle] svg { width: var(--icon-inline); height: var(--icon-inline); stroke: currentColor; fill: none; stroke-width: 2; }
 .peach-react [data-jav-art][data-jav-playing] { flex-direction: column; }
 .peach-react [data-jav-reviews], .peach-react [data-jav-resources] { display: flex; flex-direction: column; gap: 12px; margin-bottom: 18px; }
@@ -42,7 +55,9 @@
 }
 .peach-react [data-jav-info] { overflow-anchor: none; }
 .peach-react [data-jav-review] p:last-child, .peach-react [data-jav-summary] { white-space: pre-wrap; }
-.peach-react [data-jav-failure] { position: relative; min-height: 260px; padding: 48px 24px; }
+/* 详情整页没取到（馆藏、番号、关注三种详情共用 `DetailFailure`）：占满整个弹层、空态居中，关闭键留在右上角不压内容。 */
+.peach-react [data-detail-failure] { position: relative; grid-column: 1 / -1; display: grid; place-items: center; min-height: 260px; height: 100%; padding: 64px 24px; }
+.peach-react [data-detail-failure] > [data-empty-state] { max-width: 32rem; }
 @media (max-width: 640px) {
   .peach-react [data-jav-detail] [data-jav-art] { min-height: 220px; }
 }
