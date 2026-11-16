@@ -47,6 +47,15 @@ describe('Video.js 10 播放会话', () => {
     player.dispose();
   });
 
+  it('回退片源只由 Peach 管理，不传给媒体适配器', () => {
+    const { player, media } = mounted();
+    player.src({ src: '/example.mp4', type: 'video/mp4', fallback: {
+      src: '/fallback.m3u8', type: 'application/vnd.apple.mpegurl',
+    } });
+    expect(media.source).toEqual({ src: new URL('/example.mp4', location.href).href, type: 'video/mp4' });
+    player.dispose();
+  });
+
   it.each(['pause', 'source', 'dispose'] as const)('排队播放期间 %s 会取消该请求', async action => {
     const { video, player } = mounted();
     const play = vi.spyOn(video, 'play').mockResolvedValue(undefined);

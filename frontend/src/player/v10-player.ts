@@ -174,7 +174,7 @@ export const createV10Player: VideojsFactory = (video, options) => {
         media.addEventListener('error', () => showError(media.error || video.error), { signal });
         enabledLevels = []; levels.length = 0;
       }
-      media.source = { ...next, src: new URL(next.src, location.href).href };
+      media.source = { src: new URL(next.src, location.href).href, type: next.type };
       attachEngine();
     },
     currentSrc: () => source.src, currentSource: () => source,

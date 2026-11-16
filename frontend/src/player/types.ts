@@ -16,6 +16,8 @@ export interface PlayerSource {
   type: string;
   /** 起播计划报给服务端的解码能力（`decode=`）；有它说明片子是按浏览器能力直放的，解不出来要回退。 */
   decode?: string;
+  /** 媒体不兼容时的下一条片源，按链顺序尝试。 */
+  fallback?: PlayerSource | undefined;
 }
 
 export interface VjsPlayer {
