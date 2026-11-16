@@ -664,6 +664,43 @@ def _subtitle_note(state, asset, row) -> str:
     return ""
 
 
+def subtitle_tracks(state, asset_id: int) -> list[dict]:
+    """播放器可用的字幕轨：稳定文件身份、旧登记身份、地址与不能播的原因。"""
+    asset, rows = _subtitle_rows(state, asset_id)
+    tracks = []
+    for index, row in enumerate(rows):
+        note = _subtitle_note(state, asset, row)
+        # 账本里登记成通用中文（`zh`）的旧行，文件名写明简繁（`zh-CN`、`zh-TW`）时按文件名细分，不改账本。
+        language = row["language"]
+        named = subtitles.language_of(row["name"])
+        if not language or (language == "zh" and named.startswith("zh-")):
+            language = named or language
+        tracks.append({
+            "id": f"sidecar:{subtitles.file_key(row['name'])}",
+            "legacy_id": f"sidecar:{row['id']}" if isinstance(row["id"], int) else None,
+            "index": index,
+            "name": row["name"],
+            "format": row["format"],
+            "language": language,
+            "label": subtitles.track_label(row["name"], language, asset.name),
+            "pairing": row["pairing"],
+            "note": interface_text.text(f"server:labels.routesMedia.subtitle.{note}") if note else "",
+            "note_code": f"labels.routesMedia.subtitle.{note}" if note else "",
+            "playable": not note,
+            "src": f"/api/assets/{asset_id}/subtitles/{index}?track={subtitles.file_key(row['name'])}",
+        })
+    return tracks
+
+
+def preferred_chinese(state, asset_id: int) -> str | None:
+    """还没选过字幕时默认打开哪一条：可播放的中文轨，按简体、通用中文、繁体的顺序。"""
+    candidates = [track for track in subtitle_tracks(state, asset_id)
+                  if track["playable"] and (track["language"] or "").lower().split("-")[0] == "zh"]
+    order = {"zh-hans": 0, "zh-cn": 0, "zh-sg": 0, "zh": 1}
+    chosen = min(candidates, key=lambda track: order.get(track["language"].lower(), 2), default=None)
+    return chosen["id"] if chosen else None
+
+
 @router.get("/api/assets/{id}/subtitles")
 def asset_subtitles(request: Request, id: int, args: dict[str, str] = Depends(require_auth)):
     """这个资产有哪些字幕轨，以及每一条能不能播。
@@ -671,26 +708,7 @@ def asset_subtitles(request: Request, id: int, args: dict[str, str] = Depends(re
     返回的 src 通过 track 参数绑定文件身份，序号用于无参数的按序读取。
     不能播的也列出来并说明原因：界面上「有三条字幕、只挂上两条」要能解释得清。
     """
-    state = request.app.state
-    asset, rows = _subtitle_rows(state, id)
-    tracks = []
-    for index, row in enumerate(rows):
-        note = _subtitle_note(state, asset, row)
-        tracks.append({
-            "id": f"sidecar:{subtitles.file_key(row['name'])}",
-            "legacy_id": f"sidecar:{row['id']}" if isinstance(row["id"], int) else None,
-            "index": index,
-            "name": row["name"],
-            "format": row["format"],
-            "language": row["language"],
-            "label": subtitles.track_label(row["name"], row["language"], asset.name),
-            "pairing": row["pairing"],
-            "note": interface_text.text(f"server:labels.routesMedia.subtitle.{note}") if note else "",
-            "note_code": f"labels.routesMedia.subtitle.{note}" if note else "",
-            "playable": not note,
-            "src": f"/api/assets/{id}/subtitles/{index}?track={subtitles.file_key(row['name'])}",
-        })
-    return {"id": id, "subtitles": tracks}
+    return {"id": id, "subtitles": subtitle_tracks(request.app.state, id)}
 
 
 @router.api_route("/api/assets/{id}/subtitles/{index}", methods=["GET", "HEAD"])

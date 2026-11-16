@@ -74,6 +74,8 @@ export interface CatalogFilterActions {
   /** 换一批：网格与三层成员一起换，换批键转圈到这个 Promise 落定。 */
   reshuffle(): Promise<void>;
   setLayout(value: string): void;
+  /** 读数旁的「显示全部」：撤掉「只显示有预览图」，这一次看全部。 */
+  showAll?(): void;
   /** 某一排手上这份摆完了，要下一页。返回空数组就是到底了。 */
   moreTops(kind: TierKind): Promise<TierPerformer[] | TierStudio[]>;
 }
@@ -105,6 +107,8 @@ export interface CatalogFilterProps {
   trash: boolean;
   sorts: EntitySortKey[];
   layout: CatalogLayout | null;
+  /** 正只显示有预览图的作品（设置或地址上的 `thumb=1`）：读数旁给「显示全部」。 */
+  previewOnly?: boolean;
   /** 换一批这一趟：三层与标签铺一层微光，换批键转圈。 */
   refreshing: boolean;
   /** 筛选条被收起（资料页、索引页与管理页）：浮层两排不画，只留两排头像。 */

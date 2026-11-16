@@ -20,6 +20,10 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Sourcing**: Scan and collection can Fill in covers only without metadata lookups, and Background tasks settings cap each run's requests, time and downloads (#589). / **采集**：扫描与采集新增「仅补全封面」，不查影片资料；「后台任务」里可调每趟的请求次数、时长和下载上限（#589）。
 - **Library**: Details can re-collect one video's metadata from every source without the cache; fields you edited or approved stay (#208). / **馆藏**：详情页可对单部作品重新采集资料，不用缓存，你改过或批准过的字段不被覆盖（#208）。
 - **Sourcing**: An optional setting uses JavDB's watermarked image when no other cover exists; official and local covers still come first (#531). / **采集**：新增可选设置：没有别的封面时用 JavDB 带水印的图补上，官方与本地封面始终优先（#531）。
+- **Library**: Actress names can show translated, original Japanese, romanized, or original and local side by side in either order; local follows the interface language (#682). / **馆藏**：女优名称可显示为中文化译名、日语原文、英文罗马音，或原文与本地语言并列（任一在前），本地语言跟界面语言走（#682）。
+- **Review**: Review can select every item in the current filter across pages with Select all, not just the page on screen (#216). / **复核**：人工复核可用「全选全部」一次选中当前筛选下所有页的项目，不再只能选本页（#216）。
+- **Interface**: Settings can make Home show only videos with a preview image, kept after refresh and when returning Home; Show all next to the count shows everything (#196). / **界面**：设置里可让首页只显示有预览图的作品，刷新与回首页后仍生效；读数旁的「显示全部」可临时看全部（#196）。
+- **Interface**: Settings > Playback can turn off hover previews on cards; hovering then shows only the still image and requests no stream (#170). / **界面**：设置「浏览与播放」可关掉「卡片悬停时播放视频预览」，关掉后悬停只显示静态图，不再请求视频流（#170）。
 - **Library**: Profile name menus can merge duplicate actress, label, creator, series and agency profiles; a new alias that another profile already uses offers it too (#207). / **馆藏**：女优、厂牌、创作者、系列与事务所的名字菜单可合并重复档案，添加的别名已被另一份档案使用时也会提示合并（#207）。
 - **Library**: Edit details next to the title changes the code, title, date, region, performers, label, series and tags; edited values aren't overwritten by collection (#187). / **馆藏**：详情标题旁新增「编辑资料」，可改番号、标题、日期、产地、演员、厂牌、系列与标签，改过的值不再被采集覆盖（#187）。
 - **Library**: Performers, labels and series not found in Edit details can be created on the spot and carry a Custom tag in rosters and details (#549). / **馆藏**：编辑资料里搜不到的演员、厂牌、系列可直接新建，名册与详情上带「自建」标记（#549）。
@@ -34,6 +38,8 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Settings**: First-time setup offers the interface language on its first page and switches the page right away; the choice carries over to Peach (#709). / **配置**：首次设置第一页即可选界面语言，选后整页换成该语言，进入 Peach 后沿用（#709）。
 - **Settings**: Wants recheck interval and give-up count, ledger backup count, log retention days and the transcode quality cap are adjustable (#661). / **配置**：「想要」老片的再查间隔与放弃次数、账本备份份数、日志保留天数和播放转码的画质上限都能在 Peach 配置里调了（#661）。
 - **Playback**: On phones and tablets, tap shows controls, double-tap seeks or pauses, long-press plays at 2x, and dragging sideways previews a seek (#156). / **播放**：手机和平板上轻点显示控制条，双击两侧快进快退、中间暂停，长按临时 2 倍速，横向拖动预览后跳转（#156）。
+- **Playback**: On phones and tablets, holding the left double-tap area pauses the picture and rewinds the target 2 seconds per second, jumping there on release (#684). / **播放**：手机和平板上按住画面左侧双击区，画面停住、目标每秒回退 2 秒，松手跳过去（#684）。
+- **Playback**: Settings > Playback can turn on Chinese subtitles from the video's directory for videos whose subtitles you haven't picked yet; off by default (#428). / **播放**：设置「播放」里可打开「没选过字幕的影片自动打开同目录的中文字幕」，默认关（#428）。
 - **Playback**: Holding the Right arrow key plays at 2x until released (#275). / **播放**：按住右方向键临时 2 倍速，松开恢复原来的速度（#275）。
 - **Library**: Duplicates supports multi-select; kept groups no longer come back when a copy goes missing, and can be restored from Kept (#690). / **馆藏**：重复文件页支持多选，保留过的组不再因少一份而重新出现，可在「已保留」里取消（#690）。
 - **Interface**: Wants, HD upgrades, junk files, the profile online view, rosters and online tags support multi-select; the queue page gets the select toggle (#690). / **界面**：想要、高清升级、垃圾文件、资料页在线视图、名册与在线标签支持多选，处理队列页接入右上角多选开关（#690）。
@@ -96,8 +102,12 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Library**: A creator nickname followed by digits in a creator folder is no longer recorded as a release code without other release evidence (#572). / **馆藏**：创作者目录里的「昵称加数字」没有其他发行证据时，不再被记成番号（#572）。
 - **Library**: Avatar crops follow their source picture, so a replaced cover drops the old crop; a merged entry's old avatars become choices (#565). / **馆藏**：头像裁剪框跟着源图走，封面换图后不再套用旧框；合并人物后可选被合并条目的旧头像（#565）。
 - **Library**: Codes such as S2M-009, S2MCR-08, CW3D2DBD-14 and IBW-483z are recognised from file names, and KIRARI MKD-S codes can be sent to sources (#124). / **馆藏**：能从文件名认出 S2M-009、S2MCR-08、CW3D2DBD-14 和 IBW-483z 这类番号，KIRARI 的 MKD-S 番号也能拿去采集了（#124）。
+- **Playback**: A subtitle picked by hand from the video's directory is remembered for that video again; before, the choice failed to save (#428). / **播放**：手动选的同目录字幕重新能按影片记住，之前这一选择存不上（#428）。
 - **Library**: DMM video previews in JAV details play again after DMM moved them to a new host (#697). / **馆藏**：DMM 换了预告视频的主机后，JAV 详情里的 DMM 视频预览重新能播（#697）。
 - **Sourcing**: Blu-ray editions in New releases merge into their DMM streaming edition, so they get the official cover and no longer appear twice (#694). / **采集**：新作里的蓝光版并入 DMM 配信版，能取到官方封面，也不再和配信版重复列出（#694）。
+- **Sourcing**: A subscription check that finds more than 20 new releases keeps all of them in New releases, and works dropped this way before are restored after upgrading (#667). / **采集**：订阅一次拉到超过 20 部新作时全部留在「新作」里，旧版因此漏掉的作品升级后自动补回（#667）。
+- **Interface**: Idle text placeholders no longer run their shimmer, so phones stop warming up on pages full of cards (#675). / **界面**：文字占位不在加载时不再跑微光动画，满屏卡片的页面不再让手机持续发热（#675）。
+- **Interface**: Cards in JAV Discover and New releases no longer grow as they scroll into view, so the page stops jumping (#594). / **界面**：JAV 发现与新作往下滚时，卡片不再进屏才长高，页面不会被挤得跳动（#594）。
 - **Library**: The Keep dropdown in Merge tags under tag management shows its options again (#187). / **馆藏**：标签管理里「合并标签」的「保留」下拉能看到选项了（#187）。
 - **Playback**: When a cloud drive hangs, playback, thumbnails, subtitles, Show in folder and delete fail within 10 seconds instead of spinning or stalling the server (#689). / **播放**：网盘卡住时，播放、缩略图、字幕、打开所在位置和删除都在 10 秒内报错，不再一直转圈，也不再拖垮整个服务（#689）。
 - **Ledger**: Play counts, ratings and task progress keep updating when a cloud rename hangs, a writer stalls or a JavDB lookup's task is paused (#683). / **账本**：网盘改名卡住、写入方卡死或 JavDB 查询所在任务被暂停时，播放计数、评分和任务进度不再跟着停住（#683）。

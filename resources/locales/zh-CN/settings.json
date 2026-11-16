@@ -757,9 +757,12 @@
     "url": "代理地址"
   },
   "performerNameLanguage": {
-    "chinese": "中文",
-    "help": "名称与别名只显示所选语言的写法；缺少对应时保留当前名称。",
-    "japanese": "日文原文",
+    "chinese": "中文化（译名）",
+    "help": "本地语言跟界面语言走；缺少对应写法时显示原文。",
+    "japanese": "日语原文",
+    "japaneseThenLocal": "日语原文（本地语言）",
+    "localThenJapanese": "本地语言（日语原文）",
+    "romaji": "英文（罗马音）",
     "saveFailed": "保存名称显示偏好",
     "saved": "已保存名称显示偏好",
     "title": "女优名称",
@@ -805,6 +808,7 @@
     "software": "软件编解码"
   },
   "preferencesPanel": {
+    "autoChineseSubtitles": "没选过字幕的影片自动打开同目录的中文字幕",
     "autoScroll": "自动滚动",
     "batchSize": "每批加载作品",
     "batchSizeInput": "每批作品",
@@ -818,10 +822,12 @@
     "feedLimitInput": "新作显示数量",
     "feedNewRows": "首页与人物页显示新作",
     "groupEditions": "合并分卷与版本",
+    "homePreviewOnly": "首页只显示有预览图的作品",
     "homeShorts": "首页竖屏短片带",
     "homeTiers": "首页显示女优与厂牌头像",
     "hoverDelay": "悬停预览延迟",
     "hoverDelaySfw": "SFW 模式下不预览。",
+    "hoverPreview": "卡片悬停时播放视频预览",
     "increaseContrast": "增加对比度",
     "ingestNotices": "入库通知",
     "interfaceSounds": "界面音效",

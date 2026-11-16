@@ -111,7 +111,7 @@ const settings = (): PanelSettings => ({
   theme: 'system', uiSounds: true, homeGlow: { ...normalizeHomeGlow(null), on: true, preset: 'ash' }, accent: 'blue',
   sidebarOrder: [''], batchSize: 60, defaultSort: 'seed', defaultSortDirection: '', groupCollapse: true,
   javImage: 'cover', performerNameLanguage: 'zh-CN', interfaceLanguage: 'zh-CN', systemLanguage: null, feedAutoScroll: true, feedLimit: 12, feedHideGroupCompilations: true, feedHideSoloCompilations: false,
-  feedHideExcerpts: true, hoverDelaySeconds: 5, detailAutoplay: false, afterPlayback: 'next', resumeRestartPercent: 5, miniplayer: true, seekSeconds: 10,
+  feedHideExcerpts: true, hoverDelaySeconds: 5, hoverPreview: true, detailAutoplay: false, autoChineseSubtitles: false, afterPlayback: 'next', resumeRestartPercent: 5, miniplayer: true, seekSeconds: 10,
   relatedLimit: 24, searchHistoryLimit: 10, followInitialDays: 30, avatarRefreshDays: 90, faviconRefreshDays: 365,
   feedNewRows: true, homeShortsLimit: 18, homeTiers: true, completionPrompt: true, searchRecommendations: true, ingestNotices: true,
 });
@@ -289,6 +289,10 @@ describe('设置面板与壳的接缝', () => {
     current.changed.mockClear();
     await click(panel.querySelector('#detailAutoplaySetting'));
     expect([current.value.detailAutoplay, effects(current.changed)]).toEqual([true, []]);
+    /* 自动中文字幕默认关，播放器读记忆时现读这一项，同样只落盘。 */
+    current.changed.mockClear();
+    await click(panel.querySelector('#autoChineseSubtitlesSetting'));
+    expect([current.value.autoChineseSubtitles, effects(current.changed)]).toEqual([true, []]);
     /* 补全提示条与入库通知由各自的组件当场读这一份偏好，同样只落盘。 */
     for (const [id, field] of [['completionPromptSetting', 'completionPrompt'], ['ingestNoticesSetting', 'ingestNotices']] as const) {
       current.changed.mockClear();
@@ -312,6 +316,16 @@ describe('设置面板与壳的接缝', () => {
     expect([current.value.feedNewRows, ...shown()]).toEqual([false, false, false, true]);
     await click(panel.querySelector('#feedNewRowsSetting'));
     expect([current.value.feedNewRows, ...shown()]).toEqual([true, true, true, true]);
+    await close(current);
+  });
+
+  it('关掉卡片悬停预览：报效果收掉正在放的预览，延迟随之禁用', async () => {
+    const current = await setup();
+    const panel = await open(current, '浏览与播放');
+    current.changed.mockClear();
+    await click(panel.querySelector('#hoverPreviewSetting'));
+    expect([current.value.hoverPreview, effects(current.changed)]).toEqual([false, ['hoverPreview']]);
+    expect(panel.querySelector<HTMLInputElement>('#hoverDelaySetting input[type=number]')?.disabled).toBe(true);
     await close(current);
   });
 

@@ -241,6 +241,8 @@ export function catalogFilterActions(){
       state.sort=next.sort;state.dir=next.dir;notifyShell();replaceCatalogAddress();
     },
     reshuffle:()=>refreshAll(),
+    /* 读数旁的「显示全部」：这一次看全部，地址里不再带 `thumb`；回首页、刷新后按设置重新只看有预览图的。 */
+    showAll:()=>{state.thumb='0';notifyShell();paintCatalogFilter({previewOnly:false});replaceCatalogAddress()},
     setLayout:value=>{if(javActive())setJavLayout(value);else setHomeLayout(value)},
     /* 每排各记各的页号：两排的长度不一样，共用一个计数会让先到头的那排替另一排把页翻过去。
        页号跟着这一份名单走，`buildBars` 换名单时从头数起。两排翻到同一页时由 `fetchTopsPage` 共用一次请求。 */
@@ -260,7 +262,7 @@ export function catalogLayoutProp(){
 
 export function catalogHeadProps(){
   return {sorts:sortKeys(state.sort,state.dir),layout:catalogLayoutProp(),
-    state:state.state||'',trash:state.state==='trash'};
+    state:state.state||'',trash:state.state==='trash',previewOnly:state.thumb==='1'&&state.state!=='trash'};
 }
 
 export function catalogTags(filters){

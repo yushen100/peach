@@ -7,6 +7,8 @@ import { defaultSortDir, preferredDirection, sortFromAddress } from '../../sort-
 export interface CatalogPreferences {
   defaultSort: string;
   defaultSortDirection?: string;
+  /** 首页默认只显示有预览图的作品（#196）；地址上的 `thumb` 优先。 */
+  homePreviewOnly?: boolean;
 }
 
 export interface CatalogAddress { pathname: string; search: string }
@@ -25,6 +27,9 @@ const HOME_QUERY_KEYS = [
   'orient', 'region', 'year', 'sort', 'dir', 'q', 'jav',
   'browse', 'folder', 'folder_recursive',
 ] as const;
+
+/** 没有地址参数时 `thumb` 取哪一档：设置里打开了「首页只显示有预览图」就是 `1`。 */
+const previewDefault = (preferences: CatalogPreferences) => (preferences.homePreviewOnly ? '1' : '0');
 
 export function resolveSort(rawSort: string | null, rawDir: string | null,
   preferences: CatalogPreferences, fallback = preferences.defaultSort): { sort: string; dir: string } {
@@ -45,7 +50,7 @@ export function initialCatalogFilters(address: CatalogAddress, preferences: Cata
     dur_min: read('dur_min') || '', dur_max: read('dur_max') || '', orient: orientParam(read('orient')),
     region: read('region') || '', year: read('year') || '', state: ROUTE_STATES[pathname] || read('state') || '',
     ...resolveSort(read('sort'), read('dir'), preferences), seed: read('seed') || seed(),
-    q: read('q') || '', jav: read('jav') || '', thumb: read('thumb') || '0',
+    q: read('q') || '', jav: read('jav') || '', thumb: read('thumb') || previewDefault(preferences),
     browse: read('browse') === 'folders' || read('folder') ? 'folders' : '',
     folder: read('folder') || '', folder_recursive: read('folder_recursive') === '0' ? '0' : '',
   };
@@ -74,7 +79,7 @@ export function homePath(filters: Readonly<CatalogFilters>): string {
   return path + (params.size ? `?${params}` : '');
 }
 
-/** 回首页保留来源范围，其余口径使用浏览偏好与新种子。 */
+/** 回首页保留来源范围，其余口径使用浏览偏好与新种子；「只显示有预览图」按设置重新生效。 */
 export function resetCatalogFilters(previous: Readonly<CatalogFilters>, preferences: CatalogPreferences,
   seed: () => string): CatalogState {
   return {
@@ -82,7 +87,7 @@ export function resetCatalogFilters(previous: Readonly<CatalogFilters>, preferen
     len: '', dur_min: '', dur_max: '', orient: '', region: '', year: '', state: '',
     sort: preferences.defaultSort,
     dir: preferredDirection(preferences.defaultSort, preferences.defaultSort, preferences.defaultSortDirection),
-    seed: seed(), q: '', jav: '', thumb: '0',
+    seed: seed(), q: '', jav: '', thumb: previewDefault(preferences),
     browse: '', folder: '', folder_recursive: '',
   };
 }

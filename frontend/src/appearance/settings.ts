@@ -15,6 +15,7 @@ import { DEFAULT_SIDEBAR_ORDER, normalizeSidebarOrder } from '../sidebar';
 import { normalizeNavigationOrders, type NavigationOrders } from '../navigation-order';
 import { SORT_ALIASES, SORT_KEYS } from '../sort-preferences';
 import { DEFAULT_ACCENT, DEFAULT_HOME_GLOW, normalizeAccent, normalizeHomeGlow, type HomeGlow } from './home-glow';
+import { NAME_LANGUAGES, type NameLanguage } from '../core/entity-names';
 
 export { SETTINGS_KEY };
 /* 主题三档，键名与 <html> 上的 data-theme 同一套写法：web/css/01-base.css 的色板
@@ -42,6 +43,8 @@ export interface AppSettings {
   defaultSortDirection?: string;
   sortDefaultsVersion: number;
   hoverDelaySeconds: number;
+  /** 卡片悬停时播放视频预览；关掉后悬停只显示静态图（#170）。 */
+  hoverPreview: boolean;
   seekSeconds: number;
   searchHistoryLimit: number;
   relatedLimit: number;
@@ -49,7 +52,7 @@ export interface AppSettings {
   javLayout: string;
   homeLayout: string;
   javImage: string;
-  performerNameLanguage: 'zh-CN' | 'ja';
+  performerNameLanguage: NameLanguage;
   interfaceLanguage: InterfaceLanguageChoice;
   /** 运行 Peach 的电脑的系统语言（服务端报来，缓存在本地）；「自动」时浏览器语言都对不上才看它。 */
   systemLanguage: InterfaceLanguage | null;
@@ -64,6 +67,8 @@ export interface AppSettings {
   theme: string;
   groupCollapse: boolean;
   detailAutoplay: boolean;
+  /** 没手动选过字幕的影片，打开时自动选同目录的中文字幕；默认关。 */
+  autoChineseSubtitles: boolean;
   afterPlayback: AfterPlayback;
   /** 离片尾不到这个百分比就当看完，下次从头播；0 表示只有播完才从头。 */
   resumeRestartPercent: number;
@@ -75,6 +80,8 @@ export interface AppSettings {
   homeShortsLimit: number;
   /** 首页顶上女优、厂牌两排头像。 */
   homeTiers: boolean;
+  /** 首页默认只显示有预览图的作品；首页读数旁的「显示全部」临时看全部。 */
+  homePreviewOnly: boolean;
   /** 网格、列表与详情里的缺图补全提示条；条上的关闭钮把它写成 false。 */
   completionPrompt: boolean;
   /** 聚焦空搜索框时的推荐栏、推荐词与轮换的占位字。 */
@@ -125,6 +132,7 @@ export function normalizeAppSettings(raw: unknown): { settings: AppSettings; mig
   settings.batchSize = boundedPreference(+(settings.batchSize as number), 1, 200, 60);
   settings.defaultSort = allowedSetting(settings.defaultSort, SORT_KEYS, 'seed');
   settings.hoverDelaySeconds = boundedPreference(+(settings.hoverDelaySeconds as number), 0, 60, 5);
+  settings.hoverPreview = settings.hoverPreview !== false;
   settings.seekSeconds = boundedPreference(+(settings.seekSeconds as number), 1, 300, 10);
   delete settings.loginDays;
   delete settings.metadataRefreshDays;
@@ -132,6 +140,7 @@ export function normalizeAppSettings(raw: unknown): { settings: AppSettings; mig
   settings.theaterMode = settings.theaterMode === true;
   settings.groupCollapse = settings.groupCollapse !== false;
   settings.detailAutoplay = settings.detailAutoplay !== false;
+  settings.autoChineseSubtitles = settings.autoChineseSubtitles === true;
   settings.afterPlayback = allowedSetting(settings.afterPlayback, AFTER_PLAYBACK_CHOICES, 'next');
   settings.resumeRestartPercent = boundedPreference(+(settings.resumeRestartPercent as number), 0, 20, 5);
   settings.miniplayer = settings.miniplayer !== false;
@@ -141,6 +150,7 @@ export function normalizeAppSettings(raw: unknown): { settings: AppSettings; mig
   settings.homeShortsLimit = settings.homeShortsLimit === 0 ? 0
     : boundedPreference(+(settings.homeShortsLimit as number), HOME_SHORTS_MIN, HOME_SHORTS_MAX, HOME_SHORTS_DEFAULT);
   settings.homeTiers = settings.homeTiers !== false;
+  settings.homePreviewOnly = settings.homePreviewOnly === true;
   settings.completionPrompt = settings.completionPrompt !== false;
   settings.searchRecommendations = settings.searchRecommendations !== false;
   settings.ingestNotices = settings.ingestNotices !== false;
@@ -152,7 +162,7 @@ export function normalizeAppSettings(raw: unknown): { settings: AppSettings; mig
   settings.feedLimit = boundedPreference(+(settings.feedLimit as number), 1, 100, 12);
   Object.assign(settings, normalizeJavPreferences(settings));
   settings.theme = allowedSetting(settings.theme, THEME_CHOICES, 'system');
-  settings.performerNameLanguage = allowedSetting(settings.performerNameLanguage, ['zh-CN', 'ja'], 'zh-CN');
+  settings.performerNameLanguage = allowedSetting(settings.performerNameLanguage, NAME_LANGUAGES, 'zh-CN');
   settings.interfaceLanguage = isInterfaceLanguageChoice(settings.interfaceLanguage) ? settings.interfaceLanguage : 'auto';
   settings.systemLanguage = matchInterfaceLanguage(settings.systemLanguage);
   settings.homeGlow = normalizeHomeGlow(settings.homeGlow);
@@ -210,8 +220,8 @@ export function applySyncedSettings(
 ): void {
   const settings = target.value;
   const language = remote?.performerNameLanguage;
-  if ((language === 'zh-CN' || language === 'ja') && language !== settings.performerNameLanguage) {
-    settings.performerNameLanguage = language;
+  if (NAME_LANGUAGES.includes(language as NameLanguage) && language !== settings.performerNameLanguage) {
+    settings.performerNameLanguage = language as NameLanguage;
     target.save();
     changed('performerNameLanguage');
   }

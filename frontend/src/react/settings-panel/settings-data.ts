@@ -11,6 +11,7 @@
  *
  * 面板常驻不卸载，每次打开重取设置；Peach 配置在挂载时重取各自的数据。 */
 import type { InterfaceLanguageChoice } from '../../i18n';
+import type { NameLanguage } from '../../core/entity-names';
 import { useMutation, type QueryClient } from '@tanstack/react-query';
 
 import { apiGet, apiSend } from '../../api';
@@ -44,7 +45,7 @@ export const fetchMediaProcessing = (signal?: AbortSignal) =>
 /** `q_settings` 返回的整份；写入时只送改了的那几个键，回来的仍是整份。 */
 export interface SyncedSettings {
   taskSpeedMode?: 'low' | 'standard' | 'high';
-  performerNameLanguage?: 'zh-CN' | 'ja';
+  performerNameLanguage?: NameLanguage;
   interfaceLanguage?: InterfaceLanguageChoice;
   systemLanguage?: string | null;
   sidebarOrder?: string[];

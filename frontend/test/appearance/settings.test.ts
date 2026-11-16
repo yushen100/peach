@@ -16,7 +16,7 @@ describe('启动归一化', () => {
     expect(migrated).toBe(false);
     expect(settings).toMatchObject({
       ...DEFAULT_SETTINGS, sidebarOrder: [...DEFAULT_SIDEBAR_ORDER], homeGlow: DEFAULT_HOME_GLOW, accent: DEFAULT_ACCENT,
-      followInitialDays: 30, detailAutoplay: true, uiSounds: true, feedAutoScroll: true,
+      followInitialDays: 30, detailAutoplay: true, autoChineseSubtitles: false, hoverPreview: true, uiSounds: true, feedAutoScroll: true,
       feedHideGroupCompilations: true, feedHideSoloCompilations: false, feedHideExcerpts: true,
       /* JAV 版式与艺人索引默认大图；照片墙一套几十张，先看全貌所以是小图。 */
       homeLayout: 'small', javLayout: 'big', peopleLayout: 'big', photoSize: 'small',

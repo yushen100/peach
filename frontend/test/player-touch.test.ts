@@ -78,6 +78,36 @@ describe('播放器按实际输入区分触摸和鼠标', () => {
     else pointer(ending);
     expect(video.playbackRate).toBe(1.5); abort.abort();
   });
+  it('长按左侧回退：画面停住，目标每秒回退两秒，松手定位并接着播', () => {
+    const { video, pointer, feedback, abort } = fixture();
+    let paused = false;
+    Object.defineProperty(video, 'paused', { configurable: true, get: () => paused });
+    vi.spyOn(video, 'pause').mockImplementation(() => { paused = true });
+    const play = vi.spyOn(video, 'play').mockImplementation(() => { paused = false; return Promise.resolve() });
+    video.playbackRate = 1;
+    pointer('pointerdown', 100); vi.advanceTimersByTime(500);
+    expect(paused).toBe(true); expect(video.playbackRate).toBe(1);
+    vi.advanceTimersByTime(3000);
+    expect(video.currentTime).toBe(1200); expect(feedback().textContent).toContain('19:54');
+    pointer('pointerup', 100);
+    expect(video.currentTime).toBeCloseTo(1194, 0); expect(play).toHaveBeenCalledOnce(); abort.abort();
+  });
+  it('长按左侧回退中途取消不定位；换片源取消时不再起播', () => {
+    const { video, pointer, abort } = fixture();
+    let paused = false;
+    Object.defineProperty(video, 'paused', { configurable: true, get: () => paused });
+    vi.spyOn(video, 'pause').mockImplementation(() => { paused = true });
+    const play = vi.spyOn(video, 'play').mockImplementation(() => { paused = false; return Promise.resolve() });
+    pointer('pointerdown', 100); vi.advanceTimersByTime(2000); pointer('pointercancel');
+    expect(video.currentTime).toBe(1200); expect(play).toHaveBeenCalledOnce();
+    pointer('pointerdown', 100); vi.advanceTimersByTime(2000); video.dispatchEvent(new Event('loadstart'));
+    expect(video.currentTime).toBe(1200); expect(play).toHaveBeenCalledOnce(); abort.abort();
+  });
+  it('暂停时长按左侧也能回退，松手后保持暂停', () => {
+    const { video, pointer, abort } = fixture(true); const play = vi.spyOn(video, 'play');
+    pointer('pointerdown', 100); vi.advanceTimersByTime(5500); pointer('pointerup', 100);
+    expect(video.currentTime).toBeCloseTo(1190, 0); expect(play).not.toHaveBeenCalled(); abort.abort();
+  });
   it('滑动、系统取消与多指手势都不会提交待预览的跳转', () => {
     const { video, pointer, abort } = fixture();
     pointer('pointerdown'); pointer('pointermove', 900); pointer('pointercancel');

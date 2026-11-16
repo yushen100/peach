@@ -668,6 +668,7 @@
     "processingStatus": "Status",
     "restoreSelected": "Move selected to Pending",
     "reviewStatus": "Review status",
+    "selectAll": "Select all {{count, number}}",
     "selectGroup": "Select all in this group",
     "selectPage": "Select all on this page",
     "selectedCount_one": "{{count, number}} selected",

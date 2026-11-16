@@ -768,9 +768,12 @@
     "url": "Proxy URL"
   },
   "performerNameLanguage": {
-    "chinese": "Chinese",
-    "help": "Names and aliases show only in the selected language. If a name has no version in that language, the current name is kept.",
+    "chinese": "Chinese (translated)",
+    "help": "Local language follows the interface language; names without that writing show the original.",
     "japanese": "Original Japanese",
+    "japaneseThenLocal": "Japanese (local language)",
+    "localThenJapanese": "Local language (Japanese)",
+    "romaji": "English (romanized)",
     "saveFailed": "Save name language",
     "saved": "Name language saved",
     "title": "Actress names",
@@ -816,6 +819,7 @@
     "software": "Software codec"
   },
   "preferencesPanel": {
+    "autoChineseSubtitles": "Turn on Chinese subtitles from the video's directory until you pick one",
     "autoScroll": "Auto-scroll",
     "batchSize": "Videos per batch",
     "batchSizeInput": "Videos per batch",
@@ -829,10 +833,12 @@
     "feedLimitInput": "Number of new releases shown",
     "feedNewRows": "Show new releases on Home and actress pages",
     "groupEditions": "Group parts and editions",
+    "homePreviewOnly": "Show only videos with a preview image on Home",
     "homeShorts": "Portrait strip on Home",
     "homeTiers": "Show actress and label avatars on Home",
     "hoverDelay": "Hover preview delay",
     "hoverDelaySfw": "No previews in SFW mode.",
+    "hoverPreview": "Play previews when hovering over cards",
     "increaseContrast": "Increase contrast",
     "ingestNotices": "Import notifications",
     "interfaceSounds": "Interface sounds",

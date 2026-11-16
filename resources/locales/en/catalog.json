@@ -52,6 +52,7 @@
     "filterAndSort": "Filter and sort",
     "readout_one": "{{count, number}} match · showing {{shown, number}}",
     "readout_other": "{{count, number}} matches · showing {{shown, number}}",
+    "showAll": "Show all",
     "views": "Views",
     "viewsAndTags": "Views and tags"
   },

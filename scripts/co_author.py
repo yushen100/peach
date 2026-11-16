@@ -18,6 +18,7 @@ VENDORS = {
     "Claude Code": "noreply@anthropic.com",
     "Codex": "noreply@openai.com",
     "opencode": "noreply@opencode.ai",
+    "ZCode": "noreply@z.ai",
 }
 
 #: 维护者本人的提交邮箱（小写）。fork 来的 PR 里出现这些身份，说明贡献者照 `git log`

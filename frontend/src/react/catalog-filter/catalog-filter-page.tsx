@@ -14,7 +14,7 @@ import { useEntityNames } from '../use-entity-names';
 import { popBadges } from '@peach/legacy/ui';
 import { AsyncText } from '../components/async-text';
 
-import { FilterGlassRows, FilterPill } from '../components/filter-glass';
+import { FilterGlassRows, FilterPill, GlassPill } from '../components/filter-glass';
 import { useViewGlide } from '../components/use-view-glide';
 import { LibraryShortcuts } from '../library-shortcuts/shortcut-controls';
 import { FolderBrowseToggle } from '../catalog-folders/catalog-folders-page';
@@ -208,7 +208,7 @@ function Placeholders({ kind }: { kind: 'performer' | 'studio' | 'tag' }) {
 }
 
 /** 下排：读数、换一批、版式与排序。回收站不出这一排。 */
-function Head({ count, refreshing, layout, sorts, actions }: CatalogFilterProps) {
+function Head({ count, refreshing, layout, sorts, previewOnly, actions }: CatalogFilterProps) {
   const view = useCatalogView();
   const [shuffling, setShuffling] = useState(false);
   const shuffle = () => {
@@ -217,7 +217,9 @@ function Head({ count, refreshing, layout, sorts, actions }: CatalogFilterProps)
   };
   return (
     <>
-      <span data-catalog-summary=""><Readout count={count} /><LibraryShortcuts currentHref={actions.currentHref} /></span>
+      <span data-catalog-summary=""><Readout count={count} /><LibraryShortcuts currentHref={actions.currentHref} />
+        {/* 只显示有预览图时（设置或地址），这一次看全部的入口；回首页、刷新后按设置重新生效。 */}
+        {previewOnly && actions.showAll ? <GlassPill onPress={actions.showAll}>{t('catalog:catalogFilter.showAll')}</GlassPill> : null}</span>
       <span data-entity-sorts="">
         <Shuffle onPress={shuffle} busy={shuffling || refreshing} />
         {/* 按名字换键：JAV 与首页各一组，React Aria 的单选组挂上之后不改 `name`。 */}

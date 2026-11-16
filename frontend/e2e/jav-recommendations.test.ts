@@ -78,6 +78,40 @@ describe('JAV 推荐与加载结构', () => {
       assert.deepEqual(opened.problems.filter(line => !line.includes('VIDEOJS')), []);
     } finally { await opened.close() }
   });
+  for (const viewport of VIEWPORTS) it(`${viewport.name}：探索卡进视口前后高度不变`, { timeout: 90_000 }, async () => {
+    const opened = await visit(browser, '/?jav=1', viewport);
+    const { page } = opened;
+    try {
+      await settle(page);
+      await page.route('**/api/result-updates', route => route.fulfill({ json: { result_versions: {} } }));
+      await page.route('**/api/taste?*', route => route.fulfill({ json: { summary: {}, rankings: {} } }));
+      // 三种署名：多位出演者、没有发行日、一位出演者带日期；推荐分分三档，标签名有长有短。
+      await page.route('**/api/jav/discoveries?*', route => route.fulfill({ json: { items: Array.from({ length: 30 }, (_, index) => ({
+        id: index + 300, code: `PCH-${index + 300}`, title: index % 4 === 0 ? '很长的作品标题用于检查两行截断'.repeat(4) : '探索作品',
+        performers: '来源原名', has_cover: false, wanted: false, score: 1,
+        performer_refs: (index % 3 === 0 ? ['规范姓名', '第二位女优', '第三位女优'] : ['规范姓名']).map((name, ref) => ({ id: 42 + ref, name, has_image: false })),
+        ...(index % 3 === 1 ? {} : { release_date: '2024-06-03' }),
+        tags: index % 2 ? ['恋足', '单体作品', '高画质'] : ['很长的标签名称一枚', '巨乳'], taste_score: [0.95, 0.6, 0.3][index % 3],
+      })) } }));
+      for (const density of ['roomy', 'dense']) {
+        await page.goto(new URL('/jav?tab=discover', page.url()).href);
+        const cards = page.getByRole('region', { name: '为你推荐', exact: true }).locator('article');
+        await cards.first().waitFor();
+        await page.evaluate(value => { document.body.dataset.density = value; window.scrollTo(0, 0) }, density);
+        const frame = () => page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+        const heights = () => cards.evaluateAll(nodes => nodes.map(node => Math.round(node.getBoundingClientRect().height * 10) / 10));
+        await frame();
+        const before = await heights();
+        assert.equal(before.length, 30);
+        for (const card of await cards.all()) { await card.scrollIntoViewIfNeeded(); await frame(); }
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await frame();
+        const shown = await heights();
+        assert.deepEqual(shown, before, `${density}：屏外卡进视口后长高或变矮`);
+      }
+      assert.deepEqual(opened.problems.filter(line => !line.includes('/api/links/check')), []);
+    } finally { await opened.close() }
+  });
   for (const viewport of VIEWPORTS) it(`${viewport.name}：按实体身份推荐，封面骨架占据卡片尺寸`, { timeout: 60_000 }, async () => {
     const opened = await visit(browser, '/?jav=1', viewport);
     const { page } = opened;

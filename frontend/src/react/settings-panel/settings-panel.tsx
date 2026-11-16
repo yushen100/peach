@@ -31,6 +31,7 @@ import { INTERFACE_LANGUAGES, isInterfaceLanguageChoice, LANGUAGE_SELF_NAMES, t,
 import { PREFERENCE_SECTIONS, sectionId } from '../../history/settings-route';
 import { normalizeJavImage } from '../../jav-artwork';
 import { boundedPreference } from '../../number-setting';
+import { NAME_LANGUAGES, type NameLanguage } from '../../core/entity-names';
 import { GlowSettings } from './glow-settings';
 import { Icon, RemixIcon } from './icon';
 import { IconSwitch, SelectField } from './legacy-controls';
@@ -493,12 +494,14 @@ function BrowseGroup({ host: current, tab, epoch }: GroupProps) {
         <input type="checkbox" id="groupCollapseSetting" data-toggle="" role="switch" checked={settings.groupCollapse}
           onChange={(event) => { settings.groupCollapse = event.target.checked; save(); current.changed('groupCollapse') }} />
       </label>
-      {/* SFW 模式停掉悬停预览，延迟这时不起作用：禁用并说明，关掉 SFW 就恢复。 */}
+      <ToggleRow id="hoverPreviewSetting" title={t('settings:preferencesPanel.hoverPreview')} checked={settings.hoverPreview}
+        onToggle={(on) => { settings.hoverPreview = on; save(); current.changed('hoverPreview') }} />
+      {/* SFW 模式与关掉悬停预览时延迟不起作用：禁用，SFW 另加说明。 */}
       <Row title={t('settings:preferencesPanel.hoverDelay')}
         description={current.censored() ? t('settings:preferencesPanel.hoverDelaySfw') : undefined}>
         <div id="hoverDelaySetting">
           <NumberSetting key={epoch} id="hoverDelaySetting" label={t('settings:preferencesPanel.hoverDelay')} value={settings.hoverDelaySeconds}
-            disabled={current.censored()}
+            disabled={current.censored() || !settings.hoverPreview}
             onApply={(value) => {
               settings.hoverDelaySeconds = boundedPreference(value, 0, 60, 5); save(); current.changed('hoverDelay');
             }} />
@@ -512,6 +515,8 @@ function BrowseGroup({ host: current, tab, epoch }: GroupProps) {
       </Row>
       <ToggleRow id="homeTiersSetting" title={t('settings:preferencesPanel.homeTiers')} checked={settings.homeTiers}
         onToggle={(on) => { settings.homeTiers = on; save(); current.changed('homeTiers') }} />
+      <ToggleRow id="homePreviewOnlySetting" title={t('settings:preferencesPanel.homePreviewOnly')} checked={settings.homePreviewOnly}
+        onToggle={(on) => { settings.homePreviewOnly = on; save(); current.changed('homePreviewOnly') }} />
       <ToggleRow id="completionPromptSetting" title={t('settings:preferencesPanel.completionPrompt')} checked={settings.completionPrompt}
         onToggle={(on) => { settings.completionPrompt = on; save() }} />
       <h4 data-settings-subheading="">{t('settings:preferencesPanel.playbackHeading')}</h4>
@@ -585,16 +590,18 @@ function InterfaceLanguageSetting({ host: current, epoch }: { host: SettingsPane
 function NameLanguageSetting({ host: current, epoch }: { host: SettingsPanelHost; epoch: number }) {
   const query = useQuery({ queryKey: SETTINGS_KEY, queryFn: ({ signal }) => fetchSettings(signal), staleTime: 0 });
   const save = useSaveSettings();
-  const [pending, setPending] = useState<'zh-CN' | 'ja' | null>(null);
+  const [pending, setPending] = useState<NameLanguage | null>(null);
   const language = query.data?.performerNameLanguage;
   return <>
     <Row title={t('settings:performerNameLanguage.title')} description={<small data-copy-key="performer-name-language-help">{t('settings:performerNameLanguage.help')}</small>}>
       <SelectField id="performerNameLanguageSetting" label={t('settings:performerNameLanguage.title')} epoch={epoch}
-        options={[["zh-CN", t('settings:performerNameLanguage.chinese')], ["ja", t('settings:performerNameLanguage.japanese')]]}
+        options={[["zh-CN", t('settings:performerNameLanguage.chinese')], ["ja", t('settings:performerNameLanguage.japanese')],
+          ["en", t('settings:performerNameLanguage.romaji')], ["ja-local", t('settings:performerNameLanguage.japaneseThenLocal')],
+          ["local-ja", t('settings:performerNameLanguage.localThenJapanese')]]}
         value={pending ?? language ?? current.store.value.performerNameLanguage}
         disabled={query.isPending || query.isError || save.isPending || !language} busy={save.isPending}
         onPick={(value) => {
-          if (save.isPending || (value !== 'zh-CN' && value !== 'ja') || value === language) return;
+          if (save.isPending || !NAME_LANGUAGES.includes(value as NameLanguage) || value === language) return;
           setPending(value);
           save.mutate({ performerNameLanguage: value }, {
             onSuccess: (saved) => { current.syncRemote(saved); current.receipt(t('settings:performerNameLanguage.saved')) },
@@ -645,6 +652,8 @@ function PlaybackRows({ host: current, epoch }: Omit<GroupProps, 'tab'>) {
     <>
       <ToggleRow id="detailAutoplaySetting" title={t('settings:preferencesPanel.detailAutoplay')} checked={settings.detailAutoplay}
         onToggle={(on) => { settings.detailAutoplay = on; save() }} />
+      <ToggleRow id="autoChineseSubtitlesSetting" title={t('settings:preferencesPanel.autoChineseSubtitles')}
+        checked={settings.autoChineseSubtitles} onToggle={(on) => { settings.autoChineseSubtitles = on; save() }} />
       <Row title={t('settings:playbackEnd.title')}>
         <SelectField id="afterPlaybackSetting" label={t('settings:playbackEnd.title')} options={afterPlaybackOptions()} value={settings.afterPlayback} epoch={epoch}
           onPick={(value) => { settings.afterPlayback = allowedSetting(value, AFTER_PLAYBACK_CHOICES, 'next'); save() }} />

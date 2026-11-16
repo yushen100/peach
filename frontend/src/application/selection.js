@@ -197,6 +197,7 @@ applyDensity();
 configureHoverPreview({
   selecting:()=>selectMode,
   censored:()=>censorOn(),
+  enabled:()=>preferencesState.appSettings.hoverPreview,
   delaySeconds:()=>preferencesState.appSettings.hoverDelaySeconds,
 });
 applicationEffects.listen(window, 'pagehide', ()=>releaseHoverPreviews());

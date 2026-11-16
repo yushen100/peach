@@ -23,6 +23,14 @@ MIGRATIONS = ROOT / "migrations"
 
 
 class PairingTests(unittest.TestCase):
+    def test_compound_chinese_language_tags_pair_and_keep_their_script(self):
+        for token, language in (("zh-CN", "zh-Hans"), ("zh-TW", "zh-Hant"),
+                                ("zh-HK", "zh-Hant"), ("zh-Hans", "zh-Hans"), ("zh-Hant", "zh-Hant")):
+            name = f"ABP-758.{token}.srt"
+            with self.subTest(token=token):
+                self.assertEqual(subtitles.language_of(name), language)
+                self.assertEqual(subtitles.pair(name, ["ABP-758.mp4"]), ("ABP-758.mp4", subtitles.SUFFIX))
+
     """同目录配对：三条判据按先后取第一个成立的，配不上就是孤立字幕。"""
 
     VIDEOS = ("ABP-758.mp4", "SSIS-001-4K.mp4")

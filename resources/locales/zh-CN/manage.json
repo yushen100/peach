@@ -603,6 +603,7 @@
     "processingStatus": "处理状态",
     "restoreSelected": "恢复所选",
     "reviewStatus": "复核状态",
+    "selectAll": "全选全部 {{count, number}} 项",
     "selectGroup": "全选当前分类",
     "selectPage": "全选本页",
     "selectedCount": "已选 {{count, number}} 项",

@@ -1109,6 +1109,31 @@ class UpgradeRepairs:
             if retry_media:
                 raise
 
+    def _repair_feed_overflow(self) -> None:
+        """旧版每轮新作限额截掉、只记成「已见」的历史新作补建一次壳（`feed_overflow_repair`）。
+
+        和其余存量补修一样由调度器在服务起来后跑，失败只记日志、不挡后台服务；有要补的才先备份。
+        """
+        from . import feed_overflow_repair, web_settings
+        try:
+            hidden = web_settings.hidden_compilations(self.contract.database)
+            with self.contract.database.read_connection() as connection:
+                if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
+                                      (feed_overflow_repair.RECEIPT_KEY,)).fetchone():
+                    return
+                planned = feed_overflow_repair.candidates(connection, hidden)
+            backup = None
+            if planned:
+                backup = self.contract.db_path.with_name(f'ledger.pre-upgrade-{time.time_ns()}.db')
+                sqlite_backup(self.contract.db_path, backup)
+            with self.contract.database.write_transaction() as connection:
+                result = feed_overflow_repair.repair(connection, hidden, backup=backup)
+            if result is not None:
+                LOGGER.info('Feed overflow history repair: recovered %s of %s candidates',
+                            len(result['created']), result['candidates'])
+        except Exception:
+            LOGGER.exception('Feed overflow history repair failed')
+
     def _prepare_local(self) -> None:
         """服务恢复任务前应用本地确定性修复。"""
         if not self.available or not self.contract.task_runs.enabled:
@@ -2468,6 +2493,7 @@ class UpgradeRepairs:
             self.scheduler.add_job(self._settle_spaced_performers, max_instances=1)
             self.scheduler.add_job(self._settle_enhancement_names, max_instances=1)
             self.scheduler.add_job(self._backfill_identities, max_instances=1)
+            self.scheduler.add_job(self._repair_feed_overflow, max_instances=1)
             self.scheduler.add_job(self._release_studio_misses, max_instances=1)
             self.scheduler.add_job(self._clear_stale_codes, max_instances=1)
             self.scheduler.add_job(self._prune_task_controls, max_instances=1)
