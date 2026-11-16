@@ -394,6 +394,19 @@ describe('过滤框', () => {
 });
 
 describe('标签', () => {
+  it('在线标签浏览页可直接添加屏蔽标签，本地标签不显示该入口', async () => {
+    seed(indexKey('tags', '', 'all'), [tag('眼镜')]);
+    seed(onlineTagsKey('', 'all'), [tag('glasses', 'general')]);
+    serve(() => ({ items: [], total: 0, categories: {}, duplicate_groups: [] }));
+    const host = await open(props({ kind: 'tags', scope: 'local' }));
+    await settle();
+    expect(buttonNamed('添加屏蔽标签', host)).toBeNull();
+    await click(tab(host, 'online'));
+    await settle();
+    expect(buttonNamed('添加屏蔽标签', host)).not.toBeNull();
+    expect(host.querySelector('[data-tag-manager]')).toBeNull();
+  });
+
   for (const scope of ['local', 'online'] as const) for (const view of ['alphabet', 'cloud'] as const) {
     it(`${scope} ${view} 浏览使用当前名称且仅管理模式提供编辑`, async () => {
       const row = { ...tag('眼镜', 'appearance'), entity_id: 4472, id: 'glasses', aliases: ['眼镜娘'], hidden: false };

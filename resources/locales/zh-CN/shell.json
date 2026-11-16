@@ -1,4 +1,8 @@
 {
+  "holdToConfirm": {
+    "label": "按住{{action}}",
+    "instruction": "按住鼠标、空格键或回车键 2 秒确认，提前松开取消。"
+  },
   "accessSetup": {
     "enterWithoutPassword": "免登录进入",
     "lanPasswordHint": "局域网访问建议设置密码，否则同一网络中的设备可直接进入。",
@@ -72,13 +76,16 @@
   },
   "batchJunk": {
     "confirmDispose": "将选中的 {{count, number}} 个文件移入回收站，文件保留在原处。",
+    "confirmDisposeAll": "将这一类待判断的 {{count, number}} 个文件全部移入回收站，文件保留在原处。",
     "confirmNotJunk": "将选中的 {{count, number}} 个文件标为不是垃圾，移出待判断。",
     "confirmRecheck": "将选中的 {{count, number}} 个文件放回待判断。",
     "dismissed": "已标记为不是垃圾",
+    "disposeAll": "全部移入回收站",
     "doneDispose": "已批量移入回收站：{{count, number}} 项",
     "doneNotJunk": "已批量标为不是垃圾：{{count, number}} 项",
     "doneRecheck": "已批量重新判断：{{count, number}} 项",
     "markNotJunk": "标记为非垃圾",
+    "queueChanged": "待判断的文件刚有变化，已重新读取，请再确认一次。",
     "recheckFiles": "重新检查文件",
     "reconsidered": "已重新加入垃圾判断"
   },
@@ -166,6 +173,9 @@
     "selectedCount": "已选 {{count, number}} {{unit}}",
     "spacerColumn": "行空白区域",
     "toolbar": "{{label}}工具栏"
+  },
+  "detailFailure": {
+    "title": "详情未取得"
   },
   "detailTags": {
     "hideTag": "从此内容隐藏该标签",

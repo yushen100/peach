@@ -42,6 +42,18 @@ class CoverArtworkTests(unittest.TestCase):
         self.assertEqual(self.target.read_bytes(), data)
         self.assertFalse(self.target.with_suffix('.face.json').exists())
 
+    def test_a_javdb_image_marked_as_the_chosen_fallback_installs_and_shows(self):
+        """#531：设置打开后按水印兜底装上的那张记着 `watermarked`，装得上，也不再被当成只作印证的图藏起来。"""
+        data = jpeg((80, 90, 100))
+        evidence = {'source_url': 'https://c0.jdbstatic.com/covers/x.jpg', 'watermarked': True}
+        with patch.object(cover_artwork, 'face_record', return_value=None):
+            cover_artwork.install_cover(self.target, 'XV-507', data, (840, 472), evidence=evidence)
+        self.assertEqual(self.target.read_bytes(), data)
+        self.assertFalse(cover_artwork.has_javdb_source(self.target))
+        self.target.with_suffix('.scraping.json').write_text(
+            json.dumps({'source_url': 'https://c0.jdbstatic.com/covers/x.jpg'}), encoding='utf-8')
+        self.assertTrue(cover_artwork.has_javdb_source(self.target))
+
     def test_a_paper_canvas_keeps_a_face_left_of_the_expected_spine(self):
         detector = Detector()
         with patch.object(detector, 'detect', return_value=[Face(.478, .094, .085, .155, .838)]):
@@ -154,8 +166,9 @@ class CoverArtworkTests(unittest.TestCase):
             for code in ("FC2-PPV-3312576", "HEYZO-1380", "092415-001", "ABP-601"):
                 with self.subTest(code=code):
                     target = self.root / f"{code}.jpg"
-                    cover_artwork.install_cover(target, code, jpeg((90, 80, 70), (800, 500)),
-                                                (800, 500), detector=detector)
+                    # 番号封面用标准封套比例：1.6 的纯色图找不到折痕，取景判成整幅，脸也就在整幅里找。
+                    size = (800, 538) if code == "ABP-601" else (800, 500)
+                    cover_artwork.install_cover(target, code, jpeg((90, 80, 70), size), size, detector=detector)
                     record = json.loads(target.with_suffix(".face.json").read_text(encoding="utf-8"))
                     if code == "ABP-601":
                         self.assertIsNone(record["face"])
@@ -289,6 +302,116 @@ class CoverArtworkTests(unittest.TestCase):
         winner = payloads.index(self.target.read_bytes())
         evidence = json.loads(self.target.with_suffix(".scraping.json").read_text(encoding="utf-8"))
         self.assertEqual(evidence["raw_sha256"], str(winner))
+
+
+def textured(size, seed, fold=None):
+    """有纹理的 JPEG 字节与像素：竖版图比对要在纹理上做。
+
+    纹理先模糊：纯噪声每一列都像一条满高接缝，真实封面的接缝覆盖率只有三四成。`fold` 处画一条折痕。
+    """
+    import numpy
+    from PIL import ImageFilter
+
+    pixels = numpy.random.default_rng(seed).integers(0, 256, (size[1], size[0], 3), dtype=numpy.uint8)
+    image = Image.fromarray(pixels).filter(ImageFilter.GaussianBlur(3))
+    if fold is not None:
+        image.paste((10, 10, 10), (fold - 2, 0, fold, size[1]))
+    output = io.BytesIO()
+    image.save(output, "JPEG", quality=95)
+    return output.getvalue(), image
+
+
+class PortraitInstallTests(unittest.TestCase):
+    """装封面时带上 DMM 竖版图：它决定横图是不是封套，独立海报装成竖版正封。"""
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+        self.target = self.root / "START-404.jpg"
+        self.cover, self.image = textured((1100, 776), 1)
+        self.front = jav_poster_crop.front_path(self.target)
+
+    def portrait(self, image):
+        output = io.BytesIO()
+        image.save(output, "JPEG", quality=95)
+        return output.getvalue()
+
+    def test_a_separately_designed_poster_is_installed_as_the_front_image(self):
+        poster, _ = textured((546, 776), 2)
+        cover_artwork.install_cover(self.target, "START-404", self.cover, (1100, 776),
+                                    detector=Detector(), portrait=poster)
+        record = jav_poster_crop.read_sidecar(self.target)
+        self.assertEqual(self.front.read_bytes(), poster)
+        self.assertEqual(record["box"]["method"], jav_poster_crop.NONE)
+        self.assertEqual((record["layout"], record["front"], record["portrait"]["verdict"]),
+                         ("still", [546, 776], jav_poster_crop.POSTER))
+        face = json.loads(self.target.with_suffix(".face.json").read_text(encoding="utf-8"))
+        self.assertEqual(face["layout"], "still", "整幅画面按全图找脸")
+
+    def test_a_shorter_poster_is_judged_but_not_installed(self):
+        """比横图矮的竖版图装上去就是降清晰度：只拿它判版式，大图位按人脸铺满横图。"""
+        poster, _ = textured((147, 200), 3)
+        cover_artwork.install_cover(self.target, "START-404", self.cover, (1100, 776),
+                                    detector=Detector(), portrait=poster)
+        record = jav_poster_crop.read_sidecar(self.target)
+        self.assertFalse(self.front.exists())
+        self.assertEqual((record["layout"], record["portrait"]["verdict"]), ("still", jav_poster_crop.POSTER))
+        self.assertNotIn("front", record)
+
+    def test_a_portrait_cut_from_the_sleeve_frames_the_front_panel(self):
+        """DMM 那块从 540 列起、带进书脊；正封从 554 列的折痕起。"""
+        cover, image = textured((1100, 776), 1, fold=554)
+        portrait = self.portrait(image.crop((540, 0, 1100, 776)))
+        cover_artwork.install_cover(self.target, "START-404", cover, (1100, 776),
+                                    detector=Detector(), portrait=portrait)
+        record = jav_poster_crop.read_sidecar(self.target)
+        self.assertFalse(self.front.exists(), "封套的正封按折痕切，DMM 那块会带进书脊")
+        self.assertEqual(record["portrait"]["verdict"], jav_poster_crop.SLEEVE)
+        self.assertEqual(record["box"]["method"], jav_poster_crop.FOLD)
+        self.assertLessEqual(abs(record["box"]["x0"] - 554), 1, "缝是一列过渡带，从它下一列起")
+        self.assertNotIn("layout", record)
+
+    def test_a_later_cover_without_a_poster_removes_the_old_front_image(self):
+        poster, _ = textured((546, 776), 4)
+        cover_artwork.install_cover(self.target, "START-404", self.cover, (1100, 776),
+                                    detector=Detector(), portrait=poster)
+        cover_artwork.install_cover(self.target, "START-404", jpeg((20, 20, 20)), (840, 472),
+                                    detector=Detector())
+        self.assertFalse(self.front.exists())
+        self.assertNotIn("front", jav_poster_crop.read_sidecar(self.target))
+
+    def test_the_group_lists_the_front_image_with_the_sidecars(self):
+        self.assertEqual([path.name for path in cover_artwork.cover_group(self.target)],
+                         ["START-404.jpg", "START-404.face.json", "START-404.poster.json",
+                          "START-404.scraping.json", "START-404.jpg"])
+        self.assertEqual(cover_artwork.cover_group(self.target)[-1], self.front)
+
+
+class WholeFaceTests(unittest.TestCase):
+    """取景判成整幅显示时，主脸在整幅画面里找：左边那张更大的脸不该被「只看正封」筛掉。"""
+
+    class Faces:
+        def detect(self, image):
+            return [Face(.2, .4, .07, .1, .9), Face(.75, .4, .05, .07, .9)]
+
+    def setUp(self):
+        import numpy
+        self.image = numpy.zeros((1468, 2184, 3), numpy.uint8)
+
+    def test_a_sleeve_looks_for_the_face_on_the_front_panel(self):
+        found = cover_artwork.face_record(self.image, self.Faces(), code="MIDV-192")
+        self.assertEqual(found["face"]["cx"], .75)
+
+    def test_a_whole_picture_takes_the_largest_face_anywhere(self):
+        found = cover_artwork.face_record(self.image, self.Faces(), code="MIDV-192", whole=True)
+        self.assertEqual((found["face"]["cx"], found["layout"]), (.2, "still"))
+
+    def test_only_a_cover_shown_whole_with_a_front_panel_face_is_redone(self):
+        whole = {"box": {"method": jav_poster_crop.NONE}}
+        cut = {"box": {"method": jav_poster_crop.FOLD}}
+        front_face = {"face": {"cx": .75}}
+        self.assertTrue(cover_artwork.needs_whole_face("MIDV-192", "", whole, front_face))
+        self.assertFalse(cover_artwork.needs_whole_face("MIDV-192", "", cut, front_face))
+        self.assertFalse(cover_artwork.needs_whole_face("MIDV-192", "", whole, {**front_face, "layout": "still"}))
 
 
 if __name__ == "__main__":

@@ -28,6 +28,7 @@ import type { CatalogGridProps, MediaItem, MediaPage } from './types';
 import { useCatalogTablePreferences } from './catalog-column-widths';
 import { catalogColumns } from './catalog-table-columns';
 import { CatalogRating, catalogTableDate } from './catalog-table-controls';
+import { CatalogColumnFilter } from './catalog-column-filter';
 import { TableColumnControls, TableColumnResizer } from '../components/table-column-controls';
 import { TableSelectionHeader } from '../components/table-selection-header';
 import { joinList, t } from '../../i18n';
@@ -42,7 +43,7 @@ const sortOptions = [
   { id: 'rating', label: t('catalog:shared.rating') }, { id: 'o', label: t('catalog:catalogList.climaxCount') },
   { id: 'plays', label: t('catalog:catalogList.plays') }, { id: 'played', label: t('catalog:catalogList.lastWatched') },
 ];
-interface ListState { sorting: SortingState; pagination: { pageIndex: number; pageSize: number } }
+interface ListState { sorting: SortingState; pagination: { pageIndex: number; pageSize: number }; filters: Record<string, string> }
 // 详情返回保留同一筛选范围内的页码与列排序。
 const positions = new Map<string, ListState>();
 
@@ -57,19 +58,21 @@ export function CatalogListPage(props: CatalogGridProps) {
     return `${props.mode}:${props.listScope || props.entityKey || ''}:${position}`;
   });
   const [state, setState] = useState<ListState>(() => positions.get(scope) || {
-    sorting: [], pagination: { pageIndex: 0, pageSize: 20 },
+    sorting: [], pagination: { pageIndex: 0, pageSize: 20 }, filters: {},
   });
-  const { sorting, pagination } = state;
+  const { sorting, pagination, filters } = state;
+  const filterScope = { ...props.filters, ...props.facetScope };
   useEffect(() => { positions.set(scope, state) }, [scope, state]);
   const offset = pagination.pageIndex * pagination.pageSize;
   const sort = sorting[0];
   const result = useQuery({
-    queryKey: ['catalog-grid', 'table', scope, params, props.revision, pagination, sorting],
+    queryKey: ['catalog-grid', 'table', scope, params, props.revision, pagination, sorting, filters],
     placeholderData: keepPreviousData,
     queryFn: async ({ signal }): Promise<MediaPage & { libraryEmpty?: boolean }> => {
-      const options = { limit: pagination.pageSize, sort: sort?.id, dir: sort ? sort.desc ? 'desc' : 'asc' : undefined };
+      const options = { limit: pagination.pageSize, sort: sort?.id, dir: sort ? sort.desc ? 'desc' : 'asc' : undefined, filters };
       if (props.mode === 'entity') return props.fetchPage?.(offset, signal, options) || { items: [], total: 0 };
       const query = new URLSearchParams(params);
+      for (const [key, value] of Object.entries(filters)) query.set(key, value);
       query.set('offset', String(offset));
       query.set('limit', String(options.limit));
       query.delete('count');
@@ -159,6 +162,7 @@ export function CatalogListPage(props: CatalogGridProps) {
     state: { sorting, pagination, rowSelection, columnVisibility: { ...preferences.visibility, select: props.selectMode } },
     onColumnVisibilityChange: preferences.change,
     onSortingChange: updater => setState(now => ({
+      ...now,
       sorting: typeof updater === 'function' ? updater(now.sorting) : updater,
       pagination: { ...now.pagination, pageIndex: 0 },
     })),
@@ -174,7 +178,7 @@ export function CatalogListPage(props: CatalogGridProps) {
   });
   /* 一部都没有时与卡片网格同一份空态（壳给的 `emptyHtml`：回收站、馆藏全空、筛选无结果各一种），
      不画空表格与列设置；资料页不给空态，它自己在作品区外说「还没有视频」。 */
-  if (result.data && !result.isPlaceholderData && !result.isError && total === 0) {
+  if (result.data && !result.isPlaceholderData && !result.isError && total === 0 && !Object.keys(filters).length) {
     const html = props.emptyHtml?.({ trash: props.mode !== 'entity' && props.filters?.state === 'trash',
       libraryEmpty: !!(result.data as { libraryEmpty?: boolean }).libraryEmpty }) || '';
     return <div data-catalog-view-mode="list" data-media-empty="" dangerouslySetInnerHTML={{ __html: html }} />;
@@ -200,7 +204,11 @@ export function CatalogListPage(props: CatalogGridProps) {
             {...preferences.columnProps(header.id)}>
             {({ sortDirection }) => <>
             <span className="flex items-center gap-0.5">
-              {flexRender(header.column.columnDef.header, header.getContext())}
+              {['people', 'library', 'tags'].includes(header.id)
+                ? <CatalogColumnFilter column={header.id as 'people' | 'library' | 'tags'} label={String(header.column.columnDef.header)}
+                    filters={filters} scope={filterScope} revision={props.revision} tagLabel={props.helpers.tagLabel}
+                    onChange={next => setState(now => ({ ...now, filters: next, pagination: { ...now.pagination, pageIndex: 0 } }))} />
+                : flexRender(header.column.columnDef.header, header.getContext())}
               {header.column.getCanSort() ? <span data-sort-indicator data-direction={sortDirection || undefined}><ChevronSortDown /></span> : null}
             </span>
             <TableColumnResizer preferences={preferences} id={header.id} />
@@ -278,10 +286,10 @@ function ListIdentity({ item, props, disabled }: { item: MediaItem; props: Catal
   </div>;
 }
 
-/** 媒体库那一列：标识加名字，与侧栏媒体库切换同一套。没有归属媒体库的写「—」。 */
-function ListLibrary({ item }: { item: MediaItem }) {
+/** 媒体库那一列：标识加名字，与侧栏媒体库切换同一套。没有归属媒体库的写「—」。处理队列页的列表也用它。 */
+export function ListLibrary({ item }: { item: { library_id?: unknown } }) {
   const tints = useLibraryTints({ names: true });
-  const tint = item.library_id ? tints.get(item.library_id) : undefined;
+  const tint = typeof item.library_id === 'string' && item.library_id ? tints.get(item.library_id) : undefined;
   return tint?.name ? <span data-list-library="" title={t('catalog:catalogList.libraryName', { name: tint.name })}><SourceMark mark={tint.icon} /><span>{tint.name}</span></span> : '—';
 }
 

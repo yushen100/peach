@@ -111,9 +111,9 @@ const settings = (): PanelSettings => ({
   theme: 'system', uiSounds: true, homeGlow: { ...normalizeHomeGlow(null), on: true, preset: 'ash' }, accent: 'blue',
   sidebarOrder: [''], batchSize: 60, defaultSort: 'seed', defaultSortDirection: '', groupCollapse: true,
   javImage: 'cover', performerNameLanguage: 'zh-CN', interfaceLanguage: 'zh-CN', systemLanguage: null, feedAutoScroll: true, feedLimit: 12, feedHideGroupCompilations: true, feedHideSoloCompilations: false,
-  feedHideExcerpts: true, hoverDelaySeconds: 5, detailAutoplay: false, afterPlayback: 'next', resumeRestartPercent: 5, miniplayer: true, seekSeconds: 10,
+  feedHideExcerpts: true, hoverDelaySeconds: 5, hoverPreview: true, touchGestures: true, holdRate: 2, swipeMinutes: 20, doubleTapPercent: 35, autoFullscreen: false, detailAutoplay: false, autoChineseSubtitles: false, afterPlayback: 'next', resumeRestartPercent: 5, miniplayer: true, seekSeconds: 10,
   relatedLimit: 24, searchHistoryLimit: 10, followInitialDays: 30, avatarRefreshDays: 90, faviconRefreshDays: 365,
-  feedNewRows: true, homeShortsLimit: 18, homeTiers: true, completionPrompt: true, searchRecommendations: true, ingestNotices: true,
+  feedNewRows: true, homeShortsLimit: 18, homeTiers: true, homePreviewOnly: false, completionPrompt: true, searchRecommendations: true, ingestNotices: true,
 });
 
 /** 壳 `settingsHost()` 交进来的那一份。 */
@@ -289,6 +289,10 @@ describe('设置面板与壳的接缝', () => {
     current.changed.mockClear();
     await click(panel.querySelector('#detailAutoplaySetting'));
     expect([current.value.detailAutoplay, effects(current.changed)]).toEqual([true, []]);
+    /* 自动中文字幕默认关，播放器读记忆时现读这一项，同样只落盘。 */
+    current.changed.mockClear();
+    await click(panel.querySelector('#autoChineseSubtitlesSetting'));
+    expect([current.value.autoChineseSubtitles, effects(current.changed)]).toEqual([true, []]);
     /* 补全提示条与入库通知由各自的组件当场读这一份偏好，同样只落盘。 */
     for (const [id, field] of [['completionPromptSetting', 'completionPrompt'], ['ingestNoticesSetting', 'ingestNotices']] as const) {
       current.changed.mockClear();
@@ -315,6 +319,16 @@ describe('设置面板与壳的接缝', () => {
     await close(current);
   });
 
+  it('关掉卡片悬停预览：报效果收掉正在放的预览，延迟随之禁用', async () => {
+    const current = await setup();
+    const panel = await open(current, '浏览与播放');
+    current.changed.mockClear();
+    await click(panel.querySelector('#hoverPreviewSetting'));
+    expect([current.value.hoverPreview, effects(current.changed)]).toEqual([false, ['hoverPreview']]);
+    expect(panel.querySelector<HTMLInputElement>('#hoverDelaySetting input[type=number]')?.disabled).toBe(true);
+    await close(current);
+  });
+
   it('SFW 模式打开时悬停预览延迟禁用并说明原因，关掉后恢复', async () => {
     const current = await setup();
     let censored = true;
@@ -328,6 +342,29 @@ describe('设置面板与壳的接缝', () => {
     await act(async () => { current.host.store.notify() });
     expect(input()?.disabled).toBe(false);
     expect(panel.querySelector('#hoverDelaySetting')?.closest('[data-setting-row]')?.textContent).not.toContain('SFW 模式下不预览');
+    await close(current);
+  });
+
+  it('画面手势：长按倍速、拖动幅度与双击区落进偏好；关掉手势后两项数值收起，长按倍速留着', async () => {
+    const current = await setup();
+    const panel = await open(current, '浏览与播放');
+    const rate = panel.querySelector<HTMLElement & { value: string }>('#holdRateSetting > div')!;
+    expect(rate.value).toBe('2');
+    await act(async () => { rate.value = '3'; rate.dispatchEvent(new Event('change', { bubbles: true })) });
+    const swipe = panel.querySelector<HTMLInputElement>('#swipeMinutesSetting input[type=number]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(swipe, '10');
+      swipe.dispatchEvent(new Event('input', { bubbles: true }));
+      swipe.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect([current.value.holdRate, current.value.swipeMinutes]).toEqual([3, 10]);
+    await click(panel.querySelector('#touchGesturesSetting'));
+    expect(current.value.touchGestures).toBe(false);
+    expect(panel.querySelector('#swipeMinutesSetting')).toBeNull();
+    expect(panel.querySelector('#doubleTapPercentSetting')).toBeNull();
+    expect(panel.querySelector('#holdRateSetting')).not.toBeNull();
+    await click(panel.querySelector('#autoFullscreenSetting'));
+    expect(current.value.autoFullscreen).toBe(true);
     await close(current);
   });
 

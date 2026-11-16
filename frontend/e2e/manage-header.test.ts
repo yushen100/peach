@@ -205,9 +205,9 @@ describe('批量条', () => {
         await page.goto(new URL('/trash', page.url()).href, { waitUntil: 'load' });
         await cards.first().waitFor({ timeout: 15_000 });
         await settle(page);
-        // 说明行右端的「清空回收站」：桌面是 Geist 32px 小键，手机回到本项目 44px 命中区。
-        const empty = await page.locator('[data-manage-lede] [data-empty-trash]').boundingBox();
-        assert.equal(Math.round(empty!.height), viewport.mobile ? 44 : 32, '清空回收站的键高');
+        // 筛选浮层下排读数后面的「清空回收站」：同垃圾文件的「全部移入回收站」，BoardUI 小号危险键 32px。
+        const empty = await page.locator('#trashFilter [data-catalog-frame] [data-empty-trash]').boundingBox();
+        assert.equal(Math.round(empty!.height), 32, '清空回收站的键高');
         await pickTwo(cards);
         assert.deepEqual(await readDock(page), { count: '已选 2 项', buttons: ['还原', '彻底删除', '取消'] });
 

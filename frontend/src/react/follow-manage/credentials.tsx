@@ -93,6 +93,7 @@ function CredentialForm({ row, readOnly, toast }:
           <Button variant="danger" disabled={readOnly} {...busyProps(write.isPending)}
             onClick={() => void confirmModal({
               title: t('follow:sourceCredentials.clearTitle'), body: CLEAR_BODY, confirmLabel: t('follow:sourceCredentials.clearTitle'), danger: true,
+              holdToConfirm: true,
               onConfirm: () => write.mutateAsync({}),
             })}>{t('follow:shared.clear')}</Button>
         ) : null}

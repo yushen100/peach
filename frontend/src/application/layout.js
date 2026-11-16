@@ -5,13 +5,13 @@ import { DIRECT_MANAGE_NAV, MANAGE_MENU_SECTIONS, MANAGE_SECTIONS, NAV_CATALOG, 
 import { FOLLOW_INITIAL_RANGE_OPTIONS } from './initial-follow-ranges';
 import { noteHtml, revealTexts } from '../ui-kit';
 import { $, ROUTE_ENTITIES, STATE_LABELS, STATE_ROUTES, api, isCatalogPath } from '../core';
-import { buildBars, catalogLayoutProp, catalogState, clearCatalogGrid, commitContextFilter, emptyTrash, goHome, homePath, loadCatalog, paintCatalogFilter, repaintCatalogGrid, syncCatalogFilterScreen } from './catalog.js';
+import { buildBars, catalogHeadProps, catalogLayoutProp, catalogState, clearCatalogGrid, commitContextFilter, goHome, homePath, loadCatalog, paintCatalogFilter, repaintCatalogGrid, syncCatalogFilterScreen } from './catalog.js';
 import { rememberedSidebarPath, requestPageTop } from '../history/page-navigation';
 import { navigationState, openRoutedPage, paintSidebar, syncNavigation } from './navigation.js';
 import { paintManagementPlaceholder } from './../management-placeholder';
 import { hideDiscoveryBars } from './loading.js';
 import { releaseManagedRoute } from './../history/managed';
-import { isFeedNewPath } from './feed.js';
+import { clearHomeFeed, isFeedNewPath } from './feed.js';
 import { tagLabel } from '../core/tags';
 import { PORTRAIT } from '../core/stored-values';
 import { followFeedLive, followState, followView, followViewPath, routeFollowFeed } from './follow.js';
@@ -25,6 +25,7 @@ import { receiptsState } from './receipts.js';
 import { applySyncedSettings } from './../appearance/settings';
 import { loadManageHeader, loadSettingsPanel, loadSidebar, manageHeaderApi, sidebarApi } from '../react/application-residents';
 import { sidebarSkeletonHtml } from './../sidebar-skeleton';
+import { trashFilterSkeletonHtml } from './../catalog-filter-skeleton';
 import { selectionState, setSelectMode } from './selection.js';
 import { manageHeaderSkeletonHtml, manageHeaderView } from './../manage-header';
 import { junkPath } from './../junk-queue';
@@ -69,7 +70,7 @@ export function showHomeSurfaces(){
      `#stats` 那一页不动（资料页压在它上面时它藏着继续活）。 */
   releaseManagedRoute($('#index'));
   $('#stats').hidden=true;$('#index').hidden=true;
-  if(!isFeedNewPath(location.pathname))$('#feedNew').hidden=true;
+  if(!isFeedNewPath(location.pathname))clearHomeFeed();
   $('#catalogFilter').style.display='';syncCatalogFilterScreen();
   buildManageBar();paintListTitle();   // 放在最后：管理区要盖掉上面刚恢复的首页横条
 }
@@ -136,13 +137,13 @@ export function sidebarHost(){
       else filters[key]=filters[key]===value?'':value
     }),
     setDuration:(lo,hi)=>commitContextFilter(filters=>{
-      filters.len='';filters.dur_min=lo?String(lo*60):'';filters.dur_max=hi<180?String(hi*60):''}),
+      filters.len='';filters.dur_min=lo?String(Math.round(lo*60)):'';filters.dur_max=hi===null?'':String(Math.round(hi*60))}),
     openFollowTag:tag=>{
       followState.followAuthors=new Set();followState.followProviders=new Set();followState.followMediaView='videos';followState.followFilter='saved';
       followState.followDurMin=followState.followDurMax=0;followState.followTags=new Set([tag]);openDrawer(false);openRoutedPage(followViewPath())},
     selectFollowTag:tag=>{followState.followTags=new Set([tag]);openDrawer(false);openRoutedPage(followViewPath())},
     selectFollowProvider:provider=>routeFollowFromSidebar({provider:followState.followProviders.has(provider)?'':provider}),
-    setFollowDuration:(lo,hi)=>routeFollowFromSidebar({durMin:lo?lo*60:0,durMax:hi<180?hi*60:0}),
+    setFollowDuration:(lo,hi)=>routeFollowFromSidebar({durMin:Math.round(lo*60),durMax:hi===null?0:Math.round(hi*60)}),
     attached:()=>{preferencesState.placeSidebarHead();preferencesState.syncGlassOptics()},
   };
 }
@@ -180,17 +181,19 @@ export function buildManageBar(){
   // 隐藏 tagbar 的同时同步 count 栏的吸顶偏移：它默认按「顶栏+筛选条」留位，
   // 筛选条不在时那个偏移会留出一条 58px 的缝，滚动内容从缝里穿出来。
   if(current)hideDiscoveryBars();
+  /* 回收站的筛选浮层住在正文里页头下面；进页时先铺同形骨架，筛选岛接手时整块换掉。 */
+  const trashHost=$('#trashFilter');trashHost.hidden=current!=='trash';
+  if(current==='trash'&&!trashHost.firstChild)trashHost.innerHTML=trashFilterSkeletonHtml(catalogHeadProps());
   $('#count').classList.toggle('no-tagbar',!!current);
   syncNavigation();     // 顶层高亮跟随管理区；否则从首页进来时仍停在「首页」上
-  /* 回收站读数只在这一次进页里有效：离开回收站就忘掉，下次进来说明行先铺同形占位，
-     读数到了再落；同页重画（筛选、判完一批、翻页）沿用手上这份，不再铺占位。 */
+  /* 回收站读数只在这一次进页里有效，离开就忘掉：「清空回收站」的确认框不拿上一次进页的件数。 */
   if(current!=='trash')selectionState.trashCount=null;
   paintManageHeader(current);
 }
 
 export function manageHeaderProps(section){
   return {section,path:decodeURIComponent(location.pathname),sections:layoutState.MANAGE_SECTIONS,
-    menu:section?layoutState.manageMenuSections():[],trash:selectionState.trashCount};
+    menu:section?layoutState.manageMenuSections():[]};
 }
 
 export function paintManageHeader(section=manageSection()){
@@ -219,9 +222,8 @@ export function mountManageHeader(){
       if(event.metaKey||event.ctrlKey||event.shiftKey||event.altKey||event.button)return;
       event.preventDefault();navigationState.navigatePath('/data-cleanup');return;
     }
-    if(event.target.closest?.('[data-empty-trash]'))emptyTrash();
   });
-  loadManageHeader({root,store:preferencesState.settingsStore,openManage,openPath:path=>navigationState.navigatePath(path),emptyTrash})
+  loadManageHeader({root,store:preferencesState.settingsStore,openManage,openPath:path=>navigationState.navigatePath(path)})
     .then(()=>paintManageHeader()).catch(()=>{});
 }
 
@@ -292,7 +294,7 @@ export function javActive(){
 
 export function sortOptions(jav=javActive()){
   const ordered=SORTS.filter(([key])=>key!=='seed');
-  return jav?[JAV_RELEASE_SORT,...ordered]:ordered;
+  return jav?[JAV_RELEASE_SORT,...ordered]:[...ordered,JAV_RELEASE_SORT];
 }
 
 export function homeLayoutActive(){

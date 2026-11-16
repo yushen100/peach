@@ -1,13 +1,17 @@
 """字幕内容、关闭状态与视频身份的持久化行为。"""
 from __future__ import annotations
 
+import asyncio
+import json
 import tempfile
 import unittest
+from unittest import mock
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
 
 from peach.subtitle_memory import SubtitleMemory
+from peach.subtitles import SidecarListings
 
 VTT = "WEBVTT\n\n00:00:00.000 --> 00:00:02.000\n字幕\n"
 
@@ -57,6 +61,9 @@ class SubtitleMemoryTests(unittest.TestCase):
             SubtitleMemory(self.root, "item:../../private")
         with self.assertRaises(ValueError):
             store.update("file:invalid", {"key": "file:invalid", "name": "a.srt", "text": "invalid"})
+        for key in ("sidecar:local:../private", "sidecar:local:" + "a" * 63, "sidecar:local:" + "g" * 64):
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                store.update(key)
 
     def test_playback_preferences_share_subtitle_file_and_survive_partial_writes(self):
         store = SubtitleMemory(self.root, "item:1")
@@ -98,12 +105,128 @@ class SubtitleMemoryApiTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name).resolve()
+        self.media = self.root / "media"
+        self.media.mkdir()
+        for name in ("sample.mp4", "other.mp4"):
+            (self.media / name).write_bytes(b"sample")
         self.app = create_app(PeachSettings(db_path=fresh_ledger(self.root), configured=True,
-                                            follow_state_root=self.root / "state", token=""))
+                                            follow_state_root=self.root / "state", token="",
+                                            allowed_media_roots=(self.media,)))
         with self.app.state.database.write_transaction() as connection:
-            connection.execute("INSERT INTO asset(id,location,path,name) VALUES(1,'local','R:/sample.mp4','sample.mp4')")
-            connection.execute("INSERT INTO asset(id,location,path,name) VALUES(2,'local','R:/other.mp4','other.mp4')")
+            for identity, name in enumerate(("sample.mp4", "other.mp4"), 1):
+                connection.execute("INSERT INTO asset(id,location,path,name,medium) VALUES(?,'local',?,?,'video')",
+                                   (identity, str(self.media / name), name))
         self.client = route_client(self.app)
+
+    def test_manual_sidecar_selection_survives_reopening_without_automatic_chinese(self):
+        """手动选的同目录字幕用稳定文件身份保存，重开照样恢复；没打开自动中文时首次打开不选字幕。"""
+        for language in ("chs", "jp"):
+            (self.media / f"sample.{language}.vtt").write_text(VTT, encoding="utf-8")
+        url = "/api/player/memory?video=item:1"
+        with self.client as client:
+            tracks = client.get("/api/assets/1/subtitles").json()["subtitles"]
+            japanese = next(row for row in tracks if row["language"] == "ja")
+            self.assertIsNone(client.get(url).json()["selected"])
+            self.assertEqual(client.put(url, json={"selected": japanese["id"]}).status_code, 200)
+            self.assertEqual(client.get(url).json()["selected"], japanese["id"])
+            self.assertEqual(client.get(url + "&auto=zh").json()["selected"], japanese["id"])
+
+    def test_chinese_sidecar_opens_by_default_and_manual_selection_survives_reopening(self):
+        for language in ("chs", "cht", "jp"):
+            (self.media / f"sample.{language}.vtt").write_text(VTT, encoding="utf-8")
+        url = "/api/player/memory?video=item:1&auto=zh"
+        with self.client as client:
+            tracks = client.get("/api/assets/1/subtitles").json()["subtitles"]
+            chinese = next(row for row in tracks if row["language"] == "zh-Hans")
+            japanese = next(row for row in tracks if row["language"] == "ja")
+            self.assertEqual(client.get(url).json()["selected"], chinese["id"])
+            self.assertIn("字幕", client.get(chinese["src"]).text)
+            memory = SubtitleMemory(self.root / "state/player-subtitles", "item:1")
+            self.assertFalse(memory.manifest.exists())
+            self.assertEqual(client.put(url, json={"selected": chinese["id"]}).status_code, 200)
+            self.assertEqual(client.get(url).json()["selected"], chinese["id"])
+            self.assertEqual(client.put(url, json={"selected": japanese["id"]}).status_code, 200)
+            self.assertEqual(client.get(url).json()["selected"], japanese["id"])
+            self.assertEqual(SubtitleMemory(memory.root.parent, "item:1").read()["selected"], japanese["id"])
+            self.assertEqual(client.put(url, json={"selected": None}).status_code, 200)
+            self.assertEqual(client.put(url, json={"rate": 2, "rotation": 180}).status_code, 200)
+            self.assertIsNone(client.get(url).json()["selected"])
+            self.assertIsNone(SubtitleMemory(memory.root.parent, "item:1").read()["selected"])
+
+    def test_preference_only_writes_preserve_automatic_choice_and_later_subtitle_discovery(self):
+        url = "/api/player/memory?video=item:1&auto=zh"
+        with self.client as client:
+            self.assertIsNone(client.get(url).json()["selected"])
+            client.put(url, json={"rate": 1.5, "rotation": 90, "caption_style": {"size": "150"}})
+            (self.media / "sample.chs.vtt").write_text(VTT, encoding="utf-8")
+            # 目录列举缓存两分钟（`SidecarListings`），这里当作缓存已过期。
+            self.app.state.sidecar_listings = SidecarListings()
+            chosen = client.get("/api/assets/1/subtitles").json()["subtitles"][0]["id"]
+            self.assertEqual(client.get(url).json()["selected"], chosen)
+            self.assertEqual(client.put(url, json={"rate": 2}).json()["selected"], chosen)
+            (self.media / "new.mp4").write_bytes(b"sample")
+            (self.media / "new.zh.vtt").write_text(VTT, encoding="utf-8")
+            with self.app.state.database.write_transaction() as connection:
+                connection.execute("INSERT INTO asset(id,location,path,name,medium) VALUES(3,'local',?,'new.mp4','video')",
+                                   (str(self.media / "new.mp4"),))
+            self.assertIsNotNone(client.get("/api/player/memory?video=item:3&auto=zh").json()["selected"])
+            with self.app.state.database.read_connection() as connection:
+                self.assertEqual(connection.execute("SELECT COUNT(*) FROM asset_subtitle").fetchone()[0], 0)
+
+    def test_existing_explicit_off_and_non_chinese_or_unplayable_tracks_stay_off(self):
+        (self.media / "sample.chs.vtt").write_text(VTT, encoding="utf-8")
+        memory = SubtitleMemory(self.root / "state/player-subtitles", "item:1")
+        memory.root.mkdir(parents=True)
+        memory.manifest.write_text(json.dumps({"selected": None, "tracks": [], "rate": 1.5}), encoding="utf-8")
+        (self.media / "other.jp.vtt").write_text(VTT, encoding="utf-8")
+        (self.media / "other.vtt").write_text(VTT, encoding="utf-8")
+        (self.media / "other.chs.sub").write_bytes(b"graphic")
+        (self.media / "other.cht.srt").write_bytes(b"\x81\x20\x81\x20")
+        with self.client as client:
+            self.assertIsNone(client.get("/api/player/memory?video=item:1&auto=zh").json()["selected"])
+            self.assertIsNone(client.get("/api/player/memory?video=item:2&auto=zh").json()["selected"])
+
+    def test_preference_put_resolves_subtitle_files_outside_the_event_loop(self):
+        from peach.web_subtitle_tracks import preferred_chinese
+        (self.media / "sample.chs.vtt").write_text(VTT, encoding="utf-8")
+        inspected = []
+
+        def resolve(*args):
+            with self.assertRaises(RuntimeError):
+                asyncio.get_running_loop()
+            inspected.append(True)
+            return preferred_chinese(*args)
+
+        with self.client as client, mock.patch("peach.web_subtitle_tracks.preferred_chinese", side_effect=resolve):
+            response = client.put("/api/player/memory?video=item:1&auto=zh", json={"rate": 1.5})
+            self.assertEqual(response.status_code, 200)
+            self.assertIsNotNone(response.json()["selected"])
+        self.assertTrue(inspected)
+
+    def test_simplified_region_tag_precedes_generic_chinese_with_existing_language_records(self):
+        for name in ("sample.chinese.vtt", "sample.zh-CN.vtt", "sample.zh-TW.vtt"):
+            path = self.media / name
+            path.write_text(VTT, encoding="utf-8")
+            with self.app.state.database.write_transaction() as connection:
+                connection.execute("""INSERT INTO asset_subtitle(asset_id,location,path,name,language,format,
+                    pairing,first_seen,last_seen) VALUES(1,'local',?,?,'zh','vtt','suffix','2026-11-05','2026-11-05')""",
+                                   (str(path), name))
+        with self.client as client:
+            tracks = client.get("/api/assets/1/subtitles").json()["subtitles"]
+            simplified = next(track for track in tracks if track["name"] == "sample.zh-CN.vtt")
+            self.assertEqual(simplified["language"], "zh-Hans")
+            self.assertEqual(client.get("/api/player/memory?video=item:1&auto=zh").json()["selected"], simplified["id"])
+        with self.app.state.database.read_connection() as connection:
+            self.assertEqual({row[0] for row in connection.execute("SELECT language FROM asset_subtitle")}, {"zh"})
+
+    def test_legacy_nonempty_choice_is_preserved_when_chinese_is_available(self):
+        (self.media / "sample.chs.vtt").write_text(VTT, encoding="utf-8")
+        memory = SubtitleMemory(self.root / "state/player-subtitles", "item:1")
+        memory.root.mkdir(parents=True)
+        with self.client as client:
+            for selected in ("sidecar:12", "native:subtitles:ja:1"):
+                memory.manifest.write_text(json.dumps({"selected": selected, "tracks": []}), encoding="utf-8")
+                self.assertEqual(client.get("/api/player/memory?video=item:1&auto=zh").json()["selected"], selected)
 
     def test_authenticated_memory_roundtrip_and_video_isolation(self):
         with self.client as client:

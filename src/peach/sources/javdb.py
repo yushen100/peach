@@ -28,9 +28,11 @@ from ..javdb_genres import page_genres
 from ..javdb_identity import RULE
 from ..javdb_public import actor_gender, public_image_url
 from ..metadata import relay_args
+from ..coded_text import Said, parallel
+from ..user_messages import nested_message
 from ..catalog_vocabulary import RESOURCE_COMMENT_SOURCE
 from ..scripting import HostLimiter
-from ..source_page_words import JAVDB_FIELDS
+from ..source_page_words import JAVDB_FIELDS, JAVDB_NO_MAGNETS
 from .base import FailureReason, Page, Session, SiteConfig, SiteRecord, SiteSource, SourceFailure
 
 #: 主机间隔由用户定（2026-09-22 定为 3 秒，每分钟 20 页）。参照面：每分钟 40～50 页会招来 3～7 天
@@ -171,10 +173,14 @@ def page_reader(secrets_root, *, seconds: float = 30.0):
                                                      max_seconds=seconds), JAVDB.interval, limiter=SOURCE_LIMITER)
     session = Session(transport, deadline=time.monotonic() + seconds)
     source = JavDBSource(JAVDB)
+    pages = {}
 
     def read(path: str) -> str:
+        if path in pages:
+            return pages[path]
         with source.holding(session):
-            return source._page(JAVDB.base_url + path, session=session).text
+            pages[path] = source._page(JAVDB.base_url + path, session=session).text
+        return pages[path]
 
     try:
         yield read
@@ -298,6 +304,104 @@ class JavDBPublicSource(JavDBSource):
             except PublicSourceUnavailable:
                 raise _PublicDown() from None
             return public_record(movie)
+
+
+def parse_magnets(page: Page) -> list[dict]:
+    """作品页磁链区的资源条目，保留种子名、大小、日期及属性。"""
+    from ..downloads import parse_magnet
+    from ..catalog_vocabulary import resource_item
+
+    container = BeautifulSoup(page.text, 'html.parser').select_one('#magnets-content')
+    if container is None:
+        raise SourceFailure(FailureReason.PARSE_ERROR, 'errors.javdbPublic.unrecognizedFormat')
+    found = {}
+    for row in container.select('.item'):
+        link = row.select_one('a[href^="magnet:"]')
+        if link is None:
+            continue
+        try:
+            magnet = parse_magnet(str(link.get('href') or ''))
+        except ValueError:
+            continue
+        def text(selector, row=row):
+            node = row.select_one(selector)
+            return node.get_text(' ', strip=True) if node else ''
+        meta = re.split(r'[,，]', text('.meta'), maxsplit=1)
+        found.setdefault(magnet.info_hash, resource_item({
+            'id': 'magnet:' + magnet.info_hash, 'protocol': 'magnet', 'info_hash': magnet.info_hash,
+            'uri': magnet.uri, 'name': text('.name') or magnet.name or magnet.info_hash,
+            'size': meta[0].strip(), 'files': meta[1].strip() if len(meta) > 1 else '',
+            'date': text('.time') or text('.date'),
+            'attributes': list(dict.fromkeys(tag.get_text(' ', strip=True) for tag in row.select('.tag'))),
+            'source': 'JavDB', 'source_url': page.url, 'origins': [page.url],
+        }))
+    if not found and JAVDB_NO_MAGNETS not in container.get_text():
+        raise SourceFailure(FailureReason.PARSE_ERROR, 'errors.javdbPublic.unrecognizedFormat')
+    return list(found.values())
+
+
+def parse_comment_links(page: Page) -> list[dict]:
+    """只取评论正文的资源链接，保留原评论定位。"""
+    found = []
+    for row in BeautifulSoup(page.text, 'html.parser').select('.review-item'):
+        content = row.select_one('.content')
+        if content is None:
+            continue
+        links = [str(link.get('href') or '') for link in content.select('a[href]')]
+        links.extend(_COMMENT_LINK.findall(content.get_text(' ', strip=True)))
+        date = row.select_one('.time')
+        origin = page.url + ('#' + str(row['id']) if row.get('id') else '')
+        found.extend(comment_resources(links, origin, date.get_text(' ', strip=True) if date else ''))
+    return merge_resources(found)
+
+
+def page_resources(code: str, movie: dict, read, *, review_pages: int) -> dict:
+    """接口要求登录时从已核对的作品页读取磁链和有界评论。"""
+    source_url = JAVDB.base_url + '/v/' + movie['id']
+    page = Page(source_url, read('/v/' + movie['id'] + '?locale=zh').encode('utf-8'))
+    current = page_movie(page.text, movie['id'])
+    if not same_release_code(current['number'], code):
+        raise SourceFailure(FailureReason.PARSE_ERROR, 'errors.javdbPublic.identityMismatch')
+    warnings, items = [], []
+    magnet_failed = comments_failed = False
+    try:
+        items.extend(parse_magnets(page))
+    except SourceFailure as error:
+        magnet_failed = True
+        warnings.append(Said('labels.javdbPublic.magnetsUnfetched', error=nested_message(error)))
+    body = BeautifulSoup(page.text, 'html.parser')
+    items.extend(parse_comment_links(page))
+    entry = body.select_one('.review-tab[data-url]')
+    next_url = str(entry.get('data-url') or '') if entry else ''
+    seen = set()
+    if current.get('comments_count'):
+        try:
+            if not next_url:
+                raise SourceFailure(FailureReason.PARSE_ERROR, 'errors.javdbPublic.unrecognizedFormat')
+            for _ in range(review_pages):
+                if not next_url:
+                    break
+                url = urllib.parse.urljoin(source_url, next_url)
+                parts = urllib.parse.urlsplit(url)
+                if (parts.scheme != 'https' or parts.netloc != urllib.parse.urlsplit(source_url).netloc
+                        or not parts.path.startswith('/v/' + movie['id'] + '/reviews/') or url in seen):
+                    raise SourceFailure(FailureReason.PARSE_ERROR, 'errors.javdbPublic.unrecognizedFormat')
+                seen.add(url)
+                comments = Page(url, read(parts.path + ('?' + parts.query if parts.query else '')).encode('utf-8'))
+                body = BeautifulSoup(comments.text, 'html.parser')
+                if body.select_one('.review-items') is None:
+                    raise SourceFailure(FailureReason.PARSE_ERROR, 'errors.javdbPublic.unrecognizedFormat')
+                items.extend(parse_comment_links(comments))
+                following = body.select_one('a[rel="next"], .pagination-next:not([disabled])')
+                next_url = str(following.get('href') or '') if following else ''
+            else:
+                if next_url:
+                    warnings.append(Said('labels.javdbPublic.reviewPagesQueried', pages=review_pages))
+        except SourceFailure as error:
+            comments_failed = True
+            warnings.append(Said('labels.javdbPublic.commentsUnfetched', error=nested_message(error)))
+    return {'items': merge_resources(items), 'warnings': warnings, **parallel('warning', warnings),
+            'source_url': source_url, 'magnet_failed': magnet_failed, 'comments_failed': comments_failed}
 
 
 _COMMENT_LINK = re.compile(r"(?:magnet:\?[^\s<>\"']+|ed2k://\|file\|[^\r\n<>]+?\|/|https?://[^\s<>\"']+)", re.I)

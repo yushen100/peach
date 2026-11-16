@@ -462,6 +462,34 @@ def record_source_check(root: Path, source: str, stage: str, record: dict) -> No
             LOGGER.warning("Diagnostics record for source %s was not saved", source)
 
 
+#: 后台采集浏览器的模式（ADR-0065 的窗口回退与无窗口两种），存在凭据根下，跟 profile 同一台机器。
+BROWSER_MODE_FILE = "scraping-browser.json"
+#: `window`：窗口留在屏幕外，自动过不了的验证等人从任务栏点开再点；`headless`：不创建窗口，过不了就冷却。
+BROWSER_MODES = ("window", "headless")
+
+
+def browser_mode(root: Path) -> str:
+    """这台机器后台采集浏览器用哪种模式；没设过、读不出来都按 `window`。"""
+    try:
+        value = json.loads((Path(root) / BROWSER_MODE_FILE).read_text(encoding="utf-8")).get("mode")
+    except (OSError, ValueError, AttributeError):
+        return BROWSER_MODES[0]
+    return value if value in BROWSER_MODES else BROWSER_MODES[0]
+
+
+def browser_headless(root: Path) -> bool:
+    return browser_mode(root) == "headless"
+
+
+def save_browser_mode(root: Path, mode: str) -> str:
+    """改后台采集浏览器的模式；正在跑的浏览器在下一条请求时按新模式重开。"""
+    if mode not in BROWSER_MODES:
+        raise UserValueError("errors.scrapingAccess.browserModeInvalid", {"choices": "/".join(BROWSER_MODES)})
+    Path(root).mkdir(parents=True, exist_ok=True)
+    atomic_write_text(Path(root) / BROWSER_MODE_FILE, json.dumps({"mode": mode}), mode=0o600)
+    return mode
+
+
 def browser_profile(root: Path) -> Path:
     """浏览器 profile 放在凭据根下：里面是 `cf_clearance` 与站点会话，和贴进来的 Cookie 一个性质。"""
     return Path(root) / "browser"
@@ -692,7 +720,9 @@ class SourceTransport:
         direct = not options.get("trust_env", True) and not proxy
         gate = SOURCES[source].get("browser_gate")
         gates = {domain: gate for domain in SOURCES[source]["domains"]} if gate else {}
-        return browser_transport.shared(browser_profile(self.root), direct=direct, proxy=proxy, gates=gates)
+        root = self.root
+        return browser_transport.shared(browser_profile(root), direct=direct, proxy=proxy, gates=gates,
+                                        headless=lambda: browser_headless(root))
 
     def _transport_for(self, source: str | None):
         """这个来源的请求走哪条路：该走浏览器（`wants_browser`）且本机有浏览器就走浏览器页面，否则 httpx。"""

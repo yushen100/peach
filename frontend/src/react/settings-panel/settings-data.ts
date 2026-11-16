@@ -11,12 +11,14 @@
  *
  * 面板常驻不卸载，每次打开重取设置；Peach 配置在挂载时重取各自的数据。 */
 import type { InterfaceLanguageChoice } from '../../i18n';
+import type { NameLanguage } from '../../core/entity-names';
 import { useMutation, type QueryClient } from '@tanstack/react-query';
 
 import { apiGet, apiSend } from '../../api';
 import { withBackoff } from '../../polling';
 import { queryClient } from '../query';
 import type { NavigationOrders } from '../../navigation-order';
+import type { SortControls } from '../../sort-controls';
 
 export const SETTINGS_URL = '/api/settings';
 export const FOLLOW_SCHEDULE_URL = '/api/follow/schedule';
@@ -44,12 +46,13 @@ export const fetchMediaProcessing = (signal?: AbortSignal) =>
 /** `q_settings` 返回的整份；写入时只送改了的那几个键，回来的仍是整份。 */
 export interface SyncedSettings {
   taskSpeedMode?: 'low' | 'standard' | 'high';
-  performerNameLanguage?: 'zh-CN' | 'ja';
+  performerNameLanguage?: NameLanguage;
   interfaceLanguage?: InterfaceLanguageChoice;
   systemLanguage?: string | null;
   sidebarOrder?: string[];
   manageOrder?: string[];
   navigationOrders?: NavigationOrders;
+  sortControls?: SortControls;
   libraryOrder?: string[];
   followInitialDays?: number;
   postSetupTutorialDone?: boolean;
@@ -63,6 +66,12 @@ export interface SyncedSettings {
   /** 「想要」老片多久再查一次（天），以及查几次没找到就暂时放弃（0 表示一直查）。 */
   wantStaleSearchDays?: number;
   wantStaleAttemptLimit?: number;
+  /** 每趟扫描与采集向外部来源要的总量：请求次数、小时数、GB 数，档位与服务端 `SOURCE_BUDGET_CHOICES` 一致。 */
+  sourceBudgetRequests?: number;
+  sourceBudgetHours?: number;
+  sourceBudgetGigabytes?: number;
+  /** 没有别的封面时用 JavDB 带水印的图（#531），默认关。 */
+  javdbCoverFallback?: boolean;
 }
 
 export interface FollowScheduleStatus {

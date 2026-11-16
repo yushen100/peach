@@ -322,6 +322,18 @@ class VerifiedCoverTests(unittest.TestCase):
         with self.assertRaisesRegex(NotFound, '无 JavDB 水印'):
             verified_cover(serve({JAVDB_COVER: gradient(800, 534)}), "IPX-060", works)
 
+    def test_a_javdb_only_cover_is_used_when_the_watermark_fallback_is_on(self):
+        """#531：设置打开后，只剩 JavDB 水印图时用它补空；别家有图时照旧用别家的。"""
+        works = [("avbase", {"cover_urls": []}), ("javdb", {"cover_urls": [JAVDB_COVER]})]
+        candidate, size, _data, origins = verified_cover(
+            serve({JAVDB_COVER: gradient(800, 534)}), "IPX-060", works, allow_watermarked=True)
+        self.assertEqual((candidate.url, size, origins), (JAVDB_COVER, (800, 534), ()))
+        both = [("javbus", {"cover_urls": [JAVBUS_COVER]}), ("javdb", {"cover_urls": [JAVDB_COVER]})]
+        candidate, *_rest = verified_cover(
+            serve({JAVBUS_COVER: gradient(800, 538), JAVDB_COVER: gradient(800, 534)}), "ABW-358", both,
+            allow_watermarked=True)
+        self.assertEqual(candidate.url, JAVBUS_COVER)
+
     def test_a_picture_cut_off_on_the_network_keeps_the_answer_retryable(self):
         """#342：JavBus 那张断在连接、5xx 或冷却上时，剩下的 javdb 图凑不成答复，不能当「没有」记一周。"""
         works = [("javbus", {"cover_urls": [JAVBUS_COVER]}), ("javdb", {"cover_urls": [JAVDB_COVER]})]

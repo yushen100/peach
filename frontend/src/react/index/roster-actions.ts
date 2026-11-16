@@ -1,4 +1,4 @@
-/* 名册多选的写入键：订阅或取消订阅新作、从名册隐藏或恢复、名下作品移进回收站。
+/* 名册多选的写入键及资料页共用的删除资料动作。
  *
  * 都走 `/api/entity-batch`（`src/peach/web_entity_batch.py`）。服务端回执只列这一批里真正变了的
  * 那几项，撤销按它原样反向做：原本就订着、就隐藏着、就在回收站里的，撤销时不会被一起改掉。 */
@@ -7,6 +7,8 @@ import { queryClient } from '../query';
 import type { BulkAction } from '../components/bulk-action';
 import type { IndexKind, IndexPerson } from './index-data';
 import { t } from '../../i18n';
+import { fmtSize } from '@peach/legacy/core';
+import { serverLabel } from '../../core/server-text';
 
 export type RosterKind = Exclude<IndexKind, 'tags'>;
 
@@ -16,6 +18,51 @@ const send = (body: Record<string, unknown>) => apiSend<BatchResult>('/api/entit
 const personId = (item: IndexPerson) => item.entity_id ?? item.id ?? 0;
 const ids = (items: readonly IndexPerson[]) => items.map(personId).filter(Boolean);
 const refresh = () => queryClient.invalidateQueries();
+
+export interface ProfileDeleteResult {
+  entity_ids: number[]; asset_ids: number[]; retained_entity_ids: number[];
+  mode: 'profile' | 'trash' | 'purge'; purged: number;
+  blocked: { path: string; reason: string; reason_code?: string; reason_params?: Record<string, unknown> }[];
+  cleanup_pending: { path: string; reason: string }[];
+  cache_blocked: { name: string; reason: string }[];
+}
+
+export function deleteProfilesAction(onDeleted: (result: ProfileDeleteResult) => Promise<unknown> = refresh): BulkAction<IndexPerson> {
+  let token = '';
+  let outcome: ProfileDeleteResult | null = null;
+  const label = t('catalog:rosterActions.delete');
+  return {
+    key: 'delete', label, reversal: 'irreversible', danger: true, holdToConfirm: true,
+    confirm: async (items) => {
+      const plan = await apiGet<{ assets: number; bytes: number; shared: number; names: string[]; token: string }>(
+        `/api/entity-batch/plan?operation=delete&ids=${ids(items).join(',')}`);
+      token = plan.token;
+      return { title: label, confirmLabel: label, danger: true, items: plan.names,
+        body: t('catalog:rosterActions.deleteConfirm', { count: items.length, assets: plan.assets, size: fmtSize(plan.bytes) })
+          + (plan.shared ? t('catalog:rosterActions.deleteShared', { count: plan.shared }) : ''),
+        choices: ['profile', 'trash', 'purge'].map(mode => ({ key: mode,
+          label: t(`catalog:rosterActions.deleteChoice.${mode}`),
+          description: t(`catalog:rosterActions.deleteDescription.${mode}`) })) };
+    },
+    run: async (items, choice = 'profile') => {
+      outcome = await apiSend<ProfileDeleteResult>('/api/entity-batch',
+        { operation: 'delete', mode: choice, entity_ids: ids(items), token }, 'POST');
+      await onDeleted(outcome);
+      const failures = [
+        ...outcome.blocked.map(item => `${item.path} — ${serverLabel(item.reason_code ?? '', item.reason, item.reason_params)}`),
+        ...outcome.cleanup_pending.map(item => `${item.path} — ${item.reason}`),
+        ...outcome.cache_blocked.map(item => `${item.name} — ${item.reason}`),
+      ];
+      if (failures.length) throw new Error(t('catalog:rosterActions.deleteBlocked', {
+        profiles: outcome.entity_ids.length, assets: outcome.purged,
+        retained: outcome.retained_entity_ids.length, failures: failures.join('\n'),
+      }));
+    },
+    receipt: () => outcome ? t(`catalog:rosterActions.deleteDone.${outcome.mode}`, {
+      count: outcome.entity_ids.length, assets: outcome.mode === 'trash' ? outcome.asset_ids.length : outcome.purged,
+    }) : '',
+  };
+}
 
 /** 一对能互相撤销的实体动作（订阅↔取消订阅、隐藏↔恢复）。 */
 function entityAction(key: string, inverse: string, label: string, body: (count: number) => string,
@@ -44,7 +91,7 @@ export function contentTrashAction<T>(label: string, idOf: (item: T) => number,
   let moved: number[] = [];
   const entityIds = (items: readonly T[]) => items.map(idOf).filter(Boolean);
   return {
-    key: 'trash', label, reversal: 'undo', danger: true,
+    key: 'trash', label, reversal: 'undo', danger: true, holdToConfirm: true,
     confirm: async (items) => {
       const plan = await apiGet<{ assets: number }>(`/api/entity-batch/plan?ids=${entityIds(items).join(',')}`);
       return { title: label, body: body(items.length, plan.assets),
@@ -79,5 +126,5 @@ export function rosterActions(kind: RosterKind, hiddenView: boolean): BulkAction
   ] : [];
   const trash = contentTrashAction<IndexPerson>(t('catalog:rosterActions.trash'), personId,
     (count, assets) => t('catalog:rosterActions.trashConfirm', { count, assets }));
-  return [...feed, visibility, ...(kind === 'agencies' ? [] : [trash])];
+  return [...feed, visibility, ...(kind === 'agencies' ? [] : [trash]), deleteProfilesAction()];
 }

@@ -21,13 +21,15 @@ export function EmptyFocusButton({ target, children }: { target: string; childre
   return <Button size="small" variant="secondary" onClick={() => document.querySelector<HTMLElement>(target)?.focus()}>{children}</Button>;
 }
 
+/** `framed` 为否时不画外框和底色：空态本身就是整个弹层或整页的内容时，再套一层框只是多一张空卡片。 */
 export function EmptyState(
-  { icon: Icon, title, actions, children, size = 'standard' }:
+  { icon: Icon, title, actions, children, size = 'standard', framed = true }:
   { icon: Glyph; title: string; actions?: ReactNode; children: ReactNode;
-    size?: keyof typeof SIZE },
+    size?: keyof typeof SIZE; framed?: boolean },
 ) {
   return (
-    <div data-empty-state="" data-empty-size={size} className={`col-span-full flex w-full min-w-0 max-w-full flex-col items-center justify-center gap-2 rounded-floating border border-separator-border bg-background-secondary-default text-center ${SIZE[size]}`}>
+    <div data-empty-state="" data-empty-size={size} data-empty-framed={framed ? '' : undefined} className={`col-span-full flex w-full min-w-0 max-w-full flex-col items-center justify-center gap-2 text-center ${
+      framed ? 'rounded-floating border border-separator-border bg-background-secondary-default ' : ''}${SIZE[size]}`}>
       <span aria-hidden className="mb-2 flex size-empty-glyph shrink-0 items-center justify-center rounded-floating border border-text-primary/15 p-2.5 text-text-secondary">
         <Icon aria-hidden className="size-8 shrink-0" />
       </span>

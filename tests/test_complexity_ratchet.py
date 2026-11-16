@@ -49,7 +49,7 @@ BASELINE: dict[str, int] = {
     "src/peach/web_catalog.py:q_item": 38,
     "src/peach/web_follow.py:_follow_author_rows": 35,
     "src/peach/taste_history.py:_taste_analysis": 34,
-    "src/peach/web_catalog.py:catalog_filter": 40,
+    "src/peach/web_catalog.py:catalog_filter": 36,
     "scripts/audit_domain_codes.py:collect": 39,
     "scripts/harvest_social_avatars.py:harvest_entity": 36,
     "scripts/merge_duplicate_identities.py:collect_repeated_projections": 34,
@@ -64,12 +64,13 @@ BASELINE: dict[str, int] = {
 #: 判过就该这么长的函数：`(分支数, 为什么拆开更差)`。键与 `BASELINE` 同形、不重叠。
 ACCEPTED: dict[str, tuple[int, str]] = {
     "src/peach/api.py:create_app": (
-        37, "应用工厂：按启动顺序构造数据库、各项后台服务（含可选分享）与路由并接成一个 app，每个可注入的"
+        38, "应用工厂：按启动顺序构造数据库、各项后台服务（含可选分享与封面补修）与路由并接成一个 app，每个可注入的"
             "依赖各带一个缺省；挂载探测按配置状态启动。拆开会把同一条构造顺序分散到几处"),
     "src/peach/library_processing.py:process_library": (
-        48, "顺序流水线：垃圾检查、媒体属性、本地资料、本地预览、联网采集、写候选、收尾共用一份进度状态"
+        51, "顺序流水线：垃圾检查、媒体属性、本地资料、本地预览、联网采集、写候选、收尾共用一份进度状态"
             "与问题记录；来源扫描、资产查询与外部会话分别归 `_scan_sources`、"
-            "`_collection_rows`、`_RemoteSession`，剩下的是任务编排、逐项目资料处理与指定范围的存量重新核查"),
+            "`_collection_rows`、`_RemoteSession`，剩下的是任务编排、逐项目资料处理与指定范围的存量重新核查；"
+            "「只补封面」走同一条流水线，只在人物收尾与新入库结算两处按阶段跳过，另起一条会复制整套收尾"),
     "src/peach/jav_cover_fetch.py:run": (
         50, "批处理的主循环：每个番号依次量本机尺寸、择优、比较、落盘、记日志，统计、日志行"
             "和出错后换新的连接池在整轮里共用，逐段拆开只是把这几样来回传"),

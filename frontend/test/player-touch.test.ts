@@ -23,10 +23,11 @@ function fixture(paused = false, touchEnabled = true) {
 }
 
 describe('播放器按实际输入区分触摸和鼠标', () => {
-  it('外部接管手势的无控制条播放器不接管触摸', () => {
-    const { video, root, pointer, abort } = fixture(false, false);
+  it('外部接管手势的无控制条播放器不接管触摸，画面单击也交给宿主', () => {
+    const { video, root, pointer, click, abort } = fixture(false, false); const pause = vi.spyOn(video, 'pause');
     pointer('pointerdown', 100); pointer('pointermove', 800); pointer('pointerup', 800);
-    expect(video.currentTime).toBe(1200); expect(root.dataset.playerInput).toBeUndefined(); abort.abort();
+    expect(video.currentTime).toBe(1200); expect(root.dataset.playerInput).toBeUndefined();
+    click(); expect(pause).not.toHaveBeenCalled(); abort.abort();
   });
   it('鼠标点击的中央提示在媒体状态切换前取值', () => {
     const { video, root, click, abort } = fixture(); let paused = false;
@@ -78,6 +79,36 @@ describe('播放器按实际输入区分触摸和鼠标', () => {
     else pointer(ending);
     expect(video.playbackRate).toBe(1.5); abort.abort();
   });
+  it('长按左侧回退：画面停住，目标每秒回退两秒，松手定位并接着播', () => {
+    const { video, pointer, feedback, abort } = fixture();
+    let paused = false;
+    Object.defineProperty(video, 'paused', { configurable: true, get: () => paused });
+    vi.spyOn(video, 'pause').mockImplementation(() => { paused = true });
+    const play = vi.spyOn(video, 'play').mockImplementation(() => { paused = false; return Promise.resolve() });
+    video.playbackRate = 1;
+    pointer('pointerdown', 100); vi.advanceTimersByTime(500);
+    expect(paused).toBe(true); expect(video.playbackRate).toBe(1);
+    vi.advanceTimersByTime(3000);
+    expect(video.currentTime).toBe(1200); expect(feedback().textContent).toContain('19:54');
+    pointer('pointerup', 100);
+    expect(video.currentTime).toBeCloseTo(1194, 0); expect(play).toHaveBeenCalledOnce(); abort.abort();
+  });
+  it('长按左侧回退中途取消不定位；换片源取消时不再起播', () => {
+    const { video, pointer, abort } = fixture();
+    let paused = false;
+    Object.defineProperty(video, 'paused', { configurable: true, get: () => paused });
+    vi.spyOn(video, 'pause').mockImplementation(() => { paused = true });
+    const play = vi.spyOn(video, 'play').mockImplementation(() => { paused = false; return Promise.resolve() });
+    pointer('pointerdown', 100); vi.advanceTimersByTime(2000); pointer('pointercancel');
+    expect(video.currentTime).toBe(1200); expect(play).toHaveBeenCalledOnce();
+    pointer('pointerdown', 100); vi.advanceTimersByTime(2000); video.dispatchEvent(new Event('loadstart'));
+    expect(video.currentTime).toBe(1200); expect(play).toHaveBeenCalledOnce(); abort.abort();
+  });
+  it('暂停时长按左侧也能回退，松手后保持暂停', () => {
+    const { video, pointer, abort } = fixture(true); const play = vi.spyOn(video, 'play');
+    pointer('pointerdown', 100); vi.advanceTimersByTime(5500); pointer('pointerup', 100);
+    expect(video.currentTime).toBeCloseTo(1190, 0); expect(play).not.toHaveBeenCalled(); abort.abort();
+  });
   it('滑动、系统取消与多指手势都不会提交待预览的跳转', () => {
     const { video, pointer, abort } = fixture();
     pointer('pointerdown'); pointer('pointermove', 900); pointer('pointercancel');
@@ -99,6 +130,37 @@ describe('播放器按实际输入区分触摸和鼠标', () => {
     pointer('pointerdown'); button.setAttribute('aria-expanded', 'false'); pointer('pointerup');
     vi.advanceTimersByTime(300); expect(root.classList.contains('vjs-user-active')).toBe(true);
     tap(); vi.advanceTimersByTime(300); expect(root.classList.contains('vjs-user-inactive')).toBe(true); abort.abort();
+  });
+  it('鼠标左键长按画面临时倍速，松手恢复，随后那一下 click 不切播放；没动过的单击照旧暂停', () => {
+    const { video, pointer, click, abort } = fixture(); const pause = vi.spyOn(video, 'pause');
+    video.playbackRate = 1.25;
+    pointer('pointerdown', 600, 300, 'mouse'); vi.advanceTimersByTime(500);
+    expect(video.playbackRate).toBe(2);
+    pointer('pointerup', 600, 300, 'mouse'); click();
+    expect(video.playbackRate).toBe(1.25); expect(pause).not.toHaveBeenCalled();
+    pointer('pointerdown', 600, 300, 'mouse'); pointer('pointerup', 600, 300, 'mouse'); click();
+    expect(pause).toHaveBeenCalledOnce(); abort.abort();
+  });
+  it('鼠标横向拖动画面预览定位，松手才跳；竖向拖动、右键与控件上按下都不起手势', () => {
+    const { root, video, pointer, click, abort } = fixture(true); const play = vi.spyOn(video, 'play');
+    pointer('pointerdown', 100, 300, 'mouse'); pointer('pointermove', 600, 300, 'mouse');
+    expect(video.currentTime).toBe(1200);
+    pointer('pointerup', 600, 300, 'mouse'); click();
+    expect(video.currentTime).toBe(1800); expect(play).not.toHaveBeenCalled();
+    pointer('pointerdown', 500, 100, 'mouse'); pointer('pointermove', 500, 500, 'mouse'); pointer('pointerup', 500, 500, 'mouse');
+    expect(video.currentTime).toBe(1800);
+    root.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse', button: 2, clientX: 600, clientY: 300 }));
+    vi.advanceTimersByTime(600); expect(video.playbackRate).toBe(1);
+    const button = root.querySelector('button')!;
+    pointer('pointerdown', 10, 10, 'mouse', 1, button); pointer('pointermove', 600, 10, 'mouse', 1, button); pointer('pointerup', 600, 10, 'mouse', 1, button);
+    expect(video.currentTime).toBe(1800); abort.abort();
+  });
+  it('关掉触摸手势后鼠标在画面上也不起手势', () => {
+    configureGestureSettings(() => ({ touchGestures: false }));
+    const { video, pointer, abort } = fixture();
+    pointer('pointerdown', 600, 300, 'mouse'); vi.advanceTimersByTime(600);
+    expect(video.playbackRate).toBe(1); pointer('pointerup', 600, 300, 'mouse');
+    configureGestureSettings(() => DEFAULT_GESTURES); abort.abort();
   });
   it('触摸后用鼠标仍然点击暂停、双击全屏', () => {
     const { root, video, tap, pointer, click, abort } = fixture(); const pause = vi.spyOn(video, 'pause');

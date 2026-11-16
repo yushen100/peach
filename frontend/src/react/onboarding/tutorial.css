@@ -10,10 +10,13 @@
   --color-button-ghost-active: var(--color-button-ghost-hover);
 }
 :is(.peach-guide-center, .peach-guide-popover) .bg-button-primary:not(:disabled):not([aria-disabled="true"]) { color: var(--ground); }
+/* 高度跟着当前页签的内容走，到上限才在正文里滚。顶边钉在满高时的位置，切页签只有底边伸缩，
+   页签不会跳到指针底下。 */
+[data-modal-kind="tutorial"] { align-items: flex-start; }
 .peach-guide-center {
   width: min(680px, calc(100vw - 32px));
-  height: min(740px, calc(100dvh - 32px));
   max-height: min(740px, calc(100dvh - 32px));
+  margin-top: max(0px, calc((100dvh - 32px - 740px) / 2));
   padding: 0;
   border: 1px solid var(--line);
   border-radius: var(--floating-radius);
@@ -22,14 +25,14 @@
   box-shadow: var(--elevation-dropdown);
   overflow: hidden;
 }
-.peach-guide-center > [role="dialog"] { height: 100%; max-height: inherit; overflow: hidden; }
+.peach-guide-center > [role="dialog"] { max-height: inherit; overflow: hidden; }
 .peach-guide-topic-icon { display: inline-flex; flex: none; align-items: center; justify-content: center; width: var(--control-h); height: var(--control-h); border-radius: var(--control-radius); background: var(--color-background-tertiary-default); color: var(--color-text-primary); }
 .peach-guide-topics { display: flex; flex-direction: column; }
 .peach-guide-topic { border-bottom: 1px solid var(--line-soft); }
 .peach-guide-topic:last-child { border-bottom: 0; }
 .peach-guide-topic summary { padding: 12px 0; gap: 12px; }
 .peach-guide-topic-chapters { margin: -8px -12px 12px; }
-.peach-guide-scroll-frame { position: relative; display: flex; min-height: 0; flex: 1; }
+.peach-guide-scroll-frame { position: relative; display: flex; min-height: 0; flex: 1 1 auto; }
 .peach-guide-body { min-height: 0; flex: 1; padding: 4px 24px 24px; overflow: auto; overscroll-behavior: contain; }
 .peach-guide-chapters { display: flex; flex-direction: column; gap: 4px; margin-inline: -12px; }
 .peach-guide-routes { margin: 0; padding: 0; list-style: none; }

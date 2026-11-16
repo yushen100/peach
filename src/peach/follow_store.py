@@ -14,6 +14,7 @@ import hashlib
 import json
 import re
 import sqlite3
+import unicodedata
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -52,7 +53,13 @@ def _same_snapshot(raw: Path, fetch: SourceFetch, digest: str) -> bool:
 #: 标签里跟在中点后面的服务名。`LazyProcrastinator · fanbox` 和 rule34video 上的
 #: `lazyprocrastinator` 是同一个人，中点后面那截只说明他在哪个平台连载。
 _LABEL_SERVICE_RE = re.compile(r"\s*[·|]\s*[A-Za-z0-9_\-]+\s*$")
+#: 作者键只留数字、拉丁字母和汉字。别名表与来源记下的作者键都按它存，改了就对不上。
 _AUTHOR_NOISE_RE = re.compile(r"[^0-9a-z\u4e00-\u9fff]+")
+#: 上一条剥成空串的名字再按这条算：另留平假名与片假名（含长音 `ー` 和迭代符），
+#: 中点 `・`、单独的浊点之类仍是噪声。
+_AUTHOR_KANA_NOISE_RE = re.compile(r"[^0-9a-z\u4e00-\u9fff\u3041-\u3096\u309d\u309e\u30a1-\u30fa\u30fc-\u30fe]+")
+#: 只由这些符号组成的键不是名字：长音 `ー` 与平假名、片假名的迭代符。
+_AUTHOR_MARKS = "\u30fc\u309d\u309e\u30fd\u30fe"
 _F95_TITLE_SUFFIX_RE = re.compile(r"\s+collections?\s*$", re.IGNORECASE)
 
 #: F95 线程标题里的每一个方括号段。站点的标题约定是
@@ -229,19 +236,30 @@ _ENRICHED_PREDICATES = {
 def normalized_author_name(value: str, *, provider: str = "") -> str:
     """作者别名表的身份键。
 
-    去掉「· 服务名」后缀，再去掉大小写、空格、连字符这些不影响身份的噪声。
-    归一化只做到这一步，不做模糊匹配：把两个碰巧相似的名字并成一个人，比让用户
-    自己看到两行严重得多。
+    去掉「· 服务名」后缀，再去掉大小写、空格、连字符这些不影响身份的噪声，只留数字、
+    拉丁字母和汉字。这样剥成空串的名字（只含假名，或全角字母）再按 NFKC 规整一次，
+    连同平假名、片假名一起逐字保留，平假名和片假名不互折。归一化只做到这一步，不做
+    模糊匹配：把两个碰巧相似的名字并成一个人，比让用户自己看到两行严重得多。
 
-    这是**别名表的主键定义**，不是展示逻辑，所以它和别名读写放在同一层。
+    这是**别名表的主键定义**，不是展示逻辑，所以它和别名读写放在同一层。已存的别名键
+    和来源作者键都按第一步算，所以第一步算得出键的名字（包括假名混写）键一律不变。
     """
-    stripped = _LABEL_SERVICE_RE.sub("", str(value or "").strip())
+    key = _author_key(str(value or ""), provider, _AUTHOR_NOISE_RE)
+    if key:
+        return key
+    key = _author_key(unicodedata.normalize("NFKC", str(value or "")), provider,
+                      _AUTHOR_KANA_NOISE_RE)
+    return key if key.strip(_AUTHOR_MARKS) else ""
+
+
+def _author_key(value: str, provider: str, noise: re.Pattern) -> str:
+    stripped = _LABEL_SERVICE_RE.sub("", value.strip())
     if provider == "f95zone":
         # F95 的线程标题说的是一个容器而不是另一个作者：真实数据是
         # `Lazy Procrastinator Collection`，而每一条作者来源都是
         # `LazyProcrastinator`，留着这个通用后缀会凭空多出一个分组。
         stripped = f95_author_name(stripped) or stripped
-    return _AUTHOR_NOISE_RE.sub("", stripped.casefold())
+    return noise.sub("", stripped.casefold())
 
 
 def author_display_text(value: str, *, provider: str = "") -> str:

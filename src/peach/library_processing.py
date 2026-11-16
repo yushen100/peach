@@ -46,7 +46,7 @@ from . import sample_followup
 from .metadata_policy import SOURCE_SPECS, preferred_tag_source
 from .platform import translate_ledger_path as _local_ledger_path
 from .review_csv import read_rows_shared, write_rows
-from .scan import scan_location
+from .scan import ScanRootUnreadable, scan_location
 from .fsutil import atomic_write_text
 from . import artifact_rules, upgrade_rules
 from .ffmpeg import FFmpegResolver
@@ -89,7 +89,9 @@ ISSUE_PREVIEW_LIMIT = 20
 #: 扫描、资料与预览共用的阶段名，同时用于接口和页面。
 SCAN_STAGE, COLLECT_STAGE, ALL_STAGES = 'scan', 'collect', 'all'
 METADATA_STAGE, PREVIEWS_STAGE = 'metadata', 'previews'
-STAGES = (ALL_STAGES, SCAN_STAGE, COLLECT_STAGE, METADATA_STAGE, PREVIEWS_STAGE)
+#: 只补封面：本地检查照做（认番号、装本地海报），联网只走封面那一步，资料一项不问，配额全用在图上。
+COVERS_STAGE = 'covers'
+STAGES = (ALL_STAGES, SCAN_STAGE, COLLECT_STAGE, METADATA_STAGE, PREVIEWS_STAGE, COVERS_STAGE)
 
 #: 没有动作截止时间的阶段（本地读取）超过这么久没有心跳就在页面上预警。
 STALL_AFTER_SECONDS = 120.0
@@ -110,6 +112,16 @@ SOURCE_INTERVALS = {'javdb.com': 3.0, 'jdbstatic.com': 3.0}
 #: 各起各的 provider，间隔若各算各的，几条同时跑时问同一主机的请求就叠在一起，配额照样按
 #: 出口 IP 一份算。补女优资料的 javdb 女优页、详情页视频预告与订阅源取页也等这一份。
 SOURCE_LIMITER = HostLimiter(SOURCE_INTERVALS, default_interval=2.0)
+#: 跨进程共用节拍的主机：独立采集脚本（`scripts/harvest_directory_links.py`）也取 javdb，
+#: 服务启动时让 `SOURCE_LIMITER` 和它共用数据根里的同一个节拍文件（`scripting.SharedSlot`）。
+SHARED_SOURCE_HOSTS = ('javdb.com',)
+
+
+def share_source_limits(state_root) -> None:
+    """服务启动时调：`SHARED_SOURCE_HOSTS` 改按数据根 `state/source-slots/` 下的文件跨进程限速。"""
+    from .scripting import shared_slot_path
+    for host in SHARED_SOURCE_HOSTS:
+        SOURCE_LIMITER.share(host, shared_slot_path(state_root, host))
 #: 认人 Wiki 的取页层自己不再等主机间隔：它的传输就是 provider 的 `transport`，那里已经按
 #: `SOURCE_LIMITER` 等过一次，再等一遍每页就要 4 秒。
 _NO_WAIT = HostLimiter({}, default_interval=0.0)
@@ -331,6 +343,11 @@ MISS_MESSAGES = {'querying_metadata': phrase('errors.libraryProcessing.missMetad
                  'fetching_cover': phrase('errors.libraryProcessing.missCover')}
 #: 日志里的 code 反查回上面的键，界面按键取自己的短标签。
 NOTE_KEYS = {said['code']: key for key, said in MISS_MESSAGES.items()}
+#: 这一部已经从别的来源取到了，链上另有几家没答上（超时、限流、冷却、拒绝、图片下载失败）：逐家原因
+#: 记进日志与诊断，留给排查，不算问题项、不进重试名单，界面也不报数（ADR-0107 的封面取舍不变）。
+PARTIAL_NOTES = {'errors.libraryProcessing.someSourcesUnfetched': 'partial_metadata',
+                 'errors.libraryProcessing.someCoverSourcesUnfetched': 'partial_cover'}
+NOTE_KEYS.update(PARTIAL_NOTES)
 #: 外网不通时要出网的那些行不去问，直接记这一句；联网之后可以重试（`network_reachability`）。
 OFFLINE_MESSAGE = phrase('errors.libraryProcessing.offline')
 
@@ -372,6 +389,56 @@ COLUMN_OF = {'title': 'catalog_title'}
 MAX_SOURCE_REQUESTS = 6000
 MAX_SOURCE_BYTES = 1024 * 1024 * 1024
 MAX_SOURCE_SECONDS = 4 * 3600
+#: 三条闸门在 Peach 配置里能选的档位，键是 `/api/settings` 里跟着账本走的设置名；
+#: 上面三个常量就是默认档。夜里挂机可以放宽，白天网络差可以收窄。
+SOURCE_BUDGET_CHOICES = {
+    'sourceBudgetRequests': (1500, 3000, 6000, 12000, 24000, 48000),
+    'sourceBudgetHours': (1, 2, 4, 8, 12, 24),
+    'sourceBudgetGigabytes': (1, 2, 4, 8, 16),
+}
+SOURCE_BUDGET_DEFAULTS = {'sourceBudgetRequests': MAX_SOURCE_REQUESTS, 'sourceBudgetHours': MAX_SOURCE_SECONDS // 3600,
+                          'sourceBudgetGigabytes': MAX_SOURCE_BYTES // 1024 ** 3}
+
+
+@dataclass(frozen=True)
+class SourceBudget:
+    """一趟任务向外部来源要的总量：请求次数、下载字节、秒数，谁先到谁生效。"""
+    requests: int = MAX_SOURCE_REQUESTS
+    bytes: int = MAX_SOURCE_BYTES
+    seconds: float = MAX_SOURCE_SECONDS
+
+    def transport(self, secrets_root):
+        from .scraping_access import SourceTransport
+        return SourceTransport(secrets_root, max_requests=self.requests, max_bytes=self.bytes,
+                               max_seconds=self.seconds)
+
+
+def source_budget_settings(settings):
+    """设置里的三档；没设过、存坏了或不在档位里的按默认。"""
+    settings = settings if isinstance(settings, dict) else {}
+    return {key: value if not isinstance(value := settings.get(key), bool) and value in choices
+            else SOURCE_BUDGET_DEFAULTS[key] for key, choices in SOURCE_BUDGET_CHOICES.items()}
+
+
+def source_budget(database):
+    """按账本设置算出本趟的采集预算；`database` 是 `LedgerDatabase` 或账本路径。"""
+    if database is None:
+        return SourceBudget()
+    try:
+        if hasattr(database, 'read_connection'):
+            with database.read_connection() as connection:
+                settings = read_settings(connection)
+        elif Path(database).is_file():
+            with closing(sqlite3.connect(database, timeout=30)) as connection:
+                settings = read_settings(connection)
+        else:
+            settings = {}
+    except sqlite3.Error:
+        # 读不出设置只是按默认档跑，不让整趟任务因此失败。
+        settings = {}
+    chosen = source_budget_settings(settings)
+    return SourceBudget(requests=chosen['sourceBudgetRequests'], bytes=chosen['sourceBudgetGigabytes'] * 1024 ** 3,
+                        seconds=chosen['sourceBudgetHours'] * 3600)
 
 
 class CoverKept(NotFound):
@@ -428,6 +495,33 @@ def _corrects_kept_cover(target, candidate, data, verified_by):
     return not same_picture(kept, fresh)
 
 
+def _stage_problem(source, error):
+    """资料链里一档没答上的原因句。
+
+    社区那一档的原因里已经写明是哪一家了（`community()` 逐家拼过），再套一层就成了「社区来源：javdb：…」。
+    单家来源的原因不带来源名，这里补上。
+    """
+    if source in ('community', 'amane', 'amane_official'):
+        return describe_failure(error)
+    return phrase('errors.libraryProcessing.sourceProblem',
+                  {'source': source_name(source), 'problem': describe_failure(error)})
+
+
+def _kept_cover_suffices(kept, problems):
+    """本机已有能用的封面、没答上的来源又全是被拦着的：这一趟按「没换到更大的」收。
+
+    本机那张宽到 `MIN_WIDTH` 时，这一趟只是在找更大的那张。没答上的来源全是被拦着的（出口被 CloudFront
+    挡掉的 403、限流，来源层已经让它冷却，一时半会好不了）就一周内不为升级重问整条链，不记问题项，原因留
+    一条告知项（#144）。连接抖动、超时这类说不准下一趟就好的照旧记成未取得；本机没有封面或只有小图的也照旧。
+    本趟预算到顶也算「被拦着」（`source_paused`），可它下一趟就重新计数，不能因此一周不问。
+    `problems` 是 `(phrase, 是否冷却)` 列表。
+    """
+    from .scraping_access import BUDGET_SPENT
+    spent = set(BUDGET_SPENT.values())
+    return (kept is not None and max(kept) >= MIN_WIDTH and bool(problems)
+            and all(paused and said.get('code') not in spent for said, paused in problems))
+
+
 class _BudgetedPages:
     """认人 Wiki 的取页层套一层动作预算：每取一页前看一眼还剩多少。
 
@@ -456,8 +550,7 @@ class LibraryMetadataProvider:
     `public_cache` 是匿名 JavDB 资料的快照目录（`<生成目录>/jav-public`），与新作页、发现共用；
     不给就只在本进程内存里复用。
     """
-    def __init__(self, secrets_root, *, tools_root=None, public_cache=None, wiki_root=None):
-        from .scraping_access import SourceTransport
+    def __init__(self, secrets_root, *, tools_root=None, public_cache=None, wiki_root=None, budget=None):
         from .jav_cover_fetch import HostLimitedTransport
         self.secrets_root = Path(secrets_root)
         #: amane 桥的 venv 所在的工具区（`<Peach 数据目录>/tools`）；不给就用配置里的默认位置。
@@ -467,13 +560,14 @@ class LibraryMetadataProvider:
         #: 凭据根是数据目录下的 `secrets`。
         self.wiki_root = (Path(wiki_root) if wiki_root is not None
                           else self.secrets_root.parent / 'sources' / 'library-metadata' / 'seesaa-pages')
-        self.transport = HostLimitedTransport(
-            SourceTransport(secrets_root, max_requests=MAX_SOURCE_REQUESTS,
-                            max_bytes=MAX_SOURCE_BYTES, max_seconds=MAX_SOURCE_SECONDS),
-            2.0, limiter=SOURCE_LIMITER)
+        #: 本趟采集预算（`SourceBudget`）；不给按默认档。
+        self.transport = HostLimitedTransport((budget or SourceBudget()).transport(secrets_root),
+                                              2.0, limiter=SOURCE_LIMITER)
 
     #: 匿名 JavDB 资料的快照目录；没有时只在进程内存里复用。
     public_cache = None
+    #: 设置「没有别的封面时用 JavDB 带水印的图」（#531，`javdbCoverFallback`），由 `_RemoteSession` 按账本设置给。
+    watermarked_covers = False
 
     #: 由本机浏览器过验证的来源累计等人点验证的秒数（`_excuse`）。调用方拿它前后相减，把这段时间
     #: 从单项动作预算里扣掉：一个站第一次弹验证窗口时，那一问要等 `min(40, timeout) + 120` 秒，
@@ -853,11 +947,14 @@ class LibraryMetadataProvider:
         from .jav_cover_fetch import SMALL_MIN_WIDTH, Unavailable, best_cover
         from .scraping_access import SourcePaused
         target = cover_root / (code + '.jpg')
+        self.cover_problems = []
         if cover_settled(target):
             return False
         kept = measure_image_file(target)
         mark = self.excused
         official, verified_by, problems, siblings = None, (), [], ()
+        #: 取到封面时没答上的那几处（`(phrase, 是否冷却)`），调用方据此留一条诊断。
+        self.cover_problems = problems
         try:
             siblings = self._official_candidates(code, evidence, deadline=deadline, known=snapshots, absent=absent)
             official = best_cover(self.transport, code, 0, deadline=_extended(deadline, self.excused - mark),
@@ -876,13 +973,17 @@ class LibraryMetadataProvider:
                 problems += self.community_problems(code)
                 *picked, verified_by = verified_cover(self.transport, code, answers,
                                                       reference=official, siblings=siblings if official else (),
-                                                      deadline=_extended(deadline, self.excused - mark))
+                                                      deadline=_extended(deadline, self.excused - mark),
+                                                      allow_watermarked=self.watermarked_covers)
                 chosen = tuple(picked)
             except NotFound:
                 pass
             except (Unavailable, SourcePaused) as error:
                 problems.append((describe_failure(error), source_paused(error)))
+        kept_usable = _kept_cover_suffices(kept, problems)
         if chosen is None:
+            if kept_usable:
+                raise CoverKept('errors.libraryProcessing.coverNotImproved', {'width': kept[0], 'height': kept[1]})
             raise _unreached(problems) if problems else NotFound('errors.libraryProcessing.noCover')
         candidate, size, data = chosen
         # 官方图可替换社区转存图；同类来源按像素面积升级。
@@ -898,15 +999,18 @@ class LibraryMetadataProvider:
                                     else size[0] * size[1] > kept[0] * kept[1] * 1.01)
         if (not improves and not official_replacement
                 and not _corrects_kept_cover(target, candidate, data, verified_by)):
-            if problems:
-                # 有来源这一趟没问成（冷却、配额、超时），它那里可能有原图：不能记成一周不问。
+            if problems and not kept_usable:
+                # 有来源这一趟没问成（冷却、配额、超时），它那里可能有原图：本机还没有能用的封面时不能记成一周不问。
                 raise _unreached(problems)
             raise CoverKept('errors.libraryProcessing.coverNotImproved', {'width': size[0], 'height': size[1]})
         from .cover_artwork import install_cover
+        from .jav_cover_fetch import dmm_portrait, is_javdb_image
         title = artwork_title(snapshots)
+        portrait = dmm_portrait(self.transport, candidate.url, deadline=_extended(deadline, self.excused - mark))
         install_cover(target, code, data, size, evidence=dict(source=candidate.source, title=title,
             source_url=candidate.url, width=size[0], height=size[1], verified_by=list(verified_by),
-            raw_sha256=hashlib.sha256(data).hexdigest(), checked_at=time.time()))
+            raw_sha256=hashlib.sha256(data).hexdigest(), checked_at=time.time(),
+            **({'watermarked': True} if is_javdb_image(candidate.url, candidate.source) else {})), portrait=portrait)
         return True
 
     def reset(self):
@@ -914,7 +1018,7 @@ class LibraryMetadataProvider:
         self.transport.renew()
 
     def budget_spent(self):
-        """本趟采集预算（`MAX_SOURCE_*`）到顶时的说明，没到顶是空串。"""
+        """本趟采集预算（`SourceBudget`）到顶时的说明，没到顶是空串。"""
         return self.transport.exhausted()
 
     def close(self):
@@ -1506,6 +1610,18 @@ def _scrapes_as_jav(row, code):
                           ('performer',) if row.get('performers') else (), row.get('region'))
 
 
+def _filename_code(row, patterns=()):
+    """从文件名认出的番号；目录身份说明它分不清时是 None（#572）。
+
+    归在创作者名下、没有厂牌、发行日或出演者、写法又不属于任何发行体系时，`sumwall95`、
+    `oscarkim123` 这类「昵称加数字」和真番号同形，机器分不出是哪一种。这时不写进 `code`，
+    留在未知：写进去它就当番号显示、按番号取封面键。判据与刮削入口同一份
+    （`catalog_rules.scrapes_as_jav`），有发行证据或带 NFO 的照旧认。
+    """
+    code = release_code_from_filename(row.get('name') or '', patterns=patterns)
+    return code if code and _scrapes_as_jav(row, code) else None
+
+
 def _studio_evidence(row):
     """判片商时本机手上有的证据：文件路径、文件名和账本里已记的厂牌。"""
     return (row.get('path'), row.get('name'), row.get('studio'))
@@ -1546,6 +1662,50 @@ class _DirectoryIndex:
         self._cache: dict[str, dict[str, Path]] = {}
         self._errors: dict[str, OSError] = {}
         self._sidecars: dict[str, SidecarIndex] = {}
+        #: 预读过的目录的指纹：每个文件的名字、大小与修改时间，见 `fingerprint`。
+        self._stamps: dict[str, str] = {}
+
+    def prefetch(self, directories, progress=lambda: None):
+        """用一个子进程连着列出这些目录，顺带记下每个文件的大小与修改时间。
+
+        逐个目录各起一个读取进程，起进程本身就是每部片的主要开销；连读只付一次。列不出的目录
+        不记结果，处理到它时照旧单独列一次、按原样报错。`progress` 每列完一个目录调一次，
+        里面抛出的停止请求会结束读取进程。"""
+        from .media_io import read_directories
+        from .smb_media import SmbResource, resolve
+        pending = {str(directory): directory for directory in directories}
+        pending = [directory for key, directory in pending.items() if key not in self._cache]
+        if not pending:
+            return
+        with closing(read_directories(pending)) as listings:
+            for directory, entries in listings:
+                progress()
+                if isinstance(entries, OSError):
+                    continue
+                # 口径与 `directory_files` 一致：本机跟随链接判文件，SMB 不收链接。
+                remote = isinstance(directory, SmbResource)
+                files = [entry for entry in entries
+                         if entry.is_file() and not (remote and entry.is_symlink())]
+                key = str(directory)
+                self._cache[key] = {entry.name.casefold(): (resolve(entry.path) if remote else None)
+                                    or Path(entry.path) for entry in files}
+                stamps = []
+                for entry in files:
+                    attributes = getattr(entry, 'attributes', None) or {}
+                    if 'st_size' not in attributes or 'st_mtime_ns' not in attributes:
+                        stamps = None
+                        break
+                    stamps.append((entry.name, attributes['st_size'], attributes['st_mtime_ns']))
+                if stamps is not None:
+                    self._stamps[key] = hashlib.sha256(
+                        json.dumps(sorted(stamps), ensure_ascii=False).encode('utf-8')).hexdigest()
+
+    def fingerprint(self, directory: Path):
+        """目录里全部文件的名字、大小与修改时间的摘要；没预读过或读不出时间的目录是 None。
+
+        NFO、海报改了内容，大小或修改时间跟着变；增删配套文件改的是文件名单。整个目录一起算，
+        同目录哪部片的配套文件动了，这一目录的影片都重读一遍，不会漏读。"""
+        return self._stamps.get(str(directory))
 
     def files(self, directory: Path) -> dict[str, Path]:
         key = str(directory)
@@ -1689,8 +1849,10 @@ class _RemoteSession:
     """一个任务共用的外部来源连接，加上来源说过「没有」的记忆。"""
 
     def __init__(self, config, provider_factory, misses, *, retrying, recheck_existing=False, routes=None,
-                 database=None):
+                 database=None, budget=None):
         self._config = config
+        #: 本趟采集预算（`SourceBudget`），补人物资料那一步同样按它开连接。
+        self.budget = budget or SourceBudget()
         self._factory = provider_factory
         self._provider = None
         self.misses = misses
@@ -1708,8 +1870,18 @@ class _RemoteSession:
                               else LibraryMetadataProvider(
                                   self._config.directory('secrets'), tools_root=self._config.directory('tools'),
                                   public_cache=self._config.directory('generated') / 'jav-public',
-                                  wiki_root=self._config.directory('sources') / 'library-metadata' / 'seesaa-pages'))
+                                  wiki_root=self._config.directory('sources') / 'library-metadata' / 'seesaa-pages',
+                                  budget=self.budget))
+            if isinstance(self._provider, LibraryMetadataProvider):
+                self._provider.watermarked_covers = self._watermarked_covers()
         return self._provider
+
+    def _watermarked_covers(self):
+        """账本设置 `javdbCoverFallback`：没有别的封面时用不用 JavDB 带水印的图，没设过按关。"""
+        if self.database is None:
+            return False
+        with self.database.read_connection() as connection:
+            return read_settings(connection).get('javdbCoverFallback') is True
 
     def reset(self):
         if self._provider is not None and hasattr(self._provider, 'reset'):
@@ -1949,7 +2121,8 @@ class _RemoteSession:
         wants_cast = 'performers' in missing and any(name in metadata_routes.WIKI_STAGE for name in chain)
         results = _MetadataResults(self, code, received)
         problems, held, entries = [], [], results.entries
-        failures = []
+        # 没答上的来源逐家留原因（`failures`），说过「没有」的另记一份（`absent`）：两样是两回事。
+        failures, absent = [], []
         attempted = set(answered)
         stages = metadata_routes.stages_for_chain(chain)
         for source, then in zip(stages, (*stages[1:], '')):
@@ -1974,9 +2147,12 @@ class _RemoteSession:
                 found = self._ask(source, code, members, cached, required=required, evidence=evidence,
                                   deadline=_extended(deadline, _excused(self._provider) - mark),
                                   received=results.save)
-            except DeadlineExceeded:
+            except DeadlineExceeded as error:
                 self.reset()
                 if entries:
+                    problems.append(phrase('errors.libraryProcessing.sourceProblem', {
+                        'source': source_name(source), 'problem': phrase('errors.libraryProcessing.deadlineRetryLater')}))
+                    failures.append(_source_failure_details(error, code, action, source=source))
                     break
                 issue(row, phrase('errors.libraryProcessing.deadlineRetryLater'), action=action, retryable=True)
                 return []
@@ -1985,13 +2161,9 @@ class _RemoteSession:
                 if is_missing(error):
                     for name in getattr(error, 'sites', None) or members:
                         self._record_miss(name, code)
+                        absent.append(name)
                 else:
-                    # 社区那一档的原因里已经写明是哪一家了（`community()` 逐家拼过），再套一层
-                    # 就成了「社区来源：javdb：…」。单家来源的原因不带来源名，这里补上。
-                    problems.append(describe_failure(error)
-                                    if source in ('community', 'amane', 'amane_official')
-                                    else phrase('errors.libraryProcessing.sourceProblem',
-                                                {'source': source_name(source), 'problem': describe_failure(error)}))
+                    problems.append(_stage_problem(source, error))
                     failures.append(_source_failure_details(error, code, action, source=source))
                     held.append(source_paused(error))
                 # 认人 Wiki 没给出演员时，MGStage 给的字段够停手就停，不为它落到综合索引那条 3 秒的队。
@@ -2012,6 +2184,10 @@ class _RemoteSession:
             update=update, issue=issue, deadline=_extended(deadline, _excused(self._provider) - mark))
         results.cached(tag_entries)
         if entries:
+            if problems:
+                issue(row, phrase('errors.libraryProcessing.someSourcesUnfetched',
+                                  {'problems': joined_phrases(problems)}), action=action,
+                      diagnostics={'failures': failures, 'absent': absent})
             return entries
         # 链上任何一档还在正常作答，这一行就是真没取到；全被限住时才算没轮到。
         paused = bool(held) and all(held)
@@ -2019,7 +2195,7 @@ class _RemoteSession:
                           else 'errors.libraryProcessing.metadataUnfetched', {'problems': joined_phrases(problems)})
               if problems else MISS_MESSAGES[action],
               action=action, retryable=True, paused=paused,
-              **({'diagnostics': {'failures': failures}} if failures else {}))
+              **({'diagnostics': {'failures': failures, 'absent': absent}} if failures else {}))
         return []
 
     def _provided(self, code, entries):
@@ -2079,14 +2255,24 @@ class _RemoteSession:
         update(**stage_fields('library.fetchCovers'), current_action=action,
                current_started_at=time.time(), current_deadline_at=time.time() + budget, current_source=None)
         try:
-            return int(self.provider().cover(code, cover_root, deadline=deadline_after(budget),
-                                             evidence=_studio_evidence(row), snapshots=snapshots,
-                                             absent=absent))
+            provider = self.provider()
+            covers = int(provider.cover(code, cover_root, deadline=deadline_after(budget),
+                                        evidence=_studio_evidence(row), snapshots=snapshots, absent=absent))
+            raw = getattr(provider, 'cover_problems', None)
+            problems = [said for said, _paused in raw] if isinstance(raw, list) else []
+            if problems:
+                issue(row, phrase('errors.libraryProcessing.someCoverSourcesUnfetched',
+                                  {'problems': joined_phrases(problems)}), action=action)
+            return covers
         except DeadlineExceeded:
             self.reset()
             issue(row, phrase('errors.libraryProcessing.coverDeadline'), action=action, retryable=True)
         except CoverKept:
             self._record_miss('cover', code, lineup)
+            raw = getattr(self._provider, 'cover_problems', None)
+            if isinstance(raw, list) and raw:
+                issue(row, phrase('errors.libraryProcessing.someCoverSourcesUnfetched',
+                                  {'problems': joined_phrases([said for said, _paused in raw])}), action=action)
         except NotFound:
             self._record_miss('cover', code, lineup)
             issue(row, MISS_MESSAGES[action], action=action, retryable=True)
@@ -2161,13 +2347,11 @@ def _enrich_finished_performers(database, groups, config, candidate_root, remote
         return empty
     from .metadata_performer_profiles import enrich_performer_profiles
     from .jav_cover_fetch import HostLimitedTransport
-    from .scraping_access import SourceTransport
+    budget = getattr(remote, 'budget', None) or SourceBudget()
 
     def profile_transport():
-        return HostLimitedTransport(
-            SourceTransport(config.directory('secrets'), max_requests=MAX_SOURCE_REQUESTS,
-                            max_bytes=MAX_SOURCE_BYTES, max_seconds=MAX_SOURCE_SECONDS),
-            2.0, limiter=SOURCE_LIMITER)
+        return HostLimitedTransport(budget.transport(config.directory('secrets')),
+                                    2.0, limiter=SOURCE_LIMITER)
     # 问题清单要的是这条资产的 id 和路径，候选行上都有。
     rows = {int(group['asset_id']): {'id': int(group['asset_id']),
                                      'path': group.get('asset_path') or ''}
@@ -2355,16 +2539,21 @@ def _scan_sources(config, db_path, *, locations, asset_ids, stage, guard, update
                 def remember(value, key=key):
                     scan_checkpoints[key] = value
                     save_checkpoint()
-                registered = scan_location(db_path, source, root, declared_roots=config.locations,
-                                           mounts=mounts, report=lambda line: None,
-                                           read_directory=partial(directory_entries, file_identity=source == 'local'),
-                                           onerror=lambda error: issue(None, said_of(error), action='scanning_files'),
-                                           resume_state=scan_checkpoints.get(key), save_checkpoint=remember,
-                                           new_only=incremental,
-                                           progress=lambda files, size: update(
-                                               **stage_fields('library.scanFiles'), scanned=result.scanned + files,
-                                               scanned_bytes=result.scanned_bytes + size,
-                                               checked=0, total=0, current_action='scanning_files'))
+                try:
+                    registered = scan_location(db_path, source, root, declared_roots=config.locations,
+                                               mounts=mounts, report=lambda line: None,
+                                               read_directory=partial(directory_entries, file_identity=source == 'local'),
+                                               onerror=lambda error: issue(None, said_of(error), action='scanning_files'),
+                                               resume_state=scan_checkpoints.get(key), save_checkpoint=remember,
+                                               new_only=incremental,
+                                               progress=lambda files, size: update(
+                                                   **stage_fields('library.scanFiles'), scanned=result.scanned + files,
+                                                   scanned_bytes=result.scanned_bytes + size,
+                                                   checked=0, total=0, current_action='scanning_files'))
+                except ScanRootUnreadable as error:
+                    # 在线探测之后根目录又列不出来：记成这个来源的问题，别的来源照常扫。
+                    issue(None, said_of(error), action='reading_local')
+                    continue
                 result.scanned += registered.files
                 result.scanned_bytes += registered.total_bytes
                 result.junk_isolated += registered.junk_isolated
@@ -2418,6 +2607,39 @@ def _library_stages(config):
     return stages_of
 
 
+def _processing_libraries(config, stage):
+    """这一趟每个媒体库要做的步骤；只补封面时都按「不补资料、不补人物资料」问，联网只剩封面那一步。"""
+    stages_of = _library_stages(config)
+    if stage != COVERS_STAGE:
+        return stages_of
+    return lambda path: stages_of(path) - {'metadata', 'people'}
+
+
+def _listing_progress(guard, update, checked, total):
+    """「检查配套文件」预读目录时的进度回调：每列 50 个目录看一次停止请求并报一次进度。"""
+    listed = 0
+
+    def progress():
+        nonlocal listed
+        listed += 1
+        if listed % 50 == 0:
+            guard.check()
+            update(**stage_fields('library.checkCompanions'), checked=checked, total=total,
+                   current_asset_id=None, current_asset_name='', current_action='reading_local',
+                   current_started_at=time.time(), current_deadline_at=None)
+    return progress
+
+
+def _keep_local_evidence(local_evidence):
+    """读过的本地证据留给下一趟复用；写不进去只是下一趟重读，不盖住原来的异常。还没建起来时什么都不做。"""
+    if local_evidence is None:
+        return
+    try:
+        local_evidence.save(force=True)
+    except OSError:
+        LOGGER.warning('Could not save the local evidence index', exc_info=True)
+
+
 def _people_allowed(config):
     """有没有哪个媒体库的处理方式联网补人物图片；都没有时整轮不补人物资料、不派实体后继。"""
     return any('people' in stages for stages in media_identity.stages_by_root(config).values())
@@ -2458,7 +2680,7 @@ class _NetworkGate:
 
 
 class _SourceBudget:
-    """整趟采集预算（`MAX_SOURCE_*`）到顶后，后面要出网的行一家都不问。
+    """整趟采集预算（`SourceBudget`）到顶后，后面要出网的行一家都不问。
 
     预算按任务算，换连接、暂停再继续都不重置。到顶之后每一问都只会回同一句「本趟已用完」，
     逐行再问只是空转，还把这一句按来源各记一遍，几千条问题项盖住了真正的原因。
@@ -2876,13 +3098,20 @@ def _checkpoint_key(row):
 
 
 def _newly_coded_assets(database, db_path) -> set[str]:
-    """账本里没番号、按现行内置规则能从文件名认出番号的影片 id；处理时会补上番号再采资料。"""
+    """按现行内置规则才有了番号的影片 id，处理时补上番号再采资料。
+
+    两类：账本里没番号、现在能从文件名认出的；番号带登记尾字母的（`IBW-483Z`）。后者是升级补修
+    刚从旧版截掉尾字母的写法改回来的（`upgrade_repairs.truncated_suffix_codes`），按旧写法采集时
+    来源返回都被身份闸拒掉，得按现番号再采一次。
+    """
+    from .catalog_rules import without_label_suffix
     from .repository import LedgerDatabase
     ledger = database if database is not None else LedgerDatabase(db_path)
     with ledger.read_connection() as connection:
         rows = connection.execute(
-            "SELECT id,name FROM asset WHERE medium='video' AND COALESCE(code,'')=''").fetchall()
-    return {str(row[0]) for row in rows if release_code_from_filename(row[1] or '')}
+            "SELECT id,name,code FROM asset WHERE medium='video'").fetchall()
+    return {str(row[0]) for row in rows
+            if (release_code_from_filename(row[1] or '') if not row[2] else without_label_suffix(row[2]))}
 
 
 class _LibraryCheckpoints:
@@ -2918,6 +3147,8 @@ class _LibraryCheckpoints:
                 key for key in self.completed['completed_metadata'] if key.partition(':')[0] not in newly_coded}
         state['filename_code_rule'] = upgrade_rules.FILENAME_CODES
         self.pending_metadata = set()
+        #: 收进完成断点的影片同时从「新入库待补全」名单里去掉；只补封面的任务不去。
+        self.settles_new = True
         self.entity_watermark = previous.get('entity_watermark')
         if self.entity_watermark is None:
             self.entity_watermark = _entity_watermark(database)
@@ -2942,8 +3173,9 @@ class _LibraryCheckpoints:
         self.pending_metadata.clear()
         self.state['completed_metadata'] = sorted(self.completed['completed_metadata'])
         flush(force=True)
-        from .library_new_assets import remember
-        remember(self.db_path, completed=completed_ids)
+        if self.settles_new:
+            from .library_new_assets import remember
+            remember(self.db_path, completed=completed_ids)
 
     def remaining_metadata(self, rows):
         return ((index, row) for index, row in enumerate(rows)
@@ -2977,6 +3209,20 @@ def _candidate_baseline(database, row, code, verify_existing):
     return {**row, **{COLUMN_OF.get(value['field'], value['field']): value['current_value'] for value in values}}
 
 
+def _queue_companion_poster(config, row, video, code, cover_root, payload, posters, poster_jobs, issue):
+    """把这部片旁边的海报排进待读名单；封面已经装上的不排。"""
+    try:
+        poster_root = cover_root if code else config.directory('generated') / 'posters'
+        _queue_local_poster(video, code or f"{row['id']}_4", poster_root, payload, posters=posters,
+                            enqueue=lambda source, key, target: poster_jobs.append((row, source, key, target)),
+                            generated=not code)
+    except InterruptedError:
+        raise
+    except (OSError, ValueError):
+        issue(row, phrase('errors.libraryProcessing.companionImageUnreadable'), action='reading_local_cover',
+              retryable=True)
+
+
 def _read_local_metadata(config, db_path, row, cover_root, listing, state, update, issue, poster_jobs,
                          code_patterns=()):
     """读取一部影片的本地证据，返回可独立发布的资料与在线核查范围。
@@ -2993,7 +3239,7 @@ def _read_local_metadata(config, db_path, row, cover_root, listing, state, updat
     if video.name.casefold() not in files:
         issue(row, phrase('errors.libraryProcessing.mediaInaccessible'), action='reading_local', retryable=True)
         return None
-    code = _provider_code(row['code']) or release_code_from_filename(row['name'], patterns=code_patterns)
+    code = _provider_code(row['code']) or _filename_code(row, code_patterns)
     payload = None
     entries = []
     nfo, posters = listing.sidecars(video)
@@ -3012,16 +3258,7 @@ def _read_local_metadata(config, db_path, row, cover_root, listing, state, updat
         with closing(sqlite3.connect(db_path, timeout=30)) as connection, connection:
             write_owned_fields(connection, [row['id']], {'code': code}, SCAN_FILENAME, require_empty=True)
         state['identified'] += 1
-    try:
-        poster_root = cover_root if code else config.directory('generated') / 'posters'
-        _queue_local_poster(video, code or f"{row['id']}_4", poster_root, payload, posters=posters,
-                            enqueue=lambda source, key, target: poster_jobs.append((row, source, key, target)),
-                            generated=not code)
-    except InterruptedError:
-        raise
-    except (OSError, ValueError):
-        issue(row, phrase('errors.libraryProcessing.companionImageUnreadable'), action='reading_local_cover',
-              retryable=True)
+    _queue_companion_poster(config, row, video, code, cover_root, payload, posters, poster_jobs, issue)
     if payload:
         evidence_path = config.directory('sources') / 'library-metadata' / (hashlib.sha256(raw).hexdigest() + '.nfo')
         evidence_path.parent.mkdir(parents=True, exist_ok=True)
@@ -3055,7 +3292,7 @@ def _processing_steps(stage, asset_ids, *, metadata_only_enabled):
     """按本趟真实处理范围构造有序阶段清单。"""
     scanning = asset_ids is None and stage in (ALL_STAGES, SCAN_STAGE)
     steps = [('sources', 'scanFiles' if scanning else 'checkFolders')]
-    steps.append(('inspect', 'checkJunk' if stage in (SCAN_STAGE, PREVIEWS_STAGE, METADATA_STAGE)
+    steps.append(('inspect', 'checkJunk' if stage in (SCAN_STAGE, PREVIEWS_STAGE, METADATA_STAGE, COVERS_STAGE)
                   else 'probeAndCheckJunk'))
     if stage not in (SCAN_STAGE, PREVIEWS_STAGE):
         steps.append(('local', 'checkCompanions'))
@@ -3063,7 +3300,7 @@ def _processing_steps(stage, asset_ids, *, metadata_only_enabled):
         steps.append(('media', 'makePreviews' if stage == PREVIEWS_STAGE or not metadata_only_enabled
                       else 'checkPreviewSettings'))
     if stage not in (SCAN_STAGE, PREVIEWS_STAGE):
-        steps.append(('collect', 'fetchMetadataAndCovers'))
+        steps.append(('collect', 'fetchCovers' if stage == COVERS_STAGE else 'fetchMetadataAndCovers'))
     return [dict(id=key, label=interface_text.text(f'server:{STEP_PREFIX}{name}'), label_code=STEP_PREFIX + name,
                  status='current' if index == 0 else 'pending')
             for index, (key, name) in enumerate(steps)]
@@ -3072,7 +3309,7 @@ def _processing_steps(stage, asset_ids, *, metadata_only_enabled):
 #: 处理步骤名的 code 前缀；`label` 存按 zh-CN 渲染的原文。
 STEP_PREFIX = 'labels.libraryProcessing.step.'
 STEP_NAMES = ('scanFiles', 'checkFolders', 'checkJunk', 'probeAndCheckJunk', 'checkCompanions', 'makePreviews',
-              'checkPreviewSettings', 'fetchMetadataAndCovers')
+              'checkPreviewSettings', 'fetchMetadataAndCovers', 'fetchCovers')
 
 
 def _complete_processing_step(steps, key):
@@ -3121,14 +3358,16 @@ def _restore_processing_counts(state, previous, *, retrying=False):
 
 
 def prune_local_evidence(state_path: Path, local_metadata: dict | None, *, before: float | None = None) -> int:
-    """`<状态名>-items/` 里状态没有引用的本地证据缓存删掉，返回删掉的个数。
+    """`<状态名>-items/` 里没人引用的本地证据缓存删掉，返回删掉的个数。
 
-    缓存文件只经状态里的 `local_metadata` 找到；不在里面的，续跑也认不上。不续跑的新一轮
-    `local_metadata` 从空开始，上一轮留下的整批在开工时收走，目录不再只增不减。
+    引用有两处：状态里的 `local_metadata`（同一任务续跑）与跨任务索引 `index.json`（`_LocalEvidenceCache`，
+    「立即重试」与下一轮处理按目录指纹复用）。两处都不指着的，续跑和跨任务都认不上。不续跑的新一轮
+    `local_metadata` 从空开始，上一轮留下、索引也不再指着的在开工时收走，目录不再只增不减。
     `before` 给了就只删修改时间早于它的，留给不在任务里、读的是盘上状态的调用方。
     """
     folder = Path(state_path).parent / (Path(state_path).stem + '-items')
     referenced = {Path(value).name for value in (local_metadata or {}).values() if value}
+    referenced |= _indexed_evidence(folder / 'index.json')
     removed = 0
     try:
         entries = list(folder.iterdir())
@@ -3147,11 +3386,31 @@ def prune_local_evidence(state_path: Path, local_metadata: dict | None, *, befor
     return removed
 
 
+def _indexed_evidence(index_path: Path) -> set[str]:
+    """跨任务索引本身与它指着的证据文件名；读不出来时只留索引文件名，证据按没人引用处理。"""
+    names = {index_path.name}
+    try:
+        entries = json.loads(index_path.read_text(encoding='utf-8')).get('entries')
+    except (OSError, ValueError, AttributeError):
+        return names
+    if isinstance(entries, dict):
+        names |= {str(value[1]) for value in entries.values() if isinstance(value, list) and len(value) == 2}
+    return names
+
+
+#: 跨任务的本地证据索引隔多久落一次盘；本地检查做完、任务被打断时都会再落一次。
+LOCAL_INDEX_FLUSH_SECONDS = 60.0
+
+
 class _LocalEvidenceCache:
     """保存已经读出的本地证据与待处理图片，供同一影片的后续阶段复用。
 
-    开工时先收走状态不再引用的旧缓存（`prune_local_evidence`）。
-    """
+    同一任务内（续跑）按 `state['local_metadata']` 直接复用。跨任务（「立即重试」、下一轮
+    全库处理）按 `<状态名>-items/index.json` 复用：每条记着读那一次影片所在目录的指纹
+    （`_DirectoryIndex.fingerprint`，全部文件的名字、大小与修改时间）与当时账本里的番号，
+    两样都对得上、证据文件还在才复用，NFO 与本地图片不再重读；目录里有任何文件动过就整部重读。
+    海报每次按当下的目录与封面重新排，换掉、删掉的封面照样补。开工时先收走状态与索引都不再引用的
+    旧缓存（`prune_local_evidence`）。"""
 
     def __init__(self, config, db_path, cover_root, listing, state, path):
         self.config, self.db_path, self.cover_root = config, db_path, cover_root
@@ -3164,6 +3423,61 @@ class _LocalEvidenceCache:
         except ValueError:
             # 保存时已经校验过；被手改坏的规则当没设置过，不让整轮处理失败。
             self.code_patterns = ()
+        self.items_root = path.parent / (path.stem + '-items')
+        self.index_path = self.items_root / 'index.json'
+        # 番号识别规则或处理规则变了，旧的读法可能认出别的番号：整份不用。
+        self.header = dict(rule=upgrade_rules.PROCESSING,
+                           patterns=hashlib.sha256(json.dumps(stored, ensure_ascii=False, sort_keys=True,
+                                                              default=str).encode('utf-8')).hexdigest())
+        try:
+            loaded = json.loads(self.index_path.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            loaded = {}
+        valid = isinstance(loaded, dict) and all(loaded.get(name) == value for name, value in self.header.items())
+        entries = loaded.get('entries') if valid else None
+        self.index = entries if isinstance(entries, dict) else {}
+        self.dirty, self.saved_at = False, time.monotonic()
+        self.reused = 0
+
+    def prefetch(self, rows, progress):
+        """把还要读的影片所在目录一次列出来，顺带取到算指纹要的大小与修改时间。"""
+        self.listing.prefetch([translate_ledger_path(row['path']).parent for row in rows
+                               if _checkpoint_key(row) not in self.state['local_metadata']], progress)
+
+    def _stamp(self, row, video, ledger_code):
+        directory = self.listing.fingerprint(video.parent)
+        if directory is None:
+            return None
+        return hashlib.sha256(json.dumps([directory, video.name, str(ledger_code or '')],
+                                         ensure_ascii=False).encode('utf-8')).hexdigest()
+
+    def _reuse(self, row, issue, poster_jobs):
+        """跨任务复用：指纹对得上就返回上次读出的本地证据，海报按当下重排；对不上返回 None。"""
+        key = _checkpoint_key(row)
+        remembered = self.index.get(key)
+        if not (isinstance(remembered, list) and len(remembered) == 2):
+            return None
+        video = translate_ledger_path(row['path'])
+        stamp = self._stamp(row, video, row['code'])
+        if stamp is None or stamp != remembered[0]:
+            return None
+        item_path = self.items_root / str(remembered[1])
+        try:
+            cached = json.loads(item_path.read_text(encoding='utf-8'))
+            code, verify, payload, entries = cached['local']
+        except (OSError, ValueError, KeyError, TypeError):
+            return None
+        entries = [(source, document, translate_ledger_path(path)) for source, document, path in entries]
+        if not all(Path(path).is_file() for _, _, path in entries):
+            return None
+        try:
+            _, posters = self.listing.sidecars(video)
+        except OSError:
+            return None
+        _queue_companion_poster(self.config, row, video, code, self.cover_root, payload, posters, poster_jobs, issue)
+        self.state['local_metadata'][key] = str(item_path)
+        self.reused += 1
+        return code, verify, payload, entries
 
     def read(self, row, update, issue, poster_jobs):
         key = _checkpoint_key(row)
@@ -3178,6 +3492,9 @@ class _LocalEvidenceCache:
                                for source, name, target in cached['posters'])
             return code, verify, payload, [(source, document, translate_ledger_path(path)) for source, document, path in entries]
         offset, issues_before = len(poster_jobs), self.state['issue_count']
+        reused = self._reuse(row, issue, poster_jobs)
+        if reused is not None:
+            return reused
         local = _read_local_metadata(self.config, self.db_path, row, self.cover_root, self.listing,
                                      self.state, update, issue, poster_jobs, self.code_patterns)
         if local is not None and self.state['issue_count'] == issues_before:
@@ -3186,11 +3503,24 @@ class _LocalEvidenceCache:
                           posters=[(str(source), name, str(target)) for _, source, name, target in poster_jobs[offset:]])
             encoded = json.dumps(record, ensure_ascii=False)
             digest = hashlib.sha256(encoded.encode()).hexdigest()
-            item_path = self.path.parent / (self.path.stem + '-items') / f"{row['id']}-{digest}.json"
+            item_path = self.items_root / f"{row['id']}-{digest}.json"
             if not item_path.is_file():
                 atomic_write_text(item_path, encoded)
             self.state['local_metadata'][key] = str(item_path)
+            # 账本里原来没有番号、这一次按文件名补上了的，下次对的是补上之后的番号。
+            stamp = self._stamp(row, translate_ledger_path(row['path']), row['code'] or code)
+            if stamp is not None:
+                self.index[key] = [stamp, item_path.name]
+                self.dirty = True
+                self.save()
         return local
+
+    def save(self, force=False):
+        """把跨任务索引落盘；按 `LOCAL_INDEX_FLUSH_SECONDS` 节流，`force` 时立即写。"""
+        if not self.dirty or (not force and time.monotonic() - self.saved_at < LOCAL_INDEX_FLUSH_SECONDS):
+            return
+        atomic_write_text(self.index_path, json.dumps({**self.header, 'entries': self.index}, ensure_ascii=False))
+        self.dirty, self.saved_at = False, time.monotonic()
 
 
 class _ProcessingStateFile:
@@ -3337,10 +3667,12 @@ def process_library(config, db_path, candidate_root, cover_root, *, location='co
         estimate = ProcessingEstimate(config, state, control)
         # 实体表的水位在开工前记一次：比它大的实体就是这一轮建出来的（`_entity_followups`）。
         checkpoints = _LibraryCheckpoints(state, resume_state, database, db_path)
+        # 只补封面没问资料：新入库的影片照旧算「待补全」。
+        checkpoints.settles_new = stage != COVERS_STAGE
         entity_watermark = checkpoints.entity_watermark
         # 每行这一轮换上了几张封面，`(asset_id, 张数)`：换上了的作品，女优可能截得出更清楚的脸。
         covered = []
-        stages_of = _library_stages(config)
+        stages_of = _processing_libraries(config, stage)
         log_path = _processing_issue_log(config, path, state['job_id'], state_file is not None,
                                          resume=bool(resume_state), retrying=retrying)
         # 界面只展示前 20 条，完整清单在这个文件里；地址跟着状态一起给出，
@@ -3379,8 +3711,9 @@ def process_library(config, db_path, candidate_root, cover_root, *, location='co
         update()
         remote = _RemoteSession(config, provider_factory, _MissCache(misses_path(config)),
                                 retrying=retrying, recheck_existing=recheck_existing, routes=routes,
-                                database=judgement_database)
+                                database=judgement_database, budget=source_budget(judgement_database))
         flush_candidates = lambda force=False: None
+        local_evidence = None
 
         try:
             guard = CapacityGuard(config)
@@ -3478,6 +3811,8 @@ def process_library(config, db_path, candidate_root, cover_root, *, location='co
             poster_jobs = []
             local_rows = list(checkpoints.remaining_metadata(rows))
             completed_count = len(rows) - len(local_rows)
+            local_evidence.prefetch([row for _, row in local_rows],
+                                    _listing_progress(guard, update, completed_count, len(rows)))
             for index, (_, row) in enumerate(local_rows):
                 guard.check()
                 issues_before = state['issue_count']
@@ -3496,6 +3831,7 @@ def process_library(config, db_path, candidate_root, cover_root, *, location='co
                     prepared.append((row, code, verify_existing, local_fields, entries,
                                      state['issue_count'] == issues_before))
                 update(checked=completed_count + index + 1)
+            local_evidence.save(force=True)
             flush_candidates(force=True)
             pending.pop('local')
             pending['metadata'] = len(prepared)
@@ -3575,7 +3911,7 @@ def process_library(config, db_path, candidate_root, cover_root, *, location='co
             summary = _finish_collection(
                 config, database, candidate_root, cover_root, groups, remote, asset_ids=scope_ids,
                 active=active, update=update, issue=issue, watermark=entity_watermark, covered=covered,
-                people=_people_allowed(config), offline=gate.offline())
+                people=stage != COVERS_STAGE and _people_allowed(config), offline=gate.offline())
             finish_step('collect')
             _settle_collection_state(state, summary, rows, update)
         except Exception:
@@ -3589,8 +3925,10 @@ def process_library(config, db_path, candidate_root, cover_root, *, location='co
         finally:
             # 被打断也把已经攒下的候选写全：文件里要么是上一份完整的，要么是这一份完整的。
             flush_candidates(force=True)
+            _keep_local_evidence(local_evidence)
             remote.close()
-        from .library_new_assets import remember
-        unfinished = set(state['retryable_asset_ids'])
-        remember(db_path, completed=[row['id'] for row in rows if row['id'] not in unfinished])
+        if checkpoints.settles_new:
+            from .library_new_assets import remember
+            unfinished = set(state['retryable_asset_ids'])
+            remember(db_path, completed=[row['id'] for row in rows if row['id'] not in unfinished])
         return state

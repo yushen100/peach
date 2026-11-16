@@ -10,26 +10,34 @@
 .peach-react [data-jav-skeleton-action] { height: 36px; border-radius: var(--control-radius); }
 .peach-react [data-jav-title] { margin: 0; font-weight: normal; }
 .peach-react [data-jav-actions] { margin-top: auto; }
-/* 新作和发现不使用馆藏虚拟列表的固定单行估计，密集卡片仍保留标题、姓名和日期。 */
-body[data-density="dense"]:not([data-surface="/trash"]) .peach-react [data-media-card][data-jav-card] [data-media-text] {
+/* 新作和发现的元信息区不跳过渲染，按实际内容定高：标题两行、署名随出演人数和日期折行，
+ * 套不上馆藏卡那份屏外估高，跳过时每张卡进视口才长高，上方的卡一长视口就被挪开。
+ * 封面高度由比例推出，照旧跳过；一页最多百来张，元信息区全排一遍不费事。 */
+body .peach-react [data-media-card][data-jav-card] [data-media-meta] {
+  min-height: 0;
+  content-visibility: visible;
+  contain-intrinsic-block-size: none;
+}
+/* 密集卡片仍保留标题、姓名和日期。 */
+body[data-density="dense"] .peach-react [data-media-card][data-jav-card] [data-media-text] {
   display: flex;
   height: auto;
   gap: 4px;
 }
-body[data-density="dense"]:not([data-surface="/trash"]) .peach-react [data-media-card][data-jav-card] [data-media-title] {
+body[data-density="dense"] .peach-react [data-media-card][data-jav-card] [data-media-title] {
   display: -webkit-box;
   min-height: 2.7em;
   max-height: 2.7em;
   white-space: normal;
   -webkit-line-clamp: 2;
 }
-body[data-density="dense"]:not([data-surface="/trash"]) .peach-react [data-media-card][data-jav-card] [data-media-byline] {
+body[data-density="dense"] .peach-react [data-media-card][data-jav-card] [data-media-byline] {
   flex-direction: column;
   align-items: flex-start;
   height: auto;
   gap: 4px;
 }
-body[data-density="dense"]:not([data-surface="/trash"]) .peach-react [data-media-card][data-jav-card] [data-media-text] [data-media-facts] {
+body[data-density="dense"] .peach-react [data-media-card][data-jav-card] [data-media-text] [data-media-facts] {
   display: inline-flex;
   flex-basis: auto;
 }

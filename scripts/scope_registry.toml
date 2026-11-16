@@ -39,12 +39,12 @@ media = [
     "test_mp4recover.py", "test_web_media_repair.py", "test_previews.py", "test_preview_transport.py",
     "test_providers.py", "test_segments.py", "test_streaming.py", "test_stream_lifecycle.py",
     "test_subtitles.py", "test_transcodes.py", "test_hardware_transcode.py", "test_strm.py",
-    "test_guangya_sources.py", "test_media_sources.py", "test_smb*.py",
+    "test_guangya_sources.py", "test_media_sources.py", "test_smb*.py", "test_mkvindex.py",
 ]
 sync = [
     "test_sync*.py", "test_platform.py", "test_mount.py", "test_tray*.py", "test_macos_standalone.py",
     "test_log_retention.py", "test_mdns.py", "test_netwatch.py", "test_certs.py", "test_review_mirror.py",
-    "test_runtime_prepare.py",
+    "test_runtime_prepare.py", "test_listening.py",
 ]
 metadata = [
     "test_custom_metadata.py", "test_scraping_access.py", "test_browser_transport.py", "test_metadata*.py",
@@ -56,6 +56,7 @@ metadata = [
     "test_avatar_provider.py", "test_avatar_face.py", "test_face_detect.py", "test_face_match.py",
     "test_face_models.py", "test_performer*.py", "test_avatar_watermark.py", "test_avatar_picker.py",
     "test_portrait_gaps.py", "test_portrait_artwork.py", "test_r18_machine_translation_repair.py",
+    "test_spine_label.py", "test_body_parts.py", "test_cover_repair.py",
     "test_social_avatar_harvest.py", "test_series_localization.py", "test_duplicate_identity_merge.py",
     "test_entity_merge.py", "test_entity_redirect.py", "test_migrations.py", "test_entity_link_install.py",
     "test_studio_site_harvest.py", "test_studio_followup.py", "test_creator_identity_followup.py",
@@ -299,6 +300,14 @@ follow = [
 # 脚本默认归 tooling；有自己领域测试的脚本两边都跑：领域测试验它的判据，
 # tooling 里的脚本策略门槛验它的形态。
 # 有序：按顺序取第一个命中的前缀，更具体的前缀写在前面。
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/mkvindex.py"
+scopes = ["media"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/listening.py"
+scopes = ["sync", "tooling"]
 
 [[auto_scope_prefixes]]
 prefix = "src/peach/media.py"

@@ -273,10 +273,23 @@ _KIRARI_CODE = re.compile(rf"^{_KIRARI_BODY}$", re.I)
 #: （后三种本机账本里都有）。
 #: TMA 的 `T28`、`T38`：JavBus 片商页 `studio/54` 2026-11-14 全量翻过，这两段分别 282、65 部，
 #: 序号三位，TMA 别的字母段都是纯字母；r18.dev 给 `T28-612` 的 content_id 是 `55t2800612`。
-DIGIT_LABELS = ("T28", "T38")
-DIGIT_LABEL_PATTERN = "(?:" + "|".join(DIGIT_LABELS) + ")"
+#: S Model 的 `S2M`（アンコール，序号三位）、`S2MCR`（Model Collection Remix，序号两位）与
+#: キャットウォーク的 `CW3D2DBD`（序号两位）：#124 报告，2026-11-16 在 JavDB 搜索页核过
+#: `S2M-009`、`S2MCR-08`、`CW3D2DBD-14` 都按这个写法收录。两位序号的段在 `SERIAL_WIDTHS` 里登记位数。
+#: 交替按长度从长到短排：`S2MCR-08` 不能先被 `S2M` 吃掉一截。
+DIGIT_LABELS = ("CW3D2DBD", "S2MCR", "S2M", "T28", "T38")
+DIGIT_LABEL_PATTERN = "(?:" + "|".join(sorted(DIGIT_LABELS, key=lambda label: (-len(label), label))) + ")"
 _DIGIT_LABEL_TEXT = re.compile(rf"^({DIGIT_LABEL_PATTERN})[-_. ]?(\d{{2,5}})$", re.I)
 _DIGIT_LABEL_CODE = re.compile(rf"^{DIGIT_LABEL_PATTERN}-\d{{2,5}}$")
+#: 尾字母属于番号本身的厂牌段：アイビーワークス 的 `IBW-483z`。JavDB 2026-11-16 搜索页里
+#: `IBW-483z`、`IBW-489z`、`IBW-493z`、`IBW-583z` 都带 `z`（#124）。别的段的尾字母多半是版次
+#: （`ADN-516C` 的 `C` 是中字），所以只认登记过的段与字母，版次标记照旧按共享规则剥掉。
+LABEL_SUFFIXES = {"IBW": "Z"}
+SUFFIXED_CODE_PATTERN = "(?:" + "|".join(
+    f"{label}-\\d{{2,5}}{suffix}" for label, suffix in sorted(LABEL_SUFFIXES.items())) + ")"
+_SUFFIXED_TEXT = re.compile(
+    "^(" + "|".join(sorted(LABEL_SUFFIXES)) + r")[-_. ]?(\d{2,5})("
+    + "|".join(sorted(set(LABEL_SUFFIXES.values()))) + r")(?![A-Za-z0-9])", re.I)
 
 #: Tokyo-Hot 的编号没有厂牌字母段：`n1234`／`k1234` 是本编，`red-123` 是 Red Hot 支线。
 #: 规范写法取小写，不跟着别的番号大写——javbus 的作品页地址就是 `/n1234`，NeoAVDC
@@ -655,7 +668,7 @@ SHORT_SERIAL_PREFIXES = frozenset({"MCDV"})
 
 #: 官方编号定宽、不足位数补零的字母段。`HEYZO`：官网与各来源都写四位（`HEYZO-0707`），
 #: 按三位收成 `HEYZO-707` 就查不到资料（#354）。
-SERIAL_WIDTHS = {"HEYZO": 4}
+SERIAL_WIDTHS = {"HEYZO": 4, "S2MCR": 2, "CW3D2DBD": 2}
 
 
 def _keeps_width(letters: str, digits: str) -> bool:
@@ -976,11 +989,35 @@ def release_code_from_text(value: str | None) -> str | None:
     if date:
         return f"{date.group(1)}{date.group(2)}{date.group(3)}"
     body = VERSION_TAIL.sub("", _QUALITY_HEAD.sub("", text))
+    suffixed = _suffixed_code(body, whole=True)
+    if suffixed:
+        return suffixed
     canonical = normalise_code_key(body)
     if not (_CODE_BODY.fullmatch(body) or _KIRARI_CODE.fullmatch(canonical)
             or _DIGIT_LABEL_TEXT.fullmatch(body)) or is_code_body_stopword(body):
         return None
     return canonical if is_jav_code(canonical) else None
+
+
+def _suffixed_code(text: str, *, whole: bool = False) -> str:
+    """`LABEL_SUFFIXES` 登记的「字母段 + 序号 + 尾字母」番号；`whole` 要求整段就是它。"""
+    shape = _SUFFIXED_TEXT.match(text)
+    if not shape or (whole and shape.end() != len(text)):
+        return ""
+    label, digits, suffix = shape.group(1).upper(), shape.group(2), shape.group(3).upper()
+    return normalise_code_key(f"{label}-{digits}{suffix}") if LABEL_SUFFIXES.get(label) == suffix else ""
+
+
+def without_label_suffix(code: str | None) -> str:
+    """登记尾字母番号去掉尾字母后的写法（`IBW-483Z` → `IBW-483`）；不是这一类返回空串。
+
+    旧版把尾字母当版次剥掉，存下的就是这个写法；升级补修按它认出要改回的行。
+    """
+    value = normalise_code_key(code)
+    shape = re.fullmatch(r"([A-Z]+)-(\d+)([A-Z])", value)
+    if not shape or LABEL_SUFFIXES.get(shape.group(1)) != shape.group(3):
+        return ""
+    return f"{shape.group(1)}-{shape.group(2)}"
 
 
 def _tokyo_hot_from_text(text: str) -> str:
@@ -1109,7 +1146,9 @@ def _titled_release_code(stem: str) -> str | None:
         if _QUALITY_TOKEN.match(token):
             continue
         head = _HYPHENATED_CODE.match(token)
-        return release_code_from_text(head.group(0)) if head else None
+        if not head:
+            return None
+        return _suffixed_code(token) or release_code_from_text(head.group(0))
     return None
 
 

@@ -10,7 +10,7 @@ import {
   junkQueryString, type JunkItem, type JunkPage, type JunkQueueActions, type JunkQueueProps,
 } from '../../src/react/junk-queue/junk-queue';
 import { queryClient } from '../../src/react/query';
-import { click, fetchMock, mount, pending, settle } from './render';
+import { hold, click, fetchMock, mount, pending, settle } from './render';
 
 afterEach(() => { queryClient.clear() });
 notifyManager.setScheduler((notify) => notify());
@@ -24,7 +24,7 @@ const answer = (items: JunkItem[], extra: Partial<JunkPage> = {}): JunkPage =>
 function actions(patch: Partial<JunkQueueActions> = {}): JunkQueueActions {
   return {
     navigate: vi.fn(), toggleSelection: vi.fn(), selectAll: vi.fn(), open: vi.fn(),
-    reveal: vi.fn(async () => ''), operate: vi.fn(async () => {}), ...patch,
+    reveal: vi.fn(async () => ''), operate: vi.fn(async () => {}), disposeAll: vi.fn(), ...patch,
   };
 }
 
@@ -98,16 +98,18 @@ describe('计数行', () => {
     const p = props(route);
     p.countRow!.innerHTML = junkCountSkeletonHtml(route);
     await open(p);
-    const live = p.countRow!.querySelector('[data-junk-count]');
+    // 分类条那一排逐项相同；浮层的料、滑动玻璃与右边的控件由岛接手时换上。
+    const live = p.countRow!.querySelector('[data-junk-filters-frame] [data-junk-filters]');
+    expect(live).not.toBeNull();
     expect(p.countRow!.querySelector('[data-junk-count-skeleton]')).toBeNull();
-    expect(countShape(live)).toBe(countShape(staticRow.querySelector('[data-junk-count]')));
+    expect(countShape(live)).toBe(countShape(staticRow.querySelector('[data-junk-filters-frame] [data-junk-filters]')));
     expect(p.countRow!.getAttribute('aria-busy')).toBe('true');
     // 等数据时网格是骨架，不先闪空态。
     expect(document.querySelector('.skeletoncard')).not.toBeNull();
     expect(document.querySelector('[data-empty-state]')).toBeNull();
   });
 
-  it('数据到了：摘要写这一视图的条数，计数为 0 的类不画徽标，末尾一项带已排除的数', async () => {
+  it('数据到了：读数写这一视图的条数，计数为 0 的类不画徽标，末尾一项带已排除的数', async () => {
     vi.stubGlobal('fetch', fetchMock(200, answer([junk(1), junk(2)], {
       total: 2, all_total: 5, dismissed_total: 3, counts: { video: 2, image: 3 },
     })));
@@ -115,7 +117,12 @@ describe('计数行', () => {
     await open(p);
     const row = p.countRow!;
     expect(row.hasAttribute('aria-busy')).toBe(false);
-    expect(row.querySelector('[data-collection-summary] strong')?.textContent).toBe('2 个');
+    expect(row.querySelector('[data-catalog-readout]')?.textContent).toBe('待判断 · 2 个');
+    // 「全选」是读数后面那颗玻璃键，按下去把这一屏已取回的整批交给壳。
+    const all = row.querySelector<HTMLButtonElement>('[data-select-all]')!;
+    expect([all.textContent, all.getAttribute('aria-pressed')]).toEqual(['全选（2 个）', 'false']);
+    await click(all);
+    expect(p.actions.selectAll).toHaveBeenCalledWith([1, 2], true);
     const badge = (key: string) => row.querySelector(`[data-count-badge="junk:${key}"]`)?.textContent ?? null;
     expect([badge(''), badge('video'), badge('image'), badge('archive'), badge('dismissed')]).toEqual(['5', '2', '3', null, '3']);
     // 徽标交给遗留层 `popBadges` 记数：变了的那几枚弹，没动的原地不动。
@@ -155,54 +162,75 @@ describe('计数行', () => {
     expect(modified.defaultPrevented).toBe(false);
   });
 
-  it('读不到时摘要不再转圈，网格那一格给重试', async () => {
+  it('「全部移入回收站」只在待判断里给，按这一类的总条数交给壳，不按取回的那一批', async () => {
+    vi.stubGlobal('fetch', fetchMock(200, answer([junk(1), junk(2)], { total: 260, counts: { video: 260 } })));
+    const disposeAll = vi.fn();
+    const p = props({ kind: 'video', actions: actions({ disposeAll }) });
+    const { update } = await open(p);
+    const button = () => p.countRow!.querySelector<HTMLButtonElement>('[data-junk-dispose-all]');
+    expect(button()?.textContent).toBe('全部移入回收站');
+    await click(button());
+    expect(disposeAll).toHaveBeenCalledWith('video', 260);
+    await update({ view: 'dismissed' });
+    await settle();
+    expect(button()).toBeNull();
+  });
+
+  it('读不到时读数不再转圈，网格那一格给重试', async () => {
     vi.stubGlobal('fetch', fetchMock(500, { error: '服务端出错' }));
     const p = props();
     const { host } = await open(p);
     expect(p.countRow!.querySelector('[data-skeleton]')).toBeNull();
-    expect(p.countRow!.querySelector('[data-collection-summary] strong')?.textContent).toBe('—');
+    expect(p.countRow!.querySelector('[data-catalog-readout]')?.textContent).toBe('待判断 · —');
+    expect(p.countRow!.querySelector('[data-select-all], [data-junk-dispose-all]')).toBeNull();
     expect(host.querySelector('[data-media-error] [data-note-action]')?.textContent).toBe('立即重试');
     expect(cards(host)).toHaveLength(0);
   });
 });
 
 describe('一张卡', () => {
-  it('视频与图片的标题能点开，其余只是文字；没有大小写「大小未知」', async () => {
+  it('视频与图片点卡片打开，看不了的那几类点卡片同「查看位置」；没有大小写「大小未知」', async () => {
     vi.stubGlobal('fetch', fetchMock(200, answer([
       junk(1), junk(2, { junk_kind: 'archive', name: '推广.zip', size: 0, why: '' }),
       junk(3, { junk_kind: 'image', name: '横幅.jpg' }), junk(4, { junk_kind: 'audio', name: '广告.mp3' }),
     ])));
     const open_ = vi.fn();
-    const { host } = await open(props({ actions: actions({ open: open_ }) }));
+    const reveal = vi.fn(async () => '');
+    const { host } = await open(props({ actions: actions({ open: open_, reveal }) }));
     const [video, archive, image, audio] = cards(host);
     expect(video!.dataset.junkKind).toBe('video');
     expect(video!.querySelector('[data-media-art] img')?.getAttribute('src')).toBe('/thumb?id=1&c=4');
     expect(image!.querySelector('[data-media-art] img')?.getAttribute('src')).toBe('/photo-thumb?id=3');
-    expect(image!.querySelector('[data-junk-title]')?.tagName).toBe('BUTTON');
     // 文件类型标的是文件：压缩包与音频各有自己的字形，音频不借音量键。
     expect(archive!.querySelector('[data-media-glyph] use')?.getAttribute('href')).toBe('#i-file-archive');
     expect(audio!.querySelector('[data-media-glyph] use')?.getAttribute('href')).toBe('#i-file-audio');
-    // 文件名从中间截断，首尾都留着；选中勾与作品卡同一套，垃圾卡上没有稍后看。
+    // 文件名从中间截断，首尾都留着；选中勾与作品卡同一套，卡上不画勾选框，也没有稍后看。
     expect(cards(host).every((card) => card.querySelector('[data-junk-title]')!.hasAttribute('data-middle-truncate'))).toBe(true);
     expect(video!.querySelector('[data-media-check]')).not.toBeNull();
+    expect(host.querySelector('[data-junk-card] [role="checkbox"], [data-junk-card] input[type="checkbox"]')).toBeNull();
     expect(host.querySelector('[data-later]')).toBeNull();
-    expect(video!.querySelector('[data-junk-facts]')?.textContent).toBe('视频文件名像推广2 MB');
-    expect(archive!.querySelector('[data-junk-title]')?.tagName).toBe('SPAN');
+    // 署名一行：类型（带字形）与体积；判定理由落在标签行。
+    expect(video!.querySelector('[data-media-byline]')?.textContent).toBe('视频2 MB');
+    expect(video!.querySelector('[data-media-who] use')?.getAttribute('href')).toBe('#i-play');
+    expect(video!.querySelector('[data-media-tags]')?.textContent).toBe('文件名像推广');
     expect(archive!.querySelector('[data-media-art]')).toBeNull();
     expect(archive!.querySelector('[data-media-glyph]')?.textContent).toBe('压缩包');
-    expect(archive!.querySelector('[data-junk-size]')?.textContent).toBe('大小未知');
-    await click(video!.querySelector('button[data-junk-title]'));
+    expect(archive!.querySelector('[data-media-size]')?.textContent).toBe('大小未知');
+    await click(video!.querySelector('[data-junk-title]'));
     expect(open_).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), video);
+    await click(archive!.querySelector('[data-media-pic]'));
+    expect(reveal).toHaveBeenCalledWith(expect.objectContaining({ id: 2 }));
+    expect(open_).toHaveBeenCalledTimes(1);
   });
 
   it('中间那颗键随视图换：待判断是「不是垃圾」，已排除是「重新判断」', async () => {
     vi.stubGlobal('fetch', fetchMock(200, answer([junk(1)])));
     const { host, update } = await open(props());
-    const labels = () => [...cards(host)[0]!.querySelectorAll('[data-junk-action] [data-junk-label]')].map((el) => el.textContent);
-    expect(labels()).toEqual(['查看位置', '不是垃圾', '移入回收站']);
+    const labels = () => [...cards(host)[0]!.querySelectorAll('[data-junk-action]')].map((el) => el.textContent);
+    expect(labels()).toEqual(['查看位置', '不是垃圾', '按住移入回收站']);
     await update({ view: 'dismissed' });
     await settle();
-    expect(labels()).toEqual(['查看位置', '重新判断', '移入回收站']);
+    expect(labels()).toEqual(['查看位置', '重新判断', '按住移入回收站']);
   });
 
   it('处置交给壳：请求期间那颗键忙，失败后恢复成可点', async () => {
@@ -214,7 +242,7 @@ describe('一张卡', () => {
       .mockImplementationOnce(() => new Promise<void>((_, reject) => { fail = reject }));
     const { host } = await open(props({ actions: actions({ operate }) }));
     const dispose = () => actionButton(cards(host)[0]!, 'dispose')!;
-    await click(dispose());
+    await hold(dispose());
     expect(operate).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }), 'dispose');
     expect(dispose().getAttribute('aria-busy')).toBe('true');
     await reply.release();
@@ -249,8 +277,8 @@ describe('一张卡', () => {
     await update({ selectMode: true, selected: new Set([2]) });
     expect(cards(host).map((card) => card.hasAttribute('data-selected'))).toEqual([false, true]);
     expect(host.querySelector('[data-junk-grid]')?.hasAttribute('data-select-mode')).toBe(true);
-    await click(cards(host)[0]!.querySelector('button[data-junk-title]'));
-    await click(cards(host)[0]!.querySelector('[data-junk-meta]'));
+    await click(cards(host)[0]!.querySelector('[data-junk-title]'));
+    await click(cards(host)[0]!.querySelector('[data-media-meta]'));
     expect(toggleSelection.mock.calls).toEqual([[1, false], [1, false]]);
     expect(open_).not.toHaveBeenCalled();
   });

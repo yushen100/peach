@@ -6,6 +6,7 @@ import { noteHtml } from './markup';
 import { playUiSound } from './sounds';
 import { attachOverlayScrollbar } from './overlay-scrollbar';
 import { t } from '../i18n';
+import { attachHoldToConfirm } from './hold-to-confirm';
 
 /* Geist Modal 的另一种正文：要填的一份表单，而不是一句待确认的话。
 
@@ -98,16 +99,28 @@ export function formModal({title,description='',body='',confirmLabel,cancelLabel
    用原生 <dialog> 承载：焦点陷阱、Escape、背景 inert 和关掉后把焦点还给触发钮都由它给，
    自己搭一遍只会少掉其中一两样。onConfirm 失败时弹层不关，原因留在原位等重试。 */
 let modalSeq=0;
+export interface ConfirmChoice {
+  key: string;
+  label: string;
+  description: string;
+  danger?: boolean;
+  holdToConfirm?: boolean;
+  onConfirm: () => Promise<unknown>;
+}
 export function confirmModal(options:{
   title: string; body: string; confirmLabel: string; cancelLabel?: string; danger?: boolean;
+  holdToConfirm?: boolean;
   items?: readonly string[];
+  choices?: readonly ConfirmChoice[];
   onConfirm?: () => Promise<unknown>;
-}):Promise<{confirmed:boolean;result?:unknown}>;
-export function confirmModal({title,body,items=[],confirmLabel,cancelLabel=t('shell:shared.cancel'),onConfirm=null,danger=false}:{
+}):Promise<{confirmed:boolean;result?:unknown;choice?:string}>;
+export function confirmModal({title,body,items=[],confirmLabel,cancelLabel=t('shell:shared.cancel'),onConfirm=null,danger=false,holdToConfirm=false,choices=[]}:{
   title?: string; body?: string; confirmLabel?: string; cancelLabel?: string; danger?: boolean;
   items?: readonly string[];
+  choices?: readonly ConfirmChoice[];
+  holdToConfirm?: boolean;
   onConfirm?: (()=>unknown)|null;
-}={}):Promise<{confirmed:boolean;result?:unknown}>{
+}={}):Promise<{confirmed:boolean;result?:unknown;choice?:string}>{
   const trigger=document.activeElement;
   const dialog=document.createElement('dialog');
   dialog.className='ui-geist-modal';
@@ -145,39 +158,59 @@ export function confirmModal({title,body,items=[],confirmLabel,cancelLabel=t('sh
   if(danger){accept.classList.remove('primary');accept.classList.add('danger')}
   const failure:any=dialog.querySelector('[data-modal-error]');
   cancel.textContent=cancelLabel;
-  accept.textContent=confirmLabel;
+  accept.textContent=holdToConfirm?t('shell:holdToConfirm.label',{action:confirmLabel}):confirmLabel;
+  const buttons: { button: HTMLButtonElement; key?: string; run: (()=>unknown)|null; hold: boolean }[] = [];
+  if(choices.length){
+    dialog.dataset.modalChoices='';
+    accept.parentElement.remove();
+    const options=document.createElement('div');options.className='ui-geist-modal-choices';
+    for(const choice of choices){
+      const row=document.createElement('div');row.className='ui-geist-modal-choice';
+      const description=document.createElement('p');description.textContent=choice.description;
+      const button=document.createElement('button');button.type='button';
+      button.className=`geist-button ${choice.danger?'danger':'primary'}`;
+      button.dataset.modalConfirm=choice.key;
+      button.textContent=choice.holdToConfirm?t('shell:holdToConfirm.label',{action:choice.label}):choice.label;
+      row.append(description,button);options.append(row);
+      buttons.push({button,key:choice.key,run:choice.onConfirm,hold:!!choice.holdToConfirm});
+    }
+    failure.before(options);
+  }else buttons.push({button:accept,run:onConfirm,hold:holdToConfirm});
   document.body.append(dialog);
+  const detachHolds=buttons.filter(item=>item.hold).map(item=>attachHoldToConfirm(item.button));
   return new Promise(resolve=>{
-    let settled:{confirmed:boolean;result?:unknown}|null=null;
+    let settled:{confirmed:boolean;result?:unknown;choice?:string}|null=null;
     let busy=false;
     dialog.addEventListener('close',()=>{
+      detachHolds.forEach(detach=>detach());
       dialog.remove();
       if(trigger instanceof HTMLElement&&trigger.isConnected)trigger.focus();
       resolve(settled||{confirmed:false});
     },{once:true});
     cancel.onclick=()=>{if(!busy)dialog.close()};
     dialog.addEventListener('cancel',event=>{if(busy)event.preventDefault()});
-    /* 遮罩上的点击落在 <dialog> 自己身上，卡片里的落在子元素上。这个动作可撤销，
-       按 Geist 的判据允许点外面关掉。 */
-    dialog.addEventListener('click',event=>{if(event.target===dialog&&!busy&&!danger)dialog.close()});
-    accept.onclick=async()=>{
+    // 遮罩点击落在 dialog 自己身上，关闭时同时解绑未完成的长按。
+    dialog.addEventListener('click',event=>{if(event.target===dialog&&!busy)dialog.close()});
+    for(const item of buttons)item.button.onclick=async()=>{
       if(busy)return;
-      if(!onConfirm){settled={confirmed:true};dialog.close();return}
+      if(!item.run){settled={confirmed:true};dialog.close();return}
       failure.innerHTML='';
       busy=true;
-      setActionBusy(accept);
+      setActionBusy(item.button);
+      for(const other of buttons)if(other!==item)other.button.setAttribute('aria-disabled','true');
       try{
-        settled={confirmed:true,result:await onConfirm()};
+        settled={confirmed:true,result:await item.run(),...(item.key?{choice:item.key}:{})};
         dialog.close();
       }catch(error:any){
         failure.innerHTML=noteHtml(error.message||t('shell:confirmModal.actionFailed'),{variant:'error'});
-        setActionBusy(accept,false);
+        setActionBusy(item.button,false);
+        for(const other of buttons)if(other!==item)other.button.removeAttribute('aria-disabled');
       }finally{busy=false}
     };
     dialog.showModal();
     attachOverlayScrollbar(dialog.querySelector<HTMLElement>('.ui-geist-modal-body'));
     attachOverlayScrollbar(list);
     playUiSound('pop');
-    (danger?cancel:accept).focus();
+    (danger?cancel:buttons[0]!.button).focus();
   });
 }

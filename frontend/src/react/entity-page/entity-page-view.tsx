@@ -18,6 +18,8 @@ import { EntityFolderWorkspace } from '../catalog-folders/catalog-folders-page';
 import { errorMessage } from '../../api';
 import type { MediaCardLayout } from '../catalog-grid/types';
 import { EmptyState } from '../components/empty-state';
+import { runBulkAction } from '../components/bulk-action';
+import { deleteProfilesAction } from '../index/roster-actions';
 import { RetryNote } from '../components/grid-reveal';
 import { spriteGlyph } from '../components/sprite-glyph';
 import type { EntityBodyActions, EntityPhotos, EntityRoster } from '../entity-body/entity-body';
@@ -317,6 +319,15 @@ function EntityLoaded(props: EntityPageProps & { entity: EntityPageData }) {
       })();
     },
     ...(MERGE_KINDS.has(kind) && entityId ? { mergeDuplicate: () => setMerging(true) } : {}),
+    ...(MERGE_KINDS.has(kind) && entityId ? { deleteProfile: () => {
+      const action = deleteProfilesAction(async result => {
+        actions.avatarChanged();
+        if (result.entity_ids.includes(entityId)) actions.openIndex();
+        await queryClient.invalidateQueries();
+      });
+      void runBulkAction(action, [{ entity_id: entityId, k: entity.canonical_name, n: entity.asset_count || 0 }],
+        { receipt: helpers.receipt }).catch(error => helpers.failure(action.label, error));
+    } } : {}),
     follow: async (on) => {
       try {
         await follow.mutateAsync(on);
@@ -510,6 +521,7 @@ function EntityLoaded(props: EntityPageProps & { entity: EntityPageData }) {
             <EntityBodyPage kind={kind} name={name} view={view} roster={rosterProps} items={items.data ?? null}
               revision={itemsRevision} fetchPage={fetchPage}
               listScope={JSON.stringify([kind, name, filters, props.jav, filters.sort === 'seed' ? props.seed : ''])}
+              filters={filters} facetScope={{ scope_kind: kind, scope_name: name, jav: props.jav ? '1' : '' }}
               restoreNavigation={props.restoreNavigation}
               photos={photos} photoSize={props.photoSize}
               photoLayout={props.photoLayout} helpers={props.card.helpers} actions={bodyActions} layout={layout}

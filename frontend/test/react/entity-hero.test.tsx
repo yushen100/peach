@@ -56,6 +56,30 @@ async function open(initial: EntityHeroProps) {
 }
 
 describe('排版用的纯函数', () => {
+  it('名称菜单提供当前档案的删除入口并交给页面确认', async () => {
+    const acts = actions({ deleteProfile: vi.fn() });
+    const host = await open(props({ actions: acts }));
+    await click(host.querySelector('[data-namepick-toggle]'));
+    const item = document.querySelector('[data-namepick-delete]');
+    expect(item?.textContent).toContain('删除…');
+    await click(item);
+    expect(acts.deleteProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it('Alt 点击删除菜单文字保留菜单并交给文案编辑器处理', async () => {
+    const acts = actions({ deleteProfile: vi.fn() });
+    const host = await open(props({ actions: acts }));
+    await click(host.querySelector('[data-namepick-toggle]'));
+    const item = document.querySelector('[data-namepick-delete]')!;
+    await act(async () => {
+      item.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, altKey: true, pointerType: 'mouse' }));
+      item.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, altKey: true, pointerType: 'mouse' }));
+      item.dispatchEvent(new MouseEvent('click', { bubbles: true, altKey: true }));
+    });
+    expect(acts.deleteProfile).not.toHaveBeenCalled();
+    expect(document.querySelector('[data-namepick-delete]')).not.toBeNull();
+  });
+
   it('语言切换保留所选艺名，名称菜单使用原始值提交统一名称', async () => {
     registerNameWritings([{ id: 7792, kind: 'performer', canonical_name: '枫花恋', zh_cn: '枫花恋', ja: '楓カレン' }]);
     const given = props({ name: '枫花恋', helpers: helpers({ portraitImg: () => '<img src="/avatar" alt="枫花恋">' }),
@@ -456,7 +480,7 @@ describe('新作那一行', () => {
     expect(feedHost.hidden).toBe(true);
   });
 
-  it('想要是开关：同一颗键在想要与取消想要之间换，卡片不收也不变淡', async () => {
+  it('点击加入想要、长按取消想要，卡片保留原位置和样式', async () => {
     const feedHost = document.createElement('section');
     document.body.append(feedHost);
     const acts = actions();
@@ -467,11 +491,24 @@ describe('新作那一行', () => {
     await click(key());
     await settle();
     expect(acts.feedAction).toHaveBeenLastCalledWith(13, 'want');
-    expect([key().dataset.feedAction, key().getAttribute('aria-pressed'), key().title]).toEqual(['unwant', 'true', '取消想要']);
-    await click(key());
-    await settle();
-    expect(acts.feedAction).toHaveBeenLastCalledWith(13, 'unwant');
-    expect([key().dataset.feedAction, key().getAttribute('aria-pressed'), key().title]).toEqual(['want', 'false', '想要']);
+    expect([key().dataset.feedAction, key().getAttribute('aria-pressed'), key().title.split('\n')[0]]).toEqual(['unwant', 'true', '取消想要']);
+    expect(key().hasAttribute('data-hold-confirm')).toBe(true);
+    vi.useFakeTimers();
+    const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
+    try {
+      await click(key());
+      expect(acts.feedAction).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        key().dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+      expect(acts.feedAction).toHaveBeenLastCalledWith(13, 'unwant');
+      expect([key().dataset.feedAction, key().getAttribute('aria-pressed'), key().title]).toEqual(['want', 'false', '想要']);
+      expect(key().hasAttribute('data-hold-confirm')).toBe(false);
+    } finally {
+      vi.useRealTimers();
+      hidden.mockRestore();
+    }
     expect(feedHost.querySelector('[data-feed-id="13"]')?.classList.contains('isread')).toBe(false);
     expect(feedHost.hidden).toBe(false);
   });

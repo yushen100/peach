@@ -125,8 +125,9 @@ it('新作分区的女优、厂牌、标签只列接口给的订阅新作筛选�
   expect(host.querySelector('nav[aria-label="新作分页"] [aria-current="page"]')?.textContent).toBe('2');
   await click(host.querySelector('[data-tier-performer]'));
   await settle();
-  expect([asked().get('performer'), asked().get('page')]).toEqual(['女优甲', '1']);
-  expect(new URLSearchParams(location.search).get('performer')).toBe('女优甲');
+  expect(JSON.parse(asked().get('column_filters')!)).toEqual({ people: ['performer:女优甲'] });
+  expect(asked().get('page')).toBe('1');
+  expect(JSON.parse(new URLSearchParams(location.search).get('column_filters')!)).toEqual({ people: ['performer:女优甲'] });
   expect(host.querySelector('[data-tier-performer]')?.getAttribute('aria-pressed')).toBe('true');
   await click(host.querySelector('[data-jav-card] h3'));
   expect(navigate).toHaveBeenLastCalledWith('/works/ABC-001');
@@ -241,9 +242,11 @@ it('新作分区默认按发行时间倒序，排序键再点翻方向，换一�
   history.replaceState(null, '', before);
 });
 
-it('没有推荐时空态的查看口味在左，主入口在右', async () => {
+it('馆藏范围没有推荐时空态的查看口味在左，主入口在右', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => ({ items: [] }) })));
   const host = await mount(<QueryClientProvider client={queryClient}><JavPage tab="discover" readOnly navigate={vi.fn()} receipt={vi.fn()} /></QueryClientProvider>);
+  await settle();
+  await click(host.querySelector('[data-entity-tag="library"]'));
   await settle();
   expect(actionOrder(host.querySelector('[data-empty-state]'))).toEqual(['查看口味', '浏览馆藏']);
   const main = [...host.querySelectorAll('[data-empty-state] a')].find((link) => link.textContent === '浏览馆藏');

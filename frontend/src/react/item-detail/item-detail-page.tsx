@@ -20,11 +20,12 @@ import { apiGet, apiSend } from '../../api';
 import { codedText } from '../../core/server-text';
 import { EDITION_TONE } from '../../core/jav-title';
 import { Button } from '@/components/base/buttons/button';
+import { HoldActionButton } from '../components/hold-button';
 import { RiArrowDownSLine } from '@remixicon/react';
 import { CatalogGridPage } from '../catalog-grid/catalog-grid-page';
 import { patchCatalogItems, replaceCatalogItem } from '../catalog-grid/catalog-grid';
 import type { MediaItem } from '../catalog-grid/types';
-import { RetryNote } from '../components/grid-reveal';
+import { DetailFailure } from '../components/detail-failure';
 import { PendingWork, pendingRefetch, usePendingWorkRefetch } from '../components/pending-work';
 import { MixQueue, MixQueueRow } from '../components/mix-queue';
 import { RelatedSection } from '../components/related-section';
@@ -38,6 +39,7 @@ import { MediaCarousel } from '../components/media-carousel';
 import { CatalogPicture } from './catalog-picture';
 import { fetchJavDetail, javDetailKey } from '../jav-detail/jav-detail';
 import { busyProps } from '../settings/use-action';
+import { LIBRARY_PROCESSING_URL } from '../library-processing/library-processing';
 import { ExternalPlayback } from './external-playback';
 import { isPlayerGuidePreview } from '../../player/guide-preview';
 import { CoverCrop } from '../cover-crop/cover-crop-page';
@@ -82,14 +84,21 @@ export function ItemDetailPage(props: ItemDetailProps) {
   usePendingWorkRefetch(result.data?.pending_work, itemKey(id ?? 0));
   if (!result.data || (ref && !queue)) {
     const error = result.error || queueResult.error;
+    // 整页没取到：不在黑色舞台里画红色横条，弹层正中一句说明加重试（与番号、关注详情同一个）。
+    if (error) return (
+      <div data-stage-grid="" data-item-detail="">
+        <div data-detail-failure="">
+          <CloseStage onClose={actions.close} />
+          <DetailFailure detail={requestErrorMessage(error)} busy={result.isFetching || queueResult.isFetching}
+            onRetry={() => { if (queueResult.error) void queueResult.refetch(); if (result.error) void result.refetch() }} />
+        </div>
+      </div>
+    );
     return (
       <div data-stage-grid="" data-item-detail="">
         <div data-stage-media="" data-item-media="none">
           <CloseStage onClose={actions.close} />
-          <div data-item-placeholder="">
-            {error ? <RetryNote message={requestErrorMessage(error)}
-              onRetry={() => { if (queueResult.error) void queueResult.refetch(); if (result.error) void result.refetch() }} /> : null}
-          </div>
+          <div data-item-placeholder="" />
         </div>
       </div>
     );
@@ -365,6 +374,7 @@ function usePlaylistReorder(queue: DetailQueue, itemId: number, actions: ItemDet
       const before = ids;
       void confirmModal({
         title: t('catalog:detailQueue.removeFromPlaylist'), body: t('catalog:detailQueue.removeConfirmBody'), confirmLabel: t('catalog:detailQueue.removeFromPlaylist'),
+        holdToConfirm: true,
         onConfirm: async () => {
           const playlist = await write({ action: 'remove', asset_id: assetId });
           /* 撤销要把它放回它那一位：`add` 只会补在末尾，所以补完再按移出之前那份顺序排一次。
@@ -442,8 +452,8 @@ function Side({ item, queue, write, helpers, actions }: {
           <button type="button" id="betterVersion" data-fb="quality" aria-label={t('catalog:detailFeedback.betterVersion')}
             title={item.better_version ? (item.better_version_reason || t('catalog:detailFeedback.betterVersionMarked')) : t('catalog:detailFeedback.betterVersionTip')}
             aria-pressed={!!item.better_version} {...busy('quality')} onClick={write.quality}><Glyph name="sparkles" /></button>
-          <button type="button" data-kind="dispose" data-fb="dispose" aria-label={t('catalog:shared.moveToTrash')} title={t('catalog:detailFeedback.trashTip')}
-            aria-pressed={item.disposal === 'trash'} {...busy('dispose')} onClick={() => write.feedback('dispose')}><Glyph name="trash" /></button>
+          <HoldActionButton holdToConfirm={item.disposal !== 'trash'} data-kind="dispose" data-fb="dispose" aria-label={t('catalog:shared.moveToTrash')} title={t('catalog:detailFeedback.trashTip')}
+            aria-pressed={item.disposal === 'trash'} {...busy('dispose')} onClick={() => write.feedback('dispose')}><Glyph name="trash" /></HoldActionButton>
         </div>
         <Preference item={item} open={reasonOpen} write={write} />
         <button type="button" data-kind="o" {...busy('o')} onClick={() => write.feedback('o')}>
@@ -487,7 +497,7 @@ function DetailTitle({ item, queue, helpers, actions, onStatus }: {
                 }} />
             </span>
           ) : null}
-          {item.location === 'online' ? null : <SourceTools id={item.id} actions={actions} onStatus={onStatus} />}
+          {item.location === 'online' ? null : <SourceTools id={item.id} code={item.code || ''} actions={actions} onStatus={onStatus} />}
           <ItemEditButton item={item} helpers={helpers} onSaved={(saved) => {
             applySavedItem(saved);
             actions.toast(t('catalog:itemEdit.saved'));
@@ -499,8 +509,25 @@ function DetailTitle({ item, queue, helpers, actions, onStatus }: {
 }
 
 /** 定位源文件与核对目录。对账删掉的可能就是这一条，删了就没什么可停留的，直接退回列表。 */
-function SourceTools({ id, actions, onStatus }: { id: number; actions: ItemDetailActions; onStatus(text: string): void }) {
+function SourceTools({ id, code, actions, onStatus }: {
+  id: number; code: string; actions: ItemDetailActions; onStatus(text: string): void;
+}) {
   const [busy, setBusy] = useState('');
+  /* 这一部重新采集资料（#208）：不复用来源快照，已有字段也再核一遍；你改过、批准过的字段不被覆盖。
+     另一趟处理在跑时接口原样交回那一趟的状态，这里据 `recheck` 认出没排上。 */
+  const recollect = async () => {
+    if (busy) return;
+    setBusy('recollect');
+    onStatus('');
+    try {
+      const state = await apiSend<{ recheck?: boolean }>(LIBRARY_PROCESSING_URL,
+        { stage: 'metadata', asset_ids: [id], recheck: true });
+      onStatus(t(state.recheck ? 'catalog:detailSource.recollectStarted' : 'catalog:detailSource.recollectBusy'));
+    } catch (error) {
+      onStatus(requestErrorMessage(error));
+    }
+    setBusy('');
+  };
   const reveal = async () => {
     if (busy) return;
     setBusy('reveal');
@@ -526,6 +553,13 @@ function SourceTools({ id, actions, onStatus }: { id: number; actions: ItemDetai
         {...(busy === 'sync' ? { 'aria-busy': true, 'aria-disabled': true } : {})} onClick={() => void sync()}>
         <Glyph name="folder-sync" />
       </button>
+      {code ? (
+        <button type="button" data-recollect={id} title={t('catalog:detailSource.recollectTip')}
+          aria-label={t('catalog:detailSource.recollect')}
+          {...(busy === 'recollect' ? { 'aria-busy': true, 'aria-disabled': true } : {})} onClick={() => void recollect()}>
+          <Glyph name="refresh-cw" />
+        </button>
+      ) : null}
     </>
   );
 }

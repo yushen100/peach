@@ -16,7 +16,7 @@ import {
 import { ItemDetailPage } from '../../src/react/item-detail/item-detail-page';
 import { tagLabel } from '../../src/core/tags';
 import { queryClient } from '../../src/react/query';
-import { click, mount, pending, settle, type } from './render';
+import { hold, click, mount, pending, settle, type } from './render';
 
 afterEach(() => { queryClient.clear(); localStorage.removeItem('peach.recentTags') });
 notifyManager.setScheduler((notify) => notify());
@@ -123,7 +123,7 @@ describe('标签身份', () => {
     await click(host.querySelector('[data-item-edit-open]'));
     const dialog = document.querySelector<HTMLDialogElement>('dialog[data-item-edit-dialog]')!;
     expect(dialog.open).toBe(true);
-    await click(dialog.querySelector('[data-item-edit] [data-remove-tag="剧情"]'));
+    await hold(dialog.querySelector('[data-item-edit] [data-remove-tag="剧情"]'));
     await click(dialog.querySelector('#tagPlus'));
     await type(dialog.querySelector('#tagPickSearch') as HTMLInputElement, '新标签');
     await act(async () => { dialog.querySelector('#tagPickSearch')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })) });
@@ -139,6 +139,22 @@ describe('标签身份', () => {
       performers: { add: [{ name: '自建艺人' }], remove: [] } });
     expect(given.toast).toHaveBeenCalledWith('资料已保存');
     expect([...host.querySelectorAll('#detailTags [data-tag]')].map((node) => node.textContent)).toEqual(['高画质', '新标签']);
+  });
+
+  it('重新采集资料：只给有番号的片，点名这一部交给处理任务，另一趟在跑时说清没排上', async () => {
+    const { host: plain } = await show(item(2));
+    expect(plain.querySelector('[data-recollect]')).toBeNull();
+    let running = false;
+    const fetcher = serve(() => (running ? { status: 'running' } : { status: 'running', recheck: true }));
+    const { host } = await show(item(1, { code: 'DASD-813' }));
+    await click(host.querySelector('[data-recollect="1"]'));
+    await settle();
+    expect(posts(fetcher)).toEqual([['/api/library-processing', { stage: 'metadata', asset_ids: [1], recheck: true }]]);
+    expect(host.textContent).toContain('已开始重新采集，进度见任务');
+    running = true;
+    await click(host.querySelector('[data-recollect="1"]'));
+    await settle();
+    expect(host.textContent).toContain('另一趟处理正在进行，等它结束后再重新采集');
   });
 
   it('编辑资料的来源写在控件下面，采集来的带站标；没有来源的字段不留这一行', async () => {
@@ -463,7 +479,7 @@ describe('写完之后', () => {
   it('移入回收站之后交给壳：这一档可能要把它从列表里拿掉', async () => {
     serve(() => ({ feedback: null, disposal: 'trash' }));
     const { host, actions: done } = await show(item(1));
-    await click(host.querySelector('[data-kind="dispose"]'));
+    await hold(host.querySelector('[data-kind="dispose"]'));
     await settle();
     expect(done.trashChanged).toHaveBeenCalledWith('trash', false);
     expect(done.toast.mock.calls[0]![0]).toBe('已移入回收站');

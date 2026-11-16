@@ -107,6 +107,44 @@ class TranscodeServiceTests(unittest.TestCase):
             self.assertNotIn(str(source), str(report))
             self.assertEqual(service.hardware.diagnostic_snapshot()['probe_status'], 'not-probed')
 
+    def test_original_trial_only_for_streams_the_browser_can_decode_and_hear(self):
+        for name, codec, pixel, audio, decode, expected in (
+            ("movie.mkv", "h264", "yuv420p", "aac", frozenset(), True),
+            ("movie.mkv", "h264", "yuv420p", "opus", frozenset(), True),
+            ("movie.mkv", "h264", "yuv420p", "ac3", frozenset(), False),
+            ("movie.mkv", "hevc", "yuv420p", "aac", frozenset(), False),
+            ("movie.mkv", "hevc", "yuv420p", "aac", frozenset({"hevc"}), True),
+            ("movie.mkv", "h264", "yuv420p10le", "aac", frozenset(), False),
+            ("movie.avi", "h264", "yuv420p", "aac", frozenset(), False),
+        ):
+            with self.subTest(name=name, codec=codec, audio=audio, decode=sorted(decode)), \
+                    tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp).resolve()
+                source = root / name
+                source.write_bytes(b"source")
+                service = TranscodeService(_Resolver(root / "ffmpeg", root / "ffprobe"), root / "cache")
+                streams = [{"codec_type": "video", "codec_name": codec, "pix_fmt": pixel},
+                           {"codec_type": "audio", "codec_name": audio}]
+                with patch("peach.transcodes.subprocess.Popen", side_effect=_media_process([], streams)):
+                    self.assertIs(service.original_playable(source, decode=decode), expected)
+
+    def test_hls_processing_preserves_compatible_video_and_audio_independently(self):
+        for codec, pixel, audio, mode in (
+            ("h264", "yuv420p", "aac", "copy"),
+            ("h264", "yuv420p", "dts", "audio"),
+            ("h264", "yuv420p10le", "aac", "transcode"),
+            ("hevc", "yuv420p", "aac", "transcode"),
+        ):
+            with self.subTest(mode=mode), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp).resolve()
+                source = root / "movie.mkv"
+                source.write_bytes(b"source")
+                service = TranscodeService(_Resolver(root / "ffmpeg", root / "ffprobe"), root / "cache")
+                streams = [{"codec_type": "video", "codec_name": codec, "pix_fmt": pixel},
+                           {"codec_type": "audio", "codec_name": audio}]
+                with patch("peach.transcodes.subprocess.Popen", side_effect=_media_process([], streams)):
+                    self.assertEqual(service.hls_mode(source), mode)
+
     def setUp(self):
         candidates = patch("peach.hardware_transcode.HardwareTranscoder._candidates",
                            return_value=(HardwareEncoder("nvenc"),))
@@ -281,6 +319,30 @@ class TranscodeServiceTests(unittest.TestCase):
                     service.media_duration(source)
                 self.assertEqual(len(calls), 2, "冷却过了再探一次")
 
+    def test_conversion_reuses_the_remembered_failed_probe(self):
+        """转码槽里那次探测也认失败记忆：探不动的片子再转一次不再多等一次 ffprobe。"""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = root / "movie.avi"
+            source.write_bytes(b"avi")
+            service = TranscodeService(_Resolver(root / "ffmpeg.exe", root / "ffprobe.exe"),
+                                       root / "cache", prefer_hardware=False)
+
+            class Process:
+                returncode = 1
+
+                def __init__(self, command, **_kwargs):
+                    self.command = command
+
+                def communicate(self, timeout=None):
+                    return b"", b"Invalid data found when processing input"
+
+            with patch.object(service, "_probe", return_value=None) as probe,                     patch("peach.transcodes.subprocess.Popen", side_effect=Process):
+                for _ in range(2):
+                    with self.assertRaises(TranscodeUnavailable):
+                        service.browser_path(9, source)
+            self.assertEqual(probe.call_count, 1)
+
     def test_avi_is_transcoded_once_and_cached(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -393,6 +455,56 @@ class TranscodeServiceTests(unittest.TestCase):
                 else:
                     self.assertEqual(video, "libx264")
                     self.assertFalse(name.endswith("-copy.mp4"), name)
+
+    def test_transport_stream_with_decodable_video_is_remuxed_not_reencoded(self):
+        """`.ts` 一类只是容器浏览器不认：探到解得了的视频就整片换封装，产物走 `-copy` 缓存。"""
+        cases = (
+            # (后缀, 视频编码, 像素格式, decode, 换封装)
+            (".ts", "h264", "yuv420p", frozenset(), True),
+            (".m2ts", "h264", "yuv420p", frozenset(), True),
+            (".mts", "hevc", "yuv420p", frozenset({"hevc"}), True),
+            (".ts", "hevc", "yuv420p", frozenset(), False),
+            (".ts", "mpeg2video", "yuv420p", frozenset({"hevc"}), False),
+        )
+        for suffix, codec, pixel_format, decode, remux in cases:
+            with self.subTest(suffix=suffix, codec=codec, decode=sorted(decode)), \
+                    tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp).resolve()
+                source = root / f"movie{suffix}"
+                source.write_bytes(b"transport")
+                service = TranscodeService(_Resolver(root / "ffmpeg.exe", root / "ffprobe.exe"),
+                                           root / "cache", prefer_hardware=False)
+                commands = []
+                streams = [{"codec_type": "video", "codec_name": codec, "pix_fmt": pixel_format},
+                           {"codec_type": "audio", "codec_name": "aac"}]
+                with patch("peach.transcodes.subprocess.Popen", side_effect=_media_process(commands, streams)):
+                    self.assertEqual(service.remuxes(source, decode=decode), remux)
+                    path, produced = service.browser_path(5, source, decode=decode)
+                encodes = [command for command in commands if "ffprobe" not in command[0]]
+                self.assertTrue(produced)
+                self.assertEqual(path.name.endswith("-copy.mp4"), remux)
+                video = encodes[0][encodes[0].index("-c:v") + 1]
+                self.assertEqual(video, "copy" if remux else "libx264")
+                if remux:
+                    self.assertEqual(len(encodes), 1)
+                    self.assertEqual(encodes[0][encodes[0].index("-c:a") + 1], "copy")
+
+    def test_sessionless_transport_stream_probes_but_never_remuxes(self):
+        """悬停预览打不带会话的 `/stream`：`.ts` 只跑只读探测，缺缓存就拒绝，不起换封装。"""
+        from peach.transcodes import TranscodeNeedsSession
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            source = root / "movie.ts"
+            source.write_bytes(b"transport")
+            service = TranscodeService(_Resolver(root / "ffmpeg.exe", root / "ffprobe.exe"),
+                                       root / "cache", prefer_hardware=False)
+            commands = []
+            streams = [{"codec_type": "video", "codec_name": "h264", "pix_fmt": "yuv420p"}]
+            with patch("peach.transcodes.subprocess.Popen", side_effect=_media_process(commands, streams)):
+                with self.assertRaises(TranscodeNeedsSession):
+                    service.browser_path(5, source, convert=False)
+            self.assertEqual([Path(command[0]).stem for command in commands], ["ffprobe"])
+            self.assertFalse((root / "cache").exists() and any((root / "cache").iterdir()))
 
     def test_decode_parameter_keeps_only_known_capabilities(self):
         from peach.transcodes import parse_decode

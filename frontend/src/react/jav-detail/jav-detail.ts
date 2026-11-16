@@ -10,6 +10,10 @@ export interface JavDetail {
   tags: string[]; has_cover: boolean; cover_version?: string; cover_url?: string;
   tag_refs?: { name: string; category: string; source_name: string }[];
   preview_video_url?: string;
+  /** 预告没取到时的原因；取到了（哪怕走的是备用来源或旧结果）就没有这一句。 */
+  preview_message?: string;
+  /** 本机没有封面时，上次取官方封面没取到的原因；`_code`／`_params` 给界面取当前语言。 */
+  cover_message?: string; cover_message_code?: string; cover_message_params?: Record<string, unknown>;
   source_image: boolean; preview_count: number; comments_count: number;
   source_url: string; wanted: boolean; want_id: number | null;
 }

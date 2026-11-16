@@ -39,7 +39,7 @@ from .web_entry import field_errors, runtime_fact_entries
 from .user_messages import UserFacingError, UserOSError, UserTimeoutError, UserValueError, error_detail, message_fields
 from .web_local_access import local_client, managed_configuration
 from . import (interface_text, release_updates, standalone_update, peach_proxy, desktop_startup, desktop_uninstall,
-               docker_update, media_tools)
+               docker_update, media_tools, listening)
 
 router = APIRouter()
 _SAVE_LOCK = threading.Lock()
@@ -348,10 +348,7 @@ def network_payload(request: Request, config) -> dict[str, Any]:
     """连接地址来自实际监听信息，编辑值来自托盘配置。"""
     settings = request.app.state.settings
     standalone = distribution.standalone()
-    try:
-        local = ipaddress.ip_address(settings.host).is_loopback
-    except ValueError:
-        local = settings.host.lower() == 'localhost'
+    local = listening.is_loopback(settings.host)
     scheme = 'https' if settings.tls_enabled else 'http'
     port = settings.mdns_port if settings.mdns_enabled else settings.port
     suffix = '' if port == (443 if settings.tls_enabled else 80) else f':{port}'
@@ -368,7 +365,8 @@ def network_payload(request: Request, config) -> dict[str, Any]:
     return {'editable': managed_configuration() and standalone,
             'host': config.server.host, 'mdns_name': config.server.mdns_name,
             'scope': 'local' if local else 'lan',
-            'local_url': f'http://127.0.0.1:{settings.port}/' if standalone else str(request.base_url),
+            'local_url': (f'http://{listening.loopback_origin_host(settings.host)}:{settings.port}/'
+                          if standalone else str(request.base_url)),
             'lan_url': f'{scheme}://{hostname}.local{suffix}/' if not local and settings.mdns_enabled else '',
             'ip_url': f'{scheme}://{address}{suffix}/' if not local and address and not settings.tls_enabled else ''}
 
@@ -968,6 +966,7 @@ def _repair_center(request: Request) -> dict:
     reclaim = getattr(request.app.state, 'follow_evidence', None)
     backfill = getattr(request.app.state, 'follow_backfill', None)
     from . import legacy_repairs
+    covers = getattr(request.app.state, 'cover_repair', None)
     with request.app.state.web_contract.read_connection() as connection:
         result = repair_center.snapshot(connection, receipt, backup_directories=directories,
                                         cloud_pending=service.cloud_display_videos() if service.available else 0,
@@ -978,7 +977,8 @@ def _repair_center(request: Request) -> dict:
                                                       request.app.state.web_contract.ledger_revision()))
                                         if service.available else {},
                                         follow_backfill_status=backfill.snapshot(connection)
-                                        if backfill and service.available else None)
+                                        if backfill and service.available else None,
+                                        cover_repair_status=covers.status() if covers and service.available else None)
     return {**result, 'available': service.available}
 
 

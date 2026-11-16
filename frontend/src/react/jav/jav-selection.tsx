@@ -1,21 +1,16 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/components/base/buttons/button';
 import { JAV_SELECTION_EVENT } from '../../jav-controls';
 import { selectRange, selectionSummary } from '../../selection';
 import { errorMessage } from '../../api';
 import { SelectionDock } from '../components/selection-dock';
+import { useDense } from '../components/use-dense';
 import { addWant, invalidateWants, removeWants } from '../wants/wants';
 import type { BulkAction, Receipt } from '../components/bulk-action';
 import { JavBatchResources } from './jav-batch-resources';
 import type { Discovery } from './jav';
 import { t } from '../../i18n';
 
-function subscribeDensity(notify: () => void) {
-  const observer = new MutationObserver(notify);
-  observer.observe(document.body, { attributes: true, attributeFilter: ['data-density'] });
-  return () => observer.disconnect();
-}
-const denseDensity = () => document.body.dataset.density === 'dense';
 interface Selection {
   dense: boolean; mode: boolean; selected: Set<string>;
   toggle(item: Discovery, range?: boolean): void;
@@ -40,7 +35,7 @@ export function JavSelectionProvider({ children, readOnly, receipt, dock = true 
   /** 「想要」页签自己画浮条（它的条目是想要清单，不是作品卡），这里只管多选开关。 */
   dock?: boolean;
 }) {
-  const dense = useSyncExternalStore(subscribeDensity, denseDensity, () => false);
+  const dense = useDense();
   const [mode, setMode] = useState(false);
   const [picked, setPicked] = useState<Map<string, Discovery>>(new Map());
   const [page, setPage] = useState<Discovery[]>([]);

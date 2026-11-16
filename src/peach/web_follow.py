@@ -43,7 +43,7 @@ from .follow_secrets import (
 from .follow_stream import proxyable
 from .follow_sources import (
     CONNECTORS, KemonoConnector, Rule34VideoConnector, build_connector,
-    canonical_source_ref, display_thumb_url, f95_attachment_media_items, f95_discussion_image,
+    canonical_source_ref, display_thumb_url, f95_discussion_image, fallback_media_items,
     is_history_end_error, media_content_hash, parse_source_url, resource_links,
 )
 from .follow_store import (
@@ -759,7 +759,7 @@ def _media_key(media: dict) -> str:
 def _raw_media_items(item) -> list:
     raw = item.metadata.get("media_items")
     if not isinstance(raw, list) or not raw:
-        return f95_attachment_media_items(item.metadata) if item.provider == "f95zone" else []
+        return fallback_media_items(item.provider, item.metadata)
     return raw
 
 
@@ -1456,25 +1456,7 @@ def q_follow_tags(contract, args) -> dict:
         offset = max(0, int(args.get("offset") or 0))
     except (TypeError, ValueError):
         offset = 0
-    with contract.database.read_connection() as connection:
-        store = _store(contract, connection)
-        tag_policy = OnlineTagPolicy(connection)
-        source_rows = store.sources()
-        alias_map, _aliases = store.author_aliases()
-        enabled = {int(row["id"]) for row in source_rows if row["enabled"]}
-        by_source = {int(row["id"]): row for row in source_rows}
-        items = tuple(tag_policy.with_custom_tags(item) for item in store.items(limit=_ALL_ITEMS)
-                      if item.source_id in enabled and not _excluded_item(item))
-        items = _unblocked_items(store, items, tag_policy, group_authors(source_rows, alias_map))
-        facets = _follow_facets(store, items, by_source, alias_map,
-                                work_icon_root(contract), tag_policy)
-        rows = (_visible_online_tag_rows(store, items, tag_policy) if include_types else
-                [{"k": tag, "n": count, "cat": "general"}
-                 for tag, count in facets["tags"]])
-        if include_types:
-            from .library_favorites import online_tag_ids
-            favorites = online_tag_ids(connection)
-            rows = [{**row, 'favorite': row['id'] in favorites} for row in rows]
+    rows = _online_tag_rows(contract, include_types)
     categories: dict[str, int] = {}
     for row in rows:
         categories[row["cat"]] = categories.get(row["cat"], 0) + 1
@@ -1486,6 +1468,35 @@ def q_follow_tags(contract, args) -> dict:
             "total": len(rows),
             "has_more": offset + limit < len(rows),
             "categories": categories}
+
+
+def _online_tag_rows(contract, include_types: bool) -> list[dict]:
+    """整份在线标签词表，还没按搜索、类型和分页切。
+
+    要把全部关注条目（生产约 1.8 万条）过一遍再算筛选条，一次 3 秒上下，带类型的 4.5 秒；
+    原先每次搜索、翻页、「载入更多」都重算一遍。账本相关的表与题材头像目录不变就一直用同一份。
+    """
+    def build():
+        with contract.database.read_connection() as connection:
+            store = _store(contract, connection)
+            tag_policy = OnlineTagPolicy(connection)
+            source_rows = store.sources()
+            alias_map, _aliases = store.author_aliases()
+            enabled = {int(row["id"]) for row in source_rows if row["enabled"]}
+            by_source = {int(row["id"]): row for row in source_rows}
+            items = tuple(tag_policy.with_custom_tags(item) for item in store.items(limit=_ALL_ITEMS)
+                          if item.source_id in enabled and not _excluded_item(item))
+            items = _unblocked_items(store, items, tag_policy, group_authors(source_rows, alias_map))
+            if include_types:
+                from .library_favorites import online_tag_ids
+                favorites = online_tag_ids(connection)
+                return [{**row, 'favorite': row['id'] in favorites}
+                        for row in _visible_online_tag_rows(store, items, tag_policy)]
+            facets = _follow_facets(store, items, by_source, alias_map, icon_root, tag_policy)
+            return [{"k": tag, "n": count, "cat": "general"} for tag, count in facets["tags"]]
+    icon_root = work_icon_root(contract)
+    return contract.cached_until_changed(f"follow-tags:{'typed' if include_types else 'plain'}", build,
+                                         path_version(icon_root / "works"), tables=FOLLOW_GROUP_TABLES)
 
 
 def _visible_online_tag_rows(store, items, policy):

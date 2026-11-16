@@ -185,6 +185,7 @@ export function PlaylistsPage({ openPlaylist, openEntity, canFlip, toast, revisi
   const remove = (row: PlaylistRow) => {
     void confirmModal({
       title: t('catalog:playlistsPage.delete'), body: t('catalog:playlistsPage.deleteConfirmBody'), confirmLabel: t('catalog:playlistsPage.delete'), danger: true,
+      holdToConfirm: true,
       onConfirm: async () => {
         const kept = await keepPlaylist(row.id);
         await deletePlaylist(row.id);

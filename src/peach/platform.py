@@ -50,21 +50,36 @@ def _parse_override(raw: str) -> tuple[tuple[str, str], ...]:
 Roots = Mapping[str, Sequence[str]]
 
 
-def location_mounts() -> dict[str, tuple[Path, ...]]:
-    """读取各媒体来源的本机实际目录，与 [media.locations] 中的目录前缀按顺序对应。
+def location_mount_values() -> dict[str, tuple[str, ...]]:
+    """各媒体来源的挂载值原文，与 [media.locations] 中的目录前缀按顺序对应。
 
     基础映射来自设置文件的 [media.mounts]，默认没有条目。Linux 和 macOS 缺少条目时无法
     读取该来源的媒体文件；Windows 直接使用数据库路径，不需要本表。MOUNTS_ENV 每次现读——测试和临时诊断
     会在运行期改它，缓存住就看不到变化；覆盖值只给一个目录，对应该来源的第一个数据库目录前缀。
+
+    `smb://` 地址原样保留：扫描与推送发现按这个前缀走 SMB 读取，包成 `Path` 会把它改写成
+    `smb:\\…`（Windows）或 `smb:/…`（POSIX），扫描随之落到一个不存在的本机目录（#693）。
     """
     merged: dict[str, tuple[str, ...]] = dict(settings_file.active().mounts)
     for location, mount in _parse_override(os.environ.get(MOUNTS_ENV, "")):
         merged[location] = (mount,) if mount else ()
     declared = settings_file.active().locations
-    return {location: tuple(Path(mount) if mount else (
+    return {location: tuple(str(mount) if mount else str(
                 Path(declared[location][index]) if os.name == "nt" and index < len(declared.get(location, ()))
                 else UNMAPPED_ROOT / location / str(index))
             for index, mount in enumerate(mounts)) for location, mounts in merged.items() if mounts}
+
+
+def location_mounts() -> dict[str, tuple[Path, ...]]:
+    """各媒体来源的本机实际目录（`location_mount_values` 的本机路径形态）。
+
+    SMB 地址在本机没有目录，记成 `UNMAPPED_ROOT` 下的占位，文件授权与存在性检查都拒绝它；
+    要按 SMB 读取的调用方用 `location_mount_values`。
+    """
+    from .smb_media import is_address
+    return {location: tuple(UNMAPPED_ROOT / location / str(index) if is_address(mount) else Path(mount)
+                            for index, mount in enumerate(mounts))
+            for location, mounts in location_mount_values().items()}
 
 
 def location_roots() -> dict[str, tuple[str, ...]]:

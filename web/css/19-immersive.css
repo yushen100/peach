@@ -13,7 +13,6 @@
     overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-inline:contain}
   .count::-webkit-scrollbar{display:none}
   .count>span:first-child{line-height:36px;white-space:nowrap}
-  .count.junkcount{align-items:stretch;flex-direction:column;overflow:visible;padding-block:8px}
   .reviewtabs button{height:44px}
   /* 顶栏在窄屏会被搜索框撑破 —— 搜索收成一个按钮，点了才展开。只裁横向：竖向也裁的话，
      那几枚玻璃按钮往下落的投影在顶栏下沿被切平，头像那一排上方就多出一条横线。 */

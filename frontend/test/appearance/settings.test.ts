@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_ACCENT, DEFAULT_HOME_GLOW } from '../../src/appearance/home-glow';
 import {
-  applySyncedSettings, DEFAULT_SETTINGS, normalizeAppSettings, readAppSettings, SETTINGS_KEY, type AppSettings,
+  applySyncedSettings, DEFAULT_SETTINGS, normalizeAppSettings, readAppSettings, SETTINGS_KEY, wireGestureSettings, type AppSettings,
 } from '../../src/appearance/settings';
+import { configureGestureSettings, DEFAULT_GESTURES, gestureSettings } from '../../src/player/gesture-settings';
 import { createSettingsStore } from '../../src/settings-store';
 import { DEFAULT_SIDEBAR_ORDER } from '../../src/sidebar';
 
@@ -16,7 +17,8 @@ describe('启动归一化', () => {
     expect(migrated).toBe(false);
     expect(settings).toMatchObject({
       ...DEFAULT_SETTINGS, sidebarOrder: [...DEFAULT_SIDEBAR_ORDER], homeGlow: DEFAULT_HOME_GLOW, accent: DEFAULT_ACCENT,
-      followInitialDays: 30, detailAutoplay: true, uiSounds: true, feedAutoScroll: true,
+      followInitialDays: 30, detailAutoplay: true, autoChineseSubtitles: false, hoverPreview: true,
+      touchGestures: true, holdRate: 2, swipeMinutes: 20, doubleTapPercent: 35, autoFullscreen: false, uiSounds: true, feedAutoScroll: true,
       feedHideGroupCompilations: true, feedHideSoloCompilations: false, feedHideExcerpts: true,
       /* JAV 版式与艺人索引默认大图；照片墙一套几十张，先看全貌所以是小图。 */
       homeLayout: 'small', javLayout: 'big', peopleLayout: 'big', photoSize: 'small',
@@ -75,6 +77,19 @@ describe('整页那一份 store', () => {
     expect(appSettingsStore()).toBe(store);
     expect(store.value).toMatchObject({ defaultSort: 'dur', theme: 'dark' });
     expect(JSON.parse(localStorage.getItem(SETTINGS_KEY)!)).toMatchObject({ defaultSort: 'dur', sortDefaultsVersion: 3 });
+  });
+});
+
+describe('播放手势读这份偏好', () => {
+  it('接上之后手势现读偏好：改了倍速、拖动幅度、双击区、跳转秒数与开关，下一次手势就是新值；坏值收回范围', () => {
+    const store = createSettingsStore(SETTINGS_KEY, normalizeAppSettings({}).settings);
+    wireGestureSettings(store);
+    expect(gestureSettings()).toEqual(DEFAULT_GESTURES);
+    Object.assign(store.value, { holdRate: 3, swipeMinutes: 10, doubleTapPercent: 20, seekSeconds: 30, touchGestures: false, autoFullscreen: true });
+    expect(gestureSettings()).toEqual({ touchGestures: false, holdRate: 3, swipeMinutes: 10, doubleTapPercent: 20, seekSeconds: 30, autoFullscreen: true });
+    expect(normalizeAppSettings({ holdRate: 9, swipeMinutes: 0, doubleTapPercent: 'x' }).settings)
+      .toMatchObject({ holdRate: 4, swipeMinutes: 1, doubleTapPercent: 35 });
+    configureGestureSettings(() => DEFAULT_GESTURES);
   });
 });
 
@@ -168,5 +183,14 @@ describe('数据库那一份落进本地缓存', () => {
       expect(client.store.value.navigationOrders.tags).toEqual(['local', 'online']);
       expect(client.store.value.libraryOrder).toEqual([]);
     }
+  });
+
+  it('排序项按实例设置同步，保留全部隐藏并清除旧的本地选择', () => {
+    const client = stage({ sortControls: { follow: { order: ['dur', 'new', 'hot'], hidden: ['hot'] } } });
+    applySyncedSettings({ sortControls: { follow: { order: ['hot', 'new', 'dur'], hidden: ['hot', 'new', 'dur'] } } },
+      client.changed, client.store);
+    expect(client.store.value.sortControls.follow).toEqual({ order: ['hot', 'new', 'dur'], hidden: ['hot', 'new', 'dur'] });
+    applySyncedSettings({ sortControls: {} }, client.changed, client.store);
+    expect(client.store.value.sortControls).toEqual({});
   });
 });

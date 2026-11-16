@@ -104,7 +104,7 @@ def _result(code: str, **params) -> dict:
 
 def _fetch_cover(contract, code):
     from .cover_artwork import install_cover, is_user_cover
-    from .jav_cover_fetch import (best_cover, HostLimitedTransport, Unavailable,
+    from .jav_cover_fetch import (best_cover, HostLimitedTransport, Unavailable, dmm_portrait,
                                  fc2_cover_candidates, logged_success_evidence)
     from .review_csv import read_rows
     target = contract.cover_root / (code + ".jpg")
@@ -157,7 +157,8 @@ def _fetch_cover(contract, code):
                     "raw_sha256": hashlib.sha256(data).hexdigest(),
                     "installed_sha256": hashlib.sha256(data).hexdigest(),
                     "checked_at": time.time(), "resolver": "peach-jav-cover-v1"}
-        install_cover(target, code, data, size, evidence=evidence)
+        install_cover(target, code, data, size, evidence=evidence,
+                      portrait=dmm_portrait(observed, candidate.url))
         return {"ok": True, "code": code, **_result("labels.webScraping.coverSaved"), "width": size[0],
                 "height": size[1], "requests": raw.requests, "bytes": raw.bytes}
     except Unavailable as exc:
@@ -191,8 +192,10 @@ def _fetch_cover(contract, code):
 
 
 def q_scraping(contract, _args):
+    from .scraping_access import browser_mode
     return {"sources": [describe(contract.follow_secrets_root, source) for source in SOURCES
                         if source != "instagram"],
+            "browser_mode": browser_mode(contract.follow_secrets_root),
             "instagram_status": interface_text.text(f"server:{INSTAGRAM_STATUS_CODE}"),
             "instagram_status_code": INSTAGRAM_STATUS_CODE}
 
@@ -202,6 +205,11 @@ INSTAGRAM_STATUS_CODE = "labels.webScraping.instagramPending"
 
 
 def w_scraping_settings(contract, body):
+    """一个来源的连接方式与 Cookie；只带 `browser_mode` 时改后台采集浏览器的模式（窗口／无窗口）。"""
+    if "browser_mode" in body and "source" not in body:
+        from .scraping_access import save_browser_mode
+        return {"ok": True, "browser_mode": save_browser_mode(contract.follow_secrets_root,
+                                                              str(body.get("browser_mode") or ""))}
     return {"ok": True, "saved": save(contract.follow_secrets_root, str(body.get("source", "")), body)}
 
 

@@ -326,15 +326,29 @@ def _focus_face(face: dict | None, cast: int) -> dict | None:
     return face if cast <= 1 else None
 
 
-def _history_records(providers_root: Path, entity_id: int) -> dict[str, list[dict]]:
-    """按当前实体与完整内容哈希收齐来源证据。"""
+def merged_entity_ids(connection: sqlite3.Connection, entity_id: int) -> tuple[int, ...]:
+    """合并进这个人的旧条目（`entity_redirect`）。合并时墓碑一并改指，链不会断在半路。"""
+    return tuple(int(row[0]) for row in connection.execute(
+        "SELECT old_id FROM entity_redirect WHERE target_id=? ORDER BY old_id", (int(entity_id),)))
+
+
+def _history_records(providers_root: Path, entity_id: int,
+                     merged: tuple[int, ...] = ()) -> dict[str, list[dict]]:
+    """按当前实体与完整内容哈希收齐来源证据。
+
+    `merged` 是合并进来的旧条目（`merged_entity_ids`，#565）：它们装过、取过的图也是这个人的，
+    列成可选候选；保留人物现在装着的那张不动，旧条目的证据文件也原样留着。
+    """
     records: dict[str, list[dict]] = {}
-    for path in sorted(providers_root.glob(f"*/evidence/performer-{int(entity_id)}-*.json")):
+    owners = {int(entity_id), *(int(old) for old in merged)}
+    paths = sorted(path for owner in sorted(owners)
+                   for path in providers_root.glob(f"*/evidence/performer-{owner}-*.json"))
+    for path in paths:
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             continue
-        if record.get("entity_id") != entity_id:
+        if record.get("entity_id") not in owners:
             continue
         if (record.get("provider") == "social-web"
                 and is_lit_share_image(str(record.get("upstream_url") or ""))):
@@ -395,9 +409,20 @@ def _history_source(records: dict[str, list[dict]], digest: str) -> dict:
     return record
 
 
+def _same_picture(path: Path | None, digest: str) -> bool:
+    """本机这个文件还是不是那张图（内容哈希相同）。读不到算不是。"""
+    if path is None:
+        return False
+    try:
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest() == digest
+    except OSError:
+        return False
+
+
 def _history(providers_root: Path, entity_id: int, current: str,
              cover_root: Path | None = None,
-             casts: dict[str, int] | None = None) -> list[Choice]:
+             casts: dict[str, int] | None = None,
+             merged: tuple[int, ...] = ()) -> list[Choice]:
     """这个人取过的图。证据文件按 `performer-<id>-<sha>.json` 存，天然是一份历史。
 
     这里给的是「换回去不用重下」的那一批：装过又被顶掉的、批处理下过但没装的，
@@ -411,7 +436,7 @@ def _history(providers_root: Path, entity_id: int, current: str,
     整张装进圆框只剩一块背景。它们同样先框再装，按证据里的番号在封面边车上取景。
     """
     out: list[Choice] = []
-    records = _history_records(providers_root, entity_id)
+    records = _history_records(providers_root, entity_id, merged)
     for digest, evidence in records.items():
         body = _object_bytes(providers_root, digest)
         if body is None or images.is_flat(body):
@@ -432,6 +457,10 @@ def _history(providers_root: Path, entity_id: int, current: str,
             label = f"{label} {key}".strip()
             cast = (casts or {}).get(key, 0)
             cover = Path(cover_root) / f"{key}.jpg" if cover_root is not None and key else None
+            if not _same_picture(cover, digest):
+                # 封面后来换过：本机边车里的脸框与正封框量的是新图，套到这张旧图上会裁偏（#565）。
+                # 不用它们，按这张图自己的版式重新落框，交人在弹层里确认。
+                cover = None
             if width and height:
                 focus = cover_focus(key, cover,
                                     _focus_face(read_sidecar(cover) if cover else None, cast),
@@ -667,7 +696,7 @@ def choices(connection: sqlite3.Connection, providers_root: Path,
             width=int(shot.get("width") or 0), height=int(shot.get("height") or 0),
             current=bool(digest) and digest == current))
     for choice in _history(providers_root, entity_id, current, cover_root,
-                           cast_sizes(connection, entity_id)):
+                           cast_sizes(connection, entity_id), merged_entity_ids(connection, entity_id)):
         if choice.ref.split(":", 1)[1] not in taken:
             items.append(choice)
     # 在用的那张排第一。它是这一屏唯一的参照物——别的候选好不好，是跟它比出来的；
@@ -905,7 +934,7 @@ def resolve(ref: str, connection: sqlite3.Connection, providers_root: Path,
     if ref.startswith("sha256:"):
         digest = ref.split(":", 1)[1].strip().lower()
         body = _cached_object(providers_root, digest)
-        records = _history_records(providers_root, entity_id)
+        records = _history_records(providers_root, entity_id, merged_entity_ids(connection, entity_id))
         source = _history_source(records, digest)
         origin = {"source": "avatar picker", "provider": "history", "external_id": digest}
         if _history_source_label(source)[0] != UNKNOWN_SOURCE:
@@ -964,6 +993,7 @@ def crop(body: bytes, box: object) -> tuple[bytes, dict]:
     原处。装上去之后这份新字节自己进候选缓存，所以同一个框换回来不必再切一次。
     框是在浏览器里转正之后的图上画的，所以先按 EXIF 方向转正再量、再切。
     """
+    source = hashlib.sha256(body).hexdigest()
     body = images.upright(body)
     size = images.measure_image_size(body)
     if size is None:
@@ -975,9 +1005,10 @@ def crop(body: bytes, box: object) -> tuple[bytes, dict]:
         body, (edges["x0"], edges["y0"], edges["x1"], edges["y1"]))
     if cropped is None:
         raise PickerError("errors.avatarPicker.cropFailed")
+    # 框只对被框的那张图成立：记下源图本身的内容哈希，不拿切出来的头像哈希代替（#565）。
     return cropped, {"source_kind": "user_cropped",
                      "crop_box": [edges["x0"], edges["y0"], edges["x1"], edges["y1"]],
-                     "crop_source_px": [size[0], size[1]]}
+                     "crop_source_px": [size[0], size[1]], "crop_source_sha256": source}
 
 
 def keep(providers_root: Path, entity_id: int, body: bytes, origin: dict) -> InspectedAvatar:

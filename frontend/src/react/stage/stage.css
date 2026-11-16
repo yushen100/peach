@@ -56,6 +56,8 @@
 [data-stage] [data-skeleton="detail"] [data-stage-media]{width:100%;max-width:100%;aspect-ratio:auto;max-height:none}
 [data-stage] [data-stage-scroll] :is([data-jav-art],[data-item-gallery]){display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) 116px;align-items:center;justify-items:center}
 [data-stage] [data-stage-scroll] :is([data-jav-art],[data-item-gallery])>:is([data-jav-picture],[data-catalog-picture],[data-jav-picture-wait],[data-jav-video],[class~="video-js"],[role="note"]){grid-area:1/1;min-height:0;max-height:var(--detail-gallery-height);height:var(--detail-gallery-height);width:100%;object-fit:contain}
+/* 原图太小的来源图（`data-native-size`）按原尺寸摆在格子正中，不撑满格高：拉大只是一片糊。 */
+[data-stage] [data-stage-scroll] :is([data-jav-art],[data-item-gallery])>[data-jav-picture][data-native-size]{width:auto;height:auto}
 [data-item-samples-state]{position:absolute;right:16px;bottom:44px;z-index:2}
 [data-stage] :is([data-jav-art],[data-item-gallery])>[data-carousel-below]{grid-area:2/1;box-sizing:border-box;min-width:0;align-self:end}
 [data-stage] [data-jav-video]{display:grid;place-items:center}

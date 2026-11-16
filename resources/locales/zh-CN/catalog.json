@@ -48,6 +48,7 @@
   "catalogFilter": {
     "filterAndSort": "筛选与排序",
     "readout": "{{count, number}} 个符合 · 显示 {{shown, number}}",
+    "showAll": "显示全部",
     "views": "视图",
     "viewsAndTags": "视图与标签"
   },
@@ -76,6 +77,11 @@
     "treeTitle": "文件夹",
     "tryAnotherName": "换个目录名称试试。",
     "viewConflicts": "查看归属冲突"
+  },
+  "columnFilter": {
+    "label": "筛选{{column}}",
+    "search": "搜索{{column}}",
+    "noOptions": "没有匹配的筛选项"
   },
   "catalogList": {
     "climaxCount": "高潮计数",
@@ -215,6 +221,10 @@
   "detailSource": {
     "checkingDirectory": "正在核对目录…",
     "locating": "正在定位",
+    "recollect": "重新采集资料",
+    "recollectBusy": "另一趟处理正在进行，等它结束后再重新采集",
+    "recollectStarted": "已开始重新采集，进度见任务",
+    "recollectTip": "不用缓存，向各来源重新取这部片的资料；你改过或批准过的字段不会被覆盖",
     "reveal": "定位源文件",
     "revealTip": "在文件管理器里打开源文件所在目录",
     "syncDeletions": "同步删除",
@@ -371,10 +381,12 @@
     "siteSamples": "{{site}} 样张"
   },
   "externalPlayback": {
+    "androidChooser": "系统选择播放器",
     "externalPlayer": "外部播放器",
     "m3uPlaylist": "M3U 播放列表",
     "openInPlayer": "使用外部播放器打开",
     "redetect": "重新检测播放器",
+    "schemeHint": "没有反应说明这台设备没装该播放器，可复制地址改用其他播放器；链接 6 小时内有效。",
     "streamUrl": "网络播放地址",
     "streamUrlHint": "链接 6 小时内有效，播放设备需要能访问当前 Peach 地址。",
     "streamUrlVr": "网络播放地址 / VR"
@@ -459,6 +471,7 @@
     "performers": "出演者",
     "releaseDate": "发行日期",
     "resources": "资源",
+    "retryPreview": "重新取视频预览：{{reason}}",
     "sampleVideo": "视频预览",
     "sampleVideoFailed": "视频预览未取得"
   },
@@ -945,6 +958,12 @@
     "turnOff": "关闭字幕",
     "turnOn": "开启字幕"
   },
+  "sortControls": {
+    "customize": "自定义排序项",
+    "reset": "恢复默认排序项",
+    "syncFailed": "已在本机保存，同步未完成。{{error}}",
+    "title": "排序项"
+  },
   "tagCategories": {
     "appearance": "外貌身材",
     "locations": "情境场所",
@@ -1081,7 +1100,7 @@
     "listedDate": "收录日期",
     "moreLinks": "更多资源（{{count, number}} 条）",
     "noneYet": "暂未找到资源链接。",
-    "notFound": "资源链接未取得",
+    "notFound": "资源查询失败",
     "partialComments": "来源只返回了部分评论，资源链接可能不完整。",
     "protocolMagnet": "磁链",
     "protocolWeb": "网页链接",
@@ -1144,6 +1163,22 @@
     "tryOtherSearch": "试试其他番号、女优或标题。"
   },
   "rosterActions": {
+    "delete": "删除",
+    "deleteMenu": "删除…",
+    "deleteConfirm": "所选 {{count, number}} 项档案，名下共有 {{assets, number}} 个馆藏文件，占用 {{size}}。请选择删除范围。",
+    "deleteShared": "其中 {{count, number}} 个文件也关联其他档案，永久删除后会同时从这些档案下消失。",
+    "deleteChoice": { "profile": "仅删资料", "trash": "馆藏移入回收站", "purge": "永久删除全部" },
+    "deleteDescription": {
+      "profile": "删除档案、别名和身份关联，馆藏作品与媒体文件保留。再次扫描或刮削可能重新建立档案。",
+      "trash": "删除档案，名下馆藏移入回收站，媒体文件保留。之后可从回收站还原作品。",
+      "purge": "删除档案及其名下馆藏，包括媒体文件和对应观看记录。删除失败的文件及其档案保留，并显示原因。"
+    },
+    "deleteDone": {
+      "profile": "已删除 {{count, number}} 项档案",
+      "trash": "已删除 {{count, number}} 项档案，{{assets, number}} 个馆藏文件已移入回收站",
+      "purge": "已删除 {{count, number}} 项档案及 {{assets, number}} 个馆藏文件"
+    },
+    "deleteBlocked": "已删除 {{profiles, number}} 项档案及 {{assets, number}} 个馆藏文件，{{retained, number}} 项档案仍有未删除文件，已保留。请关闭此弹窗后重新选择删除范围。\n{{failures}}",
     "deselectAll": "取消全选",
     "dockLabel": "名册批量操作",
     "exit": "取消选择",

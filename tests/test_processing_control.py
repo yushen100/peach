@@ -522,6 +522,45 @@ class ProcessingControlTests(unittest.TestCase):
         contract=SimpleNamespace(database=database)
         self.assertEqual(_remaining_retry_ids(contract,{'retryable_asset_ids':[1,2,3]}),[1])
 
+    def test_the_notice_steps_down_once_every_problem_video_has_left_the_library(self):
+        """资源同步清掉或标「已消失」后，那一趟的问题提示自动撤下；日志不动，还原了就回来。"""
+        import json
+        from peach.library_processing import _save, issues_path, state_path
+        from peach.repository import LedgerDatabase
+        from peach.web_library_processing import q_library_processing
+        self.seed(3)
+        database = LedgerDatabase(self.db)
+        job = Mock()
+        job.snapshot.return_value = None
+        contract = SimpleNamespace(db_path=self.db, database=database, library_processing_job=job)
+        log = issues_path(self.config, 'gone')
+        log.parent.mkdir(parents=True, exist_ok=True)
+        log.write_text(''.join(json.dumps({'asset_id': asset_id, 'message': '媒体文件不可访问', 'retryable': True,
+                                           'failed_action': 'reading_local'}) + '\n' for asset_id in (1, 2)),
+                       encoding='utf-8')
+        _save(state_path(self.config), {'job_id': 'gone', 'status': 'failed', 'outcome': 'partial',
+                                        'issue_count': 2, 'retryable_asset_ids': [1, 2], 'notes': {}})
+        with patch('peach.web_library_processing.settings_file.active', return_value=self.config):
+            self.assertFalse(q_library_processing(contract, {}).get('archived'))
+            with database.write_transaction() as connection:
+                connection.execute("UPDATE asset SET disposal='vanished' WHERE id=1")
+            self.assertFalse(q_library_processing(contract, {}).get('archived'), '还有一部在馆藏里，照旧提示')
+            with database.write_transaction() as connection:
+                connection.execute('DELETE FROM asset WHERE id=2')
+            settled = q_library_processing(contract, {})
+            self.assertTrue(settled['archived'])
+            self.assertEqual((settled['status'], settled['issue_count'], settled['retryable_asset_ids']),
+                             ('failed', 2, []))
+            self.assertNotIn('archived', json.loads(state_path(self.config).read_text(encoding='utf-8')))
+            with database.write_transaction() as connection:
+                connection.execute('UPDATE asset SET disposal=NULL WHERE id=1')
+            self.assertFalse(q_library_processing(contract, {}).get('archived'), '从回收站还原后提示回来')
+            with log.open('a', encoding='utf-8') as handle:
+                handle.write(json.dumps({'asset_id': None, 'message': '工具没准备好'}) + '\n')
+            with database.write_transaction() as connection:
+                connection.execute("UPDATE asset SET disposal='vanished' WHERE id=1")
+            self.assertFalse(q_library_processing(contract, {}).get('archived'), '不对应影片的问题不算解决')
+
     def test_cancelled_recovery_is_not_replayed_after_the_writer_exits(self):
         from peach.task_runs import TaskRunStore
         store = TaskRunStore(self.db)

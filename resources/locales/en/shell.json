@@ -1,4 +1,8 @@
 {
+  "holdToConfirm": {
+    "label": "Hold to {{action}}",
+    "instruction": "Hold the mouse button, Space or Enter for 2 seconds to confirm. Release early to cancel."
+  },
   "accessSetup": {
     "enterWithoutPassword": "Continue without sign-in",
     "lanPasswordHint": "Recommended for LAN access. Without one, any device on the same network can get in.",
@@ -89,6 +93,8 @@
     "saveSelected": "Save selected videos"
   },
   "batchJunk": {
+    "confirmDisposeAll_one": "Moves the {{count, number}} undecided file in this category to the trash. The file stays where it is.",
+    "confirmDisposeAll_other": "Moves all {{count, number}} undecided files in this category to the trash. The files stay where they are.",
     "confirmDispose_one": "Moves the {{count, number}} selected file to the trash. The file stays where it is.",
     "confirmDispose_other": "Moves the {{count, number}} selected files to the trash. The files stay where they are.",
     "confirmNotJunk_one": "Marks the {{count, number}} selected file as not junk and takes it out of the queue.",
@@ -96,6 +102,7 @@
     "confirmRecheck_one": "Sends the {{count, number}} selected file back to the junk queue.",
     "confirmRecheck_other": "Sends the {{count, number}} selected files back to the junk queue.",
     "dismissed": "Set as not junk",
+    "disposeAll": "Move all to trash",
     "doneDispose_one": "Moved {{count, number}} item to trash",
     "doneDispose_other": "Moved {{count, number}} items to trash",
     "doneNotJunk_one": "Marked {{count, number}} item as not junk",
@@ -103,6 +110,7 @@
     "doneRecheck_one": "Sent {{count, number}} item back for junk check",
     "doneRecheck_other": "Sent {{count, number}} items back for junk check",
     "markNotJunk": "Mark as not junk",
+    "queueChanged": "The undecided files just changed and were reloaded. Please confirm again.",
     "recheckFiles": "Recheck files",
     "reconsidered": "Sent back for junk check"
   },
@@ -196,6 +204,9 @@
     "selectedCount_other": "{{count, number}} {{unit}} selected",
     "spacerColumn": "Empty space",
     "toolbar": "{{label}} toolbar"
+  },
+  "detailFailure": {
+    "title": "Couldn't get the details"
   },
   "detailTags": {
     "hideTag": "Hide this tag on this video",

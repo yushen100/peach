@@ -8,7 +8,8 @@
  * 所以接管那一拍这一行不跳。分类与视图此刻就有答案，只有读数和各类的计数徽标要等数据。 */
 import { esc } from '@peach/legacy/core';
 
-import { islandSummary } from './island-skeleton';
+import { islandGlassRows } from './island-skeleton';
+import { queueControlsSkeletonHtml } from './queue-skeleton';
 import { t } from './i18n';
 
 export type JunkView = 'pending' | 'dismissed';
@@ -53,26 +54,15 @@ export const junkSummaryLabel = (view: JunkView) => (view === 'dismissed' ? t('c
 
 const glyph = (name: string) => `<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-${name}"></use></svg>`;
 
-/** 壳在 React 包加载之前铺的计数行：摘要面与分类条，读数与计数徽标留空。滑动玻璃由 island
- *  量着放，这一版里它收着，当前那一类自己垫一块同料的玻璃（`junk-queue.css`）。 */
-/** 网格上方「全选（N 个）」那一行的骨架：勾选框与字照 Board UI `Checkbox` 小号，个数等数据。
- *  页面落地后这一行压在卡片上面，骨架不留这一行的话首张卡会在接管那一拍往下跳。 */
-export function junkSelectAllSkeletonHtml(): string {
-  return '<div class="peach-react"><div data-junk-select-all="" class="mb-3">'
-    + '<span class="group inline-flex items-center select-none gap-1.5">'
-    + '<span class="flex shrink-0 items-center justify-center rounded-sm size-3.5 border bg-background-primary-default shadow-xs border-border-checkbox-default"></span>'
-    + '<span class="text-body-2-medium text-text-primary"><span class="skeleton skeleton-text" style="width:5em"></span></span>'
-    + '</span></div></div>';
-}
-
+/** 壳在 React 包加载之前铺的筛选浮层：上排分类条，下排读数留空，计数徽标不画。滑动玻璃由 island
+ *  量着放，这一版里没有它，当前那一类自己垫一块同料的玻璃（`junk-queue.css`）。 */
 export function junkCountSkeletonHtml({ kind, view }: JunkRoute): string {
   const links = JUNK_KIND_OPTIONS.map(([key, label, icon]) =>
     `<a href="${junkPath(key, view)}" data-junk-kind-link="${key}"${key === kind ? ' aria-current="page"' : ''}>${glyph(icon)}${esc(label)}</a>`).join('');
   const other = junkViewLink(view);
-  return `<div class="peach-react" data-junk-count-skeleton=""><div data-junk-count="">`
-    + `<div data-junk-summary="" aria-live="polite">${islandSummary(junkSummaryLabel(view))}</div>`
-    + `<div data-junk-filters-frame="" data-filter-glass="" data-glass-pane=""><span data-view-glide="" aria-hidden="true" hidden></span>`
-    + `<nav data-junk-filters="" aria-label="${esc(t('cleanup:junk.categories'))}">${links}<i data-junk-divider="" aria-hidden="true"></i>`
-    + `<a href="${other.href}" data-junk-view-link="${other.view}"${view === 'dismissed' ? ' aria-current="page"' : ''}>${glyph(other.glyph)}${other.label}</a>`
-    + `</nav></div></div></div>`;
+  const nav = `<nav data-junk-filters="" aria-label="${esc(t('cleanup:junk.categories'))}">${links}<i data-junk-divider="" aria-hidden="true"></i>`
+    + `<a href="${other.href}" data-junk-view-link="${other.view}"${view === 'dismissed' ? ' aria-current="page"' : ''}>${glyph(other.glyph)}${other.label}</a></nav>`;
+  return `<div class="peach-react" data-junk-count-skeleton="">`
+    + islandGlassRows({ label: junkSummaryLabel(view), top: nav, attrs: ' data-filter-frame="" data-junk-filters-frame=""',
+      controls: queueControlsSkeletonHtml('junk-files'), className: 'mx-auto w-full max-w-board' }) + `</div>`;
 }

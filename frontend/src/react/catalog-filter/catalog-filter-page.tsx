@@ -1,5 +1,5 @@
 /* 首页上方那一整块：两排头像（女优、厂牌），加一块两排的玻璃浮层（上排四枚视图与标签，下排读数、
- * 换一批、卡片版式与排序键），再加正文里网格上面那条交集条。
+ * 换一批、卡片版式与排序键），再加正文里网格上面那条交集条。回收站用同一块浮层的下排，画在管理页头下面。
  *
  * 状态全在壳里：筛选、当前视图、排序、成员与读数都当 props 递进来，点下去的动作回壳，壳在发请求之前
  * 先推一份新的按下态，所以 `aria-pressed` 与滑动玻璃当场就到位，不等这一趟取数。
@@ -13,8 +13,9 @@ import { entityDisplayName } from '../../core/entity-names';
 import { useEntityNames } from '../use-entity-names';
 import { popBadges } from '@peach/legacy/ui';
 import { AsyncText } from '../components/async-text';
+import { Button } from '@/components/base/buttons/button';
 
-import { FilterGlassRows, FilterPill } from '../components/filter-glass';
+import { FilterGlassRows, FilterPill, GlassPill } from '../components/filter-glass';
 import { useViewGlide } from '../components/use-view-glide';
 import { LibraryShortcuts } from '../library-shortcuts/shortcut-controls';
 import { FolderBrowseToggle } from '../catalog-folders/catalog-folders-page';
@@ -29,20 +30,25 @@ import { t } from '../../i18n';
 
 export function CatalogFilterPage(props: CatalogFilterProps) {
   const loading = !props.tiers;
-  const combo = useComboHost(props.comboHost);
+  const combo = usePortalHost(props.comboHost);
+  const trash = usePortalHost(props.trash ? props.trashHost : null);
   /* 收起时（资料页、索引页与管理页）只留两排头像：回到同一口径的首页时那一批原样还在，不重摆、不重取图。
-     浮层那两排和资料页、索引页的浮层是同一组组件、同一组属性，藏着一份在页面上，就是两套同名的控件。 */
+     浮层那两排和资料页、索引页的浮层是同一组组件、同一组属性，藏着一份在页面上，就是两套同名的控件。
+     回收站的浮层画进正文里管理页头下面那个宿主，首页那个宿主这时收着。 */
   return (
     <div data-catalog-root="" data-loading={loading || undefined} data-refreshing={props.refreshing || undefined}
       className="contents">
       {combo ? createPortal(<Combo items={props.combo} hidden={props.comboHidden} actions={props.actions} />, combo) : null}
       {props.hideTiers ? null : <Tiers {...props} />}
-      {props.offscreen ? null : <Glass {...props} />}
+      {props.trash ? trash && createPortal(<Glass {...props} />, trash) : props.offscreen ? null : <Glass {...props} />}
     </div>
   );
 }
 
-/** 玻璃浮层两排：上排四枚视图与标签，下排读数、换一批、版式与排序键。 */
+/** 回收站的浮层住在正文里，和管理页头、网格一样按内容宽居中。 */
+export const TRASH_FRAME = 'mx-auto w-full max-w-board';
+
+/** 玻璃浮层两排：上排四枚视图与标签，下排读数、换一批、版式与排序键。回收站只有下排。 */
 function Glass(props: CatalogFilterProps) {
   const { actions, helpers } = props;
   const pane = useRef<HTMLSpanElement>(null);
@@ -65,7 +71,7 @@ function Glass(props: CatalogFilterProps) {
   const tags = usePaged(tagRow, props.tags, props.tiers?.key ?? '', props.tagFirst);
   useLayoutEffect(() => {
     // 首次加载按两行占位；已有内容刷新时沿用已测量的排布，不拿骨架宽度重新合行。
-    if (loading) { setSingleRow(false); return }
+    if (loading || props.trash) { setSingleRow(false); return }
     if (props.tiersPending || props.count === null) return;
     const frame = scroll.current?.closest<HTMLElement>('[data-catalog-frame]');
     if (!frame) return;
@@ -81,17 +87,17 @@ function Glass(props: CatalogFilterProps) {
     observer.observe(frame);
     measure();
     return () => observer.disconnect();
-  }, [loading, props.tiersPending, tags, props.count, props.layout, props.sorts]);
+  }, [loading, props.trash, props.tiersPending, tags, props.count, props.layout, props.sorts]);
   /* 计数徽标变了值的那几枚弹一下（遗留层 `popBadges`，按上一次的值判断，不按节点新不新）。 */
   useLayoutEffect(() => { popBadges(tagRow.current, 'tagbar') }, [tags]);
 
   return (
     <FilterGlassRows label={t('catalog:catalogFilter.filterAndSort')} topLabel={t('catalog:catalogFilter.viewsAndTags')}
       attrs={{ 'data-filter-frame': '', 'data-catalog-frame': '', ...(singleRow ? { 'data-single-row': '' } : {}) }}
-      className="mx-4" topClassName="gap-1.5 overflow-visible" bottomClassName={props.trash ? 'hidden' : 'min-h-12'}
+      className={props.trash ? TRASH_FRAME : 'mx-4'} topClassName="gap-1.5 overflow-visible" bottomClassName="min-h-12"
       bottomRef={bottomRow} busy={props.count === null || props.refreshing}
       panes={<span ref={pane} data-view-glide="" aria-hidden="true" />}
-      top={
+      top={props.trash ? null : (
         <div ref={scroll} data-catalog-scroll="">
           <div ref={viewRow} role="group" aria-label={t('catalog:catalogFilter.views')} data-catalog-views="" onPointerLeave={glide.leave}>
             {props.views.map((view) => (
@@ -108,8 +114,8 @@ function Glass(props: CatalogFilterProps) {
             {tags.map((tag) => <TagPill key={tag.k} tag={tag} pending={props.tiersPending} onPress={actions.toggleTag} />)}
           </div>
         </div>
-      }
-      bottom={props.trash ? null : <Head {...props} />}
+      )}
+      bottom={props.trash ? <TrashHead {...props} /> : <Head {...props} />}
     />
   );
 }
@@ -207,8 +213,8 @@ function Placeholders({ kind }: { kind: 'performer' | 'studio' | 'tag' }) {
   );
 }
 
-/** 下排：读数、换一批、版式与排序。回收站不出这一排。 */
-function Head({ count, refreshing, layout, sorts, actions }: CatalogFilterProps) {
+/** 下排：读数、换一批、版式与排序。回收站的下排是 `TrashHead`。 */
+function Head({ count, refreshing, layout, sorts, previewOnly, actions }: CatalogFilterProps) {
   const view = useCatalogView();
   const [shuffling, setShuffling] = useState(false);
   const shuffle = () => {
@@ -217,7 +223,9 @@ function Head({ count, refreshing, layout, sorts, actions }: CatalogFilterProps)
   };
   return (
     <>
-      <span data-catalog-summary=""><Readout count={count} /><LibraryShortcuts currentHref={actions.currentHref} /></span>
+      <span data-catalog-summary=""><Readout count={count} /><LibraryShortcuts currentHref={actions.currentHref} />
+        {/* 只显示有预览图时（设置或地址），这一次看全部的入口；回首页、刷新后按设置重新生效。 */}
+        {previewOnly && actions.showAll ? <GlassPill onPress={actions.showAll}>{t('catalog:catalogFilter.showAll')}</GlassPill> : null}</span>
       <span data-entity-sorts="">
         <Shuffle onPress={shuffle} busy={shuffling || refreshing} />
         {/* 按名字换键：JAV 与首页各一组，React Aria 的单选组挂上之后不改 `name`。 */}
@@ -225,12 +233,33 @@ function Head({ count, refreshing, layout, sorts, actions }: CatalogFilterProps)
           onChange={actions.setLayout} /> : null}
         <CatalogViewToggle />
         <FolderBrowseToggle />
-        <SortKeys sorts={sorts} onSort={actions.setSort} />
+        <SortKeys group={layout?.name === 'jav-layout' ? 'jav' : 'catalog'} sorts={sorts} onSort={actions.setSort} />
       </span>
     </>
   );
 }
 
+
+/** 回收站的下排：读数后面跟「清空回收站」（空了就不出），右边版式、卡片／列表与排序。
+ *  没有换一批：回收站是待清理的队列，不打散；也不按文件夹看。 */
+function TrashHead({ count, layout, sorts, actions }: CatalogFilterProps) {
+  const view = useCatalogView();
+  return (
+    <>
+      <span data-catalog-summary="">
+        <Readout count={count} />
+        {count && count.total ? <Button size="small" variant="danger" data-empty-trash=""
+          title={t('manage:manageHeader.emptyTrashTitle')} onClick={actions.emptyTrash}>{t('manage:shared.emptyTrash')}</Button> : null}
+      </span>
+      <span data-entity-sorts="">
+        {layout && view === 'cards' ? <Segments key={layout.name} name={layout.name} label={layout.label} value={layout.value}
+          options={layout.options} onChange={actions.setLayout} /> : null}
+        <CatalogViewToggle />
+        <SortKeys sorts={sorts} onSort={actions.setSort} />
+      </span>
+    </>
+  );
+}
 
 /** 读数加载时只替换文字，筛选框和操作控件保持原位。 */
 function Readout({ count }: { count: CatalogFilterProps['count'] }) {
@@ -242,8 +271,9 @@ function Readout({ count }: { count: CatalogFilterProps['count'] }) {
   </span>;
 }
 
-/** 交集条的宿主：`#combo` 里另建一层 `.peach-react`，样式作用域要它。卸载时撤掉，行本身还给壳。 */
-function useComboHost(row: Element | null): HTMLElement | null {
+/** 壳给的宿主（交集条的 `#combo`、回收站浮层的 `#trashFilter`）里另建一层 `.peach-react`，样式作用域要它；
+ *  壳先铺的骨架一并换掉。卸载时撤掉，宿主本身还给壳。 */
+function usePortalHost(row: Element | null): HTMLElement | null {
   const [host, setHost] = useState<HTMLElement | null>(null);
   useLayoutEffect(() => {
     if (!row) return undefined;

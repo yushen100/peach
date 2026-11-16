@@ -94,24 +94,27 @@ def _tags(row, key, count):
             "occurrence_day": row["day"], "occurrence_count": str(count)}
 
 
-def _emit_event(state, row, key, emit, *, event_id=None):
-    """首次错误事件提供定位样本，发生次数统一由计数日志汇总；只计数的行不上传错误事件。"""
+def _plan_event(state, row, key, outbox, *, event_id=None):
+    """首次错误事件提供定位样本，发生次数统一由计数日志汇总；只计数的行不上传错误事件。
+
+    先在状态里记为已发送，聚合文件写入成功后才真正发送，发送被拒时撤回。
+    """
     if row.get("count_only") or row["sent"] or row["total"] <= 0 or state["events"] >= EVENT_LIMIT:
         return
     event = {**row["event"], "tags": _tags(row, key, 1)}
     if event_id:
         event["event_id"] = event_id
-    try:
-        accepted = emit(event)
-    except Exception:
-        accepted = False
-    if accepted:
-        row['sent'] = True
-        state["events"] += 1
+    row["sent"] = True
+    state["events"] += 1
+
+    def undo():
+        row["sent"] = False
+        state["events"] -= 1
+    outbox.append(("event", event, undo))
 
 
-def _emit_counts(rows, now, log, *, force=False):
-    """把所有诊断键的未提交次数合并成一批计数日志。"""
+def _plan_counts(rows, now, outbox, *, force=False, undo=True):
+    """把所有诊断键的未提交次数合并成一批计数日志，先记为已提交；`undo=False` 时被拒的次数不再保留。"""
     due = [(key, row) for key, row in rows
            if row["total"] > row["submitted"]
            and (force or row["day"] != now.date().isoformat()
@@ -119,22 +122,45 @@ def _emit_counts(rows, now, log, *, force=False):
     if not due:
         return
     counts = [{**row["event"], "tags": _tags(row, key, row["total"] - row["submitted"])} for key, row in due]
-    try:
-        accepted = log(counts)
-    except Exception:
-        accepted = False
-    if accepted:
-        for _key, row in due:
-            row.update(submitted=row["total"], last_logged=now.timestamp())
+    previous = [(row, row["submitted"], row["last_logged"]) for _key, row in due]
+    for _key, row in due:
+        row.update(submitted=row["total"], last_logged=now.timestamp())
+
+    def restore():
+        for row, submitted, last_logged in previous:
+            row.update(submitted=submitted, last_logged=last_logged)
+    outbox.append(("counts", counts, restore if undo else None))
 
 
-def _roll(row, key, now, log):
+def _roll(row, key, now, outbox):
     """跨 UTC 日先提交前一天的次数，计数日志的统计日期是实际发生日；提交失败的旧次数不再保留。"""
     day = now.date().isoformat()
     if row["day"] == day:
         return
-    _emit_counts([(key, row)], now, log, force=True)
+    _plan_counts([(key, row)], now, outbox, force=True, undo=False)
     row.update(day=day, total=0, submitted=0, last_logged=now.timestamp())
+
+
+def _commit(path, state, outbox, emit, log):
+    """先写聚合文件再发送：写不进去就一条都不发，避免每次发生都当作首次重发。
+
+    发送被拒的条目撤回标记后再写一次；这次也写不进去时只会少计，不会重发。
+    """
+    atomic_write_text(path, json.dumps(state))
+    rejected = False
+    for kind, payload, undo in outbox:
+        try:
+            accepted = (emit if kind == "event" else log)(payload)
+        except Exception:
+            accepted = False
+        if not accepted and undo is not None:
+            undo()
+            rejected = True
+    if rejected:
+        try:
+            atomic_write_text(path, json.dumps(state))
+        except OSError:
+            pass
 
 
 def _fresh(records, day, count_only):
@@ -174,10 +200,11 @@ def record(config, revision, event, emit, log):
         key, row = _row(state["records"], sample, now)
         if row is None:
             return
-        _roll(row, key, now, log)
+        outbox = []
+        _roll(row, key, now, outbox)
         row["total"] += 1
-        _emit_event(state, row, key, emit, event_id=event.get("event_id"))
-        atomic_write_text(path, json.dumps(state))
+        _plan_event(state, row, key, outbox, event_id=event.get("event_id"))
+        _commit(path, state, outbox, emit, log)
 
 
 def tally(config, revision, event):
@@ -197,12 +224,12 @@ def _take(path):
         return {revision: _pending.pop((name, revision)) for name, revision in list(_pending) if name == str(path)}
 
 
-def _merge(state, path, revision, now, log):
+def _merge(state, path, revision, now, outbox):
     """进程内累计并入聚合文件；其他同意版本的累计直接丢弃。"""
     for sample, count in _take(path).get(revision, {}).values():
         key, row = _row(state["records"], sample, now, count_only=True)
         if row is not None:
-            _roll(row, key, now, log)
+            _roll(row, key, now, outbox)
             row["total"] += count
 
 
@@ -229,11 +256,12 @@ def flush(config, revision, emit, log, *, force=False):
     with FileLock(str(path) + ".lock", timeout=LOCK_TIMEOUT):
         now = _now()
         state = _load(path, revision, now)
-        _merge(state, path, revision, now, log)
+        outbox = []
+        _merge(state, path, revision, now, outbox)
         for key, row in state["records"].items():
-            _emit_event(state, row, key, emit)
-        _emit_counts(state["records"].items(), now, log, force=force)
-        atomic_write_text(path, json.dumps(state))
+            _plan_event(state, row, key, outbox)
+        _plan_counts(state["records"].items(), now, outbox, force=force)
+        _commit(path, state, outbox, emit, log)
         return _next_due(state, now)
 
 

@@ -513,6 +513,95 @@ describe('设计决定：数据管理、索引页与资料页头', () => {
     } finally { await opened.close(); }
   });
 
+  for (const viewport of [DESKTOP, MOBILE]) {
+    it(`标签联想加载图标占位稳定，滚动条贴右并避开计数（${viewport.name}）`, { timeout: 60_000 }, async () => {
+      const opened = await openIndexPage(browser, '/tags?scope=online');
+      let release = () => {};
+      const waiting = new Promise<void>(resolve => { release = resolve });
+      try {
+        const { page } = opened;
+        await page.setViewportSize({ width: viewport.width, height: viewport.height });
+        if (viewport.mobile && await page.locator('#drawer.open').count()) {
+          await page.locator('#filterBtn').click();
+          await page.waitForFunction(() => !document.querySelector('#drawer')?.classList.contains('open'));
+        }
+        await page.route('**/api/tag-management?**', async route => {
+          if (!new URL(route.request().url()).searchParams.get('q')) return route.continue();
+          await waiting;
+          return route.fulfill({ json: { items: Array.from({ length: 8 }, (_, at) => ({
+            id: `tag-${at}`, k: `tag-${at}`, n: 123456 + at, aliases: [], hidden: false,
+          })) } });
+        });
+        await page.getByRole('button', { name: '添加屏蔽标签', exact: true }).click();
+        const input = page.getByRole('combobox', { name: '标签名称' });
+        const idle = await input.boundingBox();
+        assert.ok(idle);
+        await input.fill('tag');
+        await page.locator('dialog[open] .ui-geist-spinner').waitFor();
+        const busy = await input.boundingBox();
+        assert.ok(busy);
+        assert.ok(Math.abs(idle.x - busy.x) < 1, '加载图标改变了输入文字的起点');
+        const slot = await page.locator('dialog[open] .ui-geist-spinner').evaluate(node => {
+          const icon = node.getBoundingClientRect(), slot = node.parentElement!.getBoundingClientRect();
+          return { width: slot.width, height: slot.height,
+            centerX: icon.x + icon.width / 2 - slot.x - slot.width / 2,
+            centerY: icon.y + icon.height / 2 - slot.y - slot.height / 2 };
+        });
+        assert.deepEqual([slot.width, slot.height], [20, 20]);
+        assert.ok(Math.abs(slot.centerX) < 1 && Math.abs(slot.centerY) < 1, '加载图标没有在占位框内居中');
+        release();
+        await page.getByRole('option').first().waitFor();
+        await page.locator('[data-trigger="ComboBox"] > .ovtrack.ov-y:not([hidden])').waitFor();
+        const geometry = await page.locator('[data-trigger="ComboBox"]').evaluate(menu => {
+          const panel = menu.getBoundingClientRect();
+          const track = menu.querySelector<HTMLElement>(':scope > .ovtrack.ov-y:not([hidden])')!.getBoundingClientRect();
+          return { edgeGap: panel.right - track.right, countGaps: [...menu.querySelectorAll('[role="option"] > span:last-child')]
+            .map(count => track.left - count.getBoundingClientRect().right) };
+        });
+        assert.ok(geometry.edgeGap >= 0 && geometry.edgeGap <= 2, '滚动条没有贴在候选面板右边缘');
+        assert.ok(geometry.countGaps.every(gap => gap >= 4), '滚动条命中区与标签计数重叠');
+        await input.press('Escape');
+        await page.getByRole('listbox', { name: '搜索结果' }).waitFor({ state: 'hidden' });
+        assert.equal(await page.locator('dialog[open]').count(), 1, '收起候选时关闭了标签表单');
+        assert.equal(await input.inputValue(), 'tag');
+        await input.press('Escape');
+        await page.locator('dialog[open]').waitFor({ state: 'hidden' });
+        assert.deepEqual(opened.problems, []);
+      } finally {
+        release();
+        await opened.close();
+      }
+    });
+  }
+
+  it('名册多选浮条与展开的侧栏重叠时仍能接收点击', { timeout: 60_000 }, async () => {
+    const opened = await openIndexPage(browser, '/performers');
+    const { page } = opened;
+    try {
+      await page.setViewportSize({ width: 900, height: 700 });
+      await page.locator('#selectMode').click();
+      const dock = page.locator('[data-selection-dock]');
+      await dock.waitFor();
+      if (await page.locator('#filterBtn').getAttribute('aria-expanded') !== 'true') {
+        await page.locator('#filterBtn').click();
+      }
+      await page.waitForFunction(() => document.querySelector('#drawer')!.getBoundingClientRect().width > 200);
+      const overlap = await dock.evaluate((node) => {
+        const box = node.getBoundingClientRect();
+        const sidebar = document.querySelector('#drawer')!.getBoundingClientRect();
+        const left = Math.max(box.left, sidebar.left);
+        const right = Math.min(box.right, sidebar.right);
+        const top = Math.max(box.top, sidebar.top);
+        const bottom = Math.min(box.bottom, sidebar.bottom);
+        const hit = document.elementFromPoint((left + right) / 2, (top + bottom) / 2);
+        return { width: right - left, height: bottom - top, receivesInput: node.contains(hit) };
+      });
+      assert.ok(overlap.width > 0 && overlap.height > 0, '浮条与侧栏应有实际交叠区域');
+      assert.equal(overlap.receivesInput, true, '侧栏遮挡了多选浮条');
+      assert.deepEqual(opened.problems, []);
+    } finally { await opened.close(); }
+  });
+
   it('批量选择条更新计数保持节点，清空后退出且不保留可操作控件', { timeout: 60_000 }, async () => {
     const opened = await openIndexPage(browser, '/tags');
     const { page } = opened;
@@ -610,19 +699,21 @@ describe('设计决定：数据管理、索引页与资料页头', () => {
     }
   });
 
-  it('重复文件的汇总条是玻璃面，组卡 14px 圆角、组头 20px 内边距，每行上方一条 1px 分隔线', { timeout: 60_000 }, async () => {
+  it('重复文件的筛选浮层是首页那副两排玻璃，组卡 14px 圆角、组头 20px 内边距，每行上方一条 1px 分隔线', { timeout: 60_000 }, async () => {
     const opened = await openDuplicates(browser);
     try {
       const faces = await opened.page.evaluate(() => {
-        const glass = getComputedStyle(document.querySelector('[data-filter-glass]')!);
+        const frame = document.querySelector('#stats [data-duplicates-frame]')!;
+        const glass = getComputedStyle(frame);
         const group = document.querySelector('#stats section[aria-label="DUPE-002"]')!;
         const head = group.firstElementChild!;
         const card = getComputedStyle(group);
         const header = getComputedStyle(head);
         const code = getComputedStyle(head.querySelector('b')!);
         return {
-          glass: { filter: glass.backdropFilter, padding: glass.padding, height: glass.height,
-            compact: parseFloat(glass.getPropertyValue('--control-h-compact')) },
+          glass: { filter: glass.backdropFilter, padding: glass.padding,
+            rows: [...frame.querySelectorAll('[data-filter-row]')].map((row) => [(row as HTMLElement).dataset.filterRow,
+              Math.round(row.getBoundingClientRect().height)]) },
           card: { radius: card.borderRadius, overflow: card.overflow, face: card.backgroundColor },
           head: { padding: header.padding, face: header.backgroundColor, size: code.fontSize, weight: code.fontWeight },
           rows: [...group.querySelectorAll('.duplicate-row')].map((row) => {
@@ -631,9 +722,9 @@ describe('设计决定：数据管理、索引页与资料页头', () => {
           }),
         };
       });
-      assert.match(faces.glass.filter, /blur\(/, '汇总条没有背景模糊，不是玻璃面');
-      // 汇总条里的控件取紧凑档，条高是上下各 10px 内边距加一档紧凑控件。
-      assert.deepEqual([faces.glass.padding, faces.glass.height], ['10px 16px', `${20 + faces.glass.compact}px`]);
+      assert.match(faces.glass.filter, /blur\(/, '筛选浮层没有背景模糊，不是玻璃面');
+      // 同首页浮层：外框不留内边距，上排（保留哪一份）与下排（读数与操作）各 48px。
+      assert.deepEqual([faces.glass.padding, faces.glass.rows], ['0px', [['top', 48], ['bottom', 48]]]);
       assert.deepEqual([faces.card.radius, faces.card.overflow], ['14px', 'hidden'], '组卡圆角或裁切不对');
       assert.notEqual(faces.head.face, faces.card.face, '组头和组卡同色，番号那一行分不出来');
       assert.deepEqual([faces.head.padding, faces.head.size, faces.head.weight], ['20px', '20px', '500']);
@@ -1007,6 +1098,17 @@ describe('设计决定：数据管理、索引页与资料页头', () => {
         assert.deepEqual(spill.wrapped, [], '七位数的读数把单位挤到了下一行');
         assert.deepEqual(spill.spilled, [], '来源行的控件越出了行');
         if (!viewport.mobile) assert.deepEqual(spill.split, [], '桌面上来源行的操作键掉到了名字下面');
+        // 英文名字会折行：把第一张卡的名字拉长到三行，同一排的读数仍压在同一条底线上。
+        const baselines = await opened.page.evaluate(() => {
+          const cards = [...document.querySelectorAll('[data-measured-reading]')];
+          cards[0]!.querySelector(':scope > span')!.textContent = 'A deliberately long reading label '.repeat(3);
+          const top = cards[0]!.getBoundingClientRect().top;
+          return cards.filter((card) => Math.abs(card.getBoundingClientRect().top - top) < 1)
+            .map((card) => card.querySelector('[skullet-pane]:not([skullet-exiting]) [data-follow-reading]')!
+              .getBoundingClientRect().bottom);
+        });
+        assert.ok(baselines.length > 1 && Math.max(...baselines) - Math.min(...baselines) <= 1,
+          `同一排读数的底边错开了：${baselines.join(', ')}`);
         assert.deepEqual(opened.problems, []);
       } finally {
         await opened.close();

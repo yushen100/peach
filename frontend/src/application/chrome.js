@@ -198,6 +198,7 @@ if(/Chrome|Chromium|Edg\//.test(navigator.userAgent)){
      观察器回调合计 95–126ms。过渡期间尺寸变了的那几块先退成同一档的纯模糊，全部停下来
      再按终态尺寸补画一次。 */
   let sizing=0;const stale=new Set();
+  const isSizing=()=>sizing||document.documentElement.hasAttribute('data-sidebar-resizing');
   const sizingEvent=event=>(event.target===document.body&&event.propertyName==='padding-left')
     ||(attached.has(event.target)&&(event.propertyName==='width'||event.propertyName==='height'));
   effects.listen(document, 'transitionrun', event=>{if(sizingEvent(event))sizing++}, true);
@@ -217,7 +218,7 @@ if(/Chrome|Chromium|Edg\//.test(navigator.userAgent)){
       if(node.dataset.opticGlass&&node.style.getPropertyValue('--glass-optic')!=='blur(14px)')node.style.setProperty('--glass-optic','blur(14px)');
       previous='';stale.add(node);
     };
-    const draw=()=>{if(sizing)fallback();else{pendingOptics.add(node);scheduleOptics()}};
+    const draw=()=>{if(isSizing())fallback();else{pendingOptics.add(node);scheduleOptics()}};
     const paint=(width,height,radius)=>{
       const key=`${width}:${height}:${radius}`;if(previous===key)return;
       previous=key;
@@ -265,7 +266,7 @@ if(/Chrome|Chromium|Edg\//.test(navigator.userAgent)){
     if(deadline!==null)opticsHandle=0;
     if(!effects.isActive)return;
     const nodes=[...pendingOptics].filter(node=>node.isConnected&&attached.has(node));pendingOptics.clear();
-    if(sizing){nodes.forEach(node=>attached.get(node).fallback());return}
+    if(isSizing()){nodes.forEach(node=>attached.get(node).fallback());return}
     const sizes=nodes.map(node=>{
       const width=Math.round(node.clientWidth),height=Math.round(node.clientHeight);
       return {node,width,height,radius:width&&height?Math.min(parseFloat(getComputedStyle(node).borderRadius)||22,width/2,height/2):0};
@@ -288,6 +289,13 @@ if(/Chrome|Chromium|Edg\//.test(navigator.userAgent)){
     document.querySelectorAll('.board-filter-frame,.top>.ib,[data-sidebar-drawer],.reviewcontrols,.reviewgroupbar,[data-glass-pane]').forEach(attach);
   };
   preferencesState.syncGlassOptics=sync;
+  /* 指针拖宽期间的尺寸连续变化，沿用开合过渡的完整模糊面，松手再补最终尺寸的折射贴图。 */
+  effects.mutation(()=>{
+    if(document.documentElement.hasAttribute('data-sidebar-resizing')){
+      attached.forEach(({fallback})=>fallback());return;
+    }
+    stale.forEach(node=>pendingOptics.add(node));stale.clear();scheduleOptics();
+  }).observe(document.documentElement,{attributes:true,attributeFilter:['data-sidebar-resizing']});
   const panes='.board-filter-frame,.top>.ib,[data-sidebar-drawer],.reviewcontrols,.reviewgroupbar,[data-glass-pane]';
   effects.mutation(records=>{
     if(records.some(record=>[...record.addedNodes,...record.removedNodes].some(node=>

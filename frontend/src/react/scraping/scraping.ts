@@ -42,17 +42,23 @@ export interface Source {
   cooldown_until?: number | null;
 }
 
+/** 后台采集浏览器的模式：`window` 窗口留在屏幕外、验证可人工点；`headless` 不创建窗口、过不了就冷却。 */
+export type BrowserMode = 'window' | 'headless';
+
 export interface ScrapingData {
   sources: Source[];
+  browser_mode?: BrowserMode;
 }
 
-/** 一次连接检查的一项结果：来源页面，以及部分来源另有的高清图片地址。 */
+/** 一次连接检查的一项结果：来源页面，以及来源取图的那台图片主机。 */
 export interface Check {
-  /** 查的是哪一跳：`page` 来源页面，`cdn` 高清图片地址。`label` 是它的 zh-CN 原文。 */
+  /** 查的是哪一跳：`page` 来源页面，`cdn` 图片主机。`label` 是它的 zh-CN 原文。 */
   target?: 'page' | 'cdn';
   label: string;
   label_code?: string;
   ok: boolean;
+  /** `unchecked`：这一跳没发请求（来源没有固定的图片主机），不是连接失败。 */
+  kind?: string;
   status?: number;
   message?: string;
   message_code?: string;
@@ -155,7 +161,9 @@ export async function prefetchScraping(signal: AbortSignal): Promise<void> {
  * 结果里的 `label` 是这一跳查的是什么；只有一跳时它就是来源页面本身，句子里不必再说一遍。 */
 export function checkText(check: Check, sourceLabel: string): string {
   const target = check.target === 'cdn' ? t('manage:connectionCheck.hdImages', { source: sourceLabel }) : sourceLabel;
-  return t(check.ok ? 'manage:connectionCheck.reachableTarget' : 'manage:connectionCheck.unreachableTarget', { target })
+  const verdict = check.kind === 'unchecked' ? 'manage:connectionCheck.uncheckedTarget'
+    : check.ok ? 'manage:connectionCheck.reachableTarget' : 'manage:connectionCheck.unreachableTarget';
+  return t(verdict, { target })
     + (check.width ? ` · ${check.width} × ${check.height}` : '')
     + (check.elapsed_s !== undefined ? t('manage:connectionCheck.secondsSuffix', { seconds: check.elapsed_s.toFixed(2) }) : '')
     + (check.message ? t('manage:connectionCheck.messageSuffix', { message: codedText(check, 'message') }) : '');

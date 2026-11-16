@@ -38,10 +38,9 @@ class BrowserTests(unittest.TestCase):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         self.root = Path(temporary.name).resolve()
-        self.app = create_app(PeachSettings(
-            db_path=fresh_ledger(self.root), configured=True, token="admin-secret",
-            follow_state_root=self.root / "state", secrets_root=self.root / "secrets"))
-        self.addCleanup(self.app.state.http_transport.close)
+        self.db_path = fresh_ledger(self.root)
+        self.queue = self.root / "state" / "jav-browser-queue.json"
+        self.app = self.start_app()
         self.service = self.app.state.jav_browser
         self.downloads = self.app.state.downloads
         self.remote = Mock()
@@ -60,6 +59,14 @@ class BrowserTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         self.token = response.json()["token"]
         self.script_headers = {"Authorization": "Bearer " + self.token, "Origin": "https://missav.ws"}
+
+    def start_app(self):
+        """按同一份数据根起一个服务，重启用例用它模拟换版本后的再次启动。"""
+        app = create_app(PeachSettings(
+            db_path=self.db_path, configured=True, token="admin-secret",
+            follow_state_root=self.root / "state", secrets_root=self.root / "secrets"))
+        self.addCleanup(app.state.http_transport.close)
+        return app
 
     def configure(self, action, provider="115"):
         return self.client.post("/api/configuration/jav-browser", headers=self.headers,
@@ -326,6 +333,81 @@ class BrowserTests(unittest.TestCase):
         restored = JavBrowser(self.app.state.web_contract, search=self.service.search)
         self.assertEqual(restored.status("ABC-123")["state"], "queued")
 
+    def queue_backups(self):
+        return sorted(self.queue.parent.glob("jav-browser-queue.corrupt-*.json"))
+
+    def write_queue(self, payload):
+        for backup in self.queue_backups():
+            backup.unlink()
+        self.queue.write_text(json.dumps(payload), encoding="utf-8")
+
+    def restore_queue(self):
+        return JavBrowser(self.app.state.web_contract, search=self.service.search)
+
+    def test_unreadable_queue_file_is_set_aside_and_the_service_still_starts(self):
+        for raw in (b'{"ABC-123": {"state": ', b'["ABC-123"]', b'\xff\xfe{}'):
+            with self.subTest(raw=raw):
+                for backup in self.queue_backups():
+                    backup.unlink()
+                self.queue.write_bytes(raw)
+                with self.assertLogs("peach.jav_browser", level="WARNING") as logs:
+                    app = self.start_app()
+                self.assertEqual(app.state.jav_browser.rows, {})
+                [backup] = self.queue_backups()
+                self.assertEqual(backup.read_bytes(), raw)
+                self.assertFalse(self.queue.exists())
+                self.assertIn(backup.name, "\n".join(logs.output))
+
+    def test_invalid_queue_rows_are_dropped_and_the_rest_kept(self):
+        valid = {"state": "queued", "provider": "115", "source_url": PAGE}
+        cases = {
+            "未知状态": {"ABP-616": {**valid, "state": "paused"}},
+            "键不是番号": {"not a code": valid},
+            "重试次数无效": {"ABP-616": {**valid, "retry_attempt": 99}},
+            "重试时间无效": {"ABP-616": {**valid, "retry_at": "tomorrow"}},
+            "缺少下载渠道": {"ABP-616": {"state": "queued", "source_url": PAGE}},
+            "不是对象": {"ABP-616": "queued"},
+        }
+        for label, bad in cases.items():
+            with self.subTest(label):
+                self.write_queue({"ABC-123": valid, **bad})
+                with self.assertLogs("peach.jav_browser", level="WARNING") as logs:
+                    restored = self.restore_queue()
+                self.assertEqual(restored.rows, {"ABC-123": valid})
+                [backup] = self.queue_backups()
+                self.assertEqual(json.loads(backup.read_text(encoding="utf-8")), {"ABC-123": valid, **bad})
+                self.assertIn("dropped 1 ", logs.output[0])
+                self.assertIn(backup.name, logs.output[0])
+                # 保留的行已经写回，下一次启动不再告警，也不再留底。
+                self.assertEqual(json.loads(self.queue.read_text(encoding="utf-8")), {"ABC-123": valid})
+                with self.assertNoLogs("peach.jav_browser", level="WARNING"):
+                    self.restore_queue()
+                self.assertEqual(len(self.queue_backups()), 1)
+
+    def test_unknown_fields_are_kept_and_old_code_spellings_move_to_the_current_key(self):
+        valid = {"state": "queued", "provider": "115", "source_url": PAGE}
+        self.write_queue({"abp-616": {**valid, "added_by_a_newer_version": 1}, "HEYZO-123": valid,
+                          "ABC-123": {**valid, "retry_attempt": 1, "retry_at": "2026-01-01T00:00:00+00:00"}})
+        with self.assertNoLogs("peach.jav_browser", level="WARNING"):
+            restored = self.restore_queue()
+        self.assertEqual(list(restored.rows), ["ABP-616", "HEYZO-0123", "ABC-123"])
+        self.assertEqual(restored.rows["ABP-616"]["added_by_a_newer_version"], 1)
+        self.assertEqual(self.queue_backups(), [])
+
+    def test_overlong_queue_drops_rows_recorded_elsewhere_before_other_ended_and_pending_ones(self):
+        valid = {"state": "queued", "provider": "115", "source_url": PAGE}
+        no_match = {f"ABC-{number}": {**valid, "state": "no_match"} for number in range(1000, 1900)}
+        submitted = {f"ABD-{number}": {**valid, "state": "submitted"} for number in range(100, 200)}
+        pending = {f"ABP-{number}": valid for number in range(100, 151)}
+        self.write_queue({**submitted, **no_match, **pending})
+        with self.assertLogs("peach.jav_browser", level="WARNING") as logs:
+            restored = self.restore_queue()
+        self.assertEqual(len(restored.rows), 1000)
+        self.assertNotIn("ABD-100", restored.rows)
+        self.assertTrue(set(no_match) | set(pending) <= set(restored.rows))
+        self.assertEqual(len(self.queue_backups()), 1)
+        self.assertIn("dropped 51 ", logs.output[0])
+
     def test_owned_video_is_not_queued_or_searched(self):
         with self.app.state.web_contract.database.write_transaction() as connection:
             connection.execute("INSERT INTO asset(path,name,location,medium,code) VALUES(?,?,?,?,?)",
@@ -445,6 +527,16 @@ class BrowserTests(unittest.TestCase):
         clock[0] += 601
         self.assertFalse(probe("ssis00519"))
         self.assertEqual(asked, ["1sdjs00304v", "broken00001v", "ssis00519v"])
+
+    def test_verified_javbus_pages_match_forum_names_and_edition_suffixes(self):
+        for name in ('第一會所新片@SIS001@546EXM-001', '546EXM-001J', 'EXM-001-UNCENSORED-LEAK'):
+            item = {'name': name, 'uri': 'magnet:?xt=urn:btih:' + 'a' * 40,
+                    'source': 'JavBus', 'source_url': 'https://www.javbus.com/EXM-001'}
+            with self.subTest(name=name):
+                self.assertIs(_download_candidate([item], 'EXM-001'), item)
+        item = {**item, 'name': '546EXM-001J'}
+        self.assertIsNone(_download_candidate([{**item, 'source_url': 'https://www.javbus.com/EXM-002'}], 'EXM-001'))
+        self.assertIsNone(_download_candidate([{**item, 'source_url': 'https://example.test/EXM-001'}], 'EXM-001'))
 
     def test_no_match_requires_an_explicit_retry(self):
         self.service.search.return_value = {"items": []}
@@ -586,6 +678,9 @@ class BrowserTests(unittest.TestCase):
                          ("no_match", "其余来源没找到；JavDB 暂时访问不了，恢复后自动补查"))
         self.assertNotIn("retry_at", status)
         self.assertEqual(self.wants(), [("ABC-123", "code", "wanted")])
+        with self.service.contract.database.read_connection() as connection:
+            self.assertEqual(tuple(connection.execute(
+                "SELECT last_search_outcome, search_count FROM want_item").fetchone()), ("error", 0))
         # 来源恢复前清扫不重查，不去撞其余来源。
         now[0] += 3 * 3600
         self.assertFalse(self.service.process_one())

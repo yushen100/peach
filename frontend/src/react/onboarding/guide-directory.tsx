@@ -9,7 +9,6 @@ import { guideChapterComplete, type GuideProgress } from '../../onboarding/guide
 import { RiCheckboxCircleLine } from '@remixicon/react';
 import { Disclosure } from '../settings/section';
 import { EmptyState } from '../components/empty-state';
-import { cardClass } from '../components/card';
 import { t } from '../../i18n';
 
 type Glyph = RemixiconComponentType;
@@ -31,13 +30,15 @@ export function ChapterIcon({ chapter, className = 'size-5' }: { chapter: string
   return <Icon aria-hidden className={cx(className, 'shrink-0')} />;
 }
 
-/** 三条学习路径共用同一标题、图标和行动区。 */
+/** 三条学习路径共用同一标题、图标和行动区。不套卡面：教程窗口底色就是 `--ground`，
+ *  填充卡和它同色，只剩一圈看不见的内边距把内容推离页签和搜索框的左缘。
+ *  上下各让出一截，和页签、下方搜索框分开；行动键一律靠左，三个页签同一位置。 */
 export function GuideBanner({ icon: Icon, title, description, children, completed = false }: {
   icon: Glyph; title: string; description: string; children: ReactNode; completed?: boolean;
 }) {
-  return <section data-guide-banner="" data-guide-completed={completed || undefined} className={cardClass({ radius: 'plain', className: 'flex flex-col gap-4' })} aria-label={title}>
+  return <section data-guide-banner="" data-guide-completed={completed || undefined} className="flex min-w-0 flex-col gap-4 pt-3 pb-4" aria-label={title}>
     <div className="flex items-start gap-3"><span className="peach-guide-topic-icon"><Icon aria-hidden className="size-5" /></span><div className="flex min-w-0 flex-col gap-1"><h3 className="text-title-2-medium text-text-primary">{title}</h3><p className="text-body-2-regular text-text-secondary">{description}</p></div></div>
-    <div className="flex flex-wrap items-center justify-between gap-3">{children}</div>
+    <div className="flex flex-wrap items-center gap-3">{children}</div>
   </section>;
 }
 
@@ -70,8 +71,8 @@ export function GuideDirectory({ kind, query, setQuery, context, progress, loadi
   const matches = GUIDE_CHAPTERS.filter(item => item.kind === kind && `${item.title} ${item.summary} ${item.steps.map(step => `${step.title} ${step.body} ${(step.details || []).flat().join(' ')}`).join(' ')}`.toLowerCase().includes(search));
   return <div className="flex flex-col gap-4">
     <GuideBanner completed={completed} icon={kind === 'interface' ? RiCompass3Line : RiSettings3Line} title={kind === 'interface' ? t('onboarding:guideDirectory.interfaceTitle') : t('onboarding:guideDirectory.settingsTitle')} description={kind === 'interface' ? t('onboarding:guideDirectory.interfaceSummary', { count: quick.steps.length }) : t('onboarding:guideDirectory.settingsSummary')}>
-      {completed ? <CompletedLabel /> : <span className="text-body-2-regular text-text-secondary">{t('onboarding:guideDirectory.stepCountExitAnytime', { count: quick.steps.length })}</span>}
       <Button variant={completed ? 'secondary' : 'primary'} disabled={loading} onClick={() => start(quick, resume)}><span data-copy-key={`guide.${kind}.${loading ? 'loading' : completed ? 'replay' : resume ? 'resume' : 'start'}`}>{loading ? t('onboarding:guideDirectory.preparing') : completed ? t('onboarding:guideDirectory.replay') : kind === 'interface' ? resume ? t('onboarding:guideDirectory.resumeQuickTour') : t('onboarding:guideDirectory.startQuickTour') : resume ? t('onboarding:guideDirectory.resumeSettingsTour') : t('onboarding:guideDirectory.learnSettings')}</span></Button>
+      {completed ? <CompletedLabel /> : null}
     </GuideBanner>
     <TextField aria-label={t('onboarding:guideDirectory.searchLabel')} value={query} onChange={setQuery}><InputBase type="search" placeholder={kind === 'settings' ? t('onboarding:guideDirectory.searchSettings') : t('onboarding:guideDirectory.searchFeatures')} leadingIcon={RiSearchLine} /></TextField>
     {!search ? <>

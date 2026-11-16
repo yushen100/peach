@@ -68,6 +68,7 @@ function declaredAction(operation){
 
 function declaredConfirm(action,count){
   return {title:action.confirm.title,confirmLabel:action.confirm.title,danger:action.reversal==='irreversible'&&!!action.danger,
+    holdToConfirm:!!action.holdToConfirm,
     body:confirmBody(action.confirm.body(count),action.reversal,action.confirm.recovery)};
 }
 
@@ -197,6 +198,7 @@ applyDensity();
 configureHoverPreview({
   selecting:()=>selectMode,
   censored:()=>censorOn(),
+  enabled:()=>preferencesState.appSettings.hoverPreview,
   delaySeconds:()=>preferencesState.appSettings.hoverDelaySeconds,
 });
 applicationEffects.listen(window, 'pagehide', ()=>releaseHoverPreviews());

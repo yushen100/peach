@@ -8,7 +8,7 @@
  * 的常驻节点，换筛选、换视图都只挪不重建。源文件那两枚键仍由遗留层拼（照片详情里复用的是同一对），
  * 那一格用 `dangerouslySetInnerHTML`，React 不拥有里面的节点。 */
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import { Radio, RadioGroup } from 'react-aria-components';
+import { Radio } from 'react-aria-components';
 import { icon } from '@peach/legacy/core';
 
 import { FilterGlassRows, FilterIconButton, FilterPill } from '../components/filter-glass';
@@ -16,21 +16,22 @@ import { LibraryShortcuts } from '../library-shortcuts/shortcut-controls';
 import { AsyncText } from '../components/async-text';
 import { FolderBrowseToggle } from '../catalog-folders/catalog-folders-page';
 import { SEGMENTED_GLASS_TRACK, SEGMENT_GLASS } from '../components/segmented';
+import { GlassSegmentGroup } from '../components/glass-segments';
 import { spriteGlyph } from '../components/sprite-glyph';
-import { IconSwap } from '../components/icon-swap';
+import { SortKeys } from '../components/sort-controls';
 import { useViewGlide } from '../components/use-view-glide';
 import { useCatalogView } from '../catalog-grid/catalog-view';
 import { CatalogViewToggle } from '../catalog-grid/catalog-view-toggle';
 import { sourceIcon } from '../follow-feed/follow-marks';
 import {
   videoOnly, type EntityComboItem, type EntityFilterActions, type EntityFilterHelpers, type EntityFilterProps, type EntityOnlineHead,
-  type EntityPhotoHead, type EntitySortKey, type EntityVideoHead, type EntityView, type EntityViewKeys, type SegmentOption,
+  type EntityPhotoHead, type EntityVideoHead, type EntityView, type EntityViewKeys, type SegmentOption,
 } from './entity-filter';
 import { t } from '../../i18n';
 
 const Sep = () => <span data-entity-sep="" aria-hidden="true" />;
 const ShuffleIcon = spriteGlyph('shuffle');
-const SortUpIcon = spriteGlyph('arrow-up'), SortDownIcon = spriteGlyph('arrow-down');
+export { SortKeys } from '../components/sort-controls';
 
 export function EntityFilterPage(props: EntityFilterProps) {
   const { view, views, state, states, tags, combo, actions, helpers } = props;
@@ -253,7 +254,7 @@ export function Segments({ name, label, value, options, onChange }: {
   name?: string; label: string; value: string; options: readonly SegmentOption[]; onChange(value: string): void;
 }) {
   return (
-    <RadioGroup name={name} aria-label={label} orientation="horizontal" value={value} onChange={onChange}
+    <GlassSegmentGroup name={name} aria-label={label} orientation="horizontal" value={value} onChange={onChange}
       data-entity-layout="" className={SEGMENTED_GLASS_TRACK}>
       {options.map(([option, text, symbol]) => {
         const Glyph = spriteGlyph(symbol);
@@ -263,7 +264,7 @@ export function Segments({ name, label, value, options, onChange }: {
           </Radio>
         );
       })}
-    </RadioGroup>
+    </GlassSegmentGroup>
   );
 }
 
@@ -284,25 +285,8 @@ function VideoControls({ head, actions }: { head: EntityVideoHead; actions: Enti
       ) : null}
       <CatalogViewToggle />
       <FolderBrowseToggle />
-      <SortKeys sorts={head.sorts} onSort={actions.setSort} />
+      <SortKeys group={head.jav ? 'jav' : 'catalog'} sorts={head.sorts} onSort={actions.setSort} />
     </span>
-  );
-}
-
-/** 一排排序键。方向只画在选中的那一枚上：箭头既是当前方向，也是「再点一次能翻」的唯一提示。
- *  无障碍名称播报的是点下去会得到什么，当前状态由 `aria-pressed` 与这枚箭头各自表达。 */
-export function SortKeys({ sorts, onSort }: { sorts: readonly EntitySortKey[]; onSort(key: string): void }) {
-  return (
-    <>
-      {sorts.map((sort) => {
-        return (
-          <button key={sort.key} type="button" data-entity-sort={sort.key} data-entity-press=""
-            aria-pressed={sort.pressed} aria-label={sort.ariaLabel || undefined} onClick={() => onSort(sort.key)}>
-            {sort.label}{sort.pressed && sort.dir ? <IconSwap a={SortUpIcon} b={SortDownIcon} state={sort.dir === 'asc' ? 'a' : 'b'} className="size-(--icon-inline)" /> : null}
-          </button>
-        );
-      })}
-    </>
   );
 }
 
@@ -321,7 +305,7 @@ function OnlineControls({ head, actions }: { head: EntityOnlineHead; actions: En
           </button>
         </>
       ) : null}
-      <SortKeys sorts={head.sorts} onSort={actions.onlineSort} />
+      <SortKeys group="follow" sorts={head.sorts} onSort={actions.onlineSort} />
     </span>
   );
 }

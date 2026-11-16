@@ -359,12 +359,21 @@ def q_jav_releases(contract, args):
         size, page = RELEASE_PAGE_SIZE, 1
     with contract.read_connection() as connection, entities.memoized_resolution():
         rows, shown, matches, sort, descending = _release_listing(contract, connection, args)
+        if args.get('column'):
+            facet = {'people': 'performer', 'studio': 'studio', 'tags': 'tag'}.get(args['column'])
+            if facet is None:
+                raise ValueError('invalid release facet column')
+            query, offset, limit = web_catalog.column_page(args)
+            return _release_facet(contract, rows, facet, matches, query=query, offset=offset, limit=limit, paged=True)
         facets = {facet: _release_facet(contract, rows, facet, matches) for facet in RELEASE_FACETS}
         picked = shown[(page - 1) * size:page * size]
         wanted = wants.wanted_keys(connection, (web_catalog.normalise_code_key(row["code"]) for row in picked))
     states = feed_followup.cover_states(contract, picked)
     for row in picked:
         row["wanted"] = web_catalog.normalise_code_key(row["code"]) in wanted
+        if row.get('studio'):
+            row['studio_ref'] = {'name': row['studio'], 'has_logo': contract.has_logo(row['studio']),
+                                 'logo_version': contract.logo_version(row['studio'])}
         row.update(has_cover=contract.has_cover(row["code"]), cover_frame=contract.cover_frame(row["code"]),
                    cover_version=contract.cover_version(row["code"]), poster_box=contract.poster_box(row["code"]),
                    **web_feeds.cover_state_fields(states, row["code"]))
@@ -379,9 +388,11 @@ def _release_listing(contract, connection, args):
     sort = args.get("sort") if args.get("sort") in RELEASE_SORTS else "release_date"
     descending = args.get("direction") != "asc"
     matches = _release_matcher({facet: str(args.get(facet) or "").strip() for facet in RELEASE_FACETS},
-                               str(args.get("q") or "").strip().casefold())
-    rows = _release_order(_release_rows(contract, connection, taste=sort == "taste"), sort, descending,
-                          str(args.get("seed") or ""))
+                               str(args.get("q") or "").strip().casefold(),
+                               web_catalog.column_filters(args.get('column_filters'), {'people', 'studio', 'tags'}))
+    rows = _release_rows(contract, connection, taste=sort == "taste" and not args.get('column'))
+    if not args.get('column'):
+        rows = _release_order(rows, sort, descending, str(args.get("seed") or ""))
     return rows, [row for row in rows if matches(row)], matches, sort, descending
 
 
@@ -436,17 +447,28 @@ def _release_rows(contract, connection, *, taste):
     return rows
 
 
-def _release_matcher(chosen, query):
+def _release_matcher(chosen, query, columns=None):
     """筛选判据：文字匹配番号、标题、出演、厂牌与标签，三个维度各按所选值；`skip` 的那一维不看。"""
     def matches(row, skip=None):
         if query and query not in " ".join([row["code"] or "", row["title"] or "", row["performers"], row["studio"] or "",
                                             *row["tags"]]).casefold():
             return False
-        return all(not value or facet == skip or value in _release_values(row, facet) for facet, value in chosen.items())
+        if not all(not value or facet == skip or value in _release_values(row, facet) for facet, value in chosen.items()):
+            return False
+        for column, selection in (columns or {}).items():
+            exclude = isinstance(selection, dict)
+            values = selection['exclude'] if exclude else selection
+            facet = {'people': 'performer', 'studio': 'studio', 'tags': 'tag'}[column]
+            accepted = [value.removeprefix('performer:') for value in values] if column == 'people' else values
+            if facet != skip:
+                overlap = bool(set(accepted).intersection(_release_values(row, facet)))
+                if (exclude and overlap) or (not exclude and not overlap):
+                    return False
+        return True
     return matches
 
 
-def _release_facet(contract, rows, facet, matches):
+def _release_facet(contract, rows, facet, matches, *, query='', offset=0, limit=24, paged=False):
     """一个维度的筛选项：本维度不计、其余条件生效的行集里出现过的值与部数，部数多的在前。"""
     counts, first = {}, {}
     for row in rows:
@@ -455,10 +477,25 @@ def _release_facet(contract, rows, facet, matches):
                 counts[value] = counts.get(value, 0) + 1
                 first.setdefault(value, row)
     ordered = sorted(counts.items(), key=lambda pair: (-pair[1], pair[0]))
+    if query:
+        search, parameters = web_catalog.column_search(query)
+        with contract.read_connection() as connection:
+            matched_ids = {row[0] for row in connection.execute(
+                "SELECT e.id FROM entity e WHERE e.kind=? AND " + search, [facet, *parameters])}
+        ordered = [(name, count) for name, count in ordered if query.casefold() in name.casefold()
+                   or (facet == 'performer' and any(ref.get('id') in matched_ids for ref in first[name]['performer_refs']
+                                                   if ref['name'] == name))]
+    more = len(ordered) > offset + limit
+    ordered = ordered[offset:offset + limit]
     if facet == "performer":
-        return [{**next(ref for ref in first[name]["performer_refs"] if ref["name"] == name), "count": count}
-                for name, count in ordered]
-    if facet == "studio":
-        return [{"name": name, "count": count, "has_logo": contract.has_logo(name), "logo_version": contract.logo_version(name)}
-                for name, count in ordered]
-    return [{"name": name, "count": count} for name, count in ordered]
+        people = [{**next(ref for ref in first[name]["performer_refs"] if ref["name"] == name),
+                   "avatar_code": first[name]['code'], "count": count} for name, count in ordered]
+        with contract.read_connection() as connection:
+            web_catalog.attach_entity_aliases(connection, people)
+        options = people
+    elif facet == "studio":
+        options = [{"name": name, "count": count, "has_logo": contract.has_logo(name), "logo_version": contract.logo_version(name)}
+                   for name, count in ordered]
+    else:
+        options = [{"name": name, "count": count} for name, count in ordered]
+    return {'items': options, 'has_more': more, 'next_offset': offset + len(options) if more else None} if paged else options

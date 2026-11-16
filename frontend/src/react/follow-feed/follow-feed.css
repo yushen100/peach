@@ -315,7 +315,7 @@
   --card-meta-byline: max(1lh, 21px);
   --card-meta-tags: calc(var(--fs-xs) * 1.45 + var(--tag-pad-y) * 2 + 2px + 6px);
 }
-body[data-density="dense"]:not([data-surface="/trash"]) .peach-react [data-follow-item] [data-media-meta] {
+body[data-density="dense"] .peach-react [data-follow-item] [data-media-meta] {
   --card-meta-block: calc(var(--fs-md) * 1.35 + 6px + var(--card-meta-byline) + var(--card-meta-tags));
 }
 .peach-react [data-follow-list]:not([data-follow-wall]) [data-follow-item] [data-media-meta] {
@@ -336,15 +336,15 @@ body:not([data-density="dense"]) .peach-react [data-follow-list]:not([data-follo
   }
   /* 关注卡也是 `data-media-card`，密集档把标题行钉成 1.35em 的那条网格会把两行标题切成一行；
      同首页单列卡改回按内容排的竖列。 */
-  body[data-density]:not([data-surface="/trash"]) .peach-react [data-follow-list] [data-follow-item] [data-media-text] {
+  body[data-density] .peach-react [data-follow-list] [data-follow-item] [data-media-text] {
     display: flex; flex-direction: column; height: auto;
   }
-  body[data-density]:not([data-surface="/trash"]) .peach-react [data-follow-item] [data-media-title] {
+  body[data-density] .peach-react [data-follow-item] [data-media-title] {
     display: -webkit-box; min-height: 0; white-space: normal; -webkit-line-clamp: 2;
   }
   /* 同首页单列卡（`../components/media-card.css` 的 `[data-single-column]`）：署名行 20px 一行，
      密集档也一样，要压过密集档钉成 1.35em 的那条。 */
-  body[data-density]:not([data-surface="/trash"]) .peach-react [data-follow-list] [data-follow-item] [data-media-byline] { height: auto; min-height: 20px; line-height: 20px; }
+  body[data-density] .peach-react [data-follow-list] [data-follow-item] [data-media-byline] { height: auto; min-height: 20px; line-height: 20px; }
 }
 /* 已看的卡片保持原样：看过不等于不想再看，只有忽略的才淡下去。 */
 .peach-react [data-follow-item][data-status="ignored"] { opacity: .62; }

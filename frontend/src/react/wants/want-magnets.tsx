@@ -1,6 +1,6 @@
 /* 卡片下方的磁链候选。可见时查询，提交复用云下载的幂等与失败分类。 */
 import { useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
-import { RiLink, RiHardDrive2Line, RiFileList2Line,
+import { RiHardDrive2Line, RiFileList2Line,
   RiCalendarLine, RiPriceTag3Line, RiExternalLinkLine, RiFileCopyLine, RiCloudLine, RiRefreshLine } from '@remixicon/react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button, ButtonLink } from '@/components/base/buttons/button';
@@ -13,11 +13,12 @@ import { ActivityStatus } from '../components/activity-motion';
 import { Note } from '../components/note';
 import { busyProps, useAction } from '../settings/use-action';
 import type { Want } from './wants';
-import { recordWantMagnets } from './wants';
+import { recordWantMagnets, recordFoundWants, invalidateWants } from './wants';
 import { Disclosure } from '../settings/section';
 import { cachedResources, rememberResources, resourcesFresh } from './resource-cache';
-import { providerIcon } from '../components/source-label';
-import { resourceNotice, resourceSize } from './resource-display';
+import { providerIcon, ScrapeSourceLabel } from '../components/source-label';
+import { resourceNotice, resourceSize, resourceSourceKey } from './resource-display';
+import { SiteMark } from '../components/site-mark';
 import { codedText, serverLabel } from '../../core/server-text';
 import { editionText } from '../../core/jav-title';
 import { t } from '../../i18n';
@@ -35,10 +36,14 @@ export interface MagnetResult {
   error: string; checked_at: string | null; warnings?: string[];
   error_code?: string; error_params?: Record<string, unknown>;
   warning_codes?: (string | null)[]; warning_params?: (Record<string, unknown> | null)[];
+  warning_sources?: string[];
   source_url?: string;
+  source_pages?: { source: string; label: string; url: string }[];
   cache_stale?: boolean;
   complete?: boolean;
 }
+
+export interface ResourceSourcePage { source: string; label: string; url: string }
 
 /** 资源搜索在跑时隔 3 秒读一次，搜完就停；读失败按连续失败次数退避。 */
 export const magnetsInterval = withBackoff<MagnetResult>((data) => (data?.state === 'busy' ? 3000 : false));
@@ -51,9 +56,9 @@ function ResourceFact({ icon: Icon, children, title }: { icon: ComponentType<{ c
   return <span title={title} className="inline-flex items-center gap-1"><Icon aria-hidden className="size-(--icon-inline) shrink-0" />{children}</span>;
 }
 
-export function WantMagnets({ want, readOnly, downloads, provider, toast, onSource, queryUrl, eager = false }: {
+export function WantMagnets({ want, readOnly, downloads, provider, toast, onSources, queryUrl, eager = false }: {
   want: Pick<Want, 'id' | 'code' | 'title' | 'release_date'>; readOnly: boolean; downloads?: DownloadsSnapshot; provider: string; toast(message: string): void;
-  onSource?(url: string): void;
+  onSources?(pages: ResourceSourcePage[]): void;
   queryUrl?: string;
   eager?: boolean;
 }) {
@@ -61,6 +66,7 @@ export function WantMagnets({ want, readOnly, downloads, provider, toast, onSour
   const [visible, setVisible] = useState(eager || typeof IntersectionObserver === 'undefined');
   const [submitted, setSubmitted] = useState<string[]>([]);
   const action = useAction();
+  const reconciliation = useAction();
   const client = useQueryClient();
   const refresh = useRef(false);
   const cacheCode = queryUrl ? `comment-resources:${queryUrl}:${want.code}` : `all-sources:${want.code || ''}`;
@@ -94,13 +100,31 @@ export function WantMagnets({ want, readOnly, downloads, provider, toast, onSour
     refetchOnWindowFocus: false,
     refetchInterval: magnetsInterval,
   });
+  const sourcePages = useMemo(() => {
+    const pages = new Map<string, ResourceSourcePage>();
+    for (const page of query.data?.source_pages || []) {
+      const source = resourceSourceKey(page.source);
+      if (!pages.has(source)) pages.set(source, { ...page, source });
+    }
+    if (query.data?.source_url) pages.set('javdb',
+      { source: 'javdb', label: 'JavDB', url: query.data.source_url });
+    for (const item of query.data?.items || []) {
+      const source = resourceSourceKey(item.source);
+      if (item.source_url && !pages.has(source)) pages.set(source,
+        { source, label: serverLabel(item.source_code ?? '', item.source), url: item.source_url });
+    }
+    return [...pages.values()];
+  }, [query.data]);
+  useEffect(() => { onSources?.(sourcePages) }, [sourcePages, onSources]);
   useEffect(() => {
-    if (query.data?.source_url) onSource?.(query.data.source_url);
-  }, [query.data?.source_url, onSource]);
-  useEffect(() => {
-    if (!queryUrl && query.data && (query.data.state === 'ready' || query.data.items.length > 0))
-      recordWantMagnets(want.id, query.data.items.some(item => item.protocol === 'magnet'));
-  }, [query.data, queryUrl, want.id]);
+    if (!queryUrl && query.data && (query.data.state === 'ready' || query.data.items.length > 0)) {
+      const available = query.data.items.some(item => item.protocol === 'magnet');
+      const previous = recordWantMagnets(want.id, available);
+      if (!readOnly && available && previous && (previous.phase === 'given_up'
+          || previous.phase === 'searching' && previous.last_search_outcome !== 'found'))
+        void reconciliation.run(`found:${want.id}`, signal => recordFoundWants([want.id], signal), () => { void invalidateWants() });
+    }
+  }, [query.data, query.dataUpdatedAt, queryUrl, want.id, readOnly]);
   const configured = downloads?.providers.find((row) => row.key === provider && row.configured);
   const add = (candidate: MagnetCandidate) => {
     if (readOnly || !downloads?.available || !configured || candidate.protocol !== 'magnet') return;
@@ -125,6 +149,15 @@ export function WantMagnets({ want, readOnly, downloads, provider, toast, onSour
   };
   const waiting = query.isFetching || query.data?.state === 'busy';
   const failure = query.error ? errorMessage(query.error) : codedText(query.data, 'error');
+  const incomplete = !query.error && query.data?.error_code === 'labels.magnetChain.incomplete';
+  const warnings = query.data?.warnings?.map((warning, index) => {
+    const code = query.data?.warning_codes?.[index] ?? '';
+    const params = query.data?.warning_params?.[index];
+    const source = query.data?.warning_sources?.[index] || (code.startsWith('labels.javdbPublic.') || code === 'labels.magnetChain.staleReused'
+      ? 'javdb' : resourceSourceKey(String(params?.source || '')));
+    return { text: serverLabel(code, resourceNotice(warning), params), source,
+      informational: code === 'labels.javdbPublic.reviewPagesQueried' || resourceNotice(warning) !== warning };
+  }) || [];
   return (
     <div ref={root} data-want-magnets="" className="flex min-w-0 flex-col gap-3 border-t border-separator-border pt-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -135,14 +168,16 @@ export function WantMagnets({ want, readOnly, downloads, provider, toast, onSour
       </div>
       {/* 还没有结果时是整块面板在等，动画大一档摆在正中；已有结果时换一批，等待留在行内。 */}
       {waiting ? <ActivityStatus kind="radar" size={query.data?.items.length ? 'inline' : 'block'} label={t('catalog:wantMagnets.searching')} /> : null}
-      {failure ? <Note tone="error" title={t('catalog:wantMagnets.notFound')}>{failure}</Note> : null}
-      {query.data?.warnings?.map((warning, index) => <Note key={warning} tone="neutral">
-        {serverLabel(query.data?.warning_codes?.[index] ?? '', resourceNotice(warning), query.data?.warning_params?.[index])}</Note>)}
-      {query.data?.warnings?.length && query.data.source_url ? <ButtonLink variant="secondary" size="small" className="self-start"
-        trailingIcon={RiExternalLinkLine} href={query.data.source_url} target="_blank" rel="noopener noreferrer">{t('catalog:wantMagnets.viewSourcePage')}</ButtonLink> : null}
+      {failure && (!incomplete || !warnings.length) ? <Note tone="error" title={t('catalog:wantMagnets.notFound')}>{failure}</Note> : null}
+      {warnings.map((warning) => <Note key={warning.text} tone={warning.informational ? 'neutral' : 'error'}>
+        <span className="inline-flex items-center gap-1.5">{warning.source ? <SiteMark source={warning.source} /> : null}{warning.text}</span></Note>)}
+      {!onSources && sourcePages.length ? <div className="flex flex-wrap gap-2">{sourcePages.map(page =>
+        <ButtonLink key={page.source} data-button-link="" variant="secondary" size="small" trailingIcon={RiExternalLinkLine}
+          href={page.url} target="_blank" rel="noopener noreferrer"><ScrapeSourceLabel source={page.source} label={page.label} /></ButtonLink>)}</div> : null}
       {query.data?.state === 'ready' && !query.data.items.length && !query.data.warnings?.length
         ? <Note tone="neutral">{t('catalog:wantMagnets.noneYet')}</Note> : null}
       {action.error ? <Note tone="error" title={t('catalog:shared.actionFailed')}>{action.error}</Note> : null}
+      {reconciliation.error ? <Note tone="error" title={t('catalog:wants.actionFailed')}>{reconciliation.error}</Note> : null}
       {query.data?.items.length ? (() => {
         const rows = query.data.items.map((candidate) => {
           const added = submitted.includes(candidate.id) || downloads?.tasks.some((task) => candidate.protocol === 'magnet' &&
@@ -156,7 +191,7 @@ export function WantMagnets({ want, readOnly, downloads, provider, toast, onSour
                 <p data-resource-title="" title={candidate.name} className="min-w-0 flex-1 text-body-2-medium text-text-primary">{candidate.name}</p>
               </div>
               <div data-resource-facts="" className="flex flex-wrap gap-x-2 gap-y-1 text-caption-1-regular text-text-secondary">
-                <ResourceFact icon={RiLink}>{serverLabel(candidate.source_code ?? '', candidate.source)}</ResourceFact>
+                <ScrapeSourceLabel source={resourceSourceKey(candidate.source)} label={serverLabel(candidate.source_code ?? '', candidate.source)} />
                 <ResourceFact icon={RiHardDrive2Line} title={candidate.size ? t('catalog:wantMagnets.sourceSize', { size: candidate.size }) : undefined}>{resourceSize(candidate.size)}</ResourceFact>
                 {/* i18n-exempt: 来源给的文件数是内容，只把繁体量词规范成简体 */}
                 {candidate.files ? <ResourceFact icon={RiFileList2Line}>{candidate.files.replaceAll('個', '个')}</ResourceFact> : null}

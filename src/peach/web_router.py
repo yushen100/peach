@@ -23,7 +23,7 @@ from .web_activity import (
     w_quality_goal,
     w_watch_later,
 )
-from .web_batch import q_ads, q_duplicates, w_batch, w_empty_trash
+from .web_batch import q_ads, q_duplicates, w_ads_dispose_all, w_ads_restore_all, w_batch, w_empty_trash
 from .web_entity_batch import q_entity_batch_plan, w_entity_batch
 from .web_performer_delete import q_performer_delete_candidates, q_performer_delete_plan, w_performer_delete
 from .web_tags import q_tag_management, w_tag_management, w_tag_preview
@@ -32,6 +32,7 @@ from .taste_browsing import q_taste_signals
 from .web_catalog import (
     FACETS_TABLES,
     catalog_filter,
+    column_page,
     q_editions,
     q_facets,
     q_item,
@@ -221,26 +222,32 @@ FACET_ENUM_FILTERS = frozenset({"loc", "len", "orient", "region", "exclude_verti
 
 def _get_facets(contract, args):
     jav = args.get("jav") == "1"
+    column = str(args.get("column", ""))
     scope_kind = str(args.get("scope_kind", ""))
     scope_name = str(args.get("scope_name", ""))
     asset_id = int(args["id"]) if args.get("id") else None
     state = str(args.get("state", ""))
-    scope_key = f"{scope_kind}:{scope_name}:{asset_id or ''}:{state}"
+    scope_key = f"{scope_kind}:{scope_name}:{asset_id or ''}:{state}:{column}"
     filters = {key: args[key] for key in (
         'loc', 'creator', 'performer', 'studio', 'series', 'agency', 'tag', 'tag_match',
         'len', 'dur_min', 'dur_max', 'orient', 'region', 'exclude_vertical', 'q', 'thumb',
-        'library', 'folder', 'folder_recursive', 'year',
+        'library', 'folder', 'folder_recursive', 'year', 'owner', 'column_filters',
     ) if args.get(key)}
     if not filters.get("tag"):
         filters.pop("tag_match", None)
     scope_key += repr(sorted(filters.items()))
+    column_query, column_offset, column_limit = column_page(args) if column else ('', 0, 24)
+    scope_key += repr((column_query, column_offset, column_limit)) if column else ''
     compute = lambda: q_facets(  # noqa: E731
         contract,
         jav=jav, scope_kind=scope_kind, scope_name=scope_name, asset_id=asset_id,
-        state=state, filters=filters or None,
+        state=state, filters=filters if column else filters or None, column=column, column_query=column_query,
+        column_offset=column_offset, column_limit=column_limit,
     )
     # 首页与侧栏几组枚举筛选（来源、时长、画幅、产地、媒体库）的组合有限，按账本版本缓存；
     # 实体、详情、搜索词、标签与时长区间的键空间不封闭，照旧走 TTL 缓存。
+    if column:
+        return contract.cached_lru(f"column-facets{'-jav' if jav else ''}:{scope_key}", compute)
     if (not (scope_kind or scope_name or asset_id is not None) and state in FACET_STATES
             and set(filters) <= FACET_ENUM_FILTERS):
         library = (repr(media_libraries.predicate(settings_file.active(), filters['library']))
@@ -503,6 +510,8 @@ POST_HANDLERS = {
     "/api/item-tag": w_item_tag,
     "/api/item-edit": w_item_edit,
     "/api/batch": w_batch,
+    "/api/ads/dispose-all": w_ads_dispose_all,
+    "/api/ads/restore-all": w_ads_restore_all,
     "/api/search-history": w_search_history,
     "/api/taste/refresh": w_taste_refresh,
     "/api/taste/source": w_taste_source,
@@ -558,7 +567,7 @@ READ_ONLY_POST_ROUTES = frozenset({
 
 #: 用户在页面上点开才发的读请求：库外详情、评论与磁链、查找资源弹层、按名字搜 JavDB 演员。
 #: 只有这几条带登录账号的 Cookie（`scraping_access.with_account`），后台任务一律匿名取页。
-ACCOUNT_ROUTES = frozenset({"/api/resources/search", "/api/jav/detail", "/api/jav/reviews", "/api/jav/resources",
+ACCOUNT_ROUTES = frozenset({"/api/resources/search", "/api/jav/detail", "/api/jav/reviews", "/api/jav/resources", "/api/wants/magnets",
                             "/api/feeds/lookup"})
 
 

@@ -55,8 +55,8 @@ _GOLDEN = 0.6180339887498949
 #: 被镜像站塞进整站索引）会给出几千条，那不该变成几千个壳。
 MAX_ENTRIES = 200
 
-#: 一轮拉取最多派多少条刮削后继。真正的上限由 `task_runs.MAX_FOLLOWUPS` 判，
-#: 这里先截一刀是为了让第一次订阅不至于把整页历史都排成任务。
+#: 一轮拉取最多派多少部新作品给刮削后继，所有新作品仍建壳等待后续批次。
+#: 真正的后继上限由 task_runs.MAX_FOLLOWUPS 判，避免首次订阅把整页历史排成任务。
 MAX_NEW_PER_POLL = 20
 
 #: 切词元用的分隔符。标题里的番号被剧情简介夹着时，整段丢给
@@ -96,6 +96,25 @@ GROUP_COMPILATION = "group"
 EXCERPT = "excerpt"
 EXCERPT_STUDIOS = frozenset({"ハイライト"})
 DEFAULT_HIDDEN_COMPILATIONS = frozenset({GROUP_COMPILATION, EXCERPT})
+#: 三个收起开关在设置里的键与各自对应的那一类，没设过的取 `DEFAULT_HIDDEN_COMPILATIONS`。
+FEED_COMPILATION_SWITCHES = (
+    ("feedHideGroupCompilations", GROUP_COMPILATION),
+    ("feedHideSoloCompilations", SOLO_COMPILATION),
+    ("feedHideExcerpts", EXCERPT),
+)
+
+
+def compilation_switches(settings: dict) -> dict[str, bool]:
+    """设置载荷里三个收起开关的值；没设过或不是布尔的按缺省。"""
+    return {key: settings[key] if isinstance(settings.get(key), bool)
+            else kind in DEFAULT_HIDDEN_COMPILATIONS
+            for key, kind in FEED_COMPILATION_SWITCHES}
+
+
+def hidden_compilations(settings: dict) -> frozenset[str]:
+    """按设置载荷，新作那一行收起哪几类合集。"""
+    switches = compilation_switches(settings)
+    return frozenset(kind for key, kind in FEED_COMPILATION_SWITCHES if switches[key])
 
 
 def compilation_kind(title: str | None, performers: str | None,
@@ -617,9 +636,9 @@ def poll(connection: sqlite3.Connection, source: sqlite3.Row,
     写入顺序是源给出的倒序：无日期的条目按旧→新拿到递增的 id，于是「没有发布时间」
     的那些在列表里也还排得出先后。建壳仍按源给出的顺序，最新的先排上刮削。
 
-    条目自带出演名单的（DMM 片单），按 `compilation_kind` 认出是设置里收起的那类合集就只记
-    条目、不建壳：DMM 片单头几页多是三五十人的合集（森日向子 第一页 100 部里排在最前的
-    预购就有 4 部），建了壳也不列，却会占掉这一轮 `MAX_NEW_PER_POLL` 的名额和取资料的配额。
+    条目自带出演名单的（DMM 片单），按合集类型过滤后只记录条目、不建壳。
+    其余新番号全部建壳，避免达到每轮新作数量上限后丢失待处理资格；
+    本轮后继仅派前二十部，其余留给存量队列逐批处理。
     """
     source_id = int(source["id"])
     entity_id = source["entity_id"]
@@ -641,14 +660,13 @@ def poll(connection: sqlite3.Connection, source: sqlite3.Row,
                 and compilation_kind(entry.title, entry.performers, entry.studio) in hidden):
             compilations += 1
             continue
-        if len(created) >= MAX_NEW_PER_POLL:
-            break
         shell = create_shell(connection, code, source_id=source_id,
                              title=entry.title or None, link=entry.link,
                              release_date=(entry.published_at or "")[:10] or None,
                              performers=entry.performers, studio=entry.studio,
                              entity_id=entity_id, now=moment)
-        if shell is not None:
+        # 全部新番号先建壳；仅限制这一轮派出的后继。未派的壳由存量队列继续处理。
+        if shell is not None and len(created) < MAX_NEW_PER_POLL:
             created.append((shell, code))
     return {"seen": len(parsed.entries), "fresh": len(fresh),
             "without_code": skipped, "compilations": compilations, "created": created}

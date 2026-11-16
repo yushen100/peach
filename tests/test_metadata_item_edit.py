@@ -240,6 +240,18 @@ class ItemCoverTests(unittest.TestCase):
         self.assertEqual(self.target.read_bytes(), original)
         self.assertFalse(is_user_cover(self.target))
 
+    def test_the_scraped_front_image_is_backed_up_and_restored_with_its_cover(self):
+        """竖版正封与封面同名，备份时不能和封面落在同一层互相覆盖。"""
+        original = self.scraped_cover()
+        front = self.target.parent / "front" / self.target.name
+        front.parent.mkdir(parents=True, exist_ok=True)
+        portrait = self.image(560, 800, color=(200, 10, 10))
+        front.write_bytes(portrait)
+        set_user_cover(self.contract, 1, self.image())
+        self.assertFalse(front.exists(), "用户换上的封面不配刮削来的竖版正封")
+        restore_user_cover(self.contract, 1)
+        self.assertEqual((self.target.read_bytes(), front.read_bytes()), (original, portrait))
+
     def test_restoring_without_a_scraped_cover_leaves_none(self):
         set_user_cover(self.contract, 1, self.image())
         self.assertFalse(restore_user_cover(self.contract, 1)["restored"])

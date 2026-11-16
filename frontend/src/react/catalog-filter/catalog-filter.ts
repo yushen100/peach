@@ -74,8 +74,12 @@ export interface CatalogFilterActions {
   /** 换一批：网格与三层成员一起换，换批键转圈到这个 Promise 落定。 */
   reshuffle(): Promise<void>;
   setLayout(value: string): void;
+  /** 读数旁的「显示全部」：撤掉「只显示有预览图」，这一次看全部。 */
+  showAll?(): void;
   /** 某一排手上这份摆完了，要下一页。返回空数组就是到底了。 */
   moreTops(kind: TierKind): Promise<TierPerformer[] | TierStudio[]>;
+  /** 回收站浮层上的「清空回收站」：壳弹确认框，写明不能撤销。 */
+  emptyTrash(): void;
 }
 
 /** 仍由遗留层给的接线。 */
@@ -101,10 +105,14 @@ export interface CatalogFilterProps {
   state: string;
   /** 读数。取数期间为空，换成一条微光；`false` 是这一趟取数失败，读数收起，失败与重试由网格那条提示说。 */
   count: { total: number; shown: number } | null | false;
-  /** 回收站是待清理队列：读数挂在说明行上，这里没有下排。 */
+  /** 回收站：浮层只留下排（读数、清空回收站、版式、卡片／列表与排序），画进 `trashHost`。 */
   trash: boolean;
+  /** 回收站浮层的宿主（`#trashFilter`）：它住在正文里管理页头下面，首页那个宿主在正文外、标题上面。 */
+  trashHost: Element | null;
   sorts: EntitySortKey[];
   layout: CatalogLayout | null;
+  /** 正只显示有预览图的作品（设置或地址上的 `thumb=1`）：读数旁给「显示全部」。 */
+  previewOnly?: boolean;
   /** 换一批这一趟：三层与标签铺一层微光，换批键转圈。 */
   refreshing: boolean;
   /** 筛选条被收起（资料页、索引页与管理页）：浮层两排不画，只留两排头像。 */

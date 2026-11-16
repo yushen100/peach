@@ -13,7 +13,7 @@ import { createPortal } from 'react-dom';
 import { entityFaceImg, facePos } from '@peach/card-art';
 import { entityPath, esc, firstGrapheme, icon } from '@peach/legacy/core';
 import { textLang } from '../../core/text-lang';
-import { entityDisplayName, nameLanguage } from '../../core/entity-names';
+import { entityDisplayName, nameScript } from '../../core/entity-names';
 import { useEntityNames } from '../use-entity-names';
 
 import { Button } from '@/components/base/buttons/button';
@@ -85,8 +85,9 @@ export function EntityHeroPage({ kind, name, entity, feedNew, feedHost, feedErro
           <div data-entity-identity="">
             <div data-entity-title="">
               <h2 lang={textLang(displayName)}>{displayName}</h2>
-              {kind !== 'tag' ? <NamePicker current={entity.canonical_name} choices={nameChoices(entity, nameLanguage())}
-                onChoose={actions.chooseName} onAddAlias={actions.addAlias} onMerge={actions.mergeDuplicate} /> : null}
+              {kind !== 'tag' ? <NamePicker current={entity.canonical_name} choices={nameChoices(entity, nameScript())}
+                onChoose={actions.chooseName} onAddAlias={actions.addAlias} onMerge={actions.mergeDuplicate}
+                onDelete={actions.deleteProfile} /> : null}
               {entity.id ? <FavoriteButton item={{ entity_id: Number(entity.id), kind, name: entity.canonical_name || name, favorite: entity.favorite }} /> : null}
             </div>
             <PendingWork work={entity.pending_work} />
@@ -183,7 +184,7 @@ function AliasLine({ kind, entity, actions }: { kind: string; entity: EntityHero
     : agency.name) : null;
   const count = <BoldCount text={t('catalog:entityHero.videoCountBold', { count: entity.asset_count, num: NUM_MARK })} count={entity.asset_count} />;
   if (kind === 'performer' || kind === 'creator') {
-    const groups = entity.name_display?.groups[nameLanguage()] ?? entity.name_groups;
+    const groups = entity.name_display?.groups[nameScript()] ?? entity.name_groups;
     const line = nameLine(groups);
     return (
       <div data-entity-alias="meta">

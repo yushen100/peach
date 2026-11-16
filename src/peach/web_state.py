@@ -627,10 +627,11 @@ class WebContract:
                     if has_javdb_source(Path(entry.path)):
                         continue
                     stem = entry.path[:-len(".jpg")]
+                    record = self._poster_record(stem + jav_poster_crop.SIDECAR_SUFFIX)
                     scanned[entry.name[:-len(".jpg")].casefold()] = {
-                        "frame": self._cover_focus(stem + ".face.json"),
-                        "poster": self._poster_box(
-                            stem + jav_poster_crop.SIDECAR_SUFFIX),
+                        "frame": self._with_poster_layout(self._cover_focus(stem + ".face.json"), record,
+                                                          Path(entry.path)),
+                        "poster": jav_poster_crop.projection(record),
                         "version": f"{entry.stat().st_mtime_ns:x}",
                     }
         except OSError:
@@ -639,7 +640,7 @@ class WebContract:
 
     @staticmethod
     def _cover_focus(sidecar: str) -> dict | None:
-        """sidecar 里的人脸中心与整幅画面标记。缺少坐标时页面退回固定取景。
+        """sidecar 里的人脸中心（整幅画面有更大的主体部位时用它）与整幅画面标记。缺少坐标时页面退回固定取景。
 
         两个轴都给出去：哪个轴生效由容器和图片的宽高比决定，不由这里判断。
         缺哪个键就不带哪个键，前端各自回落，不要拿另一个轴的值顶替。
@@ -653,22 +654,42 @@ class WebContract:
         except (OSError, ValueError):
             return None
         focus = {'layout': 'still'} if record.get('layout') == 'still' else {}
+        # 整幅画面上比主脸还大的部位（`cover_artwork.face_record` 的 `subject`）：卡片按它取景。
+        subject = record.get("subject")
+        if focus and isinstance(subject, dict):
+            face = subject
         if isinstance(face, dict):
             focus.update({axis: face[axis] for axis in ("cx", "cy") if axis in face})
         return focus or None
 
     @staticmethod
-    def _poster_box(sidecar: str) -> dict | None:
-        """sidecar 里那个正封框。算法版本落后、判定为不裁、读不出都是 None。
-
-        校验和形状判据都在 `jav_poster_crop.projection` 一处，这里只负责把文件读
-        进来：页面拿到的框必须和算它的那份代码是同一套判据。
-        """
+    def _poster_record(sidecar: str) -> dict | None:
+        """正封边车原文；读不出是 None。框由 `jav_poster_crop.projection` 校验后才给页面：
+        页面拿到的框必须和算它的那份代码是同一套判据。"""
         try:
             with open(sidecar, encoding="utf-8") as handle:
-                return jav_poster_crop.projection(json.load(handle))
+                record = json.load(handle)
         except (OSError, ValueError):
             return None
+        return record if isinstance(record, dict) else None
+
+    @staticmethod
+    def _with_poster_layout(frame: dict | None, record: dict | None, cover: Path) -> dict | None:
+        """正封边车判定的整幅画面与装好的竖版正封，并进卡片的取景提示。
+
+        两样都是正封边车的结论：竖版图证明横图不是封套时，人脸边车不一定在（人脸模型可选），
+        页面却必须知道这张不能按右缘切、大图位改用竖版正封。版本落后的边车不算数；竖版正封
+        文件不在就不给，页面照旧用横图，不去取一张 404。只有记了竖版正封的才多 stat 一次。
+        """
+        if not isinstance(record, dict) or (
+                not jav_poster_crop.is_manual(record) and record.get("version") != jav_poster_crop.ALGORITHM_VERSION):
+            return frame
+        extra = {}
+        if record.get("layout") == "still":
+            extra["layout"] = "still"
+        if jav_poster_crop.front_size(record) and jav_poster_crop.front_path(cover).is_file():
+            extra["front"] = True
+        return {**(frame or {}), **extra} if extra else frame
 
     def has_cover(self, code: str | None) -> bool:
         key = normalise_code_key(code)

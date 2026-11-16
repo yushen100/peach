@@ -17,6 +17,11 @@ export function canonicalPath(path: string): string {
   const pages: Record<string, string> = { '/activity': '/tasks', '/scraping': '/sources',
     '/follow-manage': '/subscriptions', '/configuration': '/settings/library', '/diagnostics': '/settings/diagnostics' };
   url.pathname = pages[url.pathname] || url.pathname;
+  if (url.pathname === '/subscriptions' && url.searchParams.get('tab') === 'tags') {
+    url.pathname = '/tags';
+    for (const key of ['tab', 'page', 'sort', 'dir']) url.searchParams.delete(key);
+    url.searchParams.set('scope', 'online');
+  }
   const cleanup = url.pathname === '/data-cleanup' ? CLEANUP_HASH_REDIRECTS[url.hash] : undefined;
   if (cleanup) {
     url.pathname = cleanup;

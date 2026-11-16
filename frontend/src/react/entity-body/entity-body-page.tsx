@@ -60,6 +60,7 @@ function VideoSection(props: EntityBodyProps) {
       {props.items ? (
         <CatalogGridPage mode="entity" entityKey={props.listScope || `${props.kind}:${props.name}`} revision={props.revision}
           restoreNavigation={props.restoreNavigation}
+          filters={props.filters} facetScope={props.facetScope}
           initial={props.items} fetchPage={props.fetchPage} listScope={props.listScope} helpers={props.helpers} actions={props.actions}
           layout={props.layout} selectMode={props.selectMode} selected={props.selected}
           seekSeconds={props.seekSeconds} wireDrag={props.wireDrag}

@@ -17,7 +17,7 @@ import { Button } from '@/components/base/buttons/button';
 
 import { ApiError, apiSend } from '../../api';
 import { textLang } from '../../core/text-lang';
-import { RetryNote } from '../components/grid-reveal';
+import { DetailFailure } from '../components/detail-failure';
 import { MixGroupLabel, MixQueue, MixQueueRow } from '../components/mix-queue';
 import { RelatedSection } from '../components/related-section';
 import { DetailContinuation } from '../components/detail-continuation';
@@ -64,16 +64,21 @@ export function FollowDetailPage(props: FollowDetailProps) {
   const [mediaIndex, setMediaIndex] = useState(props.mediaIndex);
 
   if (!result.data) {
+    // 整页没取到（不是条目已删）：弹层正中一句说明加重试，与馆藏、番号详情同一个，不在黑色舞台里画红色横条。
+    if (result.isError && !gone(result.error)) return (
+      <div data-stage-grid="" data-follow-detail="">
+        <div data-detail-failure="">
+          <CloseStage onClose={actions.close} />
+          <DetailFailure detail={requestErrorMessage(result.error)} busy={result.isFetching} onRetry={() => void result.refetch()} />
+        </div>
+      </div>
+    );
     return (
       <div data-stage-grid="" data-follow-detail="">
         <div data-stage-media="" data-follow-detail-media="none">
           <CloseStage onClose={actions.close} />
           <div data-follow-detail-placeholder="">
-            {result.isError
-              ? gone(result.error)
-                ? <GoneNote onBack={actions.close} />
-                : <RetryNote message={requestErrorMessage(result.error)} onRetry={() => void result.refetch()} />
-              : null}
+            {result.isError ? <GoneNote onBack={actions.close} /> : null}
           </div>
         </div>
       </div>

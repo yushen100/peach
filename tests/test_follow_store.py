@@ -1117,6 +1117,32 @@ class AuthorIdentityTests(_StoreCase):
                          normalized_author_name("lazyprocrastinator"))
         self.assertEqual(author_display_text("Billyhhyb · patreon"), "Billyhhyb")
 
+    def test_a_kana_name_is_part_of_the_author_key(self):
+        # 只含假名的名字不能被剥成空串，否则同一作者的每条来源各成一组。
+        self.assertEqual(normalized_author_name("ミモネル · fanbox"),
+                         normalized_author_name("ミモネル"))
+        self.assertNotEqual(normalized_author_name("ミモネル"), "")
+        # 半角片假名按 NFKC 规整，浊点并进前一个字；长音是名字的一部分。
+        self.assertEqual(normalized_author_name("ﾐﾓﾈﾙ"), normalized_author_name("ミモネル"))
+        self.assertEqual(normalized_author_name("ﾊﾞﾆｰ"), normalized_author_name("バニー"))
+        self.assertNotEqual(normalized_author_name("バニー"), normalized_author_name("バニ"))
+        # 中点只是分隔，不影响身份。
+        self.assertEqual(normalized_author_name("ミモ・ネル"), normalized_author_name("ミモネル"))
+
+    def test_a_mixed_kana_name_keeps_its_stored_key(self):
+        # 别名表和来源记下的作者键按旧规则存过；混写假名的名字旧规则算得出键，
+        # 键不变已存别名才不失效。代价是两位只差假名的作者仍并在 `tv` 一组。
+        self.assertEqual(normalized_author_name("かにTV"), "tv")
+        self.assertEqual(normalized_author_name("ねこTV"), "tv")
+        self.assertEqual(normalized_author_name("ＡＢＣ"), normalized_author_name("ABC"))
+
+    def test_kana_does_not_fold_different_names_together(self):
+        # 平假名与片假名写法不互折：那是模糊匹配。
+        self.assertNotEqual(normalized_author_name("みもねる"), normalized_author_name("ミモネル"))
+        # 只剩长音、中点或服务名后缀的标签不构成名字。
+        self.assertEqual(normalized_author_name("ー・ー"), "")
+        self.assertEqual(normalized_author_name("ー · fanbox"), "")
+
     def test_the_f95_author_sits_in_the_last_bracket(self):
         """站点的标题约定是 `作品名 [版本或日期] [作者]`。"""
         self.assertEqual(
@@ -1775,6 +1801,35 @@ class EvidenceRetentionTests(_StoreCase):
         self.assertTrue(all(raw.exists() for raw in second))
         wait_for(lambda: reclaim.status()["phase"] == "ready")
         self.assertEqual(reclaim.status()["files"], 4, "剩下的重新等确认")
+
+    def test_snapshot_estimate_is_ready_on_the_first_request_after_a_restart(self):
+        """服务启动后就在后台估算：重启后第一次打开「修复与迁移」直接拿到读数，不先显示「正在统计」。"""
+        import asyncio
+        from types import SimpleNamespace
+        from unittest import mock
+        from peach import api
+        from peach.follow_evidence import Reclaim
+        from peach.repository import LedgerDatabase
+        directory = self.root / "sources" / "follow" / "rule34video" / "legacy"
+        for index in range(5):
+            _old_snapshot(directory, index, size=100)
+        database = LedgerDatabase(self.root / "ledger.db")
+
+        def restart(available=True):
+            reclaim = Reclaim(self.root / "sources" / "follow", database)
+            state = SimpleNamespace(follow_evidence=reclaim, upgrade_repairs=SimpleNamespace(available=available),
+                                    ledger_background_ready=False)
+            activation = api._LedgerActivation(SimpleNamespace(state=state), SimpleNamespace(), None, (),
+                                               mock.Mock(), mock.Mock())
+            with mock.patch.object(api, "_start_ledger_services", return_value=True):
+                asyncio.run(activation.resume())
+            return reclaim
+
+        reclaim = restart()
+        self.assertIsNotNone(reclaim.worker, "账本服务一就绪就起估算")
+        reclaim.worker.join(10)
+        self.assertEqual(reclaim.status(), {"phase": "ready", "files": 4, "bytes": 2 * 102})
+        self.assertIsNone(restart(available=False).worker, "只读端不估算")
 
     def test_a_library_without_follow_snapshots_does_not_list_the_item(self):
         from peach import repair_center

@@ -157,6 +157,24 @@ class HeaderTests(Case):
         self.assertEqual([(row['id'], row['canonical_name'], row['zh_cn'], row['ja']) for row in variants],
                          [(entity_id, '枫花恋', '枫花恋', '楓カレン')])
 
+    def test_variants_carry_the_profile_romaji_as_english_display(self):
+        """`en` 取资料罗马字，资料没有时取登记的拉丁别名；都没有的人明确留空。"""
+        named = self.entity('楓カレン', ('Kaede Karen', 'user:alias'))
+        plain = self.entity('篠田ゆう')
+        with self.connection:
+            write_profile(self.connection, named,
+                          {'romaji': 'Karen Kaide', 'raw': {'名前': '楓カレン', '別名': []}},
+                          source='auto:performer-profile@1', source_url='https://example.invalid/',
+                          fetched_at=STAMP)
+            for person in (named, plain):
+                self.connection.execute(
+                    'INSERT INTO entity_external_ref(entity_id,provider,external_kind,external_id) '
+                    "VALUES(?,'javdb','performer',?)", (person, f'sample{person}'))
+        self.connection.row_factory = sqlite3.Row
+        variants = {row['id']: row for row in performer_name_display.variants(self.connection)}
+        self.assertEqual(variants[named]['en'], 'Karen Kaide')
+        self.assertIsNone(variants[plain]['en'])
+
     def test_missing_translation_keeps_current_spelling_and_latin_stage_names(self):
         entity_id = self.entity('篠田ゆう', ('Alice', 'user:alias'))
         self.land(entity_id, SHINODA)

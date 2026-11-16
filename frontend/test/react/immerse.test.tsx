@@ -14,7 +14,8 @@ import { seekVideoBy, toggleVideoPlayback } from '../../src/player/playback';
 import type { BatchDockApi, BatchDockHost } from '../../src/react/batch-dock/batch-dock-api';
 import { catalogKey, type GridPage } from '../../src/react/catalog-grid/catalog-grid';
 import {
-  FIT_TOLERANCE, extendList, fitMode, immerseQuery, isWide, ownerOf, playable, type ImmerseItem,
+  FIT_TOLERANCE, extendList, fitMode, immerseQuery, isWide, ownerOf, playable, scrubRatio, swipeDelta, swipeSpan, tapSide,
+  type ImmerseItem,
 } from '../../src/react/immerse/immerse';
 import type { ImmerseApi, ImmerseHost } from '../../src/react/immerse/immerse-api';
 import { itemKey, type DetailItem } from '../../src/react/item-detail/item-detail';
@@ -528,6 +529,20 @@ describe('作者与标题', () => {
   });
 });
 
+describe('全屏横置后的手势坐标', () => {
+  it('横置（内容层转 -90°）后位移、半区与进度条落点都按内容坐标系换算', () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 400 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
+    expect(swipeDelta(10, -50, false)).toEqual({ x: 10, y: -50 });
+    expect(swipeDelta(10, -50, true)).toEqual({ x: 50, y: 10 });
+    expect([swipeSpan(false), swipeSpan(true)]).toEqual([400, 800]);
+    expect([tapSide(100, 700, false), tapSide(100, 700, true), tapSide(100, 100, true)]).toEqual([-1, -1, 1]);
+    const bar = { left: 390, top: 0, width: 10, height: 800 };
+    expect(scrubRatio(395, 600, bar, true)).toBe(.25);
+    expect(scrubRatio(100, 0, { left: 0, top: 790, width: 400, height: 10 }, false)).toBe(.25);
+  });
+});
+
 describe('画面与舞台', () => {
   it('比例差超过 1.05 才完整显示：横片进竖框、竖片进更长的手机都不裁', () => {
     expect(FIT_TOLERANCE).toBe(1.05);
@@ -595,6 +610,48 @@ describe('手势', () => {
     expect(video.currentTime).toBe(50);
     await wait(320);
     expect(video.pause).toHaveBeenCalledTimes(1);
+  });
+
+  it('按住画面半秒临时倍速，松手恢复且那一下 click 不切播放；长按不弹原生菜单', async () => {
+    await open();
+    const { video } = current();
+    await act(async () => { await video.play() });
+    video.playbackRate = 1;
+    (video.pause as ReturnType<typeof vi.fn>).mockClear();
+    const press = (type: string) => new PointerEvent(type, { bubbles: true, cancelable: true, button: 0, pointerId: 3, clientX: 500, clientY: 400 });
+    await act(async () => { track().dispatchEvent(press('pointerdown')) });
+    await wait(520);
+    expect(video.playbackRate).toBe(2);
+    expect(q('[data-immerse-hold]')?.hasAttribute('data-on')).toBe(true);
+    const menu = new MouseEvent('contextmenu', { bubbles: true, cancelable: true });
+    track().dispatchEvent(menu);
+    expect(menu.defaultPrevented).toBe(true);
+    await act(async () => { window.dispatchEvent(press('pointerup')) });
+    expect(video.playbackRate).toBe(1);
+    expect(q('[data-immerse-hold]')?.hasAttribute('data-on')).toBe(false);
+    await click(track());
+    expect(video.pause).not.toHaveBeenCalled();
+    await act(async () => { track().dispatchEvent(press('pointerdown')) });
+    await act(async () => { window.dispatchEvent(new PointerEvent('pointermove', { pointerId: 3, clientX: 560, clientY: 400 })) });
+    await wait(520);
+    expect(video.playbackRate).toBe(1);
+  });
+
+  it('动作列有字幕键与全屏键；全屏键请求外框全屏', async () => {
+    await open();
+    const requested = vi.fn(async () => {});
+    Object.defineProperty(root(), 'requestFullscreen', { configurable: true, value: requested });
+    expect(q('[data-immerse-subtitles]')?.getAttribute('aria-label')).toBe('字幕');
+    await click(q('[data-immerse-actions] button[aria-label="全屏"]'));
+    expect(requested).toHaveBeenCalledTimes(1);
+  });
+
+  it('返回键落出沉浸地址就地收起，不再让壳导航', async () => {
+    await open();
+    history.replaceState(null, '', '/');
+    await act(async () => { window.dispatchEvent(new PopStateEvent('popstate')) });
+    expect(api.isOpen()).toBe(false);
+    expect(host.closed).not.toHaveBeenCalled();
   });
 
   it('横划归进度：拖动中只画进度并拦住页面滚动，抬手才 seek', async () => {

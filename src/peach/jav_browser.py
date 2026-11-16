@@ -268,9 +268,14 @@ def _download_candidate(items, code, skip=frozenset(), edition=""):
     eligible = []
     for item in items:
         name = str(item.get("name") or "")
+        origin = urlsplit(str(item.get("source_url") or ""))
+        # JavBus 已在取页时核对作品身份，论坛前缀和 J 尾标不影响该页下的磁链归属。
+        source_matches = (item.get("source") == "JavBus" and origin.scheme == "https"
+                          and origin.hostname in {"javbus.com", "www.javbus.com"}
+                          and same_release_code(origin.path.strip('/'), code))
         matches = (same_release_code(scan_code(name), code)
                    or same_release_code(scan_code(name, product=True), code)
-                   or bool(bonus and bonus.search(name)))
+                   or bool(bonus and bonus.search(name)) or source_matches)
         if not matches or re.search(TRAILER_NAME, name):
             continue
         try:
@@ -332,6 +337,18 @@ def _postprocess_retry_status(task) -> dict:
     return {}
 
 
+def _readable_row(row: object) -> bool:
+    """持久队列的一行能否交给后台处理：状态已知、渠道与来源齐全、重试字段有效；不认识的字段原样保留。"""
+    if not isinstance(row, dict) or row.get("state") not in MESSAGES:
+        return False
+    if not isinstance(row.get("provider"), str) or not isinstance(row.get("source_url"), str):
+        return False
+    attempt = row.get("retry_attempt", 0)
+    if type(attempt) is not int or not 0 <= attempt <= len(RETRY_DELAYS):
+        return False
+    return "retry_at" not in row or (isinstance(row["retry_at"], str) and parse_iso(row["retry_at"]) is not None)
+
+
 class JavBrowser:
     """本机持久队列；搜索完成前退出时，下一次启动继续处理。"""
 
@@ -366,29 +383,63 @@ class JavBrowser:
         self.ended = self._load_ended()
 
     def _load(self) -> dict:
-        if not self.path.exists():
+        """读持久队列；别的版本或手改留下的内容读不懂时照常启动，写入侧的校验不因此放宽。
+
+        无效行丢弃，整份读不了时从空队列开始；有丢弃就把原文件改名留底，保留下来的行立即写回。
+        """
+        try:
+            payload = json.loads(self.path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
             return {}
-        payload = json.loads(self.path.read_text(encoding="utf-8"))
-        if not isinstance(payload, dict) or len(payload) > ROWS_LIMIT:
-            raise UserValueError("errors.javBrowser.queueUnreadable")
-        rows = {}
+        except (OSError, ValueError):
+            payload = None
+        if not isinstance(payload, dict):
+            LOGGER.warning("Browser-add queue could not be read; starting empty, original kept at %s",
+                           self._set_aside() or "(rename failed, left in place)")
+            return {}
+        rows, dropped = {}, 0
         for key, row in payload.items():
-            if not isinstance(row, dict) or normalise_code_key(key) != key or row.get("state") not in MESSAGES:
-                raise UserValueError("errors.javBrowser.queueUnreadable")
-            if 'retry_attempt' in row and (type(row['retry_attempt']) is not int or not 0 <= row['retry_attempt'] <= len(RETRY_DELAYS)):
-                raise UserValueError("errors.javBrowser.invalidRetryAttempt")
-            if 'retry_at' in row and (not isinstance(row['retry_at'], str) or parse_iso(row['retry_at']) is None):
-                raise UserValueError("errors.javBrowser.invalidRetryTime")
+            try:
+                canonical = code_key(key)
+            except ValueError:
+                canonical = None
+            if canonical is None or not _readable_row(row):
+                dropped += 1
+                continue
             if row["state"] == "searching":
                 row["state"] = "queued"
-            # 店铺前缀归一之前记下的行（`107STZY-019`）改记到裸番号下，裸番号已有记录时以它为准。
-            canonical = code_key(key)
+            # 写法规则变化前记下的行（店铺前缀 `107STZY-019`、旧位数）改记到规范键下，规范键已有记录时以它为准。
             if canonical == key or canonical not in rows:
                 rows[canonical] = row
+        # 超出上限时先舍已结束的行（结果已记在别处的优先），再按文件顺序截断，与 `add` 满队时的取舍一致。
+        kept = len(rows)
+        ended = [key for key, row in rows.items() if row["state"] not in ACTIVE]
+        ended.sort(key=lambda key: rows[key]["state"] not in RECORDED_ELSEWHERE)
+        for key in ended[:max(0, len(rows) - ROWS_LIMIT)]:
+            del rows[key]
+        for key in list(rows)[ROWS_LIMIT:]:
+            del rows[key]
+        dropped += kept - len(rows)
+        if dropped:
+            backup = self._set_aside()
+            if backup is not None:
+                self._save(rows)
+            LOGGER.warning("Browser-add queue dropped %d unreadable or over-limit rows; original kept at %s",
+                           dropped, backup or "(rename failed, left in place)")
         return rows
 
-    def _save(self):
-        atomic_write_text(self.path, json.dumps(self.rows, ensure_ascii=False, indent=2) + "\n")
+    def _set_aside(self) -> Path | None:
+        """把读不懂的队列文件改名留在原目录，供排查与手工恢复；改名失败时返回 None。"""
+        backup = self.path.with_name(f"{self.path.stem}.corrupt-{time.time_ns()}{self.path.suffix}")
+        try:
+            self.path.replace(backup)
+        except OSError:
+            return None
+        return backup
+
+    def _save(self, rows: dict | None = None):
+        payload = self.rows if rows is None else rows
+        atomic_write_text(self.path, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
 
     def _load_ended(self) -> dict:
         """结束留存的确认记录：`since` 之前结束的都算确认过，之后的逐条记在 `dismissed` 里。
@@ -404,7 +455,7 @@ class JavBrowser:
             return {"since": since, "dismissed": dismissed[-ENDED_DISMISSED_LIMIT:]}
         except FileNotFoundError:
             ended = {"since": iso(time.time() - RECENT_SECONDS), "dismissed": []}
-        except (ValueError, KeyError, TypeError):
+        except (OSError, ValueError, KeyError, TypeError):
             LOGGER.warning("Could not read the browser-add completion record; counting from now")
             ended = {"since": iso(time.time()), "dismissed": []}
         atomic_write_text(self.ended_path, json.dumps(ended, ensure_ascii=False, indent=2) + "\n")
@@ -602,11 +653,11 @@ class JavBrowser:
         with self.contract.database.read_connection() as connection:
             return read_settings(connection).get(WANT_ON_NO_MATCH) is not False
 
-    def _want_unmatched(self, code: str) -> None:
+    def _want_unmatched(self, code: str, *, complete: bool) -> None:
         """没搜到资源时按设置把番号加入想要；已在库、已登记或写入失败都不影响队列本身。
 
         只登记这一行：封面与资料的积压由新作的定时刷新顺带补上，不在队列线程里另起取资料任务。
-        这次没搜到也记一笔查找（`record_search`），定时查找从这一次起算间隔，不马上再查一遍。
+        查找记录从这一次起算间隔。来源暂停时记未取得，完整查找无命中时才计入查找次数。
         """
         from . import wants
         try:
@@ -614,7 +665,7 @@ class JavBrowser:
                 return
             with self.contract.database.write_transaction() as connection:
                 row = wants.add_code(connection, code)
-                wants.record_search(connection, row["id"], "none")
+                wants.record_search(connection, row["id"], "none" if complete else "error")
             self.contract.cache_bust()
         except UserValueError:
             pass
@@ -914,8 +965,9 @@ class JavBrowser:
                     should_submit = True
                 self._save()
                 unmatched = row["state"] == "no_match"
+                complete = bool(row.get("sources_complete"))
             if unmatched:
-                self._want_unmatched(code)
+                self._want_unmatched(code, complete=complete)
             if should_submit:
                 try:
                     submitted = submit_offline_download(

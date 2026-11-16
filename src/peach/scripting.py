@@ -120,6 +120,48 @@ def hostname_of(url: str) -> str:
     return (urllib.parse.urlsplit(url).hostname or "").casefold().removeprefix("www.")
 
 
+#: 跨进程共用限速的状态文件放在数据根 `state/` 下的这个目录，一个主机一个文件。
+SHARED_SLOT_DIR = "source-slots"
+
+
+def shared_slot_path(state_root: Path, host: str) -> Path:
+    """`host` 跨进程共用的「下次可发时刻」记在哪个文件。"""
+    return Path(state_root) / SHARED_SLOT_DIR / f"{host}.json"
+
+
+class SharedSlot:
+    """几个进程共用一个来源的「下次可发时刻」：文件锁里读、等、写，按墙钟。
+
+    服务进程与独立采集脚本各有自己的限速器，同时取同一站时合起来会超过它的速率上限
+    （javdb 按出口 IP 封速率）。两边各自在进程内等完，再到这里排一次：每次至少比上一次
+    （不论哪个进程发的）晚自己的间隔。等待只封顶在自己的间隔内，坏值或钟回拨不会让人一直等。
+    文件读写失败或锁等不到，就只按进程内限速，不挡取页。
+    """
+
+    def __init__(self, path: Path, *, clock=time.time, sleeper=time.sleep):
+        self.path = Path(path)
+        self._clock = clock
+        self._sleeper = sleeper
+
+    def take(self, interval: float) -> None:
+        from filelock import FileLock, Timeout
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            with FileLock(str(self.path) + ".lock", timeout=max(30.0, interval * 4)):
+                try:
+                    next_at = float(self.path.read_text(encoding="utf-8") or 0)
+                except (OSError, ValueError):
+                    next_at = 0.0
+                now = self._clock()
+                delay = min(next_at - now, interval)
+                if delay > 0:
+                    self._sleeper(delay)
+                    now = self._clock()
+                self.path.write_text(repr(now + interval), encoding="utf-8")
+        except (OSError, Timeout):
+            return
+
+
 class RateLimiter:
     """单一节拍的限速器：两次 `wait()` 之间至少隔 `interval` 秒。
 
@@ -128,11 +170,13 @@ class RateLimiter:
     几千条的抓取因此比设定的频率慢一大截，而看日志只觉得是网络慢。
     """
 
-    def __init__(self, interval: float, *, clock=time.monotonic, sleeper=time.sleep):
+    def __init__(self, interval: float, *, clock=time.monotonic, sleeper=time.sleep,
+                 shared: SharedSlot | None = None):
         self._interval = max(0.0, float(interval))
         self._clock = clock
         self._sleeper = sleeper
         self._next = 0.0
+        self._shared = shared
 
     def wait(self) -> None:
         if self._interval <= 0:
@@ -141,6 +185,9 @@ class RateLimiter:
         delay = self._next - now
         if delay > 0:
             self._sleeper(delay)
+            now = self._clock()
+        if self._shared is not None:
+            self._shared.take(self._interval)
             now = self._clock()
         self._next = now + self._interval
 
@@ -160,6 +207,11 @@ class HostLimiter:
         self._next = {host: 0.0 for host in self._intervals}
         self._clock = clock
         self._sleeper = sleeper
+        self._shared: dict[str, SharedSlot] = {}
+
+    def share(self, host: str, path: Path) -> None:
+        """`host` 改为跨进程共用节拍（`SharedSlot`），状态记在 `path`。再调一次换文件。"""
+        self._shared[host] = SharedSlot(path, sleeper=self._sleeper)
 
     def _key(self, url: str) -> str | None:
         host = hostname_of(url)
@@ -181,5 +233,8 @@ class HostLimiter:
             delay = self._next[key] - now
             if delay > 0:
                 self._sleeper(delay)
+                now = self._clock()
+            if (shared := self._shared.get(key)) is not None:
+                shared.take(self._intervals[key])
                 now = self._clock()
             self._next[key] = now + self._intervals[key]

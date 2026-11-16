@@ -23,6 +23,9 @@ from apscheduler.schedulers.background import BackgroundScheduler
 
 #: 一次接回超过这么久就记下卡在哪个任务、各线程停在哪一行；每次卡住只记一次。
 STUCK_SECONDS = 30
+#: 一次接回卡这么久就不再等它：后面的接回另起一轮，卡住的那个任务先不接，等那一轮自己回来（#144）。
+ABANDON_SECONDS = 300
+FALLBACK_JOB = 'recovery-fallback'
 #: 没有事件时的兜底：别的进程里的工作进程死掉不会通知本服务，最迟这么久接回。
 FALLBACK_SECONDS = 30
 #: 看见安装预约后多久问一次它撤下没有；撤下就接回并停掉这一问。
@@ -32,7 +35,7 @@ AWAIT_RELEASE_JOB = 'await-install-release'
 STOP_SECONDS = 10
 
 
-def restore(contract, track=lambda key, handler: handler):
+def restore(contract, track=lambda key, handler: handler, skip=()):
     from .jav_discovery_metadata import discovery_metadata
     from .job_recovery import read
     handlers = {
@@ -57,7 +60,8 @@ def restore(contract, track=lambda key, handler: handler):
         "organize": lambda body: (w_organize_rollback(contract, body) if body.get('action') == 'rollback'
                                     else w_organize_apply(contract, body)),
     }
-    return resume(contract.db_path, {key: track(key, handler) for key, handler in handlers.items()})
+    return resume(contract.db_path, {key: track(key, handler) for key, handler in handlers.items()
+                                     if key not in skip})
 
 
 def thread_stacks() -> dict[str, list[str]]:
@@ -88,12 +92,18 @@ class RecoveryService:
         self._again = False
         self._awaiting = False
         self._root = None
+        #: 第几轮接回；放弃一轮时加一，旧那一轮回来时不再清掉新一轮的记账。
+        self._round = 0
+        self._round_thread = None
+        #: 放弃的那一轮：（线程，卡住的任务键）。线程回来之前这个任务键不再接回，也不再放弃第二轮。
+        self._abandoned = None
+        self._fallback_job = FALLBACK_JOB
 
     def start(self):
         if self.available and not self.scheduler.running:
             from .update_tasks import state_for, subscribe
             self._root = state_for(self.contract.db_path)
-            self.scheduler.add_job(self.tick, 'interval', seconds=FALLBACK_SECONDS,
+            self.scheduler.add_job(self.tick, 'interval', seconds=FALLBACK_SECONDS, id=self._fallback_job,
                                    max_instances=1, coalesce=True)
             self.scheduler.add_job(self.watch, 'interval', seconds=10,
                                    max_instances=1, coalesce=True)
@@ -112,8 +122,12 @@ class RecoveryService:
         unsubscribe(self._notice)
         if not self.scheduler.running:
             return True
-        closer = threading.Thread(target=self.scheduler.shutdown, kwargs={'wait': True},
-                                  name='peach-recovery-stop', daemon=True)
+        def shutdown():
+            # 清空待执行项会等正在派发的一轮释放 job store 锁；暂停期间不再开始新一轮派发。
+            self.scheduler.pause()
+            self.scheduler.remove_all_jobs()
+            self.scheduler.shutdown(wait=True)
+        closer = threading.Thread(target=shutdown, name='peach-recovery-stop', daemon=True)
         closer.start()
         closer.join(timeout)
         if not closer.is_alive():
@@ -164,38 +178,79 @@ class RecoveryService:
         return tracked
 
     def tick(self):
-        if not self._tick_lock.acquire(blocking=False):
+        lock = self._tick_lock
+        if not lock.acquire(blocking=False):
             self._again = True
             return
         try:
             self._again = True
-            while self._again:
+            while self._again and lock is self._tick_lock:
                 self._again = False
                 self._tick_once()
         finally:
-            self._tick_lock.release()
+            lock.release()
+
+    def _quarantined(self):
+        """放弃的那一轮还没回来时，它卡住的任务键；回来了就解除。"""
+        abandoned = self._abandoned
+        if abandoned is None:
+            return ()
+        thread, key = abandoned
+        if not thread.is_alive():
+            self._abandoned = None
+            return ()
+        return (key,) if key else ()
 
     def _tick_once(self):
         from .update_tasks import is_pausing
+        token = self._round
+        self._round_thread = threading.current_thread()
         self._running_since, self._step, self._reported = time.monotonic(), 'update-pause-check', False
         try:
             if not is_pausing(self.contract.db_path):
                 self._step = 'job-recovery'
-                restore(self.contract, track=self._track)
+                skip = self._quarantined()
+                restore(self.contract, track=self._track, **({'skip': skip} if skip else {}))
                 self._step = 'followups'
                 self.contract.followups.resume_after_update()
         finally:
-            self._running_since = self._step = None
+            if self._round == token:
+                self._running_since = self._step = None
+
+    def _abandon(self, elapsed):
+        """放下卡住的那一轮：换一把接回锁，重挂兜底定时（卡住的那次调用一直占着原来那个定时的名额，
+        APScheduler 会把之后每一次都跳过），马上另起一轮。卡住的任务键在那一轮回来之前不接。"""
+        from . import error_reporting
+        step = self._step
+        self._abandoned = (self._round_thread, step if step not in (None, 'update-pause-check', 'job-recovery',
+                                                                    'followups') else None)
+        self._round += 1
+        self._tick_lock = threading.Lock()
+        self._again = False
+        self._running_since = self._step = None
+        error_reporting.local_event('job-recovery-abandoned', step=step or 'unknown', seconds=round(elapsed))
+        if self.scheduler.running:
+            try:
+                self.scheduler.remove_job(self._fallback_job)
+            except JobLookupError:
+                pass
+            self._fallback_job = f'{FALLBACK_JOB}-{self._round}'
+            self.scheduler.add_job(self.tick, 'interval', seconds=FALLBACK_SECONDS, id=self._fallback_job,
+                                   max_instances=1, coalesce=True)
+            self.wake()
 
     def watch(self, now=None):
         """接回卡住时只记一次：卡在哪一步、多久了、各线程停在哪一行（quan he，11-08）。
 
         卡住期间后来的接回都只记一笔「再来一轮」，日志里看不出卡在哪。"""
         started = self._running_since
-        if started is None or self._reported:
+        if started is None:
             return
         elapsed = (time.monotonic() if now is None else now) - started
-        if elapsed < STUCK_SECONDS:
+        if elapsed >= ABANDON_SECONDS and self._round_thread is not None and not self._quarantined():
+            self._abandon(elapsed)
+            return
+        if elapsed < STUCK_SECONDS or self._reported:
             return
         self._reported = True
         from . import error_reporting

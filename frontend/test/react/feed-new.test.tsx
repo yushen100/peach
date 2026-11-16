@@ -57,6 +57,34 @@ it('新作来源共演头像直接按来源图片地址加载并在忽略后可�
   expect(mounted.host.querySelector('[data-feed-id]')).toBeNull();
 });
 
+it('新作加入想要后，移除需要完整长按，移除后恢复普通加入', async () => {
+  const host = document.createElement('section');
+  document.body.append(host);
+  const write = vi.fn().mockResolvedValue(undefined);
+  const html = '<div class="feednewrow"><article data-feed-id="1"><button data-feed-action="want">想要</button></article></div>';
+  const mounted = await mountRoot(<FeedNewRow host={host} feedNew={{items:[{id:1}],html}} wire={() => {}} act={write} />);
+  const button = mounted.host.querySelector<HTMLButtonElement>('[data-feed-action]')!;
+  await click(button);
+  expect(write).toHaveBeenLastCalledWith(1, 'want');
+  expect(button.dataset.feedAction).toBe('unwant');
+  expect(button.hasAttribute('data-hold-confirm')).toBe(true);
+  vi.useFakeTimers();
+  const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
+  try {
+    await click(button);
+    expect(write).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      button.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(write).toHaveBeenLastCalledWith(1, 'unwant');
+    expect(button.dataset.feedAction).toBe('want');
+    expect(button.hasAttribute('data-hold-confirm')).toBe(false);
+    await click(button);
+    expect(write).toHaveBeenLastCalledWith(1, 'want');
+  } finally { vi.useRealTimers(); hidden.mockRestore() }
+});
+
 function props(patch: Partial<FeedNewProps> = {}): FeedNewProps {
   const host = document.createElement('section');
   host.hidden = true;

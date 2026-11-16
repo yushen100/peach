@@ -11,7 +11,7 @@
 import { api } from '@peach/legacy/core';
 import { appSettingsStore } from '@peach/appearance';
 
-import type { CatalogGridProps, MediaPage } from '../catalog-grid/types';
+import type { CatalogGridProps, MediaPage, MediaPageOptions } from '../catalog-grid/types';
 import type { EntityBodyActions, EntityBodyHelpers, EntityCodeSet, EntityLocalPhoto, PhotoLayout, PhotoSize } from '../entity-body/entity-body';
 import type { EntityComboItem, EntitySortKey, EntityView, SegmentOption } from '../entity-filter/entity-filter';
 import type { FollowFeedActions, FollowFeedHelpers } from '../follow-feed/follow-feed';
@@ -109,6 +109,8 @@ export interface EntityPageActions {
   setPhotoLayout(layout: string): void;
   /** 站内跳转，走遗留路由的同一个入口。 */
   openEntity(kind: string, name: string, replace?: boolean): void;
+  /** 删除当前档案后返回同类名册。 */
+  openIndex(): void;
   /** 这一页是不是 JAV 语境（按第一页作品的 `is_jav` 推）：壳的排序项、侧栏取数与卡片版式都读它。 */
   javContext(on: boolean): void;
   /** 换了视图或换了一批内容：壳重算吸顶，顶栏的大小图键按是不是照片墙（`wall`：照片视图，或在线
@@ -233,13 +235,18 @@ export function itemsParams(kind: string, name: string, filters: EntityFilters, 
 }
 
 export async function fetchItems(kind: string, name: string, filters: EntityFilters, opts: { jav: boolean; seed: string },
-  offset: number, signal?: AbortSignal, options?: { limit: number; sort?: string; dir?: string }): Promise<MediaPage> {
+  offset: number, signal?: AbortSignal, options?: MediaPageOptions): Promise<MediaPage> {
   const params = itemsParams(kind, name, filters, opts, offset);
   if (options) {
     params.set('limit', String(options.limit));
     params.delete('count');
     if (options.sort) params.set('sort', options.sort);
     if (options.dir) params.set('dir', options.dir);
+    if (options.filters && Object.keys(options.filters).length) {
+      params.set('scope_kind', kind);
+      params.set('scope_name', name);
+      for (const [key, value] of Object.entries(options.filters)) params.set(key, value);
+    }
   }
   return await api(`/api/items?${params}`, signal ? { signal } : {}) as MediaPage;
 }

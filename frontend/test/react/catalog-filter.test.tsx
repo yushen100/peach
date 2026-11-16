@@ -13,11 +13,12 @@ import { mount, mountRoot, pending, settle } from './render';
 function props(patch: Partial<CatalogFilterProps> = {}): CatalogFilterProps {
   return {
     tiers: { key: 'k', performers: [], studios: [] }, tiersPending: false, empty: false, tags: [], tagFirst: 0,
-    views: [{ k: '', label: '全部', href: '/' }], state: '', count: { total: 0, shown: 0 }, trash: false,
+    views: [{ k: '', label: '全部', href: '/' }], state: '', count: { total: 0, shown: 0 }, trash: false, trashHost: null,
     sorts: [], layout: null, refreshing: false, offscreen: false, combo: [], comboHidden: true, comboHost: null,
     actions: {
       openEntity: vi.fn(), setView: vi.fn(), toggleTag: vi.fn(), clearFilter: vi.fn(), clearAll: vi.fn(),
       setSort: vi.fn(), reshuffle: vi.fn(async () => {}), setLayout: vi.fn(), moreTops: vi.fn(async () => []),
+      emptyTrash: vi.fn(),
     },
     helpers: { wireDrag: vi.fn(), wireScroller: vi.fn() },
     ...patch,
@@ -44,6 +45,37 @@ describe('空馆藏', () => {
     const host = await mount(<CatalogFilterPage {...props({ empty: true, offscreen: true })} />);
     expect(count(host, '[data-catalog-placeholder="performer"]')).toBe(EMPTY_SLOTS);
     expect(host.querySelector('[data-catalog-frame]')).toBeNull();
+  });
+});
+
+describe('回收站', () => {
+  it('浮层只有下排，画进正文里的宿主：读数后跟「清空回收站」，空了不出；首页那个宿主里不画浮层', async () => {
+    const trashHost = document.createElement('div');
+    trashHost.innerHTML = '<div class="peach-react" data-skeleton="trash-filter"></div>';
+    document.body.append(trashHost);
+    const base = props({ trash: true, trashHost, count: { total: 9, shown: 9 }, offscreen: true });
+    const host = await mount(<CatalogFilterPage {...base} />);
+    expect(host.querySelector('[data-catalog-frame]')).toBeNull();
+    // 壳先铺的骨架被换掉，浮层画在宿主里自建的那一层 `.peach-react` 下。
+    expect(trashHost.querySelector('[data-skeleton]')).toBeNull();
+    const frame = trashHost.querySelector('.peach-react > [data-catalog-frame]')!;
+    expect(frame.querySelector('[data-filter-row="top"]')).toBeNull();
+    expect(frame.querySelector('[data-catalog-readout]')?.textContent).toBe('9 个符合 · 显示 9');
+    expect(frame.querySelector('[data-entity-batch], [data-folder-mode-toggle]')).toBeNull();
+    const empty = frame.querySelector<HTMLButtonElement>('[data-empty-trash]')!;
+    expect(empty.textContent).toBe('清空回收站');
+    empty.click();
+    expect(base.actions.emptyTrash).toHaveBeenCalledTimes(1);
+    trashHost.remove();
+  });
+
+  it('回收站空了不给清空键', async () => {
+    const trashHost = document.createElement('div');
+    document.body.append(trashHost);
+    await mount(<CatalogFilterPage {...props({ trash: true, trashHost, count: { total: 0, shown: 0 } })} />);
+    expect(trashHost.querySelector('[data-catalog-readout]')?.textContent).toBe('0 个符合 · 显示 0');
+    expect(trashHost.querySelector('[data-empty-trash]')).toBeNull();
+    trashHost.remove();
   });
 });
 
@@ -129,6 +161,21 @@ describe('读数', () => {
     expect(count(failed, '[data-count-readout]')).toBe(1);
     expect(failed.querySelector('[data-count-readout] [aria-busy="true"]')).toBeNull();
     expect(failed.querySelector('[data-catalog-readout]')?.textContent).toBe('');
+  });
+});
+
+describe('只显示有预览图', () => {
+  it('只看有预览图时读数旁给「显示全部」，点下去交给壳；看全部时不出', async () => {
+    const showAll = vi.fn();
+    const base = props();
+    const host = await mount(<CatalogFilterPage {...base} previewOnly actions={{ ...base.actions, showAll }} />);
+    const button = [...host.querySelectorAll('[data-catalog-summary] button')].find((node) => node.textContent === '显示全部');
+    expect(button).toBeTruthy();
+    (button as HTMLButtonElement).click();
+    expect(showAll).toHaveBeenCalledOnce();
+    document.body.innerHTML = '';
+    const all = await mount(<CatalogFilterPage {...base} actions={{ ...base.actions, showAll }} />);
+    expect([...all.querySelectorAll('[data-catalog-summary] button')].some((node) => node.textContent === '显示全部')).toBe(false);
   });
 });
 

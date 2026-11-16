@@ -52,6 +52,7 @@
     "filterAndSort": "Filter and sort",
     "readout_one": "{{count, number}} match · showing {{shown, number}}",
     "readout_other": "{{count, number}} matches · showing {{shown, number}}",
+    "showAll": "Show all",
     "views": "Views",
     "viewsAndTags": "Views and tags"
   },
@@ -82,6 +83,11 @@
     "treeTitle": "Directories",
     "tryAnotherName": "Try a different directory name.",
     "viewConflicts": "View credit conflicts"
+  },
+  "columnFilter": {
+    "label": "Filter {{column}}",
+    "search": "Search {{column}}",
+    "noOptions": "No matching filter options"
   },
   "catalogList": {
     "climaxCount": "Climax count",
@@ -228,6 +234,10 @@
   "detailSource": {
     "checkingDirectory": "Checking directory…",
     "locating": "Locating",
+    "recollect": "Re-collect details",
+    "recollectBusy": "Another processing run is going; re-collect after it finishes",
+    "recollectStarted": "Re-collecting; see Tasks for progress",
+    "recollectTip": "Fetch this video's details from every source again without the cache; fields you edited or approved stay",
     "reveal": "Show source file",
     "revealTip": "Open the source file's directory in the file manager",
     "syncDeletions": "Sync deletions",
@@ -397,10 +407,12 @@
     "siteSamples": "{{site}} samples"
   },
   "externalPlayback": {
+    "androidChooser": "System app chooser",
     "externalPlayer": "External player",
     "m3uPlaylist": "M3U playlist",
     "openInPlayer": "Open in external player",
     "redetect": "Detect players again",
+    "schemeHint": "If nothing opens, the player isn't installed on this device; copy the URL into another player. The link is valid for 6 hours.",
     "streamUrl": "Stream URL",
     "streamUrlHint": "The link is valid for 6 hours. The playing device must be able to reach this Peach address.",
     "streamUrlVr": "Stream URL / VR"
@@ -491,6 +503,7 @@
     "performers": "Performers",
     "releaseDate": "Release date",
     "resources": "Torrents",
+    "retryPreview": "Try the sample video again: {{reason}}",
     "sampleVideo": "Sample video",
     "sampleVideoFailed": "Couldn't get the sample video"
   },
@@ -1000,6 +1013,12 @@
     "turnOff": "Turn off subtitles",
     "turnOn": "Turn on subtitles"
   },
+  "sortControls": {
+    "customize": "Customize sort options",
+    "reset": "Restore default sort options",
+    "syncFailed": "Saved on this device. Sync failed. {{error}}",
+    "title": "Sort options"
+  },
   "tagCategories": {
     "appearance": "Appearance",
     "locations": "Locations",
@@ -1147,7 +1166,7 @@
     "moreLinks_one": "{{count, number}} more link",
     "moreLinks_other": "{{count, number}} more links",
     "noneYet": "No download links found yet.",
-    "notFound": "Download links not found",
+    "notFound": "Resource search failed",
     "partialComments": "The site returned only some comments, so the links may be incomplete.",
     "protocolMagnet": "Magnet link",
     "protocolWeb": "Web link",
@@ -1216,6 +1235,27 @@
     "tryOtherSearch": "Try a different code, actress, or title."
   },
   "rosterActions": {
+    "delete": "Delete",
+    "deleteMenu": "Delete…",
+    "deleteConfirm_one": "The selected profile has {{assets, number}} library files using {{size}}. Choose what to delete.",
+    "deleteConfirm_other": "The {{count, number}} selected profiles have {{assets, number}} library files using {{size}}. Choose what to delete.",
+    "deleteShared_one": " {{count, number}} file also belongs to other profiles and will disappear from them after permanent deletion.",
+    "deleteShared_other": " {{count, number}} files also belong to other profiles and will disappear from them after permanent deletion.",
+    "deleteChoice": { "profile": "Delete profiles only", "trash": "Move works to trash", "purge": "Delete everything" },
+    "deleteDescription": {
+      "profile": "Delete profiles, aliases and identity links. Keep library works and media files. Scanning or scraping may create the profiles again.",
+      "trash": "Delete profiles and move their library works to trash. Keep media files. Works can be restored from trash later.",
+      "purge": "Delete profiles, their library works, media files and viewing records. Keep files and profiles that could not be deleted, and show the reasons."
+    },
+    "deleteDone": {
+      "profile_one": "Deleted {{count, number}} profile",
+      "profile_other": "Deleted {{count, number}} profiles",
+      "trash_one": "Deleted {{count, number}} profile and moved {{assets, number}} library files to trash",
+      "trash_other": "Deleted {{count, number}} profiles and moved {{assets, number}} library files to trash",
+      "purge_one": "Deleted {{count, number}} profile and {{assets, number}} library files",
+      "purge_other": "Deleted {{count, number}} profiles and {{assets, number}} library files"
+    },
+    "deleteBlocked": "Deleted {{profiles, number}} profiles and {{assets, number}} library files. Kept {{retained, number}} profiles with remaining files. Close this dialog and choose the scope again.\n{{failures}}",
     "deselectAll": "Deselect all",
     "dockLabel": "Bulk roster actions",
     "exit": "Cancel selection",

@@ -8,7 +8,7 @@ const SearchGlyph = spriteGlyph('search');
 /* 只读筛选不配提交按钮：停手 300ms 就查，回车是「别等了，现在就查」。中文输入法选字过程中
    一样发 input，拿还没定型的拼音去筛，筛的是「zhon」这种半截输入；组完字由 compositionend
    接手，组字过程中的回车是在定字，也放过去。 */
-export function IndexSearch({ label, value, onQuery }: { label: string; value: string; onQuery(q: string): void }) {
+export function IndexSearch({ label, value, onQuery, placeholder }: { label: string; value: string; onQuery(q: string): void; placeholder?: string }) {
   const [text, setText] = useState(value);
   const composing = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -31,6 +31,7 @@ export function IndexSearch({ label, value, onQuery }: { label: string; value: s
       <TextField aria-label={label} value={text}
         onChange={(next) => { setText(next); if (!composing.current) later(next) }}>
         <InputBase type="search" leadingIcon={SearchGlyph} spellCheck={false} autoComplete="off" enterKeyHint="search"
+          placeholder={placeholder}
           onKeyDown={onKeyDown} />
       </TextField>
     </div>

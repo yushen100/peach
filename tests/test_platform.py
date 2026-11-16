@@ -15,6 +15,7 @@ from peach.platform import (
     UNMAPPED_ROOT,
     is_unmapped,
     is_windows_path,
+    location_mount_values,
     location_mounts,
     location_roots,
     resolve_location,
@@ -141,6 +142,16 @@ class MountSourceTests(unittest.TestCase):
                 self.assertEqual(
                     location_mounts(),
                     {"local": (Path("/mnt/other"),), "115": (Path("/mnt/115"),)})
+
+    def test_smb_addresses_stay_verbatim_for_scanning_and_are_unmapped_as_local_directories(self):
+        """`smb://` 包成 Path 会变成 `smb:\\…` 或 `smb:/…`，扫描认不出是 SMB（#693）。"""
+        address = "smb://192.0.2.20:4450/Share"
+        with with_media({"local": (address, "/mnt/res")}, {"local": (r"X:\share", r"R:\media")}):
+            with patch.dict("os.environ", {MOUNTS_ENV: ""}):
+                self.assertEqual(location_mount_values()["local"], (address, "/mnt/res"))
+                smb, local = location_mounts()["local"]
+                self.assertTrue(is_unmapped(smb))
+                self.assertEqual(local, Path("/mnt/res"))
 
     def test_a_fresh_machine_has_no_mounts_at_all(self):
         """内建默认为空：没挂的来源按脱盘处理，绝不猜一个本机路径。"""

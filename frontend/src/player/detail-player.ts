@@ -1,6 +1,7 @@
 /* 详情播放器：给舞台播放区的 `<video>` 挂 Video.js 与全部 Peach 控件。
  *
- * - `mountDetailPlayer` 挂一个 Video.js 实例：片源解析、时长校正、出错时从分片退回直读、脱盘判定，
+ * - `mountDetailPlayer` 挂一个 Video.js 实例：片源解析、时长校正、片源解不了时逐级回退（原文件 → 码流复制分片
+ *   → 视频重编码，按能力直放的再换一份不报能力的计划）、脱盘判定，
  *   ready 之后挂设置菜单、拖动预览、Media Session、转圈与字幕。
  * - `attachPlayerChrome` 把统计面板、加载速度角标与氛围光接到一块媒体框上。播放器进小窗时摘下，
  *   展开回舞台时接到新的媒体框上，实例本身不重建。
@@ -23,7 +24,10 @@ import {
   averageBitrate, bufferedAhead, createBufferMeter, fmtLoadRate, fmtSpeed, PLAYER_PANEL_EVENT,
   playerSpeedBits, playerStatsOverlayHtml, playerStatsPlot, pushPlayerStat, streamEntries,
 } from './stats';
-import { detailStreamSession, detailStreamSource, directDetailSource } from './stream';
+import { watchDecoding } from './decode-support';
+import {
+  detailFallbackSource, detailStreamSession, detailStreamSource, directDetailSource, streamFallbackChain, watchesDecoding,
+} from './stream';
 import { stopTelemetry, wireFollowTelemetry, wireTelemetry } from './telemetry';
 import type { MediaFacts, PlayerItem, PlayerSource, SourceQuality, VjsPlayer } from './types';
 import { ensureVideojs } from './videojs';
@@ -188,7 +192,30 @@ export async function mountDetailPlayer(
       `<dt>${esc(key)}</dt><dd${plot ? ' data-player-stats-metric=""' : ''}>${plot || ''}<span>${esc(value)}</span></dd>`).join('')}</dl>`;
   };
   player.on(['loadstart', 'loadedmetadata', 'durationchange', 'error'], enforceDuration);
-  let segmentedSource = false, fallbackUsed = false;
+  let takeFallback: (error: unknown, failed: PlayerSource) => Promise<PlayerSource | null> = async () => null;
+  /** 挂在播放器上的那条片源与盯首帧的那一轮；换源时一起换。 */
+  let mounted: PlayerSource | null = null, watching: AbortController | null = null;
+  const mountSource = (next: PlayerSource) => {
+    watching?.abort(); watching = null;
+    mounted = next;
+    if (watchesDecoding(next)) {
+      const signal = (watching = new AbortController()).signal;
+      watchDecoding(video, () => { void fallBack({ code: 3 }, next) }, signal);
+    }
+    player.src(next);
+  };
+  /** 片源解不了时换下一条，保留当前秒数；换成了返回 true。 */
+  const fallBack = async (error: unknown, failed: PlayerSource | null): Promise<boolean> => {
+    if (!failed || player.isDisposed()) return false;
+    const resumeAt = video.currentTime, playing = autoplay || !video.paused;
+    const next = await takeFallback(error, failed);
+    if (!next || player.isDisposed() || mounted !== failed) return false;
+    if (resumeAt > 0) player.one('loadedmetadata', () => { if (!player.isDisposed()) player.currentTime(resumeAt) });
+    mountSource(next);
+    if (playing) player.play()?.catch(() => {});
+    return true;
+  };
+  player.on('dispose', () => { watching?.abort(); watching = null });
   const updateNet = () => {
     const netBadge = session.chrome?.netBadge;
     if (!netBadge || player.isDisposed()) return;
@@ -214,17 +241,14 @@ export async function mountDetailPlayer(
   player.on(['loadstart', 'progress', 'waiting', 'stalled'], showNet);
   player.on(['canplay', 'playing'], () => { updateNet(); hideNet() });
   player.on('error', () => {
-    if (segmentedSource && !fallbackUsed && !player.isDisposed()) {
-      fallbackUsed = true; segmentedSource = false;
-      player.src(directDetailSource(item));
-      if (autoplay) player.play()?.catch(() => {});
-      return;
-    }
-    // 播到一半掉盘时 video 元素只报通用错误；来源状态才分得清脱盘和文件损坏。
-    if (options.checkSourceStatus === false) return;
-    void host.loadSourceStatus().then((status) => {
-      if (status[String(item.root_id || item.location)] !== false || player.isDisposed()) return;
-      player.error({ code: 2, message: t('catalog:playerControls.directoryOffline', { reason: host.offlineReason(String(item.root_id || item.location)) }) });
+    if (player.isDisposed()) return;
+    void fallBack(player.error(), mounted).then((switched) => {
+      // 播到一半掉盘时 video 元素只报通用错误；来源状态才分得清脱盘和文件损坏。
+      if (switched || options.checkSourceStatus === false || player.isDisposed()) return;
+      return host.loadSourceStatus().then((status) => {
+        if (status[String(item.root_id || item.location)] !== false || player.isDisposed()) return;
+        player.error({ code: 2, message: t('catalog:playerControls.directoryOffline', { reason: host.offlineReason(String(item.root_id || item.location)) }) });
+      });
     });
   });
   player.ready(() => {
@@ -245,13 +269,15 @@ export async function mountDetailPlayer(
   });
   if (!options.guidePreview) source().then((next) => {
     if (!live()) return;
-    segmentedSource = String(next.type || '').includes('mpegurl');
+    const segmented = String(next.type || '').includes('mpegurl');
+    const first = { ...next, fallback: next.fallback ?? (segmented ? directDetailSource(item) : undefined) };
+    takeFallback = streamFallbackChain(first, options.source ? undefined : () => detailFallbackSource(item));
     if (resume && resume.time > 0) player.one('loadedmetadata', () => {
       if (player.isDisposed()) return;
       const duration = realDuration(player.el().querySelector('video')?.duration) || realDuration(player.duration());
       player.currentTime(Math.min(resume.time, duration || resume.time));
     });
-    player.src(next);
+    mountSource(first);
     enforceDuration(); setTimeout(enforceDuration, 0); setTimeout(enforceDuration, 250);
     if (autoplay) player.play()?.catch(() => {});
   }).catch(() => {});

@@ -34,7 +34,8 @@ AVBase、JavBus 与 JavDB，封面先求两个图源比对一致；JavDB 只作�
 为省流量，先用 Range 只取前 64 KiB 量尺寸，只有胜出的那张才整张下载。
 
 存原图不裁：4:3 与 16:9 两种版式在界面上靠 `object-fit` / `object-position` 取景，
-切版式零成本也不重新下载。官方那张独立正封 `ps.jpg` 只有 147x200，比裁出来的还小。
+切版式零成本也不重新下载。同目录的竖版图 `ps.jpg` 只在装封面时另取（`dmm_portrait`），用来判定
+横图是不是封套；老片的只有 147x200，2020 年后的高清横图配 1000～2184 高的竖版图。
 """
 from __future__ import annotations
 
@@ -458,6 +459,45 @@ def official_image_candidates(url: str) -> list[Candidate]:
     return []
 
 
+#: DVD 封套的面积按这个倍数参与择优：统一用封套，只有封套面积不到配信图一半（边长不到约七成，
+#: 明显更糊）才用配信图。START-435 封套 2184×1466、配信图 2184×1542，用封套；STARS-776 的封套
+#: 只有 800×535，面积约 13%，照旧用配信图。
+PACKAGE_PREFERENCE = 2.0
+
+_DMM_PORTRAIT = re.compile(r"pl\.jpg$", re.I)
+#: 竖版图只取这么大：高清那张 1536×2184 约 1 MB。
+PORTRAIT_LIMIT = 8 * 1024 * 1024
+
+
+def dmm_portrait_url(url: str) -> str:
+    """DMM 横版大图 `…pl.jpg` 同目录的竖版图 `…ps.jpg`；不是 DMM 横图地址是空串。
+
+    FANZA 页面上的正封就是这张。老片只有 147×200，2020 年后的高清横图配 1000～2184 高的竖版图。
+    """
+    clean = (url or "").split("?", 1)[0].strip()
+    host = urlparse(clean).netloc.lower()
+    if not (host.endswith("dmm.co.jp") or host.endswith("dmm.com")) or not _DMM_PORTRAIT.search(clean):
+        return ""
+    return _DMM_PORTRAIT.sub("ps.jpg", clean)
+
+
+def dmm_portrait(transport: HttpTransport, url: str, *, deadline: float | None = None) -> bytes | None:
+    """取 DMM 横图配套的竖版图；不是 DMM 横图、来源说没有或网络失败都是 None。
+
+    它只用来判定版式（`cover_artwork.install_cover`），取不到时照原有判据取景，不让装封面失败。
+    """
+    portrait = dmm_portrait_url(url)
+    return official_image(transport, portrait, deadline=deadline) if portrait else None
+
+
+def official_image(transport: HttpTransport, url: str, *, deadline: float | None = None) -> bytes | None:
+    """取一张可有可无的官方图（竖版图、补换的封套）；来源说没有、预算用完或网络失败都是 None。"""
+    try:
+        return _fetch(transport, url, referer=_referer_for(url), limit=16 * 1024 * 1024, deadline=deadline)
+    except (Unavailable, DeadlineExceeded, SourcePaused, SourceBudgetExhausted, httpx.TransportError):
+        return None
+
+
 #: 库外卡片经 `/cover-image` 取图时放行的主机后缀，与 `official_image_candidates` 认的两家一致；
 #: 代理跟重定向的每一跳也按它核对。
 COVER_PROXY_HOSTS = ("dmm.co.jp", "dmm.com", "mgstage.com")
@@ -473,13 +513,37 @@ def proxyable_cover_url(url: str) -> bool:
             and bool(official_image_candidates(clean)))
 
 
+def package_cid(content_id: str) -> str:
+    """配信版内容编号对应的 DVD 版编号：数字段去掉补位的零，至少留三位。`1start00435` → `1start435`。"""
+    shape = re.match(r"^(.*?[a-z])0*(\d{3,})$", (content_id or "").strip().lower())
+    return shape.group(1) + shape.group(2) if shape else ""
+
+
+def is_package_image(url: str) -> bool:
+    """DMM 的 DVD 版封套（`mono/movie`）：实体封套，正封在右侧。"""
+    return "/mono/movie/" in urlparse(url or "").path.lower()
+
+
+def is_streaming_image(url: str) -> bool:
+    """DMM 的配信版横图（`digital/video`）：多数与封套同图，SOD 系是另画的宣传图。"""
+    return "/digital/video/" in urlparse(url or "").path.lower()
+
+
 def content_id_images(content_id: str) -> list[Candidate]:
+    """内容编号推出的官方候选：配信版两条 CDN 路径，加 DVD 版封套。
+
+    SOD 系（START、STARS 等）的配信版横图是另画的双栏宣传图，人物在左、剧照拼贴在右，
+    DVD 版才是标准封套；择优统一偏向封套，只有封套明显更糊才用配信图（`PACKAGE_PREFERENCE`）。
+    """
     candidates: list[Candidate] = []
     for cid in cid_variants(content_id):
         candidates.extend([
             candidate_for(AWS_MODERN.format(kind="digital/video", cid=cid)),
             candidate_for(AWS_LEGACY_DIGITAL.format(cid=cid)),
         ])
+    package = package_cid(content_id)
+    if package:
+        candidates.append(candidate_for(AWS_MODERN.format(kind="mono/movie", cid=package)))
     return _unique_candidates(candidates)
 
 
@@ -988,8 +1052,16 @@ def _download_best(transport: HttpTransport, measured, record, *, minimum_width:
     动图时算没有，而不是没下载成——再问一遍还是这几张。
     """
     animated = 0
+    packaged = any(is_package_image(item[1].url) for item in measured)
+
+    def preferred_pixels(item) -> float:
+        # 同一部有 DVD 封套时，DMM 配信图降权：它可能是另画的宣传图（SOD 双栏），封套才有标准正封。
+        # 只压配信图，不改封套与其他来源（DUGA、MGS）之间按面积的比较。
+        return item[0] / PACKAGE_PREFERENCE if packaged and is_streaming_image(item[1].url) else item[0]
+
     for _pixels, winner, size in sorted(
-            measured, key=lambda item: (candidate_quality(item[1]) > 0, item[0], candidate_quality(item[1])), reverse=True):
+            measured, key=lambda item: (candidate_quality(item[1]) > 0, preferred_pixels(item),
+                                        candidate_quality(item[1])), reverse=True):
         try:
             data = _fetch(transport, winner.url, referer=winner.referer,
                           limit=16 * 1024 * 1024, deadline=deadline)

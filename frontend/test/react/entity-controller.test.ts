@@ -64,6 +64,12 @@ describe('实体与索引域控制', () => {
     expect(entry.read('performer', '甲', '?sort=short', preference).filters.sort).toBe('dur');
   });
 
+  it('删除资料后替换当前地址回到同类名册', () => {
+    const { controller, ports } = setup();
+    controller.actions('creator', '甲').openIndex();
+    expect(ports.route).toHaveBeenCalledWith('/creators', true);
+  });
+
   it('route 只推当前实体，POP 不写地址，props 使用当前种子与偏好', () => {
     const { controller, ports, live } = setup(), filters = emptyEntityFilters();
     expect(controller.route('creator', '甲', filters, { media: 'online', set: 0 }, { push: false })).toBe(true);

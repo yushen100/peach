@@ -42,6 +42,20 @@ class MagnetLookupTests(unittest.TestCase):
             self.assertEqual(refreshing['items'], found['items'])
         self.assertEqual(fetcher.call_count, 1)
 
+    def test_old_partial_failure_is_refetched_while_its_magnets_remain_settlement_evidence(self):
+        from peach.wants_magnets import MagnetSearch
+        now = 1_800_000_000.0
+        path = self.root / 'cache/want-resources.json'
+        path.parent.mkdir()
+        path.write_text(json.dumps({'version': 1, 'entries': [{'code': 'DEMO-001', 'saved': now - 3600,
+            'result': {'state': 'ready', 'items': self.items, 'warnings': ['JavDB：未取得']}}]}), encoding='utf-8')
+        fetcher = Mock(return_value={'items': self.items, 'complete': True})
+        search = MagnetSearch(self.root, fetcher=fetcher, wallclock=lambda: now)
+        self.assertIsNotNone(search.known_candidate('DEMO-001'))
+        self.assertEqual(search.query('DEMO-001')['items'], self.items)
+        fetcher.assert_called_once()
+        self.assertEqual(json.loads(path.read_text(encoding='utf-8'))['version'], 2)
+
     def test_restart_keeps_resources_and_the_original_expiry(self):
         from peach.wants_magnets import MagnetSearch
         from unittest.mock import Mock
@@ -230,6 +244,11 @@ class WantWebFixture(unittest.TestCase):
             row = wants.add_code(connection, 'DEMO-001')
         with patch('peach.wants_magnets.search_for') as factory:
             factory.return_value.query.return_value = {"state": "ready", "items": []}
+            from peach.scraping_access import sends_cookie
+            def resource_result(*args, **kwargs):
+                self.assertTrue(sends_cookie('javdb'))
+                return {'state': 'ready', 'items': []}
+            factory.return_value.query.side_effect = resource_result
             self.get('/api/wants/magnets', id=str(row['id']))
             factory.return_value.query.assert_called_once_with('DEMO-001', refresh=False, released=None)
             self.get('/api/wants/magnets', id=str(row['id']), refresh='1')
@@ -242,6 +261,26 @@ class WantWebFixture(unittest.TestCase):
             self.get('/api/wants/magnets', id='-1')
         with self.assertRaises(KeyError):
             self.get('/api/wants/magnets', id='999999')
+
+    def test_cached_real_magnets_restore_given_up_wants_through_the_write_route(self):
+        from peach.wants_magnets import search_for
+        with self.contract.database.write_transaction() as connection:
+            row = wants.add_code(connection, 'DEMO-001')
+            missing = wants.add_code(connection, 'DEMO-002')
+            for _ in range(3):
+                wants.record_search(connection, row['id'], 'none')
+        search = search_for(self.contract.follow_secrets_root)
+        item = {'protocol': 'magnet', 'uri': 'magnet:?xt=urn:btih:' + 'a' * 40,
+                'name': '论坛@546DEMO-001J', 'source': 'JavBus', 'source_url': 'https://www.javbus.com/DEMO-001',
+                'size': '4 GB', 'attributes': []}
+        with patch.object(search, 'fetcher', return_value={'items': [item]}) as fetcher:
+            search.query('DEMO-001')
+            result = self.post('/api/wants', {'action': 'found', 'ids': [row['id'], missing['id']]})
+            self.assertEqual(result['affected'], 1)
+            restored = next(item for item in self.get()['items'] if item['id'] == row['id'])
+            self.assertEqual((restored['phase'], restored['search_count'], restored['last_search_outcome']), ('searching', 0, 'found'))
+            self.assertEqual(self.post('/api/wants', {'action': 'found', 'ids': [row['id']]})['affected'], 0)
+            self.assertEqual(fetcher.call_count, 1)
 
     def test_want_list_reports_known_magnets_without_searching_sources(self):
         from peach.wants_magnets import search_for
@@ -390,6 +429,7 @@ class ScheduledSearchTests(WantWebFixture):
         self.results: dict[str, dict] = {}
         factory = self.enterContext(patch('peach.wants_magnets.search_for'))
         factory.return_value.query.side_effect = lambda code, refresh=False, released=None: self.results[code]
+        factory.return_value.known_candidate.return_value = None
         with self.contract.database.write_transaction() as connection:
             return [wants.add_code(connection, code)['id'] for code in codes]
 

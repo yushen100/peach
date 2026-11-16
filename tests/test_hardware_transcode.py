@@ -42,6 +42,28 @@ class HardwareDetectionTests(unittest.TestCase):
         self.assertTrue(all("format=nv12,hwupload" in command for command in commands))
         self.assertTrue(all(command[-2:] == ("null", "-") for command in commands))
 
+    def test_playback_diagnostics_do_not_wait_for_a_running_probe(self):
+        """起播计划要记硬件诊断；首次探测还在跑时报「探测中」，不陪它等。"""
+        import threading
+        started, release = threading.Event(), threading.Event()
+
+        def run(command, **kwargs):
+            started.set()
+            release.wait(5)
+            return subprocess.CompletedProcess(command, 1, stderr=b"no device")
+
+        hardware = HardwareTranscoder()
+        with patch("peach.hardware_transcode.sys.platform", "linux"),                 patch.object(Path, "exists", return_value=False),                 patch.object(Path, "glob", return_value=[Path("/dev/dri/renderD128")]),                 patch("peach.hardware_transcode.subprocess.run", side_effect=run):
+            probe = threading.Thread(target=hardware.encoders, args=(Path("ffmpeg"),))
+            probe.start()
+            self.assertTrue(started.wait(5))
+            try:
+                self.assertEqual(hardware.diagnostic_snapshot()["probe_status"], "probing")
+            finally:
+                release.set()
+                probe.join(5)
+        self.assertEqual(hardware.diagnostic_snapshot()["probe_status"], "cached")
+
     def test_explicit_device_and_backend_are_probed_without_gpu_listing(self):
         with patch.dict(os.environ, {"PEACH_TRANSCODE_BACKEND": "vaapi", "PEACH_VAAPI_DEVICE": "/dev/dri/renderD130"}):
             hardware = HardwareTranscoder()
@@ -191,6 +213,34 @@ class WindowsBackendTests(unittest.TestCase):
         self.assertEqual(attempts[0].before_input, ("-hwaccel", "d3d11va", "-hwaccel_device", "1"))
         self.assertEqual(attempts[1].before_input, ())
         self.assertEqual([attempt.name for attempt in HardwareEncoder("amf", "1").attempts("vc1")], ["amf"])
+
+    def test_qsv_keeps_frames_on_the_intel_gpu_when_the_session_allows(self):
+        hardware = HardwareTranscoder()
+        with patch("peach.hardware_transcode.subprocess.run", side_effect=self._machine(("h264_qsv",))):
+            self.assertEqual(hardware.encoders(Path("ffmpeg")), (HardwareEncoder("qsv", gpu_frames=True),))
+        attempts = HardwareEncoder("qsv", gpu_frames=True).attempts("hevc")
+        self.assertEqual([attempt.name for attempt in attempts], ["qsv-full", "d3d11va-qsv", "qsv"])
+        full = " ".join(attempts[0].before_input + attempts[0].output)
+        self.assertIn("d3d11va=peach_d3d11:,vendor=0x8086", full)
+        self.assertIn("-hwaccel_output_format d3d11", full)
+        self.assertIn("hwmap=derive_device=qsv,vpp_qsv=format=nv12", full)
+        self.assertNotIn("-pix_fmt", attempts[0].output)
+        self.assertEqual(attempts[1].before_input, ("-hwaccel", "d3d11va"))
+        self.assertEqual(attempts[2].before_input, ())
+        self.assertEqual([attempt.name for attempt in HardwareEncoder("qsv", gpu_frames=True).attempts("vc1")],
+                         ["qsv"])
+
+    def test_qsv_without_a_derived_session_decodes_to_memory_first(self):
+        hardware = HardwareTranscoder()
+        machine = self._machine(("h264_qsv",))
+
+        def session_zero(command, **kwargs):
+            if "qsv=peach_qsv@peach_d3d11" in command:
+                return subprocess.CompletedProcess(command, 1, stderr=b"Error creating a MFX session: -9.")
+            return machine(command, **kwargs)
+        with patch("peach.hardware_transcode.subprocess.run", side_effect=session_zero):
+            self.assertEqual(hardware.encoders(Path("ffmpeg")), (HardwareEncoder("qsv"),))
+        self.assertEqual([attempt.name for attempt in HardwareEncoder("qsv").attempts("hevc")], ["d3d11va-qsv", "qsv"])
 
     def test_d3d11_decode_feeds_libx264_when_no_encoder_works(self):
         with tempfile.TemporaryDirectory() as directory, \
@@ -410,7 +460,7 @@ class QualityCapTests(unittest.TestCase):
 
     def test_original_quality_keeps_every_encoder_command_unchanged(self):
         for encoder in (HardwareEncoder("nvenc"), HardwareEncoder("amf", "1"), HardwareEncoder("qsv"),
-                        HardwareEncoder("videotoolbox"), HardwareEncoder("vaapi", "/dev/dri/renderD128")):
+                        HardwareEncoder("qsv", gpu_frames=True), HardwareEncoder("videotoolbox"), HardwareEncoder("vaapi", "/dev/dri/renderD128")):
             with self.subTest(backend=encoder.backend):
                 self.assertEqual(encoder.attempts("hevc", 0), encoder.attempts("hevc"))
                 joined = " ".join(item for attempt in encoder.attempts("hevc") for item in attempt.output)
@@ -445,6 +495,19 @@ class QualityCapTests(unittest.TestCase):
         self.assertEqual(qsv["qsv"][:2], ("-vf", f"scale={SCALE_720.replace('720', '1080')}"))
         self.assertEqual(qsv["qsv"][2:], ("-c:v", "h264_qsv", "-preset", "veryfast", "-b:v", "6M",
                                           "-maxrate", "8M", "-pix_fmt", "nv12"))
+
+    def test_qsv_full_chain_scales_inside_vpp_qsv_and_keeps_the_fallbacks(self):
+        """全硬件链在 `vpp_qsv` 里缩放，帧不回内存；两级回退照旧在内存里软件缩放。"""
+        qsv = self.outputs(HardwareEncoder("qsv", gpu_frames=True), 1080)
+        self.assertEqual(list(qsv), ["qsv-full", "d3d11va-qsv", "qsv"])
+        scale = ("w='if(gt(iw,ih),trunc(iw*min(ih,1080)/ih/2)*2,trunc(min(iw,1080)/2)*2)'"
+                 ":h='if(gt(iw,ih),trunc(min(ih,1080)/2)*2,trunc(ih*min(iw,1080)/iw/2)*2)'")
+        self.assertEqual(qsv["qsv-full"], (
+            "-vf", f"hwmap=derive_device=qsv,vpp_qsv={scale}:format=nv12",
+            "-c:v", "h264_qsv", "-preset", "veryfast", "-b:v", "6M", "-maxrate", "8M"))
+        self.assertNotIn("-pix_fmt", qsv["qsv-full"])
+        self.assertEqual(qsv["d3d11va-qsv"], qsv["qsv"])
+        self.assertEqual(qsv["qsv"][:2], ("-vf", f"scale={SCALE_720.replace('720', '1080')}"))
 
     def test_vaapi_scales_on_the_gpu_or_before_upload_with_vbr(self):
         outputs = self.outputs(HardwareEncoder("vaapi", "/dev/dri/renderD128"), 480)
@@ -486,7 +549,7 @@ class QualityCapTests(unittest.TestCase):
             self.assertTrue(converted and target.name.endswith("-720p.mp4"))
             self.assertIn(f"scale={SCALE_720}", captured[0])
             path, hit, max_height = hls._cached_target(source, 7, 0, True)
-            self.assertEqual((hit, max_height, path.parent.name.endswith("-h264-v2-720p")), (False, 720, True))
+            self.assertEqual((hit, max_height, path.parent.name.endswith("-h264-v3-720p")), (False, 720, True))
             self.assertNotEqual(path, original_segment)
             self.assertFalse(original_segment.parent.name.endswith("p"))
             self.assertEqual(hls._cached_target(source, 7, 0, False)[2], 0)

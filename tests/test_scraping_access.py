@@ -103,7 +103,7 @@ class ScrapingAccessTests(unittest.TestCase):
             record = JavBusSource().query("ABW-123", session=Session(transport))
         self.assertEqual(record.code, "ABW-123")
         self.assertEqual(record.cover_urls, ("https://www.javbus.com/imgs/cover/test.jpg",))
-        self.assertEqual(seen, ["/", "/ABW-123"])
+        self.assertEqual(seen, ["/", "/pics/cover/9paa_b.jpg", "/ABW-123"], "检查连图片主机一起问")
 
     def test_javbus_cover_language_overrides_caller_headers_without_changing_other_sources(self):
         from peach.jav_cover_fetch import _fetch
@@ -147,6 +147,29 @@ class ScrapingAccessTests(unittest.TestCase):
                     transport._browser_for("javten")
                 self.assertEqual(shared.call_args.kwargs["direct"], direct)
                 self.assertEqual(shared.call_args.kwargs["proxy"], proxy)
+
+    def test_the_background_browser_mode_defaults_to_a_window_and_is_read_at_launch(self):
+        """后台采集浏览器默认保留窗口；设置成无窗口后，浏览器下次拉起时读到的是新模式。"""
+        from peach.scraping_access import browser_mode, save_browser_mode
+        self.assertEqual(browser_mode(self.root), "window")
+        transport = SourceTransport(self.root)
+        self.addCleanup(transport.close)
+        with patch("peach.browser_transport.shared") as shared:
+            transport._browser_for("javten")
+        headless = shared.call_args.kwargs["headless"]
+        self.assertFalse(headless())
+        self.assertEqual(save_browser_mode(self.root, "headless"), "headless")
+        self.assertTrue(headless())
+        with self.assertRaises(ValueError):
+            save_browser_mode(self.root, "minimized")
+        self.assertEqual(browser_mode(self.root), "headless")
+        from peach.web_scraping import w_scraping_settings
+        contract = SimpleNamespace(follow_secrets_root=self.root)
+        self.assertEqual(w_scraping_settings(contract, {"browser_mode": "window"}),
+                         {"ok": True, "browser_mode": "window"})
+        self.assertEqual(q_scraping(contract, {})["browser_mode"], "window")
+        (self.root / "scraping-browser.json").write_text("{broken", encoding="utf-8")
+        self.assertEqual(browser_mode(self.root), "window", "存坏了按默认")
 
     def test_switching_networks_releases_the_previous_exit_cooldown(self):
         from peach.scraping_access import pause_source, paused_until
@@ -250,7 +273,7 @@ class ScrapingAccessTests(unittest.TestCase):
 
         「请求预算」是这个类内部的词：看到它的人在问题清单里只能读出「有个数用完了」，
         既不知道那个数归谁管，也不知道自己还要不要动手。一趟任务的用量见
-        `library_processing.MAX_SOURCE_*`。
+        `library_processing.SourceBudget`。
         """
         from peach.scraping_access import SourcePaused
         request = HttpRequest("GET", "https://javdb.com/search?q=ABW-358", {})
@@ -276,9 +299,13 @@ class ScrapingAccessTests(unittest.TestCase):
         三家并行也要 4 小时才用得完，时间不会先掐断请求数。每次约 250 KB，1 GiB 装得下。
         """
         from peach import library_processing
-        self.assertEqual(library_processing.MAX_SOURCE_REQUESTS, 6000)
-        self.assertEqual(library_processing.MAX_SOURCE_BYTES, 1024 * 1024 * 1024)
-        self.assertEqual(library_processing.MAX_SOURCE_SECONDS, 4 * 3600)
+        self.assertEqual(library_processing.SourceBudget(), library_processing.SourceBudget(
+            requests=6000, bytes=1024 * 1024 * 1024, seconds=4 * 3600))
+        # 设置里能选的档位要包含默认档：没调过的人看到的就是现在这一档。
+        self.assertEqual(library_processing.source_budget_settings({}), {
+            'sourceBudgetRequests': 6000, 'sourceBudgetHours': 4, 'sourceBudgetGigabytes': 1})
+        for key, value in library_processing.SOURCE_BUDGET_DEFAULTS.items():
+            self.assertIn(value, library_processing.SOURCE_BUDGET_CHOICES[key])
 
     def test_a_community_source_that_refuses_is_paused_as_a_whole(self):
         """javdb 超配额回 403 不带 Retry-After，接着问只会每条都再撞一次、把封期拖长。"""
@@ -760,15 +787,63 @@ class ScrapingAccessTests(unittest.TestCase):
             factory.return_value.side_effect = httpx.ConnectError("EOF occurred in violation of protocol")
             checks = {item["label"]: item for item in
                       w_scraping_check(SimpleNamespace(follow_secrets_root=self.root), {"source": "dmm"})["results"]}
-        self.assertIn(MOBILE_BROADBAND_HINT, checks["高清图片 CDN"]["message"])
+        self.assertIn(MOBILE_BROADBAND_HINT, checks["图片 CDN"]["message"])
         self.assertNotIn(MOBILE_BROADBAND_HINT, checks["来源页面"]["message"])
-        cdn = checks["高清图片 CDN"]
+        cdn = checks["图片 CDN"]
         self.assertEqual((cdn["target"], checks["来源页面"]["target"]), ("cdn", "page"))
-        self.assertEqual(interface_text.text(f"server:{cdn['label_code']}", language="en"), "HD image CDN")
+        self.assertEqual(interface_text.text(f"server:{cdn['label_code']}", language="en"), "Image CDN")
         self.assertEqual(interface_text.text(f"server:{cdn['message_code']}", cdn["message_params"], language="en"),
                          "Can't connect. On China Mobile broadband, direct connections to DMM image hosts are often "
                          "dropped after the handshake; set the DMM / FANZA connection to the Peach proxy.")
 
+
+    def test_the_dmm_check_asks_the_catalog_api_instead_of_the_age_gated_home_page(self):
+        """DMM 首页 301 到 fanza.jp 再落到年龄确认页，按首页查永远是「要登录」（#144）；采集走的是
+        不设年龄门的 GraphQL 接口，检查问它。"""
+        sent = []
+
+        def respond(request, timeout, max_bytes):
+            sent.append(request)
+            if request.url.startswith("https://api.video.dmm.co.jp/"):
+                return HttpResponse(200, {"content-type": "application/json"},
+                                    b'{"data":{"__typename":"Query"}}', request.url)
+            buffer = io.BytesIO()
+            Image.new("RGB", (800, 538)).save(buffer, format="JPEG")
+            return HttpResponse(206, {"content-type": "image/jpeg"}, buffer.getvalue(), request.url)
+
+        with patch("peach.source_checks.SourceTransport") as factory:
+            factory.return_value.side_effect = respond
+            checks = {item["target"]: item for item in
+                      w_scraping_check(SimpleNamespace(follow_secrets_root=self.root), {"source": "dmm"})["results"]}
+        self.assertEqual((checks["page"]["ok"], checks["page"]["reason"]), (True, "ok"))
+        self.assertEqual((sent[0].method, sent[0].url), ("POST", "https://api.video.dmm.co.jp/graphql"))
+        self.assertTrue(checks["cdn"]["ok"])
+
+    def test_each_source_with_a_fixed_image_host_checks_it_and_the_rest_say_not_checked(self):
+        """页面与图片主机分开报（#377）：有固定图片主机的来源各查一张那台主机上的图，只取前 64 KB；
+        没有的标「未检查」，全部检查里归到「跳过」，不算失败；DMM 以外的图片主机连不上不附移动宽带那句。"""
+        from peach.source_checks import IMAGE_PROBES, MOBILE_BROADBAND_HINT, check_source
+        from peach.source_preflight import outcome
+        self.assertTrue({"dmm", "r18dev", "javdb", "javbus", "mgstage"} <= set(IMAGE_PROBES))
+        sent = []
+
+        def respond(request, timeout, max_bytes):
+            sent.append(request)
+            if "jdbstatic" in request.url:
+                raise httpx.ConnectError("connection reset")
+            return HttpResponse(200, {"content-type": "text/html"}, b"<html><title>ok</title></html>", request.url)
+
+        with patch("peach.source_checks.SourceTransport") as factory:
+            factory.return_value.side_effect = respond
+            javdb = {item["target"]: item for item in check_source(self.root, "javdb")["results"]}
+            avbase = {item["target"]: item for item in check_source(self.root, "avbase")["results"]}
+        self.assertEqual([request.url for request in sent if "jdbstatic" in request.url], [IMAGE_PROBES["javdb"]])
+        self.assertEqual(sent[1].headers.get("Range"), "bytes=0-65535")
+        self.assertEqual((javdb["cdn"]["ok"], outcome(javdb["cdn"])), (False, "network"))
+        self.assertNotIn(MOBILE_BROADBAND_HINT, javdb["cdn"]["message"])
+        self.assertEqual((avbase["page"]["ok"], avbase["cdn"]["kind"], outcome(avbase["cdn"])), (True, "unchecked", "skipped"))
+        self.assertFalse(any("avbase" not in request.url and "jdbstatic" not in request.url and "javdb" not in request.url
+                             for request in sent), "没有固定图片主机的来源图片那一跳不发请求")
 
 class BrowserFallbackTests(unittest.TestCase):
     """登记了 `browser_fallback` 的来源（minnano-av）：HTTP 客户端被拦时由本机浏览器验证一页，
@@ -963,7 +1038,7 @@ class SourcePreflightTests(unittest.TestCase):
         def check(root, source, **options):
             self.assertTrue(options['preflight'])
             return {'results': [{'label': '来源页面', 'ok': source == 'dmm'},
-                                {'label': '高清图片 CDN', 'ok': False, 'reason': 'network'}]}
+                                {'label': '图片 CDN', 'ok': False, 'reason': 'network'}]}
         with patch('peach.source_preflight.check_source', side_effect=check) as checked:
             result = check_sources(Path('/unused'), ['dmm', 'javdb', 'dmm'])
         self.assertEqual(checked.call_count, 2)

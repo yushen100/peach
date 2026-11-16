@@ -115,12 +115,23 @@ const PILL = 'h-8 cursor-pointer rounded-full border border-(--glass-low) bg-tra
   + ' aria-busy:cursor-wait aria-busy:opacity-55';
 
 export function GlassPill(
-  { children, onPress, busy = false }: { children: ReactNode; onPress(): void; busy?: boolean },
+  { children, onPress, busy = false, pressed, ...data }:
+  { children: ReactNode; onPress(): void; busy?: boolean; pressed?: boolean | 'mixed' } & Record<`data-${string}`, string>,
 ) {
   return (
-    <button type="button" data-glass-pill="" className={PILL} aria-busy={busy || undefined} aria-disabled={busy || undefined}
-      onClick={() => { if (!busy) onPress() }}>
+    <button type="button" data-glass-pill="" {...data} className={PILL} aria-pressed={pressed} aria-busy={busy || undefined}
+      aria-disabled={busy || undefined} onClick={() => { if (!busy) onPress() }}>
       {children}
     </button>
   );
+}
+
+/** 处理队列页浮层下排、读数后面那颗「全选」：按这一屏已取回的条目全选或全不选。全选了是按下，
+ *  选了一部分是半按下（`aria-pressed="mixed"`），再点一次全选。 */
+export function SelectAllPill({ label, picked, total, onChange }: {
+  label: string; picked: number; total: number; onChange(on: boolean): void;
+}) {
+  const all = total > 0 && picked === total;
+  return <GlassPill data-select-all="" pressed={all ? true : picked > 0 ? 'mixed' : false} onPress={() => onChange(!all)}>
+    {label}</GlassPill>;
 }

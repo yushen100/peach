@@ -757,9 +757,12 @@
     "url": "代理地址"
   },
   "performerNameLanguage": {
-    "chinese": "中文",
-    "help": "名称与别名只显示所选语言的写法；缺少对应时保留当前名称。",
-    "japanese": "日文原文",
+    "chinese": "中文化（译名）",
+    "help": "本地语言跟界面语言走；缺少对应写法时显示原文。",
+    "japanese": "日语原文",
+    "japaneseThenLocal": "日语原文（本地语言）",
+    "localThenJapanese": "本地语言（日语原文）",
+    "romaji": "英文（罗马音）",
     "saveFailed": "保存名称显示偏好",
     "saved": "已保存名称显示偏好",
     "title": "女优名称",
@@ -799,12 +802,21 @@
     "stop": "停下",
     "title": "播完之后"
   },
+  "playbackGestures": {
+    "autoFullscreen": "手机上播放横版视频时自动全屏",
+    "doubleTapPercent": "双击快进快退的区域宽度",
+    "holdRate": "长按倍速",
+    "swipeMinutes": "横向拖过整个画面跳转",
+    "touch": "画面手势（长按、拖动、双击）"
+  },
   "playbackTranscode": {
     "qualitySaved": "已保存画质上限",
     "saved": "已保存转码方式",
     "software": "软件编解码"
   },
   "preferencesPanel": {
+    "autoChineseSubtitles": "自动打开中文字幕",
+    "autoChineseSubtitlesHelp": "没选过字幕的影片打开同目录的中文字幕",
     "autoScroll": "自动滚动",
     "batchSize": "每批加载作品",
     "batchSizeInput": "每批作品",
@@ -818,10 +830,12 @@
     "feedLimitInput": "新作显示数量",
     "feedNewRows": "首页与人物页显示新作",
     "groupEditions": "合并分卷与版本",
+    "homePreviewOnly": "首页只显示有预览图的作品",
     "homeShorts": "首页竖屏短片带",
     "homeTiers": "首页显示女优与厂牌头像",
     "hoverDelay": "悬停预览延迟",
     "hoverDelaySfw": "SFW 模式下不预览。",
+    "hoverPreview": "卡片悬停时播放视频预览",
     "increaseContrast": "增加对比度",
     "ingestNotices": "入库通知",
     "interfaceSounds": "界面音效",
@@ -936,11 +950,21 @@
     "awaitingConfirmation": "等你确认",
     "backupCleaned": "修复前的备份已清理",
     "changedCount": "改动 {{count, number}} 项",
+    "deferReasonCount": "{{reason}} {{count, number}} 部",
+    "deferReasons": {
+      "mount": "所在目录读不到",
+      "cooldown": "资料来源冷却中",
+      "cost": "计费来源未确认",
+      "retry": "等待自动重试"
+    },
+    "deferred": "已延后",
+    "deferredNote": "延后 {{count, number}} 部：{{reason}}",
     "deleteBody": "将删除 {{amount}}，删除后不能恢复。每个关注来源最近 3 份快照和条目引用的快照会保留。",
     "deleteSnapshots": "删除快照",
     "deleteTitle": "删除{{title}}",
     "empty": "没有要修复或迁移的内容。",
     "estimating": "正在统计",
+    "failedNote": "失败 {{count, number}} 部，可在{{place}}重试",
     "filesAndSize": "{{count, number}} 个文件 · {{size}}",
     "groups": {
       "files": "馆藏文件",
@@ -960,6 +984,7 @@
     "pendingChecks_other": "{{count, number}} 条待核对",
     "pendingFixes_one": "待修正 {{count, number}} 处",
     "pendingFixes_other": "待修正 {{count, number}} 处",
+    "pendingCovers": "{{count, number}} 张封面待处理",
     "pendingRecheck": "{{count, number}} 部待补测",
     "preRepairBackup": "修复前的账本备份",
     "queued": "等待执行",
@@ -1252,6 +1277,8 @@
     "title": "卸载 Peach"
   },
   "upgradeRepairs": {
+    "deferred": "延后",
+    "deferredHelp": "剩下的要等挂载恢复或来源放开，到时间自动继续。",
     "downloadReviewLog": "下载复核记录",
     "itemCount": "{{value}} 项",
     "needsReview": "需要复核",
@@ -1315,5 +1342,27 @@
     "intervalHelp": "发售超过 90 天、上次没查到的作品隔多久再查。",
     "never": "一直查",
     "title": "想要查资源"
+  },
+  "sourceBudget": {
+    "gigabyteCount": "{{count, number}} GB",
+    "gigabytes": "每趟下载上限",
+    "hourCount": "{{count, number}} 小时",
+    "hours": "每趟采集时长",
+    "requestCount": "{{count, number}} 次",
+    "requests": "每趟请求上限",
+    "requestsHelp": "一趟扫描与采集向外部来源要的总量，三项哪项先到就停在哪，剩下的下一趟接着采。",
+    "saved": "已保存每趟采集上限"
+  },
+  "scrapingBrowser": {
+    "headless": "无窗口",
+    "mode": "后台采集浏览器",
+    "modeHelp": "保留窗口时窗口在屏幕外、不抢前台，验证过不了可从任务栏点开手动点；无窗口时过不了就暂停该来源。",
+    "title": "采集浏览器",
+    "window": "保留窗口"
+  },
+  "coverFallback": {
+    "title": "封面",
+    "javdb": "没有别的封面时用 JavDB 带水印的图",
+    "javdbHelp": "默认关闭。官方与本地封面始终优先，之后取到不带水印的封面会自动换掉"
   }
 }

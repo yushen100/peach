@@ -5,7 +5,7 @@ import logging
 
 from . import interface_text, settings_file
 from .library_processing_scope import scoped_config, scoped_assets
-from .library_processing import (ALL_STAGES, COLLECT_STAGE, SCAN_STAGE, STAGES,
+from .library_processing import (ALL_STAGES, COLLECT_STAGE, COVERS_STAGE, SCAN_STAGE, STAGES,
                                 METADATA_STAGE, PREVIEWS_STAGE, _asset_selection,
                                 decorate, issues_path, process_library, snapshot)
 from .processing_control import control_for, initial_estimate, valid_mode, mode_ratio
@@ -98,23 +98,28 @@ def _project_speed(contract, state, run, control):
     state['speed_mode'] = mode
 
 
+def _estimate(contract, args):
+    """按查询参数拼出与启动处理同形的请求，估算这一趟的联网流量，不启动任务。"""
+    config = settings_file.active()
+    body = {'stage': args.get('stage') or ALL_STAGES}
+    if 'incremental' in args:
+        body['incremental'] = args['incremental'] == '1'
+    if 'scope' in args:
+        body['scope'] = args['scope']
+    if 'asset_ids' in args:
+        body['asset_ids'] = json.loads(args['asset_ids'])
+    if 'library_id' in args:
+        body['library_id'] = args['library_id']
+    config = scoped_config(config, body.get('library_id'))
+    _, asset_ids, stage = _processing_request(contract, config, {}, body)
+    from .processing_inventory import preview
+    return {'traffic': preview(config, contract.db_path, stage, asset_ids, args.get('inventory'),
+                               incremental=body.get('incremental', False), library_id=body.get('library_id'))}
+
+
 def q_library_processing(contract, _args):
     if _args.get('estimate') == '1':
-        config = settings_file.active()
-        body = {'stage': _args.get('stage') or ALL_STAGES}
-        if 'incremental' in _args:
-            body['incremental'] = _args['incremental'] == '1'
-        if 'scope' in _args:
-            body['scope'] = _args['scope']
-        if 'asset_ids' in _args:
-            body['asset_ids'] = json.loads(_args['asset_ids'])
-        if 'library_id' in _args:
-            body['library_id'] = _args['library_id']
-        config = scoped_config(config, body.get('library_id'))
-        _, asset_ids, stage = _processing_request(contract, config, {}, body)
-        from .processing_inventory import preview
-        return {'traffic': preview(config, contract.db_path, stage, asset_ids, _args.get('inventory'),
-                                   incremental=body.get('incremental', False), library_id=body.get('library_id'))}
+        return _estimate(contract, _args)
     state = _current(contract)
     run = _active_run(contract, state) if state.get('status') in ACTIVE else None
     if run is not None:
@@ -141,6 +146,8 @@ def q_library_processing(contract, _args):
     if recovery.get('status') == 'cancelled' and recovery.get('job_id') == state.get('job_id'):
         state.update(status='cancelled', outcome='cancelled', error='')
     state['retryable_asset_ids'] = _remaining_retry_ids(contract, state)
+    if _issues_all_removed(contract, state):
+        state['archived'] = True
     from .library_new_assets import pending
     state['new_asset_count'] = len(pending(contract.db_path))
     if state.get('status') not in ACTIVE and recovery.get('status') == 'blocked':
@@ -328,6 +335,67 @@ def _remaining_retry_ids(contract, previous):
     return [value for value in ids if value in remaining]
 
 
+#: 问题日志 → (mtime_ns, 大小, 问题项的影片 id 或 None)。轮询每 10 秒一次，日志没变就不重读。
+_ISSUE_ASSETS: dict = {}
+
+
+def _issue_assets(path):
+    """问题日志里每一条问题项（告知项不算）对应的影片；有一条不带影片就是 None。"""
+    try:
+        info = path.stat()
+    except OSError:
+        return None
+    cached = _ISSUE_ASSETS.get(str(path))
+    if cached is not None and cached[:2] == (info.st_mtime_ns, info.st_size):
+        return cached[2]
+    from .library_processing import _note_key
+    ids = set()
+    try:
+        with path.open(encoding='utf-8') as handle:
+            for line in handle:
+                if not line.strip():
+                    continue
+                item = json.loads(line)
+                if _note_key(item):
+                    continue
+                asset_id = item.get('asset_id')
+                if isinstance(asset_id, bool) or not isinstance(asset_id, int):
+                    ids = None
+                    break
+                ids.add(asset_id)
+    except (OSError, ValueError, AttributeError):
+        ids = None
+    _ISSUE_ASSETS.clear()
+    _ISSUE_ASSETS[str(path)] = (info.st_mtime_ns, info.st_size, ids)
+    return ids
+
+
+def _issues_all_removed(contract, state):
+    """跑完、留有问题的那一趟，问题影片都已不在馆藏（删掉、进回收站或标「已消失」）时为真。
+
+    资源同步清掉失效条目后，那一趟的红框和悬浮提示就不该再要人处理：读状态时现算，
+    不改状态文件，问题日志原样留着；条目从回收站还原了，提示也跟着回来。来源离线时
+    账本不动，这里不会把「盘没挂上」当成「文件删了」。有一条问题不对应影片（准备工具失败、
+    预算到顶的汇总）就不算。"""
+    if (state.get('archived') or state.get('status') != 'failed' or state.get('outcome') != 'partial'
+            or not state.get('issue_count') or not state.get('job_id')):
+        return False
+    from pathlib import Path
+    path = Path(state['issues_log']) if state.get('issues_log') else issues_path(
+        settings_file.active(), str(state['job_id']))
+    ids = _issue_assets(path)
+    if not ids:
+        return False
+    ids = sorted(ids)
+    with contract.database.read_connection() as connection:
+        for offset in range(0, len(ids), 900):
+            batch = ids[offset:offset + 900]
+            if connection.execute('SELECT 1 FROM asset WHERE disposal IS NULL AND id IN ('
+                                  + ','.join('?' * len(batch)) + ') LIMIT 1', batch).fetchone():
+                return False
+    return True
+
+
 def _retry_ids(previous, body):
     """请求带 `retry` 时按上一任务的失败集合重试；普通启动仍处理整个馆藏。
 
@@ -404,8 +472,29 @@ def _resume_request(previous, speed_mode):
         **({'incremental': True} if previous.get('incremental') else
            {'asset_ids': previous['asset_ids']} if previous.get('asset_ids') else {}),
         **({'allow_metered': True} if previous.get('allow_metered') else {}),
+        **({'recheck': True} if previous.get('recheck') else {}),
         'speed_mode': speed_mode,
     }
+
+
+#: 一次「重新采集」最多点名几部。它绕过来源快照逐站重问，是给详情页那一部（或少数几部）用的，
+#: 整库重问走升级补修的分批派发。
+RECHECK_LIMIT = 20
+
+
+def _recheck_grant(body, stage, asset_ids):
+    """点名的几部片重新采集资料：不复用来源快照、已有字段也按来源再核一遍（#208）。
+
+    快照里的乱码与过时资料只能这样换掉；用户改过、复核批准过的字段归属受保护，重采不覆盖。
+    只接受显式点名的影片与资料阶段，整库同步不接受这个开关。
+    """
+    granted = (body or {}).get('recheck', False)
+    if type(granted) is not bool:
+        raise UserValueError('api.libraryProcessing.recheckNotBoolean')
+    if granted and (stage not in (METADATA_STAGE, COLLECT_STAGE) or not asset_ids
+                    or len(asset_ids) > RECHECK_LIMIT):
+        raise UserValueError('api.libraryProcessing.recheckSelectedOnly', {'limit': RECHECK_LIMIT})
+    return granted
 
 
 def _metered_grant(body, stage, asset_ids):
@@ -490,6 +579,7 @@ def w_library_processing(contract, body, *, resume=False):
         contract, config, previous, body, resume)
     incremental = (body or {}).get('incremental', False)
     allow_metered = _metered_grant(body, stage, asset_ids)
+    recheck = _recheck_grant(body, stage, asset_ids)
     if (body or {}).get('scope') == 'new':
         from .library_new_assets import remember
         remember(contract.db_path, asset_ids)
@@ -502,7 +592,7 @@ def w_library_processing(contract, body, *, resume=False):
         try:
             result = process_library(config, contract.db_path, contract.candidate_root, contract.cover_root,
                 job_id=job_id, retry_ids=retry_ids, stage=stage, asset_ids=asset_ids, incremental=incremental, library_id=library_id,
-                allow_metered=allow_metered,
+                allow_metered=allow_metered, recheck_existing=recheck,
                 # 自动落库与页面写的是同一个 `LedgerDatabase`：进程内写锁在实例上，
                 # 另建一个就是在同一个进程里开第二条写入路径。
                 database=contract.database,
@@ -518,7 +608,8 @@ def w_library_processing(contract, body, *, resume=False):
     # 起步那行字按这一趟真正要做的事写：点了「只扫描」却看到「读取本地资料」，
     # 人会以为点错了。
     labels = {ALL_STAGES: 'library.startAll', SCAN_STAGE: 'library.startScan', COLLECT_STAGE: 'library.startCollect',
-              METADATA_STAGE: 'library.startCollect', PREVIEWS_STAGE: 'library.startPreviews'}
+              METADATA_STAGE: 'library.startCollect', COVERS_STAGE: 'library.fetchCovers',
+              PREVIEWS_STAGE: 'library.startPreviews'}
     estimate_ids = asset_ids if asset_ids is not None else retry_ids
     if incremental:
         from .library_new_assets import pending
@@ -529,10 +620,12 @@ def w_library_processing(contract, body, *, resume=False):
         work, restart=True, initial={**stage_fields(labels[stage]), 'requested_stage': stage,
                                     'library_id': library_id, 'library_name': library_name,
                                     **({'allow_metered': True} if allow_metered else {}),
+                                    **({'recheck': True} if recheck else {}),
                                     **initial_estimate(config, contract.db_path, stage, estimate_ids, mode,
                                                        allow_metered=allow_metered)},
         recovery={'stage': stage, 'speed_mode': mode, 'incremental': incremental, 'library_id': library_id,
                   **({'allow_metered': True} if allow_metered else {}),
+                  **({'recheck': True} if recheck else {}),
                   **({'asset_ids': asset_ids or retry_ids}
                                     if asset_ids is not None or retry_ids is not None else {})})
     if not resume:

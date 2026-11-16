@@ -5,7 +5,7 @@ import { ResourceSearch } from '../../src/react/activity/resource-search';
 import { IndexerSettings } from '../../src/react/settings/indexer-settings';
 import { SourceLink } from '../../src/react/follow-manage/source-view';
 import { queryClient } from '../../src/react/query';
-import { buttonNamed, click, mount, section, settle, submit, type } from './render';
+import { buttonNamed, click, hold, mount, section, settle, submit, type } from './render';
 
 afterEach(() => queryClient.clear());
 
@@ -24,14 +24,17 @@ it('回车按番号查询，选择候选只填表单', async () => {
   const choose = vi.fn();
   const fetch = vi.fn(async (_url: string) => ({ ok: true, json: async () => ({ state: 'ready', warnings: ['一处来源未响应'],
     error: '', items: [{ id: 'a', uri: 'magnet:?xt=urn:btih:' + 'a'.repeat(40), name: 'ABC-123 4K',
-      size: 1024 ** 3, seeders: 2, origins: ['测试源'], resolution: 2160, codec: 'HEVC' }] }) }));
+      size: 1024 ** 3, seeders: 2, origins: ['JavBus', 'sukebei'], resolution: 2160, codec: 'HEVC' }] }) }));
   vi.stubGlobal('fetch', fetch);
   const host = await mount(<ResourceSearch initialCode="ABC-123" choose={choose} />);
   await act(async () => field(host, '按番号查找资源')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
   await settle();
   expect(fetch.mock.calls[0]?.[0]).toContain('/api/resources/search?code=ABC-123&goal=quality');
   expect(host.textContent).toContain('一处来源未响应');
-  expect(host.textContent).toContain('测试源');
+  expect([...host.querySelectorAll('li img')].map(img => img.getAttribute('src')))
+    .toEqual(['/site-mark?source=javbus', '/site-mark?source=sukebei']);
+  expect(host.textContent).toContain('JavBus');
+  expect(host.textContent).toContain('sukebei');
   await click(buttonNamed('选用此资源', host));
   expect(choose).toHaveBeenCalledWith('magnet:?xt=urn:btih:' + 'a'.repeat(40), 'ABC-123');
   expect(fetch).toHaveBeenCalledTimes(1);
@@ -113,7 +116,7 @@ it('设置保存后清空 API key，移除需再保存才生效', async () => {
   await settle();
   expect(posts).toHaveLength(1);
   expect(named(host, '索引器 1 API key')?.value).toBe('');
-  await click(host.querySelector('button[aria-label="移除索引器 1"]'));
+  await hold(host.querySelector('button[aria-label="移除索引器 1"]'));
   expect(posts).toHaveLength(1);
   await submit(section(host, '资源搜索'));
   expect(posts[1]).toEqual({ indexers: [] });

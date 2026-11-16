@@ -97,6 +97,8 @@ class PeachSettings:
     mdns_name: str = "peach"
     mdns_port: int = 80
     mdns_address: str | None = None
+    #: 服务的监听套接字收不收 IPv6 连接；收的时候 mDNS 才发布 AAAA 记录。
+    mdns_ipv6: bool = False
     tls_enabled: bool = False
     #: Quick Tunnel 由应用进程管理，公网入口不能从默认值打开：这两项只由 `cli._serve`
     #: 从设置文件读出后注入，`create_app()` 自己构造的设置一律是关闭加空路径。

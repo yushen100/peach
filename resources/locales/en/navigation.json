@@ -8,8 +8,11 @@
     "network": "Network"
   },
   "durationFilter": {
+    "invalid": "Enter a valid non-negative duration. The maximum must be greater than 0.",
     "maximum": "Maximum duration (minutes)",
+    "maximumLabel": "Max (min)",
     "minimum": "Minimum duration (minutes)",
+    "minimumLabel": "Min (min)",
     "minutes_one": "{{count, number}} min",
     "minutes_other": "{{count, number}} min",
     "noLimit": "No limit"
@@ -99,6 +102,11 @@
     "releaseYear": "Release year",
     "storage": "Storage",
     "videoProperties": "Video properties"
+  },
+  "sidebarWidth": {
+    "label": "Resize sidebar, double-click or press Enter to reset",
+    "pixels": "{{count}} px",
+    "resetHint": "Double-click to reset"
   },
   "sidebarReorder": {
     "canceled": "Reordering canceled",

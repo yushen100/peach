@@ -132,6 +132,8 @@ export function wireHorizontalScroller(el:any,{drag=false,fade=true,wheel=true,e
   listen(el,'mousedown',event=>{
     moved=0;
     if(!options.drag||event.button!==0||el.scrollWidth-el.clientWidth<=1)return;
+    // 排序项拥有这段指针手势，按下时停止在途滚动，让重排时容器位置保持稳定。
+    if(event.target.closest?.('[data-navigation-order] > [data-tab]')){stopGlide();return}
     if(options.dragIgnore&&(event.shiftKey||event.ctrlKey||event.metaKey||event.altKey||event.target.closest?.(options.dragIgnore)))return;
     event.stopPropagation();stopGlide();start={x:event.pageX,left:el.scrollLeft};moved=0;document.documentElement.dataset.dragScrolling='';
   });
@@ -297,6 +299,14 @@ export function cancelGlide(pane:HTMLElement|null|undefined):void{
   if(!pane)return;
   glides.get(pane)?.forEach(a=>a.cancel());
   glides.delete(pane);
+}
+/** 底板正在滑：等这一段跑完再调 `then`（被撤掉就不调），返回 true。没在滑时返回 false，调用方当场处理。
+ *  给「原地重量」用：键被点中时所在那一排常会跟着平滑滚几帧，每帧都撤掉重摆的话，刚起跑的滑动当场就没了。 */
+export function afterGlide(pane:HTMLElement|null|undefined,then:()=>void):boolean{
+  const moving=pane?glides.get(pane):undefined;
+  if(!moving?.length||moving.every(a=>a.playState==='finished'))return false;
+  moving[0]!.finished.then(()=>{if(glides.get(pane!)===moving)then()},()=>{});
+  return true;
 }
 
 /** Geist Scroller: one-axis overflow with edge fades as the scroll affordance. */

@@ -727,6 +727,11 @@
     "description": "Re-check official high-resolution candidates from the audit list, keeping a backup and result for each code.",
     "liveHelp": "Look up online through the existing official chain; no existing snapshot needed"
   },
+  "judge_cover_portraits": {
+    "description": "Fetch the matching DMM portrait to re-judge whether installed covers are sleeves, installing separately designed posters as the front image.",
+    "allHelp": "Also re-judge standard-ratio sleeves whose fold was already found",
+    "coversHelp": "Judge the covers in this directory instead of the data root's generated/covers, e.g. a copy for a trial run"
+  },
   "sync_brand_marks": {
     "description": "Copy the label marks already on this device into `resources/marks/` so they ship with the repository (ADR-0026)."
   },

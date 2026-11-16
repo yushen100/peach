@@ -1,6 +1,6 @@
-"""名册与人物索引的批量动作：订阅新作、从名册隐藏、名下作品移进回收站。
+"""名册与人物索引的批量动作及永久删除资料。
 
-每种动作都交回这一批里真正变了的那几项，撤销按它原样做反向动作：订过的不再算进
+可逆动作交回这一批里真正变了的那几项，撤销按它原样做反向动作：订过的不再算进
 「订上」，已经在回收站里的不算进「移进回收站」，撤销时也就不会把原本的状态一起改掉。
 """
 from __future__ import annotations
@@ -8,17 +8,15 @@ from __future__ import annotations
 import time
 
 from . import entities, feeds
+from .web_entity_deletion import ROSTER_KINDS, deletion_plan, delete_profiles
 from .user_messages import UserValueError
 from .web_entity import ROSTER_HIDDEN_KEY as HIDDEN_KEY, roster_hidden, scope_predicate
-
-#: 名册上能隐藏的实体种类；标签有自己的隐藏（`tag_management`），不走这里。
-ROSTER_KINDS = frozenset({"performer", "creator", "studio", "agency", "series"})
 
 #: 名下作品移进回收站时按哪种实体取范围。事务所不在内：它名下是成员拍的片，一次移走
 #: 整家事务所全部成员的作品不是名册上该有的一键。
 CONTENT_KINDS = frozenset({"performer", "creator", "studio", "series", "tag"})
 
-OPERATIONS = frozenset({"follow", "unfollow", "hide", "unhide", "trash", "restore"})
+OPERATIONS = frozenset({"follow", "unfollow", "hide", "unhide", "trash", "restore", "delete"})
 
 #: 一批最多几项，与标签管理同一档。
 LIMIT = 2000
@@ -29,7 +27,7 @@ def _ids(values, *, required=True) -> list[int]:
         raise UserValueError("api.entityBatch.selectionInvalid")
     ids = []
     for value in values:
-        if type(value) is not int or value <= 0:
+        if type(value) is not int or not 0 < value < 2**63:
             raise UserValueError("api.entityBatch.selectionInvalid")
         ids.append(value)
     return sorted(set(ids))
@@ -115,9 +113,19 @@ def _set_disposal(connection, ids: list[int], trash: bool) -> list[int]:
 
 
 def q_entity_batch_plan(contract, args) -> dict:
-    """确认弹窗要的数字：这几项名下有多少份作品会移进回收站。"""
-    ids = _ids([int(value) for value in str(args.get("ids") or "").split(",") if value.isdecimal()])
+    """确认弹窗中的资料和作品范围，资料删除同时返回计划凭据。"""
+    values = str(args.get("ids") or "").split(",")
+    if args.get("operation") == "delete" and not all(value.isdecimal() for value in values):
+        raise UserValueError("api.entityBatch.selectionInvalid")
+    ids = _ids([int(value) for value in values if value.isdecimal()])
     with contract.read_connection() as connection:
+        if args.get("operation") == "delete":
+            if len(ids) > LIMIT:
+                raise UserValueError("api.entityBatch.selectionInvalid")
+            plan = deletion_plan(connection, ids)
+            return {"entity_ids": ids, "assets": plan["assets"], "bytes": plan["bytes"],
+                    "shared": plan["shared"], "token": plan["token"],
+                    "names": [row["canonical_name"] for row in plan["entities"]]}
         rows = _entities(connection, ids, CONTENT_KINDS)
         assets = _content_ids(connection, rows)
     return {"entity_ids": [row["id"] for row in rows], "assets": len(assets)}
@@ -128,6 +136,11 @@ def w_entity_batch(contract, body) -> dict:
     operation = body.get("operation")
     if operation not in OPERATIONS:
         raise UserValueError("api.entityBatch.operationInvalid")
+    if operation == "delete":
+        ids = _ids(body.get("entity_ids"))
+        if len(ids) > LIMIT:
+            raise UserValueError("api.entityBatch.selectionInvalid")
+        return delete_profiles(contract, body, ids)
     sources: list[int] = []
     skipped: list[dict] = []
     with contract.write_transaction() as connection:

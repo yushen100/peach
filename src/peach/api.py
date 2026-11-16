@@ -58,7 +58,7 @@ from .media import (
 from .mdns import create_mdns_publisher
 from .mount_reachability import MountReachability
 from .mp4repair import HeaderRepairStore
-from .platform import location_mounts
+from .platform import location_mount_values
 from .previews import (
     COVER_SMALL_THUMB_EDGE,
     COVER_SMALL_THUMB_QUALITY,
@@ -84,7 +84,7 @@ from .routes_auth import FIRST_ACCESS_DENIED_CODE, AssetLoginRequired, PageLogin
 # tests/test_follow_web.py 按 `api.MEDIA_CACHE_SECONDS` 断言两者的关系。
 from .routes_media import AVATAR_CACHE_SECONDS, MEDIA_CACHE_SECONDS  # noqa: F401
 from .segments import HlsSegmentService
-from .streaming import StreamSessionRegistry
+from .streaming import StreamSessionRegistry, shutdown_stream_executor
 from .sync import LedgerSync
 from .transcodes import TranscodeService
 from .user_messages import UserFacingError, error_fields, message_fields, nested_message, response_status
@@ -552,6 +552,11 @@ class _LedgerActivation:
                 self.automatic_started = True
             if ready:
                 self.sharing.start()
+                # 「修复与迁移」里关注旧快照能删多少：启动后就在后台估算，页面第一次打开直接读结果。
+                reclaim = getattr(self.app.state, 'follow_evidence', None)
+                repairs = getattr(self.app.state, 'upgrade_repairs', None)
+                if reclaim is not None and getattr(repairs, 'available', False):
+                    reclaim.prime()
             return ready
 
     async def _wait_for_installation(self):
@@ -692,7 +697,7 @@ def create_app(
     )
     mdns = create_mdns_publisher(
         settings.mdns_name, settings.mdns_port, secure=settings.tls_enabled,
-        address=settings.mdns_address,
+        address=settings.mdns_address, ipv6=settings.mdns_ipv6,
     ) if settings.mdns_enabled else None
     providers = default_registry()
     opencode_go = OpenCodeGoClient(transport=http_transport)
@@ -713,7 +718,7 @@ def create_app(
         secrets_root=settings.secrets_root,
         db_path=settings.db_path,
         declared_roots=LOCATION_ROOT_DECLARATIONS,
-        mounts=location_mounts(),
+        mounts=location_mount_values(),
         available=_writer(sync),
         ffprobe=resolver.ffprobe,
         after_ingest=contract.cache_bust,
@@ -789,18 +794,21 @@ def create_app(
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
-        # asyncio 异常处理器由 `cli._run_uvicorn` 装在 uvicorn 的事件循环上：它要拿着 uvicorn
+        # asyncio 异常处理器由 `listening.serve` 装在 uvicorn 的事件循环上：它要拿着 uvicorn
         # 的 Server，才能在监听被标准库关掉后重新监听。
         # 握手要等 cloudflared 连上边缘，断网时会等满 `wait_timeout`；放在后台，本机访问
         # 不等公网入口。连接进度由 `tunnel_manager.snapshot()` 报告。
         tunnel_startup = asyncio.create_task(asyncio.to_thread(_start_tunnel, settings, tunnel_manager))
         services = (follow_scheduler, feed_scheduler, push_discovery, downloads, recovery_service, jav_browser, upgrade_repairs,
-                    follow_backfill)
+                    follow_backfill, _app.state.cover_repair)
         activation = _LedgerActivation(_app, settings, contract, services, automatic_updates, sharing)
         _app.state.ledger_activation = activation
         ledger_ready = await activation.start()
         if settings.configured:
             mount_reachability.start()
+            # javdb 的节拍和独立采集脚本共用数据根里的同一个文件，两边同时跑也不超过它的速率上限。
+            from .library_processing import share_source_limits
+            share_source_limits(settings.follow_state_root)
         warmup = asyncio.create_task(warm_startup_entries())
         aggregate_stop = asyncio.Event()
         aggregate_warmup = asyncio.create_task(_warm_ledger_aggregates(ledger_ready, contract, aggregate_stop))
@@ -849,6 +857,7 @@ def create_app(
             http_transport.close()
             follow_media_resolver.close()
             hls_plan_executor.shutdown(wait=False, cancel_futures=True)
+            shutdown_stream_executor()
 
     app = FastAPI(
         title="Peach API",
@@ -894,6 +903,10 @@ def create_app(
     app.state.follow_evidence = Reclaim(Path(contract.follow_sources_root) / "follow", contract,
                                         runs=contract.task_runs)
     app.state.follow_backfill = follow_backfill
+    from .cover_repair import CoverRepair
+    app.state.cover_repair = CoverRepair(contract.cover_root, upgrade_repairs.root, contract,
+                                         contract.follow_secrets_root, runs=contract.task_runs,
+                                         available=lambda: upgrade_repairs.available and contract.task_runs.enabled)
     app.state.push_discovery = push_discovery
     app.state.downloads = downloads
     app.state.jav_browser = jav_browser
@@ -1021,6 +1034,7 @@ def create_app(
                 "mdns_service": mdns.name if mdns is not None else None,
                 "mdns_service_host": mdns.hostname if mdns is not None else None,
                 "mdns_address": mdns.address if mdns is not None else None,
+                "mdns_ipv6_addresses": list(getattr(mdns, "ipv6_addresses", ())),
                 "ledger_sync": sync.status if sync is not None else "disabled",
                 "ledger_read_only": read_only,
                 **_read_only_fields(sync, read_only),

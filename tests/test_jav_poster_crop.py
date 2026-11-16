@@ -124,11 +124,13 @@ class CropShapeTests(unittest.TestCase):
         self.assertGreaterEqual(box["x0"], 0)
 
     def test_the_box_runs_from_the_fold_to_the_bottom_right_corner(self):
-        for width, height in ((800, 539), (2184, 1464), (1000, 674), (760, 600)):
+        for width, height in ((800, 539), (2184, 1464), (1000, 674)):
             with self.subTest(size=(width, height)):
                 box = jav_poster_crop.front_panel_box(width, height)
                 self.assertEqual(box["method"], RATIO)
                 self.assert_reaches_the_corner(box, width, height)
+        # 不是标准封套比例、又量不出折痕的，没有可信的正封形状，整幅显示。
+        self.assertEqual(jav_poster_crop.front_panel_box(760, 600)["method"], NONE)
 
     def test_the_prior_puts_the_fold_where_the_front_panel_has_its_real_shape(self):
         """没有梯度可用时，正封的形状就是先验本身——按高度从右缘量回去。"""
@@ -634,6 +636,215 @@ class ProjectionTests(unittest.TestCase):
                                                   "y1": 540, "method": RATIO}}):
             with self.subTest(record=record):
                 self.assertIsNone(jav_poster_crop.projection(record))
+
+
+def noise(width: int, height: int, seed: int):
+    """有纹理的 BGR 图：模板匹配要在纹理上才分得出对上没对上。"""
+    import numpy
+
+    return numpy.random.default_rng(seed).integers(0, 256, (height, width, 3), dtype=numpy.uint8)
+
+
+@unittest.skipUnless(opencv_available(), "需要 vision 依赖组")
+class PortraitMatchTests(unittest.TestCase):
+    """DMM 竖版图在横图里对得上就是封套，对不上就是另外设计的竖版海报。"""
+
+    def test_a_portrait_cut_from_the_right_edge_proves_a_sleeve(self):
+        cover = noise(1100, 740, 1)
+        found = jav_poster_crop.portrait_match(cover, cover[:, 580:].copy())
+        self.assertEqual(found.verdict, jav_poster_crop.SLEEVE)
+        self.assertLessEqual(abs(found.x0 - 580), 6)
+
+    def test_an_old_thumbnail_sized_portrait_still_proves_a_sleeve(self):
+        """老片的竖版图只有 147×200：缩小、重压缩后仍要认得出是右缘那一块。"""
+        import cv2
+
+        cover = cv2.GaussianBlur(noise(800, 538, 2), (9, 9), 0)
+        small = cv2.resize(cover[:, 404:], (147, 200), interpolation=cv2.INTER_AREA)
+        _, encoded = cv2.imencode('.jpg', small, [cv2.IMWRITE_JPEG_QUALITY, 60])
+        found = jav_poster_crop.portrait_match(cover, cv2.imdecode(encoded, cv2.IMREAD_COLOR))
+        self.assertEqual(found.verdict, jav_poster_crop.SLEEVE)
+
+    def test_a_separately_designed_portrait_is_a_poster(self):
+        found = jav_poster_crop.portrait_match(noise(1100, 740, 3), noise(520, 740, 4))
+        self.assertEqual(found.verdict, jav_poster_crop.POSTER)
+
+    def test_a_portrait_matching_away_from_the_right_edge_is_a_poster(self):
+        """独立海报常和横图中段长得像；封套的正封永远顶着右缘。"""
+        cover = noise(1100, 740, 5)
+        found = jav_poster_crop.portrait_match(cover, cover[:, 200:720].copy())
+        self.assertEqual(found.verdict, jav_poster_crop.POSTER)
+
+    def test_a_landscape_portrait_tells_nothing(self):
+        """有些作品的 `ps` 就是同一张横图。"""
+        cover = noise(1100, 740, 6)
+        self.assertIsNone(jav_poster_crop.portrait_match(cover, cover.copy()))
+        self.assertIsNone(jav_poster_crop.portrait_match(cover, None))
+        # 本机装的已经是竖版正封，和竖版图一样宽：没有横图可判。
+        front = noise(520, 740, 9)
+        self.assertIsNone(jav_poster_crop.portrait_match(front, front.copy()))
+
+
+class PortraitRecordTests(unittest.TestCase):
+    """竖版图的结论压过原有判据，写进边车，恢复默认取景时沿用。"""
+
+    def test_a_proven_sleeve_keeps_its_fold_near_the_dmm_edge(self):
+        found = jav_poster_crop.PortraitMatch(jav_poster_crop.SLEEVE, .99, 419, 800)
+        profile = [0.0] * 800
+        profile[421] = 1.0
+        record = jav_poster_crop.crop_record("SSIS-001", 800, 540, profile, portrait=found)
+        self.assertEqual((record["box"]["method"], record["box"]["x0"]), (FOLD, 422))
+        self.assertEqual(jav_poster_crop.portrait_of(record), found)
+
+    def test_a_proven_sleeve_without_a_fold_starts_at_the_dmm_edge(self):
+        """人脸猜出的整幅版式让位：竖版图证明了它是封套。"""
+        found = jav_poster_crop.PortraitMatch(jav_poster_crop.SLEEVE, .7, 404, 800)
+        record = jav_poster_crop.crop_record("RLMP-034", 800, 538, [0.0] * 800,
+                                             layout="still", portrait=found)
+        self.assertEqual((record["box"]["method"], record["box"]["x0"]),
+                         (jav_poster_crop.MATCH, 404))
+        self.assertNotIn("layout", record)
+
+    def test_a_vr_picture_cropped_by_dmm_is_not_a_sleeve(self):
+        """DMM 也常从 VR 整幅图右侧裁一块当竖版图（SIVR-414），对上了也不说明有书脊。"""
+        found = jav_poster_crop.PortraitMatch(jav_poster_crop.SLEEVE, .99, 1059, 2184)
+        record = jav_poster_crop.crop_record("SIVR-414", 2184, 1638, [0.0] * 2184,
+                                             title="【VR】作品", portrait=found)
+        self.assertEqual((record["box"]["method"], record["layout"]), (NONE, "still"))
+
+    def test_the_fold_is_the_right_edge_of_a_spine_the_dmm_portrait_kept(self):
+        """DMM 按固定宽度裁，厚书脊整条带进竖版图（STZY-019）：书脊两缘都满高，取右缘。"""
+        found = jav_poster_crop.PortraitMatch(jav_poster_crop.SLEEVE, .99, 1095, 2184)
+        profile = jav_poster_crop.ColumnProfile([0.1] * 2184, [0.3] * 2184)
+        for column, (grad, seam) in {1100: (.7, .79), 1206: (1.0, 1.0)}.items():
+            profile[column], profile.seams[column] = grad, seam
+        record = jav_poster_crop.crop_record("STZY-019", 2184, 1542, profile, portrait=found)
+        self.assertEqual((record["box"]["method"], record["box"]["x0"]), (FOLD, 1207))
+
+    def test_a_poster_shows_the_whole_picture_and_records_the_front_image(self):
+        found = jav_poster_crop.PortraitMatch(jav_poster_crop.POSTER, .1, 900, 1990)
+        profile = [0.0] * 2184
+        profile[1147] = 1.0
+        record = jav_poster_crop.crop_record("START-404", 2184, 1542, profile,
+                                             portrait=found, front=(1536, 2184))
+        self.assertEqual(record["box"]["method"], NONE)
+        self.assertEqual(record["layout"], "still", "页面不能再按右缘先验切这张横图")
+        self.assertEqual(jav_poster_crop.front_size(record), (1536, 2184))
+        self.assertIsNone(jav_poster_crop.projection(record))
+
+    def test_without_a_fold_an_odd_ratio_is_shown_whole_not_cut_by_the_prior(self):
+        """1.6 的整幅宣传图找不到折痕：按 0.704 的先验切会把画面拦腰截断。"""
+        record = jav_poster_crop.crop_record("BITU-001", 2184, 1365, [0.0] * 2184)
+        self.assertEqual(record["box"]["method"], NONE)
+        self.assertEqual(record["layout"], "still")
+        standard = jav_poster_crop.crop_record("OFJE-665", 2184, 1468, [0.0] * 2184)
+        self.assertEqual(standard["box"]["method"], RATIO)
+        self.assertNotIn("layout", standard)
+
+    def test_the_front_image_lives_in_its_own_directory_beside_the_cover(self):
+        self.assertEqual(jav_poster_crop.front_path(Path("covers") / "START-404.jpg"),
+                         Path("covers") / "front" / "START-404.jpg")
+        self.assertIsNone(jav_poster_crop.front_size({"front": [0, 10]}))
+        self.assertIsNone(jav_poster_crop.portrait_of({"portrait": {"verdict": "other"}}))
+
+
+@unittest.skipUnless(opencv_available(), "需要 vision 依赖组")
+class JudgePortraitScriptTests(unittest.TestCase):
+    """已装封面的补判：只挑可能判错的 DMM 封面，取竖版图重装取景，原组备份。"""
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp()).resolve()
+        self.report = self.root / "report"
+
+    def install(self, code: str, size, record: dict, *, url: str | None = None, title: str = '') -> Path:
+        import cv2
+
+        path = self.root / f"{code}.jpg"
+        cv2.imwrite(str(path), noise(*size, 7))
+        path.with_suffix(".scraping.json").write_text(json.dumps({
+            "source": "dmm", "title": title,
+            "source_url": url or f"https://awsimgsrc.dmm.com/dig/digital/video/{code.lower()}/{code.lower()}pl.jpg",
+        }), encoding="utf-8")
+        jav_poster_crop.write_sidecar(path, {"version": jav_poster_crop.ALGORITHM_VERSION,
+                                             "px": list(size), **record})
+        return path
+
+    def test_only_doubtful_dmm_covers_are_picked(self):
+        from peach import cover_repair as script
+        fold = {"box": {"x0": 1152, "y0": 0, "x1": 2184, "y1": 1468, "method": FOLD}}
+        picked = {
+            "fold-standard": self.install("SSIS-001", (2184, 1468), fold),
+            "fold-odd-ratio": self.install("START-404", (2184, 1542), fold),
+            "ratio": self.install("OFJE-665", (2184, 1468), {"box": {**fold["box"], "method": RATIO}}),
+            "vr-title": self.install("VRKM-001", (2184, 1468), fold, title="【VR】作品"),
+            "not-dmm": self.install("ABP-001", (2184, 1542), fold, url="https://image.mgstage.com/pb_e_abp-001.jpg"),
+            "manual": self.install("ABP-002", (2184, 1542), {"box": {**fold["box"], "method": MANUAL}}),
+        }
+        chosen = {name for name, path in picked.items()
+                  if script.eligible(path, every=False, named=False) is not None}
+        self.assertEqual(chosen, {"fold-odd-ratio", "ratio", "vr-title"})
+        self.assertIsNotNone(script.eligible(picked["fold-standard"], every=True, named=False))
+        self.assertIsNone(script.eligible(picked["not-dmm"], every=True, named=True))
+
+    def test_a_judged_cover_keeps_a_backup_and_is_not_picked_again(self):
+        import cv2
+
+        from peach import cover_repair as script
+        path = self.install("START-404", (1100, 776), {"box": {"x0": 550, "y0": 0, "x1": 1100, "y1": 776, "method": FOLD}})
+        original = path.read_bytes()
+        _, poster = cv2.imencode('.jpg', noise(546, 776, 8))
+        with patch.object(script, "dmm_portrait", return_value=poster.tobytes()), \
+                patch.object(script, "package_sleeve", return_value=None):
+            result = script.judge(path, script.eligible(path, every=False, named=False), None, self.report / "originals")
+        self.assertEqual((result["verdict"], result["method"], result["front"]),
+                         (jav_poster_crop.POSTER, NONE, [546, 776]))
+        self.assertEqual(path.read_bytes(), original, "补判只重装取景，不换封面")
+        self.assertTrue((self.report / "originals" / "START-404.poster.json").is_file())
+        self.assertIsNone(script.eligible(path, every=True, named=False))
+        with patch.object(script, "dmm_portrait", return_value=None), \
+                patch.object(script, "package_sleeve", return_value=None):
+            self.assertEqual(script.judge(path, {"source_url": "x"}, None, self.report / "originals")["status"], "no_portrait")
+
+    def test_a_streaming_cover_is_swapped_for_a_dvd_sleeve_close_in_size(self):
+        """SOD 的配信版横图换成尺寸相近的 DVD 封套；封套太小的保留配信图。"""
+        import cv2
+
+        from peach import cover_repair as script
+        evidence = {"source_url": "https://awsimgsrc.dmm.com/dig/digital/video/1start00435/1start00435pl.jpg"}
+        _, sleeve = cv2.imencode('.jpg', noise(1092, 733, 10))
+        with patch.object(script, "probe_size", return_value=(1092, 733)) as probe, \
+                patch.object(script, "official_image", return_value=sleeve.tobytes()):
+            data, size, swapped = script.package_sleeve(evidence, (1092, 771), None)
+        self.assertEqual(probe.call_args.args[1].url,
+                         "https://awsimgsrc.dmm.com/dig/mono/movie/1start435/1start435pl.jpg")
+        self.assertEqual((size, swapped["source_url"]), ((1092, 733), probe.call_args.args[1].url))
+        self.assertEqual(data, sleeve.tobytes())
+        with patch.object(script, "probe_size", return_value=(800, 535)):
+            self.assertIsNone(script.package_sleeve(evidence, (2184, 1542), None))
+        self.assertIsNone(script.package_sleeve({"source_url": "https://image.mgstage.com/pb_e_x.jpg"}, (800, 538), None))
+
+    def test_a_cover_without_a_source_record_is_looked_up_by_code(self):
+        """2026-09 之前装的封面没有来源记录（STARS-080）：按番号查 DMM 拿地址，没换图就不写来源记录。"""
+        import cv2
+
+        from peach import cover_repair as script
+        path = self.install("STARS-080", (1100, 776), {"box": {"x0": 550, "y0": 0, "x1": 1100, "y1": 776, "method": FOLD}})
+        path.with_suffix(".scraping.json").unlink()
+        listing = "https://awsimgsrc.dmm.co.jp/pics_dig/digital/video/1stars00080/1stars00080pl.jpg"
+        _, poster = cv2.imencode('.jpg', noise(546, 776, 8))
+        evidence = script.eligible(path, every=False, named=False)
+        self.assertEqual(evidence, {})
+        with patch.object(script, "dmm_listing_url", return_value=listing) as lookup, \
+                patch.object(script, "dmm_portrait", return_value=poster.tobytes()) as portrait, \
+                patch.object(script, "package_sleeve", return_value=None) as package:
+            result = script.judge(path, evidence, None, self.report / "originals")
+        lookup.assert_called_once_with(None, "STARS-080")
+        self.assertEqual((package.call_args.args[0]["source_url"], portrait.call_args.args[1]), (listing, listing))
+        self.assertEqual(result["status"], "judged")
+        self.assertFalse(path.with_suffix(".scraping.json").exists(), "老图从哪儿来不知道，不能记成查到的地址")
+        mgs = self.install("ABP-001", (2184, 1542), {"box": {"x0": 1100, "y0": 0, "x1": 2184, "y1": 1542, "method": FOLD}},
+                           url="https://image.mgstage.com/pb_e_abp-001.jpg")
+        self.assertIsNone(script.eligible(mgs, every=True, named=False))
 
 
 class ManualBoxTests(unittest.TestCase):

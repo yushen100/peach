@@ -2,7 +2,7 @@ import { act } from 'react';
 import { QueryClientProvider, notifyManager } from '@tanstack/react-query';
 import { afterEach, expect, it, vi } from 'vitest';
 import { queryClient } from '../../src/react/query';
-import { WantMagnets, type MagnetCandidate } from '../../src/react/wants/want-magnets';
+import { WantMagnets, type MagnetCandidate, type MagnetResult } from '../../src/react/wants/want-magnets';
 import type { Want } from '../../src/react/wants/wants';
 import { WANTS_KEY, type WantsData } from '../../src/react/wants/wants';
 import { buttonNamed, click, mount, mountRoot, pending, settle } from './render';
@@ -16,13 +16,13 @@ const candidate: MagnetCandidate = {
   name: 'DEMO-001 HD', size: '4 GB', files: '2 個文件', date: '2026-10-01', attributes: ['字幕', 'chinese-subtitles', 'high-definition'],
   source: 'JavDB', source_url: 'https://javdb.com/v/demo', origins: ['https://javdb.com/v/demo'],
 };
-async function open(items = [candidate], readOnly = false, ok = true) {
+async function open(items = [candidate], readOnly = false, ok = true, result: Partial<MagnetResult> = {}) {
   vi.stubGlobal('IntersectionObserver', undefined);
   const toast = vi.fn();
   const fetcher = vi.fn(async (_url: string, init?: RequestInit) => ({ ok: true, status: 200,
     json: async () => init?.method === 'POST'
       ? { ok, outcome: ok ? 'submitted' : 'failed', task: { failure_detail: '远端拒绝' } }
-      : { state: 'ready', items, error: '', checked_at: null },
+      : { state: 'ready', items, error: '', checked_at: null, ...result },
   }));
   vi.stubGlobal('fetch', fetcher);
   const host = await mount(<QueryClientProvider client={queryClient}>
@@ -81,6 +81,44 @@ it('只读时禁止提交，远端失败留在卡片并保留重试', async () =
   expect(writer.host.textContent).toContain('远端拒绝');
   expect(buttonNamed('已添加', writer.host)).toBeNull();
   expect(writer.toast).not.toHaveBeenCalled();
+});
+
+it('来源查询失败显示红色回执和站标，并保留其他来源取得的资源', async () => {
+  const { host } = await open([candidate], false, true, {
+    state: 'error', error: 'partial sources', error_code: 'labels.magnetChain.incomplete',
+    warnings: ['JavDB：未取得'], warning_codes: ['labels.magnetChain.sourceUnfetched'],
+    warning_params: [{ source: 'JavDB' }],
+  });
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain('JavDB：查询未完成');
+  expect(host.querySelectorAll('[role="alert"]')).toHaveLength(1);
+  expect(host.querySelector('[role="alert"] img')?.getAttribute('src')).toBe('/site-mark?source=javdb');
+  expect(host.querySelector('[data-resource-title]')?.textContent).toBe(candidate.name);
+  expect(buttonNamed('重新查询', host)).not.toBeNull();
+});
+
+it('取得的来源页按地址去重，显示站名及对应 favicon', async () => {
+  const javbus = { ...candidate, id: 'javbus', source: 'JavBus', source_url: 'https://www.javbus.com/DEMO-001' };
+  const sukebei = { ...candidate, id: 'sukebei', source: 'sukebei', source_url: 'https://sukebei.nyaa.si/view/123' };
+  const { host } = await open([candidate, javbus, sukebei, { ...javbus, id: 'javbus-2' }], false, true,
+    { source_url: candidate.source_url });
+  const pages = [...host.querySelectorAll<HTMLAnchorElement>('[data-want-magnets] > div > a[data-button-link]')];
+  expect(pages.map(link => link.textContent)).toEqual(['JavDB', 'JavBus', 'sukebei']);
+  expect(pages.map(link => link.getAttribute('href'))).toEqual([candidate.source_url, javbus.source_url, sukebei.source_url]);
+  expect(pages.map(link => link.querySelector('img')?.getAttribute('src')))
+    .toEqual(['/site-mark?source=javdb', '/site-mark?source=javbus', '/site-mark?source=sukebei']);
+  expect([...host.querySelectorAll('[data-resource-facts] img')].map(img => img.getAttribute('src')))
+    .toEqual(['/site-mark?source=javdb', '/site-mark?source=javbus', '/site-mark?source=sukebei', '/site-mark?source=javbus']);
+});
+
+it('查询成功且没有磁链时显示普通空结果', async () => {
+  const { host } = await open([]);
+  expect(host.querySelector('[role="alert"]')).toBeNull();
+  expect(host.querySelector('[role="note"]')?.textContent).toContain('暂未找到资源链接');
+});
+
+it('资源接口的其他失败仍显示错误回执', async () => {
+  const { host } = await open([], false, true, { state: 'error', error: '资源接口不可用' });
+  expect(host.querySelector('[role="alert"]')?.textContent).toContain('资源接口不可用');
 });
 
 it('更多资源默认折叠且协议有独立标记', async () => {

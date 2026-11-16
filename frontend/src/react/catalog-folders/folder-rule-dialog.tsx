@@ -57,6 +57,7 @@ export function FolderRuleDialog({ folder, rule, revision, close }: {
     flushSync(() => setConfirming(true));
     const result = await confirmModal({
       title: t('catalog:folderRule.removeRule'), body: t('catalog:folderRule.removeConfirm', { name: folder.name }), confirmLabel: t('catalog:folderRule.removeRule'),
+      holdToConfirm: true,
       onConfirm: () => apiSend('/api/folders/rule', { folder: folder.id, action: 'remove', expected_revision: revision }),
     });
     if (result.confirmed) finished(t('catalog:folderRule.removed')); else setConfirming(false);

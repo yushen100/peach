@@ -279,6 +279,16 @@ it('Shift 选一段，翻页之后手里还是同一批', async () => {
   expect(statusText(host)).toContain('已选 5 项');
 });
 
+it('全选全部一次选中当前筛选下所有页的待处理项，选满后按钮收起', async () => {
+  const { host } = await open();
+  expect(cards(host)).toHaveLength(REVIEW_PAGE_SIZE);
+  await click(buttonIn(host, `全选全部 ${QUEUE.length} 项`));
+  expect(statusText(host)).toContain(`已选 ${QUEUE.length} 项`);
+  expect(buttonIn(host, `全选全部 ${QUEUE.length} 项`)).toBeNull();
+  await choose(host.querySelector('button[aria-label="筛选当前分类"]'), '单一来源 · 3');
+  expect(buttonIn(host, '全选全部 3 项')).toBeNull();
+});
+
 it('判过的行从缓存里摘掉并同步计数，不为一次判定重取整条队列', async () => {
   const { host, fetcher, props } = await open();
   const reads = () => fetcher.mock.calls.filter(([url]) => String(url) === REVIEW_URL).length;

@@ -144,7 +144,11 @@ body .card:focus-within{background:var(--hover);box-shadow:0 0 0 8px var(--hover
   stroke-linecap:round;stroke-linejoin:round}
 .hovertools button:hover{transform:scale(1.12);background:rgba(0,0,0,.34)}
 .nopic{font-size:var(--fs-xs);letter-spacing:.12em;color:var(--ink-2);text-transform:uppercase}
-.junkcount{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px}
+/* 垃圾文件那一行只是筛选浮层的宿主：这一行与 React 建的那一层都不出盒子，浮层直接排进正文，
+   自己吸到顶栏下沿（`react/junk-queue/junk-count.tsx`）。 */
+.count.junkcount,.count.junkcount>.peach-react{display:contents}
+/* 回收站的筛选浮层宿主（`#trashFilter`）同理：宿主不出盒子，浮层在正文里吸顶。 */
+#trashFilter:not([hidden]),#trashFilter>.peach-react{display:contents}
 /* 复核那条分类切换在 10 个互不相同的候选数据集之间切（真 tablist）。
    几何取 Geist Tabs 的 secondary 变体（vercel.com/geist/tabs 实测 2026-09-03）：高 32px、
    左右 12px、6px 圆角、13px/400，hover 只换文字色，选中只抬底到 --hover、不动边框。 */

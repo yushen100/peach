@@ -168,7 +168,7 @@ describe('管理页面容器与骨架', () => {
         assert.deepEqual(opened.problems, []);
       } finally { release(); await opened.close(); }
     });
-    it(`重复文件汇总与文件行使用正文尺寸（${viewport.name}）`, { timeout: 60_000 }, async () => {
+    it(`重复文件的筛选浮层与文件行骨架与落地同一副几何（${viewport.name}）`, { timeout: 60_000 }, async () => {
       const opened = await visit(browser, '/duplicates', viewport);
       let release = () => {};
       try {
@@ -186,19 +186,19 @@ describe('管理页面容器与骨架', () => {
         const skeleton = page.locator('[data-skeleton="board/duplicates"]');
         await skeleton.waitFor();
         await transitionsSettled(page);
-        const summary = await box(skeleton.locator('[data-collection-summary]'));
+        const frame = await box(skeleton.locator('[data-duplicates-frame]'));
         const row = await box(skeleton.locator('.duplicate-row').first());
         release();
         const body = page.locator('#stats section[aria-label="DEMO-001"]');
         await body.waitFor();
         await settle(page);
-        aligned(summary, await box(page.locator('#stats [data-collection-summary]')));
+        aligned(frame, await box(page.locator('#stats [data-duplicates-frame]')));
         aligned(row, await box(body.locator('.duplicate-row').first()));
         const dimensions = await layout(page);
         assert.ok(dimensions.scrollWidth <= dimensions.viewportWidth);
       } finally { release(); await opened.close(); }
     });
-    it(`高清版骨架与落地同一副几何，摘要在两种主题下都和页面底色分得开（${viewport.name}）`, { timeout: 60_000 }, async () => {
+    it(`高清版骨架与落地同一副几何，筛选浮层在两种主题下都和页面底色分得开（${viewport.name}）`, { timeout: 60_000 }, async () => {
       const opened = await visit(browser, '/quality-goals', viewport);
       let release = () => {};
       try {
@@ -214,22 +214,22 @@ describe('管理页面容器与骨架', () => {
         const skeleton = page.locator('[data-skeleton="board/quality-goals"]');
         await skeleton.waitFor();
         await transitionsSettled(page);
-        const summary = await box(skeleton.locator('[data-collection-summary]'));
-        const card = await box(skeleton.locator('.card-grid-cover > li').first());
+        const frame = await box(skeleton.locator('[data-catalog-frame]'));
+        const card = await box(skeleton.locator('[data-jav-skeleton-card]').first());
         release();
-        const first = page.locator('#stats li[data-goal-id]').first();
+        const first = page.locator('#stats [data-goal-id]').first();
         await first.waitFor();
         await settle(page);
-        aligned(summary, await box(page.locator('#stats [data-collection-summary]')));
+        aligned(frame, await box(page.locator('#stats [data-catalog-frame]')));
         aligned(card, await box(first));
-        // 浅色下 primary 就是页面底色：摘要取 primary 的话整块化进页面，看不出那是一块面。
+        // 浅色下 primary 就是页面底色：浮层取 primary 的话整块化进页面，看不出那是一块面。
         const faces = await page.evaluate(() => {
           const root = document.documentElement;
           const before = { theme: root.dataset.theme, dark: root.classList.contains('dark') };
           const read = (theme: string) => {
             root.dataset.theme = theme;
             root.classList.toggle('dark', theme === 'dark');
-            return [getComputedStyle(document.querySelector('#stats [data-collection-summary]')!).backgroundColor,
+            return [getComputedStyle(document.querySelector('#stats [data-catalog-frame]')!).backgroundColor,
               getComputedStyle(document.body).backgroundColor];
           };
           const result = { light: read('light'), dark: read('dark') };
@@ -239,7 +239,7 @@ describe('管理页面容器与骨架', () => {
           return result;
         });
         for (const [theme, [face, ground]] of Object.entries(faces)) {
-          assert.notEqual(face, ground, `${theme} 主题下高清版摘要和页面同一个底色：${face}`);
+          assert.notEqual(face, ground, `${theme} 主题下高清版筛选浮层和页面同一个底色：${face}`);
         }
       } finally { release(); await opened.close(); }
     });
@@ -256,25 +256,25 @@ describe('管理页面容器与骨架', () => {
               size: 1048576, location: 'local', cost: '' })) } });
         });
         await page.reload({ waitUntil: 'load' });
-        await page.locator('#grid .catalog-skeleton .skeletoncard').first().waitFor();
+        await page.locator('#grid [data-jav-skeleton-card]').first().waitFor();
         await transitionsSettled(page);
-        const card = await liveBox(page, '#grid .catalog-skeleton .skeletoncard');
+        const card = await liveBox(page, '#grid [data-jav-skeleton-card]');
         release();
         await page.locator('#grid [data-junk-card]').first().waitFor();
         await settle(page);
         aligned(card, await liveBox(page, '#grid [data-junk-card]'));
       } finally { release(); await opened.close(); }
     });
-    it(`回收站网格与标题、汇总栏同宽（${viewport.name}）`, { timeout: 60_000 }, async () => {
+    it(`回收站网格与标题、筛选浮层同宽（${viewport.name}）`, { timeout: 60_000 }, async () => {
       const opened = await visit(browser, '/trash', viewport);
       try {
-        await opened.page.locator('[data-manage-lede] [data-lede-text]').waitFor();
+        await opened.page.locator('#trashFilter [data-catalog-readout]', { hasText: /个符合/ }).waitFor();
         await settle(opened.page);
         const title = await box(opened.page.locator('[data-manage-title]'));
         const grid = await box(opened.page.locator('#grid'));
-        const lede = await box(opened.page.locator('[data-manage-lede]'));
+        const frame = await box(opened.page.locator('#trashFilter [data-catalog-frame]'));
         aligned(title, grid, ['x', 'width']);
-        aligned(title, lede, ['x', 'width']);
+        aligned(title, frame, ['x', 'width']);
         assert.deepEqual(opened.problems, []);
       } finally { await opened.close(); }
     });
@@ -320,13 +320,13 @@ describe('管理页在极端内容下不撑出视口', () => {
           id: 1, name: 'FC2-PPV-4728193.mp4', code: 'FC2-PPV-4728193', location: 'local', size: 1e9, duration: 3600,
           reason: LONG_PATH, cost: '', has_thumb: false, has_cover: false }] } }));
       await page.reload({ waitUntil: 'load' });
-      const card = page.locator('#stats li[data-goal-id]').first();
+      const card = page.locator('#stats [data-goal-id]').first();
       await card.waitFor();
       await settle(page);
       const right = (await box(card)).x + (await box(card)).width;
       assert.ok(right <= narrow.width, `卡片右缘 ${right}`);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth) <= narrow.width);
-      assert.equal(await page.locator('#stats [data-collection-summary] strong').textContent(), '1,234,567 部作品');
+      assert.equal(await page.locator('#stats [data-catalog-readout]').textContent(), '待升级 · 1,234,567 部作品');
       assert.match(await page.locator('#stats').textContent() ?? '', /显示前 1 部，共 1,234,567 部。/);
     } finally { await opened.close(); }
   });

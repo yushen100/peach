@@ -96,10 +96,11 @@ class ImportedPerformerProfileTests(unittest.TestCase):
 
     def test_profile_avatars_have_their_own_phase_budget(self):
         from types import SimpleNamespace
-        from peach.library_processing import _enrich_finished_performers
+        from peach.library_processing import SourceBudget, _enrich_finished_performers
         from peach.scraping_access import SourcePaused
 
-        remote = Mock()
+        # 真的 `_RemoteSession` 带着本趟的采集预算；头像阶段按同一档另开传输，不借资料那一步的。
+        remote = Mock(budget=SourceBudget())
         remote.provider.return_value.transport.side_effect = SourcePaused("errors.scrapingAccess.timeBudgetSpent")
         transport = Mock(return_value=HttpResponse(200, {"content-type": "image/jpeg"}, picture(), self.group()["candidates_json"]))
         config = SimpleNamespace(directory=lambda key: self.root / key)

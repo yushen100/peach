@@ -66,6 +66,24 @@ export const click = (el: Element | null | undefined) => act(async () => {
   (el as HTMLElement).click();
 });
 
+/** 显式按住确认键满两秒，保留调用方的计时器状态。 */
+export async function hold(el: Element | null | undefined) {
+  if (!el) throw new Error('要长按的元素没有画出来');
+  const usingFakeTimers = vi.isFakeTimers();
+  if (!usingFakeTimers) vi.useFakeTimers();
+  const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
+  try {
+    await act(async () => {
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+      await vi.advanceTimersByTimeAsync(2000);
+      el.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', bubbles: true, cancelable: true }));
+    });
+  } finally {
+    hidden.mockRestore();
+    if (!usingFakeTimers) vi.useRealTimers();
+  }
+}
+
 export const submit = (form: Element | null | undefined) => act(async () => {
   if (!form) throw new Error('表单没有画出来');
   form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));

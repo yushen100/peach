@@ -1,0 +1,2 @@
+.peach-react [data-sort-controls] { display:inline-flex;flex:none;align-items:center;gap:4px;overflow:visible; }
+.peach-react [data-sort-settings-dialog] { max-height: 70dvh; }

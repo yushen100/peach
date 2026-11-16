@@ -72,6 +72,9 @@ function serve(plan: Plan = {}) {
       const body = JSON.parse(String(init.body)) as Record<string, unknown>;
       writes.push({ url: url.pathname, body });
       if (url.pathname === '/api/entity-alias') return reply({ added: !body.remove, alias: body.alias });
+      if (url.pathname === '/api/entity-batch') return reply({ entity_ids: body.entity_ids, skipped: [],
+        mode: body.mode, asset_ids: body.mode === 'trash' ? [1, 2, 3] : [], retained_entity_ids: [],
+        purged: body.mode === 'purge' ? 3 : 0, blocked: [], cleanup_pending: [], cache_blocked: [] });
       if (url.pathname === '/api/avatar-pick') {
         plan.picked?.();
         return reply({ ok: true });
@@ -97,6 +100,7 @@ function serve(plan: Plan = {}) {
           detail: '', found_by: '', current: false, crop: false, bases: [], focus: null, cast: 0 }] });
     }
     if (url.pathname === '/api/entity') return reply(plan.entityFor?.() ?? plan.entity ?? entity());
+    if (url.pathname === '/api/entity-batch/plan') return reply({ names: [NAME], assets: 3, bytes: 1024, shared: 0, token: 'profile-plan' });
     if (url.pathname === '/api/items') return reply(plan.items ? plan.items(query) : items([1, 2, 3]));
     if (url.pathname === '/api/photos') return reply(plan.photos ? plan.photos(query) : photos(0));
     if (url.pathname === '/api/photo-set') return reply(plan.set ? plan.set(query) : photos(2, { id: 9, title: '图集' }));
@@ -169,7 +173,7 @@ function shellProps(patch: Partial<EntityPageProps> = {}): EntityPageProps {
     },
     actions: {
       route: vi.fn(), toggleTag: vi.fn(), clearFilter: vi.fn(), clearAll: vi.fn(), setSort: vi.fn(),
-      reshuffleVideos: vi.fn(() => '77'), setJavLayout: vi.fn(), setPhotoLayout: vi.fn(), openEntity: vi.fn(),
+      reshuffleVideos: vi.fn(() => '77'), setJavLayout: vi.fn(), setPhotoLayout: vi.fn(), openEntity: vi.fn(), openIndex: vi.fn(),
       javContext: vi.fn(), painted: vi.fn(), missing: vi.fn(), avatarChanged: vi.fn(), openFollowAuthor: vi.fn(),
     },
     ...patch,
@@ -213,6 +217,14 @@ const pressedView = (props: EntityPageProps) =>
 const readout = (props: EntityPageProps) => props.hosts.filter.querySelector('[data-entity-readout]')?.textContent;
 
 describe('首屏', () => {
+  it('列头选择另一位出演者时保留资料页身份范围', async () => {
+    const served = serve();
+    await fetchItems('performer', NAME, { tag: '演示标签' }, { jav: true, seed: '42' },
+      0, new AbortController().signal, { limit: 20, filters: { performer: '共演者', library: 'local' } });
+    const params = served.calls('/api/items')[0]!.searchParams;
+    expect(Object.fromEntries(params)).toMatchObject({ scope_kind: 'performer', scope_name: NAME,
+      performer: '共演者', library: 'local', tag: '演示标签', jav: '1', limit: '20', offset: '0' });
+  });
   it('资料页表格按页取数、全集排序并保留人物与标签筛选', async () => {
     const served = serve();
     await fetchItems('performer', NAME, { tag: '演示标签', state: 'fresh' }, { jav: true, seed: '42' },
@@ -515,6 +527,25 @@ describe('创作者的在线视图', () => {
 });
 
 describe('写操作', () => {
+  it.each(['profile', 'trash', 'purge'])('名称菜单弹窗提供三个范围，执行 %s 后返回名册', async (mode) => {
+    const page = await open();
+    vi.spyOn(legacyUi, 'confirmModal').mockImplementation((async (options: {
+      choices: { key: string; onConfirm: () => Promise<unknown> }[];
+    }) => ({ confirmed: true, result: await options.choices.find(choice => choice.key === mode)!.onConfirm() })) as unknown as typeof legacyUi.confirmModal);
+    await click(page.host.querySelector('[data-namepick-toggle]'));
+    await click(document.querySelector('[data-namepick-delete]'));
+    await settle();
+    expect(legacyUi.confirmModal).toHaveBeenCalledWith(expect.objectContaining({
+      title: '删除', items: [NAME], danger: true, body: expect.stringContaining('不能撤销'),
+      choices: [expect.objectContaining({ key: 'profile', holdToConfirm: true }),
+        expect.objectContaining({ key: 'trash', holdToConfirm: true }), expect.objectContaining({ key: 'purge', holdToConfirm: true })],
+    }));
+    expect(page.writes).toEqual([{ url: '/api/entity-batch',
+      body: { operation: 'delete', mode, entity_ids: [7001], token: 'profile-plan' } }]);
+    expect(page.props.actions.openIndex).toHaveBeenCalledTimes(1);
+    expect(page.props.helpers.receipt).toHaveBeenCalledWith(expect.stringContaining('已删除 1 项档案'));
+  });
+
   it('添加别名：表单在壳，写回在岛；写完资料卡与作品列表一起重取', async () => {
     const page = await open();
     await click(page.host.querySelector('[data-namepick-toggle]'));

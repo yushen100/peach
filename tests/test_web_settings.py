@@ -129,6 +129,33 @@ class SettingsRoundTripTests(unittest.TestCase):
         self.assertEqual(q_settings(self.contract)['libraryOrder'], ['lib-b', 'lib-a'])
         self.assertEqual(w_settings(self.contract, {'libraryOrder': []})['libraryOrder'], [])
 
+    def test_sort_controls_preserve_visibility_and_merge_page_groups(self):
+        original_sidebar = q_settings(self.contract)['sidebarOrder']
+        w_settings(self.contract, {'sortControls': {'catalog': {'order': ['size', 'rating'], 'hidden': ['rating']}}})
+        saved = w_settings(self.contract, {'sortControls': {'follow': {'order': ['dur', 'new'], 'hidden': ['new', 'hot', 'dur']}}})
+        self.assertEqual(saved['sortControls']['catalog']['order'][:2], ['size', 'rating'])
+        self.assertEqual(saved['sortControls']['catalog']['hidden'], ['rating'])
+        self.assertEqual(saved['sortControls']['catalog']['order'][-1], 'release')
+        self.assertEqual(saved['sortControls']['follow'], {'order': ['dur', 'new', 'hot'], 'hidden': ['new', 'hot', 'dur']})
+        self.assertEqual(q_settings(self.contract)['sortControls'], saved['sortControls'])
+        self.assertEqual(saved['sidebarOrder'], original_sidebar)
+        reset = w_settings(self.contract, {'sortControls': {'catalog': {'order': [], 'hidden': []}}})
+        self.assertEqual(reset['sortControls']['catalog'], {'order': list(web_settings.SORT_CONTROL_KEYS['catalog']), 'hidden': []})
+        self.assertEqual(reset['sortControls']['follow'], saved['sortControls']['follow'])
+        dated = w_settings(self.contract, {'sortControls': {'catalog': {'order': ['release', 'size'], 'hidden': []}}})
+        self.assertEqual(dated['sortControls']['catalog']['order'][:2], ['release', 'size'])
+
+    def test_sort_controls_reject_invalid_payloads_before_writing(self):
+        invalid = [None, [], {'unknown': {'order': [], 'hidden': []}}, {'catalog': []},
+                   {'catalog': {'order': ['missing'], 'hidden': []}},
+                   {'catalog': {'order': [], 'hidden': ['size', 'size']}},
+                   {'catalog': {'order': [], 'hidden': [1]}},
+                   {'catalog': {'order': []}}]
+        for value in invalid:
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                w_settings(self.contract, {'sortControls': value})
+        self.assertNotIn('sortControls', self._stored_json())
+
     def test_an_unset_profile_reads_the_default_order(self):
         self.assertEqual(q_settings(self.contract),
                          {"sidebarOrder": list(DEFAULT_SIDEBAR_ORDER),
@@ -139,7 +166,8 @@ class SettingsRoundTripTests(unittest.TestCase):
                           "feedHideSoloCompilations": False, "feedHideExcerpts": True,
                           "searchHistoryLimit": None, "performerNameLanguage": "zh-CN", "taskSpeedMode": "standard",
                           "interfaceLanguage": "auto", "systemLanguage": None, "javBrowserWantOnNoMatch": True,
-                          "wantStaleSearchDays": 7, "wantStaleAttemptLimit": 3})
+                          "javdbCoverFallback": False, "wantStaleSearchDays": 7, "wantStaleAttemptLimit": 3,
+                          "sourceBudgetRequests": 6000, "sourceBudgetHours": 4, "sourceBudgetGigabytes": 1})
 
     def test_code_patterns_are_checked_when_saved(self):
         """写错的规则在保存那一刻报出来；存下的规则去掉空行，读回来是同一份。"""
@@ -174,10 +202,14 @@ class SettingsRoundTripTests(unittest.TestCase):
         w_settings(other_device, {'performerNameLanguage': 'zh-CN'})
         self.assertEqual(q_settings(self.contract)['performerNameLanguage'], 'zh-CN')
         self.assertEqual(self._stored_json(), {'sidebarOrder': order, 'performerNameLanguage': 'zh-CN'})
+        for value in ('en', 'ja-local', 'local-ja'):
+            with self.subTest(value=value):
+                w_settings(other_device, {'performerNameLanguage': value})
+                self.assertEqual(q_settings(self.contract)['performerNameLanguage'], value)
 
     def test_invalid_name_languages_leave_the_stored_preference_unchanged(self):
         w_settings(self.contract, {'performerNameLanguage': 'ja'})
-        for value in ('en', 'ja ', None, True, 1, [], {}):
+        for value in ('en-US', 'ja ', 'local', None, True, 1, [], {}):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 w_settings(self.contract, {'performerNameLanguage': value})
             self.assertEqual(self._stored_json(), {'performerNameLanguage': 'ja'})
@@ -230,6 +262,14 @@ class SettingsRoundTripTests(unittest.TestCase):
                                    "feedHideGroupCompilations": False, "feedHideExcerpts": False})
         self.assertEqual(web_settings.hidden_compilations(self.contract), frozenset({"solo"}))
 
+    def test_the_watermarked_cover_fallback_defaults_off_and_takes_only_booleans(self):
+        """#531：没有别的封面时用不用 JavDB 带水印的图，默认关，跟着账本走。"""
+        self.assertFalse(q_settings(self.contract)["javdbCoverFallback"])
+        with self.assertRaises(ValueError):
+            w_settings(self.contract, {"javdbCoverFallback": "on"})
+        self.assertTrue(w_settings(self.contract, {"javdbCoverFallback": True})["javdbCoverFallback"])
+        self.assertEqual(self._stored_json(), {"javdbCoverFallback": True})
+
     def test_the_browser_want_switch_defaults_on_and_takes_only_booleans(self):
         self.assertTrue(q_settings(self.contract)["javBrowserWantOnNoMatch"])
         with self.assertRaises(ValueError):
@@ -247,6 +287,18 @@ class SettingsRoundTripTests(unittest.TestCase):
         saved = w_settings(self.contract, {"wantStaleSearchDays": 14, "wantStaleAttemptLimit": 0})
         self.assertEqual((saved["wantStaleSearchDays"], saved["wantStaleAttemptLimit"]), (14, 0))
         self.assertEqual(self._stored_json(), {"wantStaleSearchDays": 14, "wantStaleAttemptLimit": 0})
+
+    def test_the_source_budget_takes_only_listed_choices(self):
+        """每趟采集预算三项只收列出的档位；拒收时整次不写。"""
+        for body in ({"sourceBudgetRequests": 7000}, {"sourceBudgetHours": True}, {"sourceBudgetGigabytes": "2"},
+                     {"sourceBudgetHours": 8, "sourceBudgetRequests": 1}):
+            with self.assertRaises(ValueError, msg=repr(body)):
+                w_settings(self.contract, body)
+        self.assertEqual(self._stored_json(), {})
+        saved = w_settings(self.contract, {"sourceBudgetRequests": 24000, "sourceBudgetHours": 12})
+        self.assertEqual((saved["sourceBudgetRequests"], saved["sourceBudgetHours"], saved["sourceBudgetGigabytes"]),
+                         (24000, 12, 1))
+        self.assertEqual(self._stored_json(), {"sourceBudgetRequests": 24000, "sourceBudgetHours": 12})
 
     def test_avatar_and_favicon_periods_are_read_only(self):
         settings = q_settings(self.contract)
@@ -268,7 +320,8 @@ class SettingsRoundTripTests(unittest.TestCase):
                           "feedHideSoloCompilations": False, "feedHideExcerpts": True,
                           "searchHistoryLimit": None, "performerNameLanguage": "zh-CN", "taskSpeedMode": "standard",
                           "interfaceLanguage": "auto", "systemLanguage": None, "javBrowserWantOnNoMatch": True,
-                          "wantStaleSearchDays": 7, "wantStaleAttemptLimit": 3})
+                          "javdbCoverFallback": False, "wantStaleSearchDays": 7, "wantStaleAttemptLimit": 3,
+                          "sourceBudgetRequests": 6000, "sourceBudgetHours": 4, "sourceBudgetGigabytes": 1})
         self.assertEqual(q_settings(self.contract)["sidebarOrder"], order)
         self.assertEqual(self._stored_json()["sidebarOrder"], order)
 

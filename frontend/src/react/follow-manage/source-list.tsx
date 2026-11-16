@@ -318,7 +318,7 @@ export function SourceList(props: SourceListProps) {
 
   const removeSourceRow = (source: FollowSource) => void confirmModal({
     title: t('follow:sourceList.unfollow'), body: t('follow:sourceList.unfollowBody'),
-    confirmLabel: t('follow:sourceList.unfollow'), danger: true,
+    confirmLabel: t('follow:sourceList.unfollow'), danger: true, holdToConfirm: true,
     onConfirm: () => remove.mutateAsync(source.id),
   });
 
@@ -376,7 +376,7 @@ export function SourceList(props: SourceListProps) {
     receipt: (ids) => t(enable ? 'follow:sourceList.bulkEnabled' : 'follow:sourceList.bulkPaused', { count: ids.length }),
   });
   const deleteMany: BulkAction<number> = {
-    key: 'delete', label: t('follow:shared.delete'), reversal: 'irreversible', danger: true,
+    key: 'delete', label: t('follow:shared.delete'), reversal: 'irreversible', danger: true, holdToConfirm: true,
     confirm: (ids) => ({ title: t('follow:sourceList.deleteManyTitle', { count: ids.length }), danger: true,
       body: t('follow:sourceList.deleteManyBody'), confirmLabel: t('follow:sourceList.deleteSelected') }),
     run: async (ids) => { await bulk.mutateAsync({ ids: [...ids], action: 'remove' }) },

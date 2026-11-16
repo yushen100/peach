@@ -39,7 +39,7 @@ from fastapi.responses import (
     Response,
 )
 
-from . import distribution, interface_text, onboarding, settings_file
+from . import distribution, interface_text, listening, onboarding, settings_file
 from .config import PROJECT_ROOT
 from .diagnostic_browser import BUNDLE_CHUNK_NAME
 from .entities import resolve_entity, resolve_entity_id
@@ -57,9 +57,6 @@ router = APIRouter()
 #: 馆藏，任何一次公网暴露都不该在搜索引擎里留下痕迹：不收录、不跟随、不留快照。
 ROBOTS_TAG = "noindex, nofollow, noarchive"
 ROBOTS_TXT = "User-agent: *\nDisallow: /\n"
-
-#: 回环地址的三种写法。既用来判提交端点的调用方，也用来判「只有这台电脑」那个监听选择。
-_LOOPBACK = frozenset({"127.0.0.1", "::1", "localhost"})
 
 #: 首启页共用的文件夹与媒体库图标。
 _SETUP_SYMBOLS = re.compile(r'<symbol id="i-(?:' + '|'.join(sorted({"folder-search", *LIBRARY_ICONS}))
@@ -173,6 +170,14 @@ def _setup_destination(config, *, history_guide: bool) -> str:
     return _normal_url(config) + ('taste?onboarding=1' if history_guide else '?onboarding=1')
 
 
+def _setup_needs_tls(*, standalone: bool, windows: bool, host: str) -> bool:
+    """首设完成后要去 HTTPS 固定入口（`_normal_url`）的部署：源码部署在 Windows 上，或别的系统对局域网监听。
+
+    签发工具缺了就只能一次次回到设置页（#395）：这类部署先核对并报给用户，设置不落盘，装好后可以重试。
+    """
+    return not standalone and not distribution.docker() and (windows or not listening.is_loopback(host))
+
+
 def _normal_url(config) -> str:
     """设置完成之后本机浏览器要去的地址。
 
@@ -181,8 +186,8 @@ def _normal_url(config) -> str:
     """
     if distribution.docker():
         return "/"
-    if distribution.standalone() or config.server.host in _LOOPBACK:
-        return f"http://127.0.0.1:{config.server.port}/"
+    if distribution.standalone() or listening.is_loopback(config.server.host):
+        return f"http://{listening.loopback_origin_host(config.server.host)}:{config.server.port}/"
     return f"https://{config.server.mdns_name}.local/"
 
 
@@ -460,9 +465,9 @@ def _setup_guard(request: Request, *, submit: bool) -> None:
             raise HTTPException(status_code=403, detail=message_fields("api.pages.submitFromSetup"))
         return
     host = request.client.host if request.client else ""
-    if host not in _LOOPBACK:
+    if host == "localhost" or not listening.is_loopback(host):
         raise HTTPException(status_code=403, detail="setup is loopback-only")
-    if distribution.standalone() and request.url.hostname not in _LOOPBACK:
+    if distribution.standalone() and not listening.is_loopback(request.url.hostname or ""):
         raise HTTPException(status_code=403, detail=message_fields("api.pages.openSetupLocally"))
     if not submit:
         return
@@ -628,9 +633,10 @@ async def setup_submit_json(request: Request):
         resolved, _broken = onboarding.resolve_config(answers.data_root)
         if resolved.path.exists():
             raise HTTPException(status_code=409, detail="settings file already exists")
+        require_tls = _setup_needs_tls(standalone=standalone, windows=windows, host=answers.host)
         try:
             applied = onboarding.apply(resolved, answers, windows=windows, access_password=password,
-                                       peach_proxy_values=proxy_values, require_tls=windows and not standalone)
+                                       peach_proxy_values=proxy_values, require_tls=require_tls)
             settings_file.remember_data_root(settings_file.active(), applied.config)
         except (OSError, RuntimeError) as exc:
             errors = {"data_root": exc}

@@ -104,3 +104,26 @@ it('按住拖动横排时整页锁成抓取光标，松手或窗口失焦就撤�
   control.dispatchEvent(new MouseEvent('mousedown',{bubbles:true,button:0}));
   expect(dragging()).toBe(false);
 });
+
+it('排序项的按下交给重排，外层可滚动容器保留位置，空白区域仍可拖动横滚', () => {
+  vi.stubGlobal('ResizeObserver',class {observe(){}disconnect(){}});
+  const node=document.createElement('div');node.style.overflowX='auto';document.body.append(node);
+  node.innerHTML='<span data-navigation-order="sort-catalog"><button data-tab="rating"><span>评分</span></button></span><span data-blank></span>';
+  let left=50;
+  Object.defineProperties(node,{clientWidth:{value:100},scrollWidth:{value:400},
+    scrollLeft:{get:()=>left,set:value=>{left=value}}});
+  wireHorizontalScroller(node,{drag:true});
+  const mouse=(type:string,pageX:number)=>Object.defineProperty(new MouseEvent(type,{button:0,bubbles:true,cancelable:true}),
+    'pageX',{value:pageX});
+  node.querySelector('[data-tab] span')!.dispatchEvent(mouse('mousedown',100));
+  window.dispatchEvent(mouse('mousemove',40));
+  expect(left).toBe(50);
+  expect(document.documentElement.hasAttribute('data-drag-scrolling')).toBe(false);
+  window.dispatchEvent(mouse('mouseup',40));
+  node.querySelector('[data-blank]')!.dispatchEvent(mouse('mousedown',100));
+  window.dispatchEvent(mouse('mousemove',40));
+  expect(left).toBe(110);
+  expect(document.documentElement.hasAttribute('data-drag-scrolling')).toBe(true);
+  window.dispatchEvent(mouse('mouseup',40));
+  expect(document.documentElement.hasAttribute('data-drag-scrolling')).toBe(false);
+});

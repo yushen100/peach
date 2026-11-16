@@ -12,6 +12,7 @@ import { queryClient } from '../query';
 import { showToast } from '../toaster';
 import { runBulkAction, type BulkAction, type BulkHost, type BulkReversal } from '../components/bulk-action';
 import { joinList, quoted, t } from '../../i18n';
+import { TagNameInput } from './tag-name-input';
 
 export type TagId = number | string;
 export type TagScope = 'local' | 'online';
@@ -92,7 +93,7 @@ export function tagOperation(command: Omit<Command, 'ids'>, label = TAG_ACTION_L
   const named = op === 'block' && !!command.name;
   const body = (ids: readonly TagId[]): Command => ({ ...command, ids: named ? [] : [...ids] });
   return {
-    key: op, label, reversal: TAG_REVERSAL[op],
+    key: op, label, reversal: TAG_REVERSAL[op], holdToConfirm: op === 'delete',
     confirm: async (ids) => {
       plan ??= await previewTagOperation(body(ids));
       return { title: TAG_ACTION_LABELS[op], body: consequence(body(ids), plan) };
@@ -171,7 +172,8 @@ function TagFields({ operation, selected, dialog, update }: {
     dialog.confirmButton.disabled = operation === 'block' ? !name.trim()
       : operation === 'rename' && (!name.trim() || name.trim() === selected[0]?.k);
   }, [name, target, dialog, operation, selected, update]);
-  return operation !== 'merge' ? <Input autoFocus aria-label={t('catalog:tagOperations.tagName')} value={name} onChange={setName} maxLength={80} />
+  return operation === 'block' ? <TagNameInput value={name} onChange={setName} />
+    : operation !== 'merge' ? <Input autoFocus aria-label={t('catalog:tagOperations.tagName')} value={name} onChange={setName} maxLength={80} />
     : <Select aria-label={t('catalog:tagOperations.tagToKeep')} prefix={t('catalog:tagOperations.keep')} selectedKey={String(target)} onSelectionChange={key => {
       const row = selected.find(tag => String(managedTagId(tag)) === String(key)); if (row) setTarget(managedTagId(row));
     }}>

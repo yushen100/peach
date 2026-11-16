@@ -223,7 +223,23 @@ class _StreamFile:
 #: 送流读块专用的线程。同步端点（`def` 路由）与 Starlette 的文件读取原先共用 anyio 默认的
 #: 40 个线程，几个卡在网盘上的慢请求占满之后，播放读块也排在它们后面。
 STREAM_THREADS = 16
-STREAM_EXECUTOR = ThreadPoolExecutor(max_workers=STREAM_THREADS, thread_name_prefix="PeachStream")
+
+
+def _new_executor() -> ThreadPoolExecutor:
+    return ThreadPoolExecutor(max_workers=STREAM_THREADS, thread_name_prefix="PeachStream")
+
+
+STREAM_EXECUTOR = _new_executor()
+
+
+def shutdown_stream_executor() -> None:
+    """服务关闭时收掉送流线程：排着的读块取消，正卡在网盘上的那几块不等，否则关服务要陪它们耗着。
+
+    执行器是模块级的，同一进程里还会再起服务（托盘重建、测试），所以换上一个新的；
+    线程按需才起，新执行器不占线程。"""
+    global STREAM_EXECUTOR
+    retired, STREAM_EXECUTOR = STREAM_EXECUTOR, _new_executor()
+    retired.shutdown(wait=False, cancel_futures=True)
 
 
 async def _stream_thread(function, *args):

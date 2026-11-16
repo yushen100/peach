@@ -3,9 +3,10 @@ import { useEffect, useState } from 'react';
 import { Radio } from 'react-aria-components';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { RiStarLine, RiExternalLinkLine, RiDeleteBinLine } from '@remixicon/react';
+import { RiStarLine, RiExternalLinkLine, RiDeleteBinLine, RiSearchLine } from '@remixicon/react';
 
 import { Button, ButtonLink } from '@/components/base/buttons/button';
+import { HoldButton } from '../components/hold-button';
 import { Checkbox } from '@/components/base/checkbox/checkbox';
 import { Input } from '@/components/base/input/input';
 
@@ -27,7 +28,9 @@ import { pageWindow } from '../follow-manage/follow-manage';
 import { ErrorLine } from '../follow-manage/source-view';
 import { TaskProgress } from '../components/task-progress';
 import { activityKind } from '../../activity-kinds';
-import { WantMagnets } from './want-magnets';
+import { WantMagnets, type ResourceSourcePage } from './want-magnets';
+import { ScrapeSourceLabel } from '../components/source-label';
+import { resourceSourceKey } from './resource-display';
 import { cachedMagnetStates } from './resource-cache';
 import { SEGMENT, SEGMENTED_TRACK, SegmentedRadioGroup } from '../components/segmented';
 import { busyProps, useAction } from '../settings/use-action';
@@ -66,8 +69,13 @@ function WantRow({ want, readOnly, busy, onReset, onRemove, onCloudDownload, dow
   /** 多选模式下这一条的勾选；不在多选模式时为空，不画勾选框。 */
   picked?: { on: boolean; toggle(on: boolean): void };
 }) {
-  const [resolvedSource, setResolvedSource] = useState('');
-  const source = want.link || resolvedSource || (want.code ? `https://javdb.com/search?q=${encodeURIComponent(want.code)}&f=all` : '');
+  const [resourcePages, setResourcePages] = useState<ResourceSourcePage[]>([]);
+  const original = want.link || (!resourcePages.length && want.code ? `https://javdb.com/search?q=${encodeURIComponent(want.code)}&f=all` : '');
+  const host = original && URL.canParse(original) ? new URL(original).hostname.replace(/^www\./, '') : '';
+  const originalKey = resourceSourceKey(want.follow_provider || host.split('.')[0] || '');
+  const originalLabel = originalKey === 'javdb' ? 'JavDB' : originalKey === 'javbus' ? 'JavBus' : host;
+  const pages = original && host && !resourcePages.some(page => page.source === originalKey)
+    ? [{ source: originalKey, label: originalLabel, url: original }, ...resourcePages] : resourcePages;
   // 有番号还在找的，资源区自己说明查到了什么，这里只给上次定时查找的结果。
   const note = want.code && want.phase === 'searching' ? lastSearchNote(want) : searchNote(want);
   return (
@@ -87,23 +95,24 @@ function WantRow({ want, readOnly, busy, onReset, onRemove, onCloudDownload, dow
         {facts(want) ? <p className="text-body-2-regular text-text-secondary">{facts(want)}</p> : null}
         {note ? <p data-want-note="" className="text-caption-1-regular text-text-secondary">{note}</p> : null}
         {want.scrape_error ? <ErrorLine text={want.scrape_error} prefix={t('catalog:wants.metadataNotFound')} tone="muted" /> : null}
-        <div className="mt-1 flex flex-wrap items-center gap-2">
-          {source ? <ButtonLink data-button-link="" variant="secondary" size="small" trailingIcon={RiExternalLinkLine} href={source} target="_blank" rel="noopener noreferrer">{t('catalog:wants.sourcePage')}</ButtonLink> : null}
-          <Button variant="secondary" size="small" leadingIcon={RiDeleteBinLine} disabled={readOnly} {...busyProps(busy === `remove:${want.id}`)}
-            onClick={onRemove}>{t('catalog:shared.remove')}</Button>
+        <div data-want-actions="" className="mt-1 flex flex-wrap items-center gap-2">
+          {pages.map(page => <ButtonLink key={page.source} data-button-link="" variant="secondary" size="small" trailingIcon={RiExternalLinkLine}
+            href={page.url} target="_blank" rel="noopener noreferrer"><ScrapeSourceLabel source={page.source} label={page.label} /></ButtonLink>)}
           {want.phase === 'given_up' ? (
             <Button variant="secondary" size="small" disabled={readOnly} {...busyProps(busy === `reset:${want.id}`)}
               onClick={onReset}>{t('catalog:wants.searchAgain')}</Button>
           ) : null}
           {/* 还在找的两段才给云下载：未发售的没有资源可下，已入库的已经到手。 */}
           {want.phase === 'searching' || want.phase === 'given_up' ? (
-            <Button variant="secondary" size="small" onClick={onCloudDownload}>{t('catalog:shared.searchTorrents')}</Button>
+            <Button variant="primary" size="small" leadingIcon={RiSearchLine} onClick={onCloudDownload}>{t('catalog:shared.searchTorrents')}</Button>
           ) : null}
+          <HoldButton variant="danger" size="small" leadingIcon={RiDeleteBinLine} disabled={readOnly} {...busyProps(busy === `remove:${want.id}`)}
+            onClick={onRemove}>{t('catalog:shared.remove')}</HoldButton>
         </div>
       </div>
       </div>
       {want.code && (want.phase === 'searching' || want.phase === 'given_up')
-        ? <WantMagnets want={want} readOnly={readOnly} downloads={downloads} provider={provider} toast={toast} onSource={setResolvedSource} /> : null}
+        ? <WantMagnets want={want} readOnly={readOnly} downloads={downloads} provider={provider} toast={toast} onSources={setResourcePages} /> : null}
     </li>
   );
 }
@@ -204,7 +213,7 @@ export function WantList({ readOnly, toast, query = '', clearQuery }: WantListPr
   const allPicked = items.length > 0 && chosen.length === items.length;
   const host = { receipt: toast };
   const removeMany: BulkAction<Want> = {
-    key: 'remove', label: t('catalog:shared.remove'), reversal: 'undo', danger: true,
+    key: 'remove', label: t('catalog:shared.remove'), reversal: 'undo', danger: true, holdToConfirm: true,
     confirm: (rows) => ({ title: t('catalog:wants.removeMany'), body: t('catalog:wants.removeManyBody', { count: rows.length }) }),
     run: async (rows) => {
       const { previous } = await removeWants(rows.map((want) => want.id));

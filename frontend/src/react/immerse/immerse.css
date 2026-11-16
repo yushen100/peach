@@ -20,7 +20,9 @@
   stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
 /* ── 沉浸层 ── */
-[data-immerse]{position:fixed;inset:0;z-index:200;background:#0f0f0f;display:flex;align-items:center;justify-content:center;overflow:hidden}
+/* 整层不给选中也不给长按呼出菜单：长按归倍速，浏览器原生视频菜单与文字选中框都不出现（#585）。 */
+[data-immerse]{position:fixed;inset:0;z-index:200;background:#0f0f0f;display:flex;align-items:center;justify-content:center;overflow:hidden;
+  user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 [data-immerse][hidden]{display:none}
 body[data-immerse-open]{overflow:hidden}
 [data-immerse-stage]{position:absolute;left:50%;top:50%;width:min(56.25vh,calc(100vw - 240px));aspect-ratio:9/16;
@@ -103,3 +105,48 @@ body[data-immerse-open]{overflow:hidden}
   [data-immerse-ui] [data-immerse-title]{font-size:var(--fs-md)}
   [data-immerse-close]{top:max(10px,env(safe-area-inset-top));right:max(10px,env(safe-area-inset-right))}
 }
+
+/* ── #585：长按倍速角标、字幕键与字幕菜单、全屏与横置 ── */
+/* 内容层：平时就是外框的整块画布，里面的绝对定位照旧按视口排。 */
+[data-immerse-rot]{position:absolute;inset:0}
+[data-immerse-hold]{display:none;position:absolute;left:50%;top:20px;transform:translateX(-50%);z-index:6;
+  padding:6px 13px;border-radius:var(--pill-radius);background:rgba(0,0,0,.62);color:#fff;
+  font-size:var(--fs-sm);font-weight:600;line-height:1;backdrop-filter:blur(12px);pointer-events:none}
+[data-immerse-hold][data-on]{display:block}
+/* 字幕键与全屏键的字形是实心图形，不吃圆钮那套描边画法。 */
+[data-immerse-circle][data-immerse-glyph] svg{fill:currentColor;stroke:none}
+[data-immerse-subtitles] svg{width:30px;height:30px}
+/* 字幕菜单挂在字幕键旁往左展开；外观与行样式用设置菜单那套（`.vjs-peach-settings-menu`），这里只管定位与尺寸，
+   属性写两遍压过那套自带的定位。 */
+[data-immerse-action]{position:relative}
+[data-immerse-subtitle-menu][data-immerse-subtitle-menu]{position:absolute;z-index:30;right:calc(100% + 10px);bottom:0;left:auto;top:auto;
+  box-sizing:border-box;width:274px;max-width:min(274px,calc(100vw - 140px));max-height:min(420px,calc(100vh - 160px));overflow:auto;
+  border:1px solid rgba(255,255,255,.18);border-radius:var(--floating-radius);background:rgba(2,4,8,.86);box-shadow:0 12px 28px #0008}
+[data-immerse-subtitle-menu][hidden]{display:none}
+/* 菜单行的栅格在播放器里按 `.video-js` 限定；沉浸的菜单不在播放器里，照同一套栅格补上。 */
+[data-immerse-subtitle-menu] .vjs-peach-menu-row{display:grid;grid-template-columns:56px minmax(0,1fr) minmax(0,max-content) 32px;
+  gap:0;align-items:center;padding:0;text-align:left}
+[data-immerse-subtitle-menu] .vjs-peach-menu-option{display:grid;grid-template-columns:40px minmax(0,1fr);align-items:center;
+  padding:0 20px 0 8px;text-align:left;font-size:var(--fs-md);line-height:18.2px}
+[data-immerse-subtitle-menu] .vjs-peach-menu-option[data-subtitle-track]{padding-block:10px}
+
+/* 全屏：和窄屏同一套铺满排法。方向锁把屏幕转成横屏后窄屏那段媒体查询不再命中，所以按 `:fullscreen` 单列。 */
+[data-immerse]:fullscreen :is([data-immerse-stage],[data-immerse-stage][data-wide]){inset:0;width:100%;height:100%;aspect-ratio:auto;transform:none}
+[data-immerse]:fullscreen [data-immerse-track]{border-radius:0;box-shadow:none}
+[data-immerse]:fullscreen :is([data-immerse-actions],[data-immerse-stage][data-wide] [data-immerse-actions]){
+  left:auto;right:max(8px,env(safe-area-inset-right));bottom:24px;width:56px;gap:14px}
+[data-immerse]:fullscreen [data-immerse-ui]{left:14px;right:82px;bottom:20px;width:auto;padding:0 0 env(safe-area-inset-bottom)}
+[data-immerse]:fullscreen[data-wide] [data-immerse-ui]{width:auto}
+[data-immerse]:fullscreen [data-immerse-author]>span{display:none}
+[data-immerse]:fullscreen [data-immerse-close]{top:max(10px,env(safe-area-inset-top));right:max(10px,env(safe-area-inset-right))}
+
+/* 横置（全屏 + 横版 + 锁不上横屏的竖屏视口）：转内容层，手机横过来拿着看。全屏元素是外框本身，被浏览器
+   全屏样式钉死，只能转它包着的这一层。这里的 vw/vh 指物理视口。 */
+[data-immerse][data-landscape] [data-immerse-rot]{inset:auto;left:50%;top:50%;width:100vh;height:100vw;
+  transform:translate(-50%,-50%) rotate(-90deg)}
+/* 横过来之后画面只剩手机宽那么高，动作列五枚收小一档才放得下。 */
+[data-immerse][data-landscape] [data-immerse-stage][data-wide] [data-immerse-actions]{right:12px;bottom:16px;width:52px;gap:8px}
+[data-immerse][data-landscape] [data-immerse-circle]{width:40px;height:40px}
+[data-immerse][data-landscape] [data-immerse-circle] svg{width:20px;height:20px}
+[data-immerse][data-landscape] [data-immerse-action]{gap:2px;font-size:var(--fs-xs)}
+[data-immerse][data-landscape] [data-immerse-ui]{left:16px;right:82px;bottom:18px;width:auto}

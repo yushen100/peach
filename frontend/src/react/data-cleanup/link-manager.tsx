@@ -98,6 +98,9 @@ function LinkTable(
           ? <StatusLabel tone={confirmed || /^(?:HTTP\s+)?5\d{2}$/.test(item.note.trim()) ? 'error' : 'warning'} data-link-code="">{item.note.trim()}</StatusLabel>
           : <div className="flex flex-col items-start gap-1"><StatusLabel tone={confirmed ? 'error' : 'warning'}>{confirmed ? t('cleanup:links.dead') : t('cleanup:links.inconclusive')}</StatusLabel>
               <ErrorExcerpt text={serverLabel(item.note_code ?? '', item.note, item.note_params)} className="tabular-nums text-text-secondary" /></div>}
+        {!confirmed && item.temporary && item.attempts
+          ? <span data-link-rechecked="" className="mt-1 block text-body-2-regular text-text-secondary">{t('cleanup:links.rechecked', { count: item.attempts })}</span>
+          : null}
       </div> },
     { id: 'url', label: t('cleanup:links.columnUrl'), width: 360, min: 180, value: (item) => item.url,
       render: (item) => <a href={item.url} target="_blank" rel="noopener noreferrer" title={item.url} data-link-address=""
@@ -162,7 +165,7 @@ export function LinkManager() {
   };
   /* 删除是一趟后台任务，结论由任务那块回执说；删了撤不回，弹窗写明。`all` 时不带 id，删整份清单。 */
   const removeGone = (label: string, all = false): BulkAction<LinkRow> => ({
-    key: all ? 'prune-all' : 'prune', label, reversal: 'irreversible', danger: true,
+    key: all ? 'prune-all' : 'prune', label, reversal: 'irreversible', danger: true, holdToConfirm: true,
     confirm: (rows) => ({ title: t('cleanup:links.deleteDead'), danger: true,
       body: t('cleanup:links.deleteDeadBody', { count: rows.length }) }),
     run: async (rows) => { await prune.start.mutateAsync({ checkId, ids: all ? undefined : rows.map((row) => row.id) }) },

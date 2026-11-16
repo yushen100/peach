@@ -19,7 +19,8 @@ from typing import Protocol
 
 from . import wants
 from .catalog_rules import CodePatternError, compile_code_patterns
-from .feeds import DEFAULT_HIDDEN_COMPILATIONS, EXCERPT, GROUP_COMPILATION, SOLO_COMPILATION
+from . import feeds
+from .feeds import FEED_COMPILATION_SWITCHES
 from .media_sources import SCANNABLE_LOCATIONS
 from .remote_media_cache import AVATAR_REFRESH_SECONDS, FAVICON_REFRESH_SECONDS
 from .system_language import system_language
@@ -51,6 +52,9 @@ SEARCH_HISTORY_LIMIT_MAX = 50
 INTERFACE_LANGUAGES = ("zh-CN", "en")
 #: 设置里能存的值：`auto` 由每个浏览器按自己的语言偏好、再按运行 Peach 的电脑的系统语言选（默认）。
 INTERFACE_LANGUAGE_CHOICES = ("auto", *INTERFACE_LANGUAGES)
+#: 人名显示方式：中文化译名、日语原文、英文罗马音、日语原文（本地语言）、本地语言（日语原文）。
+#: 本地语言跟界面语言走，由前端按界面语言取写法（`core/entity-names.ts`）。
+NAME_LANGUAGE_CHOICES = ("zh-CN", "ja", "en", "ja-local", "local-ja")
 
 #: 只有这些键跟着账本走。白名单而不是黑名单：将来往设置里加字段的人必须显式表态
 #: 它该不该跨机同步，而不是默认就同步过去。
@@ -63,22 +67,19 @@ INTERFACE_LANGUAGE_CHOICES = ("auto", *INTERFACE_LANGUAGES)
 #: 界面语言（ADR-0156）是用这套馆藏的那个人读的语言，每个部署只有一人，换台设备不该再选一遍。
 #: 浏览器入库没搜到资源时加不加入想要（ADR-0161）是服务端在入库队列里做的事，同样跟着账本走。
 #: 「想要」老片多久查一次、查几次放弃（`wants.cadence`）是定时查找读的，同样跟着账本走。
+#: 扫描与采集每趟向外部来源要多少（`library_processing.source_budget`）是后台任务读的，同样跟着账本走。
 SYNCED_SETTING_KEYS = frozenset({
-    "sidebarOrder", "manageOrder", "navigationOrders", "libraryOrder", "followInitialDays", "postSetupTutorialDone",
+    "sidebarOrder", "manageOrder", "navigationOrders", "sortControls", "libraryOrder", "followInitialDays", "postSetupTutorialDone",
     "organizeTemplates", "feedHideGroupCompilations", "feedHideSoloCompilations",
     "feedHideExcerpts", "searchHistoryLimit", "codePatterns", "performerNameLanguage", "taskSpeedMode",
     "interfaceLanguage", "javBrowserWantOnNoMatch", "wantStaleSearchDays", "wantStaleAttemptLimit",
+    "sourceBudgetRequests", "sourceBudgetHours", "sourceBudgetGigabytes",
+    "javdbCoverFallback",
 })
 #: 「想要」两项节奏设置的键、档位校验与报错 code。
 WANT_CADENCE_KEYS = (
     ("wantStaleSearchDays", wants.normalise_stale_search_days, wants.STALE_SEARCH_DAY_CHOICES),
     ("wantStaleAttemptLimit", wants.normalise_stale_attempt_limit, wants.STALE_ATTEMPT_LIMITS),
-)
-#: 三个收起开关的键与各自对应的那一类，缺省值取 `feeds.DEFAULT_HIDDEN_COMPILATIONS`。
-FEED_COMPILATION_SWITCHES = (
-    ("feedHideGroupCompilations", GROUP_COMPILATION),
-    ("feedHideSoloCompilations", SOLO_COMPILATION),
-    ("feedHideExcerpts", EXCERPT),
 )
 
 
@@ -98,6 +99,46 @@ NAVIGATION_ORDERS = {
     'tags': ('local', 'online'),
     'preferences': ('appearance', 'browsing', 'jav', 'search', 'content'),
 }
+SORT_CONTROL_KEYS = {
+    'catalog': ('rating', 'o', 'plays', 'dur', 'size', 'new', 'played', 'release'),
+    'jav': ('release', 'rating', 'o', 'plays', 'dur', 'size', 'new', 'played'),
+    'follow': ('new', 'hot', 'dur'),
+    'releases': ('release_date', 'source_score', 'duration', 'code', 'taste'),
+    'discover': ('taste', 'release_date', 'source_score', 'duration', 'code'),
+}
+
+
+def normalise_sort_controls(raw):
+    """保留合法排序项及隐藏选择，新排序项追加到末尾。"""
+    if not isinstance(raw, dict):
+        return {}
+    result = {}
+    for group, defaults in SORT_CONTROL_KEYS.items():
+        saved = raw.get(group)
+        if not isinstance(saved, dict):
+            continue
+        fields = {}
+        for field in ('order', 'hidden'):
+            entries = saved.get(field)
+            entries = entries if isinstance(entries, list) else []
+            fields[field] = list(dict.fromkeys(key for key in entries if isinstance(key, str) and key in defaults))
+        fields['order'] = list(dict.fromkeys(fields['order'] + list(defaults)))
+        result[group] = fields
+    return result
+
+
+def sort_controls_patch(raw):
+    if not isinstance(raw, dict) or set(raw) - SORT_CONTROL_KEYS.keys():
+        raise UserValueError('api.settings.sortControlsInvalid')
+    for group, saved in raw.items():
+        if not isinstance(saved, dict) or set(saved) != {'order', 'hidden'}:
+            raise UserValueError('api.settings.sortControlsInvalid')
+        for entries in saved.values():
+            if (not isinstance(entries, list) or len(entries) > len(SORT_CONTROL_KEYS[group])
+                    or any(not isinstance(key, str) or key not in SORT_CONTROL_KEYS[group] for key in entries)
+                    or len(set(entries)) != len(entries)):
+                raise UserValueError('api.settings.sortControlsInvalid')
+    return normalise_sort_controls(raw)
 
 
 def normalise_navigation_orders(raw):
@@ -230,16 +271,9 @@ def _stored_code_patterns(payload: dict) -> list[str]:
         return []
 
 
-def _feed_switches(payload: dict) -> dict[str, bool]:
-    return {key: payload[key] if isinstance(payload.get(key), bool)
-            else kind in DEFAULT_HIDDEN_COMPILATIONS
-            for key, kind in FEED_COMPILATION_SWITCHES}
-
-
 def hidden_compilations(contract: SettingsContract) -> frozenset[str]:
-    """新作那一行收起哪几类合集。"""
-    switches = _feed_switches(_stored(contract))
-    return frozenset(kind for key, kind in FEED_COMPILATION_SWITCHES if switches[key])
+    """新作那一行收起哪几类合集（规则在 `feeds.hidden_compilations`）。"""
+    return feeds.hidden_compilations(_stored(contract))
 
 
 def _stored(contract: SettingsContract) -> dict:
@@ -259,12 +293,14 @@ def _stored(contract: SettingsContract) -> dict:
 
 def q_settings(contract: SettingsContract, _args=None) -> dict:
     """读取跟人走的那部分设置。缺省时返回默认值，不返回空。"""
+    from .library_processing import source_budget_settings
     payload = _stored(contract)
     cadence = wants.cadence_from(payload)
     return {
         "sidebarOrder": normalise_sidebar_order(payload.get("sidebarOrder")),
         **({"manageOrder": normalise_manage_order(payload["manageOrder"])} if "manageOrder" in payload else {}),
         **({"navigationOrders": normalise_navigation_orders(payload["navigationOrders"])} if "navigationOrders" in payload else {}),
+        **({"sortControls": normalise_sort_controls(payload["sortControls"])} if "sortControls" in payload else {}),
         **({"libraryOrder": payload["libraryOrder"]} if isinstance(payload.get("libraryOrder"), list) else {}),
         "avatarRefreshDays": AVATAR_REFRESH_SECONDS // 86400,
         "faviconRefreshDays": FAVICON_REFRESH_SECONDS // 86400,
@@ -272,15 +308,18 @@ def q_settings(contract: SettingsContract, _args=None) -> dict:
         "postSetupTutorialDone": payload.get("postSetupTutorialDone") is True,
         "organizeTemplates": normalise_organize_templates(payload.get("organizeTemplates")),
         "codePatterns": _stored_code_patterns(payload),
-        **_feed_switches(payload),
+        **feeds.compilation_switches(payload),
         "searchHistoryLimit": normalise_search_history_limit(payload.get("searchHistoryLimit")),
-        "performerNameLanguage": "ja" if payload.get("performerNameLanguage") == "ja" else "zh-CN",
+        "performerNameLanguage": (payload["performerNameLanguage"]
+                                  if payload.get("performerNameLanguage") in NAME_LANGUAGE_CHOICES else "zh-CN"),
         "interfaceLanguage": payload["interfaceLanguage"] if payload.get("interfaceLanguage") in INTERFACE_LANGUAGE_CHOICES else "auto",
         "systemLanguage": system_language(),
         "taskSpeedMode": payload.get("taskSpeedMode", "standard"),
         "javBrowserWantOnNoMatch": payload.get("javBrowserWantOnNoMatch") is not False,
+        "javdbCoverFallback": payload.get("javdbCoverFallback") is True,
         "wantStaleSearchDays": cadence.stale_every.days,
         "wantStaleAttemptLimit": cadence.attempt_limit,
+        **source_budget_settings(payload),
     }
 
 
@@ -297,10 +336,25 @@ def _want_cadence_patch(body):
     return patch
 
 
+def _source_budget_patch(body):
+    """每趟采集预算三项：只收 `SOURCE_BUDGET_CHOICES` 里的档位，不在档位里的值整次拒收。"""
+    from .library_processing import SOURCE_BUDGET_CHOICES
+    patch = {}
+    for key, choices in SOURCE_BUDGET_CHOICES.items():
+        if key in body:
+            value = body[key]
+            if isinstance(value, bool) or value not in choices:
+                raise UserValueError("api.settings.choiceInvalid", {"key": key, "choices": "/".join(map(str, choices))})
+            patch[key] = int(value)
+    return patch
+
+
 def _navigation_patch(body):
     patch = {}
     if "navigationOrders" in body:
         patch["navigationOrders"] = navigation_orders_patch(body["navigationOrders"])
+    if "sortControls" in body:
+        patch["sortControls"] = sort_controls_patch(body["sortControls"])
     if "libraryOrder" in body:
         order = body["libraryOrder"]
         if (not isinstance(order, list) or len(order) > 1000
@@ -328,12 +382,13 @@ def w_settings(contract: SettingsContract, body) -> dict:
     merged = _stored(contract)
     merged.update(_navigation_patch(body))
     merged.update(_want_cadence_patch(body))
+    merged.update(_source_budget_patch(body))
     if "taskSpeedMode" in body:
         from .processing_control import valid_mode
         merged["taskSpeedMode"] = valid_mode(body["taskSpeedMode"])
     if "performerNameLanguage" in body:
         language = body["performerNameLanguage"]
-        if language not in ("zh-CN", "ja"):
+        if language not in NAME_LANGUAGE_CHOICES:
             raise UserValueError("api.settings.performerNameLanguageInvalid")
         merged["performerNameLanguage"] = language
     if "interfaceLanguage" in body:
@@ -358,11 +413,17 @@ def w_settings(contract: SettingsContract, body) -> dict:
         if limit is None:
             raise UserValueError("api.settings.searchHistoryLimitInvalid", {"max": SEARCH_HISTORY_LIMIT_MAX})
         merged["searchHistoryLimit"] = limit
-    for key in [key for key, _kind in FEED_COMPILATION_SWITCHES] + ["javBrowserWantOnNoMatch"]:
+    for key in [key for key, _kind in FEED_COMPILATION_SWITCHES] + ["javBrowserWantOnNoMatch", "javdbCoverFallback"]:
         if key in body:
             if not isinstance(body[key], bool):
                 raise UserValueError("api.settings.switchNotBoolean", {"key": key})
             merged[key] = body[key]
+    _write_settings(contract, {key: merged[key] for key in body})
+    return {"ok": True, **q_settings(contract)}
+
+
+def _write_settings(contract: SettingsContract, patch: dict) -> None:
+    """在事务内合并最新档案设置，保留并发写入的导航和排序分组。"""
     stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     with contract.write_transaction() as connection:
         row = connection.execute("SELECT settings_json FROM profile WHERE id=?", (DEFAULT_PROFILE_ID,)).fetchone()
@@ -371,10 +432,11 @@ def w_settings(contract: SettingsContract, body) -> dict:
         except (TypeError, ValueError):
             current = {}
         current = current if isinstance(current, dict) else {}
-        patch = {key: merged[key] for key in body}
         if "navigationOrders" in patch:
             patch["navigationOrders"] = {**normalise_navigation_orders(current.get("navigationOrders")),
                                          **patch["navigationOrders"]}
+        if "sortControls" in patch:
+            patch["sortControls"] = {**normalise_sort_controls(current.get("sortControls")), **patch["sortControls"]}
         current.update(patch)
         updated = connection.execute(
             "UPDATE profile SET settings_json=?, updated_at=? WHERE id=?",
@@ -382,4 +444,3 @@ def w_settings(contract: SettingsContract, body) -> dict:
         ).rowcount
         if not updated:
             raise UserValueError("api.settings.profileMissing", {"profile": DEFAULT_PROFILE_ID})
-    return {"ok": True, **q_settings(contract)}

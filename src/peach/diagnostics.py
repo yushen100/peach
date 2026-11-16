@@ -12,7 +12,7 @@ import tempfile
 import time
 from contextlib import closing
 
-from . import __version__, access, distribution, interface_text, settings_file
+from . import __version__, access, distribution, interface_text, listening, settings_file
 from .ffmpeg import FFmpegResolver, binary_diagnostics
 from .health import inspect_database
 from .mount_reachability import MountReachability, PROBE_TIMEOUT
@@ -143,10 +143,7 @@ def tools(settings, *, inspect=True):
 
 def security(settings):
     policy = access.load(settings.access_path)
-    try:
-        loopback = settings.host == "localhost" or ipaddress.ip_address(settings.host).is_loopback
-    except ValueError:
-        loopback = False
+    loopback = listening.is_loopback(settings.host)
     protected = policy["mode"] == "password" or (policy["mode"] == "legacy" and bool(settings.token))
     exposed = not loopback or settings.tunnel_enabled
     if policy["mode"] == "locked":
@@ -194,7 +191,7 @@ def writable_root(root):
 
 
 def port_status(host, port):
-    host = "127.0.0.1" if host == "localhost" else host
+    host = "127.0.0.1" if host == "localhost" else host.strip("[]")
     try:
         address = ipaddress.ip_address(host)
     except ValueError:

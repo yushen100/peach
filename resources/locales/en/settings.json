@@ -768,9 +768,12 @@
     "url": "Proxy URL"
   },
   "performerNameLanguage": {
-    "chinese": "Chinese",
-    "help": "Names and aliases show only in the selected language. If a name has no version in that language, the current name is kept.",
+    "chinese": "Chinese (translated)",
+    "help": "Local language follows the interface language; names without that writing show the original.",
     "japanese": "Original Japanese",
+    "japaneseThenLocal": "Japanese (local language)",
+    "localThenJapanese": "Local language (Japanese)",
+    "romaji": "English (romanized)",
     "saveFailed": "Save name language",
     "saved": "Name language saved",
     "title": "Actress names",
@@ -810,12 +813,21 @@
     "stop": "Stop",
     "title": "When a video ends"
   },
+  "playbackGestures": {
+    "autoFullscreen": "Play landscape videos full screen on phones",
+    "doubleTapPercent": "Double-tap seek area width",
+    "holdRate": "Hold speed",
+    "swipeMinutes": "A full-width drag skips",
+    "touch": "Picture gestures (hold, drag, double-tap)"
+  },
   "playbackTranscode": {
     "qualitySaved": "Quality limit saved",
     "saved": "Transcoding mode saved",
     "software": "Software codec"
   },
   "preferencesPanel": {
+    "autoChineseSubtitles": "Turn on Chinese subtitles",
+    "autoChineseSubtitlesHelp": "Uses Chinese subtitles from the video's directory until you pick one",
     "autoScroll": "Auto-scroll",
     "batchSize": "Videos per batch",
     "batchSizeInput": "Videos per batch",
@@ -829,10 +841,12 @@
     "feedLimitInput": "Number of new releases shown",
     "feedNewRows": "Show new releases on Home and actress pages",
     "groupEditions": "Group parts and editions",
+    "homePreviewOnly": "Show only videos with a preview image on Home",
     "homeShorts": "Portrait strip on Home",
     "homeTiers": "Show actress and label avatars on Home",
     "hoverDelay": "Hover preview delay",
     "hoverDelaySfw": "No previews in SFW mode.",
+    "hoverPreview": "Play previews when hovering over cards",
     "increaseContrast": "Increase contrast",
     "ingestNotices": "Import notifications",
     "interfaceSounds": "Interface sounds",
@@ -951,11 +965,23 @@
     "backupCleaned": "Pre-repair backup removed",
     "changedCount_one": "{{count, number}} change",
     "changedCount_other": "{{count, number}} changes",
+    "deferReasonCount": "{{reason}} ({{count, number}})",
+    "deferReasons": {
+      "mount": "directory unreadable",
+      "cooldown": "metadata source cooling down",
+      "cost": "metered source not confirmed",
+      "retry": "waiting to retry automatically"
+    },
+    "deferred": "Deferred",
+    "deferredNote_one": "{{count, number}} video deferred: {{reason}}",
+    "deferredNote_other": "{{count, number}} videos deferred: {{reason}}",
     "deleteBody": "This deletes {{amount}} and can't be undone. The 3 most recent snapshots of each followed source and any snapshots still referenced by items are kept.",
     "deleteSnapshots": "Delete snapshots",
     "deleteTitle": "Delete {{title}}",
     "empty": "Nothing to repair or migrate.",
     "estimating": "Calculating",
+    "failedNote_one": "{{count, number}} video failed; retry it in {{place}}",
+    "failedNote_other": "{{count, number}} videos failed; retry them in {{place}}",
     "filesAndSize_one": "{{count, number}} file · {{size}}",
     "filesAndSize_other": "{{count, number}} files · {{size}}",
     "groups": {
@@ -976,6 +1002,8 @@
     "pendingChecks_other": "{{count, number}} items to check",
     "pendingFixes_one": "{{count, number}} to fix",
     "pendingFixes_other": "{{count, number}} to fix",
+    "pendingCovers_one": "{{count, number}} cover to process",
+    "pendingCovers_other": "{{count, number}} covers to process",
     "pendingRecheck_one": "{{count, number}} video to re-check",
     "pendingRecheck_other": "{{count, number}} videos to re-check",
     "preRepairBackup": "Pre-repair database backup",
@@ -1275,6 +1303,8 @@
     "title": "Uninstall Peach"
   },
   "upgradeRepairs": {
+    "deferred": "Deferred",
+    "deferredHelp": "The rest waits for the mount to come back or the source to reopen, and continues automatically.",
     "downloadReviewLog": "Download review log",
     "itemCount_one": "{{value}} item",
     "itemCount_other": "{{value}} items",
@@ -1341,5 +1371,28 @@
     "intervalHelp": "How often to search again for releases over 90 days old that weren't found.",
     "never": "Never",
     "title": "Wants search"
+  },
+  "sourceBudget": {
+    "gigabyteCount": "{{count, number}} GB",
+    "gigabytes": "Downloads per run",
+    "hourCount_one": "{{count, number}} hour",
+    "hourCount_other": "{{count, number}} hours",
+    "hours": "Time per run",
+    "requestCount": "{{count, number}} requests",
+    "requests": "Requests per run",
+    "requestsHelp": "How much one scan and collection run asks of online sources; it stops at whichever limit comes first and the next run picks up the rest.",
+    "saved": "Per-run collection limits saved"
+  },
+  "scrapingBrowser": {
+    "headless": "No window",
+    "mode": "Background collection browser",
+    "modeHelp": "With a window it stays off screen and never takes focus, so you can open it from the taskbar to pass a check; without one, a failed check pauses that source.",
+    "title": "Collection browser",
+    "window": "Keep a window"
+  },
+  "coverFallback": {
+    "title": "Covers",
+    "javdb": "Use watermarked JavDB images when there is no other cover",
+    "javdbHelp": "Off by default. Official and local covers always come first; an unwatermarked cover found later replaces it"
   }
 }

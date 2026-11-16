@@ -164,6 +164,7 @@ export function StorageSettings({ initial, receipt }: { initial: StorageState; r
       body: t('settings:storageSpace.cleanBody', { size: fmtSize(total), items: joinList(targets.map((category) =>
         t('settings:storageSpace.cleanItem', { label: category.label, size: fmtSize(category.reclaimable), effect: category.note }))) }),
       confirmLabel: t('settings:storageSpace.cleanSize', { size: fmtSize(total) }),
+      holdToConfirm: true,
       danger: targets.some((category) => category.key === 'backups'),
       onConfirm: async () => setStorage(await apiSend<StorageState>(`${STORAGE_URL}/clean`,
         { categories: targets.map((category) => category.key) })),

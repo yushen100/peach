@@ -1,5 +1,5 @@
 import { t } from '../../i18n';
-export const FOLLOW_MANAGE_NAV = [['list', t('follow:followManageNav.list')], ['add', t('follow:followFeed.addFollow')], ['tags', t('follow:followManageNav.tags')]] as const;
+export const FOLLOW_MANAGE_NAV = [['list', t('follow:followManageNav.list')], ['add', t('follow:followFeed.addFollow')]] as const;
 export const FOLLOW_MANAGE_TABS = FOLLOW_MANAGE_NAV.map(([key]) => key);
 export type FollowManageTab = (typeof FOLLOW_MANAGE_TABS)[number];
 export interface FollowManageRoute { tab: FollowManageTab; page: number; sort: string; dir: string }
@@ -21,6 +21,7 @@ export function followManagePath(params: FollowManageRoute): string {
 }
 
 export function followManageEntry(search: string, workspace?: FollowManageTab): string {
+  if (!workspace && new URLSearchParams(search).get('tab') === 'tags') return '/tags?scope=online';
   if (!workspace && new URLSearchParams(search).get('tab') === 'wants') return '/jav?tab=wants';
   if (!workspace && new URLSearchParams(search).get('tab') === 'source') return '/settings/subscriptions';
   return followManagePath({ tab: workspace || followManageParams(search).tab, page: 1, sort: '', dir: '' });

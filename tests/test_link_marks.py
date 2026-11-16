@@ -165,6 +165,61 @@ class ChannelTests(unittest.TestCase):
         self.assertEqual(image.size, (link_marks.MARK_SIZE, link_marks.MARK_SIZE))
         self.assertEqual(image.getpixel((2, 2)), (18, 18, 20, 255), "底色不该被换掉")
 
+    def _opaque(self, width, height, ground, box, ink):
+        source = Image.new("RGBA", (width, height), ground + (255,))
+        painter = source.load()
+        left, top, right, bottom = box
+        for x in range(left, right):
+            for y in range(top, bottom):
+                painter[x, y] = ink + (255,)
+        buffer = io.BytesIO()
+        source.save(buffer, format="PNG")
+        return buffer.getvalue()
+
+    def _inside_circle(self, made, ink):
+        """圆标里这种墨色的像素有多少落在内切圆外。"""
+        image = Image.open(io.BytesIO(made)).convert("RGB")
+        side = image.width
+        radius = side / 2
+        outside = 0
+        for x in range(side):
+            for y in range(side):
+                if (x + 0.5 - radius) ** 2 + (y + 0.5 - radius) ** 2 > radius ** 2:
+                    pixel = image.getpixel((x, y))
+                    if all(abs(a - b) < 40 for a, b in zip(pixel, ink)):
+                        outside += 1
+        return outside
+
+    def test_a_landscape_designed_icon_keeps_both_ends_instead_of_being_cropped(self):
+        """横向成品图标补成方图，不按短边居中裁：两头的字在圆里都还看得见。"""
+        ink = (220, 30, 40)
+        made = link_marks.render_mark(self._opaque(300, 160, (255, 255, 255), (60, 30, 240, 130), ink))
+        self.assertIsNotNone(made)
+        image = Image.open(io.BytesIO(made)).convert("RGB")
+        row = [image.getpixel((x, image.height // 2)) for x in range(image.width)]
+        inked = [x for x, pixel in enumerate(row) if all(abs(a - b) < 40 for a, b in zip(pixel, ink))]
+        self.assertTrue(inked)
+        self.assertGreater(min(inked), 0, "左端不该被裁到边上")
+        self.assertLess(max(inked), image.width - 1, "右端不该被裁到边上")
+
+    def test_a_solid_square_touching_the_edges_is_padded_into_the_circle(self):
+        """顶到边的实心方标补到内容的外接圆，四角不被圆片切掉。"""
+        ink = (30, 90, 200)
+        made = link_marks.render_mark(self._opaque(200, 200, (255, 255, 255), (4, 4, 196, 196), ink))
+        self.assertIsNotNone(made)
+        self.assertLessEqual(self._inside_circle(made, ink), 0.03 * link_marks.MARK_SIZE ** 2)
+
+    def test_the_fallback_does_not_stretch_a_long_image(self):
+        """回落也按同一套规则补成方图：长条图不被拉伸变形。"""
+        ink = (20, 160, 60)
+        made = link_marks.plain_mark(self._opaque(64, 32, (255, 255, 255), (8, 8, 56, 24), ink))
+        image = Image.open(io.BytesIO(made)).convert("RGB")
+        self.assertEqual(image.size, (link_marks.MARK_SIZE, link_marks.MARK_SIZE))
+        mask = Image.new("L", image.size, 0)
+        mask.putdata([255 if all(abs(a - b) < 40 for a, b in zip(pixel, ink)) else 0 for pixel in image.getdata()])
+        left, top, right, bottom = mask.getbbox()
+        self.assertAlmostEqual((right - left) / (bottom - top), 3.0, delta=0.4)
+
     def test_a_bitmap_too_small_to_be_a_designed_icon_is_declined(self):
         """32×32 的多色 favicon 两条通道都不适用：抠不出字形，放大又糊。
 
@@ -251,6 +306,19 @@ class CacheTests(unittest.TestCase):
             self.assertNotEqual(link_marks.cache_key(url), before)
         finally:
             link_marks.RENDER_VERSION = original
+
+    def test_a_mark_from_the_previous_render_version_is_refetched_even_when_refresh_is_off(self):
+        """「从不刷新」时旧文件永不过期；升了渲染版本，访问到的站要按新规则重取（#576）。"""
+        url = "https://t-powers.co.jp/"
+        original = link_marks.RENDER_VERSION
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            try:
+                link_marks.RENDER_VERSION = original - 1
+                link_marks.cached_path(root, url).write_bytes(b"old mark")
+            finally:
+                link_marks.RENDER_VERSION = original
+            self.assertFalse(link_marks.is_fresh(link_marks.cached_path(root, url), ttl=None))
 
     def test_a_url_without_a_host_has_no_cache_key(self):
         self.assertEqual(link_marks.cache_key("not a url"), "")

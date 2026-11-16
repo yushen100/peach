@@ -51,7 +51,7 @@ function CoverWait({ item, readOnly }: { item: Discovery; readOnly: boolean }) {
  *  `badge` 是标签行最前面那一枚（发现分区放推荐分），没有就不占位。 */
 export function DiscoveryCard({ item, layout, javImage, readOnly, navigate, tag, onTag, wanting, onWant, onResource, badge }: {
   item: Discovery; layout: 'big' | 'small'; javImage: unknown; readOnly: boolean; navigate(path: string): void;
-  tag: string; onTag(tag: string): void; wanting: boolean; onWant(): void; onResource(): void; badge?: ReactNode;
+  tag: string | readonly string[]; onTag(tag: string): void; wanting: boolean; onWant(): void; onResource(): void; badge?: ReactNode;
 }) {
   const selection = useJavSelection();
   const selected = selection?.selected.has(item.code);
@@ -91,7 +91,8 @@ export function DiscoveryCard({ item, layout, javImage, readOnly, navigate, tag,
         <div data-jav-tags="" data-media-tags="">
           {badge}
           {(item.tags || []).slice(0, 4).map(name =>
-            <button type="button" data-media-tag="" key={name} aria-pressed={tag === name} onClick={() => onTag(tag === name ? '' : name)}>{name}</button>)}
+            <button type="button" data-media-tag="" key={name} aria-pressed={typeof tag === 'string' ? tag === name : tag.includes(name)}
+              onClick={() => onTag(tag === name ? '' : name)}>{name}</button>)}
         </div>
       </div>
     </div>

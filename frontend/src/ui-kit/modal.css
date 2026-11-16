@@ -37,3 +37,11 @@
 .ui-geist-modal-form{display:contents}
 .ui-geist-modal-fields{display:grid;gap:14px;margin-top:16px}
 .ui-geist-modal-fields:empty{display:none}
+.ui-geist-modal-choices { display: grid; gap: 16px; margin-top: 16px; }
+.ui-geist-modal-choice { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.ui-geist-modal .ui-geist-modal-choice p { flex: 1; margin: 0; color: var(--muted); }
+.ui-geist-modal-choice button { flex: none; }
+.ui-geist-modal[data-modal-choices] > footer { justify-content: flex-end; padding-inline: 20px; }
+@media (max-width: 600px) {
+  .ui-geist-modal-choice { flex-direction: column; align-items: stretch; gap: 8px; }
+}

@@ -33,9 +33,9 @@ from starlette.staticfiles import StaticFiles
 from starlette.requests import ClientDisconnect
 
 from . import (
-    avatar_face, avatar_online, avatar_picker, avatar_provider, error_reporting,
+    avatar_face, avatar_online, avatar_picker, avatar_provider, cover_artwork, error_reporting,
     follow_assets, follow_providers, images, interface_text,
-    jav_poster_crop, link_marks, link_status, media_io, peach_proxy, public_http, scraping_access, site_icons,
+    jav_poster_crop, link_marks, link_status, peach_proxy, public_http, scraping_access, site_icons,
     social_links, subtitles,
     taste_history, timeline_sheets, web_follow, web_timeline_thumbnails,
 )
@@ -50,13 +50,11 @@ from .follow_store import FollowStore
 from .follow_stream import (
     FollowMediaUnavailable, FollowProxyError, ResolvedFollowMedia, open_upstream,
 )
-from .media import MediaOffline, MediaUnavailable, bounded_normalized_path, normalized_path
-from .platform import within_root
+from .media import MediaOffline, MediaUnavailable
 from .previews import ENTITY_THUMB_TYPE, PreviewUnavailable, entity_image_key
 from .remote_media_cache import AVATAR_REFRESH_SECONDS, FAVICON_REFRESH_SECONDS, cache_for
 from .preview_cache import PreviewCache
 from .routes_auth import require_auth
-from .scan import VIDEO
 from .segments import SegmentCancelled, SegmentUnavailable, build_hls_playlist
 from .streaming import (
     _cancel_and_wait, _wait_for_disconnect,
@@ -65,6 +63,7 @@ from .streaming import (
 from .remote_media_cache import MEDIA_SECURITY_HEADERS
 from .transcodes import TranscodeCancelled, TranscodeNeedsSession, TranscodeUnavailable, parse_decode
 from .user_messages import UserFacingError, UserValueError, error_detail, error_fields, message_fields
+from .web_subtitle_tracks import _subtitle_bytes, _subtitle_rows, subtitle_tracks
 
 router = APIRouter()
 
@@ -175,12 +174,17 @@ def _needs_conversion(state, asset_id: int, source: Path, session: str,
     return True
 
 
-def _hls_plan(state, asset_id: int, session: str = "", conversion: bool | None = None):
+def _hls_plan(state, asset_id: int, session: str = "", conversion: bool | None = None,
+              force_transcode: bool = False):
     """解析 HLS 的片源路径与分片计划；任何一步不成立就返回 None 走 Range。
 
     要重编码的片源按固定 6 秒切，时长先看账本，账本没记或记成负数就用 ffprobe 报的；
     探测也拿不到才放弃，否则浏览器只能退回 `/stream`，那条路要先把整部片转完才出第一个字节。
     原样封装的 HLS 仍要账本时长与关键帧表。
+
+    要转换的片源先问 `hls_mode`：H.264 8 位视频按关键帧切、码流原样复制（MKV 读 Cues，MP4 读
+    `stss`），音轨不兼容时只转音轨；读不到关键帧就退回按 6 秒重编码。`force_transcode` 是播放器
+    退到视频重编码时要的那一套。返回的第四项是处理方式：`copy`、`audio` 或 `transcode`。
 
     `conversion` 是起播时已经得出的结论。给不出时按片源本身判：播放列表和分片端点走的
     就是这条，它们不看重建好的 MP4 头，理由见 `_needs_conversion`。
@@ -190,29 +194,37 @@ def _hls_plan(state, asset_id: int, session: str = "", conversion: bool | None =
     choice = state.media_engine.stream_plan(asset_id, mode="hls")
     source = state.media_engine.filesystem.file_for(asset, thumbnail=False)
     duration = asset.duration if asset.duration and asset.duration > 0 else 0.0
-    if conversion if conversion is not None else state.transcode_service.requires_conversion(
-            source, session=session, registry=state.stream_sessions):
+    needs_conversion = (conversion if conversion is not None else state.transcode_service.requires_conversion(
+        source, session=session, registry=state.stream_sessions))
+    if force_transcode or needs_conversion:
         duration = duration or state.transcode_service.media_duration(
             source, session=session, registry=state.stream_sessions)
+        mode = ("transcode" if force_transcode else state.transcode_service.hls_mode(
+            source, session=session, registry=state.stream_sessions))
+        if mode != "transcode" and duration > 0:
+            plan = state.hls_service.plan(source, duration)
+            if plan:
+                return asset, source, plan, mode
         plan = state.hls_service.conversion_plan(duration) if duration > 0 else []
-        return (asset, source, plan, True) if plan else None
+        return (asset, source, plan, "transcode") if plan else None
     if choice.protocol != "hls" or duration <= 0:
         return None
     plan = state.hls_service.plan(source, duration)
-    return None if not plan else (asset, source, plan, False)
+    return None if not plan else (asset, source, plan, "copy")
 
 
-def _session_plan(state, asset_id: int, session: str):
+def _session_plan(state, asset_id: int, session: str, force_transcode: bool = False):
     """这次播放的分片计划：播放列表算出来记在会话上，分片端点直接取（`SessionPlans`）。
 
     重启后续播的分片没有记录，当场再算一次并记下。
     """
     plans = getattr(state, "hls_session_plans", None)
-    if plans is not None and (known := plans.get(session, asset_id)) is not None:
+    variant = "transcode" if force_transcode else ""
+    if plans is not None and (known := plans.get(session, asset_id, variant)) is not None:
         return known
-    resolved = _hls_plan(state, asset_id, session)
+    resolved = _hls_plan(state, asset_id, session, force_transcode=force_transcode)
     if plans is not None and resolved is not None:
-        plans.put(session, asset_id, resolved)
+        plans.put(session, asset_id, resolved, variant)
     return resolved
 
 
@@ -338,7 +350,7 @@ def external_playlist(request: Request, id: int, ticket: str, origin: str = ''):
 
 
 @router.api_route("/stream", methods=["GET", "HEAD"])
-def stream(request: Request, id: int, session: str = "", decode: str = "",
+def stream(request: Request, id: int, session: str = "", decode: str = "", original: bool = False,
            args: dict[str, str] = Depends(require_auth)):
     state = request.app.state
     from .error_reporting import local_event
@@ -359,8 +371,9 @@ def stream(request: Request, id: int, session: str = "", decode: str = "",
             path, header, session=session, registry=state.stream_sessions,
         )
     try:
+        # `original=1` 是起播计划给的原文件试播地址：浏览器自己判断能不能放，放不了再走兼容路径。
         # 不带会话的只有卡片悬停预览：取消不了，也看不到浏览器断开，不能为它起整片转码。
-        path, transcoded = state.transcode_service.browser_path(
+        path, transcoded = (path, False) if original else state.transcode_service.browser_path(
             id, path, session=session, registry=state.stream_sessions, convert=bool(session),
             stat=source_stat, decode=parse_decode(decode),
         )
@@ -372,7 +385,8 @@ def stream(request: Request, id: int, session: str = "", decode: str = "",
     except TranscodeUnavailable:
         LOGGER.exception("browser transcode failed for asset %s", id)
         return JSONResponse({"error": "transcode unavailable"}, status_code=503)
-    media_type = "video/mp4" if transcoded else None
+    media_type = ("video/mp4" if transcoded else
+                  "video/x-matroska" if original and path.suffix.lower() == ".mkv" else None)
     from .smb_media import SmbResource
     if isinstance(path, SmbResource):
         from .smb_response import SmbResponse
@@ -420,14 +434,17 @@ def stream_plan(request: Request, id: int, session: str = "", mode: str = "", de
     capabilities = parse_decode(decode)
     conversion = _needs_conversion(state, id, source_path, session, capabilities)
     reason = plan.reason
-    if conversion and capabilities and state.transcode_service.remuxes(
+    if conversion and state.transcode_service.remuxes(
             source_path, session=session, registry=state.stream_sessions, decode=capabilities):
-        # 视频浏览器解得了，只差音轨或 `hev1` 标签：`/stream` 整片换封装，不重编码视频。
+        # 视频浏览器解得了，只差音轨、`hev1` 标签或容器（`.ts` 一类）：`/stream` 整片换封装，不重编码视频。
         conversion, reason = False, "remux"
+    original_trial = conversion and state.transcode_service.original_playable(
+        source_path, session=session, registry=state.stream_sessions, decode=capabilities)
+    original_mime = "video/x-matroska" if source_path.suffix.lower() == ".mkv" else "video/mp4"
     resolved = (_hls_plan(state, id, session, conversion)
                 if conversion or plan.protocol == "hls" else None)
     if resolved and session:
-        return _record_stream_plan(state, id, source_path, {
+        result = {
             "id": id,
             "protocol": "hls",
             "mime_type": "application/vnd.apple.mpegurl",
@@ -436,20 +453,33 @@ def stream_plan(request: Request, id: int, session: str = "", mode: str = "", de
             "segments": len(resolved[2]),
             "src": f"/stream/hls/{id}/index.m3u8?session={quote(session, safe='')}",
             "reason": plan.reason,
-        }, capabilities)
+            "processing": resolved[3],
+        }
+        if original_trial:
+            result["original_src"] = f"/stream?id={id}&original=1&session={quote(session, safe='')}"
+            result["original_mime_type"] = original_mime
+        if resolved[3] != "transcode":
+            result["fallback_src"] = f"/stream/hls/{id}/index.m3u8?session={quote(session, safe='')}&transcode=1"
+            result["fallback_mime_type"] = "application/vnd.apple.mpegurl"
+        return _record_stream_plan(state, id, source_path, result, capabilities)
     source = f"/stream?id={id}"
     if session:
         source += f"&session={quote(session, safe='')}"
     if capabilities:
         source += f"&decode={','.join(sorted(capabilities))}"
-    return _record_stream_plan(state, id, source_path, {
+    result = {
         "id": id,
         "protocol": "range",
         "mime_type": plan.mime_type,
         "duration": asset.duration,
         "src": source,
         "reason": reason,
-    }, capabilities)
+    }
+    if original_trial and session:
+        # 切不了分片（时长或关键帧都拿不到）时先试原文件，浏览器放不了再要整片转换的那条。
+        result.update(src=f"/stream?id={id}&original=1&session={quote(session, safe='')}",
+                      mime_type=original_mime, fallback_src=source, fallback_mime_type="video/mp4")
+    return _record_stream_plan(state, id, source_path, result, capabilities)
 
 
 def _record_stream_plan(state, asset_id: int, source: Path, plan: dict,
@@ -457,7 +487,8 @@ def _record_stream_plan(state, asset_id: int, source: Path, plan: dict,
     from .error_reporting import local_event
     try:
         local_event('playback-plan', asset_id=asset_id,
-                    plan={key: plan.get(key) for key in ('protocol', 'mime_type', 'duration', 'reason', 'segments')},
+                    plan={key: plan.get(key) for key in ('protocol', 'mime_type', 'duration', 'reason', 'segments',
+                                                         'processing', 'original_src')},
                     decode=sorted(decode),
                     media_profile=state.transcode_service.diagnostic_profile(source),
                     hardware=state.transcode_service.hardware.diagnostic_snapshot())
@@ -481,7 +512,8 @@ def strm_resource(request: Request, id: int, key: str, session: str = '',
 
 
 @router.get("/stream/hls/{id}/index.m3u8")
-def hls_playlist(request: Request, id: int, session: str = "", args: dict[str, str] = Depends(require_auth)):
+def hls_playlist(request: Request, id: int, session: str = "", transcode: bool = False,
+                 args: dict[str, str] = Depends(require_auth)):
     state = request.app.state
     # 分片必须带 session 才能被取消，播放列表这层就要求它；
     # 否则会生成一份每个分片都必然 400 的目录。
@@ -490,12 +522,12 @@ def hls_playlist(request: Request, id: int, session: str = "", args: dict[str, s
     if state.stream_sessions.is_cancelled(session):
         return PlainTextResponse("stream cancelled", status_code=410)
     try:
-        resolved = _session_plan(state, id, session)
+        resolved = _session_plan(state, id, session, transcode)
     except (MediaUnavailable, TranscodeUnavailable):
         return PlainTextResponse("hls unavailable", status_code=404)
     if resolved is None:
         return PlainTextResponse("hls unavailable", status_code=404)
-    query = f"?session={quote(session, safe='')}"
+    query = f"?session={quote(session, safe='')}" + ("&transcode=1" if transcode else "")
     playlist = build_hls_playlist(
         resolved[2], lambda index: f"/stream/hls/{id}/{index}.ts{query}",
     )
@@ -505,37 +537,39 @@ def hls_playlist(request: Request, id: int, session: str = "", args: dict[str, s
 
 
 @router.get("/stream/hls/{id}/{index}.ts")
-async def hls_segment(request: Request, id: int, index: int, session: str = "", args: dict[str, str] = Depends(require_auth)):
+async def hls_segment(request: Request, id: int, index: int, session: str = "", transcode: bool = False,
+                      args: dict[str, str] = Depends(require_auth)):
     state = request.app.state
     if not session or len(session) > 128:
         return JSONResponse({"error": "invalid session"}, status_code=400)
     if state.stream_sessions.is_cancelled(session):
         return Response(status_code=410, headers={"Cache-Control": "no-store"})
     try:
-        return await run_until_disconnect(_hls_segment(request, id, index, session), request.receive)
+        return await run_until_disconnect(_hls_segment(request, id, index, session, transcode), request.receive)
     except ClientDisconnect:
         return Response(status_code=410, headers={"Cache-Control": "no-store"})
 
 
-async def _hls_segment(request: Request, id: int, index: int, session: str):
+async def _hls_segment(request: Request, id: int, index: int, session: str, transcode: bool = False):
     state = request.app.state
     try:
         plans = getattr(state, "hls_session_plans", None)
-        resolved = plans.get(session, id) if plans is not None else None
+        resolved = plans.get(session, id, "transcode" if transcode else "") if plans is not None else None
         if resolved is None:
             resolved = await asyncio.get_running_loop().run_in_executor(
-                state.hls_plan_executor, partial(_session_plan, state, id, session),
+                state.hls_plan_executor, partial(_session_plan, state, id, session, transcode),
             )
         if resolved is None:
             return JSONResponse({"error": "hls unavailable"}, status_code=404)
-        _, source, plan, conversion = resolved
+        _, source, plan, processing = resolved
         if index < 0 or index >= len(plan):
             return JSONResponse({"error": "invalid segment"}, status_code=416)
         start, duration = plan[index]
         generation = asyncio.create_task(state.hls_service.generate(
             source, start, duration, asset_id=id, index=index,
             session=session, registry=state.stream_sessions,
-            **({"transcode": True} if conversion else {}),
+            **({"transcode": True} if processing == "transcode" else
+               {"audio_transcode": True} if processing == "audio" else {}),
         ))
         disconnect = asyncio.create_task(_wait_for_disconnect(request.receive))
         try:
@@ -579,91 +613,6 @@ async def stream_cancel(request: Request, session: str, args: dict[str, str] = D
     return JSONResponse({"ok": True, "cancelled": cancelled})
 
 
-#: 单份字幕的读取上限。两小时的片子字幕撑死几百 KB；比这更大的多半不是字幕，
-#: 整份读进内存的代价不该由播放器那一次请求承担。
-SUBTITLE_BYTE_LIMIT = 4 * 1024 * 1024
-
-
-def _subtitle_rows(state, asset_id: int):
-    """资产本身加它的字幕行。资产不存在时抛 `MediaNotFound`，由 `api.py` 收口。
-
-    同目录发现要列正片目录（POSIX 上连路径解析也要问盘），网盘在期限内答不上时只列账本里登记的。
-    """
-    asset = state.media_engine.asset(asset_id)
-    with state.database.read_connection() as connection:
-        rows = [dict(row) for row in subtitles.subtitles_for(connection, asset_id)]
-    if asset.path:
-        try:
-            rows.extend(_sidecar_rows(state, asset, rows))
-        except TimeoutError:
-            pass
-    return asset, rows
-
-
-def _sidecar_rows(state, asset, rows) -> list[dict]:
-    video = bounded_normalized_path(asset.path)
-    if not any(within_root(video, root) for root in state.media_engine.filesystem.allowed_roots):
-        return []
-    known = media_io.bounded(media_io.mount_key(video), lambda: {
-        str(normalized_path(row["path"])).casefold() for row in rows})
-    # 列表一次、每条轨各一次都走这里；目录列举按视频路径缓存，网盘目录不每次列一遍。
-    listings = getattr(state, "sidecar_listings", None)
-    found = (listings.discover(video, VIDEO) if listings is not None
-             else subtitles.discover_sidecars(video, VIDEO))
-    return [row for row in found if row["path"].casefold() not in known]
-
-
-def _subtitle_path(state, asset, row) -> Path | None:
-    """字幕文件在本机的位置；逃出正片所在目录或授权根一律拒绝。
-
-    路径来自账本或同目录发现，这一层仍核对当前媒体授权根。
-    """
-    if not asset.path:
-        return None
-    directory = bounded_normalized_path(asset.path).parent
-    path = bounded_normalized_path(row["path"])
-    if str(path.parent).casefold() != str(directory).casefold():
-        return None
-    if not any(within_root(path, root)
-               for root in state.media_engine.filesystem.allowed_roots):
-        return None
-    return path
-
-
-def _subtitle_bytes(state, asset, row) -> tuple[bytes | None, str]:
-    """字幕文件的内容，以及取不到时的原因 id（`labels.routesMedia.subtitle.<id>`）。原因进列表给人看。"""
-    try:
-        path = _subtitle_path(state, asset, row)
-    except OSError:
-        return None, "notFound"
-    if path is None:
-        return None, "outsideFolder"
-    def read() -> bytes | None:
-        if path.stat().st_size > SUBTITLE_BYTE_LIMIT:
-            return None
-        return path.read_bytes()
-
-    try:
-        data = media_io.bounded(media_io.mount_key(path), read)
-    except OSError:
-        return None, "notFound"
-    return (None, "tooLarge") if data is None else (data, "")
-
-
-def _subtitle_note(state, asset, row) -> str:
-    """这一条为什么不能播的原因 id；能播返回空串。"""
-    if not subtitles.is_playable_format(row["format"]):
-        return "imageBased"
-    data, note = _subtitle_bytes(state, asset, row)
-    if data is None:
-        return note
-    try:
-        subtitles.decode(data)
-    except subtitles.SubtitleUndecodable:
-        return "encodingUnknown"
-    return ""
-
-
 @router.get("/api/assets/{id}/subtitles")
 def asset_subtitles(request: Request, id: int, args: dict[str, str] = Depends(require_auth)):
     """这个资产有哪些字幕轨，以及每一条能不能播。
@@ -671,26 +620,7 @@ def asset_subtitles(request: Request, id: int, args: dict[str, str] = Depends(re
     返回的 src 通过 track 参数绑定文件身份，序号用于无参数的按序读取。
     不能播的也列出来并说明原因：界面上「有三条字幕、只挂上两条」要能解释得清。
     """
-    state = request.app.state
-    asset, rows = _subtitle_rows(state, id)
-    tracks = []
-    for index, row in enumerate(rows):
-        note = _subtitle_note(state, asset, row)
-        tracks.append({
-            "id": f"sidecar:{subtitles.file_key(row['name'])}",
-            "legacy_id": f"sidecar:{row['id']}" if isinstance(row["id"], int) else None,
-            "index": index,
-            "name": row["name"],
-            "format": row["format"],
-            "language": row["language"],
-            "label": subtitles.track_label(row["name"], row["language"], asset.name),
-            "pairing": row["pairing"],
-            "note": interface_text.text(f"server:labels.routesMedia.subtitle.{note}") if note else "",
-            "note_code": f"labels.routesMedia.subtitle.{note}" if note else "",
-            "playable": not note,
-            "src": f"/api/assets/{id}/subtitles/{index}?track={subtitles.file_key(row['name'])}",
-        })
-    return {"id": id, "subtitles": tracks}
+    return {"id": id, "subtitles": subtitle_tracks(request.app.state, id)}
 
 
 @router.api_route("/api/assets/{id}/subtitles/{index}", methods=["GET", "HEAD"])
@@ -832,21 +762,30 @@ def timeline(request: Request, id: int, s: int = 0, source: str = '', args: dict
 
 
 @router.api_route("/cover", methods=["GET", "HEAD"])
-def cover(request: Request, code: str = "", thumb: int = 0,
+def cover(request: Request, code: str = "", thumb: int = 0, front: int = 0,
           args: dict[str, str] = Depends(require_auth)):
     """官方封套原图。存原图不裁：4:3 与 16:9 两种版式在界面上按比例取景。
 
     `thumb` 是派生档的档次：`1` 是长边 1600 那一档（`COVER_THUMB_EDGE`），`2` 是卡片网格
     的起始档、长边 800（`COVER_SMALL_THUMB_EDGE`）；不带就是原件，详情与裁切取原件。
     档次而不是像素数，理由同 `/entity-image`：尺寸由服务端定死，页面只挑档。
+
+    `front=1` 取封面旁装好的 DMM 竖版正封（`jav_poster_crop.front_path`），卡片大图位用它；
+    没装就是 404，页面只在取景提示带 `front` 时才来取。
     """
     path = request.app.state.web_contract.cover_path(code)
     if path is None:
         return JSONResponse({"error": "no cover"}, status_code=404)
+    key = path.stem
+    if front:
+        path = jav_poster_crop.front_path(path)
+        key = f"{key}.{jav_poster_crop.FRONT_DIRECTORY}"
+        if not path.is_file():
+            return JSONResponse({"error": "no cover"}, status_code=404)
     if thumb:
         state = request.app.state
         service = state.cover_small_thumb_service if thumb == 2 else state.cover_thumb_service
-        derived = service.thumbnail(path.stem, path)
+        derived = service.thumbnail(key, path)
         if derived is not None:
             return _image_response(request, derived, media_type=ENTITY_THUMB_TYPE)
     return _image_response(request, path, media_type="image/jpeg")
@@ -887,11 +826,19 @@ def _apply_cover_crop(state, payload: dict):
                 return {}
         face = read_evidence('.face.json')
         current_face = face.get('px') == list(size)
-        title = (jav_poster_crop.read_sidecar(path) or {}).get('title') or read_evidence('.scraping.json').get('title', '')
+        saved = jav_poster_crop.read_sidecar(path) or {}
+        title = saved.get('title') or read_evidence('.scraping.json').get('title', '')
+        # 竖版图的比对结论与装好的竖版正封描述的是这张图本身，换框、撤框都不作废它们。
+        same_image = saved.get('px') == list(size)
+        portrait = jav_poster_crop.portrait_of(saved) if same_image else None
+        front = (jav_poster_crop.front_size(saved)
+                 if same_image and jav_poster_crop.front_path(path).is_file() else None)
         record = jav_poster_crop.crop_record(
             code, size[0], size[1], jav_poster_crop.file_gradient(path), title=title,
-            face=face.get('face') if current_face else None)
-        if current_face and face.get('layout') == 'still':
+            face=face.get('face') if current_face else None, portrait=portrait, front=front,
+            spine=jav_poster_crop.spine_of(saved) if same_image else None,
+            templates=cover_artwork.cover_templates(path.parent), text_across=cover_artwork.text_across_file(path))
+        if portrait is None and current_face and face.get('layout') == 'still':
             record['box'] = dict(x0=0, y0=0, x1=size[0], y1=size[1], method=jav_poster_crop.NONE)
     else:
         record = jav_poster_crop.manual_record(size[0], size[1], payload.get("box"))

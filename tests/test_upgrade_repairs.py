@@ -21,6 +21,8 @@ from support.outcomes import told
 #: 0.51.0 之前采集桥按 GBK 输出、按 UTF-8 宽松读回的人物名（#478）。
 BAD = chr(0xFFFD)
 GARBLED = BAD * 2 + 'ľ' + BAD * 2
+#: 路径写法不对时状态表那一行记下的原因：code 加参数，按界面语言渲染。
+BAD_PATH = {'code': 'errors.upgradeRepairs.malformedPath', 'params': {'path': 'bad'}}
 
 
 class UpgradeRepairTests(unittest.TestCase):
@@ -130,6 +132,27 @@ class UpgradeRepairTests(unittest.TestCase):
         self.assertEqual(self.service.cloud_display_videos(), 0)
         self.assertEqual((cloud_item()['state'], cloud_item()['pending']), ('running', 0))
 
+    def test_cloud_pending_count_is_reused_until_the_library_or_the_list_changes(self):
+        """「修复与迁移」每次打开、补测在跑时每 2 秒都问网盘待补测几部：两张表不变就不再全扫一遍。"""
+        from peach.web_state import WebContract
+        with self.database.write_transaction() as connection:
+            connection.execute(
+                "INSERT INTO asset(id,location,path,name,medium,code,field_owners,duration,width,height) "
+                "VALUES(2,'115','2.mp4','ABC-002.mp4','video','ABC-002','{}',60,720,1280)")
+        self.display_sample()
+        web = WebContract(self.db, database=self.database)
+        self.contract.cached_until_changed = web.cached_until_changed
+        with patch.object(display_dimensions_repair, 'collect', wraps=display_dimensions_repair.collect) as collect:
+            self.assertEqual(self.service.cloud_display_videos(), 1)
+            self.assertEqual(self.service.cloud_display_videos(), 1)
+            self.assertEqual(collect.call_count, 1)
+            with self.database.write_transaction() as connection:
+                connection.execute(
+                    "INSERT INTO asset(id,location,path,name,medium,code,field_owners,duration,width,height) "
+                    "VALUES(3,'115','3.mp4','ABC-003.mp4','video','ABC-003','{}',60,720,1280)")
+            self.assertEqual(self.service.cloud_display_videos(), 2)
+            self.assertEqual(collect.call_count, 2)
+
     def test_display_size_progress_is_split_between_local_and_cloud_items(self):
         """网盘补测确认后并进同一份名单；两项各自只数自己来源的片子，页面才画得出各自的进度条。"""
         from peach import repair_center
@@ -158,6 +181,37 @@ class UpgradeRepairTests(unittest.TestCase):
             cloud = next(item for item in repair_center.snapshot(connection, receipt, cloud_pending=2)['items']
                          if item['id'] == 'display-cloud')
         self.assertEqual((cloud['state'], cloud['pending'], 'total' in cloud), ('waiting', 4, False))
+
+    def test_display_size_item_says_what_unfinished_films_are_waiting_for(self):
+        """没做完的只剩延后就报延后并按原因分开数，只剩等重试的失败就报失败；还有在排或退避中的才算进行中。"""
+        from peach import repair_center
+        rule = display_dimensions_repair.ITEM_RULE
+
+        def local(rows):
+            with self.database.write_transaction() as connection:
+                connection.execute('DELETE FROM ledger_upgrade_item')
+                connection.executemany(
+                    "INSERT INTO ledger_upgrade_item(rule,asset_id,state,retry_at,result_json,updated_at) "
+                    "VALUES(?,?,?,?,?,'now')",
+                    [(rule, key, state, retry, json.dumps(result)) for key, (state, retry, result) in enumerate(rows, 1)])
+            with self.database.read_connection() as connection:
+                items = repair_center.snapshot(connection, {}, cloud_pending=0)['items']
+            item = next(item for item in items if item['id'] == 'display-local')
+            return {key: item.get(key) for key in ('state', 'done', 'total', 'deferred', 'failed')}
+
+        mount, cooling, legacy = ({'deferred': 'mount'}, {'deferred': 'cooldown'}, {})
+        self.assertEqual(local([('done', None, {}), ('deferred', 9, mount), ('deferred', 9, mount),
+                                ('deferred', 9, cooling), ('deferred', 9, legacy)]),
+                         {'state': 'deferred', 'done': 1, 'total': 5, 'deferred': {'mount': 2, 'cooldown': 1, '': 1},
+                          'failed': None})
+        self.assertEqual(local([('deferred', 9, mount), ('queued', None, {})])['state'], 'running')
+        # 延后到期重派出去、还没回话的照旧算延后，整盘掉线时页面不在两种状态间来回跳。
+        self.assertEqual(local([('deferred', 9, mount), ('queued', None, mount)]),
+                         {'state': 'deferred', 'done': 0, 'total': 2, 'deferred': {'mount': 2}, 'failed': None})
+        # 退避中的失败到时间自己重派，算进行中；连败到上限、只等用户点重试的才单列。
+        self.assertEqual(local([('deferred', 9, mount), ('failed', 9, {})])['state'], 'running')
+        self.assertEqual(local([('done', None, {}), ('failed', None, {})]),
+                         {'state': 'failed', 'done': 1, 'total': 2, 'deferred': None, 'failed': 1})
 
     def test_repair_history_shows_each_run_and_whether_its_backup_is_still_kept(self):
         """历史与「账本备份」联动：修复前的备份还在就能去恢复，按保留规则清退了照实写。"""
@@ -233,6 +287,27 @@ class UpgradeRepairTests(unittest.TestCase):
         self.assertEqual(after['display_dimensions'], receipt['display_dimensions'])
         self.assertEqual(list(after['queued']), [self.display_key()])
         self.assertFalse(after['dispatch_complete'])
+
+    def test_a_due_film_the_planner_skips_does_not_reopen_planning_every_tick(self):
+        """到期的补测碰上同片被取消的影片补全：规划器整片跳过，派发判断也不再每分钟重开一轮空规划。"""
+        self.display_sample()
+        with self.database.write_transaction() as connection:
+            connection.execute("UPDATE ledger_upgrade_item SET state='deferred',retry_at=1 WHERE rule=?",
+                               (display_dimensions_repair.ITEM_RULE,))
+            upgrade_repairs.upsert_items(connection, [{'rule': 'media:processing-v2', 'asset_id': 1,
+                                                       'state': 'cancelled'}], mode='settle')
+        receipt = upgrade_repairs._read(self.service.receipt)
+        receipt.update(dispatch_complete=True, queued={})
+        self.service._save_receipt(receipt)
+        with patch.object(self.service, '_plan', wraps=self.service._plan) as plan:
+            for _ in range(2):
+                self.tick_quietly()
+        plan.assert_not_called()
+        self.assertTrue(upgrade_repairs._read(self.service.receipt)['dispatch_complete'])
+        # 取消的那行不在了，这部片就真会被派出去：照常重开规划。
+        with self.database.write_transaction() as connection:
+            connection.execute("DELETE FROM ledger_upgrade_item WHERE rule='media:processing-v2'")
+        self.assertEqual(list(self.tick_quietly()['queued']), [self.display_key()])
 
     def test_old_receipts_without_asset_generation_are_preserved_and_probed_once_under_the_new_rule(self):
         self.display_sample()
@@ -644,7 +719,7 @@ class UpgradeRepairTests(unittest.TestCase):
         probe.assert_not_called()
 
     def run_queued_display(self, measured=(60, 1440, 1280, None, 0, 0, None, 'landscape', '1080P', 1), *, unreachable=False):
-        """派出显示尺寸补测再在当前线程跑完，返回这一轮的任务行。"""
+        """派出显示尺寸补测再在当前线程跑完，返回这一轮的任务行。`unreachable` 给异常就由挂载判断抛出。"""
         from peach.followups import FollowupRunner
         self.contract.upgrade_repairs = self.service
         with patch('peach.library_processing._people_allowed', return_value=False), \
@@ -653,7 +728,9 @@ class UpgradeRepairTests(unittest.TestCase):
             self.service.tick()
         run_id = upgrade_repairs._read(self.service.receipt)['queued'][self.display_key()]
         with patch('peach.library_processing._ffprobe_path', return_value='ffprobe'), \
-                patch.object(upgrade_repairs, 'mount_unreachable', return_value=unreachable), \
+                patch.object(upgrade_repairs, 'mount_unreachable',
+                             **({'side_effect': unreachable} if isinstance(unreachable, Exception)
+                                else {'return_value': unreachable})), \
                 patch('peach.media_probe.measure', return_value=measured):
             FollowupRunner(self.contract).drain()
         return self.store.get(run_id)
@@ -682,8 +759,24 @@ class UpgradeRepairTests(unittest.TestCase):
             self.assertEqual(tuple(connection.execute('SELECT width,height FROM asset').fetchone()), (720, 1280))
         self.assertEqual(self.tick_quietly()['queued'], {})
         self.assertEqual(self.service.snapshot()['items'][1]['deferred'], 1)
+        self.assertEqual(self.service.snapshot()['state'], 'deferred')
+        # 原因记在这一行上，「修复与迁移」照它写明在等什么，全部延后时不报进行中。
+        self.assertEqual(row['result']['deferred'], 'mount')
+        self.assertEqual(self.repair_item('display-local'),
+                         {**self.repair_item('display-local'), 'state': 'deferred', 'deferred': {'mount': 1}})
         self.make_due()
         self.assertEqual(list(self.tick_quietly()['queued']), [self.display_key()])
+        self.assertEqual(self.run_queued_display().status, 'succeeded')
+        row = self.display_items()['1']
+        self.assertEqual(row['state'], 'done')
+        self.assertNotIn('deferred', row['result'])
+        self.assertEqual(self.repair_item('display-local')['state'], 'done')
+
+    def repair_item(self, item_id):
+        from peach import repair_center
+        with self.database.read_connection() as connection:
+            center = repair_center.snapshot(connection, upgrade_repairs._read(self.service.receipt), cloud_pending=0)
+        return next(item for item in center['items'] if item['id'] == item_id)
 
     def test_dispatch_sleeps_until_the_next_retry_and_wakes_when_its_followups_finish(self):
         """不再每分钟醒来全表扫：没活时排到最早的 `retry_at`，派出的后继跑完由回调叫醒。"""
@@ -712,6 +805,61 @@ class UpgradeRepairTests(unittest.TestCase):
                 patch('peach.media_probe.measure', return_value=(60, 1440, 1280, None, 0, 0, None, 'landscape', '1080P', 1)):
             runner.drain()
         self.assertTrue(self.service._wake.is_set(), '自己派的补测跑完就叫醒派发线程')
+
+    def test_a_malformed_path_is_not_mistaken_for_an_offline_mount(self):
+        """路径写法本身不对不是挂载掉线：抛 `MalformedPath`；本机没挂载的来源照旧算读不到。"""
+        import os
+        from peach.platform import UNMAPPED_ROOT
+        malformed = ['R:' + chr(92) + 'media' + chr(0) + '.mp4']
+        if os.name == 'nt':
+            malformed.append('R:' + chr(92) + 'me<dia' + chr(92) + 'a.mp4')
+        for text in malformed:
+            with self.subTest(text=text), self.assertRaises(upgrade_repairs.MalformedPath):
+                upgrade_repairs.mount_unreachable(text)
+        with patch('peach.platform.translate_ledger_path', side_effect=ValueError('SMB 地址或端口无效')), \
+                self.assertRaises(upgrade_repairs.MalformedPath):
+            upgrade_repairs.mount_unreachable('smb://bad')
+        with patch('peach.platform.translate_ledger_path', return_value=UNMAPPED_ROOT / 'R' / 'a.mp4'):
+            self.assertTrue(upgrade_repairs.mount_unreachable('R:' + chr(92) + 'a.mp4'))
+        self.assertFalse(upgrade_repairs.mount_unreachable(str(self.root / 'a.mp4')))
+
+    def test_a_malformed_path_fails_the_measurement_with_its_reason_instead_of_deferring_forever(self):
+        """路径翻译不了的片子按失败结算、写明原因，不排自动重派，出现在失败计数里；用户点重试才再派。"""
+        self.display_sample()
+        broken = upgrade_repairs.MalformedPath('errors.upgradeRepairs.malformedPath', {'path': 'bad'})
+        with self.assertLogs('peach.followups', level='WARNING'):
+            run = self.run_queued_display(unreachable=broken)
+        self.assertEqual(run.status, 'failed')
+        row = self.display_items()['1']
+        self.assertEqual((row['state'], row['retry_at'], row['result']['error']),
+                         ('failed', None, BAD_PATH))
+        self.make_due()
+        self.assertEqual(self.tick_quietly()['queued'], {})
+        self.assertEqual(self.display_items()['1']['state'], 'failed')
+        self.assertEqual(self.service.snapshot()['items'][1]['failed'], 1)
+        self.assertEqual(self.repair_item('display-local')['failed'], 1)
+
+    def test_a_malformed_path_in_a_batch_fails_only_that_film(self):
+        """一批里路径写法不对的那部按失败结算并写明原因，不拖累同批其他片子，也不让整批重跑。"""
+        from peach.settings_file import load_config
+        self.contract.upgrade_config = load_config(environ={'PEACH_DATA_ROOT': str(self.root)})
+        for key in (1, 2):
+            self.asset(key, duration=10)
+
+        def unreachable(path):
+            if path == "2.mp4":
+                raise upgrade_repairs.MalformedPath('errors.upgradeRepairs.malformedPath', {'path': 'bad'})
+            return False
+        with patch('peach.library_processing.process_library', return_value={'status': 'complete'}) as process, \
+                patch.object(upgrade_repairs, 'mount_unreachable', side_effect=unreachable):
+            result = upgrade_repairs._media_run(self.contract, 'upgrade-library:batch:processing-v2:1,2',
+                                                Mock(run_id=None))
+        self.assertEqual(process.call_args.kwargs['asset_ids'], [1])
+        self.assertEqual((result['done'], result['failed']), (1, 1))
+        with self.database.read_connection() as connection:
+            rows = {row['asset_id']: (row['state'], row['retry_at'], json.loads(row['result_json']).get('error'))
+                    for row in connection.execute("SELECT * FROM ledger_upgrade_item WHERE rule='media:processing-v2'")}
+        self.assertEqual(rows, {1: ('done', None, None), 2: ('failed', None, BAD_PATH)})
 
     def test_new_failures_are_dispatched_again_with_backoff_until_the_attempt_limit(self):
         """本版派出的失败按退避自动重派；连败到上限后只等用户点重试。"""
@@ -746,8 +894,10 @@ class UpgradeRepairTests(unittest.TestCase):
             result = upgrade_repairs._media_run(self.contract, key, Mock(run_id=None))
         self.assertIn('来源', told(result)['outcome'])
         with self.database.read_connection() as connection:
-            row = connection.execute("SELECT state,retry_at FROM ledger_upgrade_item WHERE rule='media:processing-v2'").fetchone()
+            row = connection.execute("SELECT state,retry_at,result_json FROM ledger_upgrade_item "
+                                     "WHERE rule='media:processing-v2'").fetchone()
         self.assertEqual(row['state'], 'deferred')
+        self.assertEqual(json.loads(row['result_json'])['deferred'], 'cooldown')
         self.assertGreater(row['retry_at'], time.time() + 600)
 
     def test_capacity_denial_returns_the_run_to_the_queue_until_explicit_retry(self):
@@ -1180,10 +1330,10 @@ class UpgradeRepairTests(unittest.TestCase):
             row=connection.execute('SELECT catalog_title,field_owners FROM asset WHERE id=1').fetchone()
             self.assertEqual(row[0], '元の題名')
             self.assertEqual(json.loads(row[1])['catalog_title'], 'auto:dmm')
-            # 悬空候选、JavDB 记录类型、视频改登记、附属文件删行、来源分辨率标签、画质分档与旧记录转换七条补修，以及旧版数据补修各记一行，这里只数更新已有资料的回执。
-            self.assertEqual(connection.execute('SELECT count(*) FROM ledger_upgrade_repair WHERE id NOT IN (?,?,?,?,?,?,?) '
+            # 悬空候选、JavDB 记录类型、视频改登记、附属文件删行、番号尾字母、来源分辨率标签、画质分档与旧记录转换八条补修，以及旧版数据补修各记一行，这里只数更新已有资料的回执。
+            self.assertEqual(connection.execute('SELECT count(*) FROM ledger_upgrade_repair WHERE id NOT IN (?,?,?,?,?,?,?,?) '
                                                 'AND id NOT IN (SELECT value FROM json_each(?))',
-                                                (upgrade_repairs.DANGLING_KEY,
+                                                (upgrade_repairs.DANGLING_KEY, upgrade_repairs.SUFFIX_CODES_KEY,
                                                  upgrade_repairs.JAVDB_RECORDS_KEY,
                                                  upgrade_repairs.VIDEO_MEDIUM_KEY, upgrade_repairs.SIDECAR_ASSETS_KEY,
                                                  upgrade_repairs.RESOLUTION_TAGS_KEY, quality_repair.KEY,
@@ -1192,6 +1342,29 @@ class UpgradeRepairTests(unittest.TestCase):
             self.assertEqual(connection.execute('PRAGMA integrity_check').fetchone()[0], 'ok')
         self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))), 1)
         self.assertEqual(upgrade_repairs._read(self.service.receipt)['text_media_ids'], [1])
+
+    def garbled_title_plan(self, owner):
+        from peach import metadata_text_repair
+        self.damaged_asset(owner=owner)
+        self.clean_snapshot()
+        with self.database.read_connection() as connection:
+            plan = metadata_text_repair.collect(connection, self.root / 'sources/library-metadata')
+        with self.database.write_transaction() as connection:
+            changed = metadata_text_repair.apply(connection, plan)
+        with self.database.read_connection() as connection:
+            title = connection.execute('SELECT catalog_title FROM asset WHERE id=1').fetchone()[0]
+        return [row['action'] for row in plan['rows']], plan['asset_ids'], changed, title
+
+    def test_garbled_titles_without_an_owner_are_replaced_from_a_clean_source(self):
+        """#208：旧版没记归属的乱码标题也按同番号的干净来源替换。"""
+        actions, asset_ids, changed, title = self.garbled_title_plan(None)
+        self.assertEqual((actions, asset_ids, changed['text_fields'], title), (['replace'], [1], 1, '元の題名'))
+
+    def test_garbled_titles_approved_in_review_are_kept_but_requeued(self):
+        """#208：复核批准过的乱码不自动改，但照样排进重采，干净候选回到复核页。"""
+        actions, asset_ids, changed, title = self.garbled_title_plan('review:makers')
+        self.assertEqual((actions, asset_ids, changed['text_review'], title),
+                         (['review'], [1], 1, '壊' + BAD + 'れた題名'))
 
     def test_damaged_manual_titles_are_kept_and_garbled_studios_still_count_for_review(self):
         self.damaged_asset(owner='user:manual')
@@ -1556,6 +1729,45 @@ class UpgradeRepairTests(unittest.TestCase):
                                "VALUES(?,'local',?,?,'video',?,?,?)",
                                (key, f'{key}.mp4', 'SSIS-123.mp4', code, json.dumps({'code': owner}), duration))
 
+    def test_codes_missing_their_label_suffix_are_restored_once_with_a_receipt(self):
+        """#124：旧版把 `IBW-483z` 的 `z` 当版次剥掉，只改回扫描写入、去掉尾字母正好等于旧值的番号。"""
+        rows = [
+            (1, 'IBW-483z.mp4', 'IBW-483', 'scan:filename'),
+            # 没有归属的番号来路不明（旧导入），不碰。
+            (7, 'IBW-622z.mp4', 'IBW-622', None),
+            (2, 'IBW-518Z 少女.mp4', 'IBW-518', 'scan:filename'),
+            # 用户填的番号不碰。
+            (3, 'IBW-529z.mp4', 'IBW-529', 'user:manual'),
+            # 文件名本来就没有尾字母，旧值是对的。
+            (4, 'IBW-562.mp4', 'IBW-562', 'scan:filename'),
+            # 版次尾字母不是登记的尾字母。
+            (5, 'ADN-516C.mp4', 'ADN-516', 'scan:filename'),
+            # 去掉尾字母也对不上旧值：不是这一类误认，留着。
+            (6, 'IBW-613z.mp4', 'IBW-612', 'scan:filename'),
+        ]
+        with self.database.write_transaction() as connection:
+            for key, name, code, owner in rows:
+                connection.execute(
+                    'INSERT INTO asset(id,location,path,name,medium,code,field_owners) '
+                    "VALUES(?,'local',?,?,'video',?,?)",
+                    (key, rf'R:\{name}', name, code, json.dumps({'code': owner}) if owner else None))
+        self.service._restore_suffix_codes()
+        with self.database.read_connection() as connection:
+            codes = dict(connection.execute('SELECT id,code FROM asset ORDER BY id').fetchall())
+            receipt = connection.execute('SELECT result_json FROM ledger_upgrade_repair WHERE id=?',
+                                         (upgrade_repairs.SUFFIX_CODES_KEY,)).fetchone()
+        self.assertEqual(codes, {1: 'IBW-483Z', 2: 'IBW-518Z', 3: 'IBW-529', 4: 'IBW-562', 5: 'ADN-516',
+                                 6: 'IBW-612', 7: 'IBW-622'})
+        self.assertEqual(json.loads(receipt[0]), {'codes': [
+            {'id': 1, 'current': 'IBW-483', 'target': 'IBW-483Z'},
+            {'id': 2, 'current': 'IBW-518', 'target': 'IBW-518Z'}]})
+        # 只做一次：之后再记上的旧值不再改。
+        with self.database.write_transaction() as connection:
+            connection.execute("UPDATE asset SET code='IBW-483' WHERE id=1")
+        self.service._restore_suffix_codes()
+        with self.database.read_connection() as connection:
+            self.assertEqual(connection.execute('SELECT code FROM asset WHERE id=1').fetchone()[0], 'IBW-483')
+
     def test_codes_misread_from_old_filenames_are_cleared_once_with_a_receipt(self):
         rows = [
             # 手机录像的时间戳与被截断的「名字_日期」：现行规则都不认，账本里还记着旧值。
@@ -1813,10 +2025,10 @@ class UpgradeRepairTests(unittest.TestCase):
         with self.database.read_connection() as connection:
             rows = connection.execute('SELECT id,code,duration FROM asset ORDER BY id').fetchall()
             self.assertEqual([tuple(row) for row in rows], [(1, 'SSIS-123', None), (2, 'BAD-001', None)])
-            # 悬空候选、JavDB 记录类型、视频改登记、附属文件删行、来源分辨率标签、画质分档与旧记录转换七条补修，以及旧版数据补修各记一行，这里只数更新已有资料的回执。
-            self.assertEqual(connection.execute('SELECT count(*) FROM ledger_upgrade_repair WHERE id NOT IN (?,?,?,?,?,?,?) '
+            # 悬空候选、JavDB 记录类型、视频改登记、附属文件删行、番号尾字母、来源分辨率标签、画质分档与旧记录转换八条补修，以及旧版数据补修各记一行，这里只数更新已有资料的回执。
+            self.assertEqual(connection.execute('SELECT count(*) FROM ledger_upgrade_repair WHERE id NOT IN (?,?,?,?,?,?,?,?) '
                                                 'AND id NOT IN (SELECT value FROM json_each(?))',
-                                                (upgrade_repairs.DANGLING_KEY,
+                                                (upgrade_repairs.DANGLING_KEY, upgrade_repairs.SUFFIX_CODES_KEY,
                                                  upgrade_repairs.JAVDB_RECORDS_KEY,
                                                  upgrade_repairs.VIDEO_MEDIUM_KEY, upgrade_repairs.SIDECAR_ASSETS_KEY,
                                                  upgrade_repairs.RESOLUTION_TAGS_KEY, quality_repair.KEY,
@@ -2891,6 +3103,21 @@ class UpgradeRepairTests(unittest.TestCase):
         self.assertEqual([item.name for item in items.iterdir()], ['1-aaa.json'])
         self.assertEqual(prune_local_evidence(path, {}), 1)
         self.assertEqual(prune_local_evidence(self.root / 'absent.json', {}), 0)
+
+    def test_local_evidence_the_cross_run_index_points_at_survives_a_new_run(self):
+        """新一轮的状态从空开始，跨任务索引（#587）指着的证据与索引本身照样留着，其余收走。"""
+        from peach.library_processing import prune_local_evidence
+        path = self.root / 'state' / 'library-processing.json'
+        items = path.parent / 'library-processing-items'
+        items.mkdir(parents=True)
+        for name in ('1-aaa.json', '2-bbb.json', '3-ccc.json'):
+            (items / name).write_text('{}', encoding='utf-8')
+        (items / 'index.json').write_text(json.dumps({'entries': {'1:x': ['stamp', '1-aaa.json']}}), encoding='utf-8')
+        self.assertEqual(prune_local_evidence(path, {'2:y': str(items / '2-bbb.json')}), 1)
+        self.assertEqual(sorted(item.name for item in items.iterdir()), ['1-aaa.json', '2-bbb.json', 'index.json'])
+        (items / 'index.json').write_text('not json', encoding='utf-8')
+        self.assertEqual(prune_local_evidence(path, {}), 2)
+        self.assertEqual([item.name for item in items.iterdir()], ['index.json'])
 
     def test_a_new_text_rule_does_not_resume_completed_metadata_from_the_old_rule(self):
         from peach.settings_file import load_config
