@@ -72,8 +72,8 @@ export interface SidebarHost {
   navToTop(): void;
   /** 一枚目录筛选键：`multi` 的组按逗号列表增减，其余组单选、再点一次取消。 */
   toggleChip(key: string, value: string, multi: boolean): void;
-  /** 时长两端松手（分钟）：0 与 180 表示这一端不限。 */
-  setDuration(min: number, max: number): void;
+  /** 时长两端（分钟）：下限 0、上限 null 表示该端不限。 */
+  setDuration(min: number, max: number | null): void;
   /** 目录页上的关注标签：去关注页「已保存」那一份，只按这一枚标签筛。 */
   openFollowTag(tag: string): void;
   /** 关注页与关注详情的内容标签：换成只按这一枚标签筛。 */
@@ -81,7 +81,7 @@ export interface SidebarHost {
   /** 关注页的来源：单选，再点一次取消。 */
   selectFollowProvider(provider: string): void;
   /** 关注页的时长两端松手（分钟），口径同 `setDuration`。 */
-  setFollowDuration(min: number, max: number): void;
+  setFollowDuration(min: number, max: number | null): void;
   /** 路由树画出首帧之后、句柄交出之前，在同一个任务里调一次：壳把品牌与开合键挪进标题行。 */
   attached(): void;
 }

@@ -414,7 +414,7 @@ describe('筛选分组', async () => {
     expect(chipOf(scroll, 'provider', 'fanbox')!.getAttribute('aria-pressed')).toBe('true');
     expect(chipOf(scroll, 'provider', 'kemono')!.querySelector('[data-sidebar-count]')).toBeNull();
     expect(chipOf(scroll, 'provider', 'kemono')!.querySelector('img')!.getAttribute('src')).toBe('/source-icon?provider=kemono');
-    expect(scroll.querySelector(`[data-range-end="min"]`)!.textContent).toBe('10 分钟');
+    expect(scroll.querySelector<HTMLInputElement>('#durMinNumber')!.value).toBe('10');
     await click(chipOf(scroll, 'provider', 'kemono'));
     expect(host.selectFollowProvider).toHaveBeenCalledWith('kemono');
     expect(host.toggleChip).not.toHaveBeenCalled();
@@ -432,21 +432,31 @@ describe('筛选分组', async () => {
       .toEqual(['内容标签']);
   });
 
-  it('时长两端各有一枚读数，右端拉到头是「不限」；松手才提交', async () => {
+  it('时长数字框跟随双滑块，右端拉到头表示不限，松手才提交', async () => {
     const { scroll, host, render } = await setup();
     render({ content: { kind: 'catalog', key: '1', facets: facets({ duration: true }) }, filters: { dur_min: '1200' } });
-    const tip = (end: string) => scroll.querySelector(`[data-range-end="${end}"]`)!.textContent;
-    expect(tip('min')).toBe('20 分钟');
-    expect(tip('max')).toBe('不限');
+    const number = (end: string) => scroll.querySelector<HTMLInputElement>(`#dur${end}Number`)!;
+    expect(number('Min').value).toBe('20');
+    expect(number('Max').value).toBe('');
+    expect(number('Max').placeholder).toBe('不限');
     const max = scroll.querySelector<HTMLInputElement>('#durMax')!;
     act(() => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(max, '60');
       max.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    expect(tip('max')).toBe('60 分钟');
+    expect(number('Max').value).toBe('60');
     expect(host.setDuration).not.toHaveBeenCalled();
     act(() => { max.dispatchEvent(new Event('change', { bubbles: true })) });
     expect(host.setDuration).toHaveBeenCalledWith(20, 60);
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(max, max.max);
+      max.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    act(() => { max.dispatchEvent(new Event('change', { bubbles: true })) });
+    expect(host.setDuration).toHaveBeenLastCalledWith(20, null);
+    render({ content: { kind: 'catalog', key: '1', facets: facets({ duration: true }) }, filters: { dur_min: '750', dur_max: '14400' } });
+    expect(number('Min').value).toBe('12.5');
+    expect(number('Max').value).toBe('240');
   });
 
   it('content 为 null 时只画导航', async () => {

@@ -937,7 +937,7 @@ describe('设计决定：关注详情、作品详情、播放器与侧栏', () =
     }
   });
 
-  it('时长拉条：已选段是 accent 渐变，两端读数常显、推到端点也不越出轨道，刚动过的那枚压在上面', { timeout: 60_000 }, async () => {
+  it('时长筛选保留 accent 渐变，两端数字框常显且不越出侧栏，活动滑块在上层', { timeout: 60_000 }, async () => {
     const opened = await openSidebar(DESKTOP);
     try {
       const { page } = opened;
@@ -945,35 +945,36 @@ describe('设计决定：关注详情、作品详情、播放器与侧栏', () =
       await page.locator('#drawer [data-sidebar-group="时长"] [data-sidebar-collapse]:not([inert])').waitFor({ timeout: 5_000 });
       const read = () => page.evaluate(() => {
         const range = document.querySelector('#durationRange')!;
-        const bounds = range.getBoundingClientRect();
+        const bounds = document.querySelector('#drawer')!.getBoundingClientRect();
         return {
           fill: getComputedStyle(range.querySelector('[data-sidebar-range-fill]')!).backgroundImage,
-          tips: [...range.querySelectorAll<HTMLElement>('[data-sidebar-range-tip]')].map((tip) => {
-            const box = tip.getBoundingClientRect();
+          fields: [...document.querySelectorAll<HTMLInputElement>('[data-sidebar-duration-numbers] input')].map(input => {
+            const box = input.getBoundingClientRect();
             return {
-              end: tip.dataset.rangeEnd, text: tip.textContent, layer: getComputedStyle(tip).zIndex,
-              visible: getComputedStyle(tip).visibility === 'visible' && box.width > 0,
+              value: input.value, placeholder: input.placeholder,
+              visible: getComputedStyle(input).visibility === 'visible' && box.width > 0,
               inside: box.left >= bounds.left - 1 && box.right <= bounds.right + 1,
             };
           }),
+          layers: [...range.querySelectorAll('input')].map(input => getComputedStyle(input).zIndex),
         };
       });
       const resting = await read();
       const accent = await tokenColor(page, '#drawer', '--color-accent-400');
       assert.ok(resting.fill.startsWith('linear-gradient(90deg') && resting.fill.includes(accent),
         `已选段不是从 accent-400 起的横向渐变：${resting.fill}`);
-      assert.deepEqual(resting.tips, [
-        { end: 'min', text: '0 分钟', layer: '1', visible: true, inside: true },
-        { end: 'max', text: '不限', layer: '2', visible: true, inside: true },
-      ], '两端读数要常显、贴着轨道两端不越界，没动过时右端那枚在上');
+      assert.deepEqual(resting.fields, [
+        { value: '0', placeholder: '不限', visible: true, inside: true },
+        { value: '', placeholder: '不限', visible: true, inside: true },
+      ], '两个数字框须完整可见，空上限显示不限');
+      assert.deepEqual(resting.layers, ['1', '2']);
 
       await page.locator('#durMin').focus();
       await page.keyboard.press('ArrowRight');
-      await page.waitForFunction(() => document.querySelector('[data-sidebar-range-tip][data-range-end="min"]')?.hasAttribute('data-range-active'),
+      await page.waitForFunction(() => (document.querySelector('#durMinNumber') as HTMLInputElement)?.value === '1',
         undefined, { timeout: 5_000 });
       const moved = await read();
-      assert.deepEqual(moved.tips.map((tip) => [tip.end, tip.layer, tip.inside]), [['min', '2', true], ['max', '1', true]],
-        '刚动过的那一端没有压到上面');
+      assert.deepEqual(moved.layers, ['2', '1'], '刚动过的滑块须在上层');
       assert.deepEqual(opened.problems, []);
     } finally {
       await opened.close();
