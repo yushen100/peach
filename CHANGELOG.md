@@ -16,6 +16,8 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Added / 新增
 
+- **Library**: Details can re-collect one video's metadata from every source without the cache; fields you edited or approved stay (#208). / **馆藏**：详情页可对单部作品重新采集资料，不用缓存，你改过或批准过的字段不被覆盖（#208）。
+- **Sourcing**: An optional setting uses JavDB's watermarked image when no other cover exists; official and local covers still come first (#531). / **采集**：新增可选设置：没有别的封面时用 JavDB 带水印的图补上，官方与本地封面始终优先（#531）。
 - **Library**: Profile name menus can merge duplicate actress, label, creator, series and agency profiles; a new alias that another profile already uses offers it too (#207). / **馆藏**：女优、厂牌、创作者、系列与事务所的名字菜单可合并重复档案，添加的别名已被另一份档案使用时也会提示合并（#207）。
 - **Library**: Edit details next to the title changes the code, title, date, region, performers, label, series and tags; edited values aren't overwritten by collection (#187). / **馆藏**：详情标题旁新增「编辑资料」，可改番号、标题、日期、产地、演员、厂牌、系列与标签，改过的值不再被采集覆盖（#187）。
 - **Library**: Performers, labels and series not found in Edit details can be created on the spot and carry a Custom tag in rosters and details (#549). / **馆藏**：编辑资料里搜不到的演员、厂牌、系列可直接新建，名册与详情上带「自建」标记（#549）。
@@ -50,6 +52,11 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Fixed / 修复
 
+- **Sourcing**: Garbled titles left by older versions are repaired or re-collected after upgrading, including ones with no recorded source or approved in review (#208). / **采集**：旧版留下的乱码标题升级后自动修复或重新采集，含没记来源和复核时批准过的（#208）。
+- **Following**: Sources of one author whose name is only kana, such as on fanbox and pawchive, group together again after upgrading (#290). / **关注**：作者名只含假名时，同一作者在不同站上的来源归回一组，升级后自动合并（#290）。
+- **Library**: Directory-site profile matching ignores Japanese and Chinese character forms (有岡 and 有冈); people are never merged automatically (#559). / **馆藏**：目录站人物资料匹配不再受日文与中文字形差异影响（有岡与有冈），不会自动合并人物（#559）。
+- **Library**: A creator nickname followed by digits in a creator folder is no longer recorded as a release code without other release evidence (#572). / **馆藏**：创作者目录里的「昵称加数字」没有其他发行证据时，不再被记成番号（#572）。
+- **Library**: Avatar crops follow their source picture, so a replaced cover drops the old crop; a merged entry's old avatars become choices (#565). / **馆藏**：头像裁剪框跟着源图走，封面换图后不再套用旧框；合并人物后可选被合并条目的旧头像（#565）。
 - **Library**: Codes such as S2M-009, S2MCR-08, CW3D2DBD-14 and IBW-483z are recognised from file names, and KIRARI MKD-S codes can be sent to sources (#124). / **馆藏**：能从文件名认出 S2M-009、S2MCR-08、CW3D2DBD-14 和 IBW-483z 这类番号，KIRARI 的 MKD-S 番号也能拿去采集了（#124）。
 - **Library**: DMM video previews in JAV details play again after DMM moved them to a new host (#697). / **馆藏**：DMM 换了预告视频的主机后，JAV 详情里的 DMM 视频预览重新能播（#697）。
 - **Sourcing**: Blu-ray editions in New releases merge into their DMM streaming edition, so they get the official cover and no longer appear twice (#694). / **采集**：新作里的蓝光版并入 DMM 配信版，能取到官方封面，也不再和配信版重复列出（#694）。
