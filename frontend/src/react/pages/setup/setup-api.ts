@@ -87,6 +87,7 @@ export interface SetupSubmission {
   access_confirm?: string;
   scan_now: boolean;
   history_guide?: boolean;
+  interface_language?: import('../../../i18n').InterfaceLanguageChoice;
   [key: string]: unknown;
 }
 

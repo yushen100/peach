@@ -605,6 +605,7 @@ async def setup_submit_json(request: Request):
         access.validate_password(password, confirmation)
     except ValueError as exc:
         errors["access_password"] = exc
+    languages = _setup_languages(body, errors)
     standalone = distribution.standalone()
     from . import peach_proxy
     proxy_values = None
@@ -636,10 +637,28 @@ async def setup_submit_json(request: Request):
     if errors:
         raise HTTPException(status_code=400, detail={**message_fields("api.pages.needsChanges"), **field_errors(errors)})
     remote_reporting.save(reporting, applied.config)
+    # 已有账本里的界面语言是那套馆藏自己的选择，首启页不改它。
+    if languages and not applied.tree.ledger_existed:
+        from . import web_settings
+        from .repository import LedgerDatabase
+        web_settings.w_settings(LedgerDatabase(applied.tree.database), languages)
     if scan_now:
         onboarding.request_first_scan(applied.config, "configured" if answers.media_sources is not None else "local")
     return _setup_done(applied.config, scan_now=scan_now, history_guide=history_guide,
                        skip_media=submitted["skip_media"])
+
+
+def _setup_languages(body: dict, errors: dict) -> dict[str, str]:
+    """首启第一步的界面语言，换成配置页同名设置的键；没给就不写，账本按默认的「自动」算。"""
+    from .web_settings import INTERFACE_LANGUAGE_CHOICES
+    interface = body.get("interface_language")
+    if interface is None:
+        return {}
+    if interface not in INTERFACE_LANGUAGE_CHOICES:
+        errors["interface_language"] = UserValueError(
+            "api.settings.interfaceLanguageInvalid", {"choices": "、".join(INTERFACE_LANGUAGE_CHOICES)})
+        return {}
+    return {"interfaceLanguage": interface}
 
 
 def _setup_done(config, *, scan_now: bool = False, history_guide: bool = False, restored: bool = False,

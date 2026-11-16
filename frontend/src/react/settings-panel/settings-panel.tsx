@@ -27,7 +27,7 @@ import {
 
 import { AFTER_PLAYBACK_CHOICES, allowedSetting } from '@peach/appearance';
 
-import { isInterfaceLanguageChoice, t, type InterfaceLanguageChoice } from '../../i18n';
+import { INTERFACE_LANGUAGES, isInterfaceLanguageChoice, LANGUAGE_SELF_NAMES, t, type InterfaceLanguageChoice } from '../../i18n';
 import { PREFERENCE_SECTIONS, sectionId } from '../../history/settings-route';
 import { normalizeJavImage } from '../../jav-artwork';
 import { boundedPreference } from '../../number-setting';
@@ -552,10 +552,9 @@ function JavGroup({ host: current, tab, epoch }: GroupProps) {
     </Group>
   );
 }
-/* 语言名称写成各自语言的自称，不随界面语言翻译：看不懂当前界面的人也要认得出自己那一项。
-   「自动」只写一个词：手机上选择框窄，括号里再带语言名会把标题挤成两行，页面本身已经在用探测出的语言。 */
+/* 「自动」只写一个词：手机上选择框窄，括号里再带语言名会把标题挤成两行，页面本身已经在用探测出的语言。 */
 const languageChoices = (): readonly (readonly [InterfaceLanguageChoice, string])[] =>
-  [['auto', t('settings:interfaceLanguage.auto')], ['zh-CN', '简体中文'], ['en', 'English']]; // i18n-exempt: 语言名用各自语言的自称
+  [['auto', t('settings:interfaceLanguage.auto')], ...INTERFACE_LANGUAGES.map(code => [code, LANGUAGE_SELF_NAMES[code]] as const)];
 /* 存进数据库、回来交壳对账；壳发现本地那份变了就整页重载，换成新语言。 */
 function InterfaceLanguageSetting({ host: current, epoch }: { host: SettingsPanelHost; epoch: number }) {
   const query = useQuery({ queryKey: SETTINGS_KEY, queryFn: ({ signal }) => fetchSettings(signal), staleTime: 0 });

@@ -37,6 +37,8 @@ export const resources = {
 /** 设置里能选的值：`auto` 按浏览器与系统语言自动选，其余是固定的界面语言。 */
 export const INTERFACE_LANGUAGE_CHOICES = ['auto', ...INTERFACE_LANGUAGES] as const;
 export type InterfaceLanguageChoice = typeof INTERFACE_LANGUAGE_CHOICES[number];
+/** 语言名写成各自语言的自称，不随界面语言翻译：看不懂当前界面的人也要认得出自己那一项。 */
+export const LANGUAGE_SELF_NAMES: Record<InterfaceLanguage, string> = { 'zh-CN': '简体中文', en: 'English' }; // i18n-exempt: 语言名用各自语言的自称
 /** 都对不上时用英文：既读不懂中文、也没有自己语言译文的人，英文比中文更可能读得懂。 */
 const UNMATCHED_LANGUAGE: InterfaceLanguage = 'en';
 

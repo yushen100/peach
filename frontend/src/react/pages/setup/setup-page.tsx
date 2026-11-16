@@ -26,6 +26,8 @@ export function SetupPage() {
   const [view, setView] = useState<View>({ kind: 'loading' });
   const [attempt, setAttempt] = useState(0);
   const [restoring, setRestoring] = useState(false);
+  // 服务端按浏览器语言写的标题；第一步改过界面语言后整页重载，标题跟着换。
+  useEffect(() => { document.title = t('server:pages.setup.title') }, []);
 
   useEffect(() => {
     const controller = new AbortController();
