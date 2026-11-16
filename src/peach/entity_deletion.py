@@ -72,9 +72,22 @@ def deletion_plan(connection, ids: list[int]) -> dict:
             (PERFORMER_TAG_PREFIX + "%",))
             if normalize_entity_name(row[1][len(PERFORMER_TAG_PREFIX):]) in names["performer"]]
     assets = {row[0] for row in links} | {row[0] for row in columns} | {row[0] for row in tags}
+    scopes, content_rows, shared = _content_scope(connection, rows)
+    payload = json.dumps([rows, aliases, links, columns, tags, scopes, content_rows, sorted(shared)],
+                         ensure_ascii=False, sort_keys=True)
+    return {"entities": rows, "assets": len(content_rows), "profile_assets": len(assets),
+            "columns": columns, "tags": tags, "asset_rows": content_rows, "scopes": scopes,
+            "bytes": sum(row['size'] or 0 for row in content_rows), "shared": len(shared),
+            "token": hashlib.sha256(payload.encode()).hexdigest()}
+
+
+def _content_scope(connection, entities: list[dict]) -> tuple[dict, list[dict], set[int]]:
+    """所选档案的完整馆藏范围，以及仍与其他档案共享的作品。"""
     from .web_entity import scope_predicate
+    ids = [entity['id'] for entity in entities]
+    marks = ','.join('?' for _ in ids)
     scopes, content = {}, {}
-    for entity in rows:
+    for entity in entities:
         scoped = [dict(row) for row in connection.execute(
             "SELECT DISTINCT a.id,a.location,a.path,a.snapshot_path,a.name,a.code,a.medium,a.size,"
             "a.mutation_revision,a.disposal FROM asset_entity ae CROSS JOIN asset a ON a.id=ae.asset_id "
@@ -91,12 +104,7 @@ def deletion_plan(connection, ids: list[int]) -> dict:
             f"WHERE ae.asset_id IN ({holes}) AND ae.entity_id NOT IN ({marks}) "
             "AND e.kind IN ('performer','creator','studio','series')", [*chunk, *ids]))
     content_rows = [content[key] for key in content_ids]
-    payload = json.dumps([rows, aliases, links, columns, tags, scopes, content_rows, sorted(shared)],
-                         ensure_ascii=False, sort_keys=True)
-    return {"entities": rows, "assets": len(content_rows), "profile_assets": len(assets),
-            "columns": columns, "tags": tags, "asset_rows": content_rows, "scopes": scopes,
-            "bytes": sum(row['size'] or 0 for row in content_rows), "shared": len(shared),
-            "token": hashlib.sha256(payload.encode()).hexdigest()}
+    return scopes, content_rows, shared
 
 
 def delete_entities(connection, plan: dict) -> list[int]:
