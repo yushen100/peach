@@ -192,6 +192,34 @@ class WindowsBackendTests(unittest.TestCase):
         self.assertEqual(attempts[1].before_input, ())
         self.assertEqual([attempt.name for attempt in HardwareEncoder("amf", "1").attempts("vc1")], ["amf"])
 
+    def test_qsv_keeps_frames_on_the_intel_gpu_when_the_session_allows(self):
+        hardware = HardwareTranscoder()
+        with patch("peach.hardware_transcode.subprocess.run", side_effect=self._machine(("h264_qsv",))):
+            self.assertEqual(hardware.encoders(Path("ffmpeg")), (HardwareEncoder("qsv", gpu_frames=True),))
+        attempts = HardwareEncoder("qsv", gpu_frames=True).attempts("hevc")
+        self.assertEqual([attempt.name for attempt in attempts], ["qsv-full", "d3d11va-qsv", "qsv"])
+        full = " ".join(attempts[0].before_input + attempts[0].output)
+        self.assertIn("d3d11va=peach_d3d11:,vendor=0x8086", full)
+        self.assertIn("-hwaccel_output_format d3d11", full)
+        self.assertIn("hwmap=derive_device=qsv,vpp_qsv=format=nv12", full)
+        self.assertNotIn("-pix_fmt", attempts[0].output)
+        self.assertEqual(attempts[1].before_input, ("-hwaccel", "d3d11va"))
+        self.assertEqual(attempts[2].before_input, ())
+        self.assertEqual([attempt.name for attempt in HardwareEncoder("qsv", gpu_frames=True).attempts("vc1")],
+                         ["qsv"])
+
+    def test_qsv_without_a_derived_session_decodes_to_memory_first(self):
+        hardware = HardwareTranscoder()
+        machine = self._machine(("h264_qsv",))
+
+        def session_zero(command, **kwargs):
+            if "qsv=peach_qsv@peach_d3d11" in command:
+                return subprocess.CompletedProcess(command, 1, stderr=b"Error creating a MFX session: -9.")
+            return machine(command, **kwargs)
+        with patch("peach.hardware_transcode.subprocess.run", side_effect=session_zero):
+            self.assertEqual(hardware.encoders(Path("ffmpeg")), (HardwareEncoder("qsv"),))
+        self.assertEqual([attempt.name for attempt in HardwareEncoder("qsv").attempts("hevc")], ["d3d11va-qsv", "qsv"])
+
     def test_d3d11_decode_feeds_libx264_when_no_encoder_works(self):
         with tempfile.TemporaryDirectory() as directory, \
                 patch("peach.hardware_transcode.subprocess.run",
@@ -410,7 +438,7 @@ class QualityCapTests(unittest.TestCase):
 
     def test_original_quality_keeps_every_encoder_command_unchanged(self):
         for encoder in (HardwareEncoder("nvenc"), HardwareEncoder("amf", "1"), HardwareEncoder("qsv"),
-                        HardwareEncoder("videotoolbox"), HardwareEncoder("vaapi", "/dev/dri/renderD128")):
+                        HardwareEncoder("qsv", gpu_frames=True), HardwareEncoder("videotoolbox"), HardwareEncoder("vaapi", "/dev/dri/renderD128")):
             with self.subTest(backend=encoder.backend):
                 self.assertEqual(encoder.attempts("hevc", 0), encoder.attempts("hevc"))
                 joined = " ".join(item for attempt in encoder.attempts("hevc") for item in attempt.output)
@@ -445,6 +473,19 @@ class QualityCapTests(unittest.TestCase):
         self.assertEqual(qsv["qsv"][:2], ("-vf", f"scale={SCALE_720.replace('720', '1080')}"))
         self.assertEqual(qsv["qsv"][2:], ("-c:v", "h264_qsv", "-preset", "veryfast", "-b:v", "6M",
                                           "-maxrate", "8M", "-pix_fmt", "nv12"))
+
+    def test_qsv_full_chain_scales_inside_vpp_qsv_and_keeps_the_fallbacks(self):
+        """全硬件链在 `vpp_qsv` 里缩放，帧不回内存；两级回退照旧在内存里软件缩放。"""
+        qsv = self.outputs(HardwareEncoder("qsv", gpu_frames=True), 1080)
+        self.assertEqual(list(qsv), ["qsv-full", "d3d11va-qsv", "qsv"])
+        scale = ("w='if(gt(iw,ih),trunc(iw*min(ih,1080)/ih/2)*2,trunc(min(iw,1080)/2)*2)'"
+                 ":h='if(gt(iw,ih),trunc(min(ih,1080)/2)*2,trunc(ih*min(iw,1080)/iw/2)*2)'")
+        self.assertEqual(qsv["qsv-full"], (
+            "-vf", f"hwmap=derive_device=qsv,vpp_qsv={scale}:format=nv12",
+            "-c:v", "h264_qsv", "-preset", "veryfast", "-b:v", "6M", "-maxrate", "8M"))
+        self.assertNotIn("-pix_fmt", qsv["qsv-full"])
+        self.assertEqual(qsv["d3d11va-qsv"], qsv["qsv"])
+        self.assertEqual(qsv["qsv"][:2], ("-vf", f"scale={SCALE_720.replace('720', '1080')}"))
 
     def test_vaapi_scales_on_the_gpu_or_before_upload_with_vbr(self):
         outputs = self.outputs(HardwareEncoder("vaapi", "/dev/dri/renderD128"), 480)

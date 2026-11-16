@@ -394,6 +394,56 @@ class TranscodeServiceTests(unittest.TestCase):
                     self.assertEqual(video, "libx264")
                     self.assertFalse(name.endswith("-copy.mp4"), name)
 
+    def test_transport_stream_with_decodable_video_is_remuxed_not_reencoded(self):
+        """`.ts` 一类只是容器浏览器不认：探到解得了的视频就整片换封装，产物走 `-copy` 缓存。"""
+        cases = (
+            # (后缀, 视频编码, 像素格式, decode, 换封装)
+            (".ts", "h264", "yuv420p", frozenset(), True),
+            (".m2ts", "h264", "yuv420p", frozenset(), True),
+            (".mts", "hevc", "yuv420p", frozenset({"hevc"}), True),
+            (".ts", "hevc", "yuv420p", frozenset(), False),
+            (".ts", "mpeg2video", "yuv420p", frozenset({"hevc"}), False),
+        )
+        for suffix, codec, pixel_format, decode, remux in cases:
+            with self.subTest(suffix=suffix, codec=codec, decode=sorted(decode)), \
+                    tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp).resolve()
+                source = root / f"movie{suffix}"
+                source.write_bytes(b"transport")
+                service = TranscodeService(_Resolver(root / "ffmpeg.exe", root / "ffprobe.exe"),
+                                           root / "cache", prefer_hardware=False)
+                commands = []
+                streams = [{"codec_type": "video", "codec_name": codec, "pix_fmt": pixel_format},
+                           {"codec_type": "audio", "codec_name": "aac"}]
+                with patch("peach.transcodes.subprocess.Popen", side_effect=_media_process(commands, streams)):
+                    self.assertEqual(service.remuxes(source, decode=decode), remux)
+                    path, produced = service.browser_path(5, source, decode=decode)
+                encodes = [command for command in commands if "ffprobe" not in command[0]]
+                self.assertTrue(produced)
+                self.assertEqual(path.name.endswith("-copy.mp4"), remux)
+                video = encodes[0][encodes[0].index("-c:v") + 1]
+                self.assertEqual(video, "copy" if remux else "libx264")
+                if remux:
+                    self.assertEqual(len(encodes), 1)
+                    self.assertEqual(encodes[0][encodes[0].index("-c:a") + 1], "copy")
+
+    def test_sessionless_transport_stream_probes_but_never_remuxes(self):
+        """悬停预览打不带会话的 `/stream`：`.ts` 只跑只读探测，缺缓存就拒绝，不起换封装。"""
+        from peach.transcodes import TranscodeNeedsSession
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            source = root / "movie.ts"
+            source.write_bytes(b"transport")
+            service = TranscodeService(_Resolver(root / "ffmpeg.exe", root / "ffprobe.exe"),
+                                       root / "cache", prefer_hardware=False)
+            commands = []
+            streams = [{"codec_type": "video", "codec_name": "h264", "pix_fmt": "yuv420p"}]
+            with patch("peach.transcodes.subprocess.Popen", side_effect=_media_process(commands, streams)):
+                with self.assertRaises(TranscodeNeedsSession):
+                    service.browser_path(5, source, convert=False)
+            self.assertEqual([Path(command[0]).stem for command in commands], ["ffprobe"])
+            self.assertFalse((root / "cache").exists() and any((root / "cache").iterdir()))
+
     def test_decode_parameter_keeps_only_known_capabilities(self):
         from peach.transcodes import parse_decode
         self.assertEqual(parse_decode("hevc,hevc10,av1,,HEVC"), frozenset({"hevc", "hevc10"}))

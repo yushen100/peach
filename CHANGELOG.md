@@ -24,6 +24,7 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Library**: Edit details can replace the cover with an upload, the player's current frame or a sample; it stays in place and the scraped cover can be restored (#187). / **馆藏**：编辑资料可换封面：上传图片、取播放器当前画面或选样张，换上的封面不再被替换，可恢复刮削封面（#187）。
 - **Updates**: When an update is available, Check for updates lists each newer release's highlights with linked issues, in the interface language (#680). / **更新**：检查到新版本时，「检查更新」按界面语言列出之后每一版的重点，附 issue 链接（#680）。
 - **Sourcing**: Wants checks for sources on a schedule; cards with no result show the check date, and found links are listed on the card (#650). / **采集**：「想要」清单定时给待找作品查资源，没查到的卡片注明日期，查到的链接直接列在卡片上（#650）。
+- **Playback**: On phones and remote devices, the detail page's external player menu lists that platform's players, such as VLC, MX Player or Infuse (#584). / **播放**：手机和远程设备上，详情页的外部播放器菜单按平台列出 VLC、MX Player、Infuse 等，点开即调起（#584）。
 - **Playback**: Playlists and Mix move on to the next item; Settings > After playback can stop, loop the list, shuffle or repeat one (#659). / **播放**：播放列表和 Mix 播完一条自动接下一条，设置「播完之后」可改为停下、列表循环、随机或单片循环（#659）。
 - **Interface**: Settings can turn off new releases on home and person pages, the shorts strip, avatar rows, missing-art hints, empty-search picks and import notices (#660). / **界面**：设置里可分别关掉首页与人物页的新作、竖屏短片带、头像两排、缺图补全提示、空搜索推荐与入库通知，横幅关掉后不再反复出现（#660）。
 - **Settings**: Settings that depend on a switch collapse or gray out when it is off, and remote access cannot start without an access password (#660). / **配置**：上级开关关掉后，依赖它的设置随之收起或变灰；未设访问密码时远程访问不能启动（#660）。
@@ -52,6 +53,8 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Interface**: Batch actions ask for confirmation first, and the reversible ones offer Undo (#690). / **界面**：批量操作都先确认再执行，能撤回的带撤销（#690）。
 - **Playback**: Titles closed near the end start from the beginning next time; the threshold is in Settings > Restart near end (#659). / **播放**：接近片尾时关掉的作品，下次打开从头播；剩余比例在设置「片尾从头播」里调（#659）。
 - **Playback**: When the browser can decode HEVC, the original file plays directly instead of being transcoded first (#616). / **播放**：浏览器能解 HEVC 时直接播放原文件，不再先在服务端转码（#616）。
+- **Playback**: On Windows with Intel graphics, transcoding keeps decoding, scaling and encoding on the GPU, using far less CPU (#238). / **播放**：Windows 上用 Intel 显卡转码时，解码、缩放与编码全程在显卡上完成，CPU 占用大幅下降（#238）。
+- **Playback**: TS and M2TS recordings with browser-playable video are repackaged as MP4 once instead of being re-encoded during playback (#220). / **播放**：视频流浏览器能解的 TS、M2TS 录像整片换封装成 MP4 播放，不再边播边重新编码（#220）。
 - **Playback**: Immersive mode in the top bar picks videos from the current page and returns there when closed; Trash no longer plays trashed files (#669). / **播放**：顶栏的沉浸模式按当前页面抽片，关掉后回到原页；回收站页不再播回收站里的文件（#669）。
 - **Playback**: Software transcoding of a whole video uses at most half the CPU cores, so other playing videos are not slowed down (#174). / **播放**：服务端软件转码整部视频时最多占一半 CPU 核，同时在播的视频不再被拖慢（#174）。
 - **Playback**: New videos start at the volume last set in this browser instead of 100% (#161). / **播放**：新打开的视频从这台浏览器上次调过的音量起播，不再每次都是 100%（#161）。
