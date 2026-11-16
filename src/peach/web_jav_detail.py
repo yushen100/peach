@@ -86,7 +86,10 @@ def _source_cache(handler):
             selected = [row for row in reads if row['key'].startswith(prefix)]
             if selected:
                 payload['checked_at'] = datetime.fromtimestamp(min(row['saved'] for row in selected), timezone.utc).isoformat()
-            errors = list(dict.fromkeys(row['error'] for row in reads if row['error']))
+            # 只报这个接口自己那份资料沿用旧快照时的失败。预告、图片这些别的键沿用了旧结果，
+            # 页面上照样有东西可看，报出来就成了「明明能播却写着没取到」。
+            owned = tuple(key.rstrip(':') for key in prefix)
+            errors = list(dict.fromkeys(row['error'] for row in reads if row['error'] and row['key'].startswith(owned)))
             if errors:
                 payload['cache_stale'] = True
                 payload['message'] = '；'.join(errors)
@@ -128,8 +131,6 @@ def q_jav_detail(contract, args) -> dict:
     payload.update(_source_fields(source or {}, decisions))
     payload.update(_artwork_fields(contract, code, item, source or {}, refresh=args.get('refresh') == '1',
                                    ambiguous=ambiguous))
-    if payload.get('preview_message'):
-        payload['message'] = '；'.join(filter(None, (payload['message'], payload['preview_message'])))
     payload.update(_identity_fields(contract, code, item, source or {}))
     return payload
 
@@ -194,15 +195,32 @@ def source_performer_refs(contract, connection, actors):
 
 
 def _artwork_fields(contract, code, item, source, *, refresh=False, ambiguous=False):
-    from .jav_cover_fetch import is_javdb_image
+    from .jav_cover_fetch import OFFICIAL_PLACEHOLDER_ONLY_CODE, PLACEHOLDER_CODE, is_javdb_image
     source_cover = (source or {}).get('cover_url') or (source or {}).get('thumb_url')
+    missing = {} if contract.has_cover(code) else _cover_reason(contract, code)
+    # 取图记录认出官方地址只回「准备中」占位图：那张图不当封面放大摆出来，封面那格改说原因。
+    placeholder = missing.get("cover_message_code") in (PLACEHOLDER_CODE, OFFICIAL_PLACEHOLDER_ONLY_CODE)
     return {"has_cover": not ambiguous and contract.has_cover(code), "cover_version": contract.cover_version(code),
-            "cover_url": '' if ambiguous else discovery_cover_url(item, source or {}),
+            "cover_url": '' if ambiguous or placeholder else discovery_cover_url(item, source or {}),
             "source_image": bool(source_cover and not is_javdb_image(source_cover)),
             "preview_count": min(len(source.get("preview_images") or []), 30),
             **({'preview_video_url': '', 'preview_state': 'unavailable'} if ambiguous else
                _preview_fields(contract, code, source, refresh=refresh)),
-            "source_url": '' if ambiguous else "https://javdb.com/v/" + str(source["id"]) if source else item.get("link") or ""}
+            "source_url": '' if ambiguous else "https://javdb.com/v/" + str(source["id"]) if source else item.get("link") or "",
+            **missing}
+
+
+def _cover_reason(contract, code) -> dict:
+    """本机没有封面时，上次取官方封面没取到的原因（取图记录，新作卡封面格说的同一句）；没取过、或上次取到了就不说。"""
+    from .feed_followup import attempt_reason, cover_attempt
+    attempt = cover_attempt(contract.cover_root, code)
+    if not attempt or attempt.get('ok'):
+        return {}
+    reason = attempt_reason(attempt)
+    if not isinstance(reason, dict):
+        return {"cover_message": str(reason)}
+    return {"cover_message": interface_text.text(f"server:{reason['code']}", reason['params']),
+            "cover_message_code": reason['code'], "cover_message_params": reason['params']}
 
 
 def _source_fields(source, decisions):

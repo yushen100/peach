@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "816ce36e-267c-4f7e-ab27-c5c1118778c7", e._sentryDebugIdIdentifier = "sentry-dbid-816ce36e-267c-4f7e-ab27-c5c1118778c7");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "77c2d77b-468b-4cb1-ad12-c8af4b5cc26d", e._sentryDebugIdIdentifier = "sentry-dbid-77c2d77b-468b-4cb1-ad12-c8af4b5cc26d");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -1948,6 +1948,7 @@ var He = {
 		performers: "Performers",
 		releaseDate: "Release date",
 		resources: "Torrents",
+		retryPreview: "Try the sample video again: {{reason}}",
 		sampleVideo: "Sample video",
 		sampleVideoFailed: "Couldn't get the sample video"
 	},
@@ -8209,6 +8210,7 @@ var He = {
 		spacerColumn: "Empty space",
 		toolbar: "{{label}} toolbar"
 	},
+	detailFailure: { title: "Couldn't get the details" },
 	detailTags: {
 		hideTag: "Hide this tag on this video",
 		moreCount_one: "{{count, number}} more",
@@ -9354,6 +9356,7 @@ var He = {
 		performers: "出演者",
 		releaseDate: "发行日期",
 		resources: "资源",
+		retryPreview: "重新取视频预览：{{reason}}",
 		sampleVideo: "视频预览",
 		sampleVideoFailed: "视频预览未取得"
 	},
@@ -15224,6 +15227,7 @@ var He = {
 		spacerColumn: "行空白区域",
 		toolbar: "{{label}}工具栏"
 	},
+	detailFailure: { title: "详情未取得" },
 	detailTags: {
 		hideTag: "从此内容隐藏该标签",
 		moreCount: "还有 {{count, number}} 个",
@@ -39153,4 +39157,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=816ce36e-267c-4f7e-ab27-c5c1118778c7
+//# debugId=77c2d77b-468b-4cb1-ad12-c8af4b5cc26d

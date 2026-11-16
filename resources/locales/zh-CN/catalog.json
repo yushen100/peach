@@ -459,6 +459,7 @@
     "performers": "出演者",
     "releaseDate": "发行日期",
     "resources": "资源",
+    "retryPreview": "重新取视频预览：{{reason}}",
     "sampleVideo": "视频预览",
     "sampleVideoFailed": "视频预览未取得"
   },

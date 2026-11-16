@@ -276,4 +276,81 @@ class OfficialPreviewTests(unittest.TestCase):
                 payload = q_jav_detail(contract, {'code': 'EXM-001'})
             self.assertEqual(payload['state'], 'ready')
             self.assertEqual(payload['preview_state'], 'unavailable')
-            self.assertIn('官方视频预览未取得', payload['message'])
+            # 预告的原因单独给，页面写在预告本来的位置；资料那句只说资料。
+            self.assertIn('官方视频预览未取得', payload['preview_message'])
+            self.assertEqual(payload['message'], '')
+
+    def test_a_preview_kept_from_an_earlier_fetch_and_a_missing_cover_say_only_what_is_missing(self):
+        """预告这次没问到、沿用上次的地址时照样能播，资料那句不提它；没有封面时带上取图记录里的原因。"""
+        from types import SimpleNamespace
+        from peach import javdb_public
+
+        def preview(contract, code, source, *, refresh=False):
+            javdb_public._record_read('preview:dmm:EXM-001', SimpleNamespace(saved=0.0),
+                                      PublicSourceUnavailable('errors.javOfficialPreview.dmmUnavailable'))
+            return {'preview_video_url': '/jav-preview/EXM-001/ref', 'preview_state': 'ready'}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            contract = WebContract(fresh_ledger(root), cover_root=root / 'covers')
+            self.addCleanup(contract.stop_background_jobs)
+            attempts = root / 'feed-cover-attempts'
+            attempts.mkdir()
+            (attempts / 'EXM-001.json').write_text(json.dumps(
+                {'code': 'EXM-001', 'ok': False, 'reason_code': 'errors.javCoverFetch.noCandidates', 'reason_params': {}}),
+                encoding='utf-8')
+            api = PublicAPI()
+            api.movie = Mock(return_value={'number': 'EXM-001', 'id': 'Exact'})
+            with patch('peach.web_jav_detail.PUBLIC_API', api), patch('peach.web_jav_detail._preview_fields', preview):
+                payload = q_jav_detail(contract, {'code': 'EXM-001'})
+        self.assertEqual((payload['message'], payload.get('cache_stale')), ('', None))
+        self.assertEqual(payload['preview_state'], 'ready')
+        self.assertEqual(payload['cover_message_code'], 'errors.javCoverFetch.noCandidates')
+
+    def test_an_official_placeholder_is_not_shown_as_the_cover(self):
+        """取图记录认出官方地址只有「准备中」占位图：详情不拿新作行上的那个地址当封面，改说原因。"""
+        from peach import feeds
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            contract = WebContract(fresh_ledger(root), cover_root=root / 'covers')
+            self.addCleanup(contract.stop_background_jobs)
+            with contract.database.write_transaction() as connection:
+                shell = feeds.create_shell(connection, 'EXM-001', source_id=None, title='示例作品')
+                connection.execute("UPDATE feed_discovery SET cover_url=? WHERE id=?",
+                                   ('https://pics.dmm.co.jp/digital/video/exm00001/exm00001pl.jpg', shell))
+            attempts = root / 'feed-cover-attempts'
+            attempts.mkdir()
+            (attempts / 'EXM-001.json').write_text(json.dumps(
+                {'code': 'EXM-001', 'ok': False, 'reason_code': 'errors.javCoverFetch.officialPlaceholderOnly',
+                 'reason_params': {}}), encoding='utf-8')
+            api = PublicAPI()
+            api.movie = Mock(return_value={'number': 'EXM-001', 'id': 'Exact'})
+            with patch('peach.web_jav_detail.PUBLIC_API', api), \
+                    patch('peach.web_jav_detail._preview_fields', return_value={'preview_video_url': '', 'preview_state': 'missing'}):
+                payload = q_jav_detail(contract, {'code': 'EXM-001'})
+        self.assertEqual((payload['has_cover'], payload['cover_url']), (False, ''))
+        self.assertEqual(payload['cover_message_code'], 'errors.javCoverFetch.officialPlaceholderOnly')
+
+    def test_a_cooling_source_still_opens_the_detail_from_the_local_feed_row(self):
+        """JavDB 在冷却：详情照样打开，片名、演员取本机新作行，资料那句说来源暂停，不是整页失败。"""
+        from contextlib import nullcontext
+        from peach import feeds
+        from peach.scraping_access import SourcePaused
+
+        def cooling(path):
+            raise SourcePaused('errors.scrapingAccess.coolingDown')
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            contract = WebContract(fresh_ledger(root), cover_root=root / 'covers')
+            self.addCleanup(contract.stop_background_jobs)
+            with contract.database.write_transaction() as connection:
+                shell = feeds.create_shell(connection, 'EXM-001', source_id=None, title='示例作品')
+                connection.execute("UPDATE feed_discovery SET performers=? WHERE id=?", ('示例演员', shell))
+            api = PublicAPI()
+            api.login_until = api.clock() + 3600
+            with patch('peach.web_jav_detail.PUBLIC_API', api), \
+                    patch('peach.web_jav_detail._jav_pages', return_value=nullcontext(cooling)), \
+                    patch('peach.web_jav_detail._preview_fields', return_value={'preview_video_url': '', 'preview_state': 'missing'}):
+                payload = q_jav_detail(contract, {'code': 'EXM-001'})
+        self.assertEqual((payload['ok'], payload['state'], payload['title']), (True, 'partial', '示例作品'))
+        self.assertEqual(payload['performers'], '示例演员')
+        self.assertTrue(payload['message'])

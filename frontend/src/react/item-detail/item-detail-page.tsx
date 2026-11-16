@@ -24,7 +24,7 @@ import { RiArrowDownSLine } from '@remixicon/react';
 import { CatalogGridPage } from '../catalog-grid/catalog-grid-page';
 import { patchCatalogItems, replaceCatalogItem } from '../catalog-grid/catalog-grid';
 import type { MediaItem } from '../catalog-grid/types';
-import { RetryNote } from '../components/grid-reveal';
+import { DetailFailure } from '../components/detail-failure';
 import { PendingWork, pendingRefetch, usePendingWorkRefetch } from '../components/pending-work';
 import { MixQueue, MixQueueRow } from '../components/mix-queue';
 import { RelatedSection } from '../components/related-section';
@@ -82,14 +82,21 @@ export function ItemDetailPage(props: ItemDetailProps) {
   usePendingWorkRefetch(result.data?.pending_work, itemKey(id ?? 0));
   if (!result.data || (ref && !queue)) {
     const error = result.error || queueResult.error;
+    // 整页没取到：不在黑色舞台里画红色横条，弹层正中一句说明加重试（与番号、关注详情同一个）。
+    if (error) return (
+      <div data-stage-grid="" data-item-detail="">
+        <div data-detail-failure="">
+          <CloseStage onClose={actions.close} />
+          <DetailFailure detail={requestErrorMessage(error)} busy={result.isFetching || queueResult.isFetching}
+            onRetry={() => { if (queueResult.error) void queueResult.refetch(); if (result.error) void result.refetch() }} />
+        </div>
+      </div>
+    );
     return (
       <div data-stage-grid="" data-item-detail="">
         <div data-stage-media="" data-item-media="none">
           <CloseStage onClose={actions.close} />
-          <div data-item-placeholder="">
-            {error ? <RetryNote message={requestErrorMessage(error)}
-              onRetry={() => { if (queueResult.error) void queueResult.refetch(); if (result.error) void result.refetch() }} /> : null}
-          </div>
+          <div data-item-placeholder="" />
         </div>
       </div>
     );

@@ -491,6 +491,7 @@
     "performers": "Performers",
     "releaseDate": "Release date",
     "resources": "Torrents",
+    "retryPreview": "Try the sample video again: {{reason}}",
     "sampleVideo": "Sample video",
     "sampleVideoFailed": "Couldn't get the sample video"
   },

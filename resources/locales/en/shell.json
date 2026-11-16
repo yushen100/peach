@@ -197,6 +197,9 @@
     "spacerColumn": "Empty space",
     "toolbar": "{{label}} toolbar"
   },
+  "detailFailure": {
+    "title": "Couldn't get the details"
+  },
   "detailTags": {
     "hideTag": "Hide this tag on this video",
     "moreCount_one": "{{count, number}} more",
