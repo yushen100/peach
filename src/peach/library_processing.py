@@ -2609,10 +2609,10 @@ def _collection_rows(db_path, *, locations, online_roots, asset_ids):
     return rows, genre_decisions
 
 
-def _processing_issue_log(config, path, job_id, isolated, *, resume=False):
+def _processing_issue_log(config, path, job_id, isolated, *, resume=False, retrying=False):
     """每趟任务保留独立问题清单，仅初始化本趟文件。"""
     log_path = path.with_suffix('.issues.jsonl') if isolated else issues_path(config, job_id)
-    if not resume:
+    if retrying or not resume:
         log_path.unlink(missing_ok=True)
     return log_path
 
@@ -3342,7 +3342,7 @@ def process_library(config, db_path, candidate_root, cover_root, *, location='co
         covered = []
         stages_of = _library_stages(config)
         log_path = _processing_issue_log(config, path, state['job_id'], state_file is not None,
-                                         resume=bool(resume_state) and not retrying)
+                                         resume=bool(resume_state), retrying=retrying)
         # 界面只展示前 20 条，完整清单在这个文件里；地址跟着状态一起给出，
         # 不让人按 job_id 自己去拼路径。
         state['issues_log'] = str(log_path)
