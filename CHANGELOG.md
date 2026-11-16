@@ -16,6 +16,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Added / 新增
 
+- **Library**: Junk files can move every undecided file in the current category to Trash at once, beyond the 200 loaded, with undo (#218). / **馆藏**：垃圾文件可把当前分类的待判断文件一次全部移入回收站，不限已载入的 200 条，可撤销（#218）。
 - **Library**: Profile name menus can merge duplicate actress, label, creator, series and agency profiles; a new alias that another profile already uses offers it too (#207). / **馆藏**：女优、厂牌、创作者、系列与事务所的名字菜单可合并重复档案，添加的别名已被另一份档案使用时也会提示合并（#207）。
 - **Library**: Edit details next to the title changes the code, title, date, region, performers, label, series and tags; edited values aren't overwritten by collection (#187). / **馆藏**：详情标题旁新增「编辑资料」，可改番号、标题、日期、产地、演员、厂牌、系列与标签，改过的值不再被采集覆盖（#187）。
 - **Library**: Performers, labels and series not found in Edit details can be created on the spot and carry a Custom tag in rosters and details (#549). / **馆藏**：编辑资料里搜不到的演员、厂牌、系列可直接新建，名册与详情上带「自建」标记（#549）。
@@ -37,6 +38,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Changed / 变更
 
+- **Interface**: Junk files, HD upgrades, Duplicates and Trash use the home filter bar, discovery cards and list, with a Library column and sortable size and duration (#737). / **界面**：垃圾文件、高清版、重复文件与回收站改用首页的筛选浮层、探索卡与列表表格，可按体积和时长排序并显示媒体库（#737）。
 - **Sourcing**: Resources on out-of-library details come from every magnet source, not only JavDB, and still load while JavDB is down (#717). / **采集**：库外详情的资源改查全部磁链来源，JavDB 不可用时照样列出（#717）。
 - **Sourcing**: New FC2 works take details from FC2 and its archives, and FC2, uncensored and amateur covers fall back to issuer and community pictures (#717). / **采集**：FC2 新作资料先问 FC2 与存档站；FC2、无码与素人新作封面可改用发行方与社区图源（#717）。
 - **Interface**: When JavDB doesn't answer, discovery cards and out-of-library details fill in from DMM and r18.dev (#717). / **界面**：JavDB 没答上时，发现页卡片与库外详情改用 DMM、r18.dev 的资料（#717）。
