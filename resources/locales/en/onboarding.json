@@ -185,8 +185,6 @@
     "settingsSummary": "Start with appearance and navigation. Check other settings as needed.",
     "settingsTitle": "Make Peach your own",
     "startQuickTour": "Start quick tour",
-    "stepCountExitAnytime_one": "{{count, number}} step · Exit anytime",
-    "stepCountExitAnytime_other": "{{count, number}} steps · Exit anytime",
     "stepCount_one": "{{count, number}} step",
     "stepCount_other": "{{count, number}} steps"
   },

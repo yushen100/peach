@@ -649,11 +649,27 @@ describe('设计决定：作品卡、管理页与复核', () => {
         await opener.click();
         const dialog = page.getByRole('dialog', { name: '新手教程', exact: true });
         await dialog.waitFor();
+        const tabTops = new Set<number>();
         for (const name of ['开始使用', '界面导览', '设置导览']) {
           await dialog.locator('label').filter({ has: page.getByRole('radio', { name, exact: true }) }).click();
+          // 窗口高度跟着这一页的内容走：没到上限时正文不滚也不留空；顶边不动，页签不跟着跳。
+          const fit = await page.locator('.peach-guide-center').evaluate((surface) => {
+            const body = surface.querySelector('.peach-guide-body')!;
+            return { capped: surface.getBoundingClientRect().height >= parseFloat(getComputedStyle(surface).maxHeight) - 1,
+              slack: body.clientHeight - body.scrollHeight };
+          });
+          if (!fit.capped) assert.ok(Math.abs(fit.slack) <= 1, `${name} 窗口没贴合内容：空出 ${fit.slack}px`);
+          tabTops.add(Math.round((await dialog.getByRole('radiogroup', { name: '教程路径' }).boundingBox())!.y));
           assert.equal(await dialog.locator('[data-guide-banner]').count(), 1, `${name} 缺少共用引导区`);
           assert.equal(await dialog.locator('[data-guide-banner] .peach-guide-topic-icon svg').count(), 1, `${name} 缺少图标`);
+          const indent = (await dialog.locator('[data-guide-banner] .peach-guide-topic-icon').boundingBox())!.x
+            - (await dialog.getByRole('radiogroup', { name: '教程路径' }).boundingBox())!.x;
+          assert.ok(Math.abs(indent) <= 1, `${name} 引导区比页签缩进 ${indent}px`);
+          const action = (await dialog.locator('[data-guide-banner] button').first().boundingBox())!.x
+            - (await dialog.locator('[data-guide-banner] .peach-guide-topic-icon').boundingBox())!.x;
+          assert.ok(Math.abs(action) <= 1, `${name} 引导区的行动键没有靠左：偏 ${action}px`);
         }
+        assert.equal(tabTops.size, 1, `切页签时页签上下跳动：${[...tabTops].join(', ')}`);
         const box = await dialog.boundingBox();
         assert.ok(box && box.x >= 0 && box.y >= 0 && box.x + box.width <= viewport.width && box.y + box.height <= viewport.height,
           '教程中心越出视口');
