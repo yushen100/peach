@@ -51,6 +51,12 @@ LABELS = {TASK_KEY: TASK_LABEL, COVER_TASK_KEY: COVER_TASK_LABEL}
 #: 一条资料够用就停。四个标量都拿到就不再问下一家——Feed 是后台跑的，
 #: 多问一家换来的是配额，而壳上的值本来就不是真相字段。
 WANTED = ("title", "performers", "studio", "release_date")
+#: FC2 新作壳问的几站：FC2 自己、fc2cmadb 与 JavArchive。FC2PPV-DB、JAVten 要本机浏览器过验证，
+#: 后台取壳不弹验证窗口，留给库内刮削。
+FC2_FEED_SITES = ("fc2", "fc2cmadb", "javarchive")
+FC2_BROWSER_SITES = ("fc2ppvdb", "javten")
+#: 新作封面官方渠道落空时再问发行方与社区图源的内容类型；有码的官方渠道本来就有好几家。
+COVER_FALLBACK_TYPES = ("fc2", "uncensored", "amateur", "unsure")
 
 #: 一批最多带几部。取资料那一批新发现的先排，余下的名额给上次没取到资料、到了重试时间的
 #: 旧壳；补封面那一批按上次尝试由远到近排。
@@ -246,24 +252,43 @@ def collect(provider, code: str) -> tuple[dict, str | None]:
 
     chain = metadata_routes.route_for_code(code)
     budget = ACTION_BUDGETS["querying_metadata"]
-    try:
-        found = provider.community(
-            code, deadline=deadline_after(budget),
-            route=metadata_routes.community_route(code))
-    except DeadlineExceeded as error:
-        raise DeadlineExceeded("errors.feedFollowup.chainTimedOut",
-                               {"chain": _chain(chain), "seconds": f"{budget:g}"}) from error
+    deadline = deadline_after(budget)
     fields: dict[str, object] = {}
     cover: str | None = None
-    for _source, payload in found:
-        if not isinstance(payload, dict):
-            continue
-        cover = cover or _cover(payload)
-        for name, item in extract_peach_fields(payload).items():
-            if name in WANTED and name not in fields:
-                fields[name] = item.get("value")
-        if all(name in fields for name in WANTED):
-            break
+
+    def take(found):
+        nonlocal cover
+        for _source, payload in found:
+            if not isinstance(payload, dict):
+                continue
+            cover = cover or _cover(payload)
+            for name, item in extract_peach_fields(payload).items():
+                if name in WANTED and name not in fields:
+                    fields[name] = item.get("value")
+            if all(name in fields for name in WANTED):
+                return
+
+    try:
+        if metadata_routes.classify(code) == "fc2":
+            # 综合索引那一档对 FC2 只剩 JavDB，先问 FC2 自己与存档站；取齐就不再问 JavDB。
+            try:
+                take(provider.fc2(code, deadline=deadline, route=FC2_FEED_SITES))
+            except DeadlineExceeded:
+                raise
+            except Exception:  # noqa: BLE001 - 这几站都没给就照常问综合索引，原因由那一步报
+                pass
+        if not (all(name in fields for name in WANTED) and cover):
+            try:
+                take(provider.community(code, deadline=deadline, route=metadata_routes.community_route(code)))
+            except DeadlineExceeded:
+                raise
+            except Exception:
+                if not fields and cover is None:
+                    raise
+    except DeadlineExceeded as error:
+        if not fields and cover is None:
+            raise DeadlineExceeded("errors.feedFollowup.chainTimedOut",
+                                   {"chain": _chain(chain), "seconds": f"{budget:g}"}) from error
     if not fields and cover is None:
         raise UserValueError("errors.feedFollowup.noMetadata", {"chain": _chain(chain)})
     return fields, cover
@@ -280,7 +305,7 @@ def fetch_cover(contract, code: str,
     素人档的 `jp.jpg`、MGS 图这类路径只有靠它才列得回候选。
     取不到就抛；原因交给调用方记账，一部取不到不影响同批其余几部。
     """
-    from .jav_cover_fetch import HostLimitedTransport, best_cover, official_image_candidates
+    from .jav_cover_fetch import DeadlineExceeded, HostLimitedTransport, best_cover, official_image_candidates
     from .scraping_access import SourceTransport
 
     prior = {candidate.url: candidate for url in (cover_url, _recorded_cover_url(contract.cover_root, code))
@@ -290,17 +315,41 @@ def fetch_cover(contract, code: str,
                           max_bytes=32 * 1024 * 1024, max_seconds=COVER_SECONDS)
     transport = HostLimitedTransport(raw, 1.0)
     from .cover_artwork import metadata_snapshots
-    from .library_processing import _official_evidence, artwork_title
+    from .library_processing import LibraryMetadataProvider, _official_evidence, artwork_title
     snapshots = metadata_snapshots(contract.follow_sources_root / 'library-metadata', code)
+    deadline = time.monotonic() + COVER_SECONDS
+    # 官方渠道（r18.dev、DMM、Prestige、MGS）对有码作品有好几家；FC2、无码与素人在这里只剩一家或一家都没有，
+    # 补上库内封面那两处：FC2 发行方与存档站的图，和社区来源（AVBase、JavBus、JavDB）两个图源对得上的那张。
+    provider = (LibraryMetadataProvider(contract.follow_secrets_root)
+                if metadata_routes.classify(code) in COVER_FALLBACK_TYPES else None)
+    siblings = ()
     try:
-        candidate, size, data = best_cover(
-            transport, code, 0,
-            metadata_root=contract.follow_sources_root / "metadata" / "javinizer-go",
-            known=_official_evidence(snapshots),
-            prior_candidates=tuple(prior.values()),
-            deadline=time.monotonic() + COVER_SECONDS)
+        if provider is not None:
+            try:
+                siblings = provider._official_candidates(code, deadline=deadline, absent=FC2_BROWSER_SITES)
+            except Exception:  # noqa: BLE001 - 发行方那一档没给就只靠下面几处
+                siblings = ()
+        try:
+            candidate, size, data = best_cover(
+                transport, code, 0,
+                metadata_root=contract.follow_sources_root / "metadata" / "javinizer-go",
+                known=_official_evidence(snapshots),
+                prior_candidates=(*prior.values(), *siblings),
+                deadline=deadline)
+        except Exception as error:
+            if provider is None or isinstance(error, DeadlineExceeded):
+                raise
+            from .community_catalog import verified_cover
+            try:
+                candidate, size, data, _ = verified_cover(
+                    provider.transport, code, provider.community(code, deadline=deadline),
+                    siblings=siblings, deadline=deadline)
+            except Exception:  # noqa: BLE001 - 社区那一档也没有时报官方那一档的原因
+                raise error from None
     finally:
         transport.close()
+        if provider is not None:
+            provider.close()
     digest = hashlib.sha256(data).hexdigest()
     evidence = {"code": code, "width": size[0], "height": size[1],
                 "title": artwork_title(snapshots),
