@@ -36,6 +36,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Changed / 变更
 
+- **Interface**: Work details note what's missing in place (cover, sample video or details) instead of a red banner; a failed page shows a centered empty state (#722). / **界面**：作品详情取不到的内容改在缺的那块说明（封面、预告或资料），不再显示红色横条；整页失败显示居中空状态（#722）。
 - **Following**: Subscriptions skip an actress's JavDB censored page while her DMM catalogue fetches fine (#704). / **关注**：女优的 DMM 片单抓取正常时，订阅跳过她在 JavDB 的有码页（#704）。
 - **Sourcing**: Scheduled Wants checks skip JavDB once manko already has 1080p or better (#704). / **采集**：「想要」定时查找在 manko 已有 1080p 以上时不再问 JavDB（#704）。
 - **Sourcing**: Complete work details fetched after release are kept as local metadata instead of being refetched (#704). / **采集**：发行后取齐的作品资料留作本地资料，不再定期重取（#704）。
