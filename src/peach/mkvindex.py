@@ -30,10 +30,10 @@ def _elements(stream, start: int, end: int):
         body = stream.tell()
         stop = end if size is None and kind == SEGMENT else body + size if size is not None else -1
         if body > end or stop < body or stop > end:
-            raise ValueError("Matroska 元素越界")
+            raise ValueError("Matroska element out of bounds")
         yield kind, body, stop
         position = stop
-    raise ValueError("Matroska 元素过多")
+    raise ValueError("too many Matroska elements")
 
 
 def _children(data: bytes):
@@ -44,7 +44,7 @@ def _children(data: bytes):
 
 def _uint(data: bytes) -> int:
     if not 0 < len(data) <= 8:
-        raise ValueError("Matroska 整数长度无效")
+        raise ValueError("invalid Matroska integer length")
     return int.from_bytes(data, "big")
 
 
@@ -61,18 +61,18 @@ def _metadata(stream, begin: int, end: int) -> dict[int, bytes]:
         visited.add(position)
         for kind, body, stop in _elements(stream, position, end):
             if expected is not None and kind != expected:
-                raise ValueError("Matroska SeekHead 目标不匹配")
+                raise ValueError("Matroska SeekHead target mismatch")
             if kind == CLUSTER:
                 break
             if kind in {SEEK_HEAD, INFO, TRACKS, CUES}:
                 length = stop - body
                 if length > remaining:
-                    raise ValueError("Matroska 索引超过读取预算")
+                    raise ValueError("Matroska index exceeds the read budget")
                 stream.seek(body)
                 data = stream.read(length)
                 remaining -= length
                 if len(data) != length:
-                    raise ValueError("Matroska 索引未读完整")
+                    raise ValueError("Matroska index read incomplete")
                 if kind == SEEK_HEAD:
                     for entry, payload in _children(data):
                         if entry != 0x4DBB:
@@ -82,7 +82,7 @@ def _metadata(stream, begin: int, end: int) -> dict[int, bytes]:
                         offset = begin + _uint(fields.get(0x53AC, b""))
                         if target in {SEEK_HEAD, INFO, TRACKS, CUES}:
                             if not begin <= offset < end:
-                                raise ValueError("Matroska SeekHead 位置越界")
+                                raise ValueError("Matroska SeekHead position out of bounds")
                             pending.append((offset, target))
                 else:
                     found[kind] = data
