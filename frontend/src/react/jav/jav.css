@@ -19,7 +19,7 @@ body .peach-react [data-media-card][data-jav-card] [data-media-meta] {
   contain-intrinsic-block-size: none;
 }
 /* 密集卡片仍保留标题、姓名和日期。 */
-body[data-density="dense"]:not([data-surface="/trash"]) .peach-react [data-media-card][data-jav-card] [data-media-text] {
+body[data-density="dense"] .peach-react [data-media-card][data-jav-card] [data-media-text] {
   display: flex;
   height: auto;
   gap: 4px;
