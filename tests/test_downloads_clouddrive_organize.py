@@ -141,12 +141,21 @@ class ConfiguredPaths(unittest.TestCase):
             credentials.return_value.load.return_value = SimpleNamespace(values={'token': 'test-token'})
             downloads.return_value.load.return_value = SimpleNamespace(clouddrive_address='http://example.test')
             cloud = client.return_value.__enter__.return_value
+            cloud.root = '/'
             cloud.find.return_value = pb.CloudDriveFile(isDirectory=True,
                 CloudAPI=pb.CloudAPI(name='WebDAV', path='/Renamed account'))
             with organize_clouddrive.pikpak_renames('P:\\Library\\a.mp4', roots) as dav:
                 self.assertEqual(dav.url('P:\\Library\\a.mp4'), DAV_ORIGIN + '/Movies/a.mp4')
             cloud.find.assert_called_once_with('/Renamed account/Movies')
             self.assertEqual(headers.call_args.args[2].dav_root, '/Movies')
+
+            cloud.root = '/Renamed account'
+            cloud.find.reset_mock()
+            with self.assertRaises(organize_clouddrive.UserValueError) as raised:
+                with organize_clouddrive.pikpak_renames('P:\\Library\\a.mp4', roots):
+                    pass
+            self.assertEqual(raised.exception.code, 'errors.organizeClouddrive.tokenRootRestricted')
+            cloud.find.assert_not_called()
 
 
 class OfficialMoves(unittest.TestCase):

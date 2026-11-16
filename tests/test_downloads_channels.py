@@ -105,6 +105,12 @@ class LibraryChannelTests(unittest.TestCase):
         self.assertFalse(channel["can_cancel"])
         self.assertEqual(channel["cloud_root"], "/duck/Movies")
 
+    def test_a_token_limited_below_the_library_prefix_lands_in_its_root(self):
+        self.client.token_info.return_value.rootDir = "/duck/Movies/Peach"
+        channel = self.catalog()["providers"][0]
+        self.assertEqual((channel["target"], channel["cloud_root"]), ("/duck/Movies/Peach", "/duck/Movies"))
+        self.client.folder.assert_any_call("/duck/Movies/Peach")
+
     def test_capability_cache_expires_and_credential_changes_invalidate_it(self):
         self.catalog()
         self.catalog()
