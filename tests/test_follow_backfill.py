@@ -3,7 +3,6 @@
 用临时账本和假连接器，不访问真实站点。等待只记秒数不真睡。
 """
 import json
-import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
