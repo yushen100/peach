@@ -88,6 +88,32 @@ def _full_picture_face(faces):
     return largest if largest.score >= .7 and largest.area >= 4 * strong.area else strong
 
 
+def _full_cover(image, largest, portraits, *, code: str, title: str, verdict: str, whole: bool) -> bool:
+    """这张封面按整幅画面找主脸吗。
+
+    有 DMM 比对结论或正封取景已判成整幅时照它；否则看主脸是否跨过书脊、左侧是否有更显著的脸、
+    是不是宣传画布，再用正封判据复核一次：判不出折痕、只能居中切的不算整幅。
+    """
+    height, width = image.shape[:2]
+    if whole or verdict:
+        return whole or verdict == jav_poster_crop.POSTER
+    full_cover = jav_poster_crop.face_crosses_spine(width, height, {
+        'cx': largest.cx, 'w': largest.width, 'h': largest.height,
+        'score': largest.score} if largest else None) or _dominant_left_face(
+            image, largest, portraits, code=code, title=title) or _promotional_canvas(image, code=code, title=title)
+    if not full_cover:
+        return False
+    panel = jav_poster_crop.front_panel_box(width, height, lambda: jav_poster_crop.column_gradient(image), code, title)
+    return panel['method'] != jav_poster_crop.CENTER
+
+
+def _subject_record(image, parts, best) -> dict:
+    """整幅画面上比主脸还大的部位：记成 `subject` 供卡片取景，没有更大的记 None 表示查过了。"""
+    found = body_parts.main_subject(parts.detect(image), best.width * best.height if best else 0.0)
+    return {'subject': {'cx': found.cx, 'cy': found.cy, 'w': found.w, 'h': found.h, 'kind': found.kind,
+                        'score': found.score} if found else None}
+
+
 def face_record(image, detector, *, code: str, title: str = '', verdict: str = '', whole: bool = False,
                 parts=None) -> dict | None:
     """已解码的封面 → 页面取景记录；无法解码时不生成记录。
@@ -110,17 +136,8 @@ def face_record(image, detector, *, code: str, title: str = '', verdict: str = '
     ratio = width / height if height else 0
     faces = detector.detect(image)
     portraits = [face for face in faces if MIN_FACE_Y <= face.cy <= MAX_FACE_Y]
-    largest = main_face(portraits)
-    if whole or verdict:
-        full_cover = whole or verdict == jav_poster_crop.POSTER
-    else:
-        full_cover = jav_poster_crop.face_crosses_spine(width, height, {
-            'cx': largest.cx, 'w': largest.width, 'h': largest.height,
-            'score': largest.score} if largest else None) or _dominant_left_face(
-                image, largest, portraits, code=code, title=title) or _promotional_canvas(image, code=code, title=title)
-    if full_cover and not (verdict or whole):
-        panel = jav_poster_crop.front_panel_box(width, height, lambda: jav_poster_crop.column_gradient(image), code, title)
-        full_cover = panel['method'] != jav_poster_crop.CENTER
+    full_cover = _full_cover(image, main_face(portraits), portraits, code=code, title=title,
+                             verdict=verdict, whole=whole)
     if (not full_cover and (verdict == jav_poster_crop.SLEEVE or jav_poster_crop.crops_to_portrait(code, title))
             and (jav_poster_crop.SLEEVE_RATIO_MIN <= ratio < jav_poster_crop.SLEEVE_RATIO_MAX
                  or (jav_poster_crop.is_wide_sleeve_label(code, title)
@@ -130,11 +147,7 @@ def face_record(image, detector, *, code: str, title: str = '', verdict: str = '
     faces = [face for face in faces if low <= face.cy <= high]
     best = _full_picture_face(faces) if full_cover else main_face(faces)
     still = full_cover or jav_poster_crop.is_scene_cover(code, title)
-    subject = {}
-    if still and parts is not None:
-        found = body_parts.main_subject(parts.detect(image), best.width * best.height if best else 0.0)
-        subject = {'subject': {'cx': found.cx, 'cy': found.cy, 'w': found.w, 'h': found.h, 'kind': found.kind,
-                               'score': found.score} if found else None}
+    subject = _subject_record(image, parts, best) if still and parts is not None else {}
     return {"version": FACE_ALGORITHM_VERSION, "ratio": round(ratio, 3), "px": [int(width), int(height)],
             **({'layout': 'still'} if still else {}), "face": (
         {"cx": best.cx, "cy": best.cy, "w": best.width, "h": best.height,

@@ -845,6 +845,41 @@ def _matched_sleeve(width: int, height: int, gradient_source: GradientSource,
     return _panel(width, height, portrait.x0, MATCH)
 
 
+def _first_box(width, height, gradient_source, code, title, *, face, layout, portrait) -> dict:
+    """书脊番号与模板介入之前的框：有 DMM 竖版图比对结果时按它定，没有时按原有判据与主脸位置定。"""
+    if portrait is not None and width > 0 and height > 0:
+        return (_matched_sleeve(width, height, gradient_source, portrait, code, title)
+                if portrait.verdict == SLEEVE else _whole(width, height))
+    box = (front_panel_box(width, height, gradient_source, code, title)
+           if layout != 'still' and crops_to_portrait(code, title) else _whole(width, height))
+    if box['method'] != CENTER and face_crosses_spine(width, height, face):
+        return _whole(width, height)
+    return box
+
+
+def _spine_fold(width, height, gradient_source, code, title, box, *, portrait, spine, templates):
+    """按书脊上认出的番号框定的切点与是否真测出了右缘 `(fold, measured)`；定不下时 `fold` 为 None。
+
+    从 DMM 左缘或标准正封比例推出的位置附近找书脊右缘。测不出右缘时，原有判据的折痕在番号框右边、
+    又与同模板推出的吻合，就信它，不退标准位置。
+    """
+    wide = (is_wide_sleeve_label(code, title)
+            and WIDE_SLEEVE_RATIO_MIN <= width / height < WIDE_SLEEVE_RATIO_MAX)
+    anchor = (portrait.x0 if portrait is not None and portrait.verdict == SLEEVE
+              else round(width - (WIDE_PANEL_ASPECT if wide else PANEL_ASPECT) * height))
+    fold, measured = label_edge(width, height, gradient_source, spine, anchor)
+    if (fold is not None and not measured and box['method'] in (FOLD, MATCH) and box['x0'] > int(spine[1])
+            and template_agrees(code, width, height, templates, int(box['x0']))):
+        fold = int(box['x0'])
+    return fold, measured
+
+
+def _uncut_sleeve(width, height, box, code, title, portrait) -> bool:
+    """封套比例的番号封面判成不裁：页面也不能再按右缘先验切，记成整幅画面交给卡片。"""
+    return (box['method'] == NONE and height > 0 and SLEEVE_RATIO_MIN <= width / height < SLEEVE_RATIO_MAX
+            and (portrait is not None or crops_to_portrait(code, title)))
+
+
 def crop_record(code: str | None, width: int, height: int,
                 gradient_source: GradientSource = None, *, title: str = '', face: dict | None = None,
                 layout: str = '', portrait: PortraitMatch | None = None,
@@ -866,26 +901,12 @@ def crop_record(code: str | None, width: int, height: int,
     # VR 与数字发行厂牌的整幅画面，DMM 也常从右侧裁一块当竖版图：对上了也不说明有书脊。
     if portrait is not None and portrait.verdict == SLEEVE and is_scene_cover(code, title):
         portrait = PortraitMatch(POSTER, portrait.score, portrait.x0, portrait.x1)
-    if portrait is not None and width > 0 and height > 0:
-        box = (_matched_sleeve(width, height, gradient_source, portrait, code, title)
-               if portrait.verdict == SLEEVE else _whole(width, height))
-    else:
-        box = (front_panel_box(width, height, gradient_source, code, title)
-               if layout != 'still' and crops_to_portrait(code, title) else _whole(width, height))
-        if box['method'] != CENTER and face_crosses_spine(width, height, face):
-            box = _whole(width, height)
+    box = _first_box(width, height, gradient_source, code, title, face=face, layout=layout, portrait=portrait)
     # 书脊上认出了番号：那条竖带就是书脊，切点改在它的右缘。只改已经判成封套、要切的那几档。
     labelled = measured = False
     if spine and box['method'] in (FOLD, RATIO, MATCH) and height > 0:
-        wide = (is_wide_sleeve_label(code, title)
-                and WIDE_SLEEVE_RATIO_MIN <= width / height < WIDE_SLEEVE_RATIO_MAX)
-        anchor = (portrait.x0 if portrait is not None and portrait.verdict == SLEEVE
-                  else round(width - (WIDE_PANEL_ASPECT if wide else PANEL_ASPECT) * height))
-        fold, measured = label_edge(width, height, gradient_source, spine, anchor)
-        # 测不出书脊右缘：原有判据的折痕在番号框右边、又与同模板推出的吻合，就信它，不退标准位置。
-        if (fold is not None and not measured and box['method'] in (FOLD, MATCH) and box['x0'] > int(spine[1])
-                and template_agrees(code, width, height, templates, int(box['x0']))):
-            fold = int(box['x0'])
+        fold, measured = _spine_fold(width, height, gradient_source, code, title, box,
+                                     portrait=portrait, spine=spine, templates=templates)
         if fold is not None:
             box, labelled = _panel(width, height, fold, FOLD), True
     if not labelled and box['method'] in (FOLD, RATIO, MATCH) and height > 0:
@@ -896,9 +917,7 @@ def crop_record(code: str | None, width: int, height: int,
     if (not labelled and text_across is not None and box['method'] in (FOLD, RATIO, MATCH)
             and text_across(int(box['x0'])) >= TEXT_ACROSS_MIN):
         box = _whole(width, height)
-    # 封套比例的番号封面判成不裁时，页面也不能再按右缘先验切：记成整幅画面交给卡片。
-    still = (box['method'] == NONE and height > 0 and SLEEVE_RATIO_MIN <= width / height < SLEEVE_RATIO_MAX
-             and (portrait is not None or crops_to_portrait(code, title)))
+    still = _uncut_sleeve(width, height, box, code, title, portrait)
     return {"version": ALGORITHM_VERSION, "rules": CROP_RULES, "px": [width, height], "box": box,
             **({'title': title} if title else {}),
             **({'layout': 'still'} if still else {}),
