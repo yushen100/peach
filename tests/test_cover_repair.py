@@ -94,6 +94,21 @@ class CoverRepairTests(unittest.TestCase):
         promo.write_bytes(jpeg((820, 578)))
         self.assertEqual([path.stem for path, _ in self.repair.plan()["judge"]], [promo.stem])
 
+    def test_a_portrait_too_small_to_compare_is_not_pending_again(self):
+        """SBP-274 型：取到了竖版图，但老片只有 147×200，比不出结论，边车里没有判定，照样记下不再算待处理。"""
+        promo = self.cover("SBP-274", size=(1920, 1080), record={"box": {"x0": 0, "y0": 0, "x1": 1920, "y1": 1080,
+                                                                         "method": jav_poster_crop.NONE}})
+        judged = {"code": promo.stem, "status": "judged", "verdict": None, "package": False}
+        with patch.object(cover_repair, "judge", return_value=judged), \
+                patch("peach.spine_label.default_reader"), patch("peach.body_parts.default_detector", return_value=None), \
+                patch("peach.face_detect.FaceDetector"), patch.object(cover_repair, "HostLimitedTransport"), \
+                patch.object(cover_repair, "SourceTransport"):
+            self.repair.status()
+            self.repair.worker.join()
+            self.repair.start()
+            self.repair.worker.join()
+        self.assertEqual(self.repair.plan()["judge"], [])
+
     def test_a_run_recrops_old_sidecars_records_a_receipt_and_backs_up_what_changed(self):
         old = self.cover("SSIS-002", rules=False)
         with patch("peach.spine_label.default_reader"), patch("peach.body_parts.default_detector", return_value=None), \

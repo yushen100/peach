@@ -399,10 +399,13 @@ class CoverRepair:
             self._task(lambda: self.runs.progress(run_id, current=done, total=total))  # 自带节流
 
         checked = self._checked()
+        attempted: set[str] = set()
         transport = HostLimitedTransport(SourceTransport(self.secrets_root), 1.0)
-        try:
-            for path, evidence in plan['judge']:
+
+        def judge_all(items) -> None:
+            for path, evidence in items:
                 step()
+                attempted.add(path.stem)
                 try:
                     result = judge(path, evidence, transport, backup)
                 except Exception:  # noqa: BLE001 — 一部取不到不影响其余几部，下次再点重试
@@ -410,24 +413,33 @@ class CoverRepair:
                     transport.renew()
                     counts['failed'] += 1
                     continue
-                if result['status'] == 'judged':
-                    counts['judged'] += 1
-                    counts['sleeves'] += bool(result.get('package'))
-                else:
+                counts['judged'] += result['status'] == 'judged'
+                counts['sleeves'] += bool(result.get('package'))
+                # 没有竖版图，或竖版图太小比不出结论（老片只有 147×200）：判完仍够补判条件，记下这张图的尺寸，
+                # 不然每次估算都把它算成待处理。图换了尺寸就再查。
+                if eligible(path, every=False, named=False) is not None:
                     checked[path.stem] = list(measure_image_file(path) or ())
                     atomic_write_text(self.checked_path, json.dumps(checked, ensure_ascii=False))
+
+        try:
+            judge_all(plan['judge'])
+            # 补判重装过的那几张已按当前规则算过，不再算一遍。
+            todo = [(path, measure_image_file(path)) for path, _ in plan['crop']]
+            todo = [(path, size) for path, size in todo if size and crop_stale(path, size)]
+
+            def pace(index: int, first: bool) -> None:
+                step()
+
+            for path, record, old in recrop(self.cover_root, todo, pace=pace, backup=backup):
+                counts['recropped'] += (old or {}).get('box') != record['box']
+            # 重算后改判整幅的封面这时才够补判、要在整张图里重找脸：重新出一次名单，同一轮做完。
+            again = self.plan()
+            more = [(path, evidence) for path, evidence in again['judge'] if path.stem not in attempted]
+            total += len(more) + max(0, len(again['face']) - len(plan['face']))
+            judge_all(more)
         finally:
             transport.close()
-        # 补判重装过的那几张已按当前规则算过，不再算一遍。
-        todo = [(path, measure_image_file(path)) for path, _ in plan['crop']]
-        todo = [(path, size) for path, size in todo if size and crop_stale(path, size)]
-
-        def pace(index: int, first: bool) -> None:
-            step()
-
-        for path, record, old in recrop(self.cover_root, todo, pace=pace, backup=backup):
-            counts['recropped'] += (old or {}).get('box') != record['box']
-        for path in plan['face']:
+        for path in self.plan()['face']:
             step()
             if not path.is_file() or not face_stale(path, parts=parts is not None):
                 continue
