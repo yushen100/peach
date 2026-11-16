@@ -818,20 +818,24 @@ describe('作品详情岛', () => {
     }
   });
 
-  it('取不到这一条：播放器格照 16:9 撑开，重试提示居中，不塌成一条窄条', { timeout: 60_000 }, async () => {
+  it('取不到这一条：整页一屏居中的说明加重试，不塌成一条窄条', { timeout: 60_000 }, async () => {
     const opened = await openItemPage(browser, `/assets/${ITEM.plain}`, DESKTOP);
     try {
       const page = opened.page;
       await page.route((url) => url.pathname === '/api/item', (route) => route.fulfill({ status: 500, json: { error: 'database is locked' } }));
       await page.goto(new URL('/assets/987654', page.url()).toString(), { waitUntil: 'load' });
-      await page.locator('#stage [data-item-placeholder] [data-media-error]').waitFor({ timeout: 15_000 });
+      const failure = page.locator('#stage [data-detail-failure]');
+      await failure.locator('[data-empty-state]').waitFor({ timeout: 15_000 });
+      await failure.getByRole('button', { name: '立即重试', exact: true }).waitFor();
+      assert.equal(await page.locator('#stage [data-media-error]').count(), 0, '整页失败不再在舞台里画红色横条');
       const box = await page.evaluate(() => {
-        const frame = document.querySelector('#stage [data-item-placeholder]')!.getBoundingClientRect();
-        const note = document.querySelector('#stage [data-item-placeholder] [data-media-error]')!.getBoundingClientRect();
-        return { ratio: frame.width / frame.height, offset: Math.abs((note.top + note.bottom) / 2 - (frame.top + frame.bottom) / 2) };
+        const frame = document.querySelector('#stage [data-detail-failure]')!.getBoundingClientRect();
+        const note = document.querySelector('#stage [data-detail-failure] [data-empty-state]')!.getBoundingClientRect();
+        return { height: frame.height, dy: Math.abs((note.top + note.bottom) / 2 - (frame.top + frame.bottom) / 2),
+                 dx: Math.abs((note.left + note.right) / 2 - (frame.left + frame.right) / 2) };
       });
-      assert.ok(Math.abs(box.ratio - 16 / 9) < 0.02, `播放器格不是 16:9：${JSON.stringify(box)}`);
-      assert.ok(box.offset < 2, `提示没有竖直居中：${JSON.stringify(box)}`);
+      assert.ok(box.height >= 260, `失败那一屏塌成了窄条：${JSON.stringify(box)}`);
+      assert.ok(box.dy < 2 && box.dx < 2, `说明没有居中：${JSON.stringify(box)}`);
     } finally {
       await opened.close();
     }
