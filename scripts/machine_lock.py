@@ -1,7 +1,7 @@
-"""拿着整机的重负载锁运行一条命令，结束后释放。
+"""占满整机测试名额运行一条命令，结束后释放。
 
-本机 CI runner 的构建、冒烟与镜像作业用它和本机测试排同一把锁（`test_evidence.machine_lock_path`）；
-测试入口自己会拿这把锁，经测试入口的作业不要再套一层，否则会自己等自己。
+本机 CI runner 的构建、冒烟与镜像作业用它和本机测试排同一组名额（`scripts/test_slots.py`，ADR-0172），
+像全量一样取满全部名额；命令里再调用测试入口时，入口看到名额已被父进程持有，不会再排一次。
 
 用法：python scripts/machine_lock.py [--wait 秒] -- 命令 参数...
 """
@@ -23,7 +23,7 @@ if str(SRC_DIR) not in sys.path:
 
 from peach.interface_text import dev as t  # noqa: E402
 
-from . import test_evidence  # noqa: E402
+from . import test_slots  # noqa: E402
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -35,13 +35,16 @@ def main(argv: list[str] | None = None) -> int:
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
     if not command:
         parser.error(t("machine_lock.commandMissing"))
-    lock = test_evidence.machine_lock_path()
     try:
-        with test_evidence.held(lock, wait_seconds=args.wait, scope=" ".join(command)[:120], root=str(ROOT)):
+        total = test_slots.slot_count()
+    except ValueError as error:
+        parser.error(str(error))
+    try:
+        with test_slots.held(total, total=total, scope=" ".join(command)[:120], root=str(ROOT),
+                             wait_seconds=args.wait):
             return subprocess.run(command, check=False).returncode
-    except test_evidence.Timeout:
-        print(t("machine_lock.timedOut", seconds=f"{args.wait:g}", holder=test_evidence.describe_holder(lock)),
-              flush=True)
+    except test_slots.SlotTimeout as error:
+        print(error, flush=True)
         return 2
 
 

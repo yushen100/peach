@@ -2003,7 +2003,7 @@ class OperationalScriptTests(unittest.TestCase):
         posix = (ROOT / "scripts" / "test.sh").read_text(encoding="utf-8")
         self.assertIn("rev-parse --git-common-dir", posix)
         self.assertIn("peach.__file__", posix)
-        self.assertIn("full|auto|follow|catalog|media|sync|metadata|tooling|web|checks|core|packaging)", posix)
+        self.assertIn("full|auto|follow|catalog|media|sync|metadata|tooling|delivery|web|checks|core|packaging)", posix)
         # 文档里可以「提到」裸命令来说明它为什么不可信，但绝不能让它单独出现成为一条可照抄的指令。
         # 判据因此不是黑名单，而是：凡出现该命令的行，必须在同一行指向某个正式入口。
         for relative in ("AGENTS.md", "docs/TESTING.md"):
@@ -2107,7 +2107,7 @@ class OperationalScriptTests(unittest.TestCase):
         self.assertEqual(listed.getvalue().split(), ["full", "auto", *runner.SCOPES])
 
     def test_every_test_file_is_registered_in_a_scope(self):
-        """新测试文件必须登记进 `scripts/test_runner.py` 的域，否则只有 `full` 才跑到它。"""
+        """新测试文件必须登记进 `scripts/scope_registry.toml` 的域，否则只有 `full` 才跑到它。"""
         runner = load_script("test_runner")
         patterns = (*runner.COMMON_PATTERNS,
                     *(pattern for scopes in runner.SCOPES.values() for pattern in scopes))
@@ -2116,7 +2116,7 @@ class OperationalScriptTests(unittest.TestCase):
             if not any(path.match(pattern) for pattern in patterns))
         self.assertEqual(
             orphans, [],
-            "这些测试文件不属于任何域，把它们登记进 scripts/test_runner.py 的 SCOPES"
+            "这些测试文件不属于任何域，把它们登记进 scripts/scope_registry.toml 的 [scopes]"
             "（或 COMMON_PATTERNS），否则只有 full 才跑到它们：\n  " + "\n  ".join(orphans))
 
     def test_auto_scope_maps_changed_files_and_falls_back_to_full(self):

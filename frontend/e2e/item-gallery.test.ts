@@ -20,7 +20,9 @@ describe('馆藏 JAV 官方预览', () => {
         if (image === '1') await waiting;
         return route.fulfill({ contentType: 'image/svg+xml', body: `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="600"><rect width="900" height="600" fill="${image === '0' ? '#555' : '#aaa'}"/></svg>` });
       });
-      await page.goto(new URL(`/assets/${COVER_ONLY_ITEM.id}`, page.url()).href);
+      /* 缩略条里「预览 2」与大图同一个地址，也被上面挂起；缩略条在 load 之前渲染时 load 要等到
+         release，所以这里只等到 DOM 就绪，画廊由下一句等。 */
+      await page.goto(new URL(`/assets/${COVER_ONLY_ITEM.id}`, page.url()).href, { waitUntil: 'domcontentloaded' });
       const frame = page.locator('[data-item-gallery]');
       await frame.getByRole('button', { name: '预览 1', exact: true }).waitFor();
       await frame.getByRole('button', { name: '预览 1', exact: true }).click();

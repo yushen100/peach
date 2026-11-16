@@ -6,6 +6,7 @@ import ast
 import fnmatch
 import importlib
 import json
+import math
 import os
 import re
 import shutil
@@ -17,7 +18,7 @@ import threading
 import time
 import unittest
 from collections.abc import Iterable
-from contextlib import contextmanager, nullcontext
+from contextlib import ExitStack, contextmanager, nullcontext
 from functools import lru_cache, partial
 from pathlib import Path
 
@@ -28,7 +29,7 @@ TESTS = ROOT / "tests"
 if not __package__:
     sys.path.insert(0, str(ROOT))
     __package__ = "scripts"
-from . import change_impact, test_evidence, test_history, test_resume, test_run_progress, test_shard_results
+from . import change_impact, test_evidence, test_history, test_resume, test_run_progress, test_shard_results, test_slots
 from .test_inputs import repository_paths_read_by as repository_paths_read_by
 
 #: 给人看的输出用哪种语言。作为脚本运行时 `__main__` 在把测试固定到源语言之前记下本机语言；
@@ -54,387 +55,18 @@ def phase_label(name: str) -> str:
 
 COMMON_PATTERNS = ("test_context_budget.py", "test_test_collection.py", "test_complexity_ratchet.py",
                    "test_source_assertion_ratchet.py", "test_python_lint.py", "test_user_messages.py")
-SCOPES: dict[str, tuple[str, ...]] = {
-    "checks": ("test_copy_final_state.py", "test_dependency_policy.py", "test_repo_hygiene.py", "test_test_planning.py", "test_reference_updates.py", "test_readme_contracts.py",
-               "test_complexity_ratchet.py", "test_source_assertion_ratchet.py", "test_python_lint.py"),
-    "follow": ("test_follow*.py", "test_http.py", "test_migrations.py", "test_wants_web.py"),
-    "catalog": ("test_ad_judgement.py", "test_composite_name_split.py", "test_media_libraries.py", "test_media_folders.py",
-                "test_content_region.py", "test_performer_delete.py", "test_entity_batch.py",
-                "test_duplicate_identity_merge.py",
-                "test_entity_classification.py", "test_company_profiles.py", "test_fc2_sellers.py",
-                "test_entity_merge.py", "test_entity_redirect.py", "test_fastapi_api.py", "test_field_owners.py",
-                "test_migrations.py",
-                "test_review_mirror.py", "test_rm_web.py",
-                "test_entity_link_install.py", "test_web_links.py", "test_entry_links.py",
-                "test_feeds.py", "test_feeds_web.py", "test_wants_web.py",
-                "test_link_marks.py", "test_site_icons.py", "test_site_logos.py", "test_public_http.py",
-                "test_avatar_face.py",
-                "test_brand_marks.py", "test_studio_icon_variants.py",
-                "test_push_discovery.py", "test_media_probe.py",
-                "test_downloads*.py", "test_web_downloads.py",
-                "test_review_csv.py", "test_related.py",
-                "test_search_suggest.py", "test_subtitles.py",
-                "test_task_runs.py", "test_followups.py", "test_task_center_integration.py",
-                "test_background_issues.py",
-                "test_studio_followup.py", "test_creator_identity_followup.py", "test_sample_images.py",
-                "test_jav_code_domain.py",
-                "test_taste_history.py", "test_taste_preferences.py", "test_web_ui.py", "test_web_js.py",
-                "test_web_perf.py", "test_web_resource_sync.py", "test_record_rehome.py", "test_wants.py",
-                "test_magnet_chain.py",
-                "test_web_orphan_records.py",
-                "test_web_review.py", "test_web_settings.py", "test_system_language.py"),
-    # 任务中心的两个文件跟着 `test_jobs.py` 走：`jobs.py` 与 `task_runs.py` 是同一条
-    # 接线的两端，改哪一端都要两边一起验。
-    "media": ("test_external_playback.py", "test_runtime_consistency.py", "test_endcard.py", "test_fastapi_api.py", "test_jobs.py",
-              "test_task_runs.py", "test_followups.py", "test_task_center_integration.py", "test_task_control.py", "test_task_resources.py", "test_resource_platform.py", "test_face_models.py",
-              "test_frame_capture.py", "test_timeline_sheets.py", "test_processing_control.py", "test_processing_traffic.py", "test_processing_inventory.py",
-              "test_web_timeline_thumbnails.py", "test_timeline_sources.py", "test_bif.py",
-              "test_interaction.py", "test_media.py", "test_mp4repair.py",
-              "test_mp4recover.py", "test_web_media_repair.py",
-              "test_previews.py", "test_preview_transport.py",
-              "test_providers.py", "test_segments.py", "test_streaming.py", "test_stream_lifecycle.py",
-              "test_subtitles.py", "test_transcodes.py", "test_hardware_transcode.py", "test_strm.py",
-              "test_guangya_sources.py", "test_media_sources.py", "test_smb*.py"),
-    "sync": ("test_sync*.py", "test_platform.py", "test_mount.py", "test_tray*.py", "test_macos_standalone.py", "test_log_retention.py",
-             "test_mdns.py", "test_netwatch.py", "test_certs.py",
-             "test_review_mirror.py", "test_runtime_prepare.py"),
-    "metadata": ("test_custom_metadata.py", "test_scraping_access.py", "test_browser_transport.py", "test_metadata*.py", "test_genre_taxonomy.py", "test_processing_control.py", "test_processing_traffic.py", "test_processing_inventory.py",
-                 "test_fc2*.py", "test_local_poster.py", "test_media_io.py",
-                 "test_community_catalog.py",
-                 "test_babepedia_match.py",
-                 "test_western_artwork.py",
-                 "test_western_profiles.py",
-                 "test_jav*.py", "test_code_creators.py", "test_tag_renames.py",
-                 "test_reproject_snapshot_tags.py",
-                 "test_stale_candidates.py", "test_logo_provider.py",
-                 "test_avatar_provider.py", "test_avatar_face.py",
-                 "test_face_detect.py", "test_face_match.py", "test_face_models.py", "test_performer*.py",
-                 "test_avatar_watermark.py", "test_avatar_picker.py",
-                 "test_portrait_gaps.py", "test_portrait_artwork.py",
-                 "test_r18_machine_translation_repair.py",
-                 "test_social_avatar_harvest.py",
-                 "test_series_localization.py",
-                 "test_duplicate_identity_merge.py", "test_entity_merge.py", "test_entity_redirect.py",
-                 "test_migrations.py",
-                 "test_entity_link_install.py", "test_studio_site_harvest.py",
-                 "test_studio_followup.py", "test_creator_identity_followup.py", "test_sample_images.py",
-                 "test_company_profiles.py",
-                 "test_performer_link_harvest.py", "test_directory_link_harvest.py",
-                 "test_minnano_av.py", "test_agency_roster_harvest.py",
-                 "test_performer_agency_resync.py",
-                 "test_studio_name_localization.py",
-                 "test_studio_name_localization_apply.py", "test_studio_icon_variants.py",
-                 "test_maker_directory_harvest.py", "test_studio_name_variant_merge.py",
-                 "test_javdb_cn_names.py",
-                 "test_link_rediscovery.py", "test_link_label_owner.py",
-                 "test_link_repair.py",
-                 "test_resource_identification.py",
-                 "test_agency_entity.py", "test_agency_reject.py", "test_label_maker.py",
-                 "test_seed_pack.py", "test_seed_followup.py", "test_seed_corrections.py"),
-    "tooling": ("test_scripts.py", "test_trash_junk.py", "test_auth.py", "test_access.py", "test_cli.py", "test_server.py", "test_diagnostics.py", "test_error_reporting.py", "test_remote_reporting.py", "test_reporting_*.py", "test_library_sharing.py", "test_research_archive.py", "test_library_diagnostics.py", "test_script_policy.py",
-                "test_scan.py", "test_record_rehome.py", "test_wants.py", "test_push_discovery.py", "test_media_probe.py", "test_subtitles.py", "test_onboarding.py", "test_configuration_sources.py", "test_clouddrive_proxy.py", "test_folder_picker.py", "test_ledger_backups.py", "test_clear_camera_filename_codes.py",
-                "test_agent_worktree.py", "test_ci_test_evidence.py", "test_check_public_text.py", "test_issue_intake.py", "test_star_history.py", "test_test_evidence.py", "test_test_history.py", "test_test_environment.py", "test_dependency_policy.py",
-                "test_version_bump.py", "test_changelog.py", "test_release_due.py", "test_release_candidate.py", "test_media_build_cache.py", "test_runner_launcher.py",
-                "test_restart_windows_tray.py", "test_deploy_windows_tray.py", "test_runtime_prepare.py",
-                "test_buildinfo.py", "test_versioning.py", "test_macos_standalone.py",
-                "test_windows_update.py", "test_release_updates.py", "test_release_signing.py", "test_automatic_updates.py", "test_standalone_update.py", "test_upgrade_repairs.py", "test_legacy_repairs.py", "test_certs.py", "test_config.py",
-                "test_fsutil.py", "test_desktop_settings.py", "test_desktop_installer.py", "test_data_storage.py",
-                "test_job_status.py", "test_jobs.py", "test_task_runs.py", "test_followups.py", "test_update_tasks.py",
-                "test_task_center_integration.py", "test_task_control.py", "test_task_resources.py", "test_resource_platform.py", "test_reference_updates.py",
-                "test_repo_hygiene.py", "test_seed_pack.py", "test_seed_followup.py",
-                "test_review_csv.py", "test_jav_code_domain.py", "test_organize.py",
-                "test_link_repair.py", "test_tag_management.py",
-                "test_subprocess_encoding.py", "test_module_layering.py",
-                "test_outbound_proxy_policy.py", "test_network_reachability.py",
-                "test_copy_final_state.py", "test_demo_dataset.py",
-                "test_cloudflared_packaging.py", "test_tunnel.py", "test_process_job.py",
-                "test_ffmpeg_build.py", "test_ffmpeg_bundle.py", "test_untrunc_build.py", "test_macos_media.py",
-                "test_media_tool_import.py", "test_seed_corrections.py", "test_face_models_bundle.py", "test_dev_text.py"),
-    # 前端 island 层（ADR-0022）。产物与源码的断言不需要 Node；vitest 那部分在没有
-    # npm 时自己跳过，所以这个域在任何机器上都能跑，`full` 也就自动包含它。
-    # `test_web_perf.py` 两个域都登记：压缩与 ETag 是 API 交付（catalog），
-    # 播放器按需加载的断言读 `web/app.js`（web），改任一侧都该被本域拦住。
-    # `test_copy_final_state.py` 两个域都登记：它扫全树，而界面字串是它最常拦到的
-    # 一面，改 `web/` 的人必须在本域就撞上它。
-    # 后面七个文件的主体不在这一层，但各有一段断言读 `web/` 或 `frontend/` 的源码，
-    # 所以本域也要登记它们：改了 `web/app.js` 却漏跑读它的测试，`test_test_planning.py`
-    # 的域映射门槛会在本地就红。
-    "web": ("test_frontend_build.py", "test_frontend_preflight.py", "test_web_ui.py", "test_web_js.py", "test_web_e2e.py",
-            "test_tag_management.py",
-            "test_subtitle_search.py", "test_subtitle_memory.py",
-            "test_legacy_shell_routes.py",
-            "test_web_perf.py", "test_copy_final_state.py",
-            "test_agency_entity.py", "test_label_maker.py", "test_dependency_policy.py",
-            "test_desktop_settings.py", "test_dev_copy.py",
-            "test_fastapi_api.py", "test_follow_assets.py", "test_follow_web.py",
-            "test_metadata_library.py", "test_processing_control.py", "test_processing_traffic.py", "test_processing_inventory.py", "test_clouddrive_proxy.py", "test_studio_icon_variants.py", "test_web_settings.py", "test_web_library_shortcuts.py", "test_web_tutorial.py", "test_company_profiles.py"),
-    "core": ("test_access.py", "test_auth.py", "test_config.py", "test_field_owners.py",
-             "test_entity_classification.py",
-             "test_migrations.py", "test_ledger_revision.py",
-             "test_platform.py", "test_mount.py", "test_tray.py", "test_certs.py",
-             "test_folder_picker.py", "test_fsutil.py", "test_runtime_consistency.py",
-             "test_subprocess_encoding.py", "test_outbound_proxy_policy.py", "test_windows_update.py", "test_buildinfo.py"),
-    "packaging": ("test_dependency_policy.py", "test_buildinfo.py", "test_onboarding.py", "test_macos_standalone.py",
-                  "test_cli.py", "test_server.py", "test_versioning.py", "test_frontend_build.py", "test_frontend_preflight.py",
-                  "test_cloudflared_packaging.py", "test_desktop_installer.py",
-                  "test_ffmpeg_build.py", "test_ffmpeg_bundle.py", "test_untrunc_build.py", "test_macos_media.py",
-                  "test_face_models_bundle.py", "test_metadata_amane_bridge.py", "test_release_candidate.py",
-                  "test_media_build_cache.py", "test_docker_entrypoint.py"),
-}
 
-SCOPE_TEST_IDS: dict[str, tuple[str, ...]] = {
-    "follow": (
-        "test_rm_web.WebDataTests.test_contract_handler_registries_are_complete_and_unknown_routes_fail",
-        "test_rm_web.WebDataTests.test_read_only_post_routes_are_declared_and_all_exist",
-        "test_scripts.OperationalScriptTests.test_test_entrypoints_guard_the_worktree_source_and_are_the_only_documented_command",
-    ),
-}
+#: 域、补充用例、路径映射与 CI 职责的登记表在 `scripts/scope_registry.toml`：纯数据，只增登记不触发全量。
+REGISTRY = change_impact.load_registry(ROOT / change_impact.REGISTRY)
+SCOPES: dict[str, tuple[str, ...]] = {name: tuple(items) for name, items in REGISTRY["scopes"].items()}
+SCOPE_TEST_IDS: dict[str, tuple[str, ...]] = {name: tuple(items) for name, items in REGISTRY["scope_test_ids"].items()}
+AUTO_SCOPE_FILES: dict[str, tuple[str, ...]] = {path: tuple(items) for path, items in REGISTRY["auto_scope_files"].items()}
+AUTO_SCOPE_PREFIXES: tuple[tuple[str, tuple[str, ...]], ...] = tuple(
+    (prefix, tuple(items)) for prefix, items in REGISTRY["auto_scope_prefixes"])
+CI_FRONTEND_TESTS = frozenset(REGISTRY["ci"]["frontend_tests"])
+CI_BROWSER_TESTS = frozenset(REGISTRY["ci"]["browser_tests"])
+TOOLING_WORKFLOWS = frozenset(REGISTRY["ci"]["tooling_workflows"])
 
-# `auto` 域按改动文件选域：每个文件先查 `AUTO_SCOPE_FILES` 的整路径，再按
-# `AUTO_SCOPE_PREFIXES` 取第一个命中的前缀，多个文件取并集。表里没有的
-# `tests/test_*.py` 直接按文件名归域，`src/peach/` 下的其余模块按「模块名 ↔ 测试文件名」
-# 推断（`media.py` → `test_media.py` → media）。Markdown 归 checks。
-#
-# 一个文件可以落到多个域：读它的测试登记在哪个域，改它就得跑到哪个域。
-# `tests/test_test_planning.py` 按测试源码里真实读到的路径反查这两张表，漏一条本地就红。
-AUTO_SCOPE_FILES: dict[str, tuple[str, ...]] = {
-    "scripts/run_gitlab_runner.py": ("tooling",),
-    "scripts/render_star_history.py": ("tooling",),
-    "frontend/e2e/jav-userscript-contract.ts": ("catalog", "web"),
-    "web/integrations/peach-jav.user.js": ("catalog", "web"),
-    "scripts/build_macos_media.py": ("tooling", "packaging"),
-    "scripts/setup_macos_media_tools.py": ("tooling", "packaging"),
-    "scripts/smoke_macos_media.py": ("tooling", "packaging"),
-    "scripts/fetch_cloudflared_macos.py": ("tooling", "packaging"),
-    "scripts/fetch_face_models.py": ("tooling", "packaging"),
-    "scripts/cloudflared-macos.json": ("tooling", "packaging"),
-    "scripts/fetch_sparkle_macos.py": ("tooling", "packaging"),
-    "scripts/sparkle-macos.json": ("tooling", "packaging"),
-    "scripts/sparkle_appcast.py": ("tooling", "packaging"),
-    # 发布签名脚本的用例与客户端校验放在同一份 `test_release_signing.py` 里。
-    "scripts/sign_release.py": ("tooling",),
-    "scripts/fetch_ffmpeg_sources.py": ("tooling", "packaging"),
-    "scripts/ffmpeg-sources.json": ("tooling", "packaging"),
-    "scripts/build_ffmpeg_windows.sh": ("tooling", "packaging"),
-    "scripts/fetch_untrunc_sources.py": ("tooling", "packaging"),
-    "scripts/untrunc-sources.json": ("tooling", "packaging"),
-    "scripts/build_untrunc_windows.sh": ("tooling", "packaging"),
-    "scripts/media_tool_bundle.py": ("tooling", "packaging"),
-    "src/peach/seed_corrections.py": ("metadata", "tooling"),
-    "src/peach/seed_validation.py": ("metadata", "tooling"),
-    "src/peach/preview_cache.py": ("follow", "catalog", "media", "web"),
-    "src/peach/preview_transport.py": ("catalog", "media", "web"),
-    "src/peach/dev_copy.py": ("web",),
-    "scripts/dev/copy-editor.js": ("web",),
-    # 路由页面同时被目录、工具与前端三个域的测试读源码。
-    "src/peach/routes_pages.py": ("catalog", "tooling", "web"),
-    # 托盘既是 sync 域的服务编排，也被版本与桌面设置那些 tooling 测试读源码。
-    "src/peach/tray.py": ("sync", "tooling"),
-    "src/peach/menubar.py": ("sync", "tooling"),
-    # Sparkle 更新器由菜单栏持有，打包与发布门槛的测试也直接导入它。
-    "src/peach/sparkle_update.py": ("sync", "tooling", "packaging"),
-    # 托盘子服务与隧道的 cloudflared 共用这份 Job Object；两边的测试都要跑到。
-    "src/peach/process_job.py": ("tooling", "sync"),
-    'src/peach/task_control.py': ('catalog', 'media', 'metadata', 'follow', 'sync', 'tooling', 'web'),
-    'tests/test_task_control.py': ('media', 'tooling'),
-    'tests/test_task_resources.py': ('media', 'tooling'),
-    'tests/test_resource_platform.py': ('media', 'tooling'),
-    'src/peach/resource_platform.py': ('media', 'tooling', 'web'),
-    'src/peach/gpu_linux.py': ('media', 'tooling', 'web'),
-    'src/peach/task_resources.py': ('catalog', 'media', 'metadata', 'follow', 'sync', 'tooling', 'web'),
-    'src/peach/gpu_usage.py': ('media', 'tooling', 'web'),
-    # 托盘重启的实现由 `test_restart_windows_tray.py` 验，模块名推不出来。
-    "src/peach/windows_restart.py": ("tooling",),
-    # 托盘「重启服务」按路径拉起这个脚本（`--source --force`），托盘测试也要跑到。
-    "scripts/restart_windows_tray.py": ("tooling", "sync"),
-    "src/peach/jav_poster_crop.py": ("metadata", "web"),
-    # genre 词表按名字只推得出 metadata。复核队列与 API 那两处的用例拿「词表没收的词」
-    # 当素材：词表一收那个词，`test_web_review.py`（catalog）与 `test_fastapi_api.py`
-    # （web）就红，而改词表的人跑不到那两个域——2026-09-21 就是这样把 master 跑红的。
-    "src/peach/genre_taxonomy.py": ("metadata", "catalog", "web"),
-    # 标签词表是 genre 投影的落点，复核页与目录页也按它筛选。
-    "src/peach/catalog_rules.py": ("metadata", "catalog", "web"),
-    # 内容数据模块与带 code 的原句（ADR-0159）：没有自己的测试文件，域取直接用它们的那些模块。
-    # 账本取值、文件名原词与 `Said` 散在扫描、采集、关注、下载与页面各处，几乎每个域都有读者。
-    "src/peach/catalog_vocabulary.py": ("follow", "catalog", "media", "sync", "metadata", "tooling", "web", "core"),
-    "src/peach/content_words.py": ("follow", "catalog", "media", "sync", "metadata", "tooling", "web", "core"),
-    "src/peach/coded_text.py": ("follow", "catalog", "media", "metadata", "tooling", "web", "core"),
-    "src/peach/junk_words.py": ("follow", "catalog", "media", "metadata", "tooling", "web", "core"),
-    "src/peach/source_page_words.py": ("metadata",),
-    "src/peach/studio_words.py": ("catalog", "metadata", "web"),
-    "src/peach/taste_words.py": ("catalog", "tooling"),
-    # 来源顺序一变，`test_scripts.py` 里钉住的 field_rank 就跟着挪，而那份用例
-    # 住在 tooling——按名字只推得出 metadata，不指明就跑不到。
-    "src/peach/metadata_policy.py": ("metadata", "tooling"),
-    # 处理任务的主体测试是 `test_metadata_library.py`，它登记在 metadata 与 web 两个域；
-    # `test_stale_candidates.py` 在 metadata，`test_web_e2e.py` 在 web 里整条跑它。
-    # 模块名与测试文件名对不上，按名字推不出来，不指明就退化成 full。
-    "src/peach/library_processing.py": ("metadata", "web"),
-    "src/peach/library_processing_scope.py": ("metadata", "web"),
-    "src/peach/local_poster.py": ("metadata", "web"),
-    "src/peach/media_io.py": ("metadata", "media", "tooling"),
-    "src/peach/processing_control.py": ("media", "metadata", "web"),
-    # 刮削后继：主体测试 `test_followups.py` 与 `test_studio_followup.py`，按名字推不出来。
-    "src/peach/avatar_followup.py": ("catalog", "media", "tooling"),
-    "src/peach/avatar_offsite_cover_face.py": ("catalog", "media", "tooling"),
-    "src/peach/studio_followup.py": ("catalog", "metadata"),
-    "src/peach/creator_identity_followup.py": ("catalog", "metadata"),
-    # 补样张后继的主体测试是 `test_sample_images.py`，出图路由与番号集在 `test_fastapi_api.py`。
-    "src/peach/sample_followup.py": ("catalog", "metadata", "media"),
-    "src/peach/sample_images.py": ("catalog", "metadata", "media"),
-    # 厂牌判据由命令行与后继共用，两边的测试分住 catalog、metadata 与 web。
-    "src/peach/studio_icons.py": ("catalog", "metadata", "web"),
-    "src/peach/studio_sites.py": ("catalog", "metadata"),
-    "src/peach/company_profiles.py": ("catalog", "metadata", "web"),
-    "src/peach/fc2_sellers.py": ("catalog", "metadata", "web"),
-    "scripts/import_fc2_sellers.py": ("catalog", "metadata", "tooling"),
-    "scripts/harvest_company_profiles.py": ("catalog", "metadata", "web", "tooling"),
-    # 失效标记由资料页、网页链接体检、维护脚本与种子导出共用。
-    "src/peach/link_status.py": ("catalog", "metadata", "tooling", "web"),
-    "scripts/revert_auto_landing.py": ("catalog", "metadata", "tooling"),
-    # 撤回的实现与复核页入口（ADR-0141）：脚本用例散在 catalog、metadata、tooling，网页用例在
-    # `test_metadata_verification.py`，路由登记在 `test_rm_web.py`。
-    "src/peach/auto_landing_revert.py": ("catalog", "metadata", "tooling"),
-    "src/peach/web_auto_landings.py": ("catalog", "metadata", "web"),
-    # 实体事实种子包（ADR-0073）：导出导入的逻辑与命令行，测试都在 `test_seed_pack.py`；
-    # 扫描结算后自动导入的后继（ADR-0075）在 `test_seed_followup.py`。
-    "src/peach/seed_pack.py": ("metadata", "tooling"),
-    "scripts/seed_pack.py": ("metadata", "tooling"),
-    "src/peach/seed_followup.py": ("metadata", "tooling"),
-    # 推广附件命名词库：垃圾复核队列（`test_ad_judgement.py`）与回收站脚本（`test_trash_junk.py`）都读它。
-    "resources/junk/promo_attachment_names.json": ("catalog", "tooling"),
-    # 补女优资料后继的解析与读写层、一次补完的脚本，测试都在 `test_performer_profile_followup.py`。
-    "scripts/run_performer_profiles.py": ("metadata",),
-    "src/peach/avwikidb.py": ("metadata",),
-    "src/peach/performer_profiles.py": ("metadata",),
-    # 女优页头的视图：主体测试在 `test_performer_header.py`（metadata），资料接口与骨架
-    # 形状的用例在 catalog 与 web 两个域里经 `q_entity` 读它。
-    "src/peach/performer_header.py": ("metadata", "catalog", "web"),
-    # 推送发现横跨扫描登记（tooling）与 HTTP 端点（catalog），按名字只推得出一个域。
-    "src/peach/push_discovery.py": ("tooling", "catalog"),
-    # 入库通知由推送发现、云下载整理与任务接口共用，测试分在 catalog 与 tooling，按名字推不出来。
-    "src/peach/ingest_notices.py": ("catalog", "tooling"),
-    # 个人记录的判据与搬运（ADR-0087）：资源同步与列表在 catalog，扫描登记与撤回脚本在 tooling。
-    "src/peach/personal_records.py": ("catalog", "tooling"),
-    "src/peach/record_rehome.py": ("catalog", "tooling"),
-    "src/peach/web_orphan_records.py": ("catalog", "web"),
-    "src/peach/web_library_shortcuts.py": ("catalog", "web"),
-    "src/peach/web_tutorial.py": ("catalog", "web"),
-    # 入口页共用件的测试住在首启与配置来源那两份 tooling 测试里。
-    "src/peach/web_entry.py": ("catalog", "tooling", "web"),
-    # 这几份文档有测试在读它们的正文：改文档也要跑到那条测试。
-    # 差异表是 token 判据的另一半：偏离上游的每一条都要在那张表里写明原因，所以
-    # `test_frontend_build.py` 读它——改表就得跑到 web。
-    "frontend/src/react/boardui/ORIGIN.md": ("checks", "web"),
-    ".github/dependabot.yml": ("tooling", "web"),
-    "Dockerfile": ("packaging", "tooling"),
-    ".dockerignore": ("packaging", "tooling"),
-    "compose.yaml": ("packaging", "tooling"),
-    "src/peach/server.py": ("packaging", "tooling"),
-    # 一键更新的用例和镜像仓库核对一起放在 `test_release_updates.py`。
-    "src/peach/docker_update.py": ("tooling",),
-    "scripts/smoke_docker.py": ("packaging", "tooling"),
-    # GitLab 流水线：构建、发布与 CI 验证的编排，本机测试不执行它；`test_version_bump.py`
-    # 读它判补丁版本。主线 CI 改它时由 `ci_scope` 让三个平台跑全量。
-    ".gitlab-ci.yml": ("packaging", "tooling"),
-    # 源码分发包的文件清单，由打包测试与发布脚本使用。
-    "MANIFEST.in": ("packaging", "tooling"),
-    # 浏览器文件的实测秒数：CI 浏览器矩阵（tooling）与本机浏览器冒烟的排队顺序（web）共用。
-    "scripts/ci-browser-timings.json": ("tooling", "web"),
-}
-
-# 脚本默认归 tooling；有自己领域测试的脚本两边都跑：领域测试验它的判据，
-# tooling 里的脚本策略门槛验它的形态。
-AUTO_SCOPE_PREFIXES: tuple[tuple[str, str | tuple[str, ...]], ...] = (
-    ("src/peach/media.py", "media"),
-    ("src/peach/hardware_transcode.py", "media"),
-    # 关键帧与 ctts 都从 moov 读，测试住在 `test_segments.py` 里。
-    ("src/peach/mp4index.py", "media"),
-    ("src/peach/mp4repair.py", "media"),
-    ("src/peach/mp4recover.py", "media"),
-    # 批量修复是播放链路的任务，但住在 web 层，两个域都要跑到。
-    ("src/peach/web_media_repair.py", ("media", "web")),
-    ("src/peach/desktop_startup.py", "tooling"),
-    ("src/peach/desktop_uninstall.py", "tooling"),
-    ("src/peach/peach_proxy.py", "tooling"),
-    ("src/peach/gfriends.py", "metadata"),
-    # 站点解析器契约与套了契约的站（ADR-0044）：测试住在 `test_metadata_sources.py` 与
-    # `test_community_catalog.py`，都在 metadata 域；按包内模块名推不出来。
-    ("src/peach/sources/", "metadata"),
-    # 来源录制回放：录制由 `test_metadata_replay.py` 回放，录制脚本也由它装载；重录不必全量。
-    ("tests/fixtures/source-replay/", "metadata"),
-    ("scripts/record_source_fixtures.py", ("metadata", "tooling")),
-    ("scripts/localize_performer_names.py", ("metadata", "tooling")),
-    ("scripts/localize_series_names.py", ("metadata", "tooling")),
-    ("scripts/localize_studio_names.py", ("metadata", "tooling")),
-    ("scripts/apply_studio_name_localization.py", ("metadata", "tooling")),
-    ("scripts/match_babepedia_creators.py", ("metadata", "tooling")),
-    # 旧版中文取值的对照表，读它的多是元数据脚本（babepedia、javdb 名字、厂牌名本地化）。
-    ("scripts/legacy_values.py", ("metadata", "tooling")),
-    ("scripts/audit_code_creators.py", ("metadata", "tooling")),
-    ("scripts/rename_retired_tags.py", ("metadata", "tooling")),
-    ("scripts/reproject_snapshot_tags.py", ("metadata", "tooling")),
-    ("scripts/drop_stale_genre_candidates.py", ("metadata", "tooling")),
-    ("scripts/audit_fc2_similarity.py", ("metadata", "tooling")),
-    ("scripts/poster_crop_boxes.py", ("metadata", "tooling")),
-    ("scripts/rediscover_entity_links.py", ("metadata", "tooling")),
-    ("scripts/repair_entity_links.py", ("metadata", "tooling")),
-    ("scripts/fetch_studio_avatar_candidates.py", ("metadata", "tooling")),
-    ("scripts/scrape_codes.py", ("metadata", "tooling")),
-    ("scripts/repair_r18_machine_translations.py", ("metadata", "tooling")),
-    ("scripts/merge_studio_name_variants.py", ("metadata", "tooling")),
-    ("scripts/harvest_", ("metadata", "tooling")),
-    # amane 桥（ADR-0043）：脚本由 metadata 域的单测装载，清单与锁由 checks 域的依赖策略核。
-    ("tools/amane-bridge/", ("metadata", "packaging", "checks")),
-    ("scripts/sync_brand_marks.py", ("catalog", "tooling")),
-    ("scripts/detect_cover_faces.py", ("web", "tooling")),
-    ("scripts/demo_dataset.py", ("web", "tooling")),
-    ("scripts/vendor_web_dependencies.ts", ("web", "tooling")),
-    ("scripts/audit_video_endcards.py", ("media", "tooling")),
-    ("scripts/setup_macos_port80.sh", ("sync", "tooling")),
-    # 订阅源的解析与建壳验在 `test_feeds*.py`，两份都登记在 catalog：壳的边界是
-    # 「它不是 asset」，看得住这条的是目录域那批测试。
-    ("src/peach/feeds.py", "catalog"),
-    ("src/peach/feed_followup.py", "catalog"),
-    # 云下载的任务模型、两个客户端与生成的 protobuf 代码，测试都是 `test_downloads*.py`。
-    ("src/peach/downloads", "catalog"),
-    ("src/peach/follow", "follow"),
-    ("src/peach/fanbox.py", "follow"),
-    ("src/peach/web_follow.py", "follow"),
-    ("src/peach/sync", "sync"),
-    ("src/peach/platform.py", "sync"),
-    ("src/peach/mount.py", "sync"),
-    ("src/peach/mdns.py", "sync"),
-    ("src/peach/netwatch.py", "sync"),
-    ("src/peach/certs.py", "sync"),
-    # 产地的判据住在 `regions.py`，验它的测试叫 `test_content_region.py`：
-    # 模块名与测试文件名对不上，按名字推不出来，只能在这里指明。
-    ("src/peach/regions.py", "catalog"),
-    ("src/peach/web_", "catalog"),
-    ("src/peach/routes_", "catalog"),
-    # 随应用分发的资源由加载它们的模块与打包脚本使用，按加载者登记。
-    # 命名词表由 `classification.py` 读，那份判据的测试在目录与元数据两个域。
-    ("resources/naming/", ("catalog", "metadata")),
-    ("resources/media-sources.json", ("media", "web")),
-    ("resources/seed/", ("metadata", "tooling")),
-    ("resources/junk/", ("catalog", "tooling")),
-    ("resources/marks/", ("catalog", "web")),
-    ("resources/site-marks/", ("catalog", "web")),
-    ("resources/licenses/", ("packaging", "tooling")),
-    # 应用图标：页面站标（web）、托盘与菜单栏（sync）、安装包与 DMG（packaging），
-    # `test_scripts.py` 读 `peach-logo.png`（tooling）。
-    ("resources/setup/", ("web", "packaging")),
-    # 语言资源：前端（web）直接导入；后端渲染与资源对照测试在 tooling（ADR-0159）。
-    ("resources/locales/", ("web", "tooling")),
-    ("resources/", ("sync", "tooling", "web", "packaging")),
-    ("web/", "web"),
-    ("frontend/", "web"),
-    ("scripts/", "tooling"),
-    ("pyproject.toml", "tooling"),
-    (".github/", "tooling"),
-    ("docs/", "tooling"),
-    (".claude/", "tooling"),
-)
 
 # AGENTS.md 规定必须跑 `full` 的面：迁移、共享测试设施、依赖清单。命中任一个就不再选域。
 FULL_ONLY_PREFIXES: tuple[str, ...] = (
@@ -444,7 +76,7 @@ FULL_ONLY_PREFIXES: tuple[str, ...] = (
     "scripts/ci_plan.py", "scripts/test_environment.py", "scripts/change_impact.py", "scripts/test_focus.py",
     "scripts/test_history.py", "uv.lock",
     "scripts/test_resume.py", "scripts/test_run_progress.py", "scripts/test_environment_identity.py",
-    "scripts/test_shard_results.py", "scripts/test_inputs.py",
+    "scripts/test_shard_results.py", "scripts/test_inputs.py", "scripts/test_slots.py",
     "migrations/",
     "tests/support/",
     "package.json",
@@ -455,7 +87,10 @@ FULL_ONLY_PREFIXES: tuple[str, ...] = (
 
 
 def selected_files(scope: str, *, root: Path | None = None) -> tuple[Path, ...]:
+    """一个域选中的测试文件。`auto` 也会按文件补选：这时 `scope` 就是测试文件名本身。"""
     tests = TESTS if root is None else root / "tests"
+    if scope.endswith(".py"):
+        return (tests / scope,) if (tests / scope).is_file() else ()
     if scope == "full":
         return tuple(sorted(tests.glob("test_*.py")))
     found: set[Path] = set()
@@ -486,12 +121,35 @@ def scopes_of_module(stem: str) -> tuple[str, ...]:
 
 
 def _imported_modules(path: Path, *, root: Path | None = None) -> frozenset[str]:
-    """一个 Python 文件导入了 `peach` 下哪些顶层模块（含函数里的延迟导入）。"""
+    """一个 Python 文件导入了 `peach` 下哪些顶层模块（含函数里的延迟导入），以及 `scripts` 下的
+    哪些模块（记作 `scripts.<名字>`）。"""
     try:
         tree = ast.parse(path.read_text(encoding="utf-8"))
     except (OSError, SyntaxError, UnicodeError, ValueError):
         return frozenset()
-    source = (ROOT if root is None else root) / "src" / "peach"
+    root = ROOT if root is None else root
+    return _imported_peach(tree, path, root) | _imported_scripts(tree, path.parent == root / "scripts")
+
+
+def _imported_scripts(tree: ast.AST, inside: bool) -> frozenset[str]:
+    """`import scripts.x`、`from scripts import x`、`from scripts.x import y`；脚本目录里另认 `from . import x`。"""
+    found: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            found.update(alias.name.split(".")[1] for alias in node.names if alias.name.startswith("scripts."))
+            continue
+        if not isinstance(node, ast.ImportFrom):
+            continue
+        module = node.module or ""
+        if node.level == 1 and inside or node.level == 0 and module == "scripts":
+            found.update([module.split(".")[0]] if module and node.level else (alias.name for alias in node.names))
+        elif node.level == 0 and module.startswith("scripts."):
+            found.add(module.split(".")[1])
+    return frozenset("scripts." + name for name in found)
+
+
+def _imported_peach(tree: ast.AST, path: Path, root: Path) -> frozenset[str]:
+    source = root / "src" / "peach"
     depth = len(path.relative_to(source).parts) if path.is_relative_to(source) else None
     found: set[str] = set()
     for node in ast.walk(tree):
@@ -520,6 +178,111 @@ def _import_index(root: Path = ROOT) -> tuple[dict[str, frozenset[str]], dict[st
     support = frozenset(name for path in (root / "tests/support").glob("*.py")
                         for name in _imported_modules(path, root=root))
     return tests, sources, support
+
+
+@lru_cache(maxsize=None)
+def script_consumers(root: Path = ROOT) -> dict[str, frozenset[str]]:
+    """`scripts/<stem>.py` → 导入它的测试文件，沿 `scripts/` 内部的导入链传递。
+
+    与 `src/peach` 不同，脚本之间的导入链有界（单个脚本最多牵到十来个测试文件），传递下去才不会
+    漏掉经 `agent_worktree` 用到 `co_author` 这类间接消费者。不穿过 `peach` 包。"""
+    scripts = {path.stem: {name.removeprefix("scripts.") for name in _imported_modules(path, root=root)
+                           if name.startswith("scripts.")} for path in (root / "scripts").glob("*.py")}
+    tests, _, _ = _import_index(root)
+    found: dict[str, set[str]] = {}
+    for name, modules in tests.items():
+        todo = [module.removeprefix("scripts.") for module in modules if module.startswith("scripts.")]
+        seen: set[str] = set()
+        while todo:
+            stem = todo.pop()
+            if stem in scripts and stem not in seen:
+                seen.add(stem)
+                todo.extend(scripts[stem])
+        for stem in seen:
+            found.setdefault(stem, set()).add(name)
+    return {stem: frozenset(names) for stem, names in found.items()}
+
+
+_LOCALE_FILE = re.compile(r"resources/locales/[^/]+/(?:server|cli)\.json")
+_PLACEHOLDER = re.compile(r"\{\{[^}]*\}\}")
+
+
+def locale_file(path: str) -> bool:
+    """后端语言资源：经 `interface_text` 渲染给 API、托盘与命令行的文字。"""
+    return bool(_LOCALE_FILE.fullmatch(path))
+
+
+def _flat_texts(source: str | None) -> dict[str, str]:
+    try:
+        data = json.loads(source) if source else {}
+    except ValueError:
+        return {}
+    found, todo = {}, [("", data)]
+    while todo:
+        prefix, node = todo.pop()
+        if isinstance(node, dict):
+            todo.extend((f"{prefix}{key}.", value) for key, value in node.items())
+        elif isinstance(node, str):
+            found[prefix[:-1]] = node
+    return found
+
+
+@lru_cache(maxsize=None)
+def _test_literals(root: Path) -> dict[str, tuple[str, ...]]:
+    """各测试文件源码里的字符串字面量：条目键与断言里的原文都写在这里。"""
+    found = {}
+    for path in (root / "tests").glob("test_*.py"):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except (OSError, SyntaxError, UnicodeError, ValueError):
+            found[path.name] = (path.read_text(encoding="utf-8", errors="replace"),)
+            continue
+        found[path.name] = tuple(node.value for node in ast.walk(tree)
+                                 if isinstance(node, ast.Constant) and isinstance(node.value, str))
+    return found
+
+
+def _mentions(literals: tuple[str, ...], index: dict[str, list[str]]) -> bool:
+    """字面量里是否出现任一要找的片段；按片段前 6 个字符建索引，逐位查表再核对整段。"""
+    for literal in literals:
+        for start in range(len(literal) - 5):
+            for needle in index.get(literal[start:start + 6], ()):
+                if literal.startswith(needle, start):
+                    return True
+    return False
+
+
+@lru_cache(maxsize=64)
+def locale_readers(root: Path, before: str | None, after: str | None) -> frozenset[str]:
+    """改动的语言条目的读者：源码里写了条目键，或在断言里写了旧原文片段的测试文件。
+
+    没有前后内容时按整份文件的全部条目算，宁多勿漏。"""
+    old, new = _flat_texts(before), _flat_texts(after)
+    keys = {key for key in old.keys() | new.keys() if old.get(key) != new.get(key)} if before and after         else set(old) | set(new)
+    needles = {key for key in keys if len(key) >= 6}
+    short = {key for key in keys if len(key) < 6}
+    for key in keys:
+        needles.update(piece.strip() for piece in _PLACEHOLDER.split(old.get(key) or new.get(key) or "")
+                       if len(piece.strip()) >= 6)
+    index: dict[str, list[str]] = {}
+    for needle in needles:
+        index.setdefault(needle[:6], []).append(needle)
+    return frozenset(name for name, literals in _test_literals(root).items()
+                     if _mentions(literals, index) or any(key in literal for key in short for literal in literals))
+
+
+def file_consumers(path: str, kind: str, contents: dict | None, root: Path) -> frozenset[str]:
+    """按文件补选的测试：导入改动脚本的测试，以及读改动语言条目的测试。"""
+    if kind in {"unsafe", "prose"}:
+        return frozenset()
+    if path.startswith("scripts/") and path.endswith(".py") and "/" not in path.removeprefix("scripts/"):
+        return script_consumers(root).get(path.removeprefix("scripts/").removesuffix(".py"), frozenset())
+    if locale_file(path):
+        before, after = (contents or {}).get(path, (None, None))
+        if before is None and after is None and (root / path).is_file():
+            after = (root / path).read_text(encoding="utf-8")
+        return locale_readers(root, before, after)
+    return frozenset()
 
 
 def scopes_of_importers(stem: str, seen: frozenset[str] = frozenset(), *,
@@ -561,7 +324,8 @@ def dependency_inputs(source: str) -> dict:
 def changed_contents(root: Path, base: str, paths: Iterable[str]) -> dict:
     result = {}
     for path in paths:
-        if not (path.endswith(".py") or path in {*change_impact.PACKAGE_FILES, "pyproject.toml"}):
+        if not (path.endswith(".py") or path in {*change_impact.PACKAGE_FILES, "pyproject.toml", change_impact.REGISTRY}
+                or locale_file(path)):
             continue
         try:
             raw = "\n".join((
@@ -582,12 +346,13 @@ def changed_contents(root: Path, base: str, paths: Iterable[str]) -> dict:
 
 def special_scopes(path: str, kind: str) -> tuple[str, ...] | None:
     """内容类型、共享设施和工作流职责的优先边界。"""
-    if path == 'scripts/test_runner.py' and kind.startswith('registration:'):
-        added = kind.removeprefix('registration:').split(',')
-        if all(scope in SCOPES for scope in added):
-            # tooling 保留登记完整性与证据协议回归，checks 保留选测计划和公共门槛。
-            return tuple(scope for scope in SCOPES if scope in {'checks', 'tooling', *added})
-        return ('full',)
+    if path == change_impact.REGISTRY:
+        if kind.startswith("registration:"):
+            added = [scope for scope in kind.removeprefix("registration:").split(",") if scope]
+            if all(scope in SCOPES for scope in added):
+                # checks 里的选测计划与登记完整性门槛核对新增登记。
+                return tuple(scope for scope in SCOPES if scope in {"checks", *added})
+        return ("checks",) if kind == "prose" else ("full",)
     if kind == "unsafe":
         return ("full",)
     if kind == "prose":
@@ -604,11 +369,7 @@ def special_scopes(path: str, kind: str) -> tuple[str, ...] | None:
             or path in {".github/workflows/release.yml", ".github/workflows/upgrade-smoke.yml"}:
         return ("packaging", "tooling")
     if path.startswith(".github/workflows/"):
-        return ("tooling",) if path in {
-            ".github/workflows/project-board.yml", ".github/workflows/docker.yml",
-            ".github/workflows/star-history.yml", ".github/workflows/issue-intake.yml",
-            ".github/workflows/gitgud-mirror.yml",
-        } else ("full",)
+        return ("tooling",) if path in TOOLING_WORKFLOWS else ("full",)
     if path.rsplit("/", 1)[-1] == "conftest.py" or any(path.startswith(p) for p in FULL_ONLY_PREFIXES):
         return ("full",)
     return None
@@ -661,15 +422,22 @@ def scopes_for_changes(paths: Iterable[str], *, contents: dict | None = None,
         elif "full" in scopes:
             full_reasons.append(t("test_runner.fullSurface", path=path))
         else:
-            for scope in scopes:
+            for scope in (*scopes, *sorted(file_consumers(path, kind, contents, root))):
                 picked.setdefault(scope, []).append(path)
     if full_reasons:
         return ("full",), "Peach auto scope: full <- " + "; ".join(full_reasons)
     if not picked:
         return ("checks",), "Peach auto scope: checks <- " + t("test_runner.noChanges")
-    ordered = tuple(scope for scope in SCOPES if scope in picked)
+    ordered = ordered_scopes(picked, root)
     detail = "; ".join(f"{scope}: {', '.join(picked[scope])}" for scope in ordered)
     return ordered, f"Peach auto scope: {', '.join(ordered)} <- {detail}"
+
+
+def ordered_scopes(picked, root: Path) -> tuple[str, ...]:
+    """域按登记顺序在前，按文件补选的测试名排在后面；已被选中的域覆盖的测试名不再单列。"""
+    domains = tuple(scope for scope in SCOPES if scope in picked)
+    covered = {path.name for scope in domains for path in selected_files(scope, root=root)}
+    return domains + tuple(sorted(scope for scope in picked if scope.endswith(".py") and scope not in covered))
 
 
 def changed_files(root: Path = ROOT, base: str = "master") -> list[str]:
@@ -694,19 +462,6 @@ def resolve_auto_scope() -> tuple[tuple[str, ...], str]:
     except (OSError, subprocess.CalledProcessError) as error:
         return ("full",), "Peach auto scope: full <- " + t("test_runner.gitUnavailable", error=error)
     return scopes_for_changes(paths, contents=changed_contents(ROOT, "master", paths))
-
-
-CI_FRONTEND_TESTS = frozenset({
-    "test_frontend_preflight.FrontendPreflightTests.test_the_frontend_sources_typecheck",
-    "test_frontend_preflight.FrontendPreflightTests.test_frontend_sources_and_tests_pass_lint",
-    "test_frontend_build.VitestTests.test_the_island_suite_passes",
-    "test_frontend_build.BundleFreshnessTests.test_the_committed_bundle_is_what_the_current_sources_build",
-})
-
-CI_BROWSER_TESTS = frozenset({
-    "test_web_e2e.WebE2ESmokeTests.test_every_route_holds_the_layout_and_runtime_invariants",
-    "test_web_e2e.SetupE2ETests.test_the_first_run_page_writes_errors_back_and_finishes",
-})
 
 
 def ci_frontend_delegated() -> bool:
@@ -924,6 +679,26 @@ def shard_command(scopes: tuple[str, ...], index: int, count: int, timings: Path
 PRIOR_SECONDS = {"test_web_e2e.py": 900.0}
 
 
+def file_weights(names: Iterable[str], seconds: dict[str, float],
+                 prior_seconds: dict[str, float] | None = None) -> dict[str, float]:
+    """各测试文件的预计秒数：取本机实测，没测过的取已测文件的中位数，再不低于先验值。"""
+    known = sorted(value for value in seconds.values() if value > 0)
+    default = known[len(known) // 2] if known else 1.0
+    priors = PRIOR_SECONDS if prior_seconds is None else prior_seconds
+    return {name: max(seconds.get(name.removesuffix(".py"), default), priors.get(name, 0.0)) for name in names}
+
+
+#: 待跑文件的预计串行耗时达到全量的这个比例，就和全量一样占满整机名额（ADR-0172）。
+#: 只看标签不够：`auto` 选中多个域时跑的文件数接近全量，负载也一样。
+FULL_LOAD_SHARE = 0.6
+
+
+def takes_every_slot(names: Iterable[str]) -> bool:
+    seconds = load_file_seconds()
+    total = sum(file_weights([path.name for path in selected_files("full")], seconds).values())
+    return total > 0 and sum(file_weights(names, seconds).values()) >= FULL_LOAD_SHARE * total
+
+
 def shard_plan(names: Iterable[str], shard_count: int,
                seconds: dict[str, float], *, prior_seconds: dict[str, float] | None = None) -> list[list[str]]:
     """按预计秒数把测试文件装进分片：先长后短，每个文件放进当前最空的一片。
@@ -933,11 +708,7 @@ def shard_plan(names: Iterable[str], shard_count: int,
     没测过的文件取已测文件的中位数；表是空的时所有文件等重，相当于按个数均分。
     """
     names = sorted(names)
-    known = sorted(value for value in seconds.values() if value > 0)
-    default = known[len(known) // 2] if known else 1.0
-    priors = PRIOR_SECONDS if prior_seconds is None else prior_seconds
-    weight = {name: max(seconds.get(name.removesuffix(".py"), default), priors.get(name, 0.0))
-              for name in names}
+    weight = file_weights(names, seconds, prior_seconds)
     groups: list[list[str]] = [[] for _ in range(max(1, min(shard_count, len(names))))]
     totals = [0.0] * len(groups)
     for name in sorted(names, key=lambda item: (-weight[item], item)):
@@ -946,14 +717,6 @@ def shard_plan(names: Iterable[str], shard_count: int,
         totals[slot] += weight[name]
     order = sorted(range(len(groups)), key=lambda index: (-totals[index], index))
     return [sorted(groups[index]) for index in order]
-
-
-
-
-
-
-
-
 
 
 def run_shards(scopes: tuple[str, ...], *, jobs: int, shard_count: int,
@@ -1151,7 +914,11 @@ def rerun_failures(rows: list[dict], spawn=subprocess.run) -> bool:
     print(t("test_runner.rerunning", count=len(selectors), tests=', '.join(selectors)), flush=True)
     command = [sys.executable, str(ROOT / "scripts" / "test_runner.py"),
                *(item for selector in selectors for item in ("--focus", selector))]
-    if spawn(command, cwd=str(ROOT), check=False).returncode != 0:
+    # 重跑要在低负载下进行：本次运行已持有名额时就在它的名额里跑（分片此时都已结束），
+    # 没有名额的定向调试先排 1 个，不和别的会话的重负载同时跑。
+    with machine_slots("rerun", full=False):
+        returncode = spawn(command, cwd=str(ROOT), check=False).returncode
+    if returncode != 0:
         print(t("test_runner.rerunStillFailed"), flush=True)
         return False
     FLAKY[:] = selectors
@@ -1295,11 +1062,17 @@ def run_shard_child(args, requested, scopes, files) -> int:
     return 0 if success else 1
 
 
+def scope_name(value: str) -> str:
+    """`--scope` 的取值：`full`、`auto`、登记的域，或 `auto` 按文件补选的测试文件名。"""
+    if value in ("full", "auto", *SCOPES) or change_impact.EXACT_TEST.fullmatch(value) and (TESTS / value).is_file():
+        return value
+    raise argparse.ArgumentTypeError(t("test_runner.unknownScope", scope=value))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     # `--scope` 可重复：本机并行的父进程把 `auto` 算出来的几个域原样交给每个分片子进程。
-    parser.add_argument("--scope", action="append", dest="scopes",
-                        choices=("full", "auto", *SCOPES))
+    parser.add_argument("--scope", action="append", dest="scopes", type=scope_name)
     reuse = parser.add_mutually_exclusive_group()
     reuse.add_argument("--fresh", action="store_true", help=t("test_runner.helpFresh"))
     reuse.add_argument("--resume", action="store_true", help=t("test_runner.helpResume"))
@@ -1307,7 +1080,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--rerun-failures", action="store_true",
                         help=t("test_runner.helpRerunFailures"))
     parser.add_argument("--full-lock-held", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("--lock-timeout", type=float, default=1800,
+    parser.add_argument("--lock-timeout", type=float, default=math.inf,
                         help=t("test_runner.helpLockTimeout"))
     parser.add_argument("--base", default="master", help=t("test_runner.helpBase"))
     parser.add_argument("--shard-index", type=int, default=0)
@@ -1321,7 +1094,7 @@ def main(argv: list[str] | None = None) -> int:
                         help=t("test_runner.helpJobs"))
     parser.add_argument("--list-scopes", action="store_true")
     args = parser.parse_args(argv)
-    if not 0 <= args.lock_timeout <= 1800:
+    if not args.lock_timeout >= 0:
         parser.error(t("test_runner.lockTimeoutRange"))
     if args.shard_count < 1 or not 0 <= args.shard_index < args.shard_count:
         parser.error(t("test_runner.shardRange"))
@@ -1332,6 +1105,10 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(t("test_runner.resumePlanParentOnly"))
     if args.rerun_failures and not args.focus:
         parser.error(t("test_runner.rerunFailuresFocusOnly"))
+    try:
+        test_slots.slot_count()
+    except ValueError as error:
+        parser.error(str(error))
     if args.focus:
         return run_focus(parser, args)
     if os.environ.get("PEACH_TEST_FOCUS") or os.environ.get("PEACH_E2E_FILES") or os.environ.get("PEACH_VITEST_FILES"):
@@ -1362,6 +1139,9 @@ def main(argv: list[str] | None = None) -> int:
             return verified_run(args, requested, scopes, files)
     except test_evidence.Timeout as error:
         return busy(error)
+    except test_slots.SlotTimeout as error:
+        print(error, flush=True)
+        return 2
 
 
 def full_suite_guard(parser, args, scopes):
@@ -1399,11 +1179,27 @@ def _is_ancestor(pid: object) -> bool:
 
 
 def run_focus(parser, args) -> int:
-    """定向调试不签发记录，不取得机器级资源锁。"""
+    """定向调试不签发记录；含浏览器用例或点了较多文件时占 1 个整机名额。"""
     if args.shard_count != 1:
         parser.error(t("test_runner.focusWithShards"))
     from . import test_focus
-    return test_focus.run(sys.modules[__name__], args)
+    guard = machine_slots("focus", full=False) if test_slots.focus_needs_slot(args.focus) else nullcontext()
+    try:
+        with guard:
+            return test_focus.run(sys.modules[__name__], args)
+    except test_slots.SlotTimeout as error:
+        print(error, flush=True)
+        return 2
+
+
+def machine_slots(scope: str, *, full: bool):
+    """整机测试名额（ADR-0172）：全量取满，其余取 1 个。
+
+    CI、持有名额的运行派出的子进程，以及用例里调用运行器时都不排队，否则会自己等自己。"""
+    if test_slots.exempt() or test_history.nested():
+        return nullcontext()
+    total = test_slots.slot_count()
+    return test_slots.held(total if full else 1, total=total, scope=scope, root=str(ROOT))
 
 
 #: 内部并行的前端与浏览器容器，和普通分片按阶段执行。
@@ -1425,7 +1221,7 @@ def verified_run(args, requested, scopes, files) -> int:
     with test_run_progress.phase(phases, '输入快照'):
         context = test_evidence.inputs(ROOT)
     state = context["state"]
-    with test_evidence.run_lock(ROOT, state, scope=" ".join(scopes), root=str(ROOT)):
+    with test_evidence.run_lock(ROOT, state, scope=" ".join(scopes), root=str(ROOT)), ExitStack() as slots:
         if not force and test_evidence.covers(
                 test_evidence.read(ROOT, state), scopes):
             print(t("test_runner.reused"), flush=True)
@@ -1447,6 +1243,10 @@ def verified_run(args, requested, scopes, files) -> int:
         if records and not force:
             print(t("test_runner.coverage", reused=len(progress.required) - len(progress.pending),
                     pending=len(progress.pending)), flush=True)
+        if progress.pending:
+            # 锁的顺序固定：全量锁、同状态锁、整机名额；只有真要跑用例时才排名额。
+            pending = {path.name for scope in scopes for path in selected_files(scope)} & set(progress.modules)
+            slots.enter_context(machine_slots(" ".join(requested), full=takes_every_slot(pending)))
         progress.start()
         FLAKY.clear()
         with test_run_progress.phase(phases, '测试执行'):
