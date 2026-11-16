@@ -5,7 +5,7 @@
 联网问 `BATCH` 部；推进了又还有要补的，就原地接一条（ADR-0084），存量不必等几十次处理。
 
 每部先读本机来源快照，处理链问过的站已经把样张地址带回来了（DMM 的 `sample_images`、
-amane 桥的 `screenshot_urls`）；快照里没有才按番号分档问一站：有码问 DMM，素人问 MGS。
+amane 桥的 `screenshot_urls`）；快照里没有才按番号分档问官方站：有码先问 DMM、没有再问 r18.dev，素人问 MGS。
 写入按 ADR-0052 直接落，`source` 记 `auto:sample-images@<任务行 id>`，
 `scripts/revert_auto_landing.py --source auto:sample-images` 整批撤回。
 
@@ -87,10 +87,49 @@ class _SampleCheckpoint:
             self.handle.checkpoint(completed_codes=sorted(self.completed), landed=landed, images=images)
 
 
+def _ask_sites(transport, code: str, sites, *, misses, paused: set, room: int, deadline: float):
+    """按顺序问几站的样张：前一站说没有、出错或冷却就问下一站。
+
+    返回 `(站, 地址, 结局, 联网次数)`；有地址时结局为空，否则是 `paused`、`recent_miss`、`deferred`（名额或预算用完）、
+    `absent`（说没有，已记进失败记忆）或 `failed`，一部只记一个结局。冷却的站加进 `paused`，同批后面的番号不再问它。
+    """
+    from .jav_cover_fetch import DeadlineExceeded
+    from .scraping_access import SourcePaused
+    outcome, spent, site = "", 0, ""
+    for site in sites:
+        if site in paused or misses.fresh(site, code):
+            outcome = outcome or ("paused" if site in paused else "recent_miss")
+            continue
+        if spent >= room:
+            return site, [], "deferred", spent
+        spent += 1
+        try:
+            urls = sample_images.usable(sample_images.FETCHERS[site](transport, code, deadline=deadline))
+        except SourcePaused:
+            # 冷却或本趟预算用完：不记「没有」。
+            paused.add(site)
+            outcome = "paused"
+            continue
+        except DeadlineExceeded:
+            return site, [], "deferred", spent
+        except Exception as error:  # noqa: BLE001 - 一部取不到不影响同批其余几部
+            if _missing(error):
+                misses.record(site, code)
+                outcome = "absent"
+            else:
+                outcome = "failed"
+            continue
+        if urls:
+            return site, urls, "", spent
+        misses.record(site, code)
+        outcome = "absent"
+    return site, [], outcome, spent
+
+
 def run(contract, key: str, handle, *, transport=None, clock=time.monotonic) -> dict:
     """跑一条补样张后继，返回活动页上那一行的摘要。"""
-    from .jav_cover_fetch import DeadlineExceeded, HostLimitedTransport
-    from .scraping_access import SourcePaused, SourceTransport
+    from .jav_cover_fetch import HostLimitedTransport
+    from .scraping_access import SourceTransport
 
     generated = Path(contract.candidate_root)
     misses = sample_images.Misses(sample_images.misses_path(generated))
@@ -128,42 +167,23 @@ def run(contract, key: str, handle, *, transport=None, clock=time.monotonic) -> 
                 misses.record("snapshot", code)
                 probed += 1
             if not urls:
-                site = sample_images.site_for(code) or ""
-                if not site:
+                sites = sample_images.sites_for(code)
+                if not sites:
                     skipped["no_site"] += 1
                     continue
-                if site in paused:
-                    skipped["paused"] += 1
-                    continue
-                if misses.fresh(site, code):
-                    skipped["recent_miss"] += 1
-                    continue
-                # 联网名额或预算用完：这一部留到下一轮，后面快照里现成的照样落
-                if asked >= BATCH or clock() >= deadline:
-                    deferred += 1
-                    continue
-                asked += 1
-                try:
-                    urls = sample_images.usable(
-                        sample_images.FETCHERS[site](transport, code, deadline=deadline))
-                except SourcePaused:
-                    # 冷却或本趟预算用完：这一站后面的都不问，也不记「没有」。
-                    paused.add(site)
-                    skipped["paused"] += 1
-                    continue
-                except DeadlineExceeded:
-                    deferred += 1
-                    continue
-                except Exception as error:  # noqa: BLE001 - 一部取不到不影响同批其余几部
-                    if _missing(error):
-                        misses.record(site, code)
+                site, urls, outcome, spent = _ask_sites(
+                    transport, code, sites, misses=misses, paused=paused,
+                    room=BATCH - asked if clock() < deadline else 0, deadline=deadline)
+                asked += spent
+                if not urls:
+                    if outcome in skipped:
+                        skipped[outcome] += 1
+                    elif outcome == "deferred":
+                        deferred += 1
+                    elif outcome == "absent":
                         absent += 1
                     else:
                         failed += 1
-                    continue
-                if not urls:
-                    misses.record(site, code)
-                    absent += 1
                     continue
             with contract.database.write_transaction() as connection:
                 count = sample_images.land(connection, code, site, urls, source=batch)

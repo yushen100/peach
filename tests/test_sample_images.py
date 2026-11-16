@@ -118,6 +118,8 @@ class LedgerCase(unittest.TestCase):
     def run_followup(self, fetchers: dict, run_id: int = 7) -> dict:
         handle = SimpleNamespace(run_id=run_id, progress=lambda **_kwargs: None,
                                  saved={}, checkpoint=lambda **_kwargs: None)
+        # r18.dev 垫在 DMM 后面；用例没点名它时按「站上没有」处理。
+        fetchers = {"r18dev": mock.Mock(side_effect=NotFound(*relayed("HTTP 404"))), **fetchers}
         with mock.patch.dict(sample_images.FETCHERS, fetchers, clear=True):
             return sample_followup.run(self.contract, sample_followup.FOLLOWUP_KEY, handle,
                                        transport=object())
@@ -168,6 +170,12 @@ class PendingTests(LedgerCase):
         misses = sample_images.Misses(self.root / "misses.json", clock=lambda: now[0])
         misses.record("dmm", "SSIS-057")
         misses.save()
+        with self.database.read_connection() as connection:
+            # DMM 说过没有，r18.dev 还能问。
+            self.assertEqual(sample_images.pending(connection, self.contract.has_cover, misses, {}, limit=5),
+                             ["SSIS-057"])
+        misses.record("r18dev", "SSIS-057")
+        misses.save()
         reloaded = sample_images.Misses(self.root / "misses.json", clock=lambda: now[0])
         with self.database.read_connection() as connection:
             self.assertEqual(sample_images.pending(connection, self.contract.has_cover, reloaded, {}, limit=5), [])
@@ -215,6 +223,34 @@ class FollowupTests(LedgerCase):
         self.assertEqual(sorted(asked), [("dmm", "SSIS-057"), ("mgstage", "300MIUM-1000")])
         self.assertEqual(summary["images"], 2)
         self.assertEqual({row[0]: row[3] for row in self.rows()}, {"SSIS-057": "dmm", "300MIUM-1000": "mgstage"})
+
+    def test_r18dev_answers_when_dmm_has_no_samples(self):
+        self.work(1, "SSIS-057")
+        asked = []
+
+        def dmm_fetch(_transport, code, *, deadline=None):
+            asked.append("dmm")
+            raise NotFound(*relayed("HTTP 404"))
+
+        def r18_fetch(_transport, code, *, deadline=None):
+            asked.append("r18dev")
+            return [dmm("ssis00057", 1), dmm("ssis00057", 2)]
+
+        summary = self.run_followup({"dmm": dmm_fetch, "r18dev": r18_fetch})
+        self.assertEqual(asked, ["dmm", "r18dev"])
+        self.assertEqual((summary["landed"], summary["images"]), (1, 2))
+        self.assertEqual({row[3] for row in self.rows()}, {"r18dev"})
+        misses = sample_images.Misses(sample_images.misses_path(self.generated))
+        self.assertTrue(misses.fresh("dmm", "SSIS-057"))
+
+    def test_an_r18dev_snapshot_gallery_lands_without_asking(self):
+        self.work(1, "SSIS-057")
+        self.snapshot("SSIS-057", "r18dev", {"combined": {"gallery": [
+            {"image_full": dmm("ssis00057", 1), "image_thumb": dmm("ssis00057", 1, small=True)}]}})
+        summary = self.run_followup({"dmm": mock.Mock(side_effect=AssertionError("不该联网"))})
+        self.assertEqual(summary["landed"], 1)
+        self.assertEqual([(row[0], row[2], row[3]) for row in self.rows()],
+                         [("SSIS-057", dmm("ssis00057", 1), "r18dev")])
 
     def test_a_site_that_says_no_is_remembered_and_a_cooldown_is_not(self):
         self.work(1, "SSIS-057")
