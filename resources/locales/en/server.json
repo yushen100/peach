@@ -309,7 +309,8 @@
       "unconfirmed-fc2-cast": "Unverified cast on FC2 titles",
       "descriptive-performers": "Descriptions saved as performers",
       "code-folder-creators": "Code folders as creators",
-      "case-duplicates": "Same file listed twice"
+      "case-duplicates": "Same file listed twice",
+      "r18-merges": "English names from r18.dev"
     },
     "items": {
       "catalog": {
@@ -407,6 +408,10 @@
       "case-duplicates": {
         "title": "Same file listed twice",
         "summary": "Rows for the same file whose paths differ only in letter case are merged, keeping your records."
+      },
+      "r18-merges": {
+        "title": "English names from r18.dev",
+        "summary": "Performers and series created under an r18.dev English name are merged into the same person or series under the Japanese name."
       }
     }
   },

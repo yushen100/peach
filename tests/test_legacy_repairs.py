@@ -338,6 +338,29 @@ class ConfirmedRepairTests(LedgerCase):
         self.assertEqual(self.rows('SELECT source,old_asset_id FROM record_rehome'),
                          [(legacy_repairs.CASE_DUPLICATE_SOURCE, 1)])
 
+    def test_r18_english_entity_merges_into_its_japanese_twin_listed_by_the_upgrade_review(self):
+        english = self.entity('performer', 'NOZOMI')
+        japanese = self.entity('performer', '希のぞみ')
+        renamed = self.entity('performer', 'AOI')
+        self.execute("UPDATE entity SET metadata_json=? WHERE id=?",
+                     (json.dumps({'name_preference': {'source': 'user:manual'}}), renamed))
+        self.asset(1)
+        self.performer_link(1, english)
+        review = self.root / 'state' / 'upgrade-repairs' / 'catalog-review.json'
+        review.parent.mkdir(parents=True)
+        review.write_text(json.dumps({'names': [
+            {'entity_id': english, 'conflict_entity_id': japanese, 'action': 'merge-needed'},
+            {'entity_id': renamed, 'conflict_entity_id': japanese, 'action': 'merge-needed'},
+            {'entity_id': japanese, 'action': 'rename'}]}), encoding='utf-8')
+
+        self.assertEqual(self.center()['r18-merges']['pending'], 1)
+        result = self.service.apply_confirmed('r18-merges')
+
+        self.assertEqual(self.rows("SELECT id FROM entity WHERE kind='performer' ORDER BY id"), [(japanese,), (renamed,)])
+        self.assertEqual(self.rows('SELECT entity_id FROM asset_entity'), [(japanese,)])
+        self.assertIn(('NOZOMI',), self.rows('SELECT alias FROM entity_alias WHERE entity_id=?', (japanese,)))
+        self.assertEqual(result['merged'][0]['source_id'], english)
+
     def test_unknown_repair_is_refused(self):
         from peach.user_messages import UserValueError
         with self.assertRaises(UserValueError):

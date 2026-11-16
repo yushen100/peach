@@ -309,7 +309,8 @@
       "unconfirmed-fc2-cast": "FC2 作品上未核实的演员",
       "descriptive-performers": "建成女优的描述称呼",
       "code-folder-creators": "当成创作者的番号目录",
-      "case-duplicates": "同一文件登记了两次"
+      "case-duplicates": "同一文件登记了两次",
+      "r18-merges": "r18.dev 英文名建成的实体"
     },
     "items": {
       "catalog": {
@@ -407,6 +408,10 @@
       "case-duplicates": {
         "title": "同一文件登记了两次",
         "summary": "路径只差大小写的同一文件合成一行，个人记录保留。"
+      },
+      "r18-merges": {
+        "title": "r18.dev 英文名建成的实体",
+        "summary": "按 r18.dev 英文名建成的女优与系列，并入同一位、同一系列的日文名实体。"
       }
     }
   },

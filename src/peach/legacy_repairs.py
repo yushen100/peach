@@ -609,12 +609,54 @@ def fix_case_duplicates(connection, found: list[dict], context=None) -> dict:
     return {"changed": len(moved), "moved": moved}
 
 
+# ---- r18.dev 英文名建成的实体与同一位的日文实体并存 ----
+
+#: 合并时旧名记成别名用的来源。
+R18_MERGE_SOURCE = "upgrade:r18-merge"
+
+
+def find_r18_merges(connection, context=None) -> list[dict]:
+    """升级资料整理（`r18_legacy_repair.collect_entities`）判为「日文写法已是另一条实体」的英文名实体：
+    读那次写下的 `upgrade-repairs/catalog-review.json`，不再扫来源快照。两边都还在、同类、英文那条的名字没被
+    人改过的才算。"""
+    from pathlib import Path
+    from .upgrade_repairs import _manual_name
+    root = getattr(context, "follow_state_root", None)
+    if not root:
+        return []
+    try:
+        plan = json.loads((Path(root) / "upgrade-repairs" / "catalog-review.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    found = []
+    for row in plan.get("names", []) if isinstance(plan, dict) else []:
+        if not isinstance(row, dict) or row.get("action") != "merge-needed":
+            continue
+        source, target = row.get("entity_id"), row.get("conflict_entity_id")
+        names = dict(_rows(connection, "SELECT id,kind FROM entity WHERE id IN (?,?)", (source, target)))
+        if len(names) != 2 or names[source] != names[target] or _manual_name(connection, int(source)):
+            continue
+        name = connection.execute("SELECT canonical_name FROM entity WHERE id=?", (source,)).fetchone()[0]
+        found.append({"source_id": int(source), "target_id": int(target), "name": name})
+    return found
+
+
+def fix_r18_merges(connection, found: list[dict], context=None) -> dict:
+    """英文那条并入日文那条（`entities.merge_entity`，英文名留作别名）。合并撤不回，靠写入前的账本备份。"""
+    from .entities import merge_entity
+    merged = [{**row, "result": merge_entity(connection, target_id=row["target_id"], source_id=row["source_id"],
+                                              source_name=row["name"], alias_source=R18_MERGE_SOURCE)}
+              for row in found]
+    return {"changed": len(merged), "merged": merged}
+
+
 CONFIRMS = (
     Confirm("unconfirmed-fc2-cast", "unconfirmed-fc2-cast-", find_unconfirmed_fc2_cast, fix_unconfirmed_fc2_cast),
     Confirm("descriptive-performers", "descriptive-performers-", find_descriptive_performers,
             fix_descriptive_performers),
     Confirm("code-folder-creators", "code-folder-creators-", find_code_folder_creators, fix_code_folder_creators),
     Confirm("case-duplicates", "case-duplicates-", find_case_duplicates, fix_case_duplicates),
+    Confirm("r18-merges", "r18-merges-", find_r18_merges, fix_r18_merges),
 )
 
 

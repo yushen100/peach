@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "f6893398-8a25-492b-89bc-8615391b05f9", e._sentryDebugIdIdentifier = "sentry-dbid-f6893398-8a25-492b-89bc-8615391b05f9");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "1ae54671-b36c-494a-9387-3d8e44289f57", e._sentryDebugIdIdentifier = "sentry-dbid-1ae54671-b36c-494a-9387-3d8e44289f57");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -7413,7 +7413,8 @@ var He = "peach.settings.v1", Ue = {
 			"unconfirmed-fc2-cast": "Unverified cast on FC2 titles",
 			"descriptive-performers": "Descriptions saved as performers",
 			"code-folder-creators": "Code folders as creators",
-			"case-duplicates": "Same file listed twice"
+			"case-duplicates": "Same file listed twice",
+			"r18-merges": "English names from r18.dev"
 		},
 		items: {
 			catalog: {
@@ -7511,6 +7512,10 @@ var He = "peach.settings.v1", Ue = {
 			"case-duplicates": {
 				title: "Same file listed twice",
 				summary: "Rows for the same file whose paths differ only in letter case are merged, keeping your records."
+			},
+			"r18-merges": {
+				title: "English names from r18.dev",
+				summary: "Performers and series created under an r18.dev English name are merged into the same person or series under the Japanese name."
 			}
 		}
 	},
@@ -14535,7 +14540,8 @@ var He = "peach.settings.v1", Ue = {
 			"unconfirmed-fc2-cast": "FC2 作品上未核实的演员",
 			"descriptive-performers": "建成女优的描述称呼",
 			"code-folder-creators": "当成创作者的番号目录",
-			"case-duplicates": "同一文件登记了两次"
+			"case-duplicates": "同一文件登记了两次",
+			"r18-merges": "r18.dev 英文名建成的实体"
 		},
 		items: {
 			catalog: {
@@ -14633,6 +14639,10 @@ var He = "peach.settings.v1", Ue = {
 			"case-duplicates": {
 				title: "同一文件登记了两次",
 				summary: "路径只差大小写的同一文件合成一行，个人记录保留。"
+			},
+			"r18-merges": {
+				title: "r18.dev 英文名建成的实体",
+				summary: "按 r18.dev 英文名建成的女优与系列，并入同一位、同一系列的日文名实体。"
 			}
 		}
 	},
@@ -39361,4 +39371,4 @@ jt();
 var Kb = document.getElementById("peach-page"), qb = Kb ? Gb[Kb.dataset.page ?? ""] : void 0;
 Kb && qb && (0, Bt.createRoot)(Kb).render(/* @__PURE__ */ (0, V.jsx)(Wb, { children: /* @__PURE__ */ (0, V.jsx)(qb, { data: { ...Kb.dataset } }) }));
 
-//# debugId=f6893398-8a25-492b-89bc-8615391b05f9
+//# debugId=1ae54671-b36c-494a-9387-3d8e44289f57
