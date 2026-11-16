@@ -66,9 +66,9 @@ PAUSED_TONES = {"config": "error", "network": "error"}
 SEARCH_PAUSE = "search"
 
 
-def paused_text(failure: str) -> dict:
-    """暂停的原因、恢复说明与连成的一句。"""
-    reason = interface_text.text(f"server:javBrowser.paused.{failure}.reason")
+def paused_text(failure: str, reason: str | None = None) -> dict:
+    """暂停的原因、恢复说明与连成的一句；`reason` 是这次暂停记下的具体原因，没有时用这类暂停的通用说法。"""
+    reason = reason or interface_text.text(f"server:javBrowser.paused.{failure}.reason")
     hint = interface_text.text(f"server:javBrowser.paused.{failure}.hint")
     return {"reason": reason, "hint": hint,
             "message": interface_text.text("server:javBrowser.paused.message", {"reason": reason, "hint": hint})}
@@ -550,7 +550,7 @@ class JavBrowser:
             state = row.get("state", "idle")
             if state == "queued" and (paused := self._paused(row.get("provider", ""))):
                 detail["paused"] = paused
-                row["message"] = paused_text(paused["failure"])["message"]
+                row["message"] = paused_text(paused["failure"], paused.get("reason"))["message"]
             return {"ok": True, "code": code, **row, **detail, **self._queue_detail(code, state), "state": state,
                     "stage": "submitting" if code in self._submitting else state,
                     **(_message_of(row) if row.get("message") else _state_message(state))}
@@ -717,8 +717,8 @@ class JavBrowser:
 
         def entry(provider, label, count, paused):
             failure = paused["failure"]
-            return {"provider": provider, "provider_label": label, "waiting": count, **paused_text(failure),
-                    "tone": PAUSED_TONES.get(failure, "warning"), **paused}
+            return {"provider": provider, "provider_label": label, "waiting": count, **paused,
+                    **paused_text(failure, paused.get("reason")), "tone": PAUSED_TONES.get(failure, "warning")}
 
         channels = [entry(provider, labels.get(provider, provider), count, paused)
                     for provider, count in waiting.items() if (paused := self._channel_pause(provider))]
@@ -964,11 +964,17 @@ class JavBrowser:
         timed = type(after) in (int, float) and math.isfinite(after) and after >= 0
         unfetched = [str(value) for value in result.get('unfetched_sources') or () if value]
         if failed and timed:
-            self._schedule_retry(row, RetryableTaskError('errors.javBrowser.searchUnavailable', after=after))
+            sources = ' / '.join(dict.fromkeys(unfetched))
+            self._schedule_retry(row, RetryableTaskError('errors.javBrowser.searchUnavailable', after=after),
+                                 sources=sources, reason=reason)
             # 来源让稍后再试时，整条队列一起等，不让后面的番号各自撞一次、各自耗掉重试次数。
+            # 暂停的原因点名没查成的来源，没有就用搜索报的错，排着的番号与提示框都说这一句。
             now = self.downloads.clock()
+            cause = (Said('labels.javBrowser.sourcesUnfetched', sources=sources) if sources
+                     else Said('labels.javBrowser.searchFailedWith', error=reason) if reason else None)
             self._search_pause = {"failure": SEARCH_PAUSE, "since": iso(now),
-                                  "retry_at": row.get('retry_at') or iso(now + after)}
+                                  "retry_at": row.get('retry_at') or iso(now + after),
+                                  **({"reason": str(cause)} if cause else {})}
         elif not failed and unfetched and timed and after > LONG_SOURCE_PAUSE:
             now = self.downloads.clock()
             sources = ' / '.join(dict.fromkeys(unfetched))
@@ -986,8 +992,9 @@ class JavBrowser:
             if not failed:
                 row['sources_complete'] = True
 
-    def _schedule_retry(self, row: dict, error: Exception, *, sources: str = '') -> None:
-        """排下一次自动重试；`sources` 是没查成的来源，等待与用完时的那句话点名它们。"""
+    def _schedule_retry(self, row: dict, error: Exception, *, sources: str = '', reason: Said | None = None) -> None:
+        """排下一次自动重试；`sources` 是没查成的来源，等待与用完时的那句话点名它们；没有来源可点名时
+        等待那句带上搜索报的错 `reason`。"""
         attempt = row.get('retry_attempt', 0)
         delay = retry_delay(error, attempt)
         if delay is None:
@@ -998,8 +1005,9 @@ class JavBrowser:
             row.update(state='failed', **_message(message), ended_at=iso(self.downloads.clock()))
             row['retry_exhausted'] = attempt == len(RETRY_DELAYS)
             return
-        waiting = Said('labels.javBrowser.sourcesWaiting', sources=sources) if sources \
-            else Said('labels.javBrowser.retryWaiting')
+        waiting = (Said('labels.javBrowser.sourcesWaiting', sources=sources) if sources
+                   else Said('labels.javBrowser.searchFailedWaiting', error=reason) if reason
+                   else Said('labels.javBrowser.retryWaiting'))
         row.update(state='queued', retry_attempt=attempt + 1, retry_limit=len(RETRY_DELAYS),
                    retry_at=iso(self.downloads.clock() + delay), **_message(waiting))
 

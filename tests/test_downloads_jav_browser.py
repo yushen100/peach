@@ -17,7 +17,7 @@ from unittest.mock import Mock, patch
 
 from fastapi.testclient import TestClient
 
-from peach import downloads as dl
+from peach import downloads as dl, interface_text
 from peach.api import create_app
 from peach.config import PROJECT_ROOT, PeachSettings
 from peach.jav_browser import (
@@ -831,6 +831,30 @@ class BrowserTests(unittest.TestCase):
         self.downloads.clock = lambda: start + 301
         self.assertTrue(self.service.process_one())
         self.assertEqual(self.listed()["paused"], [])
+
+    def test_a_search_pause_names_the_source_it_waits_for(self):
+        """直连来源没查成、后备索引器也没答上时，排着的番号与提示框点名那个来源，不说「资源搜索暂不可用」。"""
+        self.service.search.return_value = {"items": [], "state": "unavailable", "retry_after": 3 * 3600.0,
+                                            "error": "x", "error_code": "labels.resourceSearch.noIndexer",
+                                            "unfetched_sources": ["JavDB"]}
+        for code in ("ABC-123", "ABC-124"):
+            self.add(code)
+        self.service.process_one()
+        self.assertEqual(self.service.rows["ABC-123"]["message"], "JavDB 未取得，等待自动重试")
+        for code in ("ABC-123", "ABC-124"):
+            status = self.client.get("/api/jav-browser", params={"code": code}, headers=self.script_headers).json()
+            self.assertEqual(status["message"], "JavDB 未取得，已暂停；到时自动继续")
+        self.assertEqual([(row["reason"], row["message"]) for row in self.listed()["paused"]],
+                         [("JavDB 未取得", "JavDB 未取得，已暂停；到时自动继续")])
+
+    def test_a_search_pause_without_a_source_to_name_says_the_search_error(self):
+        self.service.search.return_value = {"items": [], "state": "unavailable", "retry_after": 300,
+                                            "error": "x", "error_code": "labels.resourceSearch.noIndexer"}
+        self.add()
+        self.service.process_one()
+        indexer = interface_text.text("server:labels.resourceSearch.noIndexer")
+        self.assertEqual(self.service.rows["ABC-123"]["message"], f"资源搜索失败：{indexer}；等待自动重试")
+        self.assertEqual(self.status().json()["message"], f"资源搜索失败：{indexer}，已暂停；到时自动继续")
 
     def listed(self):
         response = self.client.get("/api/jav-browser/active", headers=self.script_headers)

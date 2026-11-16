@@ -65,6 +65,7 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Ledger**: Docker and peach serve also prune old ledger backups, and one upgrade writes a single pre-upgrade backup instead of one per repair (#715). / **账本**：Docker 与 peach serve 也按保留份数清理账本备份，一次升级只写一份升级前备份（#715）。
 - **Ledger**: Failed task records, empty crash logs, repair resume files and processing state files no longer pile up; upgrading clears the backlog (#715). / **账本**：失败的任务记录、空崩溃日志、补修续跑文件和处理状态文件不再越积越多，升级时清掉旧版积下的（#715）。
 - **Sourcing**: Background jobs no longer use your JavDB account, so it isn't suspended for browsing too fast; a suspension shows its resume time (#702). / **采集**：后台任务读 JavDB 不再带登录账号，免得账号被判浏览过快停用；账号被停时提示停的是账号和恢复时间（#702）。
+- **Sourcing**: When browser adds pause for search, they name the source being waited for, and account suspensions say resume times like "at 21:39 tonight" (#716). / **采集**：浏览器添加因搜索暂停时点名在等哪个来源，账号停用的恢复时间写成「今晚 21:39」（#716）。
 - **Sourcing**: Refused sources show who and for how long instead of asking for a new cookie, and one paused source no longer stalls a browser batch (#702). / **采集**：来源被拒时点名并写明暂停多久，不再一律让人更新 Cookie；某个来源暂停时浏览器添加不再整批干等一天（#702）。
 - **Library**: DMM video previews in JAV details play again after DMM moved them to a new host (#697). / **馆藏**：DMM 换了预告视频的主机后，JAV 详情里的 DMM 视频预览重新能播（#697）。
 - **Sourcing**: Blu-ray editions in New releases merge into their DMM streaming edition, so they get the official cover and no longer appear twice (#694). / **采集**：新作里的蓝光版并入 DMM 配信版，能取到官方封面，也不再和配信版重复列出（#694）。

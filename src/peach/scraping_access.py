@@ -161,6 +161,25 @@ def sends_cookie(source: str | None) -> bool:
     return bool(entry.get("session")) and (not entry.get("account") or _WITH_ACCOUNT.get())
 
 
+#: 恢复时刻的说法：当天、次日各按凌晨（6 点前）、白天、晚上（18 点起）三档，后天一档，再远带月日。
+RESUME_PHRASES = {0: ("labels.resumeAt.earlyToday", "labels.resumeAt.today", "labels.resumeAt.tonight"),
+                  1: ("labels.resumeAt.earlyTomorrow", "labels.resumeAt.tomorrow", "labels.resumeAt.tomorrowNight")}
+
+
+def resume_phrase(moment: float, now: float | None = None) -> dict:
+    """来源恢复的本机时刻说成「今晚 21:39」「明天 09:00」，再远带月日。
+
+    返回 `{code, params}` 嵌套的一句，后端与前端都按显示语言渲染。相对的说法以给出报错的时刻为准，
+    只用于来源暂停这类很快就会被看到的提示。"""
+    at = datetime.fromtimestamp(moment)
+    days = (at.date() - datetime.fromtimestamp(time.time() if now is None else now).date()).days
+    if days in RESUME_PHRASES:
+        code = RESUME_PHRASES[days][0 if at.hour < 6 else 2 if at.hour >= 18 else 1]
+    else:
+        code = "labels.resumeAt.dayAfter" if days == 2 else "labels.resumeAt.date"
+    return {"code": code, "params": {"clock": at.strftime("%H:%M"), "month": at.month, "day": at.day}}
+
+
 def _paused(source: str | None, kind: str, until: float) -> "SourcePaused":
     """冷却、限流、拒绝三种停下的报错；登记过的来源点名并写出大约还要停多久，没登记的照旧泛称。"""
     label = SOURCES.get(source or "", {}).get("label")
@@ -602,8 +621,8 @@ class SourceTransport:
             now = time.time()
             until = min(max(resume or now + 6 * 3600, now + FIRST_BLOCKED_PAUSE), now + 7 * 86400)
             _pause(cooldown, until, blocks, via)
-            shown = datetime.fromtimestamp(until).strftime("%m-%d %H:%M")
-            raise SourceRefused("errors.scrapingAccess.accountSuspended", {"label": label, "time": shown},
+            raise SourceRefused("errors.scrapingAccess.accountSuspended",
+                                {"label": label, "time": resume_phrase(until, now)},
                                 FailureReason.ACCOUNT_SUSPENDED.value)
         reason = refusal_page(response.body)
         if reason is None:
