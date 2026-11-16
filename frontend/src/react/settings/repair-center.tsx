@@ -65,7 +65,6 @@ function reading(item: RepairItem) {
   if (item.state === 'waiting') return item.pending ? t('settings:repairCenter.pendingRecheck', { count: item.pending }) : '';
   if (progressing(item)) return '';
   if (item.total) return `${number(item.done)} / ${number(item.total)}`;
-  if (item.mode === 'confirm') return '';
   return item.changed ? t('settings:repairCenter.changedCount', { count: item.changed }) : '';
 }
 

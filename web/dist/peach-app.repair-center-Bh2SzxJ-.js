@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "9d9eb836-dccf-46f6-9495-5fb176b58bb9", e._sentryDebugIdIdentifier = "sentry-dbid-9d9eb836-dccf-46f6-9495-5fb176b58bb9");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "d7997966-292d-47fd-bf8d-e3479d2196da", e._sentryDebugIdIdentifier = "sentry-dbid-d7997966-292d-47fd-bf8d-e3479d2196da");
 	} catch {}
 })();
 import { Button as e, LinkButton as t, Note as n, Progress as r, REPAIRS_KEY as i, RESULT_PANEL as a, RESULT_SECTION as o, SectionHeading as s, StatusLabel as c, apiSend as l, confirmModal as u, fetchRepairs as d, fmtSize as f, i2 as p, interfaceLanguage as m, localizeRepairs as h, queryClient as g, repairCenterPanelSkeleton as _, require_jsx_runtime as v, t as y, useAction as b, useQuery as x, withBackoff as S } from "./peach-app.js";
@@ -36,7 +36,7 @@ var w = v(), T = {
 	size: f(e.bytes || 0)
 }), j = (e) => e.state === "running" && !!e.total, M = (e) => !!e.estimating || e.state === "running", N = S((e) => e?.items.some(M) ? 2e3 : !1);
 function P(e) {
-	return e.estimating ? y("settings:repairCenter.estimating") : e.state === "failed" && e.error ? e.error : e.files ? y("settings:repairCenter.reclaimable", { size: f(e.bytes || 0) }) : e.state === "pending" && e.online ? y("settings:repairCenter.pendingChecks", { count: e.pending || 0 }) : e.state === "waiting" && e.backed_up ? y("settings:repairCenter.pendingFixes", { count: e.pending || 0 }) : e.state === "waiting" ? e.pending ? y("settings:repairCenter.pendingRecheck", { count: e.pending }) : "" : j(e) ? "" : e.total ? `${O(e.done)} / ${O(e.total)}` : e.mode === "confirm" ? "" : e.changed ? y("settings:repairCenter.changedCount", { count: e.changed }) : "";
+	return e.estimating ? y("settings:repairCenter.estimating") : e.state === "failed" && e.error ? e.error : e.files ? y("settings:repairCenter.reclaimable", { size: f(e.bytes || 0) }) : e.state === "pending" && e.online ? y("settings:repairCenter.pendingChecks", { count: e.pending || 0 }) : e.state === "waiting" && e.backed_up ? y("settings:repairCenter.pendingFixes", { count: e.pending || 0 }) : e.state === "waiting" ? e.pending ? y("settings:repairCenter.pendingRecheck", { count: e.pending }) : "" : j(e) ? "" : e.total ? `${O(e.done)} / ${O(e.total)}` : e.changed ? y("settings:repairCenter.changedCount", { count: e.changed }) : "";
 }
 function F({ title: e, description: t, progress: n, children: r }) {
 	return /* @__PURE__ */ (0, w.jsxs)("div", {
@@ -178,4 +178,4 @@ function L() {
 }
 export { L as RepairCenterPage, N as repairsInterval };
 
-//# debugId=9d9eb836-dccf-46f6-9495-5fb176b58bb9
+//# debugId=d7997966-292d-47fd-bf8d-e3479d2196da
