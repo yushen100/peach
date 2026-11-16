@@ -24,7 +24,8 @@ import {
   cardArtwork, cardIdentity, entityAvatar, frameArtwork, relayoutCovers, releaseHover, wireHover,
 } from '@peach/card-art';
 import { esc, fmtDur, fmtSize } from '@peach/legacy/core';
-import { spinnerHtml } from '@peach/legacy/ui';
+import { Button } from '@/components/base/buttons/button';
+import { Chip } from '@/components/base/badges/chip';
 import { entityDisplayName } from '../../core/entity-names';
 import { useEntityNames } from '../use-entity-names';
 
@@ -35,6 +36,8 @@ import { CardDate, CardTags, Icon, WhoLabel } from './card-meta';
 import { RecommendationReason } from './recommendation-reason';
 import { useLibraryTints } from './library-tint';
 import { suppressShiftTextSelection } from './row-click';
+import { useDense } from './use-dense';
+import { busyProps } from '../settings/busy-props';
 import { joinList, t } from '../../i18n';
 import { codedText, partsLabel, serverLabelList } from '../../core/server-text';
 
@@ -56,37 +59,45 @@ function whyReasons(item: MediaItem): string[] {
   return item.why_codes?.length === texts.length ? serverLabelList(texts, item.why_codes) : texts;
 }
 
+/* 归入原因用探索卡推荐分那一格的 Chip，按来路分色：垃圾、重复、失联、手动。 */
+const DISPOSAL_COLORS = { junk: 'yellow', duplicate: 'cyan', missing: 'rose', manual: 'neutral' } as const;
+
 function DisposalReason({ item }: { item: MediaItem }) {
-  if (item.disposal !== 'trash') return null;
-  const label = (item.disposal_reason && DISPOSAL_LABELS[item.disposal_reason]) || t('shell:mediaCard.disposalUnknown');
-  return <span data-media-disposal-reason="" title={t('shell:mediaCard.disposalReason', { reason: label })}>{label}</span>;
+  const reason = item.disposal_reason as keyof typeof DISPOSAL_LABELS | undefined;
+  const label = (reason && DISPOSAL_LABELS[reason]) || t('shell:mediaCard.disposalUnknown');
+  return <span data-media-disposal-reason="" title={t('shell:mediaCard.disposalReason', { reason: label })}>
+    <Chip color={(reason && DISPOSAL_COLORS[reason]) || 'neutral'}>{label}</Chip></span>;
 }
 
-/** 视频与资源共用回收站操作，失败原因留在卡片上供重试。 */
-function ResourceAction({ item, actions }: { item: MediaItem; actions: MediaCardActions }) {
+/** 回收站卡的标签行：归入原因打头，后面跟作品自己的标签。 */
+function TrashTags({ item, tags, label }: { item: MediaItem; tags: readonly string[]; label(tag: string): string }) {
+  return <CardTags tags={tags} label={label} data-jav-tags="" lead={<DisposalReason item={item} />} />;
+}
+
+/** 回收站卡底部的动作行，排法同 JAV 探索卡（`../jav/discovery-card.tsx`）：一颗「还原」，紧凑档换小一号。
+ *  失败原因留在键下面供重试。 */
+function TrashActions({ item, actions }: { item: MediaItem; actions: MediaCardActions }) {
+  const dense = useDense();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const operation = item.disposal === 'trash' ? 'restore' : 'dispose';
-  const label = operation === 'restore' ? t('shell:shared.restore') : t('shell:shared.moveToTrash');
-  const busyLabel = operation === 'restore' ? t('shell:mediaCard.restoring') : t('shell:mediaCard.movingToTrash');
+  const label = t('shell:shared.restore');
   const run = (event: MouseEvent) => {
     event.preventDefault();
     event.stopPropagation();
     if (busy) return;
     setBusy(true);
     setError('');
-    void actions.resourceOperation(item, operation)
+    void actions.resourceOperation(item, 'restore')
       .catch((cause: unknown) => setError(cause instanceof Error ? cause.message : t('shell:mediaCard.operationFailed')))
       .finally(() => setBusy(false));
   };
-  return <>
-    <button type="button" data-media-resource-action={operation} aria-label={`${label} ${item.name || t('shell:mediaCard.untitledResource')}`}
-      title={label} onClick={run} aria-busy={busy || undefined} aria-disabled={busy || undefined}>
-      {busy ? <><span dangerouslySetInnerHTML={{ __html: spinnerHtml(busyLabel) }} /><span>{busyLabel}</span></>
-        : <span>{label}</span>}
-    </button>
-    {error ? <span data-media-operation-error="" role="alert">{error}</span> : null}
-  </>;
+  return <div data-jav-actions="" className="flex flex-wrap gap-2">
+    <Button variant="secondary" size={dense ? 'small' : 'medium'} data-media-resource-action="restore" {...busyProps(busy)}
+      aria-label={`${label} ${item.name || t('shell:mediaCard.untitledResource')}`} title={label} onClick={run}>
+      {busy ? t('shell:mediaCard.restoring') : label}</Button>
+    {error ? <span data-media-operation-error="" role="alert" className="basis-full text-caption-1-regular text-text-error-primary">
+      {error}</span> : null}
+  </div>;
 }
 
 /** 一个列表里的画面框等高：竖屏带一律竖屏比例，其余按版式取外观应用层那一份（`@peach/appearance`
@@ -253,6 +264,7 @@ function VideoCard({ item, variant, layout, selected, selectMode, seekSeconds, h
     ? Math.min(Number(item.play_seconds) / Number(item.duration), 1) : 0;
   const { avatar, who } = identityParts(item);
   const tags = (item.follow_tags || item.tags || []).slice(0, 3);
+  const trash = item.disposal === 'trash';
 
   const click = (event: MouseEvent<HTMLElement>) => {
     const target = event.target as HTMLElement;
@@ -292,7 +304,6 @@ function VideoCard({ item, variant, layout, selected, selectMode, seekSeconds, h
         ? <span data-media-group="" title={editionNames(editions)}>{t('shell:mediaCard.editionCount', { count: Number(editions.count) })}</span>
         : null}
       {Number(shownDuration) > 0 ? <span data-media-duration="">{fmtDur(shownDuration)}</span> : null}
-      {!selectMode && item.disposal === 'trash' ? <ResourceAction item={item} actions={actions} /> : null}
       {watched > 0
         ? (
           <div data-media-progress="" role="progressbar" aria-label={t('shell:mediaCard.watchProgress')} aria-valuemin={0} aria-valuemax={100}
@@ -335,7 +346,7 @@ function VideoCard({ item, variant, layout, selected, selectMode, seekSeconds, h
       data-watch-later={later ? '' : undefined} data-library={library}
       data-jav-item={item.is_jav ? '' : undefined}
       data-part-seed={parts ? parts.seed_id : undefined} data-stacked={stacked ? '' : undefined}
-      data-pending-delete={item.disposal === 'trash' ? '' : undefined} data-selected={selected ? '' : undefined}
+      data-pending-delete={trash ? '' : undefined} data-jav-card={trash ? '' : undefined} data-selected={selected ? '' : undefined}
       onClick={click} onMouseDown={suppressShiftTextSelection}>
       <button type="button" data-media-open="" data-open=""
         aria-label={t(editions ? 'shell:mediaCard.openEditionsNamed' : parts ? 'shell:mediaCard.openPartsNamed' : 'shell:mediaCard.openDetailsNamed', { name: shownName })} />
@@ -343,9 +354,10 @@ function VideoCard({ item, variant, layout, selected, selectMode, seekSeconds, h
       <div data-media-meta="">
         {avatar}
         <div data-media-text="">
+          {/* 回收站卡的标题按钮从顶上排，两行截断落在里面这一层（见 `media-card.css`）。 */}
           <button type="button" data-media-title="" data-open=""
-            dangerouslySetInnerHTML={item.disposal === 'trash' ? undefined : { __html: titleHtml }}>
-            {item.disposal === 'trash' ? <span data-media-title-text="" dangerouslySetInnerHTML={{ __html: titleHtml }} /> : null}
+            dangerouslySetInnerHTML={trash ? undefined : { __html: titleHtml }}>
+            {trash ? <span data-media-title-text="" dangerouslySetInnerHTML={{ __html: titleHtml }} /> : null}
           </button>
           <div data-media-byline="">
             {who}
@@ -356,19 +368,19 @@ function VideoCard({ item, variant, layout, selected, selectMode, seekSeconds, h
             </span>
           </div>
           {variant === 'next' ? <RecommendationReason reasons={reasons}
-            tags={(item.why_tags || []).map(helpers.tagLabel)} /> : tags.length || item.disposal === 'trash'
-            ? <CardTags tags={tags} label={helpers.tagLabel} readOnly={!!item.follow_item_id} />
-            : null}
-          <DisposalReason item={item} />
+            tags={(item.why_tags || []).map(helpers.tagLabel)} /> : trash ? <TrashTags item={item} tags={tags} label={helpers.tagLabel} />
+            : tags.length ? <CardTags tags={tags} label={helpers.tagLabel} readOnly={!!item.follow_item_id} /> : null}
         </div>
       </div>
+      {trash && !selectMode ? <TrashActions item={item} actions={actions} /> : null}
     </article>
   );
 }
 
-/** 回收站里不是视频的那些：图片、音频、压缩包和网址快捷方式。卡上只有一枚「还原」或
- *  「移入回收站」，点了就写 ledger，做完给一颗撤销键。 */
+/** 回收站里不是视频的那些：图片、音频、压缩包和网址快捷方式。封面格放类型字形或缩略图，
+ *  卡底同视频卡一颗「还原」，点了就写 ledger，做完给一颗撤销键。 */
 function ResourceCard({ item, selected, selectMode, helpers, actions, onOpen }: MediaCardProps) {
+  const trash = item.disposal === 'trash';
   const card = useRef<HTMLElement | null>(null);
   const image = item.medium === 'image' && item.location !== 'online';
   const name = String(item.name || '');
@@ -386,7 +398,7 @@ function ResourceCard({ item, selected, selectMode, helpers, actions, onOpen }: 
   };
   return (
     <article ref={card} data-media-card="" data-id={item.id} data-variant="resource" data-medium={item.medium || 'other'}
-      data-pending-delete={item.disposal === 'trash' ? '' : undefined} data-selected={selected ? '' : undefined}
+      data-pending-delete={trash ? '' : undefined} data-jav-card={trash ? '' : undefined} data-selected={selected ? '' : undefined}
       onClick={click} onMouseDown={suppressShiftTextSelection}>
       <div data-media-pic="" style={{ '--card-ratio': String(16 / 9) } as CSSProperties}>
         <span data-media-glyph=""><Icon name={glyph} /><b>{label}</b></span>
@@ -398,7 +410,6 @@ function ResourceCard({ item, selected, selectMode, helpers, actions, onOpen }: 
         <div data-media-badge="" dangerouslySetInnerHTML={{ __html: helpers.badgeHtml(item.location || '', item.cost || '') }} />
         <span data-media-check=""><Icon name="check" /></span>
         <span data-media-trash-mark=""><Icon name="trash" /><b>{t('shell:shared.trash')}</b></span>
-        {!selectMode ? <ResourceAction item={item} actions={actions} /> : null}
       </div>
       <div data-media-meta="">
         <span data-media-avatar="" data-media-kind-glyph="" aria-hidden="true"><Icon name={glyph} /></span>
@@ -410,10 +421,10 @@ function ResourceCard({ item, selected, selectMode, helpers, actions, onOpen }: 
             {item.why ? <span data-media-why="">{whyReasons(item).join(' · ')}</span> : null}
             <span data-media-size="">{Number(item.size) > 0 ? fmtSize(Number(item.size)) : t('shell:fileSize.unknown')}</span>
           </div>
-          {item.disposal === 'trash' ? <div data-media-tags="" /> : null}
-          <DisposalReason item={item} />
+          {trash ? <TrashTags item={item} tags={[]} label={helpers.tagLabel} /> : null}
         </div>
       </div>
+      {trash && !selectMode ? <TrashActions item={item} actions={actions} /> : null}
     </article>
   );
 }

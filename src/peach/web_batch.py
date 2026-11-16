@@ -26,7 +26,7 @@ from functools import partial
 from pathlib import Path, PureWindowsPath
 from typing import Sequence
 
-from . import interface_text, junk
+from . import interface_text, junk, settings_file
 from .catalog_rules import duration_clusters, is_jav_code, normalise_code_key
 from .catalog_vocabulary import KEEP_DUPLICATES_NOTE, NOT_JUNK_NOTE
 from .config import GENERATED_DIR, LOCATION_ROOT_DECLARATIONS
@@ -151,8 +151,9 @@ def q_ads(contract: WebContract, limit=200, offset=0, kind="", status="pending")
     for item in pool:
         counts[item["junk_kind"]] += 1
     filtered = [item for item in pool if not kind or item["junk_kind"] == kind]
-    # 缓存里那份是共享的，这一页的条目复制出来再挂演员，不改到下一次请求。
+    # 缓存里那份是共享的，这一页的条目复制出来再挂演员与媒体库，不改到下一次请求。
     items = [dict(item) for item in filtered[offset:offset + limit]]
+    _attach_library(items)
     attach_card_performers(
         contract, [item for item in items if item.get("medium") == "video"])
     return {
@@ -168,13 +169,22 @@ def q_ads(contract: WebContract, limit=200, offset=0, kind="", status="pending")
 
 
 def _scored_junk(contract: WebContract) -> tuple[list[dict], frozenset[int]]:
-    """领域评分加上页面需要的成本与缩略图状态，路径留在服务内部。"""
+    """领域评分加上页面需要的成本与缩略图状态，路径留在服务内部（`_path`，取页时换成媒体库后删掉）。"""
     out, dismissed = junk.scored_candidates(contract)
     for item in out:
         item["cost"] = cost_for(item['location'], item.get('path'))
         item["has_thumb"] = contract.has_snapshot(item.pop("snapshot_path", None))
-        item.pop("path", None)
+        item["_path"] = item.pop("path", None) or ""
     return out, dismissed
+
+
+def _attach_library(items: list[dict]) -> None:
+    """按路径补这一页条目的媒体库，同作品列表（`web_catalog.attach_artwork_fields`）；评分缓存只随账本表失效，
+    媒体库设置变了它不会重算，所以归属在取页时按当前设置算，不放进缓存。路径不下发。"""
+    from .media_identity import ownership
+    config = settings_file.active()
+    for item in items:
+        item["library_id"] = ownership(config, item.pop("_path", "") or "").get("library_id", "")
 
 
 def _restore_staged_media(staged):

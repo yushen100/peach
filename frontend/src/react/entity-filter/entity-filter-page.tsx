@@ -8,7 +8,7 @@
  * 的常驻节点，换筛选、换视图都只挪不重建。源文件那两枚键仍由遗留层拼（照片详情里复用的是同一对），
  * 那一格用 `dangerouslySetInnerHTML`，React 不拥有里面的节点。 */
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import { Radio, RadioGroup } from 'react-aria-components';
+import { Radio } from 'react-aria-components';
 import { icon } from '@peach/legacy/core';
 
 import { FilterGlassRows, FilterIconButton, FilterPill } from '../components/filter-glass';
@@ -16,6 +16,7 @@ import { LibraryShortcuts } from '../library-shortcuts/shortcut-controls';
 import { AsyncText } from '../components/async-text';
 import { FolderBrowseToggle } from '../catalog-folders/catalog-folders-page';
 import { SEGMENTED_GLASS_TRACK, SEGMENT_GLASS } from '../components/segmented';
+import { GlassSegmentGroup } from '../components/glass-segments';
 import { spriteGlyph } from '../components/sprite-glyph';
 import { IconSwap } from '../components/icon-swap';
 import { useViewGlide } from '../components/use-view-glide';
@@ -253,7 +254,7 @@ export function Segments({ name, label, value, options, onChange }: {
   name?: string; label: string; value: string; options: readonly SegmentOption[]; onChange(value: string): void;
 }) {
   return (
-    <RadioGroup name={name} aria-label={label} orientation="horizontal" value={value} onChange={onChange}
+    <GlassSegmentGroup name={name} aria-label={label} orientation="horizontal" value={value} onChange={onChange}
       data-entity-layout="" className={SEGMENTED_GLASS_TRACK}>
       {options.map(([option, text, symbol]) => {
         const Glyph = spriteGlyph(symbol);
@@ -263,7 +264,7 @@ export function Segments({ name, label, value, options, onChange }: {
           </Radio>
         );
       })}
-    </RadioGroup>
+    </GlassSegmentGroup>
   );
 }
 

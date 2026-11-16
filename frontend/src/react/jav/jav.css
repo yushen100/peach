@@ -11,25 +11,25 @@
 .peach-react [data-jav-title] { margin: 0; font-weight: normal; }
 .peach-react [data-jav-actions] { margin-top: auto; }
 /* 新作和发现不使用馆藏虚拟列表的固定单行估计，密集卡片仍保留标题、姓名和日期。 */
-body[data-density="dense"]:not([data-surface="/trash"]) .peach-react [data-media-card][data-jav-card] [data-media-text] {
+body[data-density="dense"] .peach-react [data-media-card][data-jav-card] [data-media-text] {
   display: flex;
   height: auto;
   gap: 4px;
 }
-body[data-density="dense"]:not([data-surface="/trash"]) .peach-react [data-media-card][data-jav-card] [data-media-title] {
+body[data-density="dense"] .peach-react [data-media-card][data-jav-card] [data-media-title] {
   display: -webkit-box;
   min-height: 2.7em;
   max-height: 2.7em;
   white-space: normal;
   -webkit-line-clamp: 2;
 }
-body[data-density="dense"]:not([data-surface="/trash"]) .peach-react [data-media-card][data-jav-card] [data-media-byline] {
+body[data-density="dense"] .peach-react [data-media-card][data-jav-card] [data-media-byline] {
   flex-direction: column;
   align-items: flex-start;
   height: auto;
   gap: 4px;
 }
-body[data-density="dense"]:not([data-surface="/trash"]) .peach-react [data-media-card][data-jav-card] [data-media-text] [data-media-facts] {
+body[data-density="dense"] .peach-react [data-media-card][data-jav-card] [data-media-text] [data-media-facts] {
   display: inline-flex;
   flex-basis: auto;
 }

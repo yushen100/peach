@@ -18,7 +18,7 @@ export {
 } from './skeleton';
 export { gateSweep, releaseSweep } from './sweep-gate';
 export {
-  cancelGlide, glideEase, moveGlidePane, rubberBand, scrollerHtml, stopAutoScroll, wireAutoScroll, wireHorizontalScroller,
+  afterGlide, cancelGlide, glideEase, moveGlidePane, rubberBand, scrollerHtml, stopAutoScroll, wireAutoScroll, wireHorizontalScroller,
   observeScrollRegions, wireOverlayScrollbars, wireScrollers,
 } from './scroll';
 export {

@@ -118,7 +118,7 @@ export async function openQualityGoals(browser: Browser, items: unknown[]): Prom
     status: 200, contentType: 'image/png', body: Buffer.from(PIXEL, 'base64'),
   }));
   await opened.page.reload({ waitUntil: 'load' });
-  await opened.page.locator('li[data-goal-id]').first().waitFor({ timeout: 15_000 });
+  await opened.page.locator('[data-goal-id]').first().waitFor({ timeout: 15_000 });
   await settle(opened.page);
   return opened;
 }
@@ -214,13 +214,13 @@ export async function openProcessing(
 /** 1280 的桌面视口比 `--board-content` 还窄，量不出「网格铺满、标题居中」这类差别。 */
 export const WIDE = { name: 'wide', width: 1600, height: 900, mobile: false };
 
-/** 垃圾文件页。计数行由垃圾队列那一页画，演示库里一条候选都没有时它照样在；壳铺的
- *  骨架（`[data-junk-count-skeleton]`）也有这两块，等的是页面接管之后的那一版。 */
+/** 垃圾文件页。筛选浮层由垃圾队列那一页画，演示库里一条候选都没有时它照样在；壳铺的
+ *  骨架（`[data-junk-count-skeleton]`）也有读数格与分类条，等的是页面接管之后的那一版。 */
 export const JUNK_COUNT = '#count > .peach-react:not([data-junk-count-skeleton])';
 export async function openJunk(browser: Browser): Promise<Visit> {
   const opened = await visit(browser, '/junk-files', WIDE);
   await expectBody(opened.page, '/junk-files', [
-    opened.page.locator(`${JUNK_COUNT} [data-collection-summary]`),
+    opened.page.locator(`${JUNK_COUNT} [data-catalog-readout]`),
     opened.page.locator(`${JUNK_COUNT} [data-junk-filters]`),
   ]);
   await settle(opened.page);

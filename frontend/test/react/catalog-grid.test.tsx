@@ -685,16 +685,20 @@ describe('作品卡', () => {
     expect(host.querySelector('[data-later]')?.getAttribute('aria-pressed')).toBe('true');
   });
 
-  it('回收站里的资源按类型起名，卡上那枚键还原这一条，不打开它', async () => {
-    const archive = await render(item(17, { medium: 'archive', name: '资料.zip', disposal: 'trash' }), { variant: 'resource' });
+  it('回收站里的资源按类型起名，卡底那颗「还原」还原这一条、不打开它，归入原因排在标签行最前', async () => {
+    const archive = await render(item(17, { medium: 'archive', name: '资料.zip', disposal: 'trash', disposal_reason: 'junk' }), { variant: 'resource' });
     expect(archive.host.querySelector('[data-media-who]')?.textContent).toBe('压缩包');
-    await click(archive.host.querySelector('[data-media-resource-action]'));
+    expect(archive.host.querySelector('[data-media-tags] > :first-child')?.textContent).toBe('垃圾');
+    const restore = archive.host.querySelector('[data-jav-actions] [data-media-resource-action="restore"]');
+    expect(restore?.textContent).toBe('还原');
+    await click(restore);
     expect(archive.actions.resourceOperation).toHaveBeenCalledWith(expect.objectContaining({ id: 17 }), 'restore');
     expect(archive.onOpen).not.toHaveBeenCalled();
 
+    /* 不在回收站里的资源卡没有动作行。 */
     const shortcut = await render(item(18, { medium: 'other', name: '入口.URL' }), { variant: 'resource' });
     expect(shortcut.host.querySelector('[data-media-who]')?.textContent).toBe('网址快捷方式');
-    expect(shortcut.host.querySelector('[data-media-resource-action]')?.getAttribute('title')).toBe('移入回收站');
+    expect(shortcut.host.querySelector('[data-jav-actions]')).toBeNull();
   });
 
   it('换大图／小图留着原来那张封面，原地换取景；换了作品才换图', async () => {

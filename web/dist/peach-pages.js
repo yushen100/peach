@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "3a2eabfb-d0d0-4c9d-b6e9-e04fb8bfedfe", e._sentryDebugIdIdentifier = "sentry-dbid-3a2eabfb-d0d0-4c9d-b6e9-e04fb8bfedfe");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "6e689646-2936-4e72-82b6-353e1497e932", e._sentryDebugIdIdentifier = "sentry-dbid-6e689646-2936-4e72-82b6-353e1497e932");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -2805,6 +2805,7 @@ var He = "peach.settings.v1", Ue = {
 		kindUrlShortcuts: "Internet shortcuts",
 		kindUrls: "URLs",
 		kindVideos: "Videos",
+		listReason: "Reason",
 		locating: "Locating",
 		notJunk: "Not junk",
 		reconsider: "Reconsider",
@@ -4057,6 +4058,7 @@ var He = "peach.settings.v1", Ue = {
 		dockLabel: "Actions for selected HD upgrades",
 		emptyBody: "All current editions already meet the criteria, or nothing has been added to tracking yet.",
 		emptyTitle: "No HD upgrade targets",
+		listReason: "Reason",
 		loadFailed: "Couldn't load HD upgrade targets",
 		noPreview: "No preview",
 		notFound: "HD upgrade targets not found. Refresh the page to try again.",
@@ -4134,9 +4136,7 @@ var He = "peach.settings.v1", Ue = {
 		repairs: "Repairs",
 		review: "Review",
 		sources: "Sources",
-		trash: "Trash",
-		trashCount_one: "{{count, number}} matching · showing {{shown}}",
-		trashCount_other: "{{count, number}} matching · showing {{shown}}"
+		trash: "Trash"
 	},
 	manageSkeleton: {
 		loadingLibraryTools: "Loading library tools",
@@ -10262,6 +10262,7 @@ var He = "peach.settings.v1", Ue = {
 		kindUrlShortcuts: "网址快捷方式",
 		kindUrls: "网址",
 		kindVideos: "视频",
+		listReason: "判定理由",
 		locating: "正在定位",
 		notJunk: "不是垃圾",
 		reconsider: "重新判断",
@@ -11350,6 +11351,7 @@ var He = "peach.settings.v1", Ue = {
 		dockLabel: "所选高清升级的操作",
 		emptyBody: "现有版本都已满足条件，或还没有加入追踪。",
 		emptyTitle: "没有标记中的高清版目标",
+		listReason: "判定原因",
 		loadFailed: "高清版目标读取失败",
 		noPreview: "暂无预览",
 		notFound: "未取得高清版目标，请刷新页面重试。",
@@ -11420,8 +11422,7 @@ var He = "peach.settings.v1", Ue = {
 		repairs: "修复与迁移",
 		review: "人工复核",
 		sources: "来源和凭证",
-		trash: "回收站",
-		trashCount: "{{count, number}} 个符合 · 显示 {{shown}}"
+		trash: "回收站"
 	},
 	manageSkeleton: {
 		loadingLibraryTools: "正在读取数据管理状态",
@@ -39449,4 +39450,4 @@ jt();
 var Kb = document.getElementById("peach-page"), qb = Kb ? Gb[Kb.dataset.page ?? ""] : void 0;
 Kb && qb && (0, Bt.createRoot)(Kb).render(/* @__PURE__ */ (0, V.jsx)(Wb, { children: /* @__PURE__ */ (0, V.jsx)(qb, { data: { ...Kb.dataset } }) }));
 
-//# debugId=3a2eabfb-d0d0-4c9d-b6e9-e04fb8bfedfe
+//# debugId=6e689646-2936-4e72-82b6-353e1497e932

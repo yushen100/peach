@@ -65,7 +65,7 @@ describe('Board 页面骨架', () => {
     ['/stats', '[data-stats-chart]', 2],
     ['/tasks', '.activitysection', 3],
     ['/duplicates', '[data-duplicate-group] .duplicate-row', 4],
-    ['/quality-goals', '.peach-react .card-grid-cover > li', 6],
+    ['/quality-goals', '.peach-react [data-quality-goals] [data-media-grid] > [data-jav-skeleton-card]', 6],
     ['/subscriptions', '.peach-react .ui-follow-skeleton-surface .follow-skeleton-author', 3],
     ['/settings/library', '.peach-react .ui-configpage section[aria-label="媒体库与目录"]', 1],
     ['/playlists', '.ui-playlistcards > .playlistcard', 6],

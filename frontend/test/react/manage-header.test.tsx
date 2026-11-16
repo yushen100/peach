@@ -93,7 +93,7 @@ const SECTIONS: ManageEntry[] = [['stats', '统计', 'chart'], ['cleanup', '数�
 const MENU = SECTIONS.filter(([key]) => key !== 'trash');
 
 const props = (section: string, path: string, patch: Partial<ManageHeaderProps> = {}): ManageHeaderProps =>
-  ({ section, path, sections: SECTIONS, menu: MENU, trash: null, ...patch });
+  ({ section, path, sections: SECTIONS, menu: MENU, ...patch });
 
 /** 壳 `index.html` 里那个常驻宿主，壳启动时同步写进骨架。 */
 function headerHost(first: ManageHeaderProps): ManageHeaderHost {
@@ -102,7 +102,7 @@ function headerHost(first: ManageHeaderProps): ManageHeaderHost {
   document.body.append(root);
   root.innerHTML = manageHeaderSkeletonHtml(first);
   return { root, store: createSettingsStore('test.manage-order', { manageOrder: ['stats', 'cleanup'] }),
-    openManage: vi.fn(), openPath: vi.fn(), emptyTrash: vi.fn() };
+    openManage: vi.fn(), openPath: vi.fn() };
 }
 
 /** 照壳的 `mountManageHeader` 接上：铺骨架、装载，拿到句柄就把手上那份推进去。 */
@@ -280,34 +280,12 @@ describe('管理条与面包屑', () => {
   });
 });
 
-describe('回收站说明行', () => {
-  it('读数到之前铺同形占位，读到以后落读数与清空键；说明行一直是同一个节点', async () => {
-    const { root, host, render } = await setup(props('trash', '/trash'));
-    const lede = root.querySelector('[data-manage-lede]')!;
-    expect(lede.querySelectorAll('[data-trash-lede-skeleton]')).toHaveLength(2);
-    expect(lede.querySelector('[data-lede-text]')).toBeNull();
-    render(props('trash', '/trash', { trash: { total: 1234, shown: 8 } }));
-    expect(root.querySelector('[data-manage-lede]')).toBe(lede);
-    expect(lede.querySelector('[data-trash-lede-skeleton]')).toBeNull();
-    expect(lede.querySelector('[data-lede-text]')!.textContent).toBe('1,234 个符合 · 显示 8');
-    await click(lede.querySelector('[data-empty-trash]'));
-    expect(host.emptyTrash).toHaveBeenCalledTimes(1);
-    render(props('trash', '/trash', { trash: { total: 0, shown: 0 } }));
-    expect(lede.querySelector('[data-empty-trash]')).toBeNull();
-  });
-
-  it('同一页重画：读数那一格沿用原节点，旧字淡出后换成新字，不回到占位', async () => {
-    const { root, render } = await setup(props('trash', '/trash', { trash: { total: 20, shown: 8 } }));
-    vi.useFakeTimers();
-    const cell = root.querySelector<HTMLElement>('[data-lede-text]')!;
-    render(props('trash', '/trash', { trash: { total: 20, shown: 16 } }));
-    expect(root.querySelector('[data-lede-text]')).toBe(cell);
-    expect(root.querySelector('[data-trash-lede-skeleton]')).toBeNull();
-    expect(cell.classList.contains('leaving')).toBe(true);
-    expect(cell.textContent).toBe('20 个符合 · 显示 8');
-    act(() => { vi.advanceTimersByTime(400) });
-    expect(cell.textContent).toBe('20 个符合 · 显示 16');
-    expect(cell.classList.contains('leaving')).toBe(false);
+describe('回收站', () => {
+  it('页头止于标题：读数与「清空回收站」在它的筛选浮层里，页头不再画说明行', async () => {
+    const { root } = await setup(props('trash', '/trash'));
+    expect(title(root)).toBe('回收站');
+    expect(root.lastElementChild?.hasAttribute('data-manage-title')).toBe(true);
+    expect(root.querySelector('[data-manage-lede], [data-empty-trash]')).toBeNull();
   });
 });
 
@@ -319,7 +297,7 @@ describe('常驻组件', () => {
     api.render(props('cleanup', '/junk-files'));
     expect(title(root)).toBe('垃圾文件');
     api.render(props('trash', '/trash'));
-    expect([title(root), root.querySelectorAll('[data-trash-lede-skeleton]').length]).toEqual(['回收站', 2]);
+    expect(title(root)).toBe('回收站');
   });
 
   it('抛错只卸组件、宿主还在，批量条照画；之后句柄是空操作、不抛，这一面空到刷新为止，只报一次', async () => {

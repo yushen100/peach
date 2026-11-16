@@ -278,10 +278,10 @@ function ListIdentity({ item, props, disabled }: { item: MediaItem; props: Catal
   </div>;
 }
 
-/** 媒体库那一列：标识加名字，与侧栏媒体库切换同一套。没有归属媒体库的写「—」。 */
-function ListLibrary({ item }: { item: MediaItem }) {
+/** 媒体库那一列：标识加名字，与侧栏媒体库切换同一套。没有归属媒体库的写「—」。处理队列页的列表也用它。 */
+export function ListLibrary({ item }: { item: { library_id?: unknown } }) {
   const tints = useLibraryTints({ names: true });
-  const tint = item.library_id ? tints.get(item.library_id) : undefined;
+  const tint = typeof item.library_id === 'string' && item.library_id ? tints.get(item.library_id) : undefined;
   return tint?.name ? <span data-list-library="" title={t('catalog:catalogList.libraryName', { name: tint.name })}><SourceMark mark={tint.icon} /><span>{tint.name}</span></span> : '—';
 }
 

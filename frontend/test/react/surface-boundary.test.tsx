@@ -112,11 +112,11 @@ function watchReports() {
 function filterProps(): CatalogFilterProps {
   return {
     tiers: { key: 'k', performers: [], studios: [] }, tiersPending: false, empty: true, tags: [], tagFirst: 0,
-    views: [{ k: '', label: '全部', href: '/' }], state: '', count: { total: 0, shown: 0 }, trash: false,
+    views: [{ k: '', label: '全部', href: '/' }], state: '', count: { total: 0, shown: 0 }, trash: false, trashHost: null,
     sorts: [], layout: null, refreshing: false, offscreen: false, combo: [], comboHidden: true, comboHost: null,
     actions: {
       openEntity: vi.fn(), setView: vi.fn(), toggleTag: vi.fn(), clearFilter: vi.fn(), clearAll: vi.fn(),
-      setSort: vi.fn(), reshuffle: vi.fn(async () => {}), setLayout: vi.fn(), moreTops: vi.fn(async () => []),
+      setSort: vi.fn(), reshuffle: vi.fn(async () => {}), setLayout: vi.fn(), moreTops: vi.fn(async () => []), emptyTrash: vi.fn(),
     },
     helpers: { wireDrag: vi.fn(), wireScroller: vi.fn() },
   };

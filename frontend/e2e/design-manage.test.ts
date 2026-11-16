@@ -610,19 +610,21 @@ describe('设计决定：数据管理、索引页与资料页头', () => {
     }
   });
 
-  it('重复文件的汇总条是玻璃面，组卡 14px 圆角、组头 20px 内边距，每行上方一条 1px 分隔线', { timeout: 60_000 }, async () => {
+  it('重复文件的筛选浮层是首页那副两排玻璃，组卡 14px 圆角、组头 20px 内边距，每行上方一条 1px 分隔线', { timeout: 60_000 }, async () => {
     const opened = await openDuplicates(browser);
     try {
       const faces = await opened.page.evaluate(() => {
-        const glass = getComputedStyle(document.querySelector('[data-filter-glass]')!);
+        const frame = document.querySelector('#stats [data-duplicates-frame]')!;
+        const glass = getComputedStyle(frame);
         const group = document.querySelector('#stats section[aria-label="DUPE-002"]')!;
         const head = group.firstElementChild!;
         const card = getComputedStyle(group);
         const header = getComputedStyle(head);
         const code = getComputedStyle(head.querySelector('b')!);
         return {
-          glass: { filter: glass.backdropFilter, padding: glass.padding, height: glass.height,
-            compact: parseFloat(glass.getPropertyValue('--control-h-compact')) },
+          glass: { filter: glass.backdropFilter, padding: glass.padding,
+            rows: [...frame.querySelectorAll('[data-filter-row]')].map((row) => [(row as HTMLElement).dataset.filterRow,
+              Math.round(row.getBoundingClientRect().height)]) },
           card: { radius: card.borderRadius, overflow: card.overflow, face: card.backgroundColor },
           head: { padding: header.padding, face: header.backgroundColor, size: code.fontSize, weight: code.fontWeight },
           rows: [...group.querySelectorAll('.duplicate-row')].map((row) => {
@@ -631,9 +633,9 @@ describe('设计决定：数据管理、索引页与资料页头', () => {
           }),
         };
       });
-      assert.match(faces.glass.filter, /blur\(/, '汇总条没有背景模糊，不是玻璃面');
-      // 汇总条里的控件取紧凑档，条高是上下各 10px 内边距加一档紧凑控件。
-      assert.deepEqual([faces.glass.padding, faces.glass.height], ['10px 16px', `${20 + faces.glass.compact}px`]);
+      assert.match(faces.glass.filter, /blur\(/, '筛选浮层没有背景模糊，不是玻璃面');
+      // 同首页浮层：外框不留内边距，上排（保留哪一份）与下排（读数与操作）各 48px。
+      assert.deepEqual([faces.glass.padding, faces.glass.rows], ['0px', [['top', 48], ['bottom', 48]]]);
       assert.deepEqual([faces.card.radius, faces.card.overflow], ['14px', 'hidden'], '组卡圆角或裁切不对');
       assert.notEqual(faces.head.face, faces.card.face, '组头和组卡同色，番号那一行分不出来');
       assert.deepEqual([faces.head.padding, faces.head.size, faces.head.weight], ['20px', '20px', '500']);

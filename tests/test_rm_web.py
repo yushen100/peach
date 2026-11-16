@@ -2536,9 +2536,13 @@ class WebDataTests(unittest.TestCase):
 
     def test_better_version_targets_have_a_management_read_surface(self):
         rm_web.w_quality_goal(self.contract, {"id": 1, "wanted": True})
-        queue = rm_web.q_quality_goals(self.contract, {"limit": "20"})
+        with mock.patch.object(web_stats.settings_file, "active", return_value=object()), \
+                mock.patch("peach.media_identity.ownership", return_value={"library_id": "lib-a"}):
+            queue = rm_web.q_quality_goals(self.contract, {"limit": "20"})
         self.assertEqual(queue["total"], 1)
         self.assertEqual(queue["items"][0]["id"], 1)
+        # 所属媒体库同作品列表，按路径算；路径本身不下发。
+        self.assertEqual(queue["items"][0]["library_id"], "lib-a")
         self.assertNotIn("path", queue["items"][0])
         self.assertFalse(queue["has_more"])
         rm_web.w_batch(self.contract, {"ids": [1, 2], "operation": "dispose"})

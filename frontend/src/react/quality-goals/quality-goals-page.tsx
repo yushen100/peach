@@ -7,26 +7,38 @@
  * 在这里重写一份就会漂。时长、体积、来源名走 `src/core/index.ts` 同一套格式化口径，同理。
  *
  * 这一页是处理队列：每张卡直接带勾选框，顶上有「全选」，选中几部后底部条给「查找资源」，
- * 打开的是 JAV 页同一个批量查找面板。查找本身不写数据，下载由面板里各行自己确认。 */
-import { useState } from 'react';
+ * 打开的是 JAV 页同一个批量查找面板。查找本身不写数据，下载由面板里各行自己确认。
+ *
+ * 页头是首页那副玻璃筛选浮层的第二行：左端读数（还欠多少部）与「全选」，右边卡片／列表与排序键；列表版式
+ * 同首页列表（`../components/queue-table.tsx`）。卡片排法同
+ * JAV 探索卡（`../jav/discovery-card.tsx`）：封面、头像那一格放勾选框、两行标题、来源与体积，
+ * 判定原因落在标签行，底部一排动作键。 */
+import { useState, type CSSProperties } from 'react';
 import { RiSparklingLine } from '@remixicon/react';
 import { useQuery } from '@tanstack/react-query';
 
 import { LOC, fmtDur, fmtSize } from '@peach/legacy/core';
 
 import { Button } from '@/components/base/buttons/button';
-import { Checkbox } from '@/components/base/checkbox/checkbox';
 
 import { errorMessage } from '../../api';
 import { CloudDownloadDialog, type DownloadPrefill } from '../activity/cloud-download-dialog';
 import type { QualityGoalsProps } from '../bundle';
-import { cardClass } from '../components/card';
-import { CollectionSummary } from '../components/collection-summary';
+import { CardTags, Icon } from '../components/card-meta';
 import { EmptyState } from '../components/empty-state';
+import { FilterGlassRows, SelectAllPill } from '../components/filter-glass';
+import { QueueIdentity, QueuePicture, QueueTable } from '../components/queue-table';
+import { useQueueSort } from '../components/queue-sort';
+import { useCatalogView } from '../catalog-grid/catalog-view';
+import { CatalogViewToggle } from '../catalog-grid/catalog-view-toggle';
+import { SortKeys } from '../entity-filter/entity-filter-page';
 import { Note } from '../components/note';
 import { Page } from '../components/page';
 import { enterPageSelection, exitPageSelection, usePageSelection } from '../components/page-selection';
 import { SelectionDock } from '../components/selection-dock';
+import { useDense } from '../components/use-dense';
+import { useLibraryTints } from '../components/library-tint';
+import { ListLibrary } from '../catalog-grid/catalog-list-page';
 import { JavBatchResources } from '../jav/jav-batch-resources';
 import type { Discovery } from '../jav/jav';
 import {
@@ -34,67 +46,72 @@ import {
 } from './quality-goals';
 import { t } from '../../i18n';
 
+/** 判定原因按「高清 / 无水印 / 完整版」那样的分隔拆成几枚只读标签。 */
+const reasonTags = (reason: string | null) => (reason || '').split(/\s*\/\s*/).map((part) => part.trim()).filter(Boolean);
+
 /** 一部待升级的作品一张卡。 */
-function GoalCard({ item, openItem, searchResources, javTitleHtml, javDisplayName, srcBadge, picked, onPick }: { item: QualityGoal }
-  & Omit<QualityGoalsProps, 'toast'> & { searchResources(prefill: DownloadPrefill): void; picked: boolean; onPick(on: boolean): void }) {
+function GoalCard({ item, openItem, searchResources, javTitleHtml, javDisplayName, srcBadge, picked, onPick, selecting }: { item: QualityGoal }
+  & Omit<QualityGoalsProps, 'toast'> & { searchResources(prefill: DownloadPrefill): void; picked: boolean; onPick(on: boolean): void;
+    selecting: boolean }) {
+  const dense = useDense();
+  const [broken, setBroken] = useState(false);
   const open = () => openItem(item.id);
+  const title = javDisplayName(item);
+  const tints = useLibraryTints();
+  const library = item.library_id && tints.get(item.library_id)?.color ? item.library_id : undefined;
   return (
-    <li data-goal-id={item.id} data-board-selected={picked || undefined}
-      className={cardClass({ padding: 'none', className: 'flex flex-col gap-3 p-3' })}>
-      <div className="flex min-w-0 gap-4">
-        {/* 居中那句占位文字用 `inline-grid`：旧样式表里 `.grid` 是海报墙那条带列宽和
-            间距的规则，排在 `peach-app.css` 后面会赢。这颗按钮是 flex 子项，行内格
-            会被块级化，算出来仍是 `display:grid`。 */}
-        <button type="button" onClick={open} aria-label={t('manage:hdUpgrades.openVideo', { title: javDisplayName(item) })}
-          className="relative inline-grid w-card-cover shrink-0 self-start aspect-card-cover cursor-pointer place-items-center overflow-hidden rounded-2lg bg-media-placeholder">
-          {/* 图片取不到时（onError 把 img 摘掉）露出来的就是这句。 */}
-          <span className="text-caption-1-regular text-text-secondary">{t('manage:hdUpgrades.noPreview')}</span>
-          <img src={previewUrl(item)} alt="" loading="lazy"
-            onError={(event) => event.currentTarget.remove()}
-            className="absolute inset-0 size-full object-contain" />
-        </button>
-        <div className="flex min-w-0 flex-col gap-1.5">
+    /* 多选模式与修饰键优先：点在卡上任何地方都是切换选中，同探索卡；平时点封面与标题打开。 */
+    <article data-media-card="" data-jav-card="" data-queue-card="" data-goal-id={item.id} data-library={library}
+      data-selected={picked ? '' : undefined}
+      onClickCapture={(event) => {
+        if (!selecting && !event.shiftKey && !event.ctrlKey && !event.metaKey) return;
+        event.preventDefault(); event.stopPropagation(); onPick(!picked);
+      }}>
+      <button type="button" data-media-pic="" onClick={open} aria-label={t('manage:hdUpgrades.openVideo', { title })}
+        style={{ '--card-ratio': String(16 / 9) } as CSSProperties}>
+        {/* 图片取不到时露出来的就是这句。 */}
+        {broken ? <span data-media-nopic="">{t('manage:hdUpgrades.noPreview')}</span>
+          : <span data-media-art="thumb"><img className="absolute inset-0 size-full object-contain" src={previewUrl(item)} alt="" loading="lazy" data-goal-cover=""
+            onError={() => setBroken(true)} /></span>}
+        <span data-media-badge="" dangerouslySetInnerHTML={{ __html: srcBadge(item.location, item.cost) }} />
+        {Number(item.duration) > 0 ? <span data-media-duration="">{fmtDur(item.duration)}</span> : null}
+        <span data-media-check=""><Icon name="check" /></span>
+      </button>
+      <div data-media-meta="">
+        <div data-media-text="">
           {/* 标题从番号读起，长了折到第二行再截尾：中段截断会把番号和片名一起切掉。 */}
-          <h3 className="text-headline-medium text-text-primary">
-            <button type="button" onClick={open} title={javDisplayName(item)}
-              className="line-clamp-2 w-full cursor-pointer text-left wrap-anywhere"
-              dangerouslySetInnerHTML={{ __html: javTitleHtml(item) }} />
-          </h3>
-          <p className="flex flex-wrap items-center gap-2 text-body-2-regular text-text-secondary">
-            {/* 插原始 HTML 要有个宿主元素，而来源徽标在遗留版本里是这个 flex 容器的直接
-                子项。`contents` 让宿主从布局里消失，徽标的对齐与间距保持不变。 */}
-            <span className="contents" dangerouslySetInnerHTML={{ __html: srcBadge(item.location, item.cost) }} />
-            <span>{LOC[item.location] ?? item.location}</span>
-            <span>{fmtDur(item.duration)}</span>
-            <span>{Number(item.size) > 0 ? fmtSize(Number(item.size)) : t('manage:hdUpgrades.unknownSize')}</span>
-          </p>
-          {item.reason
-            ? <p className="border-t border-separator-border pt-3 text-body-2-regular text-text-secondary wrap-anywhere">
-                {item.reason}
-              </p>
-            : null}
+          <button type="button" data-media-title="" onClick={open} title={title}
+            dangerouslySetInnerHTML={{ __html: javTitleHtml(item) }} />
+          <div data-media-byline="">
+            {/* 署名写这一部所在的媒体库（标识加名字，同列表那一列）；不在任何媒体库里时写来源。 */}
+            <span data-media-who="">{item.library_id ? <ListLibrary item={item} /> : LOC[item.location] ?? item.location}</span>
+            <span data-media-facts=""><span data-media-size=""><Icon name="hard-drive" />
+              {Number(item.size) > 0 ? fmtSize(Number(item.size)) : t('manage:hdUpgrades.unknownSize')}</span></span>
+          </div>
+          <CardTags tags={reasonTags(item.reason)} label={(tag) => tag} readOnly title={item.reason || undefined} />
         </div>
       </div>
-      {/* 勾选框放在底栏左端：摆在封面前面会把标题和读数那一列挤窄，宽屏三列时读数折成好几行。 */}
-      <footer className="flex flex-wrap items-center justify-end gap-2">
-        {item.code ? <Checkbox slot={null} className="mr-auto" aria-label={t('manage:hdUpgrades.selectVideo', { title: javDisplayName(item) })}
-          isSelected={picked} onChange={onPick} /> : null}
-        {item.code ? <Button variant="secondary" size="small" onClick={() => searchResources({
-          code: item.code!, title: javDisplayName(item), origin: `asset:${item.id}`, searchReason: item.reason || '',
+      <div data-jav-actions="" className="flex flex-wrap gap-2">
+        {item.code ? <Button variant="secondary" size={dense ? 'small' : 'medium'} onClick={() => searchResources({
+          code: item.code!, title, origin: `asset:${item.id}`, searchReason: item.reason || '',
           duration: item.duration, cover: previewUrl(item),
         })}>{t('manage:resourceSearch.searchTorrents')}</Button> : null}
-        <Button variant="secondary" size="small" onClick={open}>{t('manage:hdUpgrades.viewEditions')}</Button>
-      </footer>
-    </li>
+        <Button variant="secondary" size={dense ? 'small' : 'medium'} onClick={open}>{t('manage:hdUpgrades.viewEditions')}</Button>
+      </div>
+    </article>
   );
 }
 
 export function QualityGoalsPage({ toast, ...props }: QualityGoalsProps) {
   const [download, setDownload] = useState<DownloadPrefill | null>(null);
   const [picked, setPicked] = useState<ReadonlySet<number>>(new Set());
-  usePageSelection(() => setPicked(new Set()));
+  const selecting = usePageSelection(() => setPicked(new Set()));
   const [resources, setResources] = useState<Discovery[] | null>(null);
   const goals = useQuery({ queryKey: QUALITY_GOALS_KEY, queryFn: ({ signal }) => fetchQualityGoals(signal) });
+  const view = useCatalogView();
+  const order = useQueueSort<QualityGoal>('quality-goals', {
+    size: (item) => Number(item.size || 0), dur: (item) => Number(item.duration || 0), new: (item) => item.id,
+  });
   const data = goals.data;
   if (!data) {
     return (
@@ -103,7 +120,7 @@ export function QualityGoalsPage({ toast, ...props }: QualityGoalsProps) {
       </Page>
     );
   }
-  const items = data.items || [];
+  const items = order.sort(data.items || []);
   if (!items.length) {
     return (
       <Page>
@@ -113,30 +130,56 @@ export function QualityGoalsPage({ toast, ...props }: QualityGoalsProps) {
       </Page>
     );
   }
-  const selectable = items.filter((item) => item.code);
-  const chosen = selectable.filter((item) => picked.has(item.id));
-  const allPicked = selectable.length > 0 && chosen.length === selectable.length;
+  /* 每一部都能勾，「全选」就是这一屏全部；批量查找资源只带有番号的那几部，没有番号的查不了。 */
+  const chosen = items.filter((item) => picked.has(item.id));
+  const searchable = chosen.filter((item) => item.code);
+  const pickAll = (on: boolean) => { if (on) enterPageSelection(); setPicked(on ? new Set(items.map((item) => item.id)) : new Set()) };
   const pick = (id: number, on: boolean) => { if (on) enterPageSelection(); setPicked((current) => {
     const next = new Set(current);
     if (on) next.add(id); else next.delete(id);
     return next;
   }) };
   return (
-    <Page>
+    <div data-quality-goals="" className="mx-auto w-full max-w-board">
       {/* 总数取服务端的 `total` 而不是这一页的条数：`limit` 截断时两者不是一个数，
-          而这一行要回答的是「一共还欠多少部」。 */}
-      <CollectionSummary label={t('manage:hdUpgrades.summaryLabel')} figure={t('manage:hdUpgrades.videoCount', { count: Number(data.total || 0) })} flush />
-      {selectable.length ? <div className="mb-4">
-        <Checkbox size="sm" isSelected={allPicked} isIndeterminate={chosen.length > 0 && !allPicked}
-          onChange={(on) => { if (on) enterPageSelection(); setPicked(on ? new Set(selectable.map((item) => item.id)) : new Set()) }}>{t('manage:hdUpgrades.selectAll')}</Checkbox>
-      </div> : null}
-      <ul className="card-grid-cover gap-5">
-        {items.map((item) => <GoalCard key={item.id} item={item} {...props} searchResources={setDownload}
-          picked={picked.has(item.id)} onPick={(on) => pick(item.id, on)} />)}
-      </ul>
+          而读数要回答的是「一共还欠多少部」。 */}
+      <FilterGlassRows label={t('manage:hdUpgrades.summaryLabel')} topLabel={t('manage:hdUpgrades.summaryLabel')} top={null}
+        attrs={{ 'data-catalog-frame': '', 'data-filter-frame': '' }} bottomClassName="min-h-12" bottom={<><span data-catalog-summary="">
+          <span data-catalog-readout="" role="status">
+            {t('manage:hdUpgrades.summaryLabel')} · {t('manage:hdUpgrades.videoCount', { count: Number(data.total || 0) })}</span>
+          <SelectAllPill label={t('manage:hdUpgrades.selectAll')} picked={chosen.length} total={items.length} onChange={pickAll} />
+        </span>
+        <span data-entity-sorts=""><CatalogViewToggle /><SortKeys sorts={order.sorts} onSort={order.onSort} /></span></>} />
+      {view === 'list'
+        ? <QueueTable table="quality-goals" label={t('manage:hdUpgrades.summaryLabel')} items={items} selected={picked} selecting={selecting}
+            sort={{ options: order.sorts.map(({ key, label }) => ({ id: key, label })), sorting: order.sorting, onChange: order.setSorting }}
+            rowLabel={(item) => t('manage:hdUpgrades.selectVideo', { title: props.javDisplayName(item) })}
+            onPick={(item, on) => pick(item.id, on)}
+            onPickAll={pickAll}
+            cells={{
+              name: (item) => <QueueIdentity name={props.javDisplayName(item)}
+                onOpen={() => props.openItem(item.id)} picture={<QueuePicture src={previewUrl(item)} glyph="film" />} />,
+              library: (item) => <ListLibrary item={item} />,
+              source: (item) => <span className="inline-flex items-center gap-1.5">
+                <span className="contents" dangerouslySetInnerHTML={{ __html: props.srcBadge(item.location, item.cost) }} />
+                {LOC[item.location] ?? item.location}</span>,
+              dur: (item) => fmtDur(item.duration) || '—',
+              size: (item) => Number(item.size) > 0 ? fmtSize(Number(item.size)) : '—',
+              reason: (item) => item.reason || '—',
+              actions: (item) => <span className="flex gap-2">
+                {item.code ? <Button variant="secondary" size="small" onClick={() => setDownload({ code: item.code!, title: props.javDisplayName(item),
+                  origin: `asset:${item.id}`, searchReason: item.reason || '', duration: item.duration, cover: previewUrl(item) })}>
+                  {t('manage:resourceSearch.searchTorrents')}</Button> : null}
+                <Button variant="secondary" size="small" onClick={() => props.openItem(item.id)}>{t('manage:hdUpgrades.viewEditions')}</Button>
+              </span>,
+            }} />
+        : <div data-media-grid="" data-select-mode={selecting ? '' : undefined}>
+            {items.map((item) => <GoalCard key={item.id} item={item} {...props} searchResources={setDownload}
+              picked={picked.has(item.id)} onPick={(on) => pick(item.id, on)} selecting={selecting} />)}
+          </div>}
       <SelectionDock visible={chosen.length > 0} label={t('manage:hdUpgrades.dockLabel')} count={t('manage:hdUpgrades.selectedCount', { count: chosen.length })}
         actions={[]}>
-        <Button size="small" variant="secondary" onClick={() => setResources(chosen.map((item) => ({ id: item.id, code: item.code!,
+        <Button size="small" variant="secondary" disabled={!searchable.length} onClick={() => setResources(searchable.map((item) => ({ id: item.id, code: item.code!,
           title: props.javDisplayName(item), release_date: undefined }) as unknown as Discovery))}>{t('manage:resourceSearch.searchTorrents')}</Button>
         <Button size="small" variant="ghost" onClick={exitPageSelection}>{t('manage:hdUpgrades.clearSelection')}</Button>
       </SelectionDock>
@@ -148,6 +191,6 @@ export function QualityGoalsPage({ toast, ...props }: QualityGoalsProps) {
           </p>
         : null}
       <CloudDownloadDialog prefill={download} close={() => setDownload(null)} receipt={toast} />
-    </Page>
+    </div>
   );
 }

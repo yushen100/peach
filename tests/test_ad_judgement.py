@@ -259,6 +259,23 @@ class ResourceJunkQueueTests(unittest.TestCase):
         self.assertNotIn(7, by_id)
         self.assertTrue(all("path" not in item for item in result["items"]))
 
+    def test_each_page_names_its_media_library_from_the_current_settings(self):
+        self.add(3, "pikpak", r"A:\资源\点击这里.url", "other", 128)
+
+        def owned_by(library):
+            return lambda config, path: {"library_id": library} if path == r"A:\资源\点击这里.url" else {}
+
+        with mock.patch.object(web_batch.settings_file, "active", return_value=object()), \
+                mock.patch("peach.media_identity.ownership", side_effect=owned_by("lib-a")):
+            first = q_ads(self.contract)["items"]
+        # 评分缓存只随账本表失效；媒体库归属按取页那一刻的设置算，换了设置下一次取就跟着换。
+        with mock.patch.object(web_batch.settings_file, "active", return_value=object()), \
+                mock.patch("peach.media_identity.ownership", side_effect=owned_by("lib-b")):
+            second = q_ads(self.contract)["items"]
+        self.assertEqual([item["library_id"] for item in first], ["lib-a"])
+        self.assertEqual([item["library_id"] for item in second], ["lib-b"])
+        self.assertTrue(all("path" not in item and "_path" not in item for item in first + second))
+
     def test_game_download_promo_name_enters_review_without_automatic_trash(self):
         name = "18+游戏大全(996gg.cc)-七龍珠H版-三國志H版-三國群淫傳等.mp4"
         self.add(80, "115", "B:\\云下载\\MNGS-071\\" + name, "video", 2001226, 11.378005)

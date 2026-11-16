@@ -281,6 +281,7 @@
     "dockLabel": "所选高清升级的操作",
     "emptyBody": "现有版本都已满足条件，或还没有加入追踪。",
     "emptyTitle": "没有标记中的高清版目标",
+    "listReason": "判定原因",
     "loadFailed": "高清版目标读取失败",
     "noPreview": "暂无预览",
     "notFound": "未取得高清版目标，请刷新页面重试。",
@@ -351,8 +352,7 @@
     "repairs": "修复与迁移",
     "review": "人工复核",
     "sources": "来源和凭证",
-    "trash": "回收站",
-    "trashCount": "{{count, number}} 个符合 · 显示 {{shown}}"
+    "trash": "回收站"
   },
   "manageSkeleton": {
     "loadingLibraryTools": "正在读取数据管理状态",

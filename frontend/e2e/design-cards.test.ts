@@ -272,17 +272,21 @@ describe('设计决定：作品卡、管理页与复核', () => {
         glyph: '[data-variant="resource"] [data-media-glyph]',
         kind: '[data-variant="resource"] [data-media-kind-glyph]',
       });
-      /* 回收站卡的标题统一两行，头像对齐标题顶部，归入原因与边框保留间距。 */
+      /* 回收站卡是 JAV 探索卡那一副：卡面不描边，头像与封面左缘齐平；标题统一两行、头像对齐标题顶部，
+         归入原因在标签行，下面隔开一段才是卡底那颗「还原」，键行贴着卡的下缘。 */
       const inset = await page.locator('#grid [data-media-card][data-variant="resource"]').first().evaluate((card) => {
         const box = (selector: string) => card.querySelector(selector)!.getBoundingClientRect();
         const frame = card.getBoundingClientRect();
-        const [pic, avatar, title, reason] = ['[data-media-pic]', '[data-media-avatar]', '[data-media-title]', '[data-media-disposal-reason]'].map(box);
-        return { left: avatar.left - frame.left, top: title.top - pic.bottom, bottom: frame.bottom - reason.bottom,
+        const [pic, avatar, title, reason, actions] = ['[data-media-pic]', '[data-media-avatar]', '[data-media-title]',
+          '[data-media-disposal-reason]', '[data-jav-actions]'].map(box);
+        return { left: avatar.left - frame.left, top: title.top - pic.bottom, gap: actions.top - reason.bottom,
+          bottom: Math.abs(frame.bottom - actions.bottom), edge: getComputedStyle(card).borderTopWidth,
           title: title.height, lineHeight: parseFloat(getComputedStyle(card.querySelector('[data-media-title]')!).lineHeight),
           skew: Math.abs(avatar.top - title.top) };
       });
-      assert.ok(inset.left >= 10 && inset.top >= 8 && inset.bottom >= 10,
-        `回收站卡的元信息区贴着边框或封面：左 ${inset.left}、上 ${inset.top}、下 ${inset.bottom}`);
+      assert.deepEqual([inset.edge, inset.left], ['0px', 0], `回收站卡描了边或头像没和封面左缘齐平：${JSON.stringify(inset)}`);
+      assert.ok(inset.top >= 8 && inset.gap >= 8 && inset.bottom < 1,
+        `回收站卡的标题贴着封面、归入原因贴着键行，或键行没落在卡底：${JSON.stringify(inset)}`);
       assert.ok(Math.abs(inset.title - inset.lineHeight * 2) < 1, `回收站标题未预留两行：${JSON.stringify(inset)}`);
       assert.ok(inset.skew <= 3, `头像没有位于标题区顶部，偏 ${inset.skew}px`);
       assert.deepEqual([trash.glyph?.display, trash.glyph?.place, trash.glyph?.color], ['grid', 'center center', trash.muted.color],
@@ -300,14 +304,14 @@ describe('设计决定：作品卡、管理页与复核', () => {
           return filter;
         });
       assert.match(scan, /grayscale\(0\.9\)/, '待删卡的悬停扫视层没有跟着灰化');
-      /* 待删卡的封面、补底和元信息一起压暗。 */
+      /* 待删卡的封面与补底压暗；元信息区同探索卡照常画，不跟着压暗。 */
       const pending = await page.locator('#grid [data-media-card][data-pending-delete]:not([data-variant="resource"])')
         .first().evaluate((card) => ({
           meta: getComputedStyle(card.querySelector('[data-media-meta]')!).opacity,
           backdrop: getComputedStyle(card.querySelector('[data-media-pic]')!, '::before').filter,
           image: getComputedStyle(card.querySelector('[data-media-pic] img')!).filter,
         }));
-      assert.equal(pending.meta, '0.58', '待删卡的元信息区没有压暗');
+      assert.equal(pending.meta, '1', '待删卡的元信息区被压暗了，读不清标题与归入原因');
       assert.match(pending.backdrop, /blur\(26px\) grayscale\(0\.9\) brightness\(0\.27\)/, '待删卡的模糊补底跟随封面灰化');
       assert.match(pending.image, /grayscale\(0\.9\) brightness\(0\.54\)/, '待删卡封面没有跟着灰化');
     } finally {
@@ -315,7 +319,7 @@ describe('设计决定：作品卡、管理页与复核', () => {
     }
   });
 
-  it('回收站的骨架和落地同一副几何，计数栏在两种主题下都和页面底色分得开', { timeout: 90_000 }, async () => {
+  it('回收站的骨架和落地同一副几何，筛选浮层在两种主题下都和页面底色分得开', { timeout: 90_000 }, async () => {
     /* 回收站多是图片与压缩包，骨架照资源卡排：夹具把回收站那一页全换成图片。 */
     const opened = await openCatalogFixture(browser, (payload, url) => {
       if (url.searchParams.get('state') !== 'trash') return;
@@ -330,47 +334,49 @@ describe('设计决定：作品卡、管理页与复核', () => {
         const rect = element.getBoundingClientRect();
         return [Math.round(rect.top), Math.round(rect.height)];
       };
-      const lede = document.querySelector<HTMLElement>('[data-manage-lede]');
+      const frame = document.querySelector<HTMLElement>('#trashFilter [data-catalog-frame]');
+      /* 落地后骨架那一层藏着留在网格里，量的是看得见的那一张。 */
       const card = [...document.querySelectorAll(
-        '#grid .catalog-skeleton .skeletoncard, #grid [data-media-card][data-variant="resource"]',
+        '#grid [data-jav-skeleton-card], #grid [data-media-card][data-variant="resource"]',
       )].find(node => !node.closest('[data-content-skeleton][aria-hidden="true"], [data-content-current][aria-hidden="true"]')
         && getComputedStyle(node).visibility === 'visible') ?? null;
-      /* 读数与「清空回收站」各自的竖直中线：两者说的是同一批文件，同在说明行一行里。 */
+      /* 读数与「清空回收站」各自的竖直中线：两者说的是同一批文件，同在浮层下排一行里。 */
       const middle = (element: Element | null | undefined) => {
         if (!element) return null;
         const rect = element.getBoundingClientRect();
         return Math.round(rect.top + rect.height / 2);
       };
-      return { lede: box(lede), card: box(card),
-        cells: [...lede?.querySelectorAll<HTMLElement>('[data-trash-lede-skeleton]') ?? []].map((cell) => cell.dataset.trashLedeSkeleton),
-        text: lede?.querySelector('[data-lede-text]')?.textContent ?? null,
-        row: [middle(lede?.querySelector('[data-lede-text]')), middle(lede?.querySelector('[data-empty-trash]'))] };
+      const readout = frame?.querySelector('[data-catalog-readout]');
+      return { frame: box(frame), card: box(card),
+        placeholder: readout?.querySelectorAll('[data-skeleton="count"]').length ?? 0,
+        text: readout?.textContent ?? null,
+        row: [middle(readout), middle(frame?.querySelector('[data-empty-trash]'))] };
     });
     try {
       const release = await holdApi(page);
       await page.goto(new URL('/trash', page.url()).href, { waitUntil: 'load' });
-      await page.locator('#grid .catalog-skeleton .skeletoncard').first().waitFor({ timeout: 15_000 });
+      await page.locator('#grid [data-jav-skeleton-card]').first().waitFor({ timeout: 15_000 });
       const waiting = await measure();
       release();
       await page.locator('#grid [data-media-card][data-variant="resource"]').first().waitFor({ timeout: 15_000 });
       await settle(page);
       const landed = await measure();
-      assert.ok(waiting.lede, '回收站骨架期间没有计数栏，读数到了才冒出来把网格往下推');
-      assert.deepEqual([waiting.cells, waiting.text], [['text', 'action'], null], `骨架期间说明行不是两格占位：${JSON.stringify(waiting)}`);
-      assert.match(landed.text ?? '', /个符合 · 显示 \d+/, `读数没有落进说明行：${JSON.stringify(landed)}`);
-      assert.deepEqual(landed.cells, [], '读数落地后占位还在');
+      assert.ok(waiting.frame, '回收站骨架期间没有筛选浮层，读数到了才冒出来把网格往下推');
+      assert.equal(waiting.placeholder, 1, `骨架期间读数那一格不是占位：${JSON.stringify(waiting)}`);
+      assert.match(landed.text ?? '', /个符合 · 显示 \d+/, `读数没有落进浮层：${JSON.stringify(landed)}`);
+      assert.equal(landed.placeholder, 0, '读数落地后占位还在');
       const [textMiddle, buttonMiddle] = landed.row;
       assert.ok(textMiddle != null && buttonMiddle != null && Math.abs(textMiddle - buttonMiddle) <= 1,
-        `读数和清空键没并在说明行同一行：${JSON.stringify(landed.row)}`);
-      assert.deepEqual(waiting.lede, landed.lede, `计数栏落地时位置或高度跳了：${JSON.stringify({ waiting, landed })}`);
+        `读数和清空键没并在浮层下排同一行：${JSON.stringify(landed.row)}`);
+      assert.deepEqual(waiting.frame, landed.frame, `筛选浮层落地时位置或高度跳了：${JSON.stringify({ waiting, landed })}`);
       assert.deepEqual(waiting.card, landed.card, `回收站首张卡落地时位置或高度跳了：${JSON.stringify({ waiting, landed })}`);
       /* 同一历史条目保留读数和卡片，不重取也不重新铺占位。 */
       await page.evaluate(() => {
         const flags = window as unknown as { trashLedeFlashed?: boolean };
         flags.trashLedeFlashed = false;
         new MutationObserver(() => {
-          if (document.querySelector('[data-trash-lede-skeleton]')) flags.trashLedeFlashed = true;
-        }).observe(document.querySelector('[data-manage-header]')!, { childList: true, subtree: true });
+          if (document.querySelector('#trashFilter [data-skeleton="count"]')) flags.trashLedeFlashed = true;
+        }).observe(document.querySelector('#trashFilter')!, { childList: true, subtree: true });
       });
       const rereads: string[] = [];
       page.on('request', request => {
@@ -382,15 +388,15 @@ describe('设计决定：作品卡、管理页与复核', () => {
       await settle(page);
       const holding = await measure();
       assert.deepEqual(rereads, [], '同一历史条目重复取数');
-      assert.deepEqual([holding.cells, holding.text], [[], landed.text], `同页重画时说明行回到了占位：${JSON.stringify(holding)}`);
+      assert.deepEqual([holding.placeholder, holding.text], [0, landed.text], `同页重画时读数回到了占位：${JSON.stringify(holding)}`);
       assert.equal(await page.evaluate(() => (window as unknown as { trashLedeFlashed?: boolean }).trashLedeFlashed), false,
-        '同页重画期间说明行闪回了占位');
+        '同页重画期间读数闪回了占位');
       const surfaces = await page.evaluate(() => {
         const root = document.documentElement;
         const before = root.dataset.theme;
         const read = (theme: string) => {
           root.dataset.theme = theme;
-          return [getComputedStyle(document.querySelector('[data-manage-lede]')!).backgroundColor,
+          return [getComputedStyle(document.querySelector('#trashFilter [data-catalog-frame]')!).backgroundColor,
             getComputedStyle(document.body).backgroundColor];
         };
         const result = { light: read('light'), dark: read('dark') };
@@ -398,8 +404,8 @@ describe('设计决定：作品卡、管理页与复核', () => {
         else root.dataset.theme = before;
         return result;
       });
-      for (const [theme, [lede, ground]] of Object.entries(surfaces)) {
-        assert.notEqual(lede, ground, `${theme} 主题下回收站计数栏和页面同一个底色：${lede}`);
+      for (const [theme, [frame, ground]] of Object.entries(surfaces)) {
+        assert.notEqual(frame, ground, `${theme} 主题下回收站筛选浮层和页面同一个底色：${frame}`);
       }
     } finally {
       await opened.close();
@@ -416,7 +422,7 @@ describe('设计决定：作品卡、管理页与复核', () => {
       await page.goto(new URL('/trash', page.url()).href, { waitUntil: 'load' });
       const cards = page.locator('#grid [data-media-card][data-id]');
       await cards.nth(1).waitFor({ timeout: 15_000 });
-      await page.locator('[data-manage-lede] [data-empty-trash]').waitFor({ timeout: 15_000 });
+      await page.locator('#trashFilter [data-empty-trash]').waitFor({ timeout: 15_000 });
       for (const at of [0, 1]) await cards.nth(at).click({ modifiers: ['Control'], position: { x: 20, y: 20 } });
       await page.locator('[data-batch-dock] [data-selection-dock]').waitFor({ timeout: 10_000 });
       await settle(page);
@@ -431,7 +437,14 @@ describe('设计决定：作品卡、管理页与复核', () => {
           node.remove();
           return value;
         };
-        const paint = (key: Element) => [getComputedStyle(key).backgroundImage, getComputedStyle(key, '::before').backgroundImage];
+        /* 渐变里各个色标换成像素再比：BoardUI 危险键用 oklch 写、`--board-red` 用 rgb 写，字面不同不等于颜色不同。 */
+        const stops = (gradient: string) => (gradient.match(/(?:rgba?|oklch|oklab|hsla?)\([^)]*\)/g) ?? []).map((color) => {
+          const context = document.createElement('canvas').getContext('2d')!;
+          context.fillStyle = color;
+          context.fillRect(0, 0, 1, 1);
+          return [...context.getImageData(0, 0, 1, 1).data].join(',');
+        });
+        const paint = (key: Element) => [getComputedStyle(key).backgroundImage, getComputedStyle(key, '::before').backgroundImage].map(stops);
         return {
           // 与文字同行的字形取 `--icon-inline`（1.2em），按所在文字字号算出应有的边长。
           glyphs: [...dock.querySelectorAll('button svg')].map((svg) => {
@@ -441,13 +454,15 @@ describe('设计决定：作品卡、管理页与复核', () => {
           }),
           count: getComputedStyle(dock.querySelector('[role="status"]')!).color,
           batch: paint(dock.querySelector('[data-batch-action="delete"]')!),
-          empty: paint(document.querySelector('[data-manage-lede] [data-empty-trash]')!),
-          tokens: [probe('--board-red'), probe('--board-red-hover')],
+          empty: paint(document.querySelector('#trashFilter [data-empty-trash]')!),
+          raw: probe('--board-red'),
+          tokens: [probe('--board-red'), probe('--board-red-hover')].map(stops),
         };
       });
       assert.deepEqual(read.glyphs, [[true, true], [true, true], [true, true]], `批量条的字形没按行内字号缩放：${JSON.stringify(read.glyphs)}`);
       assert.equal(read.count, await tokenColor(page, 'body', '--ink-2'), '批量条的计数不是次级墨色');
-      assert.match(read.tokens[0], /^linear-gradient/, `--board-red 没解析成渐变：${read.tokens[0]}`);
+      assert.match(read.raw, /^linear-gradient/, `--board-red 没解析成渐变：${read.raw}`);
+      assert.ok(read.tokens[0]!.length >= 2, `--board-red 的色标没读出来：${JSON.stringify(read.tokens)}`);
       assert.deepEqual(read.batch, read.tokens, `批量条「彻底删除」的红不是 --board-red 那一组：${JSON.stringify(read)}`);
       assert.deepEqual(read.empty, read.tokens, `「清空回收站」的红不是 --board-red 那一组：${JSON.stringify(read)}`);
     } finally {
@@ -1106,10 +1121,10 @@ describe('设计决定：作品卡、管理页与复核', () => {
     }
   });
 
-  it('垃圾文件的计数行与正文同宽，标题位于内容左上角', { timeout: 60_000 }, async () => {
+  it('垃圾文件的筛选浮层与正文同宽，标题位于内容左上角', { timeout: 60_000 }, async () => {
     const opened = await openJunk(browser);
     try {
-      /* 标题对齐内容左边缘；摘要、分类切换与网格共用正文宽度。 */
+      /* 标题对齐内容左边缘；筛选浮层（上排分类、下排读数与排序）与网格共用正文宽度。 */
       const box = await opened.page.evaluate(() => {
         // 浅色是两块面最容易消失的那一档：深色下 primary 本来就比页面亮一级。
         document.documentElement.dataset.theme = 'light';
@@ -1123,23 +1138,19 @@ describe('设计决定：作品卡、管理页与复核', () => {
         return {
           title: span('[data-manage-title]'),
           main: span('#main'),
-          summary: span('#count [data-collection-summary]'),
           filters: span('#count [data-junk-filters-frame]'),
+          readout: span('#count [data-junk-filters-frame] [data-catalog-readout]'),
           grid: span('#grid'),
-          summaryFace: face('#count [data-collection-summary]'),
           filtersFace: face('#count [data-junk-filters-frame]'),
           page: getComputedStyle(document.body).backgroundColor,
         };
       });
-      assert.ok(box.filters.width > 0, '分类切换被摘要挤成 0 宽，整条在宽屏上看不见');
+      assert.ok(box.readout.width > 0, '读数被挤成 0 宽，宽屏上看不见');
       assert.deepEqual(box.title, box.grid);
       assert.equal(box.title.width, box.grid.width);
-      for (const [label, measured] of [['摘要', box.summary], ['分类切换', box.filters]] as const) {
-        assert.deepEqual(measured, box.grid,
-          `${label}和正文网格不同宽：${measured.left}+${measured.width} 对 ${box.grid.left}+${box.grid.width}`);
-      }
-      assert.notEqual(box.summaryFace, box.page, '摘要那块面和页面底色同色，整块看不见');
-      assert.notEqual(box.filtersFace, box.page, '分类切换那块面和页面底色同色，整块看不见');
+      assert.deepEqual(box.filters, box.grid,
+        `筛选浮层和正文网格不同宽：${box.filters.left}+${box.filters.width} 对 ${box.grid.left}+${box.grid.width}`);
+      assert.notEqual(box.filtersFace, box.page, '筛选浮层和页面底色同色，整块看不见');
       assert.deepEqual(opened.problems, []);
     } finally {
       await opened.close();
@@ -1150,8 +1161,8 @@ describe('设计决定：作品卡、管理页与复核', () => {
     const opened = await visit(browser, '/junk-files', WIDE);
     try {
       /* 把等待态停在屏幕上：让这一页唯一那次取数挂着不回。等的只有读数，分类切换由
-         URL 决定、此刻就画得出最终样子；画成目录那条的话，等待期间摆着一排这一页根本
-         没有的换批与排序键，数据到货整行再换成另一种东西。 */
+         URL 决定、此刻就画得出最终样子；画成目录那条的话，等待期间摆着一个这一页根本
+         没有的「换一批」，数据到货整行再换成另一种东西。 */
       await opened.page.route('**/api/ads?**', () => {});
       await opened.page.reload({ waitUntil: 'load' });
       // 等 island 接管：壳铺的骨架和它等数据时那一版相同，接管之后仍是这一版才算数。
@@ -1159,13 +1170,13 @@ describe('设计决定：作品卡、管理页与复核', () => {
       const row = await opened.page.locator('#count').evaluate((node) => ({
         busy: node.getAttribute('aria-busy'),
         filters: node.querySelectorAll('[data-junk-filters] a').length,
-        placeholder: node.querySelectorAll('[data-collection-summary] [data-skeleton="count"]').length,
-        sorts: node.querySelectorAll('.sorts').length,
+        placeholder: node.querySelectorAll('[data-catalog-readout] [data-skeleton="count"]').length,
+        shuffle: node.querySelectorAll('[data-entity-batch]').length,
       }));
       assert.equal(row.busy, 'true', '等待态没有对辅助技术公开');
       assert.ok(row.filters > 0, '等待期间这一行没有分类切换');
       assert.equal(row.placeholder, 1, '占位没有落在读数那一格');
-      assert.equal(row.sorts, 0, '等待期间摆着这一页没有的排序键');
+      assert.equal(row.shuffle, 0, '等待期间摆着这一页没有的「换一批」');
     } finally {
       await opened.close();
     }
@@ -1199,7 +1210,7 @@ describe('设计决定：作品卡、管理页与复核', () => {
     }
   });
 
-  it('垃圾卡是一块有边的面：三颗键等宽居中，移入回收站静止就是实底红', { timeout: 90_000 }, async () => {
+  it('垃圾卡是探索卡那一副：不描边不铺底，键行三颗同高居中，移入回收站静止就是实底红', { timeout: 90_000 }, async () => {
     const opened = await openJunkWith(browser, [junkItem(9201, 'archive', '推广.zip'), junkItem(9202, 'url', '官网.url')]);
     try {
       const page = opened.page;
@@ -1209,9 +1220,9 @@ describe('设计决定：作品卡、管理页与复核', () => {
           const style = getComputedStyle(button);
           const rect = button.getBoundingClientRect();
           return {
-            action: (button as HTMLElement).dataset.junkAction, width: Math.round(rect.width), height: Math.round(rect.height),
-            justify: style.justifyContent, border: style.borderTopWidth, face: style.backgroundColor, ink: style.color,
-            label: getComputedStyle(button.querySelector('[data-junk-label]')!).display,
+            action: (button as HTMLElement).dataset.junkAction, height: Math.round(rect.height),
+            justify: style.justifyContent, paint: [style.backgroundImage, getComputedStyle(button, '::before').backgroundImage],
+            ink: style.color, text: button.textContent ?? '',
           };
         });
         const rect = (node: Element | null) => {
@@ -1226,47 +1237,63 @@ describe('设计决定：作品卡、管理页与复核', () => {
         // 计数徽标到货时玻璃带动画重新落位：跑完再量，量的是它停下的地方。
         document.querySelector('#count [data-view-glide]')?.getAnimations().forEach((one) => one.finish());
         const glide = rect(document.querySelector('#count [data-view-glide]:not([hidden])'));
-        // 卡在 island 里取 oklch，页面底是 rgb：各画一个像素再比，字面不同不等于颜色不同。
-        const pixel = (color: string) => {
+        /* 两颗危险键的静止面与悬停层各自读出来，再与直接解析 token 的探针比：同一份定义才会一致。 */
+        const probe = (token: string) => {
+          const node = document.createElement('div');
+          node.style.background = `var(${token})`;
+          document.body.append(node);
+          const value = getComputedStyle(node).backgroundImage;
+          node.remove();
+          return value;
+        };
+        /* 渐变里各个色标换成像素再比：BoardUI 危险键用 oklch 写、`--board-red` 用 rgb 写，字面不同不等于颜色不同。 */
+        const stops = (gradient: string) => (gradient.match(/(?:rgba?|oklch|oklab|hsla?)\([^)]*\)/g) ?? []).map((color) => {
           const context = document.createElement('canvas').getContext('2d')!;
           context.fillStyle = color;
           context.fillRect(0, 0, 1, 1);
           return [...context.getImageData(0, 0, 1, 1).data].join(',');
-        };
+        });
         const style = getComputedStyle(card);
-        const ground = [document.body, document.documentElement].map((el) => pixel(getComputedStyle(el).backgroundColor))
-          .find((value) => !value.endsWith(',0')) ?? '255,255,255,255';
-        return { edge: style.borderTopWidth, line: pixel(style.borderTopColor), page: ground, keys, links, glide };
+        return { edge: style.borderTopWidth, face: style.backgroundColor, keys: keys.map((key) => ({ ...key, paint: key.paint.map(stops) })),
+          links, glide, raw: probe('--board-red'),
+          red: [probe('--board-red'), probe('--board-red-hover')].map(stops),
+          actionsBottom: Math.abs(card.getBoundingClientRect().bottom - card.querySelector('[data-junk-actions]')!.getBoundingClientRect().bottom) };
       });
-      const red = await tokenColor(page, 'body', '--board-red');
       const wide = await read();
-      // 浅色下卡底与页面同为白，卡的轮廓全靠这圈边：边宽 1px、颜色不能跟页面底一样。
-      assert.equal(wide.edge, '1px', '垃圾卡没有描边');
-      assert.notEqual(wide.line, wide.page, '垃圾卡的边和页面底色同色');
-      assert.equal(new Set(wide.keys.map((key) => key.width)).size, 1, `三颗键不等宽：${wide.keys.map((key) => key.width)}`);
+      // 卡面同 JAV 探索卡：轮廓靠封面格，卡本身不描边、不铺底；键行落在卡底。
+      assert.deepEqual([wide.edge, wide.face], ['0px', 'rgba(0, 0, 0, 0)'], '垃圾卡描了边或铺了底，不是探索卡那一副');
+      assert.ok(wide.actionsBottom < 1, `键行没落在卡底：${wide.actionsBottom}`);
+      assert.deepEqual(wide.keys.map((key) => key.action), ['reveal', 'dismiss-junk', 'dispose']);
       for (const key of wide.keys) {
         assert.equal(key.justify, 'center', `${key.action} 的图标与标签没有居中`);
         assert.equal(key.height, 36, `${key.action} 高 ${key.height}`);
       }
       const dispose = wide.keys.find((key) => key.action === 'dispose')!;
-      assert.equal(dispose.face, red, '移入回收站静止态不是实底红');
+      assert.match(wide.raw, /^linear-gradient/, `--board-red 没解析成渐变：${wide.raw}`);
+      assert.ok(wide.red[0]!.length >= 2, `--board-red 的色标没读出来：${JSON.stringify(wide.red)}`);
+      assert.deepEqual(dispose.paint, wide.red, `移入回收站静止态不是 --board-red 那一组实底红：${JSON.stringify(dispose)}`);
       assert.equal(dispose.ink, 'rgb(255, 255, 255)');
-      for (const key of wide.keys.filter((one) => one.action !== 'dispose')) assert.equal(key.border, '1px', `${key.action} 没有描边`);
+      for (const key of wide.keys.filter((one) => one.action !== 'dispose')) {
+        assert.notDeepEqual(key.paint, wide.red, `${key.action} 也画成了红键`);
+      }
       const current = wide.links.filter((link) => link.current);
       assert.equal(current.length, 1);
       // 分类条是首页筛选条那一副：键自己不铺底，当前那一类底下垫的是那块滑动玻璃。
       assert.ok(wide.links.every((link) => link.face === 'rgba(0, 0, 0, 0)'), '分类键自己铺了底，不是首页那副滑动玻璃');
       assert.deepEqual(wide.glide, current[0]!.box, '滑动玻璃没有落在当前那一类上');
 
-      // 紧凑密度下键上只剩图标。
+      // 紧凑密度下键缩一档，「查看位置」只剩图标，判断与移入回收站仍写字。
       await page.evaluate(() => { document.body.dataset.density = 'dense' });
-      assert.ok((await read()).keys.every((key) => key.label === 'none'), '紧凑密度下键上还有字');
+      await page.waitForFunction(() => document.querySelector('#grid [data-junk-card] [data-junk-actions]')?.hasAttribute('data-compact'));
+      const dense = await read();
+      assert.deepEqual(dense.keys.map((key) => key.text.trim() === ''), [true, false, false], `紧凑密度下键上的字：${JSON.stringify(dense.keys)}`);
+      assert.ok(dense.keys.every((key) => key.height < 36), `紧凑密度下键没缩：${dense.keys.map((key) => key.height)}`);
       await page.evaluate(() => { delete document.body.dataset.density });
 
-      // 手机上够手指点：分类与三颗键都到 44px。
+      // 手机上分类够手指点，到 44px；卡底的键同探索卡，不比桌面矮。
       await page.setViewportSize({ width: MOBILE.width, height: MOBILE.height });
       const narrow = await read();
-      assert.ok(narrow.keys.every((key) => key.height >= 44), `手机上键高 ${narrow.keys.map((key) => key.height)}`);
+      assert.ok(narrow.keys.every((key) => key.height >= 36), `手机上键高 ${narrow.keys.map((key) => key.height)}`);
       assert.ok(narrow.links.every((link) => link.height >= 44), `手机上分类高 ${narrow.links.map((link) => link.height)}`);
       assert.deepEqual(opened.problems, []);
     } finally {
