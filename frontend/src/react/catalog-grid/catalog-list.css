@@ -35,9 +35,10 @@
 .peach-react [data-catalog-table] [data-list-identity]:has([data-list-open]:hover, [data-list-name]:hover) [data-list-name] { text-decoration: underline; }
 /* 媒体库列：图标加名称；用户给这个媒体库选了来源色时整行铺淡色。
  * 个人状态图标缩小后贴在预览图左下角。 */
-.peach-react [data-catalog-table] [data-list-library] { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; color: var(--ink-2); font-size: var(--fs-sm); }
+/* 处理队列页的卡（`[data-queue-card]`）署名里也放这一格，同一副标识加名字。 */
+.peach-react :is([data-catalog-table], [data-queue-card]) [data-list-library] { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; color: var(--ink-2); font-size: var(--fs-sm); }
 /* 名字是弹性容器里的一项，省略号要写在它自己身上才生效。 */
-.peach-react [data-catalog-table] [data-list-library] > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.peach-react :is([data-catalog-table], [data-queue-card]) [data-list-library] > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .peach-react [data-catalog-table] [data-catalog-row][data-library] > td { background: color-mix(in oklab, var(--library-color) 9%, transparent); }
 [data-theme="dark"] .peach-react [data-catalog-table] [data-catalog-row][data-library] > td { background: color-mix(in oklab, var(--library-color) 13%, transparent); }
 .peach-react [data-catalog-table] [data-list-picture] [data-media-status] { left: 4px; bottom: 4px; gap: 4px; }
@@ -65,10 +66,13 @@
 .peach-react [data-list-skeleton-name] > span > i + i { width: 44%; height: 12px; }
 .peach-react [data-list-skeleton-bar] { display: block; width: min(72%, 96px); height: 14px; border-radius: 6px; }
 /* 列表骨架挂在卡片网格容器里时占满整行；不按网格的类名写，免得和旧样式表同名。 */
-[data-skeleton="catalog/list"] { grid-column: 1 / -1; }
+[data-skeleton="catalog/list"], [data-skeleton^="queue/"] { grid-column: 1 / -1; }
 @media(max-width:760px) {
   .peach-react [data-catalog-table] .bui-table :is(th,td):first-child { padding-inline: 8px; }
   .peach-react [data-catalog-table] .bui-table :is(th,td):nth-child(2) { padding-inline: 8px; }
   .peach-react [data-catalog-table] [data-list-open] { gap: 12px; }
   .peach-react [data-catalog-table] [data-list-picture] { width: 80px; height: 45px; }
 }
+/* 处理队列页列表（`../components/queue-table.tsx`）：没有缩略图的那几类画类型字形。 */
+.peach-react [data-catalog-table] [data-queue-glyph] { display: grid; place-items: center; color: var(--muted); }
+.peach-react [data-catalog-table] [data-queue-glyph] svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

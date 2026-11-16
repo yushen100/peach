@@ -11,7 +11,8 @@ export function mobileScreen(): boolean {
     || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 
-function lockLandscape(): () => void {
+/** 请求横屏，返回释放函数；不支持或被拒时安静失败。沉浸模式全屏也用它（#585）。 */
+export function lockLandscape(): () => void {
   const orientation = screen.orientation as OrientationLock | undefined;
   if (typeof orientation?.lock !== 'function' || typeof orientation.unlock !== 'function') return () => {};
   const owner = Symbol();

@@ -298,6 +298,14 @@ export function cancelGlide(pane:HTMLElement|null|undefined):void{
   glides.get(pane)?.forEach(a=>a.cancel());
   glides.delete(pane);
 }
+/** 底板正在滑：等这一段跑完再调 `then`（被撤掉就不调），返回 true。没在滑时返回 false，调用方当场处理。
+ *  给「原地重量」用：键被点中时所在那一排常会跟着平滑滚几帧，每帧都撤掉重摆的话，刚起跑的滑动当场就没了。 */
+export function afterGlide(pane:HTMLElement|null|undefined,then:()=>void):boolean{
+  const moving=pane?glides.get(pane):undefined;
+  if(!moving?.length||moving.every(a=>a.playState==='finished'))return false;
+  moving[0]!.finished.then(()=>{if(glides.get(pane!)===moving)then()},()=>{});
+  return true;
+}
 
 /** Geist Scroller: one-axis overflow with edge fades as the scroll affordance. */
 export function scrollerHtml(content:string,{className='',label=t('shell:scroller.defaultLabel'),overflow='y'}={}){

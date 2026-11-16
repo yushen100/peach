@@ -60,6 +60,10 @@ export const CARD_COVER_SMALL_DPR = 1.5;
 export const cardCoverUrl = (item: { code?: string | null; cover_key?: string; cover_version?: string }): string =>
   coverUrl(item, (window.devicePixelRatio || 1) <= CARD_COVER_SMALL_DPR ? 2 : 1);
 
+/** 装好的 DMM 竖版正封（`/cover?front=1`），派生档与版本同封面。取景提示带 `front` 时才有。 */
+export const cardFrontUrl = (item: { code?: string | null; cover_key?: string; cover_version?: string }): string =>
+  cardCoverUrl(item).replace('/cover?', '/cover?front=1&');
+
 /** 库外作品的官方封面：`/cover-image` 按番号在服务端查地址，经 Peach 的出网设置取图，浏览器不直连图床。 */
 export const remoteCoverUrl = (item: { code?: string | null }): string =>
   `/cover-image?code=${encodeURIComponent(item.code || '')}`;
@@ -226,7 +230,7 @@ export interface CoverItem {
   cover_version?: string;
   has_thumb?: boolean;
   has_local_poster?: boolean;
-  cover_frame?: { cx?: number | null; cy?: number | null; layout?: string } | null;
+  cover_frame?: { cx?: number | null; cy?: number | null; layout?: string; front?: boolean } | null;
   poster_box?: { x0?: number; y0?: number; x1?: number; y1?: number; px?: number[]; method?: string } | null;
   [field: string]: unknown;
 }
@@ -235,7 +239,12 @@ export interface CoverItem {
    要推多远，只有同时拿到图片和容器的比例才知道。人物在画面里的位置差别很大，写死的锚点会
    把一部分作品裁掉下巴或整个切出画外；取不到人脸就退回固定取景。 */
 export function coverImage(item: CoverItem, layout: 'big' | 'small', eager = false): string {
-  const src = cardCoverUrl(item);
+  /* 装了 DMM 竖版正封的，大图位直接用它，小图位仍看整张横图；两张地址都挂在元素上，
+     大图／小图原地切换时换图不换元素（`relayoutJavImages`）。 */
+  const front = item.cover_frame?.front && item.poster_box?.method !== 'manual' ? cardFrontUrl(item) : '';
+  const whole = cardCoverUrl(item);
+  const src = front && layout === 'big' ? front : whole;
+  const pair = front ? ` data-cover-front="${esc(front)}" data-cover-whole="${esc(whole)}"` : '';
   const wide = /ブルーレイ|blu[\s-]?ray/i.test(String(item.title || item.display_title || item.name || ''));
   const f = item.cover_frame || {};
   const still = item.poster_box?.method !== 'manual' && (f.layout === 'still'
@@ -250,7 +259,7 @@ export function coverImage(item: CoverItem, layout: 'big' | 'small', eager = fal
   const box = pb ? ` data-posterbox="${[pb.x0, (pb.px || [])[0], (pb.px || [])[1], pb.y0, pb.x1, pb.y1].map(Number).join(' ')}"` : '';
   // 小图看整张（含剧照拼贴），大图只取右侧正封。
   return `<img class="poster cover ${layout === 'small' ? 'whole' : 'front'}" src="${src}"
-    width="640" height="360" alt="" loading="${eager ? 'eager' : 'lazy'}" decoding="async" data-cover-code="${esc(item.code || '')}"${wide ? ' data-wide-sleeve="1"' : ''}${still ? ' data-cover-layout="still"' : ''}${face}${box} data-drop="self">`;
+    width="640" height="360" alt="" loading="${eager ? 'eager' : 'lazy'}" decoding="async" data-cover-code="${esc(item.code || '')}"${wide ? ' data-wide-sleeve="1"' : ''}${still ? ' data-cover-layout="still"' : ''}${face}${box}${pair} data-drop="self">`;
 }
 
 /** 封面格的两种图：官方封套（取景链接管）或预览图。空串是这一条没有可用的图。 */

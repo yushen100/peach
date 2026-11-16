@@ -68,6 +68,27 @@ describe('JAV 默认封面', () => {
     // 同一版式再来一次什么都不做：卡片每次重画都会问一遍。
     expect(relayoutJavImages(root, 'small')).toEqual([]);
   });
+  it('装了竖版正封的封面换版式时换图：大图位取竖版正封，小图位取整张横图', () => {
+    const root = document.createElement('div');
+    root.innerHTML = '<img data-jav-image="1" data-jav-image-layout="big" class="poster cover front"'
+      + ' data-cover-front="/cover?front=1&code=TEST-001&thumb=2" data-cover-whole="/cover?code=TEST-001&thumb=2"'
+      + ' data-thumb-src="/cover?front=1&code=TEST-001&thumb=2" src="/cover?front=1&code=TEST-001&thumb=1">';
+    const img = root.querySelector('img') as HTMLImageElement;
+    Object.defineProperty(img, 'complete', { value: true });
+    Object.defineProperty(img, 'naturalWidth', { value: 800 });
+    // 换了图要等新图 `load` 再算取景，不进立即重算的那一批；模糊补底也不能再借上一张。
+    expect(relayoutJavImages(root, 'small')).toEqual([]);
+    expect(img.getAttribute('src')).toBe('/cover?code=TEST-001&thumb=2');
+    expect(img.dataset.thumbSrc).toBeUndefined();
+    relayoutJavImages(root, 'big');
+    expect(img.getAttribute('src')).toBe('/cover?front=1&code=TEST-001&thumb=2');
+    img.setAttribute('data-jav-cover', '/cover?code=TEST-001&thumb=2');
+    img.setAttribute('data-jav-thumb', '/poster?id=1&c=4');
+    syncJavImages(root, 'thumbnail');
+    expect(img.getAttribute('src')).toBe('/poster?id=1&c=4');
+    syncJavImages(root, 'cover');
+    expect(img.getAttribute('src')).toBe('/cover?front=1&code=TEST-001&thumb=2');
+  });
   it.each(['big', 'small'])('%s 保留两种封面来源，保存后恢复同一组合', javLayout => {
     for (const javImage of ['cover', 'thumbnail']) {
       const settings = normalizeJavPreferences({ javLayout, javImage });

@@ -48,9 +48,15 @@ def _memory(request: Request, video: str) -> subtitle_memory.SubtitleMemory:
     return subtitle_memory.SubtitleMemory(state.web_contract.follow_state_root / "player-subtitles", video)
 
 
-def _memory_payload(video: str, value: dict) -> dict:
+def _memory_payload(request: Request, video: str, value: dict, auto: str = "") -> dict:
+    """播放记忆给播放器的那份。`auto=zh`（设置里打开了自动中文字幕）且这部还没手动选过字幕时，
+    `selected` 换成可播放的中文轨；只是推导，不写记忆文件。"""
+    selected = value["selected"]
+    if auto == "zh" and not value["selection_explicit"] and video.startswith("item:"):
+        from .web_subtitle_tracks import preferred_chinese
+        selected = preferred_chinese(request.app.state, int(video.split(":")[1]))
     return {**{key: value[key] for key in subtitle_memory.PREFERENCES if key in value},
-            "selected": value["selected"], "tracks": [
+            "selected": selected, "tracks": [
         {"key": row["key"], "name": row["name"],
          "src": f"/api/subtitles/memory/track/{row['file']}?video={video}"}
         for row in value["tracks"]]}
@@ -58,14 +64,14 @@ def _memory_payload(video: str, value: dict) -> dict:
 
 @router.get("/api/subtitles/memory")
 @router.get("/api/player/memory")
-def remembered_subtitles(request: Request, video: str):
-    return JSONResponse(_memory_payload(video, _memory(request, video).read()),
+def remembered_subtitles(request: Request, video: str, auto: str = ""):
+    return JSONResponse(_memory_payload(request, video, _memory(request, video).read(), auto),
                         headers={"Cache-Control": "no-store"})
 
 
 @router.put("/api/subtitles/memory")
 @router.put("/api/player/memory")
-async def remember_subtitles(request: Request, video: str):
+async def remember_subtitles(request: Request, video: str, auto: str = ""):
     memory = _memory(request, video)
     data = bytearray()
     async for chunk in request.stream():
@@ -75,7 +81,8 @@ async def remember_subtitles(request: Request, video: str):
     try:
         value = json.loads(data)
         saved = await run_in_threadpool(memory.patch, value)
-        return JSONResponse(_memory_payload(video, saved), headers={"Cache-Control": "no-store"})
+        payload = await run_in_threadpool(_memory_payload, request, video, saved, auto)
+        return JSONResponse(payload, headers={"Cache-Control": "no-store"})
     except (ValueError, TypeError) as error:
         return _error(error)
 

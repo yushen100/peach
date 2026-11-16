@@ -488,7 +488,7 @@ export interface ScrapingProps {
  *  走；`pageSize`／`layout` 是这台浏览器的习惯，跟着 `appSettings` 走。两组都由壳持有存储、
  *  React 持有实时状态，各只有一份。 */
 export interface FollowManageProps {
-  /** 地址栏此刻带着的页签（`list`／`add`／`feeds`）。 */
+  /** 地址栏此刻带着的页签（`list`／`add`）。 */
   tab: string;
   page: number;
   sort: string;

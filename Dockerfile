@@ -49,7 +49,29 @@ ADD --chmod=a+rX --checksum=sha256:c83b8120c50ccbd4c4f96edf53141bdd566ebb8f8e922
 ADD --chmod=a+rX --checksum=sha256:cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30 \
     https://raw.githubusercontent.com/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/face_recognition_sface/LICENSE \
     /app/tools/face-models/LICENSE-sface.txt
+# 封面取景的文字检测、书脊番号识别与身体部位检测模型同目录分发（`peach.avatar_watermark`、`spine_label`、`body_parts`）。
+ADD --chmod=a+rX --checksum=sha256:03f550c6b406fda8bf54bd8327815f6c7e2edd98cea02348c93d879254366587 \
+    https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/text_detection_ppocr/text_detection_en_ppocrv3_2023may.onnx \
+    /app/tools/face-models/text_detection_en_ppocrv3_2023may.onnx
+ADD --chmod=a+rX --checksum=sha256:a84b1f6e11a65c2d733cb0cc1f014aae3f99051e3f11447dc282faa678eee544 \
+    https://media.githubusercontent.com/media/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/text_recognition_crnn/text_recognition_CRNN_EN_2021sep.onnx \
+    /app/tools/face-models/text_recognition_CRNN_EN_2021sep.onnx
+ADD --chmod=a+rX --checksum=sha256:609aaac97719da6b71cd3ffd08b5de08b75f582e5c50a196fab522b6d5087714 \
+    https://raw.githubusercontent.com/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/text_detection_ppocr/LICENSE \
+    /app/tools/face-models/LICENSE-ppocr.txt
+ADD --chmod=a+rX --checksum=sha256:cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30 \
+    https://raw.githubusercontent.com/opencv/opencv_zoo/48b10fa505aeb51fbd127fc60a5c660040e823b7/models/text_recognition_crnn/LICENSE \
+    /app/tools/face-models/LICENSE-crnn.txt
+ADD --checksum=sha256:5937dbd84e5d8e5de038f08ffea5a1bb50a08475776bf2b4795914ce0eaf0331 \
+    https://files.pythonhosted.org/packages/1c/ee/1aa02d44ba958cc77e16ff1e41a0aac5e721037db7bf62b9c9d124917f87/nudenet-3.4.2-py3-none-any.whl \
+    /tmp/nudenet-3.4.2-py3-none-any.whl
 COPY --from=build /app/.venv /app/.venv
+# NudeNet 的模型在 wheel 里：整包哈希已在 ADD 时核过，解出模型与许可证后删掉 wheel。
+RUN /app/.venv/bin/python -c "import zipfile; z = zipfile.ZipFile('/tmp/nudenet-3.4.2-py3-none-any.whl'); \
+open('/app/tools/face-models/320n.onnx', 'wb').write(z.read('nudenet/320n.onnx')); \
+open('/app/tools/face-models/LICENSE-nudenet.txt', 'wb').write(z.read('nudenet-3.4.2.dist-info/LICENSE'))" \
+    && chmod a+r /app/tools/face-models/320n.onnx /app/tools/face-models/LICENSE-nudenet.txt \
+    && rm /tmp/nudenet-3.4.2-py3-none-any.whl
 COPY --from=build /app/amane-runtime /app/amane-runtime
 COPY --from=build /app/tools/amane-bridge /app/tools/amane-bridge
 RUN /app/amane-runtime/.venv/bin/python -X utf8 /app/tools/amane-bridge/bridge.py --self-check

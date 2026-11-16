@@ -418,6 +418,43 @@ class RemoteReportingTests(unittest.TestCase):
             self.assertEqual(client.capture_event.call_count, 2)
             self.assertEqual([count['occurrence_count'] for count in self._counts(client)], [1])
 
+    def test_frequency_unwritable_state_never_repeats_events_or_counts(self):
+        from peach import diagnostic_frequency as frequency
+        reporting.save({"usage": True, "errors": True})
+        client = mock.Mock()
+        now = datetime(2026, 10, 18, 12, tzinfo=timezone.utc)
+        with mock.patch.object(reporting, '_new_client', return_value=client), \
+                mock.patch.object(frequency, '_now', return_value=now) as clock:
+            with mock.patch.object(frequency, 'atomic_write_text', side_effect=OSError(28, 'disk full')):
+                for _ in range(5):
+                    reporting.capture('unhandled-main', ValueError('private'))
+            self.assertEqual(client.capture_event.call_count, 0)
+            reporting.capture('unhandled-main', ValueError('private'))
+            self.assertEqual(client.capture_event.call_count, 1)
+            clock.return_value = now + timedelta(seconds=frequency.INTERVAL)
+            reporting.capture('unhandled-main', ValueError('private'))
+            with mock.patch.object(frequency, 'atomic_write_text', side_effect=OSError(28, 'disk full')):
+                for _ in range(3):
+                    reporting.flush_counts(force=True)
+            self.assertEqual(self._counts(client), [])
+            reporting.flush_counts(force=True)
+        self.assertEqual(client.capture_event.call_count, 1)
+        self.assertEqual([count['occurrence_count'] for count in self._counts(client)], [2])
+
+    def test_frequency_rejected_counts_stay_pending_for_the_next_flush(self):
+        reporting.save({"usage": True, "errors": True})
+        client = mock.Mock()
+        with mock.patch.object(reporting, '_new_client', return_value=client), \
+                mock.patch.object(reporting, '_submit_telemetry', side_effect=[False, True]) as submit:
+            for _ in range(3):
+                reporting.capture('unhandled-main', ValueError('private'))
+            reporting.flush_counts(force=True)
+            reporting.flush_counts(force=True)
+            reporting.flush_counts(force=True)
+        counts = [[int(item['attributes']['occurrence_count']['value']) for item in call.args[1]]
+                  for call in submit.call_args_list]
+        self.assertEqual(counts, [[3], [3]])
+
     def test_frequency_shared_file_serializes_independent_processes(self):
         from peach import diagnostic_frequency as frequency
         from filelock import FileLock

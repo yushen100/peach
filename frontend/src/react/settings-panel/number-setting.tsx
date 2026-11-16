@@ -23,6 +23,9 @@ export const NUMBER_SPECS = {
   batchSizeSetting: { min: 1, max: 200, unit: 'items', fallback: 60 },
   hoverDelaySetting: { min: 1, max: 60, unit: 'seconds', optional: true, fallback: 5 },
   seekSecondsSetting: { min: 1, max: 300, unit: 'seconds', fallback: 10 },
+  /* 上下限同 `player/gesture-settings.ts` 的归一化。 */
+  swipeMinutesSetting: { min: 1, max: 120, unit: 'minutes', fallback: 20 },
+  doubleTapPercentSetting: { min: 15, max: 45, unit: 'percent', fallback: 35 },
   resumeRestartSetting: { min: 1, max: 20, unit: 'percent', optional: true, fallback: 5 },
   relatedLimitSetting: { min: 1, max: 60, unit: 'items', optional: true, fallback: 20 },
   /* 上限跟 `/api/feeds/discoveries` 一致，服务端多于 100 也只回 100 部。 */

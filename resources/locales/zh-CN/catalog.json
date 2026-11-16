@@ -48,6 +48,7 @@
   "catalogFilter": {
     "filterAndSort": "筛选与排序",
     "readout": "{{count, number}} 个符合 · 显示 {{shown, number}}",
+    "showAll": "显示全部",
     "views": "视图",
     "viewsAndTags": "视图与标签"
   },
@@ -215,6 +216,10 @@
   "detailSource": {
     "checkingDirectory": "正在核对目录…",
     "locating": "正在定位",
+    "recollect": "重新采集资料",
+    "recollectBusy": "另一趟处理正在进行，等它结束后再重新采集",
+    "recollectStarted": "已开始重新采集，进度见任务",
+    "recollectTip": "不用缓存，向各来源重新取这部片的资料；你改过或批准过的字段不会被覆盖",
     "reveal": "定位源文件",
     "revealTip": "在文件管理器里打开源文件所在目录",
     "syncDeletions": "同步删除",
@@ -371,10 +376,12 @@
     "siteSamples": "{{site}} 样张"
   },
   "externalPlayback": {
+    "androidChooser": "系统选择播放器",
     "externalPlayer": "外部播放器",
     "m3uPlaylist": "M3U 播放列表",
     "openInPlayer": "使用外部播放器打开",
     "redetect": "重新检测播放器",
+    "schemeHint": "没有反应说明这台设备没装该播放器，可复制地址改用其他播放器；链接 6 小时内有效。",
     "streamUrl": "网络播放地址",
     "streamUrlHint": "链接 6 小时内有效，播放设备需要能访问当前 Peach 地址。",
     "streamUrlVr": "网络播放地址 / VR"
@@ -459,6 +466,7 @@
     "performers": "出演者",
     "releaseDate": "发行日期",
     "resources": "资源",
+    "retryPreview": "重新取视频预览：{{reason}}",
     "sampleVideo": "视频预览",
     "sampleVideoFailed": "视频预览未取得"
   },

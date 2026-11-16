@@ -286,6 +286,7 @@
       "catalog": "Metadata and code cleanup",
       "dangling-candidates": "Stale review candidates",
       "follow-evidence-reclaim": "Old follow snapshots removed",
+      "cover-artwork": "Layout of installed covers",
       "javdb-actor-records": "JavDB links on people pages",
       "quality-resolution": "Quality bands",
       "source-resolution-tags": "4K tags from sources",
@@ -293,12 +294,14 @@
       "sidecar-assets": "NFO files and posters removed from the collection",
       "avatar-faces": "Faces found on avatars",
       "stale-filename-codes": "Misread codes cleared",
+      "label-suffix-codes": "Code suffixes restored",
       "studio-unbounded-misses": "Label lookup cache",
       "verification-settlement": "Verification differences settled",
       "performer-spacing": "Performer names with spaces",
       "enhancement-suffix-names": "Video enhancement tags in names",
       "fc2-seller-backfill": "FC2 sellers linked",
       "code-sibling-identity": "Cast and creators copied to same-code copies",
+      "feed-overflow-discoveries": "New releases restored past the per-check limit",
       "interface-text-codes": "Interface text in task records",
       "entity-link-values": "Profile links",
       "fc2-seller-studios": "FC2 sellers as labels",
@@ -320,6 +323,10 @@
       "catalog": {
         "summary": "Fixes codes, titles, and other automatic metadata under the new rules. Your manual edits are kept.",
         "title": "Metadata and code cleanup"
+      },
+      "cover-artwork": {
+        "summary": "After an upgrade, re-crops covers saved by earlier versions in the background and switches to DVD sleeves of similar quality. Originals are backed up first.",
+        "title": "Layout of installed covers"
       },
       "dangling-candidates": {
         "summary": "Candidates left by deleted assets move to the file's new ID. Ones that don't match are withdrawn.",
@@ -524,6 +531,7 @@
     "amane-bridge": "amane bridge rebuild",
     "batch": "Batch action",
     "code-samples": "Sample image fetch",
+    "cover-artwork-repair": "Cover layout repair",
     "creator-identity": "Creator identity lookup",
     "diagnostic-export": "Diagnostic export",
     "download-postprocess": "Cloud download post-processing",
@@ -775,6 +783,7 @@
     "videoUpgraded": "Video metadata upgrade complete",
     "videosUpgraded": "Upgraded metadata for {{count}} videos",
     "videosDeferred": "{{count}} postponed: directory unreadable or source cooling down",
+    "videosMalformed": "{{count}} failed: unrecognized path",
     "dimensionsMeasured": "Display dimensions re-measured",
     "deferredBy": "Postponed: {{reason}}",
     "deferMountMedia": "The video's directory is unreadable, will retry when the mount is back",
@@ -786,6 +795,9 @@
     "faceModelsReady": "Face models are ready"
   },
   "api": {
+    "listening": {
+      "outsideLan": "This address only accepts connections from the local network"
+    },
     "auth": {
       "invalidRememberDays": "Choose a valid stay-signed-in duration.",
       "sessionNotSaved": "Couldn't remember this device. Check that the data directory is writable, then try again.",
@@ -895,7 +907,7 @@
       "libraryOrderInvalid": "Library order must use unique library IDs.",
       "navigationOrderUnknownEntry": "Navigation order contains invalid items.",
       "navigationOrdersInvalid": "Navigation order needs known groups and order arrays.",
-      "performerNameLanguageInvalid": "performerNameLanguage only accepts zh-CN or ja.",
+      "performerNameLanguageInvalid": "performerNameLanguage only accepts zh-CN, ja, en, ja-local or local-ja.",
       "profileMissing": "profile {{profile}} doesn't exist.",
       "searchHistoryLimitInvalid": "searchHistoryLimit only accepts integers from 0 to {{max}}.",
       "switchNotBoolean": "{{key}} only accepts true or false.",
@@ -969,6 +981,8 @@
       "addMediaDirectory": "Add a media directory first",
       "collectionConfigMismatch": "The current collection doesn't match the media settings",
       "selectionInvalid": "Select valid videos",
+      "recheckNotBoolean": "recheck must be true or false",
+      "recheckSelectedOnly": "Re-collecting is only for up to {{limit}} selected videos and the metadata stage",
       "selectionRetryExclusive": "Selected items and retrying failures can't be used together",
       "stageInvalid": "Invalid processing stage",
       "incrementalStageUnsupported": "New-file discovery supports only scan or sync",
@@ -1654,13 +1668,14 @@
       "timeBudgetSpent": "This run's fetch time limit is used up. Run it again to continue; existing images are kept",
       "downloadBudgetSpent": "This run's download limit is used up. Run it again to continue; existing images are kept",
       "coolingDown": "The source is cooling down. Try again later; existing images are kept",
-      "challengeTimedOut": "The source's human verification wasn't passed in time, so requests to it are paused for a while. When the browser window pops up again, click the verification; existing images are kept",
+      "challengeTimedOut": "The source's human verification wasn't passed in time, so requests to it are paused for a while. Next time, open the collection browser from the taskbar and click the verification; existing images are kept",
       "rateLimited": "The source is rate limiting requests; the cooldown has been recorded. Existing images are kept",
       "coolingDownNamed": "{{label}} is paused. Try again in about {{minutes}} min",
       "rateLimitedNamed": "{{label}} is rate limiting. Try again in about {{minutes}} min",
       "refusedNamed": "{{label}} refused requests from the current exit, most likely too many requests or a blocked exit. Paused for about {{minutes}} min; you can also give it another exit in the proxy",
       "refusedCookieNamed": "{{label}} refused the request: too many requests, a blocked exit, or the saved cookie has expired. Paused for about {{minutes}} min; try another exit or paste a fresh cookie",
-      "refused": "The source refused access, so requests to it are paused for a while. Existing images are kept"
+      "refused": "The source refused access, so requests to it are paused for a while. Existing images are kept",
+      "browserModeInvalid": "The collection browser mode must be one of {{choices}}"
     },
     "downloadPostprocess": {
       "noLandingPath": "The download task has no landing path",
@@ -1811,7 +1826,9 @@
       "mediaRepairIncomplete": "The video upgrade fill-in didn't finish. Check Tasks, then try again",
       "resumeAfterRestart": "Continues after the service restarts",
       "displayBackupNoSpace": "Not enough space for the backup before re-measuring display sizes, so this batch of media is paused",
-      "mediaPaused": "{{message}}"
+      "mediaPaused": "{{message}}",
+      "malformedPath": "Unrecognized video path: {{path}}",
+      "malformedPathReason": "Unrecognized video path ({{reason}}): {{path}}"
     },
     "tunnel": {
       "standalonePortInvalid": "The standalone package's Tunnel HTTP port is invalid: {{port}}",
@@ -1984,14 +2001,11 @@
       "deviceNotAllowed": "Browser adding is only available on devices allowed to change the database.",
       "invalidDismiss": "Invalid acknowledgment parameters",
       "invalidEdition": "Invalid edition parameter",
-      "invalidRetryAttempt": "Invalid retry count in the browser adding queue",
-      "invalidRetryTime": "Invalid retry time in the browser adding queue",
       "invalidSwitch": "Invalid switch magnet link parameter",
       "manualRejectsSource": "Manual adding doesn't accept a source page URL",
       "notEnabled": "Turn on browser adding first",
       "nothingToRetry": "This code has no failed organizing to retry",
       "queueFull": "The adding queue is full. Wait for current tasks to finish.",
-      "queueUnreadable": "The browser adding queue can't be read",
       "unsupportedPage": "Add from a supported JAV video detail page",
       "searchUnavailable": "Torrent search is unavailable right now. Check the sources in Peach and try again"
     },
@@ -2158,7 +2172,9 @@
       "captureUnfetched": "Frame extraction failed. To report a problem, export a diagnostics report",
       "previewTimeout": "Generating the preview timed out. Try again",
       "previewFailed": "Couldn't generate the preview. Check FFmpeg and directory permissions, then try again",
-      "toolsNotPrepared": "Couldn't prepare the fetch tools: {{error}}"
+      "toolsNotPrepared": "Couldn't prepare the fetch tools: {{error}}",
+      "someSourcesUnfetched": "Got metadata from other sources; these did not answer: {{problems}}",
+      "someCoverSourcesUnfetched": "A cover is in place; these image sources did not answer: {{problems}}"
     },
     "followStream": {
       "coolingDown": "{{provider}} is cooling down after rate limiting. Try again in {{seconds}} seconds.",
@@ -2736,7 +2752,8 @@
       "outsideMounts": "✗ {{path}} isn't under the mount points {{mounts}} of storage {{location}}",
       "smbNotSaved": "The SMB directory hasn't been saved to the library settings yet",
       "prefixWithoutMount": "✗ Database path prefix {{index}} of storage {{location}} has no matching directory on this device. Configure the media directories in [media.mounts] in the same order first",
-      "checkpointMismatch": "The scan directory doesn't match the saved checkpoint. Check the mount settings"
+      "checkpointMismatch": "The scan directory doesn't match the saved checkpoint. Check the mount settings",
+      "rootUnreadable": "✗ Can't list the scan directory {{root}} ({{error}}). Nothing was scanned, and no files were counted as missing"
     },
     "faceDetect": {
       "faceModelMissing": "Face model is missing: {{path}}",
@@ -2774,7 +2791,8 @@
     "webBatch": {
       "changedDuringQuarantine": "The file changed while it was being backed up",
       "pathUnmapped": "The media path is not mapped to an accessible mount directory",
-      "storageOffline": "The storage is not mounted or cannot be read"
+      "storageOffline": "The storage is not mounted or cannot be read",
+      "purgingCannotRestore": "Items being permanently deleted can't be restored"
     },
     "webFeeds": {
       "checkStopped": "Subscription check stopped"
@@ -3035,6 +3053,11 @@
         "pushDiscovery": "Push discovery",
         "downloads": "Download settings"
       }
+    },
+    "coverRepair": {
+      "runLabel": "Re-check cover layouts",
+      "stoppedByUser": "Stopped by the user",
+      "serviceStopped": "The service stopped; it continues on the next start"
     },
     "followScheduler": {
       "runtimeUnavailable": "Status of the last automatic check was not found",
@@ -3541,7 +3564,8 @@
         "checkCompanions": "Check companion files",
         "makePreviews": "Generate previews",
         "checkPreviewSettings": "Check preview settings",
-        "fetchMetadataAndCovers": "Fetch metadata and covers"
+        "fetchMetadataAndCovers": "Fetch metadata and covers",
+        "fetchCovers": "Fetch missing covers"
       },
       "source": {
         "onePondo": "1pondo",
@@ -4173,7 +4197,7 @@
       "mobileBroadbandHint": "On China Mobile broadband, direct connections to DMM image hosts are often dropped after the handshake; set the DMM / FANZA connection to the Peach proxy.",
       "target": {
         "page": "Source page",
-        "cdn": "HD image CDN"
+        "cdn": "Image CDN"
       },
       "cooldown": "The source is cooling down. Try again later.",
       "proxy": "The proxy connection failed. Check the Peach proxy.",
@@ -4186,7 +4210,8 @@
       "signIn": "The source requires sign-in or verification. Sign in on the official site, then try again.",
       "reason": "{{reason}}.",
       "unavailable": "The source is unavailable right now. Try again later.",
-      "needsCode": "Studio sites are picked by code. Enter a code from your collection to check the HD cover."
+      "needsCode": "Studio sites are picked by code. Enter a code from your collection to check the HD cover.",
+      "noImageHost": "This source has no fixed image host, so images weren't checked."
     },
     "sourcePreflight": {
       "outcome": {

@@ -45,8 +45,8 @@ CODES = (
     "seedAliases", "seedRefs", "seedLinks", "seedProfiles", "seedMemberships", "seedMakers", "seedRefreshed",
     "seedWithdrawn", "seedNames", "seedConflicts", "seedDuplicates", "seedWithdrawalConflicts", "seedNothing",
     # 自动修复
-    "scheduled", "videoUpgraded", "videosUpgraded", "videosDeferred", "dimensionsMeasured", "deferredBy",
-    "deferMountMedia", "deferMountDimensions", "deferBilling", "deferCooling",
+    "scheduled", "videoUpgraded", "videosUpgraded", "videosDeferred", "videosMalformed", "dimensionsMeasured",
+    "deferredBy", "deferMountMedia", "deferMountDimensions", "deferBilling", "deferCooling",
     # 人脸模型
     "faceModelFetched", "matchModelFetched", "faceModelsReady",
 )

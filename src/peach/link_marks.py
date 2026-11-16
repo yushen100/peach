@@ -78,7 +78,9 @@ CACHE_TTL = 30 * 24 * 3600
 #: 4：用户否决了 App Store 那枚 FC2 图标（背景带胶片图案），`fc2.com` 换成用户指定的
 #: 400×400 纯独角兽，取图规则又变了一次。
 #: 5：透明底的纯黑或纯白字形也做成圆底白字（`single_tone`），此前原样放行，深色页面上看不见。
-RENDER_VERSION = 5
+#: 6：横向或顶到边的图标先补成方图再按外接圆重摆（#576）。设置「从不刷新」时旧圆标永远不过期，
+#: 换键后哪个站被访问到才重取哪个，不批量重取。
+RENDER_VERSION = 6
 
 
 def cache_key(url: str) -> str:
@@ -254,30 +256,37 @@ def glyph_mark(image, size: int = MARK_SIZE) -> bytes | None:
     return _encode(out.resize((size, size), Image.LANCZOS))
 
 
-def designed_mark(image, size: int = MARK_SIZE) -> bytes | None:
-    """成品方形图标原样用：只补成方图并缩到 `size`，不改颜色、不抠图。
+def _round_plate(image):
+    """把一枚图摆成圆形图位里看得全的方图，与厂牌标识同一套规则（`images.pad_to_square`、
+    `images.refit_plate`）：长条补成方图而不是居中裁掉两边，顶到边的实心方标补到内容的外接圆，
+    留白大到发空的裁掉多余留白。像素不缩放，透明图只补方。"""
+    from . import images
 
-    非方图按短边居中裁——容器是 `object-fit:cover`，服务端先裁能省掉一次浏览器缩放，
-    也让缓存里的那张就是最终那张。
+    payload = _encode(image)
+    if image.width != image.height:
+        payload = images.pad_to_square(payload) or payload
+    payload = images.refit_plate(payload) or payload
+    return decode(payload) or image
+
+
+def designed_mark(image, size: int = MARK_SIZE) -> bytes | None:
+    """成品方形图标原样用：不改颜色、不抠图，只按圆形图位重摆后缩到 `size`。
+
+    非方图补成方图（`_round_plate`），不按短边居中裁：横向的成品图标裁掉两边，字和边角就没了。
     """
     from PIL import Image
 
     if min(image.size) < MIN_DESIGNED_SIZE:
         return None
-    width, height = image.size
-    if width != height:
-        side = min(width, height)
-        left, top = (width - side) // 2, (height - side) // 2
-        image = image.crop((left, top, left + side, top + side))
-    return _encode(image.resize((size, size), Image.LANCZOS))
+    return _encode(_round_plate(image).resize((size, size), Image.LANCZOS))
 
 
 def plain_mark(data: bytes, size: int = MARK_SIZE, content_type: str = "") -> bytes | None:
-    """两条通道都不适用时的回落：把图原样缩成 PNG。"""
+    """两条通道都不适用时的回落：按同一套规则摆成方图再缩成 PNG，不拉伸长条图。"""
     from PIL import Image
 
     image = decode(data, content_type)
-    return None if image is None else _encode(image.resize((size, size), Image.LANCZOS))
+    return None if image is None else _encode(_round_plate(image).resize((size, size), Image.LANCZOS))
 
 
 def render_mark(data: bytes, size: int = MARK_SIZE,

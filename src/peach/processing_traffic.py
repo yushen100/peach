@@ -115,6 +115,8 @@ class ProcessingTraffic:
         self.unknown_files = stage in ('all', 'scan') and asset_ids is None
         from .processing_traffic_plan import TrafficPlan
         self.plan = TrafficPlan(config, stage, self._media_key, allow_metered=allow_metered)
+        from .library_processing import source_budget
+        self.plan.budget_bytes = source_budget(db_path).bytes
         from .processing_storage import ProcessingStorage
         self.storage = ProcessingStorage(config)
         self.plan.completed.update(previous.get('completed_work', []))

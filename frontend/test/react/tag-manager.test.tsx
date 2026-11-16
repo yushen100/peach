@@ -1,7 +1,9 @@
 import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
+import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { confirmModal } from '@peach/legacy/ui';
 import { TagManager, type ManagedTag } from '../../src/react/index/tag-manager';
+import { TagEditor } from '../../src/react/index/tag-operations';
 import { queryClient } from '../../src/react/query';
 import { buttonNamed, click, mount, mountRoot, settle, submit, type } from './render';
 
@@ -56,6 +58,50 @@ async function open() {
 }
 
 describe('标签管理', () => {
+  it('按别名联想在线标签，选中候选填写名称并等待影响范围预览', async () => {
+    vi.useFakeTimers();
+    const fetcher = vi.fn(async (_url: string, _init?: RequestInit) => ({ ok: true, json: async () => ({ items: [
+      { id: 'outdoors', k: 'outdoors', aliases: ['户外'], n: 2, hidden: false },
+    ] }) }));
+    vi.stubGlobal('fetch', fetcher);
+    await mount(<QueryClientProvider client={queryClient}><TagEditor operation="block" scope="online" selected={[]} close={vi.fn()} done={vi.fn()} /></QueryClientProvider>);
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="标签名称"]')!;
+    await act(async () => input.focus());
+    await type(input, '户外');
+    await act(async () => { await vi.advanceTimersByTimeAsync(250) });
+    await settle();
+    const request = new URL(fetcher.mock.calls[0]![0] as string, 'http://localhost');
+    expect(request.searchParams.get('scope')).toBe('online');
+    expect(request.searchParams.get('q')).toBe('户外');
+    await click(document.querySelector('[role="option"][data-key="outdoors"]'));
+    expect(input.value).toBe('outdoors');
+    expect(buttonNamed('预览影响范围')?.disabled).toBe(false);
+    expect(fetcher.mock.calls.every(([, init]) => !init?.body)).toBe(true);
+  });
+
+  it('输入法合成期间不请求候选，清空名称后停用影响范围预览', async () => {
+    vi.useFakeTimers();
+    const fetcher = vi.fn(async (_url: string, _init?: RequestInit) => ({ ok: true, json: async () => ({ items: [] }) }));
+    vi.stubGlobal('fetch', fetcher);
+    await mount(<QueryClientProvider client={queryClient}><TagEditor operation="block" scope="online" selected={[]} close={vi.fn()} done={vi.fn()} /></QueryClientProvider>);
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="标签名称"]')!;
+    await act(async () => { input.dispatchEvent(new CompositionEvent('compositionstart', { bubbles: true })) });
+    await type(input, 'zhong');
+    await act(async () => { await vi.advanceTimersByTimeAsync(250) });
+    expect(fetcher).not.toHaveBeenCalled();
+    await type(input, '中文');
+    await act(async () => { input.dispatchEvent(new CompositionEvent('compositionend', { bubbles: true })) });
+    await act(async () => { await vi.advanceTimersByTimeAsync(250) });
+    await settle();
+    expect(new URL(fetcher.mock.calls[0]![0], 'http://localhost').searchParams.get('q')).toBe('中文');
+    expect(input.value).toBe('中文');
+    expect(buttonNamed('预览影响范围')?.disabled).toBe(false);
+    await type(input, '');
+    await act(async () => { await vi.advanceTimersByTimeAsync(250) });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(buttonNamed('预览影响范围')?.disabled).toBe(true);
+  });
+
   it('按页请求并跨页保留选择，分类筛选回到首页', async () => {
     const rows = Array.from({ length:230 }, (_, index) => ({ entity_id:index + 1, k:`tag-${index}`, n:230-index,
       aliases:[], hidden:false, cat:index < 120 ? 'general' : 'role' }));

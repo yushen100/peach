@@ -43,7 +43,8 @@ import { RosterDock, useRosterSelection } from './roster-selection';
 import { OnlineTagDock } from './online-tag-dock';
 import { TagAlphabet, TagCloud, TagDock, TagFilters, type TagEntry } from './index-tags';
 import { TagManager } from './tag-manager';
-import { useTagStatusCounts } from './tag-operations';
+import { TagEditor, useTagStatusCounts } from './tag-operations';
+import { GlassPill } from '../components/filter-glass';
 import { t } from '../../i18n';
 
 /* 厂牌与事务所是两种实体，不是同一份数据的两种筛选：厂牌出片，事务所出人。所以这个开关切的
@@ -95,6 +96,7 @@ type Item = IndexPerson | IndexTag | OnlineAuthor | OnlineTag;
 
 export function IndexPage(props: IndexProps) {
   const [managing, setManaging] = useState(false);
+  const [addingBlockedTag, setAddingBlockedTag] = useState(false);
   /* 标签页平时那排状态药丸点「已隐藏」「已屏蔽内容」：进标签管理，直接落在那一档。 */
   const [managerState, setManagerState] = useState<'active' | 'hidden' | 'blocked'>('active');
   const [route, setRoute] = useState<IndexRoute>(() => indexRoute(
@@ -301,6 +303,7 @@ export function IndexPage(props: IndexProps) {
       ) : null}
       {kind === 'tags' ? (
         <TagFilters categories={categories} category={category} online={onlineTags}
+          actions={onlineTags ? <GlassPill onPress={() => setAddingBlockedTag(true)}>{t('catalog:tagManager.blockByName')}</GlassPill> : undefined}
           readout={result.isPending ? undefined : readout}
           status={{ hidden: false, blocked: false, ...tagCounts, onChange: (hidden) => { if (hidden) openManager('hidden') },
             ...(onlineTags ? { onBlocked: () => openManager('blocked') } : {}) }}
@@ -340,6 +343,8 @@ export function IndexPage(props: IndexProps) {
           onApply={() => { const chosen = [...picked]; setPicked(new Set()); props.showTags(chosen, match) }} />
       ) : null}
       </>}
+      {addingBlockedTag ? <TagEditor operation="block" selected={[]} scope="online"
+        close={() => setAddingBlockedTag(false)} done={() => setPicked(new Set())} /> : null}
     </div>
   );
 }

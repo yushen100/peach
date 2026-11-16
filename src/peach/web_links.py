@@ -27,6 +27,12 @@ from .user_agent import USER_AGENT
 from .user_messages import UserInterruptedError, UserValueError, error_fields, message_fields
 #: 「这个页面没了」——只有上游明确这么说，才够格作为删除依据。
 GONE_STATUSES = frozenset({404, 410})
+#: 「暂时打不开」：连不上或超时（状态 0）、限流与临时服务故障。过一会儿多半就好，一趟检查里自动再问几轮；
+#: 站点拒绝爬虫（403 之类）不在此列，再问也是同一个答案，留给人勾选重试。
+TEMPORARY_STATUSES = frozenset({408, 425, 429, 500, 502, 503, 504})
+#: 一趟检查跑完后，暂时打不开的链接再验几轮；每轮之前等多少个检查间隔（默认约 30 秒）。
+RECHECK_ROUNDS = 2
+RECHECK_PAUSE_INTERVALS = 120
 CHECK_TIMEOUT = 12.0
 CHECK_INTERVAL = 0.25
 
@@ -89,6 +95,18 @@ def link_verdict(status: int, note: str) -> str:
     if status in GONE_STATUSES:
         return "gone"
     return "unclear"
+
+
+def temporary_failure(status: int, note: str) -> bool:
+    """取不到、但看起来是暂时的：连不上、超时、限流或临时服务故障。确证没了（`link_verdict` 的 gone）不算。"""
+    return link_verdict(status, note) == "unclear" and (status == 0 or status in TEMPORARY_STATUSES)
+
+
+def _unclear_row(row: dict, status: int, note: str, attempts: int) -> dict:
+    """「取不到」那一行：带上是不是暂时的、问过几次，界面据此区分「临时故障，已重查」与「站点拒绝」。"""
+    return {"id": row["id"], "entity": row["entity"], "link_kind": row["link_kind"], "label": row["label"],
+            "url": row["url"], **_note(status, note),
+            "temporary": temporary_failure(status, note), "attempts": attempts}
 
 
 def _note(status: int, note: str) -> dict:
@@ -218,19 +236,57 @@ def _run_link_check(contract: LinkContract, check_id: str,
             if verdict != 'unclear':
                 completed.add(row['id'])
             state["checked"] = len(completed)
-            if verdict != "ok":
-                state["gone" if verdict == "gone" else "unclear"].append({
-                    "id": row["id"], "entity": row["entity"],
-                    "link_kind": row["link_kind"], "label": row["label"],
-                    "url": row["url"],
-                    **_note(status, note),
-                })
+            if verdict == "gone":
+                state["gone"].append({"id": row["id"], "entity": row["entity"], "link_kind": row["link_kind"],
+                                      "label": row["label"], "url": row["url"], **_note(status, note)})
+            elif verdict == "unclear":
+                state["unclear"].append(_unclear_row(row, status, note, 1))
         snapshot = job.snapshot() or {}
         if not job.checkpoint(check_id, completed_links=sorted(completed), checked=len(completed),
                               total=len(rows), gone=snapshot.get('gone', []), unclear=snapshot.get('unclear', [])):
             raise UserInterruptedError("errors.webLinks.checkStopped")
         time.sleep(CHECK_INTERVAL)
+    _recheck_temporary(job, check_id, completed, {row['id'] for row in rows}, len(rows),
+                       int(previous.get('recheck_round') or 0))
     job.update(check_id, checked=len(rows), status="complete", completed_at=time.time())
+
+
+def _recheck_temporary(job, check_id: str, completed: set, probed: set, total: int, done_rounds: int) -> None:
+    """这一趟验过（`probed`）、暂时打不开的链接隔一会儿自动再验，最多 `RECHECK_ROUNDS` 轮；好了就从结果里
+    摘掉，确证没了才进 gone，还是打不开的留在 unclear 并记下问过几次。只重验了几条时，别的结论原样不动。
+    续跑从上次做完的那一轮之后接着。"""
+    for round_index in range(done_rounds, RECHECK_ROUNDS):
+        pending = [dict(item) for item in (job.snapshot() or {}).get('unclear', [])
+                   if item.get('temporary') and item['id'] in probed]
+        if not pending:
+            return
+        for _ in range(RECHECK_PAUSE_INTERVALS):
+            if job.snapshot() is None:
+                raise UserInterruptedError("errors.webLinks.checkStopped")
+            time.sleep(CHECK_INTERVAL)
+        for item in pending:
+            if job.snapshot() is None:
+                raise UserInterruptedError("errors.webLinks.checkStopped")
+            status, note = _probe(item["url"])
+            verdict = link_verdict(status, note)
+            with job.editing(check_id) as state:
+                if state is None:
+                    return
+                state['unclear'] = [row for row in state['unclear'] if row['id'] != item['id']]
+                if verdict == "gone":
+                    state['gone'].append({key: item[key] for key in ("id", "entity", "link_kind", "label", "url")}
+                                         | _note(status, note))
+                elif verdict == "unclear":
+                    state['unclear'].append(_unclear_row(item, status, note, int(item.get('attempts') or 1) + 1))
+                if verdict != "unclear":
+                    completed.add(item['id'])
+                state["checked"] = len(completed)
+            time.sleep(CHECK_INTERVAL)
+        snapshot = job.snapshot() or {}
+        if not job.checkpoint(check_id, completed_links=sorted(completed), checked=len(completed), total=total,
+                              gone=snapshot.get('gone', []), unclear=snapshot.get('unclear', []),
+                              recheck_round=round_index + 1):
+            raise UserInterruptedError("errors.webLinks.checkStopped")
 
 
 def _retry_state(state: dict, link_ids: list[int]) -> dict:

@@ -15,7 +15,7 @@
  * 默认是一排横着的键；`axis: 'y'` 给竖着的一列（侧栏导航）：位移的回弹换到纵轴，滚出可视区
  * 的判据也换成纵向。 */
 import { useCallback, useEffect, useLayoutEffect, useRef, type PointerEvent, type RefObject } from 'react';
-import { cancelGlide, moveGlidePane } from '@peach/legacy/ui';
+import { afterGlide, cancelGlide, moveGlidePane } from '@peach/legacy/ui';
 
 interface Box { x: number; y: number; w: number; h: number }
 
@@ -94,12 +94,20 @@ export function useViewGlide(
   useEffect(() => {
     const host = pane.current?.parentElement;
     let frame = 0;
+    /* 正在滑的那一段不撤：跑完再量一次，落到那一刻的位置上。 */
     const remeasure = () => {
       if (frame) return;
-      frame = requestAnimationFrame(() => { frame = 0; place(null, false) });
+      frame = requestAnimationFrame(() => { frame = 0; if (!afterGlide(pane.current, remeasure)) place(null, false) });
     };
-    host?.addEventListener('scroll', remeasure, { capture: true, passive: true });
-    addEventListener('resize', remeasure, { passive: true });
+    /* 只认这一排自己或它外面那几层的滚动：键里面的滚动（React Aria 单选键聚焦时，视觉隐藏的 input
+       外面那层会冒一次 `scroll`）不改落点，当成重量会把刚起跑的滑动当场撤掉。 */
+    const scrolled = (event: Event) => {
+      const line = row.current;
+      if (!line || (event.target instanceof Node && event.target.contains(line))) remeasure();
+    };
+    const resized = () => place(null, false);
+    host?.addEventListener('scroll', scrolled, { capture: true, passive: true });
+    addEventListener('resize', resized, { passive: true });
     /* 浮层可以随页面收起，也可以在取数后补进另一组控件。尺寸恢复与相邻组变宽都会改变落点。 */
     const observer = new ResizeObserver(() => {
       const line = row.current;
@@ -124,8 +132,8 @@ export function useViewGlide(
     return () => {
       observer.disconnect();
       cancelAnimationFrame(frame);
-      host?.removeEventListener('scroll', remeasure, { capture: true });
-      removeEventListener('resize', remeasure);
+      host?.removeEventListener('scroll', scrolled, { capture: true });
+      removeEventListener('resize', resized);
     };
   }, [pane, row, place, key]);
 

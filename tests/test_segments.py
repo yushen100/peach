@@ -1,5 +1,8 @@
 """HLS 分片：关键帧对齐、时间戳连续、播放列表报真实时长。"""
 import asyncio
+import json
+import shutil
+import subprocess
 import tempfile
 import time
 import unittest
@@ -13,6 +16,7 @@ from peach.hardware_transcode import HardwareEncoder
 from peach.segments import HlsSegmentService, StreamSessionRegistry, build_hls_playlist
 from support.mp4 import minimal_mp4
 from support.stalls import stalled_mount
+from support.conditions import missing_prerequisite
 
 
 class Mp4IndexTests(unittest.TestCase):
@@ -112,7 +116,7 @@ class SegmentCommandTests(unittest.TestCase):
     也拖不动。缓存目录里三个资产都只留下 0.ts 和 1.ts，没有更靠后的片段。
     """
 
-    def _command_for(self, index: int, transcode: bool = False) -> list[str]:
+    def _command_for(self, index: int, transcode: bool = False, audio_transcode: bool = False) -> list[str]:
         captured: list[list[str]] = []
 
         class _Process:
@@ -155,6 +159,7 @@ class SegmentCommandTests(unittest.TestCase):
                                 asset_id=6562, index=index, session="s",
                                 registry=StreamSessionRegistry(),
                                 transcode=transcode,
+                                audio_transcode=audio_transcode,
                             )
                         except Exception:
                             pass
@@ -169,6 +174,28 @@ class SegmentCommandTests(unittest.TestCase):
         self.assertEqual(command[command.index('-t')+1], '9.993')
         self.assertEqual(command[command.index('-output_ts_offset')+1], '999.300')
         self.assertNotIn('-copyts', command)
+
+    def test_audio_conversion_keeps_video_packets_and_absolute_timestamps(self):
+        command = self._command_for(100, audio_transcode=True)
+        self.assertEqual(command[command.index('-c:v') + 1], 'copy')
+        self.assertEqual(command[command.index('-c:a') + 1], 'aac')
+        self.assertEqual(command[command.index('-to') + 1], '1009.293')
+        self.assertIn('-copyts', command)
+
+    def test_mkv_copy_audio_and_video_modes_have_separate_cache_entries(self):
+        from support.mkv import minimal_mkv
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            source = root / 'clip.mkv'
+            source.write_bytes(minimal_mkv())
+            service = HlsSegmentService(mock.Mock(), root / 'cache')
+            self.assertEqual(service.plan(source, 13.5), [(0.0, 7.5), (7.5, 6.0)])
+            paths = {service.cached_path(source, 1, 0),
+                     service.cached_path(source, 1, 0, audio_transcode=True),
+                     service.cached_path(source, 1, 0, transcode=True)}
+            self.assertEqual(len(paths), 3)
+
 
     def test_silent_ffmpeg_failure_still_says_what_was_observed(self):
         """FFmpeg 可以退出码 0、stderr 全空却写出 0 字节，只报 ffmpeg failed 等于没报。"""
@@ -398,6 +425,45 @@ class StalledSourceTests(unittest.TestCase):
             self.assertIsNone(keyframe_seconds(self.source))
             self.assertLess(time.monotonic() - started, 3)
         self.assertEqual(keyframe_seconds(self.source)[:2], [0.0, 1.0])
+
+
+class RealMatroskaSegmentTests(unittest.IsolatedAsyncioTestCase):
+    async def test_remux_segments_have_exact_keyframe_boundaries_without_preroll(self):
+        from peach.ffmpeg import FFmpegResolver
+
+        if not shutil.which('ffmpeg') or not shutil.which('ffprobe'):
+            missing_prerequisite('ffmpeg/ffprobe')
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            resolver = FFmpegResolver(root / 'tools')
+            for audio in ('aac', 'pcm_s16le'):
+                with self.subTest(audio=audio):
+                    source = root / f'{audio}.mkv'
+                    subprocess.run([
+                        str(resolver.ffmpeg().path), '-v', 'error', '-nostdin', '-y',
+                        '-f', 'lavfi', '-i', 'testsrc2=size=160x90:rate=25',
+                        '-f', 'lavfi', '-i', 'sine=frequency=1000:sample_rate=48000', '-t', '14',
+                        '-c:v', 'libx264', '-preset', 'ultrafast', '-g', '50', '-bf', '2',
+                        '-sc_threshold', '0', '-c:a', audio, str(source),
+                    ], check=True, capture_output=True, timeout=30)
+                    service = HlsSegmentService(resolver, root / audio)
+                    plan = service.plan(source, 14)
+                    self.assertIsNotNone(plan)
+                    for index in (0, 1):
+                        start, length = plan[index]
+                        target = await service.generate(source, start, length, asset_id=1, index=index,
+                            session='test', registry=StreamSessionRegistry(), audio_transcode=audio != 'aac')
+                        probe = subprocess.run([str(resolver.ffprobe().path), '-v', 'error',
+                            '-select_streams', 'v:0', '-show_entries', 'packet=pts_time,flags',
+                            '-of', 'json', str(target)], capture_output=True, check=True, timeout=10)
+                        packets = json.loads(probe.stdout)['packets']
+                        self.assertIn('K', packets[0]['flags'])
+                        self.assertAlmostEqual(float(packets[0]['pts_time']), start, delta=0.03)
+                        self.assertLess(max(float(packet['pts_time']) for packet in packets), start + length)
+                        decoded = subprocess.run([str(resolver.ffmpeg().path), '-v', 'error', '-i',
+                            str(target), '-f', 'null', '-'], capture_output=True, timeout=15)
+                        self.assertEqual((decoded.returncode, decoded.stderr), (0, b''))
+                    self.assertFalse(list((root / audio).rglob('*.split-*.ts')))
 
 
 class PlanCacheTests(unittest.TestCase):

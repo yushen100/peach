@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 import time
+import uuid
 from pathlib import Path
 
 from filelock import FileLock, Timeout
@@ -19,11 +20,21 @@ AVATAR_REFRESH_SECONDS = 90 * 86400
 FAVICON_REFRESH_SECONDS = 365 * 86400
 #: 同一段已有下载者时最多等它这么久，过了就直通上游、不落盘。
 FETCH_WAIT_SECONDS = 15
+#: 缓存目录在落盘前被清理掉时重建目录再试的次数；用完还不行就直通上游、不落盘。
+CAPTURE_ATTEMPTS = 3
+#: 数据文件装好之后、sidecar 写入前目录被清理时重写 sidecar 的次数。
+SIDECAR_ATTEMPTS = 5
 MEDIA_HEADERS = ("content-type", "content-length", "content-range", "accept-ranges", "content-encoding")
 MEDIA_SECURITY_HEADERS = {
     'content-security-policy': "sandbox; default-src 'none'; frame-ancestors 'none'",
     'x-content-type-options': 'nosniff',
 }
+
+
+def _data_path(slot: Path, metadata: dict) -> Path:
+    """sidecar 记下的数据文件；旧版本写的 sidecar 没有 `file`，数据在固定的 `.bin`。"""
+    name = metadata.get("file")
+    return slot.parent / Path(str(name)).name if name else slot.with_suffix(".bin")
 
 
 def passive_media_type(value: str) -> bool:
@@ -72,7 +83,7 @@ class RemoteMediaCache:
         for slot in dict.fromkeys((self._slot(key), self._slot(key, byte_range))):
             try:
                 metadata = json.loads(slot.with_suffix(".json").read_text(encoding="utf-8"))
-                path = slot.with_suffix(".bin")
+                path = _data_path(slot, metadata)
                 if (passive_media_type(metadata['headers'].get('content-type',''))
                         and path.is_file() and path.stat().st_size == metadata["size"]):
                     return path, metadata
@@ -168,27 +179,66 @@ class RemoteMediaCache:
             raise
 
     def _capture_response(self, slot, upstream, headers, *, accepted, content_range, complete_range):
-        """安装一次完整传输的字节与范围信息，未完成的临时文件由原子写入清除。"""
+        """安装一次完整传输的字节与范围信息，未完成的临时文件由原子写入清除。
+
+        数据文件每次用新名字，sidecar 最后写并记下文件名：读者看到的要么是上一对完整的文件，
+        要么是这一对，不会拿新数据配旧长度；也不用替换别的请求正开着的数据文件。还没读上游
+        一个字节时缓存目录被清理掉，重建再试，一直不行就直通上游、不落盘。
+        """
         if not accepted:
             yield from upstream.iter_raw()
             return
-        with atomic_path(slot.with_suffix(".bin")) as temporary:
-            size = 0
-            with temporary.open("wb") as handle:
-                for chunk in upstream.iter_raw():
-                    self._check_capacity()
-                    handle.write(chunk)
-                    size += len(chunk)
-                    yield chunk
-            expected = int(headers.get("content-length", size))
-            if not size or size != expected or (content_range and
-                    size != int(content_range[2]) - int(content_range[1]) + 1):
-                raise UserOSError("errors.remoteMediaCache.incompleteResponse")
-        atomic_write_text(slot.with_suffix(".json"), json.dumps({
-            "status": 200 if complete_range else upstream.status_code, "size": size, "headers": {
+        data = slot.with_name(f"{slot.name}-{uuid.uuid4().hex[:16]}.bin")
+        for _attempt in range(CAPTURE_ATTEMPTS):
+            started = False
+            try:
+                with atomic_path(data) as temporary:
+                    with temporary.open("wb") as handle:
+                        started = True
+                        size = 0
+                        for chunk in upstream.iter_raw():
+                            self._check_capacity()
+                            handle.write(chunk)
+                            size += len(chunk)
+                            yield chunk
+                    expected = int(headers.get("content-length", size))
+                    if not size or size != expected or (content_range and
+                            size != int(content_range[2]) - int(content_range[1]) + 1):
+                        raise UserOSError("errors.remoteMediaCache.incompleteResponse")
+                break
+            except FileNotFoundError:
+                # 读过上游之后目录才没的，重放会重复已送出的字节，照原样报出。
+                if started:
+                    raise
+        else:
+            yield from upstream.iter_raw()
+            return
+        sidecar = slot.with_suffix(".json")
+        try:
+            previous = _data_path(slot, json.loads(sidecar.read_text(encoding="utf-8")))
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            previous = None
+        metadata = json.dumps({
+            "file": data.name, "status": 200 if complete_range else upstream.status_code, "size": size, "headers": {
                 name: value for name, value in headers.items() if name in MEDIA_HEADERS
                 and not (complete_range and name == "content-range")},
-        }), mode=0o600)
+        })
+        for _attempt in range(SIDECAR_ATTEMPTS):
+            try:
+                slot.parent.mkdir(parents=True, exist_ok=True)
+                atomic_write_text(sidecar, metadata, mode=0o600)
+                break
+            except FileNotFoundError:
+                continue
+        else:
+            # 目录连同刚装好的数据一起被清掉了：这次只是没缓存上，响应已经完整送出。
+            return
+        if previous is not None and previous != data:
+            # 上一份数据可能还被别的请求读着（Windows 上删不掉），留给缓存清理。
+            try:
+                previous.unlink(missing_ok=True)
+            except OSError:
+                pass
 
     def bytes(self, key: str, fetch, *, ttl: int | None = None) -> bytes:
         """图片与清单复用原子文件及跨进程锁；刷新失败保留可用副本。"""

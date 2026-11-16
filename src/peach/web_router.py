@@ -23,7 +23,7 @@ from .web_activity import (
     w_quality_goal,
     w_watch_later,
 )
-from .web_batch import q_ads, q_duplicates, w_batch, w_empty_trash
+from .web_batch import q_ads, q_duplicates, w_ads_dispose_all, w_ads_restore_all, w_batch, w_empty_trash
 from .web_entity_batch import q_entity_batch_plan, w_entity_batch
 from .web_performer_delete import q_performer_delete_candidates, q_performer_delete_plan, w_performer_delete
 from .web_tags import q_tag_management, w_tag_management, w_tag_preview
@@ -503,6 +503,8 @@ POST_HANDLERS = {
     "/api/item-tag": w_item_tag,
     "/api/item-edit": w_item_edit,
     "/api/batch": w_batch,
+    "/api/ads/dispose-all": w_ads_dispose_all,
+    "/api/ads/restore-all": w_ads_restore_all,
     "/api/search-history": w_search_history,
     "/api/taste/refresh": w_taste_refresh,
     "/api/taste/source": w_taste_source,

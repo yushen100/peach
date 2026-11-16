@@ -38,11 +38,11 @@ PLATFORM_TESTS: dict[str, tuple[str, ...]] = {
                 "test_restart_windows_tray", "test_process_job", "test_windows_update",
                 "test_desktop_settings", "test_desktop_installer", "test_standalone_update",
                 "test_interaction", "test_jobs", "test_scan", "test_media_tool_import",
-                "frontend/e2e/external-playback.test.ts"),
+                "test_listening", "frontend/e2e/external-playback.test.ts"),
     "macos": (*_SHARED,
-              "test_tray", "test_mount", "test_netwatch", "test_mdns", "test_macos_standalone", "test_macos_media",
+              "test_tray", "test_mount", "test_netwatch", "test_mdns", "test_listening", "test_macos_standalone", "test_macos_media",
               "frontend/e2e/external-playback.test.ts"),
-    "linux": (*_SHARED, "test_mdns"),
+    "linux": (*_SHARED, "test_mdns", "test_listening"),
 }
 #: 基线只在最近这么多条成功的主线流水线里找；更早的通过记录覆盖不到之后的改动。
 PIPELINE_WINDOW = 20

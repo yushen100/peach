@@ -140,7 +140,7 @@ local = '/media'
 
 需要复用另一台 Peach 的数据库时，在配置文件的 `[media.locations]` 中填写与该数据库影片路径匹配的目录前缀，在 `[media.mounts]` 中填写这台容器能读取的目录，例如 `/media/115`；已有部署保留自身的对应关系。Compose 必须已挂入这些目录。CloudDrive2 是媒体来源之一，本地目录也可直接挂入 Peach。
 
-容器中的服务固定监听 `0.0.0.0:8900`，宿主机访问地址和端口使用 Compose 的 `PEACH_BIND`、`PEACH_PORT`；`[server]` 的 `host`、`port` 用于直接运行 `peach serve`。独立 Docker 部署保持 `[replication] enabled = false`，无需配置桌面托盘或 SMB 复制。
+容器中的服务固定在 8900 端口以双栈监听，宿主机访问地址和端口使用 Compose 的 `PEACH_BIND`、`PEACH_PORT`。`PEACH_BIND` 写 IPv6 地址时加方括号，例如 `[fd00::10]`；写 `0.0.0.0` 时 Docker 在宿主机的 IPv4 和 IPv6 地址上都发布端口。默认网络没有 IPv6，Docker 把宿主机 IPv6 端口转给容器的 IPv4 地址，容器看到的来源是 Docker 网关。要让容器看到客户端的 IPv6 地址，需要为网络开启 IPv6，并在 `PEACH_LAN_IPV6_PREFIXES` 里列出宿主机局域网的 IPv6 前缀，多个前缀用逗号分隔，例如 `2001:db8:1:2::/64`；不在这些前缀、ULA 或链路本地范围内的 IPv6 来源会收到 403。`[server]` 的 `host`、`port` 用于直接运行 `peach serve`。独立 Docker 部署保持 `[replication] enabled = false`，无需配置桌面托盘或 SMB 复制。
 
 ## 硬件转码（AMD / Intel VAAPI）
 
@@ -285,6 +285,6 @@ python -m peach check-sources
 python -m peach check-sources --source dmm --source javdb --json
 ```
 
-检查在 NAS 容器内发起，使用该实例已有的来源网络设置、Cookie 与冷却记录。最多四个来源并发，每个来源限制请求次数、读取量与时间预算；只读取来源页面和 DMM 图片 CDN 样本，不读取影片、不启动桌面浏览器。结果保留到现有采集设置的来源连接记录；限流或拒绝访问沿用现有冷却机制，不自动关闭来源或修改代理。
+检查在 NAS 容器内发起，使用该实例已有的来源网络设置、Cookie 与冷却记录。最多四个来源并发，每个来源限制请求次数、读取量与时间预算；只读取来源页面，以及 DMM、r18.dev、JavDB、JavBus、MGStage 各自图片主机上一张样图的前 64 KB（其余来源没有固定图片主机，图片一项标「未检查」），不读取影片、不启动桌面浏览器。结果保留到现有采集设置的来源连接记录；限流或拒绝访问沿用现有冷却机制，不自动关闭来源或修改代理。
 
 网页与命令行的报告使用同一口径，逐项区分可连接、登录或人机验证、HTTP 错误、冷却与网络失败。正在冷却的来源直接报冷却，不再发请求。页面能连接仅说明检查地址可达，不代表全部作品资料、封面或登录会话可用；片商官网需要番号时标记为未检查，不计为连接失败。命令行在其余目标未通过时退出码为 1。更换 NAS 出口或代理后可再次检查；`--source` 可重复指定，仅重查关心的来源。

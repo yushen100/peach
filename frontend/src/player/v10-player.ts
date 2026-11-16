@@ -163,7 +163,7 @@ export const createV10Player: VideojsFactory = (video, options) => {
     isFullscreen,
     poster: (url: string) => { video.poster = url },
     src: (next: PlayerSource) => {
-      cancel();
+      cancel(false);
       source = next; failure = null; root.classList.remove('vjs-error');
       sourceGeneration++; playGeneration++; selectionQueued = false; enabledLevels = []; levels.length = 0;
       const tag = next.type.toLowerCase().includes('dash') ? 'dash-video' : 'hlsjs-video';
@@ -174,7 +174,7 @@ export const createV10Player: VideojsFactory = (video, options) => {
         media.addEventListener('error', () => showError(media.error || video.error), { signal });
         enabledLevels = []; levels.length = 0;
       }
-      media.source = { ...next, src: new URL(next.src, location.href).href };
+      media.source = { src: new URL(next.src, location.href).href, type: next.type };
       attachEngine();
     },
     currentSrc: () => source.src, currentSource: () => source,

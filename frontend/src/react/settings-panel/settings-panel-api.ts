@@ -6,6 +6,7 @@
  * 侧栏顺序不经它，侧栏自己订阅这一份 store。跟数据库走的那几项（侧栏顺序、合集开关、首次采集范围、头像刷新、搜索记录
  * 条数）由面板经 `/api/settings` 写，成功后同样落进这一份对象。 */
 import type { InterfaceLanguage, InterfaceLanguageChoice } from '../../i18n';
+import type { NameLanguage } from '../../core/entity-names';
 import type { AfterPlayback, HomeGlow } from '@peach/appearance';
 
 import type { SettingsStore } from '../../settings-store';
@@ -25,13 +26,14 @@ export interface PanelSettings {
   defaultSortDirection: string;
   groupCollapse: boolean;
   javImage: string;
-  performerNameLanguage: 'zh-CN' | 'ja';
+  performerNameLanguage: NameLanguage;
   interfaceLanguage: InterfaceLanguageChoice;
   systemLanguage: InterfaceLanguage | null;
   feedAutoScroll: boolean;
   feedNewRows: boolean;
   homeShortsLimit: number;
   homeTiers: boolean;
+  homePreviewOnly: boolean;
   completionPrompt: boolean;
   searchRecommendations: boolean;
   ingestNotices: boolean;
@@ -40,7 +42,14 @@ export interface PanelSettings {
   feedHideSoloCompilations: boolean;
   feedHideExcerpts: boolean;
   hoverDelaySeconds: number;
+  hoverPreview: boolean;
+  touchGestures: boolean;
+  holdRate: number;
+  swipeMinutes: number;
+  doubleTapPercent: number;
+  autoFullscreen: boolean;
   detailAutoplay: boolean;
+  autoChineseSubtitles: boolean;
   afterPlayback: AfterPlayback;
   resumeRestartPercent: number;
   miniplayer: boolean;
@@ -59,11 +68,11 @@ export type SettingsEffect =
   | 'glowFrame'
   /** 光晕的开关、颜色、恢复默认与松手：侧栏那一层、其余玻璃面和侧栏配色钮一起对齐。 */
   | 'glow'
-  | 'batchSize' | 'defaultSort' | 'sortDirection' | 'hoverDelay' | 'seekSeconds'
+  | 'batchSize' | 'defaultSort' | 'sortDirection' | 'hoverDelay' | 'hoverPreview' | 'seekSeconds'
   | 'groupCollapse' | 'feedAutoScroll' | 'feedLimit' | 'feedCompilations' | 'miniplayer' | 'javImage'
   | 'searchHistoryLimit' | 'performerNameLanguage'
   /** 首页那几块的显隐：新作那一行、竖屏带（连同主网格排不排除竖屏）、两排头像。 */
-  | 'feedNewRows' | 'homeShorts' | 'homeTiers'
+  | 'feedNewRows' | 'homeShorts' | 'homeTiers' | 'homePreviewOnly'
   | 'searchRecommendations';
 
 /** `[值, 显示名, 字形]`，与壳里各张选项表同形。 */

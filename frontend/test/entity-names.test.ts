@@ -1,14 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  entityDisplayName, nameLanguage, registerNameWriting, registerNameWritings,
-  setNameLanguage, type NameWriting,
+  entityDisplayName, nameLanguage, nameScript, registerNameWriting, registerNameWritings,
+  setNameLanguage, setNameLocale, type NameWriting,
 } from '../src/core/entity-names';
 
 const writing: NameWriting = {
   id: 1, kind: 'performer', canonical_name: '枫花恋', zh_cn: '枫花恋', ja: '楓カレン',
 };
 
-beforeEach(() => { registerNameWritings([]); setNameLanguage('zh-CN') });
+beforeEach(() => { registerNameWritings([]); setNameLanguage('zh-CN'); setNameLocale('zh-CN') });
 
 describe('实体名称的只读显示投影', () => {
   it('同一艺名的已核对日文署名可显示中文，不把历史艺名换为现名', () => {
@@ -69,5 +69,43 @@ describe('实体名称的只读显示投影', () => {
     registerNameWritings([]);
     expect(nameLanguage()).toBe('ja');
     expect(entityDisplayName('performer', '枫花恋', 1)).toBe('枫花恋');
+  });
+
+  it('罗马音与两种写法并列：本地语言跟界面语言走，括号随界面语言', () => {
+    registerNameWritings([{ ...writing, en: 'Karen Kaide' }]);
+    setNameLanguage('en');
+    expect(entityDisplayName('performer', '枫花恋', 1)).toBe('Karen Kaide');
+    setNameLanguage('ja-local');
+    expect(entityDisplayName('performer', '枫花恋', 1)).toBe('楓カレン（枫花恋）');
+    setNameLanguage('local-ja');
+    expect(entityDisplayName('performer', '楓カレン', 1)).toBe('枫花恋（楓カレン）');
+    setNameLocale('en');
+    expect(entityDisplayName('performer', '楓カレン', 1)).toBe('Karen Kaide (楓カレン)');
+    setNameLanguage('ja-local');
+    expect(entityDisplayName('performer', '枫花恋', 1)).toBe('楓カレン (Karen Kaide)');
+  });
+
+  it('没有对应写法时退回原文，名字不丢、不重复括注', () => {
+    registerNameWritings([writing, { id: 2, kind: 'performer', canonical_name: '篠田ゆう', zh_cn: null, ja: '篠田ゆう' }]);
+    setNameLanguage('en');
+    expect(entityDisplayName('performer', '枫花恋', 1)).toBe('楓カレン');
+    expect(entityDisplayName('studio', 'S1 NO.1 STYLE')).toBe('S1 NO.1 STYLE');
+    setNameLanguage('ja-local');
+    expect(entityDisplayName('performer', '篠田ゆう', 2)).toBe('篠田ゆう');
+    setNameLocale('en');
+    expect(entityDisplayName('performer', '枫花恋', 1)).toBe('楓カレン');
+    setNameLanguage('local-ja');
+    expect(entityDisplayName('performer', '枫花恋', 1)).toBe('楓カレン');
+    expect(entityDisplayName('performer', '无人认领的名字')).toBe('无人认领的名字');
+  });
+
+  it('别名分组与名字菜单只有中日两套：中文界面下本地语言在前用中文那套', () => {
+    expect(nameScript()).toBe('zh-CN');
+    for (const [value, script] of [['ja', 'ja'], ['en', 'ja'], ['ja-local', 'ja'], ['local-ja', 'zh-CN']] as const) {
+      setNameLanguage(value);
+      expect(nameScript(), value).toBe(script);
+    }
+    setNameLocale('en');
+    expect(nameScript()).toBe('ja');
   });
 });

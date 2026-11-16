@@ -141,6 +141,22 @@ describe('标签身份', () => {
     expect([...host.querySelectorAll('#detailTags [data-tag]')].map((node) => node.textContent)).toEqual(['高画质', '新标签']);
   });
 
+  it('重新采集资料：只给有番号的片，点名这一部交给处理任务，另一趟在跑时说清没排上', async () => {
+    const { host: plain } = await show(item(2));
+    expect(plain.querySelector('[data-recollect]')).toBeNull();
+    let running = false;
+    const fetcher = serve(() => (running ? { status: 'running' } : { status: 'running', recheck: true }));
+    const { host } = await show(item(1, { code: 'DASD-813' }));
+    await click(host.querySelector('[data-recollect="1"]'));
+    await settle();
+    expect(posts(fetcher)).toEqual([['/api/library-processing', { stage: 'metadata', asset_ids: [1], recheck: true }]]);
+    expect(host.textContent).toContain('已开始重新采集，进度见任务');
+    running = true;
+    await click(host.querySelector('[data-recollect="1"]'));
+    await settle();
+    expect(host.textContent).toContain('另一趟处理正在进行，等它结束后再重新采集');
+  });
+
   it('编辑资料的来源写在控件下面，采集来的带站标；没有来源的字段不留这一行', async () => {
     serve();
     const { host } = await show(item(1, { field_sources: {

@@ -19,9 +19,10 @@ import { errorMessage } from '../../api';
 import type { DuplicatesProps } from '../bundle';
 import { runBulkAction, type BulkAction, type BulkHost } from '../components/bulk-action';
 import { cardClass } from '../components/card';
-import { CollectionSummary } from '../components/collection-summary';
 import { EmptyState } from '../components/empty-state';
-import { FilterGlass, GlassPill } from '../components/filter-glass';
+import { FilterGlassRows, GlassPill, SelectAllPill } from '../components/filter-glass';
+import { useQueueSort } from '../components/queue-sort';
+import { SortKeys } from '../entity-filter/entity-filter-page';
 import { Note } from '../components/note';
 import { enterPageSelection, exitPageSelection, usePageSelection } from '../components/page-selection';
 import { SelectionDock } from '../components/selection-dock';
@@ -204,6 +205,8 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
     onSettled: () => setPending(''),
   });
 
+  /* 浮层上的排序键：按每组可回收的体积排，在本页排，不发请求。 */
+  const order = useQueueSort<DuplicateGroup>('duplicates', { size: (group) => Number(group.reclaimable || 0) });
   const keptView = view === 'kept';
   const data = keptView ? kept.data : duplicates.data;
   const failed = keptView ? kept.error : duplicates.error;
@@ -215,11 +218,10 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
       </div>
     );
   }
-  const groups = data.groups ?? [];
+  const groups = order.sort(data.groups ?? []);
   const keptCount = Number(duplicates.data?.kept ?? data.kept ?? 0);
   const configured = cloudLocations(sources.data);
   const chosen = groups.filter((group) => picked.has(groupKey(group)));
-  const allPicked = groups.length > 0 && chosen.length === groups.length;
   const switchView = (next: 'pending' | 'kept') => { setPicked(new Set()); setView(next) };
   const toggle = (group: DuplicateGroup, on: boolean) => {
     if (on) enterPageSelection();
@@ -255,8 +257,8 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
     setPending(key);
     keep.mutate({ group, on });
   };
-  const selectPage = <Checkbox size="sm" isSelected={allPicked} isIndeterminate={chosen.length > 0 && !allPicked}
-    onChange={(on) => { if (on) enterPageSelection(); setPicked(on ? new Set(groups.map(groupKey)) : new Set()) }}>{t('cleanup:duplicates.selectPage')}</Checkbox>;
+  const selectPage = <SelectAllPill label={t('cleanup:duplicates.selectPage')} picked={chosen.length} total={groups.length}
+    onChange={(on) => { if (on) enterPageSelection(); setPicked(on ? new Set(groups.map(groupKey)) : new Set()) }} />;
   const dockActions = keptView
     ? [unkeepAction(t('cleanup:duplicates.unkeep'))]
     : [
@@ -270,43 +272,50 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
 
   return (
     <div className="mx-auto w-full max-w-board pb-10.5">
-      <CollectionSummary label={keptView ? t('cleanup:duplicates.keptLabel') : t('cleanup:duplicates.summaryLabel')}
-        figure={t('cleanup:duplicates.groupCount', { count: Number(data.total || 0) })}
-        detail={keptView ? t('cleanup:duplicates.keptDetail', { count: Number(data.files || 0) })
-          : t('cleanup:duplicates.summaryDetail', { count: Number(data.files || 0), size: fmtSize(data.reclaimable) })} />
-      {keptView
-        ? <FilterGlass title={t('cleanup:duplicates.keptLabel')}>
-            {groups.length ? selectPage : null}
-            {groups.length
-              ? <GlassPill busy={pending === 'all:unkeep'} onPress={() => runAll(unkeepAction(t('cleanup:duplicates.allUnkeep')), 'all:unkeep')}>
-                  {t('cleanup:duplicates.allUnkeep')}
+      {/* 首页那副两排玻璃浮层：上排批量动作与换视图，下排读数加「全选本页」。 */}
+      <FilterGlassRows label={keptView ? t('cleanup:duplicates.keptLabel') : t('cleanup:duplicates.bulkKeep')}
+        topLabel={keptView ? t('cleanup:duplicates.keptLabel') : t('cleanup:duplicates.bulkKeep')}
+        attrs={{ 'data-catalog-frame': '', 'data-filter-frame': '', 'data-duplicates-frame': '' }} bottomClassName="min-h-12"
+        top={keptView
+          ? <>
+              {groups.length
+                ? <GlassPill busy={pending === 'all:unkeep'} onPress={() => runAll(unkeepAction(t('cleanup:duplicates.allUnkeep')), 'all:unkeep')}>
+                    {t('cleanup:duplicates.allUnkeep')}
+                  </GlassPill>
+                : null}
+              <span className="ml-auto" />
+              <GlassPill onPress={() => switchView('pending')}>{t('cleanup:duplicates.backToPending')}</GlassPill>
+            </>
+          : <>
+              {groups.length ? <>
+                <GlassPill busy={pending === 'all:largest'} onPress={() => runAll(keepRuleAction('largest', ''), 'all:largest')}>
+                  {t('cleanup:duplicates.allKeepLargest')}
                 </GlassPill>
-              : null}
-            <span className="ml-auto" />
-            <GlassPill onPress={() => switchView('pending')}>{t('cleanup:duplicates.backToPending')}</GlassPill>
-          </FilterGlass>
-        : <FilterGlass title={t('cleanup:duplicates.bulkKeep')}>
-            {groups.length ? <>
-              {selectPage}
-              <GlassPill busy={pending === 'all:largest'} onPress={() => runAll(keepRuleAction('largest', ''), 'all:largest')}>
-                {t('cleanup:duplicates.allKeepLargest')}
-              </GlassPill>
-              <GlassPill busy={pending === 'all:longest'} onPress={() => runAll(keepRuleAction('longest', ''), 'all:longest')}>
-                {t('cleanup:duplicates.allKeepLongest')}
-              </GlassPill>
-              {bulkCloudPreferences(groups, configured).map((location) => (
-                <GlassPill key={location} busy={pending === `all:${location}`}
-                  onPress={() => runAll(keepRuleAction(location, ''), `all:${location}`)}>
-                  <SourceLabel source={location} label={t('cleanup:duplicates.allPreferStorage', { storage: LOC[location] || location })} />
+                <GlassPill busy={pending === 'all:longest'} onPress={() => runAll(keepRuleAction('longest', ''), 'all:longest')}>
+                  {t('cleanup:duplicates.allKeepLongest')}
                 </GlassPill>
-              ))}
-              <GlassPill busy={pending === 'all:keep'} onPress={() => runAll(keepAllAction(''), 'all:keep')}>
-                {t('cleanup:duplicates.allKeepAll')}
-              </GlassPill>
-            </> : null}
-            <span className="ml-auto" />
-            <GlassPill onPress={() => switchView('kept')}>{t('cleanup:duplicates.viewKept', { count: keptCount })}</GlassPill>
-          </FilterGlass>}
+                {bulkCloudPreferences(groups, configured).map((location) => (
+                  <GlassPill key={location} busy={pending === `all:${location}`}
+                    onPress={() => runAll(keepRuleAction(location, ''), `all:${location}`)}>
+                    <SourceLabel source={location} label={t('cleanup:duplicates.allPreferStorage', { storage: LOC[location] || location })} />
+                  </GlassPill>
+                ))}
+                <GlassPill busy={pending === 'all:keep'} onPress={() => runAll(keepAllAction(''), 'all:keep')}>
+                  {t('cleanup:duplicates.allKeepAll')}
+                </GlassPill>
+              </> : null}
+              <span className="ml-auto" />
+              <GlassPill onPress={() => switchView('kept')}>{t('cleanup:duplicates.viewKept', { count: keptCount })}</GlassPill>
+            </>}
+        bottom={<><span data-catalog-summary="">
+          <span data-catalog-readout="" role="status">
+            {keptView ? t('cleanup:duplicates.keptLabel') : t('cleanup:duplicates.summaryLabel')} · {t('cleanup:duplicates.groupCount', { count: Number(data.total || 0) })}
+            {' · '}{keptView ? t('cleanup:duplicates.keptDetail', { count: Number(data.files || 0) })
+              : t('cleanup:duplicates.summaryDetail', { count: Number(data.files || 0), size: fmtSize(data.reclaimable) })}
+          </span>
+          {groups.length ? selectPage : null}
+        </span>
+        <span data-entity-sorts=""><SortKeys sorts={order.sorts} onSort={order.onSort} /></span></>} />
       <SelectionDock label={t('cleanup:duplicates.dockLabel')} visible={chosen.length > 0}
         count={t('cleanup:duplicates.selectedGroups', { count: chosen.length })}
         actions={dockActions.map((action) => ({ action, items: chosen, host, done: () => setPicked(new Set()) }))}>

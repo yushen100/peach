@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import follow_backfill, follow_evidence, interface_text, legacy_repairs, system_file_repair
+from . import cover_repair, follow_backfill, follow_evidence, interface_text, legacy_repairs, system_file_repair
 from .media_sources import CLOUD_LOCATIONS
 
 #: 页面上的分组与组内顺序：按改动落在哪类数据上分，组名在 `settings:repairCenter.groups.<组>`。
@@ -23,7 +23,7 @@ GROUPS = (
     ('files', ('display-local', 'display-cloud', 'video-medium', 'quality-bands', 'system-files', 'sidecar-assets',
                'case-duplicates')),
     ('catalog', ('catalog', 'scrape-mark-titles', 'fc2-studios', 'resolution-tags', 'tag-vocabulary',
-                 'dangling-candidates')),
+                 'dangling-candidates', 'cover-artwork')),
     ('people', ('garbled-people', 'avatar-faces', 'javdb-entries', 'entity-links', 'alias-flat-names',
                 'unconfirmed-fc2-cast', 'descriptive-performers', 'code-folder-creators', 'r18-merges')),
     ('follow', ('rule34video-characters', 'rule34-details', 'bluray-duplicates', 'want-acquired', 'follow-evidence')),
@@ -34,8 +34,8 @@ GROUPS = (
 CONFIRM = frozenset({'display-cloud', 'follow-evidence', *(rule.item for rule in legacy_repairs.CONFIRMS)})
 #: `(id, 模式, 组)`，顺序就是页面的默认顺序。
 ITEMS = tuple((item, 'confirm' if item in CONFIRM else 'auto', group) for group, items in GROUPS for item in items)
-#: 组内先列要用户处理或正在进行的：等确认、在跑、要重试、排队，然后才是做完的。
-_STATE_ORDER = {'waiting': 0, 'running': 1, 'failed': 2, 'pending': 3}
+#: 组内先列要用户处理或正在进行的：等确认、在跑、要重试、排队、延后，然后才是做完的。
+_STATE_ORDER = {'waiting': 0, 'running': 1, 'failed': 2, 'pending': 3, 'deferred': 4}
 #: 历史里的规则：账本行 id 的前缀、计哪个字段（`None` 为资料整理的改动合计）。
 #: 前缀去掉末尾的连字符就是规则 id，名字在 `server:repairCenter.history.<id>`。
 RULES = (
@@ -43,7 +43,9 @@ RULES = (
     ('enhancement-suffix-names-', ('aliases', 'terms', 'added_aliases')),
     ('fc2-seller-backfill-', ('entity_ids',)),
     ('code-sibling-identity-', ('links',)),
+    ('feed-overflow-discoveries-', ('created',)),
     ('studio-unbounded-misses-', ('released',)), ('stale-filename-codes-', ('cleared',)),
+    ('label-suffix-codes-', ('codes',)),
     ('dangling-candidates-', ('repinned', 'withdrawn')),
     ('javdb-actor-records-', ('hidden', 'disabled_feeds')),
     ('source-resolution-tags-', ('tags',)),
@@ -55,6 +57,7 @@ RULES = (
     *((rule.prefix, ('changed',)) for rule in (*legacy_repairs.RULES, *legacy_repairs.CONFIRMS)),
     (follow_evidence.RECEIPT_PREFIX, ('files',)),
     *((job.prefix, ('changed',)) for job in follow_backfill.JOBS),
+    (cover_repair.RECEIPT_PREFIX, ('judged', 'recropped', 'faces')),
 )
 #: 资料整理回执里不算「改动」的计数：重新探测、转人工与来源快照失效只是排队或让缓存重取，不是改了资料。
 _NOT_CHANGES = ('probe_retry', 'text_review', 'text_snapshots_invalidated')
@@ -87,7 +90,7 @@ def _receipt_fact(rows, prefix: str, *fields: str) -> dict:
 
 def _touched(fact: dict) -> bool:
     """这台机器上这一项有没有事：在跑、等确认、失败，或者确实改了、补测了东西。"""
-    if fact['state'] in ('running', 'waiting', 'failed', 'pending'):
+    if fact['state'] in ('running', 'waiting', 'failed', 'pending', 'deferred'):
         return True
     return bool(fact.get('changed') or fact.get('total') or fact.get('included'))
 
@@ -145,37 +148,81 @@ def _follow_evidence(status: dict | None, rows) -> dict:
     return {'state': 'done', 'changed': _count(last.get('files'))} if last else {'state': 'none'}
 
 
-def _display_progress(connection) -> dict[bool, tuple[int, int]]:
-    """显示尺寸补测按来源拆开的进度：`{是否网盘: (完成几部, 一共几部)}`。
+def _cover_artwork(status: dict | None, rows) -> dict:
+    """封面补修：在做就报进度，估算出有待处理的封面就报排队（服务起来后自动开工），做过且没剩下的报上一次改了多少张。"""
+    status = status or {}
+    phase = status.get('phase')
+    if phase == 'running':
+        return {'state': 'running', 'done': status.get('done', 0), 'total': status.get('total', 0)}
+    if phase == 'failed':
+        return {'state': 'failed', 'error': status.get('error', '')}
+    if phase == 'estimating':
+        return {'state': 'pending', 'estimating': True}
+    if phase == 'ready' and status.get('covers'):
+        return {'state': 'pending', 'covers': status['covers']}
+    last = next((result for row_id, _, result in rows if row_id.startswith(cover_repair.RECEIPT_PREFIX)), None)
+    return ({'state': 'done', 'changed': sum(_count(last.get(key)) for key in ('judged', 'recropped', 'faces'))}
+            if last else {'state': 'none'})
+
+
+def _display_progress(connection) -> dict[bool, dict]:
+    """显示尺寸补测按来源拆开的进度：`{是否网盘: {done, total, failed, deferred: {原因码: 部数}}}`。
 
     补测名单与完成状态都在 `ledger_upgrade_item`（迁移 0053），网盘补测确认后网盘视频并进同一条规则，
     表里不记哪部来自网盘，所以按资产现在的 `location` 分：本地那项只数本机与局域网，网盘那项只数网盘。
-    资产已删除的按本地算。没有状态表的旧账本（读取端尚未同步迁移）按都没有算。"""
+    资产已删除的按本地算。没有状态表的旧账本（读取端尚未同步迁移）按都没有算。
+    延后的按处理器记下的原因码（`upgrade_repairs.DEFER_*`）分开数，旧版写下、没有原因的记在 `''` 下。
+    延后到期重派出去的行（`queued`，原因码还在）照旧算延后：整盘掉线时每 30 分钟就要重派一轮，
+    不这么算页面会在「进行中」和「已延后」之间来回跳；重派后读到了，处理器写完成时摘掉原因码。
+    `failed` 只数等用户点重试的失败，退避中的失败到时间会自己重派，和待办一起算在进行中。"""
     import sqlite3
     from .display_dimensions_repair import ITEM_RULE
     cloud = f"a.location IN ({','.join('?' * len(CLOUD_LOCATIONS))})" if CLOUD_LOCATIONS else '0'
-    split = {False: (0, 0), True: (0, 0)}
+    split = {flag: {'done': 0, 'total': 0, 'failed': 0, 'deferred': {}} for flag in (False, True)}
+    reason = "json_extract(i.result_json, '$.deferred')"
     try:
         rows = connection.execute(
-            f"SELECT coalesce({cloud}, 0), count(*), coalesce(sum(i.state='done'), 0) FROM ledger_upgrade_item i"
-            " LEFT JOIN asset a ON a.id=i.asset_id WHERE i.rule=? GROUP BY 1", (*CLOUD_LOCATIONS, ITEM_RULE)).fetchall()
+            f"SELECT coalesce({cloud}, 0), CASE WHEN i.state='failed' AND i.retry_at IS NOT NULL THEN 'retry'"
+            f" WHEN i.state='queued' AND {reason} IS NOT NULL THEN 'deferred' ELSE i.state END,"
+            f" CASE WHEN i.state IN ('deferred', 'queued') THEN coalesce({reason}, '') END, count(*)"
+            " FROM ledger_upgrade_item i LEFT JOIN asset a ON a.id=i.asset_id WHERE i.rule=?"
+            " GROUP BY 1, 2, 3", (*CLOUD_LOCATIONS, ITEM_RULE)).fetchall()
     except sqlite3.OperationalError:
         return split
-    for is_cloud, total, done in rows:
-        split[bool(is_cloud)] = (int(done), int(total))
+    for is_cloud, state, reason, count in rows:
+        part = split[bool(is_cloud)]
+        part['total'] += count
+        if state in ('done', 'failed'):
+            part[state] += count
+        elif state == 'deferred':
+            part['deferred'][reason] = part['deferred'].get(reason, 0) + count
     return split
 
 
-def _display_cloud(pending: int, included: bool, done: int, total: int) -> dict:
+def _display_state(progress: dict) -> dict:
+    """一项补测现在的状态与读数。还有在排、在跑或退避中的才算进行中；
+    没做完的只剩延后就报延后，只剩等用户重试的失败就报失败，不再一律写「进行中」。"""
+    done, total, failed, deferred = progress['done'], progress['total'], progress['failed'], progress['deferred']
+    if not total:
+        return {'state': 'none', 'done': 0, 'total': 0}
+    active = total - done - failed - sum(deferred.values())
+    state = ('done' if done >= total else 'running' if active > 0 else 'deferred' if deferred else 'failed')
+    return {'state': state, 'done': done, 'total': total,
+            **({'deferred': deferred} if deferred else {}), **({'failed': failed} if failed else {})}
+
+
+def _display_cloud(pending: int, included: bool, progress: dict) -> dict:
     """网盘补测：确认前等确认，不画进度；确认后报这一批做到哪里。
 
     待补测数连同名单里还没测的网盘片：早期版本准备名单时没排除网盘，那批片子在名单里却没有确认记录，
     在用户看来同样还没开始。"""
     if not included:
-        waiting = pending + total - done
+        waiting = pending + progress['total'] - progress['done']
         return {'state': 'waiting' if waiting else 'none', 'pending': waiting, 'included': False}
-    return {'state': 'done' if done >= total else 'running', 'pending': 0, 'included': True,
-            **({'done': done, 'total': total} if total else {})}
+    fact = _display_state(progress)
+    if not fact['total']:
+        fact = {'state': 'done'}
+    return {**fact, 'pending': 0, 'included': True}
 
 
 def _backfill(status: dict | None, rows, prefix: str) -> dict:
@@ -201,14 +248,12 @@ def _confirmed(rows, prefix: str, pending: int) -> dict:
 
 def snapshot(connection, receipt: dict, *, cloud_pending: int, backup_directories=(),
              follow_evidence_status: dict | None = None, confirm_pending: dict | None = None,
-             follow_backfill_status: dict | None = None) -> dict:
+             follow_backfill_status: dict | None = None, cover_repair_status: dict | None = None) -> dict:
     rows = sorted(((row[0], float(row[1] or 0), json.loads(row[2] or '{}')) for row in connection.execute(
         'SELECT id, applied_at, result_json FROM ledger_upgrade_repair')), key=lambda row: row[1], reverse=True)
     local = receipt.get('local', {})
     display = receipt.get('display_dimensions_v2', {})
     progress = _display_progress(connection)
-    done, total = progress[False]
-    cloud_done, cloud_total = progress[True]
     included = bool(display.get('cloud_included_at'))
     isolated = _latest(rows, system_file_repair.RULE) or {}
     garbled = _latest(rows, 'garbled_people') or {}
@@ -216,9 +261,8 @@ def snapshot(connection, receipt: dict, *, cloud_pending: int, backup_directorie
         'catalog': {'state': local.get('state') or ('done' if local else 'none'),
                     'changed': _count({key: value for key, value in local.get('changed', {}).items()
                                        if key not in _NOT_CHANGES})},
-        'display-local': {'state': 'none' if not total else 'done' if done >= total else 'running',
-                          'done': done, 'total': total},
-        'display-cloud': _display_cloud(cloud_pending, included, cloud_done, cloud_total),
+        'display-local': _display_state(progress[False]),
+        'display-cloud': _display_cloud(cloud_pending, included, progress[True]),
         'system-files': {'state': 'done' if isolated else 'none', 'changed': _count(isolated.get('isolated'))},
         'garbled-people': {'state': 'done' if garbled else 'none', 'changed': _count(garbled.get('links'))},
         'dangling-candidates': _receipt_fact(rows, 'dangling-candidates-', 'repinned', 'withdrawn'),
@@ -235,6 +279,7 @@ def snapshot(connection, receipt: dict, *, cloud_pending: int, backup_directorie
         **{rule.item: _receipt_fact(rows, rule.prefix, 'changed') for rule in legacy_repairs.RULES},
         **{rule.item: _confirmed(rows, rule.prefix, (confirm_pending or {}).get(rule.item, 0))
            for rule in legacy_repairs.CONFIRMS},
+        'cover-artwork': _cover_artwork(cover_repair_status, rows),
     }
     items = [{'id': key, 'group': group, 'title': interface_text.text(f'server:repairCenter.items.{key}.title'),
               'summary': interface_text.text(f'server:repairCenter.items.{key}.summary'), 'mode': mode, **facts[key]}

@@ -26,13 +26,13 @@ from functools import partial
 from pathlib import Path, PureWindowsPath
 from typing import Sequence
 
-from . import interface_text, junk
+from . import interface_text, junk, settings_file
 from .catalog_rules import duration_clusters, is_jav_code, normalise_code_key
 from .catalog_vocabulary import KEEP_DUPLICATES_NOTE, NOT_JUNK_NOTE
 from .config import GENERATED_DIR, LOCATION_ROOT_DECLARATIONS
 from .field_owners import USER_MANUAL, write_owned_fields
 from .media_sources import SCANNABLE_LOCATIONS
-from .personal_records import VANISHED, delete_asset_rows
+from .personal_records import VANISHED, being_purged, delete_asset_rows, purging
 from .platform import is_unmapped, root_online, translate_ledger_path, within_root
 from .regions import normalize_region
 from .task_runs import TaskRunHandle
@@ -136,23 +136,16 @@ def q_ads(contract: WebContract, limit=200, offset=0, kind="", status="pending")
 
     词库 `PROMO_NAMES_FILE` 里的固定命名，以及未探测时长视频的目录与体积证据，只够进队列：
     这部分分数单独凑够 `AUTO_TRASH_SCORE` 时压到线下，须有别的证据或人看过内容才进回收站。"""
-    kind = str(kind or "").strip().casefold()
-    status = str(status or "pending").strip().casefold()
-    if kind and kind not in JUNK_KINDS:
-        raise ValueError("invalid junk kind")
-    if status not in {"pending", "dismissed"}:
-        raise ValueError("invalid junk status")
-    out, dismissed_ids = contract.cached_until_changed(
-        "junk-scored", lambda: _scored_junk(contract), tables=JUNK_SCORE_TABLES)
-    pending = [item for item in out if item["id"] not in dismissed_ids]
-    dismissed = [item for item in out if item["id"] in dismissed_ids]
+    kind, status = _junk_scope(kind, status)
+    pending, dismissed = _junk_queues(contract)
     pool = dismissed if status == "dismissed" else pending
     counts = {junk_kind: 0 for junk_kind in JUNK_KINDS}
     for item in pool:
         counts[item["junk_kind"]] += 1
     filtered = [item for item in pool if not kind or item["junk_kind"] == kind]
-    # 缓存里那份是共享的，这一页的条目复制出来再挂演员，不改到下一次请求。
+    # 缓存里那份是共享的，这一页的条目复制出来再挂演员与媒体库，不改到下一次请求。
     items = [dict(item) for item in filtered[offset:offset + limit]]
+    _attach_library(items)
     attach_card_performers(
         contract, [item for item in items if item.get("medium") == "video"])
     return {
@@ -167,14 +160,72 @@ def q_ads(contract: WebContract, limit=200, offset=0, kind="", status="pending")
     }
 
 
+def _junk_scope(kind, status) -> tuple[str, str]:
+    """垃圾队列的分类与视图，认不出的拒绝。"""
+    kind = str(kind or "").strip().casefold()
+    status = str(status or "pending").strip().casefold()
+    if kind and kind not in JUNK_KINDS:
+        raise ValueError("invalid junk kind")
+    if status not in {"pending", "dismissed"}:
+        raise ValueError("invalid junk status")
+    return kind, status
+
+
+def _junk_queues(contract: WebContract) -> tuple[list[dict], list[dict]]:
+    """评分缓存拆成待判断与已排除两份，顺序同页面。"""
+    out, dismissed_ids = contract.cached_until_changed(
+        "junk-scored", lambda: _scored_junk(contract), tables=JUNK_SCORE_TABLES)
+    return ([item for item in out if item["id"] not in dismissed_ids],
+            [item for item in out if item["id"] in dismissed_ids])
+
+
+def w_ads_dispose_all(contract: WebContract, body) -> dict:
+    """垃圾文件页的「全部移入回收站」：待判断里当前这一类的每一条，不止页面取回的那一批，
+    都移入回收站、归入原因记垃圾；文件留在原处，返回的 `ids` 给撤销还原。
+
+    `expected` 是确认框里给人看的条数：判定或扫描在这期间改了队列，条数对不上就整批拒绝，
+    不把人没看过的那几条一起移走。已排除视图里是人判过「不是垃圾」的，不收。写入沿用批量
+    移入回收站那一步，整批一个事务、一条任务记录：要么全部移入，要么一条不动。"""
+    kind, status = _junk_scope(body.get("kind"), body.get("status"))
+    if status != "pending":
+        raise ValueError("only undecided junk can be moved to the recycle bin in bulk")
+    expected = body.get("expected")
+    if not isinstance(expected, int) or isinstance(expected, bool) or expected < 1:
+        raise ValueError("expected must be the confirmed item count")
+    pending, _dismissed = _junk_queues(contract)
+    ids = [item["id"] for item in pending if not kind or item["junk_kind"] == kind]
+    if len(ids) != expected:
+        raise ValueError("the junk queue changed since it was shown; reload and confirm again")
+    result = w_batch(contract, {"ids": ids, "operation": "dispose", "disposal_reason": "junk"}, limit=None)
+    return {"ok": True, "operation": "dispose", "changed": result["changed"], "ids": ids}
+
+
+def w_ads_restore_all(contract: WebContract, body) -> dict:
+    """「全部移入回收站」的撤销：把那一次返回的 `ids` 整批还原，同样不受页面多选的上限。"""
+    raw = body.get("ids")
+    if not isinstance(raw, list) or not raw:
+        raise ValueError("ids must be a non-empty list")
+    result = w_batch(contract, {"ids": raw, "operation": "restore"}, limit=None)
+    return {"ok": True, "operation": "restore", "changed": result["changed"]}
+
+
 def _scored_junk(contract: WebContract) -> tuple[list[dict], frozenset[int]]:
-    """领域评分加上页面需要的成本与缩略图状态，路径留在服务内部。"""
+    """领域评分加上页面需要的成本与缩略图状态，路径留在服务内部（`_path`，取页时换成媒体库后删掉）。"""
     out, dismissed = junk.scored_candidates(contract)
     for item in out:
         item["cost"] = cost_for(item['location'], item.get('path'))
         item["has_thumb"] = contract.has_snapshot(item.pop("snapshot_path", None))
-        item.pop("path", None)
+        item["_path"] = item.pop("path", None) or ""
     return out, dismissed
+
+
+def _attach_library(items: list[dict]) -> None:
+    """按路径补这一页条目的媒体库，同作品列表（`web_catalog.attach_artwork_fields`）；评分缓存只随账本表失效，
+    媒体库设置变了它不会重算，所以归属在取页时按当前设置算，不放进缓存。路径不下发。"""
+    from .media_identity import ownership
+    config = settings_file.active()
+    for item in items:
+        item["library_id"] = ownership(config, item.pop("_path", "") or "").get("library_id", "")
 
 
 def _restore_staged_media(staged):
@@ -427,17 +478,48 @@ def _purge_outside_lock(contract: WebContract, rows, *, missing_only: bool = Fal
 
     `verify(connection)` 在同一事务里先跑，用来核对调用方的前提（删除清单的口令）；抛错就整批
     放弃，隔离文件全部放回。返回已提交、尚未 `_finish_purge` 的回执。
+
+    先删文件、再删行（`peach-ledger-write`「删除」），中间不持写锁。rclone 挂载上文件是直接删的，
+    这段时间里被还原出回收站的那一条会留下没有文件的行。所以动文件之前先登记这几部（`purging`），
+    还原入口见到就拒绝；再拿一下进程写锁、按最新的行筛一遍：拿到写锁时，登记之前开始的还原
+    都已提交、看得见，登记之后的会被拒绝。只读几行、不碰网盘，写锁只占一瞬。
     """
-    outcome = stage_purge(rows, missing_only=missing_only)
-    try:
-        with contract.write_transaction() as connection:
-            if verify is not None:
-                verify(connection)
-            commit_purge(connection, outcome, eligible=eligible)
-    except BaseException:
-        _restore_staged_media(outcome["_staged"])
-        raise
+    ids = [row["id"] for row in rows]
+    with purging(ids):
+        changed = []
+        if eligible is not None and ids:
+            rows, changed = _still_eligible(contract, rows, eligible)
+        outcome = stage_purge(rows, missing_only=missing_only)
+        outcome["blocked"].extend(changed)
+        try:
+            with contract.write_transaction() as connection:
+                if verify is not None:
+                    verify(connection)
+                commit_purge(connection, outcome, eligible=eligible)
+        except BaseException:
+            _restore_staged_media(outcome["_staged"])
+            raise
     return outcome
+
+
+def _still_eligible(contract: WebContract, rows, eligible) -> tuple[list, list[dict]]:
+    """按此刻的行重新筛一遍删除条件：路径没变、`eligible` 仍成立的留下，其余进 `blocked`。"""
+    ids = [row["id"] for row in rows]
+    current = {}
+    # 只要和本进程的写事务错开，不必开 SQLite 写事务：持着进程写锁时没有写事务在途，读连接看到的就是最新。
+    with contract.database.write_lock, contract.read_connection() as connection:
+        for offset in range(0, len(ids), 400):
+            chunk = ids[offset:offset + 400]
+            current.update((row["id"], row) for row in connection.execute(
+                f"SELECT id,path,disposal,code FROM asset WHERE id IN ({','.join('?' * len(chunk))})", chunk))
+    kept, changed = [], []
+    for row in rows:
+        now = current.get(row["id"])
+        if now is not None and now["path"] == row["path"] and eligible(now):
+            kept.append(row)
+        else:
+            changed.append(_blocked(row["id"], row["path"], code="labels.webBatch.changedDuringDelete"))
+    return kept, changed
 
 
 def _purge_receipt(contract: WebContract, outcome: dict, **fields) -> dict:
@@ -792,6 +874,9 @@ def _reject_ineligible_targets(operation: str, rows) -> None:
     """选中集合与操作对不上就拒绝整批，不做部分生效。"""
     if operation in {"restore", "delete"} and any(row["disposal"] not in DISPOSED for row in rows):
         raise ValueError("restore/delete is only allowed for recycle-bin or vanished assets")
+    # 正在永久删除的那几部文件可能已经删了，还原只会留下空行。
+    if operation == "restore" and being_purged(row["id"] for row in rows):
+        raise UserValueError("errors.webBatch.purgingCannotRestore")
     # 已消失的行文件不在盘上：进回收站再还原就成了在库，只能在孤儿记录里接回或彻底删除。
     if operation == "dispose" and any(row["disposal"] == VANISHED for row in rows):
         raise ValueError("vanished assets cannot be moved to the recycle bin")
@@ -941,14 +1026,17 @@ def _write_batch_state(connection, rows, operation, now, disposal_reason):
     return {}
 
 
-def w_batch(contract: WebContract, body):
-    """Apply one explicit, reversible marker to a bounded selected set."""
+def w_batch(contract: WebContract, body, *, limit: int | None = 200):
+    """Apply one explicit, reversible marker to a bounded selected set.
+
+    `limit` 是页面多选一次能交上来的上限；服务端按筛选整批处理的入口（`w_ads_dispose_all`）传 `None`，
+    整批在一个事务里写完。"""
     groups = _batch_duplicate_groups(body)
     raw_ids = [asset_id for group in groups for asset_id in group] if groups else body.get("ids")
     if not isinstance(raw_ids, list):
         raise TypeError("ids must be a list")
     ids = list(dict.fromkeys(int(item) for item in raw_ids))
-    if not ids or len(ids) > 200:
+    if not ids or (limit is not None and len(ids) > limit):
         raise ValueError("batch requires 1 to 200 assets")
     operation = body.get("operation")
     if operation not in {

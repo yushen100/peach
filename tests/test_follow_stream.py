@@ -224,6 +224,21 @@ class FollowMediaResolverTests(unittest.TestCase):
                          "https://attachments.f95zone.to/2026/08/one.jpg")
         self.assertEqual(target.referer, item.url)
 
+    def test_a_simpcity_post_with_several_images_resolves_each_in_order(self):
+        """SimpCity 一层楼的几张图按正文顺序逐张取，图床是公网主机；回环地址照旧拒收。"""
+        item = SimpleNamespace(
+            id=16, provider="simpcity", url="https://simpcity.cr/threads/x.1/post-16",
+            media_url="https://jpg6.su/img/one.jpg", metadata={"images": [
+                "https://jpg6.su/img/one.jpg", "https://img.kiwi/two.png", "https://127.0.0.1/three.jpg",
+            ]},
+        )
+        resolver = FollowMediaResolver(lambda *_args: None)
+        self.assertEqual([resolver.resolve(item, index).url for index in (0, 1)],
+                         ["https://jpg6.su/img/one.jpg", "https://img.kiwi/two.png"])
+        self.assertEqual(resolver.resolve(item, 1).referer, item.url)
+        with self.assertRaises(FollowMediaUnavailable):
+            resolver.resolve(item, 2)
+
     def test_f95_attachment_stays_available_while_other_links_need_a_session(self):
         item = SimpleNamespace(
             id=14, provider="f95zone", url="https://f95zone.to/threads/1/post-14",

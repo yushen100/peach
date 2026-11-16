@@ -231,15 +231,21 @@ class AvatarCandidateCache:
             f"performer-{provenance.entity_id}-{provenance.sha256}.json"
         )
         with self._lock:
-            # entity + content hash makes this evidence immutable. Cache reuse must not
-            # rewrite cached_at and make identical upstream evidence look like a new fact.
-            if not path.is_file():
-                atomic_write_bytes(
-                    path,
-                    (json.dumps(asdict(provenance), ensure_ascii=False, indent=2) + "\n").encode(
-                        "utf-8"
-                    ),
-                )
+            try:
+                # entity + content hash makes this evidence immutable. Cache reuse must not
+                # rewrite cached_at and make identical upstream evidence look like a new fact.
+                if not path.is_file():
+                    atomic_write_bytes(
+                        path,
+                        (json.dumps(asdict(provenance), ensure_ascii=False, indent=2) + "\n").encode(
+                            "utf-8"
+                        ),
+                    )
+            except FileNotFoundError:
+                # Cache cleanup can remove the evidence directory between creating it and
+                # the atomic write. The selected avatar is already valid, so a vanished
+                # cache must not turn a successful install into a failure.
+                pass
         return path
 
 

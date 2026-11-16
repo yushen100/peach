@@ -15,7 +15,7 @@ export const NAVIGATION_GROUPS = {
     ['tag', t('navigation:sidebar.tags')], ['series', t('navigation:favoritesTabs.series')], ['studio', t('navigation:favoritesTabs.studios')], ['agency', t('navigation:favoritesTabs.agencies')],
   ] },
   jav: { label: t('navigation:navigationGroups.jav'), items: [['library', t('navigation:javTabs.collection')], ['wants', t('navigation:javTabs.wanted')], ['releases', t('navigation:javTabs.newReleases')], ['discover', t('navigation:javTabs.discover')]] },
-  follow: { label: t('navigation:manage.subscriptions'), items: [['list', t('navigation:followTabs.follows')], ['add', t('navigation:followTabs.newFollow')], ['tags', t('navigation:followTabs.manageTags')]] },
+  follow: { label: t('navigation:manage.subscriptions'), items: [['list', t('navigation:followTabs.follows')], ['add', t('navigation:followTabs.newFollow')]] },
   tags: { label: t('navigation:navigationGroups.tagVocabulary'), items: [['local', t('navigation:tagTabs.localLabel')], ['online', t('navigation:tagTabs.online')]] },
   preferences: { label: t('navigation:navigationGroups.preferences'), items: [
     ['appearance', t('navigation:preferenceSections.appearance')], ['browsing', t('navigation:preferenceSections.playback')], ['jav', t('navigation:preferenceSections.jav')],

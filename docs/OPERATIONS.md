@@ -184,7 +184,7 @@ Mac 与 Windows 托盘的首层只显示简短状态与提醒数量，展开状�
 
 ## 首次运行与设置文件
 
-在网页设置的「JAV 与新作」中，可将女优名称显示为中文或日文原文。偏好保存在数据库，其他设备读取同一份设置；保存失败时保留原选择。切换只调整当前所选艺名的写法，缺少对应时保留当前名称，不更改人物名称、别名原文或作品署名。手动添加的别名在两种语言下都会列出，没有对应写法时照原样显示。
+在网页设置的「JAV 与新作」中，女优名称可显示为中文化（译名）、日语原文、英文（罗马音）、日语原文（本地语言）或本地语言（日语原文），例如「楓カレン（枫花恋）」，英文界面下是「楓カレン (Karen Kaide)」。本地语言跟界面语言走，罗马音取自人物资料页或登记的拉丁别名；缺少对应写法时显示原文。偏好保存在数据库，其他设备读取同一份设置；保存失败时保留原选择。切换只调整当前所选艺名的写法，缺少对应时保留当前名称，不更改人物名称、别名原文或作品署名。手动添加的别名在两种语言下都会列出，没有对应写法时照原样显示。
 
 第一次打开 Peach 有两种方式，结果相同：
 
@@ -539,9 +539,18 @@ minnano-av 与 javdb 使用实际解析并核对身份后落库的记录，显�
 ### 从哪个地址打开
 
 - **Windows 测试包**：选「只有这台电脑」时打开 `http://127.0.0.1:<端口>`；选「同一局域网的设备」时，其他设备打开 `http://<mdns_name>.local:<端口>`。测试包用 HTTP，不加密。
-- **源码部署**：托盘在 80 端口提供 HTTP、在本机局域网 IPv4 地址的 443 端口提供 HTTPS，浏览器打开 `https://<mdns_name>.local`。局域网地址默认自动选择，也可以用启动参数或 `PEACH_LAN_ADDRESS` 指定。
+- **源码部署**：托盘在 80 端口提供 HTTP、在 443 端口提供 HTTPS，浏览器打开 `https://<mdns_name>.local`。发布的局域网 IPv4 地址默认自动选择，也可以用启动参数或 `PEACH_LAN_ADDRESS` 指定。
 
 `<mdns_name>` 是设置文件 `[server].mdns_name` 的值，Peach 会在局域网里广播这个名字。
+
+### IPv6
+
+`host` 为 `0.0.0.0` 或 `::` 时，Peach 在同一个套接字上接收 IPv4 和 IPv6 连接；系统没有 IPv6 时只监听 IPv4。`peach serve --ipv4-only` 保持只监听 IPv4。
+
+- mDNS 在服务确实接收 IPv6 时，为 `<mdns_name>.local` 同时发布 A 记录和 AAAA 记录。AAAA 取与发布的 IPv4 同一块网卡上的全球单播和 ULA 地址，不含链路本地地址；运营商更换前缀后，下一轮地址复查（20 秒）重新发布。
+- IPv6 地址可以从公网直接路由，所以 Peach 只接受回环、链路本地、ULA（`fc00::/7`）以及与本机网卡同一 /64 前缀的 IPv6 连接，其他 IPv6 来源收到 403。IPv4 来源的判断不变。
+- macOS 源码部署的 80/443 由 pf 只转发 IPv4，两条服务带 `--ipv4-only`，不发布 AAAA 记录。
+- 证书只签发局域网 IPv4 地址。用 `https://[<IPv6 地址>]` 直接访问会报证书不匹配，用 `https://<mdns_name>.local` 访问不受影响。
 
 ### 访问密码与登录
 
@@ -650,12 +659,13 @@ untrunc 按相同顺序查找，对应目录为 `tools/untrunc`。独立程序�
 播放时：
 
 - 浏览器不支持的 AVI、MKV 等格式，Peach 会转成兼容的 MP4 缓存起来再播放，**不会改动原始文件**。第一次播放前会先探测文件，最长 20 秒。
+- `.ts`、`.m2ts`、`.mts` 起播前先探测编码：视频是 H.264（`yuv420p`／`yuvj420p`），或浏览器报了能力的 HEVC，就整片换封装成 MP4（视频复制，音轨不是 AAC 时转 AAC），产物和其他换封装缓存一样文件名带 `-copy`，换一次后命中缓存，受容量保护清理；解不了的编码仍走 HLS 转码分片。换封装要等整个文件复制完才开始播放。
 - 能保留的码流尽量保留：H.264（`yuv420p`／`yuvj420p`）视频不重新编码，AAC 音频直接复制，其他音频转成 AAC。需要重新编码视频时，自动模式依次尝试硬解加硬编、软解加硬编、全软件；Windows 使用 NVIDIA（`scale_cuda` + NVENC），Linux 使用可用 VAAPI 节点，macOS 使用 VideoToolbox。macOS 硬件编码通过实际合成帧探测，并禁止系统软件编码冒充硬件；H.264 输出采用 6 Mbit/s。AV1 硬解显式使用 FFmpeg 原生 `av1` 解码器，设备不支持时回退 dav1d 软件解码。
-- 「应用与维护 → 视频播放」的「画质上限」默认原画，可选 1080p、720p、480p，按短边计（竖屏片子的 720p 是宽 720）。只管重新编码的整片与 HLS 分片：短边超过上限才缩小，同时把峰值码率压到 8、4、2 Mbit/s；直接播放和只换封装的片子保持原画。帧在显存里的 CUDA、VAAPI 路径用 `scale_cuda`、`scale_vaapi`，其余用软件 `scale`；AMF、QSV、VAAPI 改用带峰值的 VBR。档位存在 `media-processing.json` 的 `playback_max_height`（`0/1080/720/480`），换档后新缓存的文件名带档位，原画沿用原来的缓存。
+- 「应用与维护 → 视频播放」的「画质上限」默认原画，可选 1080p、720p、480p，按短边计（竖屏片子的 720p 是宽 720）。只管重新编码的整片与 HLS 分片：短边超过上限才缩小，同时把峰值码率压到 8、4、2 Mbit/s；直接播放和只换封装的片子保持原画。帧在显存里的 CUDA、VAAPI、QSV 全硬件链分别用 `scale_cuda`、`scale_vaapi`、`vpp_qsv`，其余用软件 `scale`；AMF、QSV、VAAPI 改用带峰值的 VBR。档位存在 `media-processing.json` 的 `playback_max_height`（`0/1080/720/480`），换档后新缓存的文件名带档位，原画沿用原来的缓存。
 - 同时最多进行 2 个转码或探测，单次最长 1 小时，关掉播放页会取消对应的任务。
-- 115 和 PikPak 的视频通过媒体库配置中声明的挂载目录播放。能不能播，以在 Peach 里实际打开一个已知视频为准。
+- 网盘来源（115、PikPak、光鸭云盘、OneDrive 与其他已挂载网盘）的视频通过媒体库配置中声明的挂载目录播放，哪些来源按网盘处理以 `resources/media-sources.json` 登记的 `cloud` 为准。能不能播，以在 Peach 里实际打开一个已知视频为准。
 
-Peach 配置「媒体库与入库 → 视频预览」中的「抽帧解码方式」与「应用与维护 → 视频播放」中的「转码方式」分别保存为运行 Peach 那台电脑的偏好，两者互不影响，均可选择「自动（硬件优先）」或软件。抽帧设置控制封面、九宫格与时间轴；扫描、读 NFO 和时长探测不依赖 GPU。播放设置只控制 Peach 服务端的整片与 HLS 转码，浏览器直接播放时自行选择解码方式。保存无需重启，对新任务生效；已生成的有效缓存继续使用，运行中的 FFmpeg 不被强行中断。macOS 抽帧在同一超时预算内尝试 VideoToolbox，Windows 抽帧对 H.264、HEVC、VP9、AV1 尝试 D3D11VA，Linux 对同一范围尝试第一个可用 VAAPI 渲染节点，失败后都回退软件；视频编码格式探测按文件大小和修改时间缓存。Windows 播放的自动档依次探测 NVENC、AMF、QSV 编码，三者都不可用时用 D3D11VA 解码再交给 libx264；AMF 只接受 AMD 显卡上的 D3D11 设备，Peach 按显卡序号逐个探测。偏好通过 `/api/media-processing` 的 GET/POST 读写，`preview_acceleration` 和 `playback_acceleration` 分别接受 `auto/software`，`playback_max_height` 接受 `0/1080/720/480`；省略的字段保持现值。这个接口与时间轴缩略图的 `/api/thumbnail-jobs` 和 `/api/configuration/*` 一样只接受运行 Peach 的电脑发来的请求，其他设备即使已登录或处于开放访问也返回 403。`PEACH_TRANSCODE_BACKEND` 可用于管理员诊断，支持 `auto/software/nvenc/amf/qsv/vaapi/videotoolbox`，显式 `software` 会保持禁用硬件。
+Peach 配置「媒体库与入库 → 视频预览」中的「抽帧解码方式」与「应用与维护 → 视频播放」中的「转码方式」分别保存为运行 Peach 那台电脑的偏好，两者互不影响，均可选择「自动（硬件优先）」或软件。抽帧设置控制封面、九宫格与时间轴；扫描、读 NFO 和时长探测不依赖 GPU。播放设置只控制 Peach 服务端的整片与 HLS 转码，浏览器直接播放时自行选择解码方式。保存无需重启，对新任务生效；已生成的有效缓存继续使用，运行中的 FFmpeg 不被强行中断。macOS 抽帧在同一超时预算内尝试 VideoToolbox，Windows 抽帧对 H.264、HEVC、VP9、AV1 尝试 D3D11VA，Linux 对同一范围尝试第一个可用 VAAPI 渲染节点，失败后都回退软件；视频编码格式探测按文件大小和修改时间缓存。Windows 播放的自动档依次探测 NVENC、AMF、QSV 编码，三者都不可用时用 D3D11VA 解码再交给 libx264；AMF 只接受 AMD 显卡上的 D3D11 设备，Peach 按显卡序号逐个探测；QSV 优先让解码、缩放和编码都留在 Intel 显卡上，以 Windows 服务方式运行时建不出这条链，改为 D3D11VA 解码后交给 QSV 编码。偏好通过 `/api/media-processing` 的 GET/POST 读写，`preview_acceleration` 和 `playback_acceleration` 分别接受 `auto/software`，`playback_max_height` 接受 `0/1080/720/480`；省略的字段保持现值。这个接口与时间轴缩略图的 `/api/thumbnail-jobs` 和 `/api/configuration/*` 一样只接受运行 Peach 的电脑发来的请求，其他设备即使已登录或处于开放访问也返回 403。`PEACH_TRANSCODE_BACKEND` 可用于管理员诊断，支持 `auto/software/nvenc/amf/qsv/vaapi/videotoolbox`，显式 `software` 会保持禁用硬件。
 
 卡片悬停预览请求的 `/stream` 不带流会话，取消不了，也看不到浏览器断开。片源需要整片转码且没有现成缓存时，这条请求直接回 415，不启动 FFmpeg；详情与沉浸模式带会话播放，关闭时按会话结束转码。
 
@@ -751,7 +761,7 @@ PikPak 官方核验通道使用「推送发现」中该媒体根对应的唯一 
 - 网页不展示数据库路径输入，`media_root` 为 `null`。`media_dir` 行中的 `root` 可省略或留空，服务端按媒体目录补齐；已有行提交原 `root` 时保留它。媒体目录与已有配置唯一匹配时复用原前缀，新目录自动生成前缀，并用目录名作为媒体库名称。
 - Windows 上 `peach init` 写出的 `[media.locations] local` 直接是那些目录，`[media.mounts]` 为空；macOS 上配置的目录是 `R:\media`（第二个起 `R:\media2`……），本机目录按同样顺序写进 `[media.mounts] local`。复制、writer 镜像、SMB 一律不问，保持关闭或留空。
 - 切换由 `tray.SetupGate` 负责，Windows 托盘与 macOS 菜单栏共用。它挂在健康轮询里（Windows 10 秒、macOS 5 秒），每轮重新 `settings_file.load_config()`；不再需要设置时，停掉引导服务，按新 Peach 数据目录构建正常规格并启动，托盘进程本身不重启。
-- 独立测试包按设置在高位端口提供 HTTP：本机模式绑定 `127.0.0.1` 且不发布 mDNS，局域网模式绑定 `0.0.0.0` 并发布 `<mdns_name>.local:<端口>`；托盘打开页面和健康检查始终走回环。源码部署由 `build_service_specs(tls_dir=..., mdns_hostname=...)` 构建 HTTP 跳转与 HTTPS 入口，TLS 材料没齐就等下一轮。mDNS 名由这里传进规格，不读 import 时的值。
+- 独立测试包按设置在高位端口提供 HTTP：本机模式绑定 `127.0.0.1` 且不发布 mDNS，局域网模式以双栈绑定 `0.0.0.0` 并发布 `<mdns_name>.local:<端口>`；托盘打开页面和健康检查始终走回环。源码部署由 `build_service_specs(tls_dir=..., mdns_hostname=...)` 构建 HTTP 跳转与 HTTPS 入口，TLS 材料没齐就等下一轮。mDNS 名由这里传进规格，不读 import 时的值。
 - 首次扫描不在引导服务里跑，因为那个进程在切换时就会被停掉。表单勾了「现在扫描」只写一个一次性标记 `<Peach 数据目录>/state/first-scan.request`（内容是来源 ID），托盘切换完成后读取并删除它，用子进程跑 `peach scan <来源>`，输出在 `<Peach 数据目录>/logs/tray-scan.out.log`。配置页保存时勾选扫描也走这个标记。
 - 配置页的数据走 `/api/configuration`，保存时先把旧文件复制成 `config.previous.toml`，再写入并留重载标记，由托盘接手。文件夹选择走 `/api/pick-folder`。
 - wheel 把 `web`、`migrations`、`resources` 装进 `peach/_resources`。`scripts/smoke_wheel.py` 在仓库外用安装了 wheel 的解释器运行；CI 的消费任务只下载制品，不检出源码。测试只用临时 Peach 数据目录。

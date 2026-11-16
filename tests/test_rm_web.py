@@ -1816,7 +1816,7 @@ class WebDataTests(unittest.TestCase):
             "/api/library-shortcuts", "/api/folders/preview", "/api/folders/rule",
             "/api/custom-metadata",
             "/api/preference", "/api/quality-goal", "/api/item-tag", "/api/item-edit", "/api/batch",
-            "/api/search-history", "/api/trash/empty",
+            "/api/ads/dispose-all", "/api/ads/restore-all", "/api/search-history", "/api/trash/empty",
             "/api/review/decision", "/api/review/genre", "/api/review/auto-landings/revert",
             "/api/purge-missing", "/api/orphan-records/attach",
             "/api/links/check", "/api/links/prune",
@@ -2296,30 +2296,55 @@ class WebDataTests(unittest.TestCase):
         self.assertFalse(landed[0].exists())
         self.assertEqual(original.read_bytes(), b"media")
 
-    def test_empty_trash_moves_media_outside_the_write_lock_and_spares_rows_restored_meanwhile(self):
-        """网盘上逐个 stat、改名不占写锁；这期间被还原出回收站的，事务里复核时留下、文件放回原处。"""
+    def test_empty_trash_moves_media_outside_the_write_lock_and_refuses_restores_meanwhile(self):
+        """网盘上逐个 stat、改名或直接删除不占写锁；这期间还原出回收站被拒，不会留下没有文件的行。"""
         binned = self.stage_media(1, "binned.mp4")
-        restored = self.stage_media(2, "restored.mp4")
+        other = self.stage_media(2, "other.mp4")
         rm_web.w_feedback(self.contract, {"id": 1, "kind": "dispose"})
         rm_web.w_feedback(self.contract, {"id": 2, "kind": "dispose"})
         quarantine = web_batch._quarantine_media
-        locked = []
+        locked, refused = [], []
 
         def outside_lock(original, **kwargs):
             locked.append(self.contract.database.write_lock.locked())
             moved = quarantine(original, **kwargs)
-            if original == restored and not locked[-1]:
-                rm_web.w_feedback(self.contract, {"id": 2, "kind": "dispose"})
+            if original == other:
+                for restore in (lambda: rm_web.w_feedback(self.contract, {"id": 2, "kind": "dispose"}),
+                                lambda: rm_web.w_batch(self.contract, {"ids": [2], "operation": "restore"})):
+                    with self.assertRaisesRegex(ValueError, "正在永久删除"):
+                        restore()
+                    refused.append(True)
             return moved
         with mock.patch.object(web_batch, "_quarantine_media", side_effect=outside_lock):
             result = rm_web.w_empty_trash(self.contract)
 
-        self.assertEqual(locked, [False, False])
+        self.assertEqual((locked, refused), ([False, False], [True, True]))
+        self.assertEqual((result["purged"], result["blocked"]), (2, []))
+        self.assertFalse(binned.exists() or other.exists())
+        self.assertIsNone(self.row(1))
+        self.assertIsNone(self.row(2))
+        self.assertFalse(web_batch.being_purged([1, 2]), "删完就撤下登记")
+
+    def test_a_row_restored_just_before_the_purge_starts_is_left_alone(self):
+        """读完回收站、登记之前就被还原的那一条：动文件前按最新的行再筛一遍，文件一下都不碰。"""
+        binned = self.stage_media(1, "binned.mp4")
+        restored = self.stage_media(2, "restored.mp4")
+        rm_web.w_feedback(self.contract, {"id": 1, "kind": "dispose"})
+        rm_web.w_feedback(self.contract, {"id": 2, "kind": "dispose"})
+        register = web_batch.purging
+
+        def restore_first(ids):
+            rm_web.w_feedback(self.contract, {"id": 2, "kind": "dispose"})
+            return register(ids)
+        with mock.patch.object(web_batch, "purging", side_effect=restore_first), \
+                mock.patch.object(web_batch, "_quarantine_media", wraps=web_batch._quarantine_media) as moved:
+            result = rm_web.w_empty_trash(self.contract)
+
         self.assertEqual(result["purged"], 1)
         self.assertEqual([item["id"] for item in result["blocked"]], [2])
+        self.assertEqual([call.args[0] for call in moved.call_args_list], [binned])
         self.assertFalse(binned.exists())
-        self.assertIsNone(self.row(1))
-        self.assertTrue(restored.is_file(), "隔离期间被还原的，文件放回原处")
+        self.assertTrue(restored.is_file())
         self.assertIsNone(self.row(2)["disposal"])
 
     def test_a_purge_cleans_only_what_the_deleted_rows_left_behind(self):
@@ -2536,9 +2561,13 @@ class WebDataTests(unittest.TestCase):
 
     def test_better_version_targets_have_a_management_read_surface(self):
         rm_web.w_quality_goal(self.contract, {"id": 1, "wanted": True})
-        queue = rm_web.q_quality_goals(self.contract, {"limit": "20"})
+        with mock.patch.object(web_stats.settings_file, "active", return_value=object()), \
+                mock.patch("peach.media_identity.ownership", return_value={"library_id": "lib-a"}):
+            queue = rm_web.q_quality_goals(self.contract, {"limit": "20"})
         self.assertEqual(queue["total"], 1)
         self.assertEqual(queue["items"][0]["id"], 1)
+        # 所属媒体库同作品列表，按路径算；路径本身不下发。
+        self.assertEqual(queue["items"][0]["library_id"], "lib-a")
         self.assertNotIn("path", queue["items"][0])
         self.assertFalse(queue["has_more"])
         rm_web.w_batch(self.contract, {"ids": [1, 2], "operation": "dispose"})
@@ -3821,6 +3850,31 @@ class JavModeAndCoverTests(unittest.TestCase):
         rows = {row["id"]: row for row in
                 rm_web.q_items(self.contract, {"jav": "1", "limit": "20"})["items"]}
         self.assertIsNone(rows[1]["poster_box"])
+
+    def test_a_whole_picture_and_its_front_image_reach_the_card_frame(self):
+        """竖版图证明不是封套时人脸边车不一定在，卡片仍得知道不能切、大图位改用竖版正封。"""
+        (self.covers / "ABW-232.jpg").write_bytes(b"x")
+        (self.covers / "ABW-232.poster.json").write_text(json.dumps({
+            "version": jav_poster_crop.ALGORITHM_VERSION, "px": [2184, 1542], "layout": "still",
+            "front": [1536, 2184], "box": {"x0": 0, "y0": 0, "x1": 2184, "y1": 1542, "method": "none"},
+        }), encoding="utf-8")
+        self.contract.cache_bust()
+        # 竖版正封文件不在：页面照旧用横图，不去取一张 404。
+        self.assertEqual(self.contract.cover_frame("ABW-232"), {"layout": "still"})
+        version = self.covers.stat().st_mtime_ns
+        (self.covers / "front").mkdir()
+        (self.covers / "front" / "ABW-232.jpg").write_bytes(b"x")
+        # 这条只核对投影，显式推进目录版本，避免连续写入落在同一 NTFS 时钟刻度。
+        os.utime(self.covers, ns=(0, version + 1_000_000))
+        self.contract.cache_bust()
+        self.assertEqual(self.contract.cover_frame("ABW-232"), {"layout": "still", "front": True})
+        self.assertIsNone(self.contract.poster_box("ABW-232"))
+        (self.covers / "ABW-232.face.json").write_text(
+            '{"ratio":1.42,"face":{"cx":0.3,"cy":0.2}}', encoding="utf-8")
+        os.utime(self.covers, ns=(0, version + 2_000_000))
+        self.contract.cache_bust()
+        self.assertEqual(self.contract.cover_frame("ABW-232"),
+                         {"cx": 0.3, "cy": 0.2, "layout": "still", "front": True})
 
     def test_a_stale_or_corrupt_poster_sidecar_is_ignored(self):
         (self.covers / "ABW-232.jpg").write_bytes(b"x")

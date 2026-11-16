@@ -28,7 +28,7 @@ from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path, PureWindowsPath
 
-from . import auth, certs, interface_text, settings_file
+from . import auth, certs, interface_text, listening, settings_file
 from .migrations import upgrade
 from .platform import is_windows_path
 from .settings_file import PeachConfig
@@ -219,13 +219,21 @@ def validate_port(raw: str) -> int:
 
 
 def check_available_port(port: int, current: int) -> None:
+    """局域网模式双栈监听，IPv4 与 IPv6 回环上的占用都算。系统没有 IPv6 时只查 IPv4。"""
     if port == current:
         return
-    try:
-        with socket.socket() as candidate:
-            candidate.bind(("127.0.0.1", port))
-    except OSError as exc:
-        raise UserValueError("errors.onboarding.portInUse") from exc
+    for family, address in ((socket.AF_INET, "127.0.0.1"), (socket.AF_INET6, "::1")):
+        try:
+            candidate = socket.socket(family, socket.SOCK_STREAM)
+        except OSError:
+            continue
+        try:
+            with candidate:
+                candidate.bind((address, port))
+        except OSError as exc:
+            if listening.ipv6_unavailable(exc):
+                continue
+            raise UserValueError("errors.onboarding.portInUse") from exc
 
 
 def validate_mdns_name(raw: str) -> str:

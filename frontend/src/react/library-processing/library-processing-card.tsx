@@ -68,6 +68,7 @@ const profileText = (state: LibraryProcessingData) => {
 
 const receiptText = (state: LibraryProcessingData) =>
   state.requested_stage === 'previews' ? t('manage:scanFetch.previewsGenerated', { count: state.previews || 0 })
+  : state.requested_stage === 'covers' ? t('manage:scanFetch.coversFetched', { count: state.covers || 0 })
   : [
     t('manage:scanFetch.receipt', { count: state.scanned || 0, identified: state.identified || 0, candidates: state.candidates || 0, autoApplied: state.auto_applied || 0 }),
     state.previews ? t('manage:scanFetch.previewsGenerated', { count: state.previews }) : '',

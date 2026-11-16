@@ -19,7 +19,7 @@ function catalogListSkeletonHtml(label: string): string {
     + listTableSkeletonHtml(catalogTableSnapshot(), completionRowRemembered() ? COMPLETION_ROW_SKELETON_HTML : '') + '</div>';
 }
 
-/** 工具栏一行加按列偏好排好的表格骨架；馆藏列表与 JAV 新作列表共用，`between` 插在工具栏与表格之间。 */
+/** 工具栏一行加按列偏好排好的表格骨架；馆藏列表、JAV 新作列表与处理队列页列表共用，`between` 插在工具栏与表格之间。 */
 export function listTableSkeletonHtml(columns: TableSnapshot, between = ''): string {
   const flexible = columns.some(column => column.width === null);
   const minimum = columns.reduce((sum, column) => sum + (column.width ?? column.min), 0);

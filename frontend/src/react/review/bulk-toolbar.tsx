@@ -33,6 +33,8 @@ export interface BulkToolbarProps {
   /** 当前这一页上的行，全选就是全选它们。 */
   pageKeys: string[];
   selected: ReadonlySet<string>;
+  /** 当前筛选下全部页的行；比本页多时给「全选全部」，一次选中跨页的整份。 */
+  allKeys?: readonly string[];
   onSelected(next: Set<string>): void;
   /** 选中的那些行，用来算共同来源。 */
   selectedRows: ReviewRow[];
@@ -46,12 +48,13 @@ export interface BulkToolbarProps {
 
 export function BulkToolbar(props: BulkToolbarProps) {
   const {
-    groupOptions, groupBy, onGroupBy, groups, filter, onFilter, pageKeys, selected, onSelected,
+    groupOptions, groupBy, onGroupBy, groups, filter, onFilter, pageKeys, allKeys = pageKeys, selected, onSelected,
     selectedRows, metadata, busy, feedback, onUnifySource, actions, queueView = 'pending',
     queueCounts, onQueueChange, locked, fields, fieldFilter, onFieldFilter,
   } = props;
   const shown = pageKeys.filter((key) => selected.has(key));
   const allShown = shown.length > 0 && shown.length === pageKeys.length;
+  const everything = allKeys.length > pageKeys.length && allKeys.every((key) => selected.has(key));
   const sources = commonReviewSources(selectedRows);
   const needsSource = metadata && selectedRows.some((row) => (row.candidates?.length || 0) > 1);
   const sourceLabel = sources.length ? t('manage:reviewToolbar.sourceForAll') : t('manage:reviewToolbar.noCommonSource');
@@ -128,6 +131,10 @@ export function BulkToolbar(props: BulkToolbarProps) {
         {locked ? null : <Button variant="secondary" size="small" leadingIcon={RiCheckDoubleLine}
           aria-pressed={allShown} disabled={busy} onClick={toggleAll}>
           {allShown ? t('manage:reviewToolbar.clearSelection') : filter ? t('manage:reviewToolbar.selectGroup') : t('manage:reviewToolbar.selectPage')}
+        </Button>}
+        {locked || allKeys.length <= pageKeys.length || everything ? null : <Button variant="secondary" size="small"
+          disabled={busy} onClick={() => onSelected(new Set([...selected, ...allKeys]))}>
+          {t('manage:reviewToolbar.selectAll', { count: allKeys.length })}
         </Button>}
         </> : null} />
 

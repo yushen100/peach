@@ -286,6 +286,7 @@
       "catalog": "资料与番号整理",
       "dangling-candidates": "失效的复核候选",
       "follow-evidence-reclaim": "清理关注抓取的旧快照",
+      "cover-artwork": "已装封面的版式",
       "javdb-actor-records": "人物页的 JavDB 入口",
       "quality-resolution": "画质分档",
       "source-resolution-tags": "来源的 4K 标签",
@@ -293,12 +294,14 @@
       "sidecar-assets": "移出馆藏的 NFO 与海报",
       "avatar-faces": "补测头像人脸",
       "stale-filename-codes": "清除误认的番号",
+      "label-suffix-codes": "补回番号尾字母",
       "studio-unbounded-misses": "厂牌查询缓存",
       "verification-settlement": "核查差异结算",
       "performer-spacing": "带空格的演员名",
       "enhancement-suffix-names": "名字里的视频增强代号",
       "fc2-seller-backfill": "补挂 FC2 卖家",
       "code-sibling-identity": "同番号副本补齐演员与创作者",
+      "feed-overflow-discoveries": "补回超出单轮上限的新作",
       "interface-text-codes": "任务记录的界面文字",
       "entity-link-values": "资料页链接",
       "fc2-seller-studios": "FC2 卖家记成厂牌",
@@ -320,6 +323,10 @@
       "catalog": {
         "summary": "按新规则修正番号、标题等自动写入的资料，你手动改过的不动",
         "title": "资料与番号整理"
+      },
+      "cover-artwork": {
+        "summary": "升级后在后台按新规则重新切旧版本装的封面，换用清晰度相近的 DVD 封套，原图先备份",
+        "title": "已装封面的版式"
       },
       "dangling-candidates": {
         "summary": "资产删除后留下的候选改挂到同一文件的新编号，对不上的撤下",
@@ -524,6 +531,7 @@
     "amane-bridge": "amane 桥重建",
     "batch": "批量操作",
     "code-samples": "番号样张采集",
+    "cover-artwork-repair": "封面版式补修",
     "creator-identity": "创作者身份查找",
     "diagnostic-export": "诊断导出",
     "download-postprocess": "云下载后处理",
@@ -775,6 +783,7 @@
     "videoUpgraded": "影片升级补全完成",
     "videosUpgraded": "影片升级补全完成 {{count}} 部",
     "videosDeferred": "目录读不到或来源冷却，延后 {{count}} 部",
+    "videosMalformed": "路径写法无法识别，失败 {{count}} 部",
     "dimensionsMeasured": "显示尺寸补测完成",
     "deferredBy": "已延后：{{reason}}",
     "deferMountMedia": "影片所在目录读不到，挂载恢复后再补全",
@@ -786,6 +795,9 @@
     "faceModelsReady": "人脸模型已就绪"
   },
   "api": {
+    "listening": {
+      "outsideLan": "这个地址只接受局域网内的连接"
+    },
     "auth": {
       "invalidRememberDays": "请选择有效的保持登录时间",
       "sessionNotSaved": "登录设备未能记下，请检查数据目录能否写入后重试",
@@ -895,7 +907,7 @@
       "libraryOrderInvalid": "媒体库顺序须使用不重复的媒体库 ID",
       "navigationOrderUnknownEntry": "导航顺序包含无效项目",
       "navigationOrdersInvalid": "导航排序需要已知分组与顺序数组",
-      "performerNameLanguageInvalid": "performerNameLanguage 只收 zh-CN 或 ja",
+      "performerNameLanguageInvalid": "performerNameLanguage 只收 zh-CN、ja、en、ja-local 或 local-ja",
       "profileMissing": "profile {{profile}} 不存在",
       "searchHistoryLimitInvalid": "searchHistoryLimit 只收 0 到 {{max}} 的整数",
       "switchNotBoolean": "{{key}} 只收 true 或 false",
@@ -969,6 +981,8 @@
       "addMediaDirectory": "请先添加媒体目录",
       "collectionConfigMismatch": "当前馆藏与媒体配置不一致",
       "selectionInvalid": "请选择有效的视频项目",
+      "recheckNotBoolean": "recheck 只能是 true 或 false",
+      "recheckSelectedOnly": "重新采集只用于点名的至多 {{limit}} 部影片与资料阶段",
       "selectionRetryExclusive": "选择项目与失败重试不能同时使用",
       "stageInvalid": "处理阶段无效",
       "incrementalStageUnsupported": "新增文件发现只支持扫描或同步",
@@ -1654,13 +1668,14 @@
       "timeBudgetSpent": "本趟采集时间已用完，再跑一次接着采；已有图片保留",
       "downloadBudgetSpent": "本趟下载量已用完，再跑一次接着采；已有图片保留",
       "coolingDown": "来源正在冷却，请稍后重试；已有图片保留",
-      "challengeTimedOut": "来源的人机验证没有在限时内通过，暂停向它请求一段时间；浏览器窗口再弹出时点一下验证即可；已有图片保留",
+      "challengeTimedOut": "来源的人机验证没有在限时内通过，暂停向它请求一段时间；下次可从任务栏点开采集浏览器点一下验证；已有图片保留",
       "rateLimited": "来源限流，已记录冷却时间；已有图片保留",
       "coolingDownNamed": "{{label}} 暂停中，约 {{minutes}} 分钟后再试",
       "rateLimitedNamed": "{{label}} 限流，约 {{minutes}} 分钟后再试",
       "refusedNamed": "{{label}} 拒绝了当前出口的请求，多半是请求太频繁或出口被拦；暂停约 {{minutes}} 分钟，也可以在代理里给它换一个出口",
       "refusedCookieNamed": "{{label}} 拒绝了请求：可能是请求太频繁、出口被拦，或贴过的 Cookie 已过期；暂停约 {{minutes}} 分钟，可以换个出口或重贴 Cookie",
-      "refused": "来源拒绝访问，暂停向它请求一段时间；已有图片保留"
+      "refused": "来源拒绝访问，暂停向它请求一段时间；已有图片保留",
+      "browserModeInvalid": "采集浏览器模式只收 {{choices}}"
     },
     "downloadPostprocess": {
       "noLandingPath": "下载任务没有落地路径",
@@ -1811,7 +1826,9 @@
       "mediaRepairIncomplete": "影片升级补全未完成，请在任务中心查看后重试",
       "resumeAfterRestart": "服务重启后继续",
       "displayBackupNoSpace": "显示尺寸补测备份空间不足，已暂停本批媒体",
-      "mediaPaused": "{{message}}"
+      "mediaPaused": "{{message}}",
+      "malformedPath": "影片路径写法无法识别：{{path}}",
+      "malformedPathReason": "影片路径写法无法识别（{{reason}}）：{{path}}"
     },
     "tunnel": {
       "standalonePortInvalid": "独立包 Tunnel 的 HTTP 端口无效：{{port}}",
@@ -1984,14 +2001,11 @@
       "deviceNotAllowed": "浏览器添加只在允许修改数据库的设备上可用",
       "invalidDismiss": "确认参数无效",
       "invalidEdition": "版本参数无效",
-      "invalidRetryAttempt": "浏览器添加重试次数无效",
-      "invalidRetryTime": "浏览器添加重试时间无效",
       "invalidSwitch": "换磁力参数无效",
       "manualRejectsSource": "手动添加不接受来源网页地址",
       "notEnabled": "请先启用浏览器添加",
       "nothingToRetry": "这个番号没有失败的整理可以重试",
       "queueFull": "添加队列已满，请等待当前任务结束",
-      "queueUnreadable": "浏览器添加队列无法读取",
       "unsupportedPage": "请从支持的 JAV 影片详情页添加",
       "searchUnavailable": "资源搜索暂不可用，请在 Peach 检查来源后重试"
     },
@@ -2158,7 +2172,9 @@
       "captureUnfetched": "视频抽帧未取得，反馈问题请导出诊断报告",
       "previewTimeout": "生成预览图超时，请重试",
       "previewFailed": "生成预览图失败，请检查 FFmpeg 与目录权限后重试",
-      "toolsNotPrepared": "采集工具准备失败：{{error}}"
+      "toolsNotPrepared": "采集工具准备失败：{{error}}",
+      "someSourcesUnfetched": "已从其他来源取到资料；没答上的来源：{{problems}}",
+      "someCoverSourcesUnfetched": "封面已有；没答上的图源：{{problems}}"
     },
     "followStream": {
       "coolingDown": "{{provider}} 限流冷却中，{{seconds}} 秒后再试",
@@ -2736,7 +2752,8 @@
       "outsideMounts": "✗ {{path}} 不在来源 {{location}} 的挂载点 {{mounts}} 之下",
       "smbNotSaved": "SMB 目录尚未保存到媒体库配置",
       "prefixWithoutMount": "✗ 媒体来源 {{location}} 的第 {{index}} 个数据库路径前缀没有对应的本机目录；请先在 [media.mounts] 中按相同顺序配置媒体目录",
-      "checkpointMismatch": "扫描目录与保存的断点不一致，请核对挂载设置"
+      "checkpointMismatch": "扫描目录与保存的断点不一致，请核对挂载设置",
+      "rootUnreadable": "✗ 无法列出扫描目录 {{root}}（{{error}}）；本次没有扫描，也没有文件被算作已消失"
     },
     "faceDetect": {
       "faceModelMissing": "缺少人脸模型：{{path}}",
@@ -2774,7 +2791,8 @@
     "webBatch": {
       "changedDuringQuarantine": "文件在隔离备份期间发生变化",
       "pathUnmapped": "媒体路径未映射到可访问的挂载目录",
-      "storageOffline": "媒体来源未挂载或不可读取"
+      "storageOffline": "媒体来源未挂载或不可读取",
+      "purgingCannotRestore": "正在永久删除的条目不能还原"
     },
     "webFeeds": {
       "checkStopped": "订阅检查已停止"
@@ -3035,6 +3053,11 @@
         "pushDiscovery": "推送发现",
         "downloads": "下载设置"
       }
+    },
+    "coverRepair": {
+      "runLabel": "重判封面版式",
+      "stoppedByUser": "用户停止任务",
+      "serviceStopped": "服务关闭，下次启动接着做"
     },
     "followScheduler": {
       "runtimeUnavailable": "上次自动检查的运行状态未取得",
@@ -3541,7 +3564,8 @@
         "checkCompanions": "检查配套文件",
         "makePreviews": "生成视频预览",
         "checkPreviewSettings": "检查媒体预览设置",
-        "fetchMetadataAndCovers": "采集外部资料与封面"
+        "fetchMetadataAndCovers": "采集外部资料与封面",
+        "fetchCovers": "采集缺失封面"
       },
       "source": {
         "onePondo": "一本道",
@@ -4173,7 +4197,7 @@
       "mobileBroadbandHint": "中国移动宽带直连 DMM 图片主机常在握手后被断开，请把 DMM / FANZA 的连接方式设成 Peach 代理。",
       "target": {
         "page": "来源页面",
-        "cdn": "高清图片 CDN"
+        "cdn": "图片 CDN"
       },
       "cooldown": "来源正在冷却，请稍后重试。",
       "proxy": "代理连接失败，请检查 Peach 代理。",
@@ -4186,7 +4210,8 @@
       "signIn": "来源要求登录或验证，请在官网完成登录后重试。",
       "reason": "{{reason}}。",
       "unavailable": "来源暂不可用，请稍后重试。",
-      "needsCode": "片商官网按番号选择，请输入馆藏番号检查高清封面。"
+      "needsCode": "片商官网按番号选择，请输入馆藏番号检查高清封面。",
+      "noImageHost": "这个来源没有固定的图片主机，图片这一跳未检查。"
     },
     "sourcePreflight": {
       "outcome": {

@@ -83,7 +83,7 @@ describe('缺预览时的统一补全入口', () => {
         await page.keyboard.press('Enter');
         const menu = page.getByRole('dialog', { name: '同步方式' });
         await menu.waitFor();
-        assert.deepEqual(await menu.getByRole('button').locator(':scope > span > span:first-child').allTextContents(), ['仅补全影片资料', '仅补全预览图']);
+        assert.deepEqual(await menu.getByRole('button').locator(':scope > span > span:first-child').allTextContents(), ['仅补全影片资料', '仅补全封面', '仅补全预览图']);
         const box = await menu.boundingBox();
         assert.ok(box && box.x >= 0 && box.x + box.width <= viewport.width);
         await page.keyboard.press('Escape');

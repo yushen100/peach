@@ -314,6 +314,23 @@ class StreamSessionRegistryTests(unittest.IsolatedAsyncioTestCase):
                 shared.total_tokens = total
         self.assertEqual((status, headers["content-range"], body), (206, "bytes 2-5/10", b"2345"))
 
+    def test_shutdown_cancels_queued_reads_without_waiting_and_leaves_a_fresh_executor(self):
+        """服务关闭时排着的读块取消、卡住的那块不等；同一进程再起服务拿到的是新的执行器。"""
+        import threading
+        from peach import streaming
+        retired = streaming.STREAM_EXECUTOR
+        release = threading.Event()
+        try:
+            blocked = [retired.submit(release.wait, 5) for _ in range(streaming.STREAM_THREADS)]
+            queued = retired.submit(lambda: "late")
+            streaming.shutdown_stream_executor()
+            self.assertTrue(queued.cancelled())
+            self.assertFalse(any(future.done() for future in blocked))
+            self.assertIsNot(streaming.STREAM_EXECUTOR, retired)
+            self.assertEqual(streaming.STREAM_EXECUTOR.submit(lambda: "fresh").result(5), "fresh")
+        finally:
+            release.set()
+
     async def test_a_spliced_file_serves_ranges_across_the_seam(self):
         """头在边车里、内容在原文件中间，跨接缝的 Range 必须拼出连续的字节。"""
         import tempfile

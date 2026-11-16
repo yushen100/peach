@@ -683,6 +683,76 @@ class NasDirectoryTests(unittest.TestCase):
                                       "@video.mp4", "#recycle.mp4"})
 
 
+class LedgerReopenTests(_ScanCase):
+    """#138：开写事务时打不开事务侧文件，重开连接重试当前批次，而不是整轮失败。"""
+
+    OPTIONS = dict(declared_roots={'local': ('R:\\media',)}, windows=False)
+
+    def test_a_batch_that_cannot_open_the_journal_is_retried_on_a_fresh_connection(self):
+        real = scan._upsert_records
+        calls = []
+
+        def flaky(connection, *args):
+            calls.append(connection)
+            if len(calls) == 1:
+                raise sqlite3.OperationalError("unable to open database file")
+            return real(connection, *args)
+
+        with patch.object(scan, '_upsert_records', flaky), patch.object(scan.time, 'sleep') as slept, \
+                self.assertLogs('peach.scan', level='WARNING') as logs:
+            result, _ = self._scan('R:\\media', mounts={'local': (self.media,)}, **self.OPTIONS)
+        self.assertEqual(result.files, 3)
+        self.assertEqual(len(result.new_ids), 3)
+        self.assertIsNot(calls[0], calls[1])
+        slept.assert_called_once_with(scan.REOPEN_DELAYS[0])
+        self.assertIn('retrying', logs.output[0])
+        self.assertEqual(len(self._paths()), 3)
+
+    def test_other_operational_errors_and_exhausted_retries_are_raised(self):
+        for message, attempts in (("database is locked", 1), ("unable to open database file",
+                                                               len(scan.REOPEN_DELAYS) + 1)):
+            with self.subTest(message), patch.object(
+                    scan, '_upsert_records', side_effect=sqlite3.OperationalError(message)) as upsert, \
+                    patch.object(scan.time, 'sleep'), self.assertLogs('peach.scan', level='WARNING') as logs:
+                with self.assertRaises(sqlite3.OperationalError):
+                    self._scan('R:\\media', mounts={'local': (self.media,)}, **self.OPTIONS)
+                scan.LOGGER.warning('marker')
+            self.assertEqual(upsert.call_count, attempts)
+            self.assertEqual(len(logs.output), attempts)
+
+    def test_a_journal_mode_other_than_wal_is_logged(self):
+        with self.assertLogs('peach.scan', level='WARNING') as logs:
+            scan._open_ledger(':memory:').close()
+        self.assertIn('instead of wal', logs.output[0])
+
+
+class UnreadableRootTests(unittest.TestCase):
+    def test_an_unreadable_root_raises_while_unreadable_subdirectories_are_skipped(self):
+        """#693：根目录读不了就什么都没枚举到，不能当成空来源；子目录读不了照旧跳过。"""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            (root / "bad").mkdir()
+            (root / "good").mkdir()
+            (root / "good" / "a.mp4").write_bytes(b"x")
+            refused = {str(root / "bad")}
+
+            def read_directory(directory):
+                if directory in refused:
+                    raise PermissionError(13, "denied", directory)
+                with os.scandir(directory) as entries:
+                    return list(entries)
+
+            errors = []
+            files = [entry.name for _, entries in scan._walk(root, read_directory=read_directory,
+                                                              onerror=errors.append) for entry in entries]
+            self.assertEqual((files, len(errors)), (["a.mp4"], 1))
+            refused.add(str(root))
+            with self.assertRaises(scan.ScanRootUnreadable) as caught:
+                list(scan._walk(root, read_directory=read_directory, onerror=errors.append))
+            self.assertEqual(caught.exception.code, "errors.scan.rootUnreadable")
+            self.assertEqual(len(errors), 1)
+
+
 class SystemMetadataTests(_ScanCase):
     def test_a_system_directory_scan_root_is_skipped_before_mapping_or_listing(self):
         options = dict(declared_roots={'local': (r'R:\media\.snapshots',)},

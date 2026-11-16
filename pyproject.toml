@@ -26,6 +26,7 @@ classifiers = [
   "Topic :: Multimedia :: Video",
 ]
 dependencies = [
+  "ebmlite==3.4.1",
   "itsdangerous==2.2.0",
   "filelock==4.2.10",
   "tldextract==5.4.0",
@@ -41,6 +42,8 @@ dependencies = [
   # 运行时 protobuf 必须同一大版本且不低于它。
   "grpcio==1.85.1",
   "httpx==0.28.1",
+  # 读网卡上的 IPv6 前缀与地址；zeroconf 本身也用它枚举网卡，版本与锁里的传递依赖一致。
+  "ifaddr==0.2.0",
   "m3u8==6.0.0",
   "pillow==13.0.0",
   "protobuf==7.36.2",

@@ -2,6 +2,7 @@
 import { api } from '@peach/legacy/core';
 import type { CaptionStyle } from './subtitle-style';
 import type { VjsPlayer } from './types';
+import { playerHost } from './host';
 import { t } from '../i18n';
 
 export interface PlayerMemoryValue {
@@ -15,6 +16,9 @@ export type PlayerMemoryPatch = Partial<Omit<PlayerMemoryValue, 'tracks'>> & {
   track?: { key: string; name: string; text: string };
 };
 const pending = new Map<string, Promise<unknown>>();
+const autoChineseSubtitles = () => {
+  try { return playerHost().settings().autoChineseSubtitles === true } catch { return false }
+};
 const sessions = new WeakMap<VjsPlayer, PlayerMemory>();
 
 class PlayerMemory {
@@ -46,7 +50,8 @@ class PlayerMemory {
     if (!this.url) return Promise.resolve({ selected: null, tracks: [] } as PlayerMemoryValue);
     return this.reading ||= (async () => {
       await pending.get(this.url)?.catch(() => {});
-      const value = await api(this.url, { signal: this.cleanup.signal }) as PlayerMemoryValue;
+      // 设置里打开了自动中文字幕时，服务端替没选过字幕的影片推导一条中文轨（不写记忆）。
+      const value = await api(this.url + (autoChineseSubtitles() ? '&auto=zh' : ''), { signal: this.cleanup.signal }) as PlayerMemoryValue;
       if (!this.cleanup.signal.aborted) {
         this.restored = value; this.restorers.forEach(apply => apply(value)); this.changed();
       }

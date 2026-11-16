@@ -185,8 +185,6 @@
     "settingsSummary": "Start with appearance and navigation. Check other settings as needed.",
     "settingsTitle": "Make Peach your own",
     "startQuickTour": "Start quick tour",
-    "stepCountExitAnytime_one": "{{count, number}} step · Exit anytime",
-    "stepCountExitAnytime_other": "{{count, number}} steps · Exit anytime",
     "stepCount_one": "{{count, number}} step",
     "stepCount_other": "{{count, number}} steps"
   },
@@ -320,7 +318,7 @@
     "imageTitle": "Default image",
     "limitBody": "Controls how many new releases the section shows at a time.",
     "limitTitle": "New releases shown",
-    "namesBody": "Choose Chinese or Japanese names.",
+    "namesBody": "Choose translated, original or romanized names, or two side by side.",
     "namesTitle": "Actress names",
     "scrollBody": "Controls whether the new releases section scrolls automatically.",
     "scrollTitle": "Auto-scroll",

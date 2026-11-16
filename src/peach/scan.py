@@ -35,6 +35,7 @@ import os
 import ntpath
 import hashlib
 import json
+import logging
 import re
 import sqlite3
 import time
@@ -60,6 +61,11 @@ ARCHIVE = {".zip", ".rar", ".7z", ".tar", ".gz"}
 
 #: 每攒够这么多行落一次盘，并报一行进度。
 BATCH_SIZE = 2000
+#: 账本连接开写事务时打不开事务侧文件（`SQLITE_CANTOPEN`，杀毒软件或备份工具短暂占住 `-wal`/`-journal`）
+#: 时，重开连接重试当前批次的等待秒数；用完仍失败就照原样报出（#138）。
+REOPEN_DELAYS = (0.5, 1.0, 2.0)
+
+LOGGER = logging.getLogger(__name__)
 
 #: Kodi／Jellyfin 的影片图片名（单写或挂在片名后面，如 `ABC-123-fanart.jpg`）。
 #: 只在同目录有视频时算附属：没有正片的目录里，`cover.jpg` 是图集自己的封面。
@@ -89,6 +95,17 @@ class ScanTargetError(UserFacingError, ValueError):
     """来源与扫描根对不上，或者来源在本机没有落点。消息可以直接给人看。"""
 
 
+class ScanRootUnreadable(ScanTargetError):
+    """扫描根目录本身列不出来（掉线、没权限、不存在）。
+
+    这时什么都没枚举到，不能当成「这个来源空了」：照常结束会报 0 个文件，并把整个来源的
+    已有资产算进「清单中已消失」（#693）。根目录以下零星读不了的子目录仍按 `onerror` 跳过。
+    """
+
+    def __init__(self, directory, error):
+        super().__init__('errors.scan.rootUnreadable', {'root': str(directory), 'error': str(error)})
+
+
 class ScanPathConflict(ScanTargetError):
     """同一规范路径的既有记录须由用户复核，摄取不选择或合并身份。"""
 
@@ -112,6 +129,26 @@ def _registered_paths(connection, location, root):
         groups.setdefault(key, []).append((asset_id, path))
     return ({key: entries[0][1] for key, entries in groups.items() if len(entries) == 1},
             {key: ScanPathConflict(entries) for key, entries in groups.items() if len(entries) > 1})
+
+
+def _open_ledger(db_path):
+    """扫描用的账本连接：忙等时长与 `LedgerDatabase.connect` 一致，并核对日志模式真的是 WAL。
+
+    `PRAGMA journal_mode=WAL` 失败时不报错，只回实际模式；退回 delete 后每个写事务都要新建
+    `-journal`，大批扫描更容易撞上 `unable to open database file`，所以记一条告警（#138）。
+    """
+    connection = sqlite3.connect(db_path, timeout=30)
+    mode = connection.execute("PRAGMA journal_mode=WAL").fetchone()[0]
+    if str(mode).lower() != "wal":
+        LOGGER.warning("Ledger journal mode is %s instead of wal; scan writes may fail to open the journal: %s",
+                       mode, db_path)
+    return connection
+
+
+def _cannot_open(error: sqlite3.OperationalError) -> bool:
+    if getattr(error, "sqlite_errorcode", None) == sqlite3.SQLITE_CANTOPEN:
+        return True
+    return "unable to open database file" in str(error)
 
 
 def _upsert_records(connection, batch, registered, conflicts):
@@ -399,10 +436,8 @@ def ingest_path(
     here = None
     if medium == "video" or subtitles.subtitle_format(name):
         here = _directory_stats(directory)
-    # 忙等时长与 `LedgerDatabase.connect` 一致。
-    connection = sqlite3.connect(db_path, timeout=30)
+    connection = _open_ledger(db_path)
     try:
-        connection.execute("PRAGMA journal_mode=WAL")
         registered, conflicts = _registered_paths(connection, location, str(ledger_dir))
         if str(ledger_path).casefold() in conflicts:
             raise conflicts[str(ledger_path).casefold()]
@@ -488,7 +523,8 @@ def _walk(top: Path, pending: list[str] | None = None, *, onerror=lambda error: 
 
     与 `os.walk` 的差别只在一处：条目的大小与时间从 `DirEntry.stat()` 拿。Windows 的目录
     列表自带这两项，不必再对每个文件发一次 `os.stat`——网盘挂载上那一次就是一趟往返，
-    几万个文件就是几万趟。读不了的目录跳过；符号链接指向的目录列出但不进入。
+    几万个文件就是几万趟。读不了的子目录跳过，根目录本身列不出来时报 `ScanRootUnreadable`；
+    符号链接指向的目录列出但不进入。
     """
     if system_path(str(top)):
         return
@@ -509,6 +545,8 @@ def _walk(top: Path, pending: list[str] | None = None, *, onerror=lambda error: 
                 with os.scandir(directory) as scanner:
                     entries = list(scanner)
         except OSError as error:
+            if directory == os.fspath(top):
+                raise ScanRootUnreadable(directory, error) from error
             onerror(error)
             continue
         files = []
@@ -565,6 +603,8 @@ def _walk_smb(top, pending, onerror):
                     transport = top._transport()
                     entries = resource.scandir(transport)
             except OSError as error:
+                if directory == str(top):
+                    raise ScanRootUnreadable(directory, error) from error
                 onerror(error)
                 continue
             files, children = [], []
@@ -723,6 +763,34 @@ def _commit_scan_records(connection, db, batch, registered, conflicts, identitie
     return inserted
 
 
+def _commit_reopening(connection, db_path, batch, registered, conflicts, identities, observations, relocator):
+    """提交当前批次，返回（之后要用的连接, 新建的行 id）。
+
+    开写事务时打不开事务侧文件就重开连接，按原样重试这一批。只在这一批是本事务第一批写入时
+    重试：之前已有未提交的写入（大小写改名、身份接回）随回滚一起丢掉，重放这一批也补不回来，
+    那种情况照原样报出。
+    """
+    for delay in (*REOPEN_DELAYS, None):
+        pending = connection.in_transaction
+        known = dict(registered)
+        try:
+            return connection, _commit_scan_records(connection, db_path, batch, registered, conflicts,
+                                                    identities, observations)
+        except sqlite3.OperationalError as error:
+            if delay is None or pending or not _cannot_open(error):
+                # 重开过的连接调用方拿不到，在这里关掉；原连接关两次无妨。
+                connection.close()
+                raise
+            LOGGER.warning("Scan write could not open the ledger journal (%s); reopening and retrying "
+                           "%d rows in %.1fs", error, len(batch), delay)
+            registered.clear()
+            registered.update(known)
+            connection.close()
+            time.sleep(delay)
+            connection = _open_ledger(db_path)
+            relocator.connection = connection
+
+
 def _scan_location(
     db_path: str | os.PathLike[str], location: str, root: str, *,
     declared_roots: Mapping[str, str], mounts: Mapping[str, str | Path] | None = None,
@@ -772,10 +840,8 @@ def _scan_location(
                              video_dirs=sorted(video_dirs),
                              current_directory=directory, cursor=cursor, here=dict(here or {})))
     # 写事务只在每批 upsert 到 commit 之间打开，遍历与 stat 都在两次 commit 之间，不持锁。
-    # 忙等时长与 `LedgerDatabase.connect` 一致。
-    connection = sqlite3.connect(db_path, timeout=30)
+    connection = _open_ledger(db_path)
     try:
-        connection.execute("PRAGMA journal_mode=WAL")
         registered, conflicts = _registered_paths(connection, location, root)
         from .file_identity import FileIdentityIndex
         identities = FileIdentityIndex(db_path) if location == 'local' and not remote else None
@@ -827,15 +893,15 @@ def _scan_location(
                 total += stat.st_size
                 progress(files, total)
                 if len(batch) >= BATCH_SIZE:
-                    inserted_ids = _commit_scan_records(connection, db_path, batch, registered, conflicts,
-                                                       identities, observations)
+                    connection, inserted_ids = _commit_reopening(connection, db_path, batch, registered, conflicts,
+                                                                 identities, observations, relocator)
                     discovered.update(inserted_ids)
                     save_directory(directory, name, here)
                     report(interface_text.text("server:labels.scan.progress", {
                         "seconds": f"{time.time() - started:5.0f}", "files": f"{files:,}",
                         "size": f"{total / 1024 ** 4:.2f}"}, interface_text.local_language()))
-            inserted_ids = _commit_scan_records(connection, db_path, batch, registered, conflicts,
-                                               identities, observations)
+            connection, inserted_ids = _commit_reopening(connection, db_path, batch, registered, conflicts,
+                                                         identities, observations, relocator)
             directory_tracks, directory_orphans = _record_directory_subtitles(
                 connection, location, ledger_root.joinpath(*relative), here, conflicts, now)
             connection.commit()
@@ -844,8 +910,8 @@ def _scan_location(
             tracks += directory_tracks
             orphans += directory_orphans
             save_directory()
-        inserted_ids = _commit_scan_records(connection, db_path, batch, registered, conflicts,
-                                           identities, observations)
+        connection, inserted_ids = _commit_reopening(connection, db_path, batch, registered, conflicts,
+                                                     identities, observations, relocator)
         discovered.update(inserted_ids)
         remember(db_path, inserted_ids)
         from .media_folders import path_predicate

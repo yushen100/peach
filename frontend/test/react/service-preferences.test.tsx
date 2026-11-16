@@ -37,6 +37,20 @@ function server() {
   return { posts, settings, schedule, feedSchedule, thumbnails };
 }
 
+it('每趟采集上限三项默认显示现有档位，改了按设置保存', async () => {
+  const { posts } = server();
+  const receipt = vi.fn();
+  const host = await mount(<QueryClientProvider client={queryClient}><TaskSpeedSettings receipt={receipt} /></QueryClientProvider>);
+  await settle();
+  expect(host.querySelector('#sourceBudgetRequestsSetting button')?.textContent).toContain('6,000 次');
+  expect(host.querySelector('#sourceBudgetHoursSetting button')?.textContent).toContain('4 小时');
+  expect(host.querySelector('#sourceBudgetGigabytesSetting button')?.textContent).toContain('1 GB');
+  await choose(host.querySelector('#sourceBudgetHoursSetting button'), '12 小时');
+  await settle();
+  expect(posts).toEqual([{ url: '/api/settings', body: { sourceBudgetHours: 12 } }]);
+  expect(receipt).toHaveBeenCalledWith('已保存每趟采集上限');
+});
+
 const mountFollowRows = async () => {
   const host = await mount(<QueryClientProvider client={queryClient}><FollowPreferenceRows receipt={vi.fn()} /></QueryClientProvider>);
   await settle();

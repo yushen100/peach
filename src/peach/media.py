@@ -16,6 +16,7 @@ from .platform import (
     translate_ledger_path,
     within_root,
 )
+from .media_sources import CLOUD_LOCATIONS
 from .repository import LedgerRepository, MediaAsset
 from .segments import HLS_SEGMENT_SECONDS
 
@@ -293,12 +294,15 @@ class MediaEngine:
         TS 里的 HEVC（实测 `isTypeSupported('video/mp2t; codecs="hvc1…"')` 为 false）。
         数据能进缓冲、时间轴照走，却一帧都解不出来，于是是静默黑屏而不是报错。
         同一浏览器直接 Range 播放同一个文件可正常出帧。
+
+        哪些来源算远端挂载，按 `media_sources` 登记的来源能力（`cloud`）判断，不按网盘名点名：
+        新登记的网盘自动得到同一套处理。
         """
         asset = self.asset(asset_id)
         suffix = Path(asset.path or asset.name or "").suffix.lower()
         if (
             mode == "hls"
-            and asset.location in {"115", "pikpak"}
+            and asset.location in CLOUD_LOCATIONS
             and suffix in {".mp4", ".m4v"}
             and asset.duration is not None
             and asset.duration > 0

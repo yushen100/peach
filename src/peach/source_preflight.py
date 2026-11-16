@@ -17,7 +17,7 @@ OUTCOMES = {
     "rate_limited": "http", "server_error": "http", "not_found": "http", "http_error": "http",
     "cooldown": "cooldown",
     "proxy": "network", "timeout": "network", "network": "network",
-    "needs_code": "skipped",
+    "needs_code": "skipped", "no_image_host": "skipped",
 }
 #: 口径的说法，`outcome_label` 是 zh-CN 原文，`outcome_label_code` 给界面取译文。
 OUTCOME_LABEL_CODES = {

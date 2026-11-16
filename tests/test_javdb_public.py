@@ -689,6 +689,29 @@ class DetailProjectionTests(unittest.TestCase):
         self.assertEqual(result['title'], movie['origin_title'])
         self.assertEqual(movie['title'], '自动翻译标题')
 
+    def test_detail_is_partial_while_the_login_walled_page_source_cools_down(self):
+        from contextlib import contextmanager
+        from peach.scraping_access import SourcePaused
+
+        def transport(request, *_):
+            payload = {'success': 0, 'action': 'JWTVerificationError', 'message': '請登錄帳號', 'data': None}
+            return HttpResponse(200, {}, json.dumps(payload).encode())
+
+        def cooling(path):
+            raise SourcePaused('errors.scrapingAccess.coolingDown')
+
+        @contextmanager
+        def pages(_contract):
+            yield cooling
+
+        api = PublicAPI(transport, sleeper=lambda _: None)
+        api.signature_parts, api.signature_until = APP_SIGNATURE, float('inf')
+        with patch('peach.web_jav_detail.PUBLIC_API', api), patch('peach.web_jav_detail._jav_pages', pages):
+            result = q_jav_detail(self.contract, {'code': 'EXM-001'})
+        self.assertEqual(result['state'], 'partial')
+        self.assertTrue(result['ok'])
+        self.assertTrue(result['message'])
+
     def test_legacy_image_bytes_cannot_bypass_ambiguous_source_and_new_ids_have_distinct_bytes(self):
         from peach.remote_media_cache import cache_for
         cache_for(self.contract).bytes('jav:MIKR-023:image:cover', lambda: b'old wrong work')

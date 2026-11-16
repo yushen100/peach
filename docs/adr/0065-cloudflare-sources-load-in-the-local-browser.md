@@ -4,6 +4,7 @@
 - 日期：2026-09-25
 - 修订：ADR-0060 第五条（UA 走整站、Cookie 由用户贴）与「后果」第二条（自动过验证不做）；[开发约定](../../AGENTS.md) 「被 Cloudflare 拦的站一律放弃」那一条
 - 依据：ADR-0060 的实测（两站只认浏览器过完验证发下的 `cf_clearance`）、`peach-reuse-first`（OpenAver 的做法作参照）
+- 被修订：第二条的上屏与「不用无头模式」、「后果」第三条由 [ADR-0171](0171-scraping-browser-window-or-headless.md) 修订：窗口不再自己上屏，另有无窗口模式可选
 
 ## 背景
 
@@ -51,23 +52,23 @@ Cookie、User-Agent 与出口三者天然一致，不再要用户贴 Cookie；�
 `cf_clearance` 会让 Cloudflare 把这台浏览器扔进不放行也不给勾选框的重试循环（页上只有转圈，`cf_chl_rc_ni`
 计数涨），等多久、点哪里都没用；2026-09-25 用生产 profile 实测，全新 profile 5 到 7 秒直接过，生产 profile
 30 秒只转圈，删掉 `cf_clearance` 与 `cf_chl_rc_ni` 重载 5 秒就过，启动参数、语言头、资源屏蔽、出口节点都排除。
-重载后 `AUTO_SECONDS`（40 秒）内过了就读文档，窗口不动；没过就把窗口放回屏幕内并顶到前面（先
-`windowState: normal` 再给坐标，两步），同时登记到 `browser_transport.attention()`，`/healthz` 带出去供排查。
-窗口顶到前面本身就是提醒，托盘不再弹系统通知：验证转圈时页上常常没有可点的框，通知只会打扰；再等
-`CLICK_SECONDS`（120 秒）还没过就报 `ChallengeUnsolved`，`SourceTransport` 按拒绝访问那一档冷却
-（`FIRST_BLOCKED_PAUSE` 起翻倍到 `blocked_pause`），措辞写「浏览器窗口再弹出时点一下验证即可」。同一站弹过
-窗口没点过去就记进 `_unsolved`：之后再撞验证到自动时限就报，不再弹窗，直到哪次页面正常打开才
-重新弹（实测 Cloudflare 升级判定后一次冷却到期撞一次，每次弹 120 秒窗口而页上无框可点）。过了或放弃
-都把窗口最小化收起（挪回负坐标会被系统钳住，最小化确定不占屏幕）；放弃时还把页面导航到 `about:blank`，
-因为留在窗口里的验证页每 50 秒自己重载一次、`cf_chl_rc_ni` 跟着涨，在没人看的窗口里一直重试。不用无头模式，
+重载后 `AUTO_SECONDS`（40 秒）内过了就读文档，窗口不动。没过时的做法现由
+[ADR-0171](0171-scraping-browser-window-or-headless.md) 规定：保留窗口模式登记到 `browser_transport.attention()`
+（`/healthz` 带出去），窗口留在屏幕外、不顶到前面，再等 `CLICK_SECONDS`（120 秒）让人从任务栏点开它点一下，
+只有用户点开后才把窗口放回屏幕内（先 `windowState: normal` 再给坐标，两步）；无窗口模式不等点击。托盘不弹系统通知：
+验证转圈时页上常常没有可点的框，通知只会打扰。还没过就报 `ChallengeUnsolved`，`SourceTransport` 按拒绝访问那一档冷却
+（`FIRST_BLOCKED_PAUSE` 起翻倍到 `blocked_pause`）。同一站等过没人点就记进 `_unsolved`：之后再撞验证到自动时限
+就报，不再等，直到哪次页面正常打开（实测 Cloudflare 升级判定后一次冷却到期撞一次，每次等 120 秒而页上无框可点）。
+过了或放弃都把窗口最小化收起（挪回负坐标会被系统钳住，最小化确定不占屏幕）；放弃时还把页面导航到 `about:blank`，
+因为留在窗口里的验证页每 50 秒自己重载一次、`cf_chl_rc_ni` 跟着涨，在没人看的窗口里一直重试。
 不伪造指纹，不接解题服务：过验证的是一台真的浏览器，人点不点由人决定。
 
 时限与调用方的 `timeout`（这一条请求的预算，`SourceTransport` 已按本趟截止时间裁过）这样配合，都从导航那一刻
 起算：一直没见到验证页时，`timeout` 内要解析完，否则报 `PageTimeout`（`BrowserUnavailable` 的子类，按连接失败
 重试，浏览器进程留着）；见到验证页时，清 cookie 那一步在 `min(RESET_SECONDS, 自动时限)` 触发，重载后的
-自动阶段最多等 `min(AUTO_SECONDS, timeout)`；弹窗那一段固定
-`CLICK_SECONDS`，从弹出起算、不受 `timeout` 约束，因为人点验证的时间不归一部片的预算管。`_unsolved` 保证同一站
-在页面正常打开之前只弹一次，所以一个站最多让整趟多等一次 `CLICK_SECONDS`，不会每部片拖一遍。
+自动阶段最多等 `min(AUTO_SECONDS, timeout)`；保留窗口模式等人点的那一段固定
+`CLICK_SECONDS`，从开始等起算、不受 `timeout` 约束，因为人点验证的时间不归一部片的预算管。`_unsolved` 保证同一站
+在页面正常打开之前只等一次，所以一个站最多让整趟多等一次 `CLICK_SECONDS`，不会每部片拖一遍。
 
 冷却记录带 `via`（`http` 或 `browser`），只认同一条路撞出来的账：直连 403 攒下的 `blocks` 与 `until` 在切到浏览器
 传输时作废，浏览器那条路的 `ChallengeUnsolved` 从 `FIRST_BLOCKED_PAUSE` 起数；反过来没有浏览器、退回 httpx 时，
@@ -105,7 +106,7 @@ FC2PPV-DB 的年龄确认页（`/age-verify`）。
   能出来。`cf_clearance` 半小时过期只表现为多一次自动过验证（几秒），不再整站冷却。
 - 处理任务跑着时屏幕外多一个浏览器进程（约 150 MB 内存），10 分钟不用自己退出。它有自己的 profile，
   不碰用户日常用的浏览器和它的登录态。
-- 验证真的要人点时，窗口出现在屏幕上；不点，两分钟后这一站冷却，链照常往下走，同一站之后不再弹。
+- 验证真的要人点时，窗口不自己上屏，用户从任务栏点开才出现在屏幕上（ADR-0171）；不点，两分钟后这一站冷却，链照常往下走，同一站之后不再等。
 - 读回的是浏览器解析后再序列化的 DOM，不是服务器发的原始字节：解析器拿到的 HTML 结构相同、字面略有出入
   （属性引号、自闭合标签、脚本已执行后的插入）。状态码来自 Navigation Timing，读不到时按 200。
 - 导航走的是浏览器的网络栈：代理按来源连接方式换成启动参数，`environment` 模式跟系统代理，

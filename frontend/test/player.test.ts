@@ -3,10 +3,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { mountPlayerMediaSession, mountPlayerQualityControl, mountPlayerSubtitles } from '../src/player/controls';
+import { FIRST_FRAME_MS } from '../src/player/decode-support';
 import { configurePlayer, type PlayerHost } from '../src/player/host';
 import { averageBitrate, bufferedAhead, fmtLoadRate, pushPlayerStat } from '../src/player/stats';
 import {
-  cancelDetailStream, detailStreamSource, detailStreamSession, directStreamSource, playableStreamSource,
+  cancelDetailStream, detailStreamSource, detailStreamSession, directStreamSource, playableStreamSource, streamFallbackChain,
 } from '../src/player/stream';
 import { mountPlayer } from '../src/player/detail-player';
 import { beginPlayerGuidePreview } from '../src/player/guide-preview';
@@ -14,6 +15,7 @@ import { wireTelemetry } from '../src/player/telemetry';
 import type { QualityLevel, QualityLevelList, VjsPlayer } from '../src/player/types';
 import * as videojsLoader from '../src/player/videojs';
 import { mountPlayerPipControl } from '../src/player/pip';
+import { createV10Player } from '../src/player/v10-player';
 
 type FetchCall = { url: string; init: RequestInit | undefined };
 
@@ -87,6 +89,95 @@ describe('片源判据', () => {
     expect(directStreamSource({ id: 4 }, 'x').type).toBe('video/mp4');
   });
 
+  it('兼容转码时先让浏览器试原画，失败再回退分片', async () => {
+    stubFetch(() => ({ protocol: 'hls', src: '/stream/hls/3/index.m3u8', mime_type: 'application/vnd.apple.mpegurl',
+      original_src: '/stream?id=3&session=s3', original_mime_type: 'video/mp4' }));
+
+    expect(await playableStreamSource({ id: 3 }, 's3')).toEqual({
+      src: '/stream?id=3&session=s3', type: 'video/mp4', trial: true,
+      fallback: { src: '/stream/hls/3/index.m3u8', type: 'application/vnd.apple.mpegurl' },
+    });
+  });
+
+  it('切不了分片时也先试原文件，放不了再要整片转换', async () => {
+    stubFetch(() => ({ protocol: 'range', src: '/stream?id=3&original=1&session=s3', mime_type: 'video/x-matroska',
+      fallback_src: '/stream?id=3&session=s3', fallback_mime_type: 'video/mp4' }));
+    const original = await playableStreamSource({ id: 3 }, 's3');
+    expect(original).toEqual({ src: '/stream?id=3&original=1&session=s3', type: 'video/x-matroska', trial: true,
+      fallback: { src: '/stream?id=3&session=s3', type: 'video/mp4' } });
+    expect((await streamFallbackChain(original)({ code: 4 }, original))?.src).toBe('/stream?id=3&session=s3');
+  });
+
+  it('MKV 保留原文件、无损封装和视频转码三条有序片源', async () => {
+    stubFetch(() => ({ protocol: 'hls', src: '/remux.m3u8', mime_type: 'application/vnd.apple.mpegurl',
+      original_src: '/original.mkv', original_mime_type: 'video/x-matroska', fallback_src: '/encode.m3u8' }));
+    const original = await playableStreamSource({ id: 3 }, 's3');
+    expect(original.type).toBe('video/x-matroska');
+    const next = streamFallbackChain(original);
+    expect(await next({ code: 2 }, original)).toBeNull();
+    const remux = (await next({ code: 4 }, original))!;
+    expect(remux.src).toBe('/remux.m3u8');
+    // 同一次失败从媒体元素和播放器各报一遍：已经退过的那条不再前进。
+    expect(await next({ code: 4 }, original)).toBeNull();
+    // 分片的网络错误多半是服务端切不出来，也退到视频重编码。
+    const encode = (await next({ code: 2 }, remux))!;
+    expect(encode.src).toBe('/encode.m3u8');
+    expect(await next({ code: 4 }, encode)).toBeNull();
+  });
+
+  it('回退链遇到重复地址时停止', async () => {
+    const original = { src: '/a', type: 'video/mp4', fallback: { src: '/a', type: 'video/mp4' } };
+    expect(await streamFallbackChain(original)({ code: 4 }, original)).toBeNull();
+  });
+
+  it('按能力直放的片子解不了：链走到头时换一份不报能力的计划，只换一次', async () => {
+    const direct = { src: '/stream?id=3&session=s&decode=hevc', type: 'video/mp4', decode: 'hevc' };
+    const retry = vi.fn(async () => ({ src: '/stream/hls/3/index.m3u8?session=s', type: 'application/vnd.apple.mpegurl' }));
+    const next = streamFallbackChain(direct, retry);
+    expect(await next({ code: 2 }, direct)).toBeNull();
+    const hls = (await next({ code: 3 }, direct))!;
+    expect(hls.src).toBe('/stream/hls/3/index.m3u8?session=s');
+    expect(await next({ code: 4 }, hls)).toBeNull();
+    expect(retry).toHaveBeenCalledOnce();
+  });
+
+  it('详情兼容回退保留播放位置，网络错误不切换片源', async () => {
+    configurePlayer(host());
+    class Media extends HTMLElement {
+      source: { src: string } | null = null;
+      error: unknown = null;
+      adapter = { destroy: () => {} };
+    }
+    if (!customElements.get('hlsjs-video')) customElements.define('hlsjs-video', Media);
+    vi.spyOn(videojsLoader, 'ensureVideojs').mockResolvedValue(createV10Player);
+    stubFetch((url) => url.startsWith('/api/stream-plan') ? {
+      protocol: 'hls', src: '/remux.m3u8', original_src: '/original.mkv',
+      original_mime_type: 'video/x-matroska', fallback_src: '/encode.m3u8',
+    } : {});
+    const video = document.createElement('video');
+    document.body.append(video);
+    const dispose = mountPlayer(video, { kind: 'item', item: { id: 3, duration: 100 },
+      autoplay: false });
+    await flush(); await flush();
+    const media = document.querySelector('hlsjs-video') as Media;
+    expect(media.source?.src).toContain('/original.mkv');
+    media.error = { code: 2 }; media.dispatchEvent(new Event('error'));
+    await flush();
+    expect(media.source?.src).toContain('/original.mkv');
+    for (const path of ['/remux.m3u8', '/encode.m3u8']) {
+      video.currentTime = 62;
+      media.error = { code: 4 }; media.dispatchEvent(new Event('error'));
+      await flush();
+      expect(media.source?.src).toContain(path);
+      video.currentTime = 0; video.dispatchEvent(new Event('loadedmetadata'));
+      expect(video.currentTime).toBe(62);
+    }
+    media.error = { code: 4 }; media.dispatchEvent(new Event('error'));
+    await flush();
+    expect(media.source?.src).toContain('/encode.m3u8');
+    dispose();
+  });
+
   it('详情这一路共用一个会话，取消时按会话通知服务端并清空', async () => {
     const calls = stubFetch(() => ({ cancelled: 1 }));
     await detailStreamSource({ id: 5 });
@@ -146,9 +237,9 @@ describe('观看上报', () => {
 describe('沉浸模式的每一格', () => {
   /** 一个记账的 Video.js：记下挂了什么片源、`error` 一次性监听由用例触发。 */
   function fakeVideojs() {
-    const made: { sources: unknown[]; disposed: boolean; error?: () => void }[] = [];
+    const made: { sources: unknown[]; disposed: boolean; plays: number; error?: () => void }[] = [];
     const factory = vi.fn((video: HTMLVideoElement) => {
-      const record: (typeof made)[number] = { sources: [], disposed: false };
+      const record: (typeof made)[number] = { sources: [], disposed: false, plays: 0 };
       made.push(record);
       const shell = document.createElement('div');
       const container = document.createElement('media-container'); container.append(video); shell.append(container);
@@ -157,13 +248,17 @@ describe('沉浸模式的每一格', () => {
       }) });
       const disposing: (() => void)[] = [];
       return {
-        on: (_event: string, handler: () => void) => { disposing.push(handler) },
+        on: (event: string, handler: () => void) => {
+          if (event === 'error') record.error = handler; else disposing.push(handler);
+        },
         addRemoteTextTrack: () => {},
         src: (source: unknown) => { record.sources.push(source) },
-        one: (_event: string, handler: () => void) => { record.error = handler },
+        one: () => {},
+        error: () => ({ code: 4 }),
         el: () => shell,
         isDisposed: () => record.disposed,
         pause: () => {},
+        play: () => { record.plays++; return Promise.resolve() },
         playbackRate: (next?: number) => next === undefined ? video.playbackRate : (video.playbackRate = next),
         dispose: () => { record.disposed = true; disposing.forEach(handler => handler()) },
       } as unknown as VjsPlayer;
@@ -181,15 +276,68 @@ describe('沉浸模式的每一格', () => {
     const dispose = mountPlayer(video, { kind: 'immerse', item: { id: 8 }, session: 'imm-1', onLoaded });
     await flush(); await flush();
     expect(factory).toHaveBeenCalledWith(video, expect.objectContaining({ controls: false, controlBar: false }));
-    expect(made[0]!.sources).toEqual([{ src: '/stream/hls/8/index.m3u8', type: 'application/vnd.apple.mpegurl' }]);
+    expect(made[0]!.sources).toEqual([expect.objectContaining({ src: '/stream/hls/8/index.m3u8', type: 'application/vnd.apple.mpegurl' })]);
     expect(onLoaded).toHaveBeenCalledOnce();
-    made[0]!.error!();
+    made[0]!.error!(); await flush();
     expect(made[0]!.sources.at(-1)).toEqual({ src: '/stream?id=8&session=imm-1', type: 'video/mp4' });
     dispose();
     dispose();
     expect(made[0]!.disposed).toBe(true);
     const cancels = calls.filter((call) => call.url.startsWith('/api/stream-cancel'));
     expect(cancels.map((call) => call.url)).toEqual(['/api/stream-cancel?session=imm-1']);
+  });
+
+  it('浏览器拒绝原画后，沉浸格改挂服务端给的分片回退', async () => {
+    stubFetch(() => ({ protocol: 'hls', src: '/stream/hls/8/index.m3u8', mime_type: 'application/vnd.apple.mpegurl',
+      original_src: '/stream?id=8&session=imm-3', original_mime_type: 'video/mp4' }));
+    const { made } = fakeVideojs();
+    const dispose = mountPlayer(document.createElement('video'), {
+      kind: 'immerse', item: { id: 8 }, session: 'imm-3',
+    });
+    await flush(); await flush();
+    expect(made[0]!.sources[0]).toEqual({ src: '/stream?id=8&session=imm-3', type: 'video/mp4', trial: true,
+      fallback: { src: '/stream/hls/8/index.m3u8', type: 'application/vnd.apple.mpegurl' } });
+    made[0]!.error!(); await flush();
+    expect(made[0]!.sources.at(-1)).toEqual({ src: '/stream/hls/8/index.m3u8', type: 'application/vnd.apple.mpegurl' });
+    dispose();
+  });
+
+  it('原文件试播时间在走却一帧没解出来，沉浸格也退到分片，并接着放', async () => {
+    stubFetch(() => ({ protocol: 'hls', src: '/remux.m3u8', original_src: '/original.mkv',
+      original_mime_type: 'video/x-matroska' }));
+    const { made } = fakeVideojs();
+    const video = document.createElement('video');
+    const dispose = mountPlayer(video, { kind: 'immerse', item: { id: 8 }, session: 'imm-black' });
+    await flush(); await flush();
+    vi.useFakeTimers();
+    try {
+      Object.defineProperty(video, 'paused', { configurable: true, get: () => false });
+      Object.defineProperty(video, 'getVideoPlaybackQuality', { configurable: true,
+        value: () => ({ totalVideoFrames: 0, droppedVideoFrames: 0 }) });
+      video.dispatchEvent(new Event('playing'));
+      video.currentTime = 3;
+      vi.advanceTimersByTime(FIRST_FRAME_MS);
+    } finally { vi.useRealTimers() }
+    await flush();
+    expect(made[0]!.sources.map((one) => (one as { src: string }).src)).toEqual(['/original.mkv', '/remux.m3u8']);
+    expect(made[0]!.plays).toBe(1);
+    dispose();
+  });
+
+  it('沉浸格按顺序尝试封装与编码回退，末端错误不再换源', async () => {
+    stubFetch(() => ({ protocol: 'hls', src: '/remux.m3u8', original_src: '/original.mkv',
+      original_mime_type: 'video/x-matroska', fallback_src: '/encode.m3u8' }));
+    const { made } = fakeVideojs();
+    const dispose = mountPlayer(document.createElement('video'), {
+      kind: 'immerse', item: { id: 8 }, session: 'imm-chain',
+    });
+    await flush(); await flush();
+    made[0]!.error!(); await flush();
+    made[0]!.error!(); await flush();
+    made[0]!.error!(); await flush();
+    expect(made[0]!.sources.map((one) => (one as { src: string }).src))
+      .toEqual(['/original.mkv', '/remux.m3u8', '/encode.m3u8']);
+    dispose();
   });
 
   it('片源还没解析出来就拆掉：不再挂播放器，也不回调', async () => {

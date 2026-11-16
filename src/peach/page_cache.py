@@ -16,7 +16,7 @@ from pathlib import Path
 import httpx
 
 from .http import HttpRequest, HttpxTransport
-from .scripting import RateLimiter
+from .scripting import RateLimiter, SharedSlot
 
 
 from .user_agent import USER_AGENT
@@ -33,12 +33,13 @@ class Site:
 
     缓存按 URL 的 sha1 落在 `cache_dir` 下。`cookies` 用来带过站点的年龄门——
     javbus 不给 `age=verified` 就只回一张 21 KB 的确认页，那不是内容页。
+    `shared` 给了就和别的进程（服务）共用这个来源的节拍，见 `scripting.SharedSlot`。
     """
 
     def __init__(self, cache_dir: Path, interval: float, timeout: float, *,
                  refresh: bool = False, via_proxy: bool | None = None, transport=None,
                  cookies: dict[str, str] | None = None, retries: int = 2,
-                 backoff: float = 2.0):
+                 backoff: float = 2.0, shared: SharedSlot | None = None):
         self.cache_dir, self.interval, self.timeout, self.refresh = cache_dir, interval, timeout, refresh
         from .peach_proxy import http_client
         options = {"trust_env": False} if via_proxy is False else {}
@@ -47,7 +48,7 @@ class Site:
                 **options, follow_redirects=True, cookies=cookies or {}),
             owns_client=True)
         self.retries, self.backoff = max(0, retries), backoff
-        self._limiter = RateLimiter(interval)
+        self._limiter = RateLimiter(interval, shared=shared)
         self.fetched = self.cached = self.retried = 0
 
     def request(self, method: str, url: str, body: bytes | None = None,

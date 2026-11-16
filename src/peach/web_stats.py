@@ -703,7 +703,11 @@ def q_quality_goals(contract: WebContract, args):
             "ORDER BY g.updated_at DESC,a.id DESC LIMIT ? OFFSET ?",
             (DEFAULT_PROFILE_ID, limit, offset),
         )]
+    from .media_identity import ownership
+    config = settings_file.active()
     for row in rows:
+        # 媒体库归属同作品列表（`web_catalog.attach_artwork_fields`）：按路径算，路径不下发。
+        row["library_id"] = ownership(config, row.get('path') or '').get("library_id", "")
         row["cost"] = cost_for(row['location'], row.pop('path', None))
         row["has_thumb"] = contract.has_snapshot(row["snapshot_path"])
         row["has_cover"] = contract.has_cover(row.get("code"))

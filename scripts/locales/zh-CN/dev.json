@@ -727,6 +727,11 @@
     "description": "按核查清单重探官方高清候选，逐番号保留备份和处理结果。",
     "liveHelp": "通过现有官方链在线补查，无需已有快照"
   },
+  "judge_cover_portraits": {
+    "description": "取 DMM 配套竖版图，给已装的封面补判是不是封套，独立海报装成竖版正封。",
+    "allHelp": "标准封套比例上已找到折痕的也一起补判",
+    "coversHelp": "改判这个目录里的封面（默认是数据根的 generated/covers），先在副本上试用"
+  },
   "sync_brand_marks": {
     "description": "把本机已取得的厂牌标识收进 `resources/marks/`，随仓库分发（ADR-0026）。"
   },
