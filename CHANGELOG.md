@@ -56,6 +56,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Fixed / 修复
 
+- **Settings**: Cloud download works with a CloudDrive2 token limited to a folder instead of saying the folder or offline capability is missing (#211). / **配置**：CloudDrive2 令牌限定了根目录时云下载照常可用，不再报找不到文件夹或云下载能力未取得（#211）。
 - **Sourcing**: Background jobs no longer use your JavDB account, so it isn't suspended for browsing too fast; a suspension shows its resume time (#702). / **采集**：后台任务读 JavDB 不再带登录账号，免得账号被判浏览过快停用；账号被停时提示停的是账号和恢复时间（#702）。
 - **Sourcing**: Refused sources show who and for how long instead of asking for a new cookie, and one paused source no longer stalls a browser batch (#702). / **采集**：来源被拒时点名并写明暂停多久，不再一律让人更新 Cookie；某个来源暂停时浏览器添加不再整批干等一天（#702）。
 - **Library**: DMM video previews in JAV details play again after DMM moved them to a new host (#697). / **馆藏**：DMM 换了预告视频的主机后，JAV 详情里的 DMM 视频预览重新能播（#697）。
