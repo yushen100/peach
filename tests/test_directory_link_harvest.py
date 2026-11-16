@@ -248,6 +248,17 @@ class SharedJudgementTests(unittest.TestCase):
         self.assertEqual(social_links.name_key("Yua　Mikami"), social_links.name_key("yua mikami"))
         self.assertEqual(social_links.name_key("三上 悠亜"), social_links.name_key("三上悠亜"))
 
+    def test_name_key_folds_japanese_glyph_variants_but_not_distinct_characters(self):
+        """#559：日文与中文资料的字形差异折成同一个键；本来就是两个字的不折。"""
+        key = social_links.name_key
+        self.assertEqual(key("有岡みう"), key("有冈みう"))
+        self.assertEqual(key("涼森れむ"), key("凉森 れむ"))
+        self.assertEqual(key("野々宮みさと"), key("野野宫みさと"))
+        self.assertNotEqual(key("斎藤まりな"), key("斉藤まりな"))
+        self.assertNotEqual(key("有岡みう"), key("有岡みゆ"))
+        # 假名与拉丁字母原样：平假名、片假名不互折。
+        self.assertNotEqual(key("みう"), key("ミウ"))
+
     def test_twimg_tiers_puts_the_upload_original_first(self):
         """unavatar 一律给 `_200x200`，而原图常常更大——`セレブの友` 实测 242×242。
 

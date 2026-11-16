@@ -529,6 +529,8 @@ class LibraryMetadataProvider:
 
     #: 匿名 JavDB 资料的快照目录；没有时只在进程内存里复用。
     public_cache = None
+    #: 设置「没有别的封面时用 JavDB 带水印的图」（#531，`javdbCoverFallback`），由 `_RemoteSession` 按账本设置给。
+    watermarked_covers = False
 
     #: 由本机浏览器过验证的来源累计等人点验证的秒数（`_excuse`）。调用方拿它前后相减，把这段时间
     #: 从单项动作预算里扣掉：一个站第一次弹验证窗口时，那一问要等 `min(40, timeout) + 120` 秒，
@@ -934,7 +936,8 @@ class LibraryMetadataProvider:
                 problems += self.community_problems(code)
                 *picked, verified_by = verified_cover(self.transport, code, answers,
                                                       reference=official, siblings=siblings if official else (),
-                                                      deadline=_extended(deadline, self.excused - mark))
+                                                      deadline=_extended(deadline, self.excused - mark),
+                                                      allow_watermarked=self.watermarked_covers)
                 chosen = tuple(picked)
             except NotFound:
                 pass
@@ -972,10 +975,12 @@ class LibraryMetadataProvider:
                 raise _unreached(problems)
             raise CoverKept('errors.libraryProcessing.coverNotImproved', {'width': size[0], 'height': size[1]})
         from .cover_artwork import install_cover
+        from .jav_cover_fetch import is_javdb_image
         title = artwork_title(snapshots)
         install_cover(target, code, data, size, evidence=dict(source=candidate.source, title=title,
             source_url=candidate.url, width=size[0], height=size[1], verified_by=list(verified_by),
-            raw_sha256=hashlib.sha256(data).hexdigest(), checked_at=time.time()))
+            raw_sha256=hashlib.sha256(data).hexdigest(), checked_at=time.time(),
+            **({'watermarked': True} if is_javdb_image(candidate.url, candidate.source) else {})))
         return True
 
     def reset(self):
@@ -1575,6 +1580,18 @@ def _scrapes_as_jav(row, code):
                           ('performer',) if row.get('performers') else (), row.get('region'))
 
 
+def _filename_code(row, patterns=()):
+    """从文件名认出的番号；目录身份说明它分不清时是 None（#572）。
+
+    归在创作者名下、没有厂牌、发行日或出演者、写法又不属于任何发行体系时，`sumwall95`、
+    `oscarkim123` 这类「昵称加数字」和真番号同形，机器分不出是哪一种。这时不写进 `code`，
+    留在未知：写进去它就当番号显示、按番号取封面键。判据与刮削入口同一份
+    （`catalog_rules.scrapes_as_jav`），有发行证据或带 NFO 的照旧认。
+    """
+    code = release_code_from_filename(row.get('name') or '', patterns=patterns)
+    return code if code and _scrapes_as_jav(row, code) else None
+
+
 def _studio_evidence(row):
     """判片商时本机手上有的证据：文件路径、文件名和账本里已记的厂牌。"""
     return (row.get('path'), row.get('name'), row.get('studio'))
@@ -1825,7 +1842,16 @@ class _RemoteSession:
                                   public_cache=self._config.directory('generated') / 'jav-public',
                                   wiki_root=self._config.directory('sources') / 'library-metadata' / 'seesaa-pages',
                                   budget=self.budget))
+            if isinstance(self._provider, LibraryMetadataProvider):
+                self._provider.watermarked_covers = self._watermarked_covers()
         return self._provider
+
+    def _watermarked_covers(self):
+        """账本设置 `javdbCoverFallback`：没有别的封面时用不用 JavDB 带水印的图，没设过按关。"""
+        if self.database is None:
+            return False
+        with self.database.read_connection() as connection:
+            return read_settings(connection).get('javdbCoverFallback') is True
 
     def reset(self):
         if self._provider is not None and hasattr(self._provider, 'reset'):
@@ -3014,13 +3040,20 @@ def _checkpoint_key(row):
 
 
 def _newly_coded_assets(database, db_path) -> set[str]:
-    """账本里没番号、按现行内置规则能从文件名认出番号的影片 id；处理时会补上番号再采资料。"""
+    """按现行内置规则才有了番号的影片 id，处理时补上番号再采资料。
+
+    两类：账本里没番号、现在能从文件名认出的；番号带登记尾字母的（`IBW-483Z`）。后者是升级补修
+    刚从旧版截掉尾字母的写法改回来的（`upgrade_repairs.truncated_suffix_codes`），按旧写法采集时
+    来源返回都被身份闸拒掉，得按现番号再采一次。
+    """
+    from .catalog_rules import without_label_suffix
     from .repository import LedgerDatabase
     ledger = database if database is not None else LedgerDatabase(db_path)
     with ledger.read_connection() as connection:
         rows = connection.execute(
-            "SELECT id,name FROM asset WHERE medium='video' AND COALESCE(code,'')=''").fetchall()
-    return {str(row[0]) for row in rows if release_code_from_filename(row[1] or '')}
+            "SELECT id,name,code FROM asset WHERE medium='video'").fetchall()
+    return {str(row[0]) for row in rows
+            if (release_code_from_filename(row[1] or '') if not row[2] else without_label_suffix(row[2]))}
 
 
 class _LibraryCheckpoints:
@@ -3148,7 +3181,7 @@ def _read_local_metadata(config, db_path, row, cover_root, listing, state, updat
     if video.name.casefold() not in files:
         issue(row, phrase('errors.libraryProcessing.mediaInaccessible'), action='reading_local', retryable=True)
         return None
-    code = _provider_code(row['code']) or release_code_from_filename(row['name'], patterns=code_patterns)
+    code = _provider_code(row['code']) or _filename_code(row, code_patterns)
     payload = None
     entries = []
     nfo, posters = listing.sidecars(video)

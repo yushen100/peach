@@ -758,6 +758,33 @@ def stale_filename_codes(connection) -> list[dict]:
     return rows
 
 
+#: 旧版截掉登记尾字母的番号改回一次（`truncated_suffix_codes`，#124）；改过的行与原值记进同一条回执。
+SUFFIX_CODES_KEY = 'label-suffix-codes-1'
+
+
+def truncated_suffix_codes(connection) -> list[dict]:
+    """旧版截掉登记尾字母记下的番号：`IBW-483z.mp4` 记成 `IBW-483`。
+
+    按截掉的写法问来源，回来的 `IBW-483z` 被身份闸拒掉，这些片一直没有资料，也就没有要撤的旧证据。
+    只看扫描写入的番号，且现行规则从同一文件名认出的番号去掉登记尾字母后正好等于旧值；
+    用户填的、刮削改过的、文件名对不上的一律不碰。
+    """
+    from .catalog_rules import compile_code_patterns, normalise_code_key, release_code_from_filename, without_label_suffix
+    from .profiles import read_settings
+    patterns = compile_code_patterns(read_settings(connection).get('codePatterns'))
+    rows = []
+    for row in connection.execute(
+            "SELECT id,name,code,field_owners FROM asset WHERE medium='video' AND code IS NOT NULL AND code<>'' "
+            'ORDER BY id'):
+        if owner_of(row['field_owners'], 'code') != SCAN_FILENAME:
+            continue
+        expected = release_code_from_filename(row['name'] or '', patterns=patterns) or ''
+        base = without_label_suffix(expected)
+        if base and base == normalise_code_key(row['code']):
+            rows.append({'id': row['id'], 'current': row['code'], 'target': expected})
+    return rows
+
+
 #: 撤过旧番号证据的影片按现番号重采时，补全任务键上的规则段。上一轮改回番号时已按
 #: `processing-v2` 派过同一部片，键相同就会被当成派过而跳掉。
 CODE_EVIDENCE_RULE = 'code-evidence-1'
@@ -1098,6 +1125,7 @@ class UpgradeRepairs:
                     (CATALOG_REVISION, CATALOG_REVISION + ':text-*')).fetchone()
             if applied is not None:
                 self._restore_receipt(json.loads(applied[0]))
+                self._restore_suffix_codes()
                 self._withdraw_stale_code_evidence()
                 self._settle_dangling_candidates()
                 self._settle_javdb_records()
@@ -1152,6 +1180,7 @@ class UpgradeRepairs:
                 connection.execute('INSERT INTO ledger_upgrade_repair(id,applied_at,result_json) VALUES(?,?,?)',
                                    (REVISION, str(time.time()), json.dumps(receipt, ensure_ascii=False)))
             atomic_write_text(self.receipt, json.dumps(receipt, ensure_ascii=False))
+            self._restore_suffix_codes()
             self._withdraw_stale_code_evidence()
             self._settle_dangling_candidates()
             self._settle_javdb_records()
@@ -1580,6 +1609,26 @@ class UpgradeRepairs:
             connection.execute('INSERT INTO ledger_upgrade_repair(id,applied_at,result_json) VALUES(?,?,?)',
                                (STALE_CODES_KEY, str(time.time()), json.dumps({'cleared': rows})))
         LOGGER.info('Codes misread by older versions: cleared %s', len(rows))
+
+    def _restore_suffix_codes(self) -> None:
+        """旧版截掉登记尾字母的番号改回现行写法（`truncated_suffix_codes`），只做一次。
+
+        在 `prepare` 里、处理任务恢复之前做：处理检查点按改回后的番号决定哪几部重新采集。
+        出错只记日志，下次启动再试。
+        """
+        try:
+            with self.contract.database.write_transaction() as connection:
+                if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?', (SUFFIX_CODES_KEY,)).fetchone():
+                    return
+                rows = truncated_suffix_codes(connection)
+                for row in rows:
+                    write_owned_fields(connection, [row['id']], {'code': row['target']}, SCAN_FILENAME)
+                connection.execute('INSERT INTO ledger_upgrade_repair(id,applied_at,result_json) VALUES(?,?,?)',
+                                   (SUFFIX_CODES_KEY, str(time.time()), json.dumps({'codes': rows}, ensure_ascii=False)))
+        except Exception:
+            LOGGER.exception('Label suffix code repair failed')
+            return
+        LOGGER.info('Codes missing their label suffix: restored %s', len(rows))
 
     def _release_studio_misses(self) -> None:
         """旧版断网时记下的「官网未取得」各放一次重试（`studio_followup.release_unbounded_misses`）。

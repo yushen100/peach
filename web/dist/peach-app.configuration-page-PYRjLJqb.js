@@ -1,7 +1,11 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-PYRjLJqb.js
 		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "60c1ec32-c36a-4565-b774-6a85cdd20d51", e._sentryDebugIdIdentifier = "sentry-dbid-60c1ec32-c36a-4565-b774-6a85cdd20d51");
+========
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "1bbd108f-786d-404a-9f6a-f25225138a35", e._sentryDebugIdIdentifier = "sentry-dbid-1bbd108f-786d-404a-9f6a-f25225138a35");
+>>>>>>>> d9556cbc3a3298ef07d0ec8eee089cd110796122:web/dist/peach-app.configuration-page-BNWAG_Df.js
 	} catch {}
 })();
 import { $2ec61d1d4f780267$export$a8a3e93435678ff9 as e, $3a442827418ebe87$export$eb2fcfdbd7ba97d4 as t, $542a13ca2fa5b484$export$5b6b19405a83ff9d as n, $72abaeab4d80592f$export$78efe591171d7d45 as r, $bd263d78e9bf3c56$export$f5c9f3c2c4054eec as i, $ea3928288112382f$export$439d29a4e110a164 as a, $f2ff30fde7b014be$export$3ddf2d174ce01153 as o, $fe21c36db05242bb$export$a98f0dcb43a68a25 as s, $fe21c36db05242bb$export$d7b12c4107be0d61 as c, ACCENTS as l, ActivityStatus as u, ApiError as d, Button as f, ButtonLink as p, CLOUD_LOCATIONS as m, CLOUD_PROXY_HELP as h, CONFIGURATION_KEY as g, CONFIGURATION_SECTIONS as _, CONFIGURATION_URL as v, CREDENTIAL_STATE as y, Checkbox as b, Chip as x, CommandSteps as S, Disclosure as C, ENTRY_LINKS_HELP as ee, ENTRY_LINKS_HINT as te, EmptyState as w, ErrorText as T, Eu as E, ExternalLink as D, FOLLOW_CREDENTIALS_KEY as O, FOLLOW_INITIAL_RANGE_OPTIONS as ne, Fact as k, FactList as re, FieldLabel as ie, Footer as A, Help as j, HintText as ae, Input as M, L1 as oe, LIBRARY_FOLDER_HELP as se, LIBRARY_PROCESSING_KEY as ce, Label as le, LinkButton as ue, M6 as de, MEDIA_PROCESSING_KEY as fe, MEDIA_PROCESSING_URL as pe, MEDIA_SOURCE_ICONS as me, MENU_POPOVER_SURFACE as he, Note as N, PICK_FOLDER_URL as ge, POLICY_COLUMNS as _e, POLICY_COVER_NOTE as ve, POLICY_MATRIX as ye, POLICY_SUMMARY as be, PathLine as xe, ProcessingMode as Se, Progress as Ce, RELEASE_NOTICE_EVENT as we, REPAIR_CENTER_PATH as Te, Rows as P, SCHEDULES as Ee, SCRAPING_KEY as De, SCRAPING_SETTINGS_URL as Oe, SEGMENT as ke, SEGMENTED_TRACK as Ae, SETTINGS_KEY as je, SETTINGS_URL as Me, Section as F, SectionSkeleton as Ne, SegmentedRadioGroup as Pe, Select as Fe, Select$1 as I, SelectItem as L, SettingsCard as Ie, SettingsRow as R, SiteLabel as Le, SortableBoardTabs as Re, SourceLabel as ze, SourceMark as Be, Stack as z, StatusLabel as B, Switch as V, THUMBNAIL_JOBS_KEY as Ve, TaskCenterLink as He, TaskProgress as Ue, TextField as We, TextFieldContext as Ge, Uz as Ke, __toESM as qe, _p as Je, activityKind as Ye, animate as Xe, apiGet as H, apiSend as U, appSettingsStore as Ze, bodyFieldErrors as Qe, boundedPreference as $e, busyProps as W, cardClass as et, checkClientUpdates as tt, cloudProxySkeleton as nt, clsx as rt, cn as it, codedText as G, confirmModal as at, credentialDone as ot, credentialsSkeleton as st, cx as ct, d6 as lt, devicesSkeleton as ut, errorMessage as K, fetchConfiguration as dt, fetchCredentials as ft, fetchLibraryProcessing as pt, fetchMediaProcessing as mt, fetchSettings as ht, fetchSources as gt, fetchThumbnailJobs as _t, fmtSize as vt, i2 as yt, indexersSkeleton as bt, interfaceLanguage as xt, javBrowserSkeleton as St, jobText as Ct, joinList as wt, l1 as Tt, ledgerBackupsSkeleton as Et, localizedFact as Dt, momentText as Ot, motion as kt, overlayHost as At, peachHistory$1 as jt, pickServerFolder as Mt, pollUntil as Nt, previewLibraryColor as Pt, processingActive as Ft, providerIcon as It, queryClient as q, randomId as Lt, rememberShape as Rt, require_jsx_runtime as zt, require_react as Bt, restartEffectText as Vt, saveCredential as Ht, schedulePollInterval as Ut, sectionTitle as Wt, serverLabel as Gt, serverLabelList as Kt, serverText as qt, settingsPath as Jt, shellNavigate as Yt, sortCx as Xt, sourceDefaultCost as Zt, stageText as Qt, t as J, translateWithNodes as $t, useAction as Y, useClientUpdates as en, useLibraryTints as tn, useMutation as nn, useOrderedLibraries as rn, useQuery as X, useQueryClient as an, useReducedMotion as on, useRunSchedule as sn, useSaveSchedule as cn, useSaveSettings as ln, useSaveThumbnailMode as un, we as dn, z3 as fn } from "./peach-app.js";
@@ -6448,8 +6452,36 @@ function Gc({ receipt: e }) {
 		}) : null]
 	});
 }
+// src/react/settings/cover-fallback-settings.tsx
+function zc({ receipt: e }) {
+	let t = X({
+		queryKey: Ae,
+		queryFn: ({ signal: e }) => mt(e),
+		refetchOnMount: "always"
+	}), n = on("cover-fallback"), r = n.error || t.error;
+	return /* @__PURE__ */ (0, Q.jsxs)(P, {
+		title: J("settings:coverFallback.title"),
+		children: [/* @__PURE__ */ (0, Q.jsx)(N, { children: /* @__PURE__ */ (0, Q.jsx)(L, {
+			label: J("settings:coverFallback.javdb"),
+			description: J("settings:coverFallback.javdbHelp"),
+			children: /* @__PURE__ */ (0, Q.jsx)(B, {
+				"aria-label": J("settings:coverFallback.javdb"),
+				isSelected: t.data?.javdbCoverFallback === !0,
+				isDisabled: !t.data || n.isPending,
+				onChange: (t) => n.mutate({ javdbCoverFallback: t }, { onSuccess: () => e(J("settings:shared.settingsSaved")) })
+			})
+		}) }), r ? /* @__PURE__ */ (0, Q.jsx)(R, {
+			divided: !0,
+			children: /* @__PURE__ */ (0, Q.jsx)(T, { children: G(r) })
+		}) : null]
+	});
+}
 // src/react/settings/source-settings.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-PYRjLJqb.js
 function Kc({ data: e, receipt: t, panel: n, issues: r }) {
+========
+function Bc({ data: e, receipt: t, panel: n, issues: r }) {
+>>>>>>>> d9556cbc3a3298ef07d0ec8eee089cd110796122:web/dist/peach-app.configuration-page-BNWAG_Df.js
 	let i = X({
 		queryKey: O,
 		queryFn: ({ signal: e }) => ft(e),
@@ -6481,11 +6513,19 @@ function Kc({ data: e, receipt: t, panel: n, issues: r }) {
 				label: J("settings:sourceSettings.loadingCredentials"),
 				html: st
 			}),
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-PYRjLJqb.js
 			/* @__PURE__ */ (0, Q.jsx)(ks, { receipt: t }),
 			/* @__PURE__ */ (0, Q.jsx)(Bc, { receipt: t }),
 			/* @__PURE__ */ (0, Q.jsx)(Gc, { receipt: t }),
 			/* @__PURE__ */ (0, Q.jsx)(Pc, { receipt: t }),
 			e.entry_links ? /* @__PURE__ */ (0, Q.jsx)(Mc, {
+========
+			/* @__PURE__ */ (0, Q.jsx)(Ts, { receipt: t }),
+			/* @__PURE__ */ (0, Q.jsx)(Rc, { receipt: t }),
+			/* @__PURE__ */ (0, Q.jsx)(zc, { receipt: t }),
+			/* @__PURE__ */ (0, Q.jsx)(Ac, { receipt: t }),
+			e.entry_links ? /* @__PURE__ */ (0, Q.jsx)(Oc, {
+>>>>>>>> d9556cbc3a3298ef07d0ec8eee089cd110796122:web/dist/peach-app.configuration-page-BNWAG_Df.js
 				initial: e.entry_links,
 				receipt: t
 			}) : null
@@ -6493,7 +6533,11 @@ function Kc({ data: e, receipt: t, panel: n, issues: r }) {
 	});
 }
 // src/react/settings/configuration-shape.ts
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-PYRjLJqb.js
 function qc(e) {
+========
+function Vc(e) {
+>>>>>>>> d9556cbc3a3298ef07d0ec8eee089cd110796122:web/dist/peach-app.configuration-page-BNWAG_Df.js
 	let t = e.downloads;
 	if (!t) return null;
 	let n = t.media_sources ?? [];
@@ -6506,7 +6550,11 @@ function qc(e) {
 		browserLogin: t.pikpak_browser.available
 	};
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-PYRjLJqb.js
 function Jc(e) {
+========
+function Hc(e) {
+>>>>>>>> d9556cbc3a3298ef07d0ec8eee089cd110796122:web/dist/peach-app.configuration-page-BNWAG_Df.js
 	let t = e.tunnel;
 	return {
 		port: !!(e.editable && e.port_editable !== !1),
@@ -6520,7 +6568,11 @@ function Jc(e) {
 		tunnelNote: !!(t && (!t.available || t.state === "starting" || t.state === "running" && t.url))
 	};
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-PYRjLJqb.js
 function Yc(e) {
+========
+function Uc(e) {
+>>>>>>>> d9556cbc3a3298ef07d0ec8eee089cd110796122:web/dist/peach-app.configuration-page-BNWAG_Df.js
 	let t = e.updates, n = e.update_job?.state ?? "idle", r = !t || t.state === "unchecked" && !t.checked_at && n === "idle", i = +!!t?.package_kind + (r ? 0 : +!!t?.checked_at + (t?.state === "unchecked" ? 0 : 1) + (n === "idle" ? 0 : 1)), a = e.automatic_updates, o = e.storage;
 	return {
 		releaseFacts: t?.package_kind ? 5 : 4,
@@ -6541,12 +6593,20 @@ function Yc(e) {
 	};
 }
 // src/react/settings/configuration-page.tsx
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-PYRjLJqb.js
 function Xc({ receipt: e, reopenTutorial: t, section: n = "", diagnostics: r }) {
+========
+function Wc({ receipt: e, reopenTutorial: t, section: n = "", diagnostics: r }) {
+>>>>>>>> d9556cbc3a3298ef07d0ec8eee089cd110796122:web/dist/peach-app.configuration-page-BNWAG_Df.js
 	let i = X({
 		queryKey: g,
 		queryFn: ({ signal: e }) => dt(e)
 	}), a = i.data;
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-PYRjLJqb.js
 	return a ? /* @__PURE__ */ (0, Q.jsx)($c, {
+========
+	return a ? /* @__PURE__ */ (0, Q.jsx)(qc, {
+>>>>>>>> d9556cbc3a3298ef07d0ec8eee089cd110796122:web/dist/peach-app.configuration-page-BNWAG_Df.js
 		data: a,
 		receipt: e,
 		reopenTutorial: t,
@@ -6565,7 +6625,11 @@ function Xc({ receipt: e, reopenTutorial: t, section: n = "", diagnostics: r }) 
 		})
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-PYRjLJqb.js
 function Zc({ data: e, sections: t, reload: n, refreshing: r }) {
+========
+function Gc({ data: e, sections: t, reload: n, refreshing: r }) {
+>>>>>>>> d9556cbc3a3298ef07d0ec8eee089cd110796122:web/dist/peach-app.configuration-page-BNWAG_Df.js
 	return /* @__PURE__ */ (0, Q.jsx)(Q.Fragment, { children: t.map((t) => {
 		let i = e.section_errors?.[t];
 		return i ? /* @__PURE__ */ (0, Q.jsx)(N, {
@@ -6582,6 +6646,7 @@ function Zc({ data: e, sections: t, reload: n, refreshing: r }) {
 		}, t) : null;
 	}) });
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-PYRjLJqb.js
 var Qc = 0;
 function $c({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i, reload: a, refreshing: o }) {
 	let [s] = (0, Z.useState)(() => `board-tabs-${++Qc}`), [c, l] = (0, Z.useState)(r), u = (0, Z.useRef)(null), d = (0, Z.useRef)(c);
@@ -6590,6 +6655,16 @@ function $c({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 	}, [r]), (0, Z.useEffect)(() => {
 		let t = qc(e);
 		t && Rt("downloads", t), Rt("network", Jc(e)), Rt("maintenance", Yc(e));
+========
+var Kc = 0;
+function qc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i, reload: a, refreshing: o }) {
+	let [s] = (0, Z.useState)(() => `board-tabs-${++Kc}`), [c, l] = (0, Z.useState)(r), u = (0, Z.useRef)(null), d = (0, Z.useRef)(c);
+	(0, Z.useEffect)(() => {
+		l(r);
+	}, [r]), (0, Z.useEffect)(() => {
+		let t = Vc(e);
+		t && It("downloads", t), It("network", Hc(e)), It("maintenance", Uc(e));
+>>>>>>>> d9556cbc3a3298ef07d0ec8eee089cd110796122:web/dist/peach-app.configuration-page-BNWAG_Df.js
 	}, [e]), (0, Z.useLayoutEffect)(() => {
 		if (d.current === c) return;
 		d.current = c;
@@ -6613,7 +6688,11 @@ function $c({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 	let h = {
 		data: e,
 		receipt: t
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-PYRjLJqb.js
 	}, g = (t) => /* @__PURE__ */ (0, Q.jsx)(Zc, {
+========
+	}, g = (t) => /* @__PURE__ */ (0, Q.jsx)(Gc, {
+>>>>>>>> d9556cbc3a3298ef07d0ec8eee089cd110796122:web/dist/peach-app.configuration-page-BNWAG_Df.js
 		data: e,
 		sections: t,
 		reload: a,
@@ -6646,7 +6725,11 @@ function $c({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 		{
 			id: "sources",
 			title: _.subscriptions,
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-PYRjLJqb.js
 			body: (e) => /* @__PURE__ */ (0, Q.jsx)(Kc, {
+========
+			body: (e) => /* @__PURE__ */ (0, Q.jsx)(Bc, {
+>>>>>>>> d9556cbc3a3298ef07d0ec8eee089cd110796122:web/dist/peach-app.configuration-page-BNWAG_Df.js
 				...h,
 				panel: e,
 				issues: g(["entry_links"])
@@ -6737,6 +6820,12 @@ function $c({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 		})] }, t))]
 	});
 }
+<<<<<<<< HEAD:web/dist/peach-app.configuration-page-PYRjLJqb.js
 export { Xc as ConfigurationPage };
 
 //# debugId=60c1ec32-c36a-4565-b774-6a85cdd20d51
+========
+export { Wc as ConfigurationPage };
+
+//# debugId=1bbd108f-786d-404a-9f6a-f25225138a35
+>>>>>>>> d9556cbc3a3298ef07d0ec8eee089cd110796122:web/dist/peach-app.configuration-page-BNWAG_Df.js

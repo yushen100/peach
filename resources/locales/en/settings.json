@@ -1359,5 +1359,10 @@
     "modeHelp": "With a window it stays off screen and never takes focus, so you can open it from the taskbar to pass a check; without one, a failed check pauses that source.",
     "title": "Collection browser",
     "window": "Keep a window"
+  },
+  "coverFallback": {
+    "title": "Covers",
+    "javdb": "Use watermarked JavDB images when there is no other cover",
+    "javdbHelp": "Off by default. Official and local covers always come first; an unwatermarked cover found later replaces it"
   }
 }

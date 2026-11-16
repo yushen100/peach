@@ -67,6 +67,8 @@ export interface SyncedSettings {
   sourceBudgetRequests?: number;
   sourceBudgetHours?: number;
   sourceBudgetGigabytes?: number;
+  /** 没有别的封面时用 JavDB 带水印的图（#531），默认关。 */
+  javdbCoverFallback?: boolean;
 }
 
 export interface FollowScheduleStatus {

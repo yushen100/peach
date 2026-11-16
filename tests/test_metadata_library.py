@@ -219,13 +219,31 @@ class LibraryNfoTests(unittest.TestCase):
         self.assertEqual(set(current['completed_previews']), set(keys))
         self.assertEqual(set(current['completed_metadata']), set(keys[1:]))
 
+    def test_creator_nicknames_with_numbers_stay_unknown_until_there_is_release_evidence(self):
+        """#572：创作者目录里「昵称加数字」和番号同形，分不清就不写成番号。"""
+        from peach.catalog_rules import release_code_from_filename
+        ambiguous = (dict(name='sumwall95 masturbation_1.mp4', creator='sunwall'),
+                     dict(name='oscarkim123 cos.mp4', creator='oscarkim123'),
+                     dict(name='aerith 2412a.mp4', creator='cosplayer'))
+        for row in ambiguous:
+            self.assertTrue(release_code_from_filename(row['name']), row['name'])
+            self.assertIsNone(library_processing._filename_code(row), row['name'])
+        # 没有创作者、有厂牌或出演者、写法本身属于发行体系的，照旧认出番号。
+        for row, code in ((dict(name='ABP-123.mp4'), 'ABP-123'),
+                          (dict(name='ABP-123.mp4', creator='uploader', studio='Prestige'), 'ABP-123'),
+                          (dict(name='ABP-123.mp4', creator='uploader', performers='someone'), 'ABP-123'),
+                          (dict(name='FC2-PPV-1234567.mp4', creator='uploader'), 'FC2-PPV-1234567'),
+                          (dict(name='300MIUM-698.mp4', creator='uploader'), '300MIUM-698')):
+            self.assertEqual(library_processing._filename_code(row), code, row)
+
     def test_old_completed_receipts_retry_codeless_videos_the_current_rules_now_recognise(self):
         from peach.library_processing import _LibraryCheckpoints
         database = LedgerDatabase(fresh_ledger(self.root))
-        names = ('T28-612 片名.mp4', '旅行记录.mp4', 'ABW-123.mp4')
+        names = ('T28-612 片名.mp4', '旅行记录.mp4', 'ABW-123.mp4', 'IBW-483z.mp4')
         rows = [{'id': index, 'path': f'R:\\{name}'} for index, name in enumerate(names, 1)]
         with database.write_transaction() as connection:
-            for row, name, code in zip(rows, names, (None, None, 'ABW-123')):
+            # 4 是升级补修刚补回尾字母的番号（`truncated_suffix_codes`），要按新番号再采一次。
+            for row, name, code in zip(rows, names, (None, None, 'ABW-123', 'IBW-483Z')):
                 connection.execute(
                     "INSERT INTO asset(id,location,path,name,medium,code) VALUES(?,?,?,?,'video',?)",
                     (row['id'], 'local', row['path'], name, code))
@@ -234,8 +252,8 @@ class LibraryNfoTests(unittest.TestCase):
                         completed_metadata=keys, completed_previews=keys)
         current = {}
         checkpoints = _LibraryCheckpoints(current, previous, database, database.db_path)
-        self.assertEqual([row['id'] for _, row in checkpoints.remaining_metadata(rows)], [1])
-        self.assertEqual(set(current['completed_metadata']), set(keys[1:]))
+        self.assertEqual([row['id'] for _, row in checkpoints.remaining_metadata(rows)], [1, 4])
+        self.assertEqual(set(current['completed_metadata']), set(keys[1:3]))
         self.assertEqual(current['filename_code_rule'], upgrade_rules.FILENAME_CODES)
         # 同一判据版本只撤一次：重新处理完成后不再反复重跑。
         again = _LibraryCheckpoints({}, {**current, 'completed_metadata': keys}, database, database.db_path)
@@ -814,6 +832,68 @@ class LibraryNfoTests(unittest.TestCase):
         self.assertEqual({name: code for name, code, _ in rows}, codes)
         self.assertEqual({code: title for _, code, title in rows},
                          {code: f'测试作品 {code}' for code in codes.values()})
+
+    @windows_ledger_roots
+    def test_recollecting_one_video_replaces_garbled_scraped_text_but_keeps_edited_fields(self):
+        """#208：详情页点名重采这一部，不复用快照，已有字段也按来源再核；你改过的字段不动。"""
+        media = self.root / 'media'
+        media.mkdir()
+        (media / 'DASD-813.mp4').write_bytes(b'video')
+        db = fresh_ledger(self.root)
+        config = PeachConfig(self.root, self.root / 'config.toml', present=True,
+                             locations={'local': (str(media),)})
+        process_library(config, db, self.root / 'generated', self.root / 'covers', stage='scan')
+        with closing(sqlite3.connect(db)) as connection, connection:
+            connection.execute("UPDATE asset SET catalog_title=?,series=?,field_owners=? WHERE name='DASD-813.mp4'",
+                               ('\ufffd\u01e5\ufffd', '\ufffd系列', json.dumps({
+                                   'code': 'scan:filename', 'catalog_title': 'auto:r18dev', 'series': 'user:manual'})))
+            asset_id = connection.execute("SELECT id FROM asset WHERE name='DASD-813.mp4'").fetchone()[0]
+        provider = stub_provider()
+        provider.query.side_effect = lambda code, *args, **kwargs: {
+            'id': code, 'title': '正しい題名', 'series': '来源系列', 'maker': '测试厂牌',
+            'release_date': '2021-02-13'}
+
+        def run(**options):
+            with patch('peach.library_processing._asks_cover', return_value=False),                     patch('peach.library_processing._enrich_finished_performers',
+                          return_value={'aliases': 0, 'avatars': 0, 'conflicts': 0, 'failed': 0}):
+                return process_library(config, db, self.root / 'generated', self.root / 'covers',
+                    stage='metadata', provider_factory=lambda: provider, database=LedgerDatabase(db),
+                    asset_ids=[asset_id], route_overrides='censored=r18dev', **options)
+
+        run()
+        with closing(sqlite3.connect(db)) as connection:
+            self.assertEqual(connection.execute('SELECT catalog_title FROM asset WHERE id=?', (asset_id,)).fetchone()[0],
+                             '\ufffd\u01e5\ufffd')
+        self.assertEqual(run(recheck_existing=True)['status'], 'complete')
+        with closing(sqlite3.connect(db)) as connection:
+            title, series = connection.execute('SELECT catalog_title,series FROM asset WHERE id=?',
+                                               (asset_id,)).fetchone()
+        self.assertEqual(title, '正しい題名')
+        self.assertEqual(series, '\ufffd系列')
+
+    def test_the_watermarked_cover_fallback_follows_the_ledger_setting(self):
+        """#531：采集封面时按账本设置决定能不能退到 JavDB 水印图，没设过按关。"""
+        from peach.library_processing import _RemoteSession
+        database = LedgerDatabase(fresh_ledger(self.root))
+        session = _RemoteSession(None, None, None, retrying=False, database=database)
+        self.assertFalse(session._watermarked_covers())
+        with database.write_transaction() as connection:
+            connection.execute("UPDATE profile SET settings_json=? WHERE id='local-default'",
+                               (json.dumps({'javdbCoverFallback': True}),))
+        self.assertTrue(session._watermarked_covers())
+        self.assertFalse(_RemoteSession(None, None, None, retrying=False)._watermarked_covers())
+
+    def test_recollect_is_only_for_a_few_named_videos_and_the_metadata_stage(self):
+        from peach.web_library_processing import RECHECK_LIMIT, _recheck_grant
+        self.assertTrue(_recheck_grant({'recheck': True}, 'metadata', [7]))
+        self.assertFalse(_recheck_grant({}, 'all', None))
+        for body, stage, ids in (({'recheck': True}, 'metadata', None),
+                                 ({'recheck': True}, 'previews', [7]),
+                                 ({'recheck': True}, 'all', [7]),
+                                 ({'recheck': True}, 'metadata', list(range(RECHECK_LIMIT + 1))),
+                                 ({'recheck': 'yes'}, 'metadata', [7])):
+            with self.subTest(stage=stage, ids=ids), self.assertRaises(ValueError):
+                _recheck_grant(body, stage, ids)
 
     def test_javboss_fields_and_original_tags(self):
         path = self.root / 'sample.nfo'

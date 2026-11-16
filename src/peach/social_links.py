@@ -17,6 +17,7 @@ from urllib.parse import urlsplit, urlunsplit
 from .catalog_rules import is_jav_code
 from .content_words import LINK_LABEL_BLOG, LINK_LABEL_OFFICIAL, X_GONE_MARKERS
 from .entities import name_chain
+from .kanji import fold_glyphs
 
 #: Facebook 和 Linktree 也在这里：它们此前不在表里，于是走了 official 分支，被贴上
 #: 事务所名——古川伊织的个人 Facebook 页在资料页上写着「T-POWERS」。本人账号就该按
@@ -241,14 +242,16 @@ def host_owners(connection: sqlite3.Connection) -> dict[str, str]:
 
 
 def name_key(name: str) -> str:
-    """名字比对用的键：全角半角归一、去空白、不分大小写。
+    """名字比对用的键：全角半角归一、去空白、不分大小写，日本字形折成同一个字（#559）。
 
     目录站写 `三上悠亜`，账本别名也是 `三上悠亜`，但中间可能多一个全角空格或半角空格；
-    罗马字则常见 `Yua Mikami` 与 `YUA MIKAMI` 两种写法。键只用来找候选，最终装入的
-    名字仍是账本里的那一个。
+    罗马字则常见 `Yua Mikami` 与 `YUA MIKAMI` 两种写法。中文站与日文站对同一个人还会
+    写成 `有冈みう` 和 `有岡みう`：字形按 `kanji.fold_glyphs` 逐字折，与外部链接名录
+    （`entry_links`）同一张表，假名与拉丁字母原样留下。`斎藤` 和 `斉藤` 是两个字，
+    不折到一起。键只用来找候选，最终装入的名字仍是账本里的那一个，不合并人物。
     """
     folded = unicodedata.normalize("NFKC", str(name or "")).casefold()
-    return re.sub(r"\s+", "", folded)
+    return fold_glyphs(re.sub(r"\s+", "", folded))
 
 
 def meta_content(body: str, prop: str) -> str:

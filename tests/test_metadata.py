@@ -55,6 +55,14 @@ class MetadataProviderTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_provider_code("T29-612")
 
+    def test_the_gate_passes_kirari_and_registered_suffix_codes(self):
+        for code in ("MKD-S62", "MKBD-S118", "IBW-483Z", "S2MCR-08", "CW3D2DBD-14"):
+            self.assertEqual(validate_provider_code(code), code)
+        # 版次尾字母不是番号：拦住，免得拿 `ADN-516C` 去问来源。
+        for code in ("ADN-516C", "ABW-483Z"):
+            with self.assertRaises(ValueError):
+                validate_provider_code(code)
+
     def test_the_gate_keeps_tokyo_hot_lowercase(self):
         # Tokyo-Hot 的规范写法是小写（`catalog_rules._TOKYO_HOT_BODY`）；跟着别的番号
         # 转大写，拿去查的就是来源不认的写法，这些片一部都查不了。

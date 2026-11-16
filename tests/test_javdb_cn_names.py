@@ -81,14 +81,23 @@ class ParseTests(unittest.TestCase):
                 '<a href="/actors/BBB" title="深田詠美, 深田えいみ"></a></div>')
         self.assertEqual(javdb.search_hits(html, {"深田えいみ"}), ["/actors/BBB"])
 
-    def test_a_wider_key_can_be_supplied_for_matching(self):
-        """账本写 `宫`、站上写 `宮`，字形差别不该让人搜不到自己。"""
+    def test_japanese_glyph_variants_match_by_default_and_a_wider_key_can_still_be_supplied(self):
+        """账本写 `宫`、站上写 `宮`，字形差别不该让人搜不到自己（#559）。"""
         html = ('<div class="box actor-box"><a href="/actors/AAA" title="宮本櫻, 宮本さくら">'
                 '</a></div>')
-        self.assertEqual(javdb.search_hits(html, {"宫本さくら"}), [])
+        self.assertEqual(javdb.search_hits(html, {"宫本さくら"}), ["/actors/AAA"])
         self.assertEqual(
             javdb.search_hits(html, {"宫本さくら"}, lambda name: name.replace("宮", "宫")),
             ["/actors/AAA"])
+        # 名字里只差一个假名的是另一个人，折字形不把他们归到一起。
+        self.assertEqual(javdb.search_hits(html, {"宫本さくや"}), [])
+
+    def test_glyph_folded_namesakes_all_come_back_for_review(self):
+        """`有岡みう` 与 `有冈みう` 折成同一个键；站上有两页时两页都交出去，不替用户挑。"""
+        html = ('<div class="box actor-box"><a href="/actors/AAA" title="有岡みう"></a></div>'
+                '<div class="box actor-box"><a href="/actors/BBB" title="有冈みう"></a></div>')
+        from peach.social_links import name_key
+        self.assertEqual(javdb.search_hits(html, {name_key("有岡みう")}), ["/actors/AAA", "/actors/BBB"])
 
     def test_two_pages_for_one_name_both_come_back(self):
         """同一个名字在站上真有两位时，取第一个是默默替用户挑了一位。"""

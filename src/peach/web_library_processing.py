@@ -467,8 +467,29 @@ def _resume_request(previous, speed_mode):
         **({'incremental': True} if previous.get('incremental') else
            {'asset_ids': previous['asset_ids']} if previous.get('asset_ids') else {}),
         **({'allow_metered': True} if previous.get('allow_metered') else {}),
+        **({'recheck': True} if previous.get('recheck') else {}),
         'speed_mode': speed_mode,
     }
+
+
+#: 一次「重新采集」最多点名几部。它绕过来源快照逐站重问，是给详情页那一部（或少数几部）用的，
+#: 整库重问走升级补修的分批派发。
+RECHECK_LIMIT = 20
+
+
+def _recheck_grant(body, stage, asset_ids):
+    """点名的几部片重新采集资料：不复用来源快照、已有字段也按来源再核一遍（#208）。
+
+    快照里的乱码与过时资料只能这样换掉；用户改过、复核批准过的字段归属受保护，重采不覆盖。
+    只接受显式点名的影片与资料阶段，整库同步不接受这个开关。
+    """
+    granted = (body or {}).get('recheck', False)
+    if type(granted) is not bool:
+        raise UserValueError('api.libraryProcessing.recheckNotBoolean')
+    if granted and (stage not in (METADATA_STAGE, COLLECT_STAGE) or not asset_ids
+                    or len(asset_ids) > RECHECK_LIMIT):
+        raise UserValueError('api.libraryProcessing.recheckSelectedOnly', {'limit': RECHECK_LIMIT})
+    return granted
 
 
 def _metered_grant(body, stage, asset_ids):
@@ -553,6 +574,7 @@ def w_library_processing(contract, body, *, resume=False):
         contract, config, previous, body, resume)
     incremental = (body or {}).get('incremental', False)
     allow_metered = _metered_grant(body, stage, asset_ids)
+    recheck = _recheck_grant(body, stage, asset_ids)
     if (body or {}).get('scope') == 'new':
         from .library_new_assets import remember
         remember(contract.db_path, asset_ids)
@@ -565,7 +587,7 @@ def w_library_processing(contract, body, *, resume=False):
         try:
             result = process_library(config, contract.db_path, contract.candidate_root, contract.cover_root,
                 job_id=job_id, retry_ids=retry_ids, stage=stage, asset_ids=asset_ids, incremental=incremental, library_id=library_id,
-                allow_metered=allow_metered,
+                allow_metered=allow_metered, recheck_existing=recheck,
                 # 自动落库与页面写的是同一个 `LedgerDatabase`：进程内写锁在实例上，
                 # 另建一个就是在同一个进程里开第二条写入路径。
                 database=contract.database,
@@ -593,10 +615,12 @@ def w_library_processing(contract, body, *, resume=False):
         work, restart=True, initial={**stage_fields(labels[stage]), 'requested_stage': stage,
                                     'library_id': library_id, 'library_name': library_name,
                                     **({'allow_metered': True} if allow_metered else {}),
+                                    **({'recheck': True} if recheck else {}),
                                     **initial_estimate(config, contract.db_path, stage, estimate_ids, mode,
                                                        allow_metered=allow_metered)},
         recovery={'stage': stage, 'speed_mode': mode, 'incremental': incremental, 'library_id': library_id,
                   **({'allow_metered': True} if allow_metered else {}),
+                  **({'recheck': True} if recheck else {}),
                   **({'asset_ids': asset_ids or retry_ids}
                                     if asset_ids is not None or retry_ids is not None else {})})
     if not resume:

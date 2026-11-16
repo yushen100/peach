@@ -449,6 +449,37 @@ class TokyoHotShapeTests(unittest.TestCase):
         self.assertEqual(release_code_from_filename('MIAA-636-C_X1080X.mp4'), 'MIAA-636')
         self.assertFalse(is_jav_code('T28612'))
 
+    def test_s_model_and_catwalk_digit_labels_keep_their_registered_serial_width(self):
+        """#124：S Model 的 `S2M`、`S2MCR` 与キャットウォーク的 `CW3D2DBD` 厂牌段带数字。"""
+        for value, code in (('S2M-009', 'S2M-009'), ('s2m009', 'S2M-009'), ('S2M-027-C', 'S2M-027'),
+                            ('S2MCR-08', 'S2MCR-08'), ('S2MCR-008', 'S2MCR-08'),
+                            ('CW3D2DBD-14', 'CW3D2DBD-14'), ('cw3d2dbd_14', 'CW3D2DBD-14')):
+            self.assertEqual(release_code_from_text(value), code, value)
+            self.assertEqual(release_code_from_filename(f'{value}.mp4'), code, value)
+        self.assertTrue(same_release_code('S2MCR-08', 'S2MCR-008'))
+        self.assertFalse(same_release_code('S2M-008', 'S2MCR-08'))
+        self.assertTrue(is_jav_code('CW3D2DBD-14'))
+
+    def test_registered_label_suffix_stays_in_the_code_while_edition_markers_are_stripped(self):
+        """#124：`IBW-483z` 的 `z` 是番号的一部分；`C`、`U`、`UC` 这些版次标记照旧剥掉。"""
+        for name in ('IBW-483z.mp4', 'IBW-483Z.mp4', 'ibw483z.mp4', 'IBW-483z-C.mp4',
+                     'IBW-483z 少女の道草.mp4', '[98t.tv]IBW-483z.mp4'):
+            self.assertEqual(release_code_from_filename(name), 'IBW-483Z', name)
+        self.assertEqual(release_code_from_text('IBW-483z'), 'IBW-483Z')
+        self.assertTrue(same_release_code('IBW-483Z', 'IBW-483z'))
+        self.assertFalse(same_release_code('IBW-483', 'IBW-483z'))
+        # 别的段尾字母不算番号；登记段的其他字母也不算。
+        for name, code in (('ADN-516C.mp4', 'ADN-516'), ('ABW-483z.mp4', 'ABW-483'), ('IBW-483C.mp4', 'IBW-483'),
+                           ('SNOS-205-UC.mp4', 'SNOS-205'), ('ADN-516-U.mp4', 'ADN-516')):
+            self.assertEqual(release_code_from_filename(name), code, name)
+
+    def test_codes_followed_by_encoding_and_enhancement_tails_are_recognised(self):
+        """#124、#200：番号后面接转码、修复或增强说明时取番号本身。"""
+        for name, code in (('SNOS-205-C.H265.mp4', 'SNOS-205'), ('SNOS-124.restored.H265.mp4', 'SNOS-124'),
+                           ('SNOS-289.H265.mp4', 'SNOS-289'), ('ABC-199_AI.mp4', 'ABC-199'),
+                           ('ABC-199-AI.mp4', 'ABC-199'), ('MKD-S62.mp4', 'MKD-S62')):
+            self.assertEqual(release_code_from_filename(name), code, name)
+
     def test_uncensored_only_labels_get_the_uncensored_badge(self):
         for name, code in (('SMBD-120.mp4', 'SMBD-120'), ('SKYHD-050-C.mp4', 'SKYHD-050')):
             with self.subTest(code=code):

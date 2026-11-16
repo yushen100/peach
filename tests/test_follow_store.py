@@ -1117,6 +1117,32 @@ class AuthorIdentityTests(_StoreCase):
                          normalized_author_name("lazyprocrastinator"))
         self.assertEqual(author_display_text("Billyhhyb · patreon"), "Billyhhyb")
 
+    def test_a_kana_name_is_part_of_the_author_key(self):
+        # 只含假名的名字不能被剥成空串，否则同一作者的每条来源各成一组。
+        self.assertEqual(normalized_author_name("ミモネル · fanbox"),
+                         normalized_author_name("ミモネル"))
+        self.assertNotEqual(normalized_author_name("ミモネル"), "")
+        # 半角片假名按 NFKC 规整，浊点并进前一个字；长音是名字的一部分。
+        self.assertEqual(normalized_author_name("ﾐﾓﾈﾙ"), normalized_author_name("ミモネル"))
+        self.assertEqual(normalized_author_name("ﾊﾞﾆｰ"), normalized_author_name("バニー"))
+        self.assertNotEqual(normalized_author_name("バニー"), normalized_author_name("バニ"))
+        # 中点只是分隔，不影响身份。
+        self.assertEqual(normalized_author_name("ミモ・ネル"), normalized_author_name("ミモネル"))
+
+    def test_a_mixed_kana_name_keeps_its_stored_key(self):
+        # 别名表和来源记下的作者键按旧规则存过；混写假名的名字旧规则算得出键，
+        # 键不变已存别名才不失效。代价是两位只差假名的作者仍并在 `tv` 一组。
+        self.assertEqual(normalized_author_name("かにTV"), "tv")
+        self.assertEqual(normalized_author_name("ねこTV"), "tv")
+        self.assertEqual(normalized_author_name("ＡＢＣ"), normalized_author_name("ABC"))
+
+    def test_kana_does_not_fold_different_names_together(self):
+        # 平假名与片假名写法不互折：那是模糊匹配。
+        self.assertNotEqual(normalized_author_name("みもねる"), normalized_author_name("ミモネル"))
+        # 只剩长音、中点或服务名后缀的标签不构成名字。
+        self.assertEqual(normalized_author_name("ー・ー"), "")
+        self.assertEqual(normalized_author_name("ー · fanbox"), "")
+
     def test_the_f95_author_sits_in_the_last_bracket(self):
         """站点的标题约定是 `作品名 [版本或日期] [作者]`。"""
         self.assertEqual(

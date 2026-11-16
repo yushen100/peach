@@ -22,12 +22,16 @@ _INSTALL_LOCK = threading.RLock()
 
 
 def has_javdb_source(path: Path) -> bool:
-    """封面旁的来源证据是否指向 JavDB 转存图。"""
+    """封面旁的来源证据是否指向只作印证的 JavDB 转存图。
+
+    按设置「没有别的封面时用 JavDB 带水印的图」（#531）装上的那张记着 `watermarked`，它就是封面，不算在内。
+    """
     try:
         evidence = json.loads(Path(path).with_suffix('.scraping.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return False
-    return isinstance(evidence, dict) and is_javdb_image(evidence.get('source_url'), evidence.get('source'))
+    return (isinstance(evidence, dict) and evidence.get('watermarked') is not True
+            and is_javdb_image(evidence.get('source_url'), evidence.get('source')))
 
 
 @lru_cache(maxsize=1)
@@ -170,7 +174,8 @@ def install_cover(target: Path, code: str, payload: bytes, size: tuple[int, int]
     """
     if is_user_cover(target) and (evidence or {}).get('source') != USER_COVER_SOURCE:
         raise UserCoverKept('errors.coverArtwork.userCoverKept')
-    if evidence and is_javdb_image(evidence.get('source_url'), evidence.get('source')):
+    if (evidence and evidence.get('watermarked') is not True
+            and is_javdb_image(evidence.get('source_url'), evidence.get('source'))):
         raise Unavailable('errors.communityCatalog.noUnwatermarked')
     target = Path(target)
     target.parent.mkdir(parents=True, exist_ok=True)
