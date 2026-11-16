@@ -812,6 +812,9 @@ class DetailProjectionTests(unittest.TestCase):
             patcher = patch('peach.jav_official_preview.' + name, return_value='')
             patcher.start()
             self.addCleanup(patcher.stop)
+        # JavDB 失败时的官方目录退路会联网；用例默认按「没有」处理，要它的用例自己给值。
+        self.official = patch('peach.jav_discovery_metadata.official_movie', return_value=None).start()
+        self.addCleanup(patch.stopall)
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         root = Path(temporary.name).resolve()
@@ -883,6 +886,20 @@ class DetailProjectionTests(unittest.TestCase):
             self.assertEqual(connection.execute('SELECT COUNT(*) FROM entity').fetchone()[0], 1)
             self.assertEqual(connection.execute('SELECT COUNT(*) FROM entity_alias').fetchone()[0], 1)
 
+
+    def test_official_catalogue_fills_the_detail_when_javdb_does_not_answer(self):
+        self.official.return_value = {'number': 'SSIS-001', 'title': '官方标题', 'release_date': '2021-02-19',
+                                      'maker_name': 'エスワン', 'duration': 150, 'tags': ['単体作品'],
+                                      'actors': [{'name': '葵つかさ', 'gender': 'female'}], 'fallback_source': 'dmm'}
+        with patch('peach.web_jav_detail.PUBLIC_API.movie', side_effect=PublicSourceUnavailable('errors.javdbPublic.unavailable')):
+            result = q_jav_detail(self.contract, {'code': 'SSIS-001'})
+            again = q_jav_detail(self.contract, {'code': 'SSIS-001'})
+        self.assertEqual((result['state'], result['title'], result['studio']), ('partial', '官方标题', 'エスワン'))
+        self.assertEqual(result['tags'], ['単体作品'])
+        self.assertEqual(result['message'], '作品资料未取得，请稍后重试')
+        # 第二次直接用边车里的那份，不再问官方目录。
+        self.assertEqual(again['title'], '官方标题')
+        self.official.assert_called_once()
 
     def test_source_failure_keeps_usable_detail_and_reviews_failure_is_explicit(self):
         with patch('peach.web_jav_detail.PUBLIC_API.movie', side_effect=PublicSourceUnavailable('errors.javdbPublic.unavailable')):

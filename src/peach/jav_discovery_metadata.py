@@ -22,7 +22,47 @@ from .metadata import relay_args
 MAX_ITEMS = 100
 #: 资料边车不限条数，只防文件失控；超出时先丢最早的记录。
 MAX_FILE_BYTES = 64 * 1024 * 1024
-FIELDS = ("id", "number", "title", "origin_title", "release_date", "maker_name", "series_name", "duration", "score", "tags", "actors", "javdb_rule")
+FIELDS = ("id", "number", "title", "origin_title", "release_date", "maker_name", "series_name", "duration", "score", "tags", "actors", "javdb_rule",
+          "fallback_source")
+#: JavDB 没答上时有码作品依次改问的官方目录：DMM 与它的镜像 r18.dev。给标题、发行日、厂牌、系列、时长、类别与演员，
+#: 没有评分；这份资料一天后重新排进待补，再问 JavDB。
+OFFICIAL_FALLBACK = ("dmm", "r18dev")
+FALLBACK_RETRY_SECONDS = 86400
+
+
+def official_movie(secrets_root, code: str) -> dict | None:
+    """JavDB 作品资料的退路：有码作品问 DMM、r18.dev，拼成同样的字段；都没有或不是有码作品交 None。"""
+    from .library_processing import LibraryMetadataProvider
+    from .metadata_routes import classify
+    if classify(code) != "censored":
+        return None
+    provider = LibraryMetadataProvider(secrets_root)
+    try:
+        for source in OFFICIAL_FALLBACK:
+            try:
+                payload = provider.query(code, source, deadline=time.monotonic() + 30)
+            except Exception:  # noqa: BLE001 - 这一站没答上就问下一站
+                continue
+            movie = movie_from_payload(code, payload, source)
+            if movie:
+                return movie
+    finally:
+        provider.close()
+    return None
+
+
+def movie_from_payload(code: str, payload: dict, source: str) -> dict | None:
+    """官方目录快照换成 JavDB 作品资料的字段名；演员都是女优（DMM 只列女优）。"""
+    if not isinstance(payload, dict) or not payload.get("title"):
+        return None
+    actors = [{"name": str(row.get("japanese_name") or row.get("name") or ""), "gender": "female"}
+              for row in payload.get("actresses") or [] if isinstance(row, dict)]
+    movie = {"number": normalise_code_key(code), "title": payload["title"],
+             "release_date": payload.get("release_date") or "", "maker_name": payload.get("maker") or "",
+             "series_name": payload.get("series") or "", "duration": payload.get("runtime"),
+             "tags": [str(tag) for tag in payload.get("genres") or [] if tag],
+             "actors": [actor for actor in actors if actor["name"]], "fallback_source": source}
+    return movie
 
 
 def actor_record(actor):
@@ -46,10 +86,12 @@ def source_number(value):
 class DiscoveryMetadata:
     """缓存只承载来源资料；任务进度与控制沿用任务中心。"""
 
-    def __init__(self, path: Path, *, api=PUBLIC_API, clock=time.time, runs=None):
+    def __init__(self, path: Path, *, api=PUBLIC_API, clock=time.time, runs=None, fallback=None):
         path = Path(path)
         self.path = path.with_name(f'{path.stem}.javdb-{RULE}{path.suffix}')
         self.api, self.clock = api, clock
+        #: JavDB 没答上时按番号给出替代资料的函数（`official_movie`），没有就只记失败。
+        self.fallback = fallback
         self.lock = threading.RLock()
         self.job = BackgroundJob('jav-discovery-metadata', runs=runs)
         self.last_job = None
@@ -105,15 +147,20 @@ class DiscoveryMetadata:
             if movie and "actors" in projected:
                 projected["actors"] = [actor_record(actor)
                                        for actor in movie.get("actors") or [] if isinstance(actor, dict)][:100]
-            if movie:
+            stand_in = bool(movie and movie.get("fallback_source"))
+            if stand_in:
+                # 退路资料不算 JavDB 答过：取得时刻不前移，一天后照常再问 JavDB。
+                hold = {}
+            elif movie:
                 today = datetime.fromtimestamp(self.clock()).date()
                 hold = work_hold('movie:' + code, movie, movie.get('release_date'), today)
             else:
                 hold = {key: previous[key] for key in ('durable', 'until') if key in previous}
             self.records[code] = {"movie": projected,
-                                  "checked_at": previous.get('checked_at', 0) if error else
+                                  "checked_at": previous.get('checked_at', 0) if error or stand_in else
                                   self.clock() if checked_at is None else checked_at,
-                                  "retry_after": self.clock() + 900 if error else 0, "error": error, **hold}
+                                  "retry_after": self.clock() + 900 if error else
+                                  self.clock() + FALLBACK_RETRY_SECONDS if stand_in else 0, "error": error, **hold}
             self.records.move_to_end(code)
             self.revision += 1
             self._save()
@@ -216,10 +263,17 @@ class DiscoveryMetadata:
                     stop_reason = budget.stop_reason
                     break
                 except PublicSourceUnavailable as error:
-                    self.remember(code, error=str(error))
-                    failures.add(code)
-                    if self.api.paused_until > self.api.clock():
-                        stop_reason = "source_cooldown"
+                    stand_in = self.fallback(code) if self.fallback is not None else None
+                    if stand_in:
+                        # JavDB 冷却时这一问不发请求，批次照样往下走，后面几部也改问官方目录。
+                        self.remember(code, stand_in)
+                        successful.add(code)
+                        failures.discard(code)
+                    else:
+                        self.remember(code, error=str(error))
+                        failures.add(code)
+                        if self.api.paused_until > self.api.clock():
+                            stop_reason = "source_cooldown"
                 if code not in attempted:
                     completed += 1
                     attempted.add(code)
@@ -261,6 +315,8 @@ class DiscoveryMetadata:
 def discovery_metadata(contract):
     with contract.cache_lock:
         if not hasattr(contract, "jav_discovery_metadata"):
+            from functools import partial
             contract.jav_discovery_metadata = DiscoveryMetadata(
-                contract.cover_root.parent / 'jav-discovery-metadata.json', runs=contract.task_runs)
+                contract.cover_root.parent / 'jav-discovery-metadata.json', runs=contract.task_runs,
+                fallback=partial(official_movie, contract.follow_secrets_root))
         return contract.jav_discovery_metadata

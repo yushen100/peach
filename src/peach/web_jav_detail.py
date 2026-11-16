@@ -104,8 +104,8 @@ def q_jav_detail(contract, args) -> dict:
     source = None
     message = ""
     ambiguous = False
+    stored, _ = discovery_metadata(contract).peek(code)
     try:
-        stored, _ = discovery_metadata(contract).peek(code)
         PUBLIC_API.remember_movie_identity(code, stored or {})
         source = PUBLIC_API.movie(code, refresh=True) if args.get('refresh') == '1' else PUBLIC_API.movie(code)
         discovery_metadata(contract).remember(code, source, checked_at=cache_checked_at('movie:'))
@@ -115,22 +115,38 @@ def q_jav_detail(contract, args) -> dict:
         message = str(error)
         ambiguous = isinstance(error, PublicIdentityAmbiguous)
         discovery_metadata(contract).remember(code, error=message)
+        if not ambiguous:
+            source = _stand_in(contract, code, stored)
     if source:
         item.update(title=source.get("origin_title") or source.get("title") or item.get("title"),
                     release_date=source.get("release_date") or item.get("release_date"),
                     studio=source.get("maker_name") or item.get("studio"))
-    payload = {"ok": True, "state": "ready" if source else "partial", "message": message,
+    payload = {"ok": True, "state": "ready" if source and not source.get("fallback_source") else "partial",
+               "message": message,
                "code": code, "title": item.get("title") or code,
                "release_date": item.get("release_date"), "studio": item.get("studio")}
     with contract.database.read_connection() as connection:
         decisions = load_genre_decisions(connection)
     payload.update(_source_fields(source or {}, decisions))
-    payload.update(_artwork_fields(contract, code, item, source or {}, refresh=args.get('refresh') == '1',
+    # 官方目录退路没有 JavDB 作品 id：样张、预告与来源链接只按 JavDB 那份算，退路只补标题、厂牌、类别与演员。
+    javdb = source if source and source.get("id") else {}
+    payload.update(_artwork_fields(contract, code, item, javdb, refresh=args.get('refresh') == '1',
                                    ambiguous=ambiguous))
     if payload.get('preview_message'):
         payload['message'] = '；'.join(filter(None, (payload['message'], payload['preview_message'])))
     payload.update(_identity_fields(contract, code, item, source or {}))
     return payload
+
+
+def _stand_in(contract, code, stored):
+    """JavDB 没答上时的作品资料：边车里已有的官方目录资料，没有就现问 DMM、r18.dev（有码作品）。"""
+    from .jav_discovery_metadata import official_movie
+    if stored and stored.get("fallback_source"):
+        return stored
+    movie = official_movie(contract.follow_secrets_root, code)
+    if movie:
+        discovery_metadata(contract).remember(code, movie)
+    return movie
 
 
 def visible_actors(connection, source, excluded=None):
