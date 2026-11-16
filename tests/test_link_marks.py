@@ -307,6 +307,19 @@ class CacheTests(unittest.TestCase):
         finally:
             link_marks.RENDER_VERSION = original
 
+    def test_a_mark_from_the_previous_render_version_is_refetched_even_when_refresh_is_off(self):
+        """「从不刷新」时旧文件永不过期；升了渲染版本，访问到的站要按新规则重取（#576）。"""
+        url = "https://t-powers.co.jp/"
+        original = link_marks.RENDER_VERSION
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            try:
+                link_marks.RENDER_VERSION = original - 1
+                link_marks.cached_path(root, url).write_bytes(b"old mark")
+            finally:
+                link_marks.RENDER_VERSION = original
+            self.assertFalse(link_marks.is_fresh(link_marks.cached_path(root, url), ttl=None))
+
     def test_a_url_without_a_host_has_no_cache_key(self):
         self.assertEqual(link_marks.cache_key("not a url"), "")
         self.assertIsNone(link_marks.cached_path(Path("/tmp"), "not a url"))
