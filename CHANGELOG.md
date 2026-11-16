@@ -57,11 +57,13 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Sourcing**: The userscript gives the main button its own row and pairs other actions with icons, two to a row (peach-mitao/peach-userscript#38). / **采集**：用户脚本浮卡主按钮单独一行，其余操作带图标两个一行（peach-mitao/peach-userscript#38）。
 - **Sourcing**: The userscript puts notices at the top of its floating cards and every button at the bottom (peach-mitao/peach-userscript#37). / **采集**：用户脚本浮卡里的提示统一排在最上方，按钮都在最下面（peach-mitao/peach-userscript#37）。
 - **Sourcing**: The userscript scrolls codes and performer names that don't fit back and forth within the panel row (peach-mitao/peach-userscript#34). / **采集**：用户脚本浮卡里放不下的番号、女优名改为在行内来回滚动（peach-mitao/peach-userscript#34）。
+- **Updates**: Repairs and migrations is grouped by kind, and repairs awaiting your OK can be started all at once or a group at a time (#723). / **更新**：「修复与迁移」按类分组，等确认的修复可一次全部开始或按组开始（#723）。
 
 ### Fixed / 修复
 - **Library**: Profile links copied with `&amp;` in the address open the right page, and archive, blog and catalog link names show in the interface language; existing links are fixed on upgrade (#715). / **馆藏**：地址里带 `&amp;` 的资料页链接能打开正确的页面，官网存档、博客、作品页等链接名按界面语言显示；已有链接升级后自动改正（#715）。
 - **Updates**: Upgrading fixes data older versions left behind: FC2 sellers as labels, scrambled FC2 titles, labels and series under an alias, retired and old NFO tags, Blu-ray duplicates in New releases, wants marked acquired by a cover, and old cloud download notes (#715). / **更新**：升级时修正旧版本留下的数据：记成厂牌的 FC2 卖家、带乱码串的 FC2 标题、写成别名的厂牌与系列、退役标签与旧版 NFO 标签、新作里重复的蓝光版、被封面标成已到手的想要，以及云下载的旧说明（#715）。
 - **Updates**: Repairs and migrations lists older data that needs your OK before changing: unverified cast JavDB added to FC2 titles, descriptions saved as performers, code folders saved as creators, the same file listed twice, and English-named duplicates from r18.dev; the database is backed up first (#715). / **更新**：「修复与迁移」列出要你确认后才改的旧数据：JavDB 给 FC2 作品自动填入、身份未核实的演员，建成女优的描述称呼，当成创作者的番号目录，登记了两次的同一文件，以及 r18.dev 英文名建成的重复实体；执行前先备份账本（#715）。
+- **Following**: Older rule34video characters and rule34.xxx tag types, upload times and video lengths are filled in the background after upgrade (#723). / **关注**：旧版漏记的 rule34video 角色与 rule34.xxx 标签分类、上传时间和视频时长，升级后在后台自动补齐（#723）。
 
 - **Settings**: Cloud download works with a CloudDrive2 token limited to a folder instead of saying the folder or offline capability is missing (#211). / **配置**：CloudDrive2 令牌限定了根目录时云下载照常可用，不再报找不到文件夹或云下载能力未取得（#211）。
 - **Library**: NFO files, posters and screenshot thumbnails that older versions listed as works leave the collection on upgrade; the files stay on disk (#715). / **馆藏**：旧版当成作品登记的 NFO、海报和截图缩略图升级后移出馆藏，盘上文件不动（#715）。
