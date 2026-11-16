@@ -906,6 +906,33 @@ class UpgradeRepairs:
         self._listening = False
         #: 上一次判过「种子包不用派」时的指纹（`_seed_fingerprint`）；没变就不再整包读、算摘要。
         self._quiet_seed = None
+        #: 这次启动里一次性规则共用的写入前备份，与领过它的规则数（`_upgrade_backup`）。
+        self._backup: Path | None = None
+        self._backup_claims = 0
+        self._backup_lock = threading.Lock()
+
+    def _upgrade_backup(self) -> Path:
+        """一次性规则写账本前的整库备份：这次启动里第一条要写的规则备一份，后面的规则共用。
+
+        每条规则各备一份时，一次升级接连写好几份几百 MB 的整库。共用的这份是第一条规则动手前
+        的账本，按它恢复会连同之后各条规则的改动与回执一起退回，退回的规则下次启动重做，
+        所以够撤回每一条。文件不在了（被清退或手动删了）就重备一份。
+        """
+        with self._backup_lock:
+            if self._backup is None or not self._backup.is_file():
+                backup = self.contract.db_path.with_name(f'ledger.pre-upgrade-{time.time_ns()}.db')
+                sqlite_backup(self.contract.db_path, backup)
+                self._backup = backup
+            self._backup_claims += 1
+            return self._backup
+
+    def _release_upgrade_backup(self, backup: Path) -> None:
+        """没用上备份的规则交回；只有它一家领过时删掉，别的规则的回执还指着它就留着。"""
+        with self._backup_lock:
+            self._backup_claims -= 1
+            if self._backup_claims == 0 and self._backup == backup:
+                backup.unlink(missing_ok=True)
+                self._backup = None
 
     def _seed_fingerprint(self):
         """种子包派发判断的廉价指纹：包文件的修改时间与大小，加实体与种子导入记录的账本版本。
@@ -1059,8 +1086,7 @@ class UpgradeRepairs:
                 failed = [row[0] for row in connection.execute(
                     "SELECT id FROM asset WHERE medium='video' AND duration<=0 AND disposal IS NULL")] if prior is None else []
             atomic_write_text(self.root / 'catalog-review.json', json.dumps(plan, ensure_ascii=False, indent=2))
-            backup = contract.db_path.with_name(f'ledger.pre-upgrade-{time.time_ns()}.db')
-            sqlite_backup(contract.db_path, backup)
+            backup = self._upgrade_backup()
             review = sum(row['reason'] not in ('already-original', 'already-japanese', 'manual-name')
                          and row['action'] not in ('replace', 'rename') for row in plan['fields'] + plan['names'])
             review += sum(row['verdict'] == 'review' for row in plan['aliases'])
@@ -1257,8 +1283,7 @@ class UpgradeRepairs:
             return
         backup = None
         if rows:
-            backup = self.contract.db_path.with_name(f'ledger.pre-upgrade-{time.time_ns()}.db')
-            sqlite_backup(self.contract.db_path, backup)
+            backup = self._upgrade_backup()
         with self.contract.database.write_transaction() as connection:
             changed = system_file_repair.apply(connection, rows, time.time())
             receipt[system_file_repair.RULE] = {'isolated': changed, 'backup': str(backup) if backup else None}
@@ -1624,8 +1649,7 @@ class UpgradeRepairs:
                 if any(candidate.get('requires_review') for candidate in _parsed_candidates(row))]
         result = {'rows': len(rows)}
         if rows:
-            backup = contract.db_path.with_name(f'ledger.pre-upgrade-{time.time_ns()}.db')
-            sqlite_backup(contract.db_path, backup)
+            backup = self._upgrade_backup()
             summary = auto_apply_metadata(
                 contract.database, Path(contract.candidate_root), candidate_rows=rows,
                 snapshot_root=Path(contract.follow_sources_root) / 'library-metadata',
@@ -1662,8 +1686,7 @@ class UpgradeRepairs:
                 todo = fc2_sellers.pending(connection, root)
             backup = None
             if todo:
-                backup = self.contract.db_path.with_name(f'ledger.pre-upgrade-{time.time_ns()}.db')
-                sqlite_backup(self.contract.db_path, backup)
+                backup = self._upgrade_backup()
             with self.contract.database.write_transaction() as connection:
                 if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
                                       (FC2_SELLERS_KEY,)).fetchone():
@@ -1683,7 +1706,8 @@ class UpgradeRepairs:
     def _inherit_code_siblings(self) -> None:
         """同番号副本缺演员、创作者的存量整库补一次（`code_siblings.inherit`），排在卖家补挂之后。
 
-        有要补的才先备份；补上的关系逐条记回执，按批次可撤（`auto_landing_revert`）。
+        事先算不出有没有要补的，所以先领一份写入前备份，没补上任何关系就交回（`_release_upgrade_backup`）；
+        补上的关系逐条记回执，按批次可撤（`auto_landing_revert`）。
         """
         from . import code_siblings
         try:
@@ -1694,19 +1718,22 @@ class UpgradeRepairs:
                 if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
                                       (FC2_SELLERS_KEY,)).fetchone() is None:
                     return  # 卖家补挂还没做完，下次启动再来
-            backup = self.contract.db_path.with_name(f'ledger.pre-upgrade-{time.time_ns()}.db')
-            sqlite_backup(self.contract.db_path, backup)
-            with self.contract.database.write_transaction() as connection:
-                if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
-                                      (CODE_SIBLINGS_KEY,)).fetchone():
-                    return
-                result = code_siblings.inherit(connection)
-                result['backup'] = str(backup)
-                connection.execute('INSERT OR IGNORE INTO ledger_upgrade_repair(id,applied_at,result_json) '
-                                   'VALUES(?,?,?)', (CODE_SIBLINGS_KEY, str(time.time()),
-                                                     json.dumps(result, ensure_ascii=False)))
-            if not result['links']:
-                backup.unlink(missing_ok=True)
+            backup = self._upgrade_backup()
+            result = None
+            try:
+                with self.contract.database.write_transaction() as connection:
+                    if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
+                                          (CODE_SIBLINGS_KEY,)).fetchone():
+                        return
+                    result = code_siblings.inherit(connection)
+                    if result['links']:
+                        result['backup'] = str(backup)
+                    connection.execute('INSERT OR IGNORE INTO ledger_upgrade_repair(id,applied_at,result_json) '
+                                       'VALUES(?,?,?)', (CODE_SIBLINGS_KEY, str(time.time()),
+                                                         json.dumps(result, ensure_ascii=False)))
+            finally:
+                if result is None or not result['links']:
+                    self._release_upgrade_backup(backup)
             LOGGER.info('Code siblings: inherited %s links', len(result['links']))
         except Exception:
             LOGGER.exception('Code sibling inheritance failed')
@@ -1721,8 +1748,7 @@ class UpgradeRepairs:
                 pending = enhancement_names_pending(connection)
             backup = None
             if pending:
-                backup = self.contract.db_path.with_name(f'ledger.pre-upgrade-{time.time_ns()}.db')
-                sqlite_backup(self.contract.db_path, backup)
+                backup = self._upgrade_backup()
             with self.contract.database.write_transaction() as connection:
                 if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
                                       (ENHANCEMENT_NAMES_KEY,)).fetchone():
@@ -1765,8 +1791,7 @@ class UpgradeRepairs:
             for candidate in _parsed_candidates(row))]
         result = {'rows': len(rows)}
         if rows:
-            backup = contract.db_path.with_name(f'ledger.pre-upgrade-{time.time_ns()}.db')
-            sqlite_backup(contract.db_path, backup)
+            backup = self._upgrade_backup()
             summary = auto_apply_metadata(
                 contract.database, Path(contract.candidate_root), candidate_rows=rows,
                 snapshot_root=Path(contract.follow_sources_root) / 'library-metadata',

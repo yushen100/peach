@@ -1043,7 +1043,7 @@ class UpgradeRepairTests(unittest.TestCase):
             self.assertEqual(connection.execute('SELECT catalog_title FROM asset WHERE id=1').fetchone()[0],
                              '人工题名')
         self.service.prepare()
-        self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))),2)
+        self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))), 1)
 
     def test_legacy_javdb_title_is_excluded_from_machine_text_repair(self):
         from peach import metadata_text_repair
@@ -1108,7 +1108,7 @@ class UpgradeRepairTests(unittest.TestCase):
             self.assertEqual(connection.execute('SELECT catalog_title FROM asset WHERE id=1').fetchone()[0],
                              '人工题名')
         self.service.prepare()
-        self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))), 2)
+        self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))), 1)
 
     def damaged_asset(self, key=1, *, owner='auto:makers'):
         self.asset(key, code='EXM-001', duration=1)
@@ -1146,7 +1146,7 @@ class UpgradeRepairTests(unittest.TestCase):
                                                  interface_text_upgrade.RECEIPT_KEY,
                                                  json.dumps([rule.key for rule in legacy_repairs.RULES]))).fetchone()[0], 2)
             self.assertEqual(connection.execute('PRAGMA integrity_check').fetchone()[0], 'ok')
-        self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))), 2)
+        self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))), 1)
         self.assertEqual(upgrade_repairs._read(self.service.receipt)['text_media_ids'], [1])
 
     def test_damaged_manual_titles_are_kept_and_garbled_studios_still_count_for_review(self):
@@ -1714,6 +1714,53 @@ class UpgradeRepairTests(unittest.TestCase):
         self.assertEqual(state, 'failed')
         self.assertIsNone(self.store.get(run_id))
 
+    def test_one_time_rules_in_one_startup_share_a_single_pre_write_backup(self):
+        first = self.service._upgrade_backup()
+        self.assertEqual(self.service._upgrade_backup(), first)
+        self.assertEqual(list(self.root.glob('ledger.pre-upgrade-*.db')), [first])
+        # 只有一家领过、又没用上时才删；别的规则的回执还指着它就留着。
+        self.service._release_upgrade_backup(first)
+        self.assertTrue(first.exists())
+        # 下一次启动是新的服务实例，重新备一份。
+        later = upgrade_repairs.UpgradeRepairs(self.contract, available=True)._upgrade_backup()
+        self.assertNotEqual(later, first)
+        lone = upgrade_repairs.UpgradeRepairs(self.contract, available=True)
+        backup = lone._upgrade_backup()
+        lone._release_upgrade_backup(backup)
+        self.assertFalse(backup.exists())
+
+    def test_code_siblings_with_nothing_to_inherit_leave_no_backup_behind(self):
+        with self.database.write_transaction() as connection:
+            connection.execute('INSERT INTO ledger_upgrade_repair(id,applied_at,result_json) VALUES(?,?,?)',
+                               (upgrade_repairs.FC2_SELLERS_KEY, '1', '{}'))
+        self.service._inherit_code_siblings()
+        self.assertEqual(list(self.root.glob('ledger.pre-upgrade-*.db')), [])
+        with self.database.read_connection() as connection:
+            result = json.loads(connection.execute('SELECT result_json FROM ledger_upgrade_repair WHERE id=?',
+                                                   (upgrade_repairs.CODE_SIBLINGS_KEY,)).fetchone()[0])
+        self.assertNotIn('backup', result)
+
+    def test_writer_startup_prunes_ledger_backups_like_the_tray(self):
+        """Docker 与 `peach serve` 没有托盘，服务启动时按同一保留份数清退账本备份。"""
+        import os
+        import shutil
+        import threading
+        from peach import api
+        old = time.time() - 3 * 86400
+        for index in range(7):
+            backup = self.db.with_name(f'ledger.pre-manual-2026010{index}-000000.db')
+            shutil.copyfile(self.db, backup)
+            os.utime(backup, (old + index, old + index))
+        self.contract.upgrade_repairs = self.service
+        settings = SimpleNamespace(db_path=self.db, follow_state_root=self.root / 'state')
+        with patch.object(api, '_restore_task_center'), patch('peach.web_job_recovery.restore'):
+            self.assertTrue(api._start_ledger_services(settings, self.contract, []))
+        for thread in threading.enumerate():
+            if thread.name == 'PeachLedgerBackupPrune':
+                thread.join(60)
+        self.assertEqual(sorted(path.name for path in self.root.glob('ledger.pre-manual-*.db')),
+                         [f'ledger.pre-manual-2026010{index}-000000.db' for index in range(2, 7)])
+
     def test_local_repairs_are_atomic_idempotent_and_preserve_manual_codes(self):
         self.asset(1)
         self.asset(2, owner='user:manual')
@@ -2199,7 +2246,7 @@ class UpgradeRepairTests(unittest.TestCase):
                                          "WHERE id GLOB 'verification-settlement-*'").fetchall()
         self.assertEqual(len(settled), 1)
         self.assertEqual(json.loads(settled[0][0])['applied'], 1)
-        self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))), 2)
+        self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))), 1)
 
     def test_spaced_performer_rows_already_on_disk_settle_once_in_the_background(self):
         """旧版扣在人工队列里的 `釈 アリス` 那一行，升级后在后台按新判据重判一次，对得上登记过的人就落库。"""
