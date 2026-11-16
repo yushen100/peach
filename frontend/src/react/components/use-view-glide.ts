@@ -105,8 +105,9 @@ export function useViewGlide(
       const line = row.current;
       if (!line || (event.target instanceof Node && event.target.contains(line))) remeasure();
     };
+    const resized = () => place(null, false);
     host?.addEventListener('scroll', scrolled, { capture: true, passive: true });
-    addEventListener('resize', remeasure, { passive: true });
+    addEventListener('resize', resized, { passive: true });
     /* 浮层可以随页面收起，也可以在取数后补进另一组控件。尺寸恢复与相邻组变宽都会改变落点。 */
     const observer = new ResizeObserver(() => {
       const line = row.current;
@@ -132,7 +133,7 @@ export function useViewGlide(
       observer.disconnect();
       cancelAnimationFrame(frame);
       host?.removeEventListener('scroll', scrolled, { capture: true });
-      removeEventListener('resize', remeasure);
+      removeEventListener('resize', resized);
     };
   }, [pane, row, place, key]);
 
