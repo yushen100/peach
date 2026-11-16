@@ -64,11 +64,16 @@ export const wantsInterval = withBackoff<WantsData>((data) =>
   (data?.scraping ? 3000 : data?.searching ? 10_000 : false));
 
 export function recordWantMagnets(id: number, available: boolean) {
+  const previous = queryClient.getQueryData<WantsData>(WANTS_KEY)?.items.find(want => want.id === id);
   queryClient.setQueryData<WantsData>(WANTS_KEY, current => {
     if (!current?.items.some(want => want.id === id && want.has_magnets !== available)) return current;
     return { ...current, items: current.items.map(want => want.id === id ? { ...want, has_magnets: available } : want) };
   });
+  return previous;
 }
+
+export const recordFoundWants = (ids: number[], signal?: AbortSignal) =>
+  apiSend<{ affected: number }>(WANTS_URL, { action: 'found', ids }, 'POST', signal);
 
 export const fetchFollowWant = (itemId: number, signal?: AbortSignal) =>
   apiGet<{ want: Want | null }>(`${WANTS_URL}?follow=${encodeURIComponent(itemId)}`, signal);
@@ -103,9 +108,9 @@ export function searchNote(want: Want): string {
 }
 
 /** 有番号、还在找的那一条上次定时查找没查到或失败时的日期；老片没查到时带上已查次数（满三次暂时放弃）。
- * 查到的不写：资源区已经列出了查到的链接。 */
+ * 当前资源区已有磁链时也省略旧的未命中记录。 */
 export function lastSearchNote(want: Want): string {
-  if (!want.last_search_at || !want.last_search_outcome || want.last_search_outcome === 'found') return '';
+  if (want.has_magnets || !want.last_search_at || !want.last_search_outcome || want.last_search_outcome === 'found') return '';
   const date = want.last_search_at.slice(0, 10);
   if (want.last_search_outcome === 'error') return t('catalog:wants.lastSearchError', { date });
   const text = t('catalog:wants.lastSearchNone', { date });

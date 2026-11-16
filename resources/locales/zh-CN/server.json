@@ -4275,9 +4275,9 @@
       "allFailed": "所有索引器都未能完成搜索"
     },
     "javdbPublic": {
-      "magnetsUnfetched": "磁链区资源未取得：{{error}}",
+      "magnetsUnfetched": "JavDB 磁链区查询未完成：{{error}}",
       "reviewPagesQueried": "已查询前 {{pages}} 页评论资源。",
-      "commentsUnfetched": "评论资源未取得：{{error}}"
+      "commentsUnfetched": "JavDB 评论区查询未完成：{{error}}"
     },
     "javdb": {
       "commentSource": "JavDB 评论"
@@ -4285,8 +4285,8 @@
     "magnetChain": {
       "staleReused": "已沿用上次结果：{{error}}",
       "sourceFailed": "{{source}}：{{error}}",
-      "sourceUnfetched": "{{source}}：未取得",
-      "incomplete": "部分来源未取得，请稍后重试或检查来源连接。"
+      "sourceUnfetched": "{{source}}：查询未完成",
+      "incomplete": "部分来源的查询未完成，请稍后重新查询。"
     },
     "wantsMagnets": {
       "linksUnfetched": "资源链接未取得，请稍后重试或检查来源连接。",

@@ -268,9 +268,14 @@ def _download_candidate(items, code, skip=frozenset(), edition=""):
     eligible = []
     for item in items:
         name = str(item.get("name") or "")
+        origin = urlsplit(str(item.get("source_url") or ""))
+        # JavBus 已在取页时核对作品身份，论坛前缀和 J 尾标不影响该页下的磁链归属。
+        source_matches = (item.get("source") == "JavBus" and origin.scheme == "https"
+                          and origin.hostname in {"javbus.com", "www.javbus.com"}
+                          and same_release_code(origin.path.strip('/'), code))
         matches = (same_release_code(scan_code(name), code)
                    or same_release_code(scan_code(name, product=True), code)
-                   or bool(bonus and bonus.search(name)))
+                   or bool(bonus and bonus.search(name)) or source_matches)
         if not matches or re.search(TRAILER_NAME, name):
             continue
         try:
@@ -610,11 +615,11 @@ class JavBrowser:
         with self.contract.database.read_connection() as connection:
             return read_settings(connection).get(WANT_ON_NO_MATCH) is not False
 
-    def _want_unmatched(self, code: str) -> None:
+    def _want_unmatched(self, code: str, *, complete: bool) -> None:
         """没搜到资源时按设置把番号加入想要；已在库、已登记或写入失败都不影响队列本身。
 
         只登记这一行：封面与资料的积压由新作的定时刷新顺带补上，不在队列线程里另起取资料任务。
-        这次没搜到也记一笔查找（`record_search`），定时查找从这一次起算间隔，不马上再查一遍。
+        查找记录从这一次起算间隔。来源暂停时记未取得，完整查找无命中时才计入查找次数。
         """
         from . import wants
         try:
@@ -622,7 +627,7 @@ class JavBrowser:
                 return
             with self.contract.database.write_transaction() as connection:
                 row = wants.add_code(connection, code)
-                wants.record_search(connection, row["id"], "none")
+                wants.record_search(connection, row["id"], "none" if complete else "error")
             self.contract.cache_bust()
         except UserValueError:
             pass
@@ -922,8 +927,9 @@ class JavBrowser:
                     should_submit = True
                 self._save()
                 unmatched = row["state"] == "no_match"
+                complete = bool(row.get("sources_complete"))
             if unmatched:
-                self._want_unmatched(code)
+                self._want_unmatched(code, complete=complete)
             if should_submit:
                 try:
                     submitted = submit_offline_download(

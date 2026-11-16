@@ -1147,7 +1147,7 @@
     "moreLinks_one": "{{count, number}} more link",
     "moreLinks_other": "{{count, number}} more links",
     "noneYet": "No download links found yet.",
-    "notFound": "Download links not found",
+    "notFound": "Resource search failed",
     "partialComments": "The site returned only some comments, so the links may be incomplete.",
     "protocolMagnet": "Magnet link",
     "protocolWeb": "Web link",

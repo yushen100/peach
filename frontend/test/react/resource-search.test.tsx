@@ -24,13 +24,15 @@ it('回车按番号查询，选择候选只填表单', async () => {
   const choose = vi.fn();
   const fetch = vi.fn(async (_url: string) => ({ ok: true, json: async () => ({ state: 'ready', warnings: ['一处来源未响应'],
     error: '', items: [{ id: 'a', uri: 'magnet:?xt=urn:btih:' + 'a'.repeat(40), name: 'ABC-123 4K',
-      size: 1024 ** 3, seeders: 2, origins: ['测试源'], resolution: 2160, codec: 'HEVC' }] }) }));
+      size: 1024 ** 3, seeders: 2, origins: ['JavBus', 'sukebei'], resolution: 2160, codec: 'HEVC' }] }) }));
   vi.stubGlobal('fetch', fetch);
   const host = await mount(<ResourceSearch initialCode="ABC-123" choose={choose} />);
   await act(async () => field(host, '按番号查找资源')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })));
   await settle();
   expect(fetch.mock.calls[0]?.[0]).toContain('/api/resources/search?code=ABC-123&goal=quality');
   expect(host.textContent).toContain('一处来源未响应');
+  expect([...host.querySelectorAll('li img')].map(img => img.getAttribute('src')))
+    .toEqual(['/site-mark?source=javbus', '/site-mark?source=sukebei']);
   expect(host.textContent).toContain('测试源');
   await click(buttonNamed('选用此资源', host));
   expect(choose).toHaveBeenCalledWith('magnet:?xt=urn:btih:' + 'a'.repeat(40), 'ABC-123');

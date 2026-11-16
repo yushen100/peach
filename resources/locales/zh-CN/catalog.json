@@ -1081,7 +1081,7 @@
     "listedDate": "收录日期",
     "moreLinks": "更多资源（{{count, number}} 条）",
     "noneYet": "暂未找到资源链接。",
-    "notFound": "资源链接未取得",
+    "notFound": "资源查询失败",
     "partialComments": "来源只返回了部分评论，资源链接可能不完整。",
     "protocolMagnet": "磁链",
     "protocolWeb": "网页链接",

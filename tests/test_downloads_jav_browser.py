@@ -446,6 +446,16 @@ class BrowserTests(unittest.TestCase):
         self.assertFalse(probe("ssis00519"))
         self.assertEqual(asked, ["1sdjs00304v", "broken00001v", "ssis00519v"])
 
+    def test_verified_javbus_pages_match_forum_names_and_edition_suffixes(self):
+        for name in ('第一會所新片@SIS001@546EXM-001', '546EXM-001J', 'EXM-001-UNCENSORED-LEAK'):
+            item = {'name': name, 'uri': 'magnet:?xt=urn:btih:' + 'a' * 40,
+                    'source': 'JavBus', 'source_url': 'https://www.javbus.com/EXM-001'}
+            with self.subTest(name=name):
+                self.assertIs(_download_candidate([item], 'EXM-001'), item)
+        item = {**item, 'name': '546EXM-001J'}
+        self.assertIsNone(_download_candidate([{**item, 'source_url': 'https://www.javbus.com/EXM-002'}], 'EXM-001'))
+        self.assertIsNone(_download_candidate([{**item, 'source_url': 'https://example.test/EXM-001'}], 'EXM-001'))
+
     def test_no_match_requires_an_explicit_retry(self):
         self.service.search.return_value = {"items": []}
         self.add()
@@ -586,6 +596,9 @@ class BrowserTests(unittest.TestCase):
                          ("no_match", "其余来源没找到；JavDB 暂时访问不了，恢复后自动补查"))
         self.assertNotIn("retry_at", status)
         self.assertEqual(self.wants(), [("ABC-123", "code", "wanted")])
+        with self.service.contract.database.read_connection() as connection:
+            self.assertEqual(tuple(connection.execute(
+                "SELECT last_search_outcome, search_count FROM want_item").fetchone()), ("error", 0))
         # 来源恢复前清扫不重查，不去撞其余来源。
         now[0] += 3 * 3600
         self.assertFalse(self.service.process_one())

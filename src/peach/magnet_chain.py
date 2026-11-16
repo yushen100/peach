@@ -180,6 +180,7 @@ class Fetcher:
     def __init__(self, root: Path, *, transport=None, deadline: float | None = None):
         self.root = Path(root)
         self.resource_result = {}
+        self.source_pages = []
         self.deadline = deadline or time.monotonic() + 45
         self._owned = transport is None
         self.transport = transport or HostLimitedTransport(
@@ -249,7 +250,10 @@ class Fetcher:
             raise SourceFailure(reason, *relay_args(error)) from error
         stale = [Said("labels.magnetChain.staleReused", error=read['error']) for read in reads if read['error']]
         result["warnings"] = list(dict.fromkeys([*result["warnings"], *stale]))
+        result['cache_stale'] = bool(stale)
         self.resource_result = result
+        if result.get('source_url'):
+            self.source_pages.append({'source': source.key, 'label': source.label, 'url': result['source_url']})
         return rank_candidates([candidate for item in result["items"] if (candidate := _normalise(
             {**item, "file_count": int(item["files"]) if item["files"].isdigit() else 0}, source, code))])
 
@@ -264,6 +268,7 @@ class Fetcher:
         site = JavBusSource(JAVBUS)
         page = site.fetch(code, session=self.session)
         site.parse(page, code)
+        self.source_pages.append({'source': source.key, 'label': source.label, 'url': page.url})
         values = {key: (re.search(rf"var\s+{key}\s*=\s*['\"]?([^'\";\s]+)", page.text) or [None, ""])[1]
                   for key in ("gid", "uc", "img")}
         if not values["gid"].isdigit():
@@ -299,6 +304,7 @@ class Fetcher:
                             page_limit=4 * 1024 * 1024)
         url = f"https://sukebei.nyaa.si/?f=0&c=0_0&q={urllib.parse.quote(code)}"
         page = self.session.get(url, config=config)
+        self.source_pages.append({'source': source.key, 'label': source.label, 'url': page.url})
         found = []
         for row in BeautifulSoup(page.text, "html.parser").select("table tbody tr"):
             text = row.get_text(" ", strip=True)
@@ -342,7 +348,7 @@ def search(root: Path, code: str, *, transport=None, min_size: int = 0,
     `unfetched_sources` 列出这一轮没给出答复的来源：站上没有这个番号、身份对不上属于答复，不算在内。
     来源在冷却时，`retry_after` 至少等到冷却结束。"""
     fetcher = Fetcher(root, transport=transport)
-    trace, warnings, found, retry_delays, unfetched = [], [], [], [], []
+    trace, warnings, warning_sources, found, retry_delays, unfetched = [], [], [], [], [], []
     try:
         for source, collect in ((CHAIN[0], fetcher.manko), (CHAIN[1], fetcher.javdb),
                                 (CHAIN[2], fetcher.sukebei), (CHAIN[3], fetcher.javbus)):
@@ -354,8 +360,10 @@ def search(root: Path, code: str, *, transport=None, min_size: int = 0,
                 items = collect(code)
             except SourceFailure as error:
                 items = []
-                warnings.append(Said("labels.magnetChain.sourceFailed", source=source.label,
-                                     error=nested_message(error)))
+                if error.reason != FailureReason.NOT_FOUND:
+                    warnings.append(Said("labels.magnetChain.sourceFailed", source=source.label,
+                                         error=nested_message(error)))
+                    warning_sources.append(source.key)
                 if error.reason != FailureReason.NOT_FOUND and error.reason not in PERMANENT_REASONS:
                     unfetched.append(source.label)
                 if (delay := transient_delay(error)) is not None:
@@ -363,6 +371,7 @@ def search(root: Path, code: str, *, transport=None, min_size: int = 0,
             except Exception as error:
                 items = []
                 warnings.append(Said("labels.magnetChain.sourceUnfetched", source=source.label))
+                warning_sources.append(source.key)
                 unfetched.append(source.label)
                 if (delay := transient_delay(error)) is not None:
                     retry_delays.append(delay)
@@ -376,16 +385,31 @@ def search(root: Path, code: str, *, transport=None, min_size: int = 0,
             trace.append(f"{source.label}: {len(items)} found" if items else f"{source.label}: no results")
     finally:
         fetcher.close()
-    incomplete = bool(warnings) and not found
+    linked = getattr(fetcher, 'resource_result', {})
+    failed = bool(warnings) or bool(linked.get('magnet_failed') or linked.get('comments_failed') or linked.get('cache_stale'))
+    if linked.get('magnet_failed') or linked.get('comments_failed') or linked.get('cache_stale'):
+        unfetched.append(CHAIN[1].label)
+    for source in CHAIN[:4]:
+        if source.label in unfetched and (until := paused_until(Path(root), source.key)):
+            retry_delays.append(max(0.0, until - time.time()))
+    warnings.extend(linked.get('warnings') or [])
+    warning_sources.extend(['javdb'] * len(linked.get('warnings') or []))
+    available = found or (not stop_on_preferred and linked.get('items'))
+    incomplete = failed and not available
+    pages = {page['url']: page for page in getattr(fetcher, 'source_pages', [])}
+    for item in found:
+        if item.get('source_url'):
+            key = next((source.key for source in CHAIN if source.label == item['source']), item['source'])
+            pages.setdefault(item['source_url'], {'source': key, 'label': item['source'], 'url': item['source_url']})
     result = {"items": rank_candidates(found, goal), "warnings": warnings, "trace": trace,
+            'source_pages': list(pages.values()),
+            'warning_sources': warning_sources, 'complete': not failed,
             'retry_after': max(retry_delays) if retry_delays else None, "unfetched_sources": unfetched,
             'state': 'error' if incomplete else 'ready',
             **coded('error', Said('labels.magnetChain.incomplete') if incomplete else ''),
             "next_sources": [source.label for source in CHAIN[4:]],
             "reference_only": list(REFERENCE_ONLY)}
     if not stop_on_preferred:
-        linked = getattr(fetcher, 'resource_result', {})
         result.update(linked_resources=linked.get('items', []), source_url=linked.get('source_url', ''))
-        result['warnings'].extend(linked.get('warnings') or [])
     result.update(parallel('warning', result['warnings']))
     return result

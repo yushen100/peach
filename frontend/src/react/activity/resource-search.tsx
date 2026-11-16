@@ -15,6 +15,8 @@ import { sameWorkCode } from './work-code';
 import { composingKey } from '../components/ime';
 import { codedText, serverLabelList } from '../../core/server-text';
 import { joinList, t } from '../../i18n';
+import { ScrapeSourceLabel } from '../components/source-label';
+import { resourceSourceKey } from '../wants/resource-display';
 
 interface Candidate {
   id: string; uri: string; name: string; size: number; seeders: number; origins: string[];
@@ -109,7 +111,8 @@ export function ResourceSearch({ initialCode, reason, choose, onSearch, onWork }
           <p className="break-words text-body-2-medium text-text-primary">{item.name}</p>
           <Help>{[item.size > 0 ? `${(item.size / 1024 ** 3).toFixed(2)} GiB` : t('manage:resourceSearch.sizeNotFound'), item.seeders >= 0 ? t('manage:resourceSearch.seeders', { count: item.seeders }) : t('manage:resourceSearch.seedersNotFound'),
             item.resolution ? `${item.resolution}p` : '', item.codec, item.chinese ? t('manage:shared.chineseSubs') : '',
-            item.uncensored ? t('manage:shared.uncensored') : '', joinList(item.origins)].filter(Boolean).join(' · ')}</Help>
+            item.uncensored ? t('manage:shared.uncensored') : ''].filter(Boolean).join(' · ')}
+            {item.origins.map(origin => <span key={origin} className="inline-flex items-center gap-1.5"> · <ScrapeSourceLabel source={resourceSourceKey(origin)} label={origin} /></span>)}</Help>
           <div><Button type="button" variant="secondary" onClick={() => {
             choose(item.uri, searched); setSelected(item.id);
           }}>{selected === item.id ? t('manage:resourceSearch.magnetFilled') : t('manage:resourceSearch.useTorrent')}</Button></div>

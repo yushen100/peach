@@ -22,7 +22,10 @@ describe('JAV 入库作品卡', () => {
         await page.route('**/api/wants/magnets?*', route => {
           resourceRequests += 1;
           return route.fulfill({ json: {
-          state: 'ready', error: '', checked_at: null, warnings: [], source_url: 'https://example.test/work', items: [{
+          state: 'ready', error: '', checked_at: null, warnings: [], source_url: 'https://example.test/work',
+          source_pages: [{ source: 'javdb', label: 'JavDB', url: 'https://example.test/work' },
+            { source: 'sukebei', label: 'sukebei', url: 'https://example.test/search' },
+            { source: 'javbus', label: 'JavBus', url: 'https://example.test/javbus' }], items: [{
             id: 'magnet:abc', protocol: 'magnet', info_hash: 'abc', uri: 'magnet:?xt=urn:btih:abc',
             name: 'DEMO-001'.repeat(24), size: '4 GB', files: '2 個文件', date: '2026-10-01',
             attributes: ['字幕', 'high-definition'], source: 'JavDB', source_url: 'https://example.test/resources',
@@ -46,8 +49,24 @@ describe('JAV 入库作品卡', () => {
         const card = page.locator('[data-want-id="9001"]');
         assert.equal(await page.locator('#stats').getByRole('button', { name: '查找资源', exact: true }).count(), 2, '通用入口与作品入口分别保留一处');
         assert.equal(await page.getByRole('combobox', { name: '下载到', exact: true }).count(), 0, '下载目标在资源下载面板中选择');
-        const source = card.getByRole('link', { name: '来源页', exact: true });
-        assert.deepEqual(await source.evaluate(node => [...node.parentElement!.querySelectorAll('button, a')].map(action => action.textContent)), ['来源页', '移除', '查找资源']);
+        const source = card.getByRole('link', { name: 'JavDB', exact: true });
+        assert.deepEqual(await source.evaluate(node => [...node.parentElement!.querySelectorAll('button, a')].map(action => action.textContent)), ['JavDB', 'sukebei', 'JavBus', '查找资源', '移除']);
+        const find = card.getByRole('button', { name: '查找资源', exact: true });
+        const remove = card.getByRole('button', { name: '移除', exact: true });
+        assert.equal(await find.locator('svg').count(), 1);
+        assert.notEqual(await find.evaluate(el => getComputedStyle(el).background), await source.evaluate(el => getComputedStyle(el).background));
+        assert.notEqual(await remove.evaluate(el => getComputedStyle(el).background), await find.evaluate(el => getComputedStyle(el).background));
+        const spacing = await card.evaluate(el => {
+          const label = el.querySelector('[data-want-actions] a > span span:has(img)')!;
+          const image = label.querySelector('img')!.getBoundingClientRect();
+          const text = label.querySelector('span')!.getBoundingClientRect();
+          const fact = el.querySelector('[data-resource-facts] > span:has(img)')!;
+          const factImage = fact.querySelector('img')!.getBoundingClientRect();
+          const factText = fact.querySelector('span')!.getBoundingClientRect();
+          return { button: text.left - image.right, fact: factText.left - factImage.right };
+        });
+        assert.ok(Math.abs(spacing.button - 6) <= 1 && Math.abs(spacing.fact - 6) <= 1, JSON.stringify(spacing));
+        assert.equal(await card.locator('[data-want-magnets] > div > a[data-button-link]').count(), 0);
         const style = await card.evaluate(el => ({ radius: getComputedStyle(el).borderRadius,
           border: getComputedStyle(el).borderTopWidth }));
         assert.notEqual(style.radius, '0px');

@@ -748,6 +748,14 @@ class PublicAPI:
         try:
             rows = self.magnets(code, refresh=refresh, movie=movie)
         except PublicSourceUnavailable as error:
+            if isinstance(error, PublicLoginRequired) and self.page_context.get() is not None:
+                from .sources.base import SourceFailure
+                from .sources.javdb import page_resources
+                from .metadata import relay_args
+                try:
+                    return page_resources(code, movie, self.page_context.get(), review_pages=review_pages)
+                except SourceFailure as page_error:
+                    raise PublicSourceUnavailable(*relay_args(page_error)) from page_error
             rows = []
             magnet_failed = True
             warnings.append(Said("labels.javdbPublic.magnetsUnfetched", error=nested_message(error)))
