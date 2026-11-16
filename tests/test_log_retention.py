@@ -105,6 +105,21 @@ class SweepTests(unittest.TestCase):
         self.assertEqual(sorted(path.name for path in self.logs.iterdir()),
                          ["crash-12.log", "crash-13.log", "errors-12.log", "errors-13.log"])
 
+    def test_idle_logs_already_cut_into_monthly_segments_go_too(self):
+        # #485 之前积下的空日志在托盘启动时先被切成段，段名带 `.until-` 也要认得。
+        entry = b'{"stage": "entry", "pid": 1}\n'
+        august = datetime(2026, 8, 20, 9, 0)
+        touch(self.logs / "crash-21.until-20260820.log", august, b"")
+        touch(self.logs / "errors-21.until-20260820.log", august, entry)
+        touch(self.logs / "crash-22.until-20260820.log", august, b"Fatal Python error: Aborted\n")
+        touch(self.logs / "errors-23.until-20260820.log", august, entry)
+        touch(self.logs / "tray-http.out.until-20260820.log", august, b"")
+        actions = log_retention.sweep(self.logs, now=NOW, alive=lambda pid: pid == 23)
+        self.assertEqual(actions, ["removed 2 idle process logs"])
+        self.assertEqual(sorted(path.name for path in self.logs.iterdir()),
+                         ["crash-22.until-20260820.log", "errors-23.until-20260820.log",
+                          "tray-http.out.until-20260820.log"])
+
 
 if __name__ == "__main__":
     unittest.main()
