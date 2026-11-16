@@ -130,6 +130,37 @@ describe('播放器按实际输入区分触摸和鼠标', () => {
     vi.advanceTimersByTime(300); expect(root.classList.contains('vjs-user-active')).toBe(true);
     tap(); vi.advanceTimersByTime(300); expect(root.classList.contains('vjs-user-inactive')).toBe(true); abort.abort();
   });
+  it('鼠标左键长按画面临时倍速，松手恢复，随后那一下 click 不切播放；没动过的单击照旧暂停', () => {
+    const { video, pointer, click, abort } = fixture(); const pause = vi.spyOn(video, 'pause');
+    video.playbackRate = 1.25;
+    pointer('pointerdown', 600, 300, 'mouse'); vi.advanceTimersByTime(500);
+    expect(video.playbackRate).toBe(2);
+    pointer('pointerup', 600, 300, 'mouse'); click();
+    expect(video.playbackRate).toBe(1.25); expect(pause).not.toHaveBeenCalled();
+    pointer('pointerdown', 600, 300, 'mouse'); pointer('pointerup', 600, 300, 'mouse'); click();
+    expect(pause).toHaveBeenCalledOnce(); abort.abort();
+  });
+  it('鼠标横向拖动画面预览定位，松手才跳；竖向拖动、右键与控件上按下都不起手势', () => {
+    const { root, video, pointer, click, abort } = fixture(true); const play = vi.spyOn(video, 'play');
+    pointer('pointerdown', 100, 300, 'mouse'); pointer('pointermove', 600, 300, 'mouse');
+    expect(video.currentTime).toBe(1200);
+    pointer('pointerup', 600, 300, 'mouse'); click();
+    expect(video.currentTime).toBe(1800); expect(play).not.toHaveBeenCalled();
+    pointer('pointerdown', 500, 100, 'mouse'); pointer('pointermove', 500, 500, 'mouse'); pointer('pointerup', 500, 500, 'mouse');
+    expect(video.currentTime).toBe(1800);
+    root.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse', button: 2, clientX: 600, clientY: 300 }));
+    vi.advanceTimersByTime(600); expect(video.playbackRate).toBe(1);
+    const button = root.querySelector('button')!;
+    pointer('pointerdown', 10, 10, 'mouse', 1, button); pointer('pointermove', 600, 10, 'mouse', 1, button); pointer('pointerup', 600, 10, 'mouse', 1, button);
+    expect(video.currentTime).toBe(1800); abort.abort();
+  });
+  it('关掉触摸手势后鼠标在画面上也不起手势', () => {
+    configureGestureSettings(() => ({ touchGestures: false }));
+    const { video, pointer, abort } = fixture();
+    pointer('pointerdown', 600, 300, 'mouse'); vi.advanceTimersByTime(600);
+    expect(video.playbackRate).toBe(1); pointer('pointerup', 600, 300, 'mouse');
+    configureGestureSettings(() => DEFAULT_GESTURES); abort.abort();
+  });
   it('触摸后用鼠标仍然点击暂停、双击全屏', () => {
     const { root, video, tap, pointer, click, abort } = fixture(); const pause = vi.spyOn(video, 'pause');
     tap(); pointer('pointerdown', 500, 300, 'mouse'); click(); expect(pause).toHaveBeenCalledOnce();
