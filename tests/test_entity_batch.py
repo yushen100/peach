@@ -92,6 +92,27 @@ class EntityBatchTests(unittest.TestCase):
             q_entity_batch_plan(self.contract, {'operation': 'delete', 'ids': '1,bad'})
         self.assertEqual([row['entity_id'] for row in self.roster()['items']], [1, 2])
 
+    def test_delete_preserves_a_live_identity_reusing_a_redirect_id(self):
+        self.contract.avatar_root.mkdir()
+        image = self.contract.avatar_root / 'performer-2.img'
+        image.write_bytes(b'current identity image')
+        with self.contract.write_transaction() as c:
+            c.execute("INSERT INTO entity_redirect VALUES(2,1,'user:merge','2026-01-01')")
+            c.execute("UPDATE profile SET settings_json=? WHERE id='local-default'",
+                      (json.dumps({'libraryShortcuts': {'favorites': [{'entity_id': 2}]}}),))
+            c.execute("INSERT INTO review_decision(category,item_key,status,note,updated_at) "
+                      "VALUES('performer-removal','3:2','rejected','保留当前档案','2026-01-01')")
+        plan = self.delete_plan([1])
+        self.run_batch('delete', entity_ids=[1], token=plan['token'])
+        self.assertTrue(image.is_file(), '重用旧 ID 的当前档案头像必须保留')
+        self.assertEqual(image.read_bytes(), b'current identity image')
+        with self.contract.read_connection() as c:
+            self.assertIsNotNone(c.execute('SELECT id FROM entity WHERE id=2').fetchone())
+            settings = json.loads(c.execute("SELECT settings_json FROM profile WHERE id='local-default'").fetchone()[0])
+            self.assertEqual(settings['libraryShortcuts']['favorites'], [{'entity_id': 2}])
+            self.assertEqual(c.execute("SELECT status FROM review_decision WHERE item_key='3:2'").fetchone()[0], 'rejected')
+            self.assertEqual(list(c.execute('PRAGMA foreign_key_check')), [])
+
     def test_delete_with_trash_keeps_media_and_moves_all_scoped_works(self):
         with self.contract.write_transaction() as c:
             c.execute("INSERT INTO entity_membership(member_id,agency_id,source,checked_at) "

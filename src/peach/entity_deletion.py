@@ -104,7 +104,8 @@ def delete_entities(connection, plan: dict) -> list[int]:
     ids = [row["id"] for row in plan["entities"]]
     marks = ",".join("?" for _ in ids)
     old_ids = {row[0] for row in connection.execute(
-        f"SELECT old_id FROM entity_redirect WHERE target_id IN ({marks})", ids)}
+        f"SELECT r.old_id FROM entity_redirect r WHERE r.target_id IN ({marks})"
+        " AND NOT EXISTS (SELECT 1 FROM entity e WHERE e.id=r.old_id)", ids)}
     removed = set(ids) | old_ids
     # 旧 id 可能被新实体复用。演员移除决定归档后，避免它套到新身份上。
     for item_key, in connection.execute(
@@ -194,7 +195,8 @@ def _commit_delete(contract, body, ids, mode, purge):
                 plan = deletion_plan(connection, ids) if ids else None
             marks = ",".join("?" for _ in ids)
             old_ids = [row[0] for row in connection.execute(
-                f"SELECT old_id FROM entity_redirect WHERE target_id IN ({marks})", ids)]
+                f"SELECT r.old_id FROM entity_redirect r WHERE r.target_id IN ({marks})"
+                " AND NOT EXISTS (SELECT 1 FROM entity e WHERE e.id=r.old_id)", ids)]
             keys = {entity_image_key(row["kind"], row["id"]) for row in plan["entities"]} if plan else set()
             keys.update(entity_image_key(kind, old_id) for kind in ROSTER_KINDS for old_id in old_ids)
             for key in sorted(keys):
