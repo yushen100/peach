@@ -3,7 +3,7 @@ import { JAV_TABS } from './react/jav/jav-navigation';
 import { cardRatio, gridLayout, javLayout, JAV_LAYOUTS } from './appearance';
 import { DISCOVERY_SORTS, RELEASE_SORTS } from './react/jav/discovery-sorts';
 import { tierPlaceholdersHtml } from './catalog-filter-skeleton';
-import { filterControlsSkeletonHtml } from './filter-controls-skeleton';
+import { filterControlsSkeletonHtml, sortKeysSkeletonHtml } from './filter-controls-skeleton';
 import { listTableSkeletonHtml } from './catalog-content-skeleton';
 import { catalogView } from './react/catalog-grid/catalog-view';
 import { releaseTableSnapshot } from './react/jav/release-table-columns';
@@ -80,7 +80,7 @@ export function releasesFilterSkeleton(): string {
     </div>
     <div data-filter-row="bottom" aria-busy="true" class="flex min-h-12 min-w-0 items-center gap-3 px-3 py-2">
       <span data-catalog-readout><span data-skeleton="count" class="relative inline-block h-3.5 w-37.5 rounded-md align-middle skeleton-sheen"></span></span>
-      ${filterControlsSkeletonHtml(sorts, { name: 'jav-layout', label: t('catalog:entityFilter.javCardLayout'), value: javLayout(), options: JAV_LAYOUTS }, { folders: false })}
+      ${filterControlsSkeletonHtml(sorts, { name: 'jav-layout', label: t('catalog:entityFilter.javCardLayout'), value: javLayout(), options: JAV_LAYOUTS }, { folders: false, group: 'releases' })}
     </div>
   </div>`;
 }
@@ -97,7 +97,7 @@ function javFilterSkeleton(): string {
       <span data-catalog-readout><span data-skeleton="count" class="relative inline-block h-3.5 w-37.5 rounded-md align-middle skeleton-sheen"></span></span>
       ${islandShortcutsEntry()}
       <span data-entity-sorts><button type="button" data-entity-batch data-filter-action data-skeleton-action data-jav-metadata-update title="${t('catalog:javDiscover.updateMetadata')}" aria-label="${t('catalog:javDiscover.updateMetadata')}" disabled>${islandGlyph('refresh-cw', 'size-4')}</button><span data-entity-layout class="inline-flex w-max max-w-full flex-none items-center gap-0.5 rounded-lg">${size('big', 'maximize')}${size('small', 'layout-grid')}</span>
-        ${DISCOVERY_SORTS.map(([key, label]) => `<button type="button" data-entity-sort="${key}" data-entity-press aria-pressed="${key === 'taste'}">${label}${key === 'taste' ? islandGlyph('arrow-down', 'size-3.5') : ''}</button>`).join('')}
+        ${sortKeysSkeletonHtml(DISCOVERY_SORTS.map(([key, label, ariaLabel]) => ({ key, label, ariaLabel, pressed: key === 'taste', dir: key === 'taste' ? 'desc' : '' })), 'discover')}
       </span>
     </div>
   </div>`;

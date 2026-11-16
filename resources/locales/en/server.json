@@ -908,6 +908,7 @@
       "navigationOrderUnknownEntry": "Navigation order contains invalid items.",
       "navigationOrdersInvalid": "Navigation order needs known groups and order arrays.",
       "performerNameLanguageInvalid": "performerNameLanguage only accepts zh-CN, ja, en, ja-local or local-ja.",
+      "sortControlsInvalid": "Sort options require valid groups, order arrays and hidden option arrays.",
       "profileMissing": "profile {{profile}} doesn't exist.",
       "searchHistoryLimitInvalid": "searchHistoryLimit only accepts integers from 0 to {{max}}.",
       "switchNotBoolean": "{{key}} only accepts true or false.",
@@ -1097,6 +1098,7 @@
     },
     "catalog": {
       "invalidReleaseYear": "Release year must be a four-digit year or unknown.",
+      "invalidColumnFilters": "Invalid column filters. Select the filters again.",
       "tagNotInVocabulary": "This tag isn't in the current vocabulary."
     },
     "links": {

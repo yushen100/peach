@@ -10,7 +10,7 @@ it('随机无方向，首页偏好与其他排序分别解析', () => {
   expect(preferredDirection('rating', 'new', 'asc')).toBe('desc');
 });
 
-it('可翻转的列从 desc 起，随机没有方向；发行时间只在 JAV 语境出现但也是合法键', () => {
+it('可翻转的列从 desc 起，随机没有方向，发行时间使用独立排序键', () => {
   expect([defaultSortDir('new'), defaultSortDir('seed'), defaultSortDir('unknown')]).toEqual(['desc', '', '']);
   expect(SORT_KEYS).toEqual(['seed', 'rating', 'o', 'plays', 'dur', 'size', 'new', 'played', 'release']);
   expect([sortDirWord('dur', 'asc'), sortDirWord('dur', 'desc'), sortDirWord('seed', 'asc')]).toEqual(['从短到长', '从长到短', '']);

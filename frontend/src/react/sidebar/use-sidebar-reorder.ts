@@ -39,7 +39,7 @@ function floatingBounds(node: HTMLElement) {
 }
 
 /** 导航只在松手时保存顺序；指针移动只更新浮起项和插入位置。 */
-export function useSidebarReorder(column: RefObject<HTMLDivElement | null>, order: readonly string[],
+export function useSidebarReorder(column: RefObject<HTMLElement | null>, order: readonly string[],
   commit: (next: string[]) => void, settled: () => void, axis: 'x' | 'y' = 'y', attribute = 'nav', fixed: readonly string[] = []) {
   const [picked, setPicked] = useState<Picked | null>(null);
   const [announcement, announce] = useState('');

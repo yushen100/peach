@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import random
 import re
 import sqlite3
@@ -293,12 +294,82 @@ def release_year_filter(value, *, trash=False):
         '' if year == 'none' else year for year in years]
 
 
+def column_page(args):
+    """列选项每次只取一页，搜索词与目录搜索独立。"""
+    return (str(args.get('column_q') or '').strip(), max(0, int(args.get('column_offset') or 0)),
+            max(1, min(int(args.get('column_limit') or 24), 100)))
+
+
+def column_search(query):
+    """列选项复用搜索补全的规范名、别名和检索词判据。"""
+    if not query:
+        return '', []
+    from .web_entity import SUGGEST_ENTITY_MATCH, _suggest_patterns
+    patterns = _suggest_patterns(query)
+    parameters = [patterns[name] for name in re.findall(r':(\w+)', SUGGEST_ENTITY_MATCH)]
+    return re.sub(r':\w+', '?', SUGGEST_ENTITY_MATCH), parameters
+
+
+def column_filters(raw, allowed):
+    """解析列头多选，缺少分组表示全选，空数组表示不选，exclude 保存排除项。"""
+    if raw is None or raw == '':
+        return {}
+    try:
+        value = json.loads(raw)
+    except (ValueError, TypeError):
+        raise UserValueError('api.catalog.invalidColumnFilters') from None
+    if not isinstance(value, dict) or set(value) - set(allowed):
+        raise UserValueError('api.catalog.invalidColumnFilters')
+    selected = {}
+    for column, selection in value.items():
+        exclude = isinstance(selection, dict)
+        if exclude and set(selection) != {'exclude'}:
+            raise UserValueError('api.catalog.invalidColumnFilters')
+        values = selection['exclude'] if exclude else selection
+        if not isinstance(values, list) or any(not isinstance(item, str) or not item.strip() for item in values):
+            raise UserValueError('api.catalog.invalidColumnFilters')
+        if column == 'people' and any(
+                ':' not in item or item.split(':', 1)[0] not in {'performer', 'creator', 'owner'}
+                or not item.split(':', 1)[1] or (item.startswith('owner:') and item != 'owner:none') for item in values):
+            raise UserValueError('api.catalog.invalidColumnFilters')
+        unique = list(dict.fromkeys(values))
+        selected[column] = {'exclude': unique} if exclude else unique
+    return selected
+
+
+def _column_filter_predicate(contract, selected):
+    conditions, parameters = [], []
+    with contract.read_connection() as connection:
+        for column, selection in selected.items():
+            exclude = isinstance(selection, dict)
+            values = selection['exclude'] if exclude else selection
+            choices = []
+            for value in values:
+                if column == 'library':
+                    clause, params = media_libraries.predicate(settings_file.active(), value)
+                elif column == 'people' and value == 'owner:none':
+                    clause, params = UNOWNED_ASSET_CLAUSE, []
+                else:
+                    kind, name = value.split(':', 1) if column == 'people' else ('tag', value)
+                    clause, params = _entity_asset_filter(connection, kind, name)
+                choices.append(clause)
+                parameters.extend(params)
+            combined = '(' + ' OR '.join(choices) + ')' if choices else '0'
+            conditions.append('NOT ' + combined if exclude else combined)
+    return conditions, parameters
+
+
 def catalog_filter(contract: WebContract, args):
     """视频列表与侧栏使用同一组筛选条件。"""
     trash = args.get("state") == "trash"
     # 普通馆藏仍是视频表面；回收站必须展示所有文件类型，否则从垃圾复核移入的
     # 图片、网址快捷方式等会变成不可见、不可恢复，只能被「清空回收站」直接删掉。
     where, par = ([] if trash else [VISIBLE_CATALOG_ASSET]), []
+    columns = column_filters(args.get('column_filters'), {'people', 'library', 'tags'})
+    if columns:
+        conditions, parameters = _column_filter_predicate(contract, columns)
+        where.extend(conditions)
+        par.extend(parameters)
     from .web_folders import folder_filter
     folder_where, folder_params = folder_filter(contract, args)
     where.extend(folder_where)
@@ -314,6 +385,11 @@ def catalog_filter(contract: WebContract, args):
         where.append("a.location IN (%s)" % ",".join("?" * len(locs))); par += locs
     subjects = [(kind, args[kind]) for kind in ("creator", "performer", "studio", "series", "agency")
                 if args.get(kind)]
+    scope_kind, scope_name = args.get("scope_kind", ""), args.get("scope_name", "")
+    if scope_kind or scope_name:
+        if scope_kind not in {"creator", "performer", "studio", "series", "agency", "tag"} or not scope_name:
+            raise ValueError("invalid catalog scope")
+        subjects.append((scope_kind, scope_name))
     if subjects:
         with contract.read_connection() as connection:
             for kind, name in subjects:
@@ -629,6 +705,21 @@ def entity_ref(contract: WebContract, kind: str, entity_id, name: str) -> dict:
             ref['source_avatar_url'] = urls[0]
             ref['source_avatar_fallbacks'] = urls[1:]
     return ref
+
+
+def attach_entity_aliases(connection, rows):
+    """筛选选项按实体批量带出可检索别名。"""
+    ids = sorted({row['id'] for row in rows if row.get('id')})
+    if not ids:
+        return
+    aliases = {}
+    for entity_id, alias in connection.execute(
+            "SELECT DISTINCT entity_id,alias FROM entity_alias WHERE entity_id IN (" +
+            ','.join('?' for _ in ids) + ") ORDER BY alias", ids):
+        aliases.setdefault(entity_id, []).append(alias)
+    for row in rows:
+        row['aliases'] = [alias for alias in aliases.get(row.get('id'), [])
+                          if entities.is_identity_alias(row.get('kind', 'performer'), alias)]
 
 
 def attach_avatar_availability(contract: WebContract, rows, key="rep",
@@ -1591,6 +1682,10 @@ def q_facets(
     asset_id: int | None = None,
     state: str = "",
     filters: dict | None = None,
+    column: str = "",
+    column_query: str = "",
+    column_offset: int = 0,
+    column_limit: int = 24,
 ):
     """返回当前浏览集合真正存在的筛选项。
 
@@ -1598,6 +1693,8 @@ def q_facets(
     筛选项必须来自和作品列表相同的规范关系，不能让前端拿全库 facets 猜当前页面。
     回收站里的作品照旧算进筛选项；标「已消失」的不算，它们不在任何列表里（ADR-0087）。
     """
+    if column not in {"", "people", "tags"}:
+        raise ValueError("invalid facet column")
     with contract.read_connection() as c:
         scope = (PRESENT_ASSET_CLAUSE + (JAV_ASSET_CLAUSE if jav else "")
                  + state_clause(state))
@@ -1617,16 +1714,39 @@ def q_facets(
             scope += "AND " + clause + " "
             scope_params.extend(values)
         out = {}
-        out["locations"] = [dict(r) for r in c.execute(
-            "SELECT a.location AS k, count(*) AS n, "
-            "SUM(CASE WHEN a.play_count>0 THEN 1 ELSE 0 END) AS played "
-            "FROM asset a WHERE a.medium='video' " + scope +
-            "GROUP BY a.location ORDER BY n DESC", scope_params)]
-        out['years'] = _release_year_facets(contract, c, scope, scope_params, state, filters, asset_id)
+        if not column:
+            out["locations"] = [dict(r) for r in c.execute(
+                "SELECT a.location AS k, count(*) AS n, "
+                "SUM(CASE WHEN a.play_count>0 THEN 1 ELSE 0 END) AS played "
+                "FROM asset a WHERE a.medium='video' " + scope +
+                "GROUP BY a.location ORDER BY n DESC", scope_params)]
+            out['years'] = _release_year_facets(contract, c, scope, scope_params, state, filters, asset_id)
         if filters is not None and asset_id is None:
             conditions, parameters = catalog_filter(contract, {**filters, "state": state})
             scope += "AND " + " AND ".join(conditions) + " "
             scope_params.extend(parameters)
+        if column:
+            kinds = "'creator','performer'" if column == "people" else "'tag'"
+            visible = ("AND " + tag_not_hidden('ae.asset_id', 'e.normalized_name') +
+                       " AND " + tag_is_not_a_performer_name('e.normalized_name')) if column == "tags" else ""
+            search, search_params = column_search(column_query)
+            search = 'AND ' + search if search else ''
+            rows = list(c.execute(
+                "SELECT e.id,e.kind,e.canonical_name AS k,count(DISTINCT ae.asset_id) AS n "
+                "FROM asset_entity ae JOIN entity e ON e.id=ae.entity_id "
+                f"WHERE e.kind IN ({kinds}) {visible} AND ae.asset_id IN ("
+                "SELECT a.id FROM asset a WHERE a.medium='video' " + scope + ") " + search + " "
+                "GROUP BY e.id,e.kind,e.canonical_name ORDER BY n DESC,e.canonical_name,e.kind,e.id LIMIT ? OFFSET ?",
+                [*scope_params, *search_params, column_limit + 1, column_offset]))
+            items = [dict(row) for row in rows[:column_limit]]
+            if column == 'people':
+                attach_entity_aliases(c, items)
+                for item in items:
+                    item.update(entity_ref(contract, item['kind'], item['id'], item['k']))
+                attach_creator_reference_details(contract, [item for item in items if item['kind'] == 'creator'])
+            more = len(rows) > column_limit
+            return {"column": column, "items": items, "has_more": more,
+                    "next_offset": column_offset + len(items) if more else None}
         out["orientations"] = [dict(r) for r in c.execute(
             "SELECT a.ctx_orient AS k,count(*) AS n FROM asset a "
             "WHERE a.medium='video' AND a.ctx_orient IS NOT NULL AND a.ctx_orient<>'' " + scope +

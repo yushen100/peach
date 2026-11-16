@@ -184,4 +184,13 @@ describe('数据库那一份落进本地缓存', () => {
       expect(client.store.value.libraryOrder).toEqual([]);
     }
   });
+
+  it('排序项按实例设置同步，保留全部隐藏并清除旧的本地选择', () => {
+    const client = stage({ sortControls: { follow: { order: ['dur', 'new', 'hot'], hidden: ['hot'] } } });
+    applySyncedSettings({ sortControls: { follow: { order: ['hot', 'new', 'dur'], hidden: ['hot', 'new', 'dur'] } } },
+      client.changed, client.store);
+    expect(client.store.value.sortControls.follow).toEqual({ order: ['hot', 'new', 'dur'], hidden: ['hot', 'new', 'dur'] });
+    applySyncedSettings({ sortControls: {} }, client.changed, client.store);
+    expect(client.store.value.sortControls).toEqual({});
+  });
 });

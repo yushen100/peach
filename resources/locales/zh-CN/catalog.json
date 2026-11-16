@@ -78,6 +78,11 @@
     "tryAnotherName": "换个目录名称试试。",
     "viewConflicts": "查看归属冲突"
   },
+  "columnFilter": {
+    "label": "筛选{{column}}",
+    "search": "搜索{{column}}",
+    "noOptions": "没有匹配的筛选项"
+  },
   "catalogList": {
     "climaxCount": "高潮计数",
     "dateAdded": "入库时间",
@@ -952,6 +957,12 @@
     "searching": "正在搜索字幕",
     "turnOff": "关闭字幕",
     "turnOn": "开启字幕"
+  },
+  "sortControls": {
+    "customize": "自定义排序项",
+    "reset": "恢复默认排序项",
+    "syncFailed": "已在本机保存，同步未完成。{{error}}",
+    "title": "排序项"
   },
   "tagCategories": {
     "appearance": "外貌身材",

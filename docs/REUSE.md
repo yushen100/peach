@@ -239,10 +239,15 @@ npm 安装沿用 Node.js 24 LTS 附带的官方 [`npm ci`](https://docs.npmjs.co
 导航位置由 `history/page-navigation.ts` 统一保存与恢复，同一标签页保留各栏目的筛选、分页和内容缓存；普通栏目往返平滑恢复位置，双击导航请求回顶。左侧导航排序复用 `moveSidebarKey` 与现有设置保存入口，指针移动只更新插入提示和避让，松手时保存一次；键盘使用 Alt + 方向键。动效参数与证据边界见[导航拖动参考](reference-snapshots/kubai-sidebar-reorder.md)，未新增依赖。
 
 侧栏宽度复用已安装 React Aria 的 `useMove`，数字时长复用 BoardUI 输入组合与现有双滑块、目录和关注筛选入口。常用宽度吸附、浏览器记忆、键盘调节及重置由 Peach 的固定侧栏管理，未新增依赖。热门组件库的实测范围与取舍见[侧栏宽度参考](reference-snapshots/sidebar-resize.md)。
+筛选浮窗的排序项复用 `useSidebarReorder`、`NavigationOrderRows`、BoardUI Checkbox 和现有设置保存入口。首页馆藏、JAV 馆藏、关注、新作、发现分别保存显示项与顺序，人物资料页复用对应内容类型的设置；排序行可直接拖动，也可用 Alt + 左右键移动，自定义菜单支持勾选和恢复默认。排序项的按下由重排接管，外层横向滚动在其他区域接受拖动；首页与 JAV 馆藏都提供发行时间。隐藏排序项只改变控件显示，当前排序与方向仍由页面状态和地址决定。偏好通过 `/api/settings` 的 `sortControls` 按组写入 `profile.settings_json`，本地缓存同步更新，加载态使用同一份顺序与隐藏选择，无新增依赖或迁移。
 
 全站滚动区通过 `observeScrollRegions` 按实际 `overflow` 接入现有 `attachOverlayScrollbar`，动态新增子树、样式启用和响应式布局复用同一入口；样式读取与轨道写入分批，行内样式变化只复核当前元素。普通内容区使用同级轨道，定位浮层与原生顶层内的轨道保持在自身层级并补偿滚动位置。组件卸载释放监听、观察器及轨道。横向手势导航保留 `wireHorizontalScroller` 的拖动和渐隐。路由冒烟统一检查所有实际溢出的滚动区，搜索回归覆盖滑块拖动、滚轮、关闭重开和轨道数量。没有新增依赖。
 
 来源筛选与所有表格的显示列弹层共用 `SelectionPopover`，组合现有 React Aria `Popover`、`MenuDialog`、BoardUI `Checkbox` 和按钮。宽度由选项和操作组的内容决定，并受视口上限约束；长选项在限宽内折行。选项靠近触发器，批量操作根据 React Aria 的实际展开方向放在远端，DOM 顺序随之调整。`SelectionActions` 区分短操作并排与长操作铺满整行；来源筛选附带箭头的 `LinkButton` 凭据链接，列设置保留显示全部和默认显示。复核作品样本的全选、清空也复用同一操作条，保留计数及禁用条件。颜色配色器与人物说明浮层的交互含义不同，继续使用各自组件。没有新增依赖。
+
+馆藏和实体作品表格的艺人、媒体库、标签列，以及 JAV 新作表格的艺人、厂牌、标签列，复用 `TableColumnFilter` 的可搜索多选菜单和 BoardUI Checkbox。同列取并集，各列叠加筛选，选择后菜单保持展开。「全部」覆盖完整筛选范围，取消则清空选择。`column_filters` 的分组用数组记录选中项，用 `exclude` 对象记录全选后排除的项，缺少分组表示全选，空数组表示没有选中项，名称中的逗号保持完整。全选状态无需枚举未加载的选项，后续页沿用当前选择。馆藏筛选保存在同一范围的表格状态中，交给服务端筛选和分页；实体身份通过 `scope_kind`、`scope_name` 与列条件求交集。
+
+列头展开时才查询 `/api/facets` 或 `/api/jav/releases` 的 `column` 选项，每批 24 项，向下滚动或点击加载更多时读取下一页。搜索复用 `IndexSearch` 的 300ms 防抖与输入法处理，服务端复用搜索补全的规范名、别名与检索词判据。馆藏选项在 SQL 中分页后附加头像和别名，后端缓存使用有界 LRU；前端查询缓存闲置一分钟后回收，关闭菜单取消未完成请求。新作顶部各组只返回前 24 项，列头提供完整选项分页。媒体库沿用已有清单和 `SourceMark` 图标。艺人头像复用 `entity_ref`、`avatarInner` 和 `SourceAvatar`，图片延迟加载。选项滚动区铺满菜单，覆盖式滚动条贴右缘，搜索框保持固定。筛选为空时保留列头以便恢复。
 
 关注管理使用「关注列表」「添加关注」两个页签。列表复用 `FeedSources` 管理 JAV 订阅，添加页复用 `AddFeed` 的演员卡查询、用户点选与 `follow-name` 写入契约；共享 `FEEDS_KEY` 缓存，开关、移除及拉取各走原接口。来源筛选顶部统一提供凭据设置链接。JavDB 登入页判据复用 `javdb.LOGIN`，主页面与单体作品补拉共用解析入口。脚本检测在桥接文档加载后等待同源回报，加载与回报均有时限；权限指引依据 [Tampermonkey 官方 FAQ](https://www.tampermonkey.net/faq.php#Q209)。没有新增依赖。
 
