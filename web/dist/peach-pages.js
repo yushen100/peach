@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "22d32a8a-1160-403e-b2d9-3947e7941825", e._sentryDebugIdIdentifier = "sentry-dbid-22d32a8a-1160-403e-b2d9-3947e7941825");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "2a978a55-a000-45c1-bd6f-ceb2fe305233", e._sentryDebugIdIdentifier = "sentry-dbid-2a978a55-a000-45c1-bd6f-ceb2fe305233");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -2813,6 +2813,7 @@ var He = "peach.settings.v1", Ue = {
 		kindUrlShortcuts: "Internet shortcuts",
 		kindUrls: "URLs",
 		kindVideos: "Videos",
+		listReason: "Reason",
 		locating: "Locating",
 		notJunk: "Not junk",
 		reconsider: "Reconsider",
@@ -4068,6 +4069,7 @@ var He = "peach.settings.v1", Ue = {
 		dockLabel: "Actions for selected HD upgrades",
 		emptyBody: "All current editions already meet the criteria, or nothing has been added to tracking yet.",
 		emptyTitle: "No HD upgrade targets",
+		listReason: "Reason",
 		loadFailed: "Couldn't load HD upgrade targets",
 		noPreview: "No preview",
 		notFound: "HD upgrade targets not found. Refresh the page to try again.",
@@ -4145,9 +4147,7 @@ var He = "peach.settings.v1", Ue = {
 		repairs: "Repairs",
 		review: "Review",
 		sources: "Sources",
-		trash: "Trash",
-		trashCount_one: "{{count, number}} matching · showing {{shown}}",
-		trashCount_other: "{{count, number}} matching · showing {{shown}}"
+		trash: "Trash"
 	},
 	manageSkeleton: {
 		loadingLibraryTools: "Loading library tools",
@@ -8291,6 +8291,8 @@ var He = "peach.settings.v1", Ue = {
 		saveSelected: "Save selected videos"
 	},
 	batchJunk: {
+		confirmDisposeAll_one: "Moves the {{count, number}} undecided file in this category to the trash. The file stays where it is.",
+		confirmDisposeAll_other: "Moves all {{count, number}} undecided files in this category to the trash. The files stay where they are.",
 		confirmDispose_one: "Moves the {{count, number}} selected file to the trash. The file stays where it is.",
 		confirmDispose_other: "Moves the {{count, number}} selected files to the trash. The files stay where they are.",
 		confirmNotJunk_one: "Marks the {{count, number}} selected file as not junk and takes it out of the queue.",
@@ -8298,6 +8300,7 @@ var He = "peach.settings.v1", Ue = {
 		confirmRecheck_one: "Sends the {{count, number}} selected file back to the junk queue.",
 		confirmRecheck_other: "Sends the {{count, number}} selected files back to the junk queue.",
 		dismissed: "Set as not junk",
+		disposeAll: "Move all to trash",
 		doneDispose_one: "Moved {{count, number}} item to trash",
 		doneDispose_other: "Moved {{count, number}} items to trash",
 		doneNotJunk_one: "Marked {{count, number}} item as not junk",
@@ -8305,6 +8308,7 @@ var He = "peach.settings.v1", Ue = {
 		doneRecheck_one: "Sent {{count, number}} item back for junk check",
 		doneRecheck_other: "Sent {{count, number}} items back for junk check",
 		markNotJunk: "Mark as not junk",
+		queueChanged: "The undecided files just changed and were reloaded. Please confirm again.",
 		recheckFiles: "Recheck files",
 		reconsidered: "Sent back for junk check"
 	},
@@ -10349,6 +10353,7 @@ var He = "peach.settings.v1", Ue = {
 		kindUrlShortcuts: "网址快捷方式",
 		kindUrls: "网址",
 		kindVideos: "视频",
+		listReason: "判定理由",
 		locating: "正在定位",
 		notJunk: "不是垃圾",
 		reconsider: "重新判断",
@@ -11439,6 +11444,7 @@ var He = "peach.settings.v1", Ue = {
 		dockLabel: "所选高清升级的操作",
 		emptyBody: "现有版本都已满足条件，或还没有加入追踪。",
 		emptyTitle: "没有标记中的高清版目标",
+		listReason: "判定原因",
 		loadFailed: "高清版目标读取失败",
 		noPreview: "暂无预览",
 		notFound: "未取得高清版目标，请刷新页面重试。",
@@ -11509,8 +11515,7 @@ var He = "peach.settings.v1", Ue = {
 		repairs: "修复与迁移",
 		review: "人工复核",
 		sources: "来源和凭证",
-		trash: "回收站",
-		trashCount: "{{count, number}} 个符合 · 显示 {{shown}}"
+		trash: "回收站"
 	},
 	manageSkeleton: {
 		loadingLibraryTools: "正在读取数据管理状态",
@@ -15515,13 +15520,16 @@ var He = "peach.settings.v1", Ue = {
 	},
 	batchJunk: {
 		confirmDispose: "将选中的 {{count, number}} 个文件移入回收站，文件保留在原处。",
+		confirmDisposeAll: "将这一类待判断的 {{count, number}} 个文件全部移入回收站，文件保留在原处。",
 		confirmNotJunk: "将选中的 {{count, number}} 个文件标为不是垃圾，移出待判断。",
 		confirmRecheck: "将选中的 {{count, number}} 个文件放回待判断。",
 		dismissed: "已标记为不是垃圾",
+		disposeAll: "全部移入回收站",
 		doneDispose: "已批量移入回收站：{{count, number}} 项",
 		doneNotJunk: "已批量标为不是垃圾：{{count, number}} 项",
 		doneRecheck: "已批量重新判断：{{count, number}} 项",
 		markNotJunk: "标记为非垃圾",
+		queueChanged: "待判断的文件刚有变化，已重新读取，请再确认一次。",
 		recheckFiles: "重新检查文件",
 		reconsidered: "已重新加入垃圾判断"
 	},
@@ -39603,4 +39611,4 @@ jt();
 var Kb = document.getElementById("peach-page"), qb = Kb ? Gb[Kb.dataset.page ?? ""] : void 0;
 Kb && qb && (0, Bt.createRoot)(Kb).render(/* @__PURE__ */ (0, V.jsx)(Wb, { children: /* @__PURE__ */ (0, V.jsx)(qb, { data: { ...Kb.dataset } }) }));
 
-//# debugId=22d32a8a-1160-403e-b2d9-3947e7941825
+//# debugId=2a978a55-a000-45c1-bd6f-ceb2fe305233
