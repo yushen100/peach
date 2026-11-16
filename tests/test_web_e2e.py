@@ -315,10 +315,19 @@ class PlayerFramingE2ETests(unittest.TestCase):
         if not node or not chrome or not (FRONTEND / "node_modules/playwright-core").is_dir():
             missing_prerequisite("全屏画面测试需要 Node、playwright-core 与测试浏览器")
         environment = dict(os.environ, PEACH_E2E_CHROME=chrome)
-        result = subprocess.run(
-            [node, "--test", "e2e/player-fit.test.ts"], cwd=FRONTEND, env=environment,
-            capture_output=True, text=True, encoding="utf-8", timeout=150,
-        )
+        try:
+            result = subprocess.run(
+                [node, "--test", "e2e/player-fit.test.ts"], cwd=FRONTEND, env=environment,
+                capture_output=True, text=True, encoding="utf-8", timeout=150,
+            )
+        except subprocess.TimeoutExpired as expired:
+            partial = expired.stdout or ""
+            if isinstance(partial, bytes):
+                partial = partial.decode("utf-8", errors="replace")
+            BROWSER_LOGS.mkdir(parents=True, exist_ok=True)
+            log_path = BROWSER_LOGS / e2e_log_name("e2e/player-fit.test.ts")
+            log_path.write_text(partial, encoding="utf-8")
+            self.fail(f"全屏画面测试在 150 秒内没跑完，日志：{log_path}\n{partial}")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 

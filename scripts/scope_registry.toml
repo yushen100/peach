@@ -1,0 +1,634 @@
+# Peach 选测登记表：域里有哪些测试文件、改动文件归哪些域（ADR-0128、ADR-0172 后续）。
+# 由 scripts/test_runner.py 读取。纯数据：只新增精确测试文件名或新增、扩大路径映射时，
+# auto 选相关的新旧域与 checks；删除、缩小、改序与 [ci] 段的任何变化仍跑全量。
+
+[scopes]
+checks = [
+    "test_copy_final_state.py", "test_dependency_policy.py", "test_repo_hygiene.py", "test_test_planning.py",
+    "test_reference_updates.py", "test_readme_contracts.py", "test_complexity_ratchet.py",
+    "test_source_assertion_ratchet.py", "test_python_lint.py",
+]
+follow = ["test_follow*.py", "test_http.py", "test_migrations.py", "test_wants_web.py"]
+catalog = [
+    "test_ad_judgement.py", "test_composite_name_split.py", "test_media_libraries.py",
+    "test_media_folders.py", "test_content_region.py", "test_performer_delete.py", "test_entity_batch.py",
+    "test_duplicate_identity_merge.py", "test_entity_classification.py", "test_company_profiles.py",
+    "test_fc2_sellers.py", "test_entity_merge.py", "test_entity_redirect.py", "test_fastapi_api.py",
+    "test_field_owners.py", "test_migrations.py", "test_review_mirror.py", "test_rm_web.py",
+    "test_entity_link_install.py", "test_web_links.py", "test_entry_links.py", "test_feeds.py",
+    "test_feeds_web.py", "test_wants_web.py", "test_link_marks.py", "test_site_icons.py",
+    "test_site_logos.py", "test_public_http.py", "test_avatar_face.py", "test_brand_marks.py",
+    "test_studio_icon_variants.py", "test_push_discovery.py", "test_media_probe.py", "test_downloads*.py",
+    "test_web_downloads.py", "test_review_csv.py", "test_related.py", "test_search_suggest.py",
+    "test_subtitles.py", "test_task_runs.py", "test_followups.py", "test_task_center_integration.py",
+    "test_background_issues.py", "test_studio_followup.py", "test_creator_identity_followup.py",
+    "test_sample_images.py", "test_jav_code_domain.py", "test_taste_history.py", "test_taste_preferences.py",
+    "test_web_ui.py", "test_web_js.py", "test_web_perf.py", "test_web_resource_sync.py",
+    "test_record_rehome.py", "test_wants.py", "test_magnet_chain.py", "test_web_orphan_records.py",
+    "test_web_review.py", "test_web_settings.py", "test_system_language.py",
+]
+# 任务中心的两个文件跟着 `test_jobs.py` 走：`jobs.py` 与 `task_runs.py` 是同一条
+# 接线的两端，改哪一端都要两边一起验。
+media = [
+    "test_external_playback.py", "test_runtime_consistency.py", "test_endcard.py", "test_fastapi_api.py",
+    "test_jobs.py", "test_task_runs.py", "test_followups.py", "test_task_center_integration.py",
+    "test_task_control.py", "test_task_resources.py", "test_resource_platform.py", "test_face_models.py",
+    "test_frame_capture.py", "test_timeline_sheets.py", "test_processing_control.py",
+    "test_processing_traffic.py", "test_processing_inventory.py", "test_web_timeline_thumbnails.py",
+    "test_timeline_sources.py", "test_bif.py", "test_interaction.py", "test_media.py", "test_mp4repair.py",
+    "test_mp4recover.py", "test_web_media_repair.py", "test_previews.py", "test_preview_transport.py",
+    "test_providers.py", "test_segments.py", "test_streaming.py", "test_stream_lifecycle.py",
+    "test_subtitles.py", "test_transcodes.py", "test_hardware_transcode.py", "test_strm.py",
+    "test_guangya_sources.py", "test_media_sources.py", "test_smb*.py", "test_mkvindex.py",
+]
+sync = [
+    "test_sync*.py", "test_platform.py", "test_mount.py", "test_tray*.py", "test_macos_standalone.py",
+    "test_log_retention.py", "test_mdns.py", "test_netwatch.py", "test_certs.py", "test_review_mirror.py",
+    "test_runtime_prepare.py", "test_listening.py",
+]
+metadata = [
+    "test_custom_metadata.py", "test_scraping_access.py", "test_browser_transport.py", "test_metadata*.py",
+    "test_genre_taxonomy.py", "test_processing_control.py", "test_processing_traffic.py",
+    "test_processing_inventory.py", "test_fc2*.py", "test_local_poster.py", "test_media_io.py",
+    "test_community_catalog.py", "test_babepedia_match.py", "test_western_artwork.py",
+    "test_western_profiles.py", "test_jav*.py", "test_code_creators.py", "test_tag_renames.py",
+    "test_reproject_snapshot_tags.py", "test_stale_candidates.py", "test_logo_provider.py",
+    "test_avatar_provider.py", "test_avatar_face.py", "test_face_detect.py", "test_face_match.py",
+    "test_face_models.py", "test_performer*.py", "test_avatar_watermark.py", "test_avatar_picker.py",
+    "test_portrait_gaps.py", "test_portrait_artwork.py", "test_r18_machine_translation_repair.py",
+    "test_spine_label.py", "test_body_parts.py", "test_cover_repair.py",
+    "test_social_avatar_harvest.py", "test_series_localization.py", "test_duplicate_identity_merge.py",
+    "test_entity_merge.py", "test_entity_redirect.py", "test_migrations.py", "test_entity_link_install.py",
+    "test_studio_site_harvest.py", "test_studio_followup.py", "test_creator_identity_followup.py",
+    "test_sample_images.py", "test_company_profiles.py", "test_performer_link_harvest.py",
+    "test_directory_link_harvest.py", "test_minnano_av.py", "test_agency_roster_harvest.py",
+    "test_performer_agency_resync.py", "test_studio_name_localization.py",
+    "test_studio_name_localization_apply.py", "test_studio_icon_variants.py",
+    "test_maker_directory_harvest.py", "test_studio_name_variant_merge.py", "test_javdb_cn_names.py",
+    "test_link_rediscovery.py", "test_link_label_owner.py", "test_link_repair.py",
+    "test_resource_identification.py", "test_agency_entity.py", "test_agency_reject.py",
+    "test_label_maker.py", "test_seed_pack.py", "test_seed_followup.py", "test_seed_corrections.py",
+]
+tooling = [
+    "test_scripts.py", "test_trash_junk.py", "test_auth.py", "test_access.py", "test_cli.py",
+    "test_server.py", "test_diagnostics.py", "test_error_reporting.py", "test_remote_reporting.py",
+    "test_reporting_*.py", "test_library_sharing.py", "test_research_archive.py",
+    "test_library_diagnostics.py", "test_script_policy.py", "test_scan.py", "test_record_rehome.py",
+    "test_wants.py", "test_push_discovery.py", "test_media_probe.py", "test_subtitles.py",
+    "test_onboarding.py", "test_configuration_sources.py", "test_clouddrive_proxy.py",
+    "test_folder_picker.py", "test_ledger_backups.py", "test_clear_camera_filename_codes.py",
+    "test_check_public_text.py",
+    "test_issue_intake.py", "test_star_history.py", "test_test_history.py",
+    "test_test_environment.py", "test_dependency_policy.py", "test_version_bump.py",
+    "test_changelog.py", "test_release_candidate.py", "test_media_build_cache.py",
+    "test_runner_launcher.py", "test_restart_windows_tray.py", "test_deploy_windows_tray.py",
+    "test_runtime_prepare.py", "test_buildinfo.py", "test_versioning.py", "test_macos_standalone.py",
+    "test_windows_update.py", "test_release_updates.py", "test_release_signing.py",
+    "test_automatic_updates.py", "test_standalone_update.py", "test_upgrade_repairs.py", "test_legacy_repairs.py", "test_certs.py",
+    "test_config.py", "test_fsutil.py", "test_desktop_settings.py", "test_desktop_installer.py",
+    "test_data_storage.py", "test_job_status.py", "test_jobs.py", "test_task_runs.py", "test_followups.py",
+    "test_update_tasks.py", "test_task_center_integration.py", "test_task_control.py",
+    "test_task_resources.py", "test_resource_platform.py", "test_reference_updates.py",
+    "test_repo_hygiene.py", "test_seed_pack.py", "test_seed_followup.py", "test_review_csv.py",
+    "test_jav_code_domain.py", "test_organize.py", "test_link_repair.py", "test_tag_management.py",
+    "test_subprocess_encoding.py", "test_module_layering.py", "test_outbound_proxy_policy.py",
+    "test_network_reachability.py", "test_copy_final_state.py", "test_demo_dataset.py",
+    "test_cloudflared_packaging.py", "test_tunnel.py", "test_process_job.py", "test_ffmpeg_build.py",
+    "test_ffmpeg_bundle.py", "test_untrunc_build.py", "test_macos_media.py", "test_media_tool_import.py",
+    "test_seed_corrections.py", "test_face_models_bundle.py", "test_dev_text.py",
+]
+# 交付设施的重型测试：工作树、集成、测试证明与名额。它们只导入 `scripts.*`，改到被它们沿导入链用到的
+# 脚本时按文件补选；协议文件本身跑全量。不放在 tooling，免得改任何脚本或文档都连带跑这十几分钟。
+delivery = [
+    "test_agent_worktree.py", "test_ci_test_evidence.py", "test_release_due.py", "test_test_evidence.py", "test_test_slots.py",
+]
+
+# 前端 island 层（ADR-0022）。产物与源码的断言不需要 Node；vitest 那部分在没有
+# npm 时自己跳过，所以这个域在任何机器上都能跑，`full` 也就自动包含它。
+# `test_web_perf.py` 两个域都登记：压缩与 ETag 是 API 交付（catalog），
+# 播放器按需加载的断言读 `web/app.js`（web），改任一侧都该被本域拦住。
+# `test_copy_final_state.py` 两个域都登记：它扫全树，而界面字串是它最常拦到的
+# 一面，改 `web/` 的人必须在本域就撞上它。
+# 后面七个文件的主体不在这一层，但各有一段断言读 `web/` 或 `frontend/` 的源码，
+# 所以本域也要登记它们：改了 `web/app.js` 却漏跑读它的测试，`test_test_planning.py`
+# 的域映射门槛会在本地就红。
+web = [
+    "test_frontend_build.py", "test_frontend_preflight.py", "test_web_ui.py", "test_web_js.py",
+    "test_web_e2e.py", "test_tag_management.py", "test_subtitle_search.py", "test_subtitle_memory.py",
+    "test_legacy_shell_routes.py", "test_web_perf.py", "test_copy_final_state.py", "test_agency_entity.py",
+    "test_label_maker.py", "test_dependency_policy.py", "test_desktop_settings.py", "test_dev_copy.py",
+    "test_fastapi_api.py", "test_follow_assets.py", "test_follow_web.py", "test_metadata_library.py",
+    "test_processing_control.py", "test_processing_traffic.py", "test_processing_inventory.py",
+    "test_clouddrive_proxy.py", "test_studio_icon_variants.py", "test_web_settings.py",
+    "test_web_library_shortcuts.py", "test_web_tutorial.py", "test_company_profiles.py",
+]
+core = [
+    "test_access.py", "test_auth.py", "test_config.py", "test_field_owners.py",
+    "test_entity_classification.py", "test_migrations.py", "test_ledger_revision.py", "test_platform.py",
+    "test_mount.py", "test_tray.py", "test_certs.py", "test_folder_picker.py", "test_fsutil.py",
+    "test_runtime_consistency.py", "test_subprocess_encoding.py", "test_outbound_proxy_policy.py",
+    "test_windows_update.py", "test_buildinfo.py",
+]
+packaging = [
+    "test_dependency_policy.py", "test_buildinfo.py", "test_onboarding.py", "test_macos_standalone.py",
+    "test_cli.py", "test_server.py", "test_versioning.py", "test_frontend_build.py",
+    "test_frontend_preflight.py", "test_cloudflared_packaging.py", "test_desktop_installer.py",
+    "test_ffmpeg_build.py", "test_ffmpeg_bundle.py", "test_untrunc_build.py", "test_macos_media.py",
+    "test_face_models_bundle.py", "test_metadata_amane_bridge.py", "test_release_candidate.py",
+    "test_media_build_cache.py", "test_docker_entrypoint.py",
+]
+
+[scope_test_ids]
+follow = [
+    "test_rm_web.WebDataTests.test_contract_handler_registries_are_complete_and_unknown_routes_fail",
+    "test_rm_web.WebDataTests.test_read_only_post_routes_are_declared_and_all_exist",
+    "test_scripts.OperationalScriptTests.test_test_entrypoints_guard_the_worktree_source_and_are_the_only_documented_command",
+]
+
+# `auto` 域按改动文件选域：每个文件先查 `AUTO_SCOPE_FILES` 的整路径，再按
+# `AUTO_SCOPE_PREFIXES` 取第一个命中的前缀，多个文件取并集。表里没有的
+# `tests/test_*.py` 直接按文件名归域，`src/peach/` 下的其余模块按「模块名 ↔ 测试文件名」
+# 推断（`media.py` → `test_media.py` → media）。Markdown 归 checks。
+#
+# 一个文件可以落到多个域：读它的测试登记在哪个域，改它就得跑到哪个域。
+# `tests/test_test_planning.py` 按测试源码里真实读到的路径反查这两张表，漏一条本地就红。
+[auto_scope_files]
+"scripts/run_gitlab_runner.py" = ["tooling"]
+"scripts/render_star_history.py" = ["tooling"]
+"frontend/e2e/jav-userscript-contract.ts" = ["catalog", "web"]
+"web/integrations/peach-jav.user.js" = ["catalog", "web"]
+"scripts/build_macos_media.py" = ["tooling", "packaging"]
+"scripts/setup_macos_media_tools.py" = ["tooling", "packaging"]
+"scripts/smoke_macos_media.py" = ["tooling", "packaging"]
+"scripts/fetch_cloudflared_macos.py" = ["tooling", "packaging"]
+"scripts/fetch_face_models.py" = ["tooling", "packaging"]
+"scripts/cloudflared-macos.json" = ["tooling", "packaging"]
+"scripts/fetch_sparkle_macos.py" = ["tooling", "packaging"]
+"scripts/sparkle-macos.json" = ["tooling", "packaging"]
+"scripts/sparkle_appcast.py" = ["tooling", "packaging"]
+# 发布签名脚本的用例与客户端校验放在同一份 `test_release_signing.py` 里。
+"scripts/sign_release.py" = ["tooling"]
+"scripts/fetch_ffmpeg_sources.py" = ["tooling", "packaging"]
+"scripts/ffmpeg-sources.json" = ["tooling", "packaging"]
+"scripts/build_ffmpeg_windows.sh" = ["tooling", "packaging"]
+"scripts/fetch_untrunc_sources.py" = ["tooling", "packaging"]
+"scripts/untrunc-sources.json" = ["tooling", "packaging"]
+"scripts/build_untrunc_windows.sh" = ["tooling", "packaging"]
+"scripts/media_tool_bundle.py" = ["tooling", "packaging"]
+"src/peach/seed_corrections.py" = ["metadata", "tooling"]
+"src/peach/seed_validation.py" = ["metadata", "tooling"]
+"src/peach/preview_cache.py" = ["follow", "catalog", "media", "web"]
+"src/peach/preview_transport.py" = ["catalog", "media", "web"]
+"src/peach/dev_copy.py" = ["web"]
+"scripts/dev/copy-editor.js" = ["web"]
+# 路由页面同时被目录、工具与前端三个域的测试读源码。
+"src/peach/routes_pages.py" = ["catalog", "tooling", "web"]
+# 托盘既是 sync 域的服务编排，也被版本与桌面设置那些 tooling 测试读源码。
+"src/peach/tray.py" = ["sync", "tooling"]
+"src/peach/menubar.py" = ["sync", "tooling"]
+# Sparkle 更新器由菜单栏持有，打包与发布门槛的测试也直接导入它。
+"src/peach/sparkle_update.py" = ["sync", "tooling", "packaging"]
+# 托盘子服务与隧道的 cloudflared 共用这份 Job Object；两边的测试都要跑到。
+"src/peach/process_job.py" = ["tooling", "sync"]
+"src/peach/task_control.py" = ["catalog", "media", "metadata", "follow", "sync", "tooling", "web"]
+"tests/test_task_control.py" = ["media", "tooling"]
+"tests/test_task_resources.py" = ["media", "tooling"]
+"tests/test_resource_platform.py" = ["media", "tooling"]
+"src/peach/resource_platform.py" = ["media", "tooling", "web"]
+"src/peach/gpu_linux.py" = ["media", "tooling", "web"]
+"src/peach/task_resources.py" = ["catalog", "media", "metadata", "follow", "sync", "tooling", "web"]
+"src/peach/gpu_usage.py" = ["media", "tooling", "web"]
+# 托盘重启的实现由 `test_restart_windows_tray.py` 验，模块名推不出来。
+"src/peach/windows_restart.py" = ["tooling"]
+# 托盘「重启服务」按路径拉起这个脚本（`--source --force`），托盘测试也要跑到。
+"scripts/restart_windows_tray.py" = ["tooling", "sync"]
+"src/peach/jav_poster_crop.py" = ["metadata", "web"]
+# genre 词表按名字只推得出 metadata。复核队列与 API 那两处的用例拿「词表没收的词」
+# 当素材：词表一收那个词，`test_web_review.py`（catalog）与 `test_fastapi_api.py`
+# （web）就红，而改词表的人跑不到那两个域——2026-09-21 就是这样把 master 跑红的。
+"src/peach/genre_taxonomy.py" = ["metadata", "catalog", "web"]
+# 标签词表是 genre 投影的落点，复核页与目录页也按它筛选。
+"src/peach/catalog_rules.py" = ["metadata", "catalog", "web"]
+# 内容数据模块与带 code 的原句（ADR-0159）：没有自己的测试文件，域取直接用它们的那些模块。
+# 账本取值、文件名原词与 `Said` 散在扫描、采集、关注、下载与页面各处，几乎每个域都有读者。
+"src/peach/catalog_vocabulary.py" = ["follow", "catalog", "media", "sync", "metadata", "tooling", "web", "core"]
+"src/peach/content_words.py" = ["follow", "catalog", "media", "sync", "metadata", "tooling", "web", "core"]
+"src/peach/coded_text.py" = ["follow", "catalog", "media", "metadata", "tooling", "web", "core"]
+"src/peach/junk_words.py" = ["follow", "catalog", "media", "metadata", "tooling", "web", "core"]
+"src/peach/source_page_words.py" = ["metadata"]
+"src/peach/studio_words.py" = ["catalog", "metadata", "web"]
+"src/peach/taste_words.py" = ["catalog", "tooling"]
+# 来源顺序一变，`test_scripts.py` 里钉住的 field_rank 就跟着挪，而那份用例
+# 住在 tooling——按名字只推得出 metadata，不指明就跑不到。
+"src/peach/metadata_policy.py" = ["metadata", "tooling"]
+# 处理任务的主体测试是 `test_metadata_library.py`，它登记在 metadata 与 web 两个域；
+# `test_stale_candidates.py` 在 metadata，`test_web_e2e.py` 在 web 里整条跑它。
+# 模块名与测试文件名对不上，按名字推不出来，不指明就退化成 full。
+"src/peach/library_processing.py" = ["metadata", "web"]
+"src/peach/library_processing_scope.py" = ["metadata", "web"]
+"src/peach/local_poster.py" = ["metadata", "web"]
+"src/peach/media_io.py" = ["metadata", "media", "tooling"]
+"src/peach/processing_control.py" = ["media", "metadata", "web"]
+# 刮削后继：主体测试 `test_followups.py` 与 `test_studio_followup.py`，按名字推不出来。
+"src/peach/avatar_followup.py" = ["catalog", "media", "tooling"]
+"src/peach/avatar_offsite_cover_face.py" = ["catalog", "media", "tooling"]
+"src/peach/studio_followup.py" = ["catalog", "metadata"]
+"src/peach/creator_identity_followup.py" = ["catalog", "metadata"]
+# 补样张后继的主体测试是 `test_sample_images.py`，出图路由与番号集在 `test_fastapi_api.py`。
+"src/peach/sample_followup.py" = ["catalog", "metadata", "media"]
+"src/peach/sample_images.py" = ["catalog", "metadata", "media"]
+# 厂牌判据由命令行与后继共用，两边的测试分住 catalog、metadata 与 web。
+"src/peach/studio_icons.py" = ["catalog", "metadata", "web"]
+"src/peach/studio_sites.py" = ["catalog", "metadata"]
+"src/peach/company_profiles.py" = ["catalog", "metadata", "web"]
+"src/peach/fc2_sellers.py" = ["catalog", "metadata", "web"]
+"scripts/import_fc2_sellers.py" = ["catalog", "metadata", "tooling"]
+"scripts/harvest_company_profiles.py" = ["catalog", "metadata", "web", "tooling"]
+# 失效标记由资料页、网页链接体检、维护脚本与种子导出共用。
+"src/peach/link_status.py" = ["catalog", "metadata", "tooling", "web"]
+"scripts/revert_auto_landing.py" = ["catalog", "metadata", "tooling"]
+# 撤回的实现与复核页入口（ADR-0141）：脚本用例散在 catalog、metadata、tooling，网页用例在
+# `test_metadata_verification.py`，路由登记在 `test_rm_web.py`。
+"src/peach/auto_landing_revert.py" = ["catalog", "metadata", "tooling"]
+"src/peach/web_auto_landings.py" = ["catalog", "metadata", "web"]
+# 实体事实种子包（ADR-0073）：导出导入的逻辑与命令行，测试都在 `test_seed_pack.py`；
+# 扫描结算后自动导入的后继（ADR-0075）在 `test_seed_followup.py`。
+"src/peach/seed_pack.py" = ["metadata", "tooling"]
+"scripts/seed_pack.py" = ["metadata", "tooling"]
+"src/peach/seed_followup.py" = ["metadata", "tooling"]
+# 推广附件命名词库：垃圾复核队列（`test_ad_judgement.py`）与回收站脚本（`test_trash_junk.py`）都读它。
+"resources/junk/promo_attachment_names.json" = ["catalog", "tooling"]
+# 补女优资料后继的解析与读写层、一次补完的脚本，测试都在 `test_performer_profile_followup.py`。
+"scripts/run_performer_profiles.py" = ["metadata"]
+"src/peach/avwikidb.py" = ["metadata"]
+"src/peach/performer_profiles.py" = ["metadata"]
+# 女优页头的视图：主体测试在 `test_performer_header.py`（metadata），资料接口与骨架
+# 形状的用例在 catalog 与 web 两个域里经 `q_entity` 读它。
+"src/peach/performer_header.py" = ["metadata", "catalog", "web"]
+# 推送发现横跨扫描登记（tooling）与 HTTP 端点（catalog），按名字只推得出一个域。
+"src/peach/push_discovery.py" = ["tooling", "catalog"]
+# 入库通知由推送发现、云下载整理与任务接口共用，测试分在 catalog 与 tooling，按名字推不出来。
+"src/peach/ingest_notices.py" = ["catalog", "tooling"]
+# 个人记录的判据与搬运（ADR-0087）：资源同步与列表在 catalog，扫描登记与撤回脚本在 tooling。
+"src/peach/personal_records.py" = ["catalog", "tooling"]
+"src/peach/record_rehome.py" = ["catalog", "tooling"]
+"src/peach/web_orphan_records.py" = ["catalog", "web"]
+"src/peach/web_library_shortcuts.py" = ["catalog", "web"]
+"src/peach/web_tutorial.py" = ["catalog", "web"]
+# 入口页共用件的测试住在首启与配置来源那两份 tooling 测试里。
+"src/peach/web_entry.py" = ["catalog", "tooling", "web"]
+# 这几份文档有测试在读它们的正文：改文档也要跑到那条测试。
+# 差异表是 token 判据的另一半：偏离上游的每一条都要在那张表里写明原因，所以
+# `test_frontend_build.py` 读它——改表就得跑到 web。
+"frontend/src/react/boardui/ORIGIN.md" = ["checks", "web"]
+".github/dependabot.yml" = ["tooling", "web"]
+"Dockerfile" = ["packaging", "tooling"]
+".dockerignore" = ["packaging", "tooling"]
+"compose.yaml" = ["packaging", "tooling"]
+"src/peach/server.py" = ["packaging", "tooling"]
+# 一键更新的用例和镜像仓库核对一起放在 `test_release_updates.py`。
+"src/peach/docker_update.py" = ["tooling"]
+"scripts/smoke_docker.py" = ["packaging", "tooling"]
+# GitLab 流水线：构建、发布与 CI 验证的编排，本机测试不执行它；`test_version_bump.py`
+# 读它判补丁版本。主线 CI 改它时由 `ci_scope` 让三个平台跑全量。
+".gitlab-ci.yml" = ["packaging", "tooling"]
+# 源码分发包的文件清单，由打包测试与发布脚本使用。
+"MANIFEST.in" = ["packaging", "tooling"]
+# 浏览器文件的实测秒数：CI 浏览器矩阵（tooling）与本机浏览器冒烟的排队顺序（web）共用。
+"scripts/ci-browser-timings.json" = ["tooling", "web"]
+
+# 脚本默认归 tooling；有自己领域测试的脚本两边都跑：领域测试验它的判据，
+# tooling 里的脚本策略门槛验它的形态。
+# 有序：按顺序取第一个命中的前缀，更具体的前缀写在前面。
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/mkvindex.py"
+scopes = ["media"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/listening.py"
+scopes = ["sync", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/media.py"
+scopes = ["media"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/hardware_transcode.py"
+scopes = ["media"]
+
+# 关键帧与 ctts 都从 moov 读，测试住在 `test_segments.py` 里。
+[[auto_scope_prefixes]]
+prefix = "src/peach/mp4index.py"
+scopes = ["media"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/mp4repair.py"
+scopes = ["media"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/mp4recover.py"
+scopes = ["media"]
+
+# 批量修复是播放链路的任务，但住在 web 层，两个域都要跑到。
+[[auto_scope_prefixes]]
+prefix = "src/peach/web_media_repair.py"
+scopes = ["media", "web"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/desktop_startup.py"
+scopes = ["tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/desktop_uninstall.py"
+scopes = ["tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/peach_proxy.py"
+scopes = ["tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/gfriends.py"
+scopes = ["metadata"]
+
+# 站点解析器契约与套了契约的站（ADR-0044）：测试住在 `test_metadata_sources.py` 与
+# `test_community_catalog.py`，都在 metadata 域；按包内模块名推不出来。
+[[auto_scope_prefixes]]
+prefix = "src/peach/sources/"
+scopes = ["metadata"]
+
+# 来源录制回放：录制由 `test_metadata_replay.py` 回放，录制脚本也由它装载；重录不必全量。
+[[auto_scope_prefixes]]
+prefix = "tests/fixtures/source-replay/"
+scopes = ["metadata"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/record_source_fixtures.py"
+scopes = ["metadata", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/localize_performer_names.py"
+scopes = ["metadata", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/localize_series_names.py"
+scopes = ["metadata", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/localize_studio_names.py"
+scopes = ["metadata", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/apply_studio_name_localization.py"
+scopes = ["metadata", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/match_babepedia_creators.py"
+scopes = ["metadata", "tooling"]
+
+# 旧版中文取值的对照表，读它的多是元数据脚本（babepedia、javdb 名字、厂牌名本地化）。
+[[auto_scope_prefixes]]
+prefix = "scripts/legacy_values.py"
+scopes = ["metadata", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/audit_code_creators.py"
+scopes = ["metadata", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/rename_retired_tags.py"
+scopes = ["metadata", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/reproject_snapshot_tags.py"
+scopes = ["metadata", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/drop_stale_genre_candidates.py"
+scopes = ["metadata", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/audit_fc2_similarity.py"
+scopes = ["metadata", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/poster_crop_boxes.py"
+scopes = ["metadata", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/rediscover_entity_links.py"
+scopes = ["metadata", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/repair_entity_links.py"
+scopes = ["metadata", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/fetch_studio_avatar_candidates.py"
+scopes = ["metadata", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/scrape_codes.py"
+scopes = ["metadata", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/repair_r18_machine_translations.py"
+scopes = ["metadata", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/merge_studio_name_variants.py"
+scopes = ["metadata", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/harvest_"
+scopes = ["metadata", "tooling"]
+
+# amane 桥（ADR-0043）：脚本由 metadata 域的单测装载，清单与锁由 checks 域的依赖策略核。
+[[auto_scope_prefixes]]
+prefix = "tools/amane-bridge/"
+scopes = ["metadata", "packaging", "checks"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/sync_brand_marks.py"
+scopes = ["catalog", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/detect_cover_faces.py"
+scopes = ["web", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/demo_dataset.py"
+scopes = ["web", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/vendor_web_dependencies.ts"
+scopes = ["web", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/audit_video_endcards.py"
+scopes = ["media", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/setup_macos_port80.sh"
+scopes = ["sync", "tooling"]
+
+# 订阅源的解析与建壳验在 `test_feeds*.py`，两份都登记在 catalog：壳的边界是
+# 「它不是 asset」，看得住这条的是目录域那批测试。
+[[auto_scope_prefixes]]
+prefix = "src/peach/feeds.py"
+scopes = ["catalog"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/feed_followup.py"
+scopes = ["catalog"]
+
+# 云下载的任务模型、两个客户端与生成的 protobuf 代码，测试都是 `test_downloads*.py`。
+[[auto_scope_prefixes]]
+prefix = "src/peach/downloads"
+scopes = ["catalog"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/follow"
+scopes = ["follow"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/fanbox.py"
+scopes = ["follow"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/web_follow.py"
+scopes = ["follow"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/sync"
+scopes = ["sync"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/platform.py"
+scopes = ["sync"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/mount.py"
+scopes = ["sync"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/mdns.py"
+scopes = ["sync"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/netwatch.py"
+scopes = ["sync"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/certs.py"
+scopes = ["sync"]
+
+# 产地的判据住在 `regions.py`，验它的测试叫 `test_content_region.py`：
+# 模块名与测试文件名对不上，按名字推不出来，只能在这里指明。
+[[auto_scope_prefixes]]
+prefix = "src/peach/regions.py"
+scopes = ["catalog"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/web_"
+scopes = ["catalog"]
+
+[[auto_scope_prefixes]]
+prefix = "src/peach/routes_"
+scopes = ["catalog"]
+
+# 随应用分发的资源由加载它们的模块与打包脚本使用，按加载者登记。
+# 命名词表由 `classification.py` 读，那份判据的测试在目录与元数据两个域。
+[[auto_scope_prefixes]]
+prefix = "resources/naming/"
+scopes = ["catalog", "metadata"]
+
+[[auto_scope_prefixes]]
+prefix = "resources/media-sources.json"
+scopes = ["media", "web"]
+
+[[auto_scope_prefixes]]
+prefix = "resources/seed/"
+scopes = ["metadata", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "resources/junk/"
+scopes = ["catalog", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "resources/marks/"
+scopes = ["catalog", "web"]
+
+[[auto_scope_prefixes]]
+prefix = "resources/site-marks/"
+scopes = ["catalog", "web"]
+
+[[auto_scope_prefixes]]
+prefix = "resources/licenses/"
+scopes = ["packaging", "tooling"]
+
+# 应用图标：页面站标（web）、托盘与菜单栏（sync）、安装包与 DMG（packaging），
+# `test_scripts.py` 读 `peach-logo.png`（tooling）。
+[[auto_scope_prefixes]]
+prefix = "resources/setup/"
+scopes = ["web", "packaging"]
+
+# 语言资源：前端（web）直接导入；后端渲染与资源对照测试在 tooling（ADR-0159）。
+[[auto_scope_prefixes]]
+prefix = "resources/locales/"
+scopes = ["web", "tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "resources/"
+scopes = ["sync", "tooling", "web", "packaging"]
+
+[[auto_scope_prefixes]]
+prefix = "web/"
+scopes = ["web"]
+
+[[auto_scope_prefixes]]
+prefix = "frontend/"
+scopes = ["web"]
+
+[[auto_scope_prefixes]]
+prefix = "scripts/"
+scopes = ["tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "pyproject.toml"
+scopes = ["tooling"]
+
+[[auto_scope_prefixes]]
+prefix = ".github/"
+scopes = ["tooling"]
+
+[[auto_scope_prefixes]]
+prefix = "docs/"
+scopes = ["tooling"]
+
+[[auto_scope_prefixes]]
+prefix = ".claude/"
+scopes = ["tooling"]
+
+# 测试执行的职责划分；任何变化都跑全量。
+[ci]
+# GitHub Test 里由 web-bundle 承担的前端工具检查，Python 与浏览器任务不重复跑。
+frontend_tests = [
+    "test_frontend_build.BundleFreshnessTests.test_the_committed_bundle_is_what_the_current_sources_build",
+    "test_frontend_build.VitestTests.test_the_island_suite_passes",
+    "test_frontend_preflight.FrontendPreflightTests.test_frontend_sources_and_tests_pass_lint",
+    "test_frontend_preflight.FrontendPreflightTests.test_the_frontend_sources_typecheck",
+]
+# Python 任务不跑、由浏览器矩阵承担的浏览器容器用例。
+browser_tests = [
+    "test_web_e2e.SetupE2ETests.test_the_first_run_page_writes_errors_back_and_finishes",
+    "test_web_e2e.WebE2ESmokeTests.test_every_route_holds_the_layout_and_runtime_invariants",
+]
+# 只改这些工作流时选 tooling，其余工作流跑全量。
+tooling_workflows = [
+    ".github/workflows/project-board.yml",
+    ".github/workflows/docker.yml",
+    ".github/workflows/star-history.yml",
+    ".github/workflows/issue-intake.yml",
+    ".github/workflows/gitgud-mirror.yml",
+]

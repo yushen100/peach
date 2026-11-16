@@ -807,7 +807,8 @@ class ShardReportTests(unittest.TestCase):
 
 class SubprocessResumeTests(unittest.TestCase):
     def invoke(self, repo, scope, *options):
-        env = {**os.environ, 'GITHUB_ACTIONS': 'false', 'CI': ''}
+        # 夹具仓库的运行只验证续跑，不去排本机真实的整机名额。
+        env = {**os.environ, 'GITHUB_ACTIONS': 'false', 'CI': '', 'PEACH_TEST_SLOTS_HELD': str(os.getpid())}
         for key in ('PEACH_TEST_FOCUS', 'PEACH_E2E_FILES', 'PEACH_VITEST_FILES'):
             env.pop(key, None)
         return fixture_process([sys.executable, '-X', 'utf8', str(repo / 'entry.py'),
@@ -822,11 +823,14 @@ class SubprocessResumeTests(unittest.TestCase):
     def check_resume_after_failure(self, scope, *options, check_full_modes=False):
         source = Path(__file__).resolve().parents[1]
         modules = ('test_runner', 'test_evidence', 'test_history', 'test_resume', 'test_run_progress',
-                   'test_shard_results', 'test_environment_identity', 'test_focus', 'change_impact', 'test_inputs')
+                   'test_shard_results', 'test_environment_identity', 'test_focus', 'change_impact', 'test_inputs',
+                   'test_slots')
         files = {'scripts/__init__.py': '', '.gitignore': 'build/\nruntime/\n__pycache__/\n*.pyc\n',
                  '.gitattributes': '* text=auto eol=lf\n'}
         files.update({'scripts/' + name + '.py': (source / 'scripts' / (name + '.py')).read_text(encoding='utf8')
                       for name in modules})
+        # 运行器在导入时读选测登记表。
+        files['scripts/scope_registry.toml'] = (source / 'scripts/scope_registry.toml').read_text(encoding='utf8')
         files['entry.py'] = (
             'from scripts import test_runner as runner\nraise SystemExit(runner.main())\n')
         sample = ('from pathlib import Path\nimport unittest\nclass Suite(unittest.TestCase):\n'
@@ -1478,7 +1482,7 @@ class VerificationTests(unittest.TestCase):
         self.assertEqual(runner.scopes_for_changes(["web/app.js", "src/peach/follow.py"])[0],
                          ("follow", "web"))
         for path in ("pyproject.toml", "scripts/test_runner.py", "scripts/test_evidence.py", 'scripts/test_focus.py',
-                     "uv.lock", "src/peach/unknown.py"):
+                     "scripts/test_slots.py", "uv.lock", "src/peach/unknown.py"):
             self.assertEqual(runner.scopes_for_changes([path])[0], ("full",))
 
     def test_runner_reuses_success_and_fresh_failure_invalidates_it(self):
@@ -1652,7 +1656,7 @@ class VerificationTests(unittest.TestCase):
     def test_full_run_retains_unaffected_files_then_completes_with_auto(self):
         mapping = {"full": ("test_checks.py", "test_web.py"), "checks": ("test_checks.py",),
                    "web": ("test_web.py",)}
-        select = lambda scope: tuple(Path(name) for name in mapping.get(scope, ()))
+        select = lambda scope, **_: tuple(Path(name) for name in mapping.get(scope, ()))
 
         def mutate(*args, **kwargs):
             (self.repo / "README.md").write_text("检查期间的文档修订\n", encoding="utf-8")

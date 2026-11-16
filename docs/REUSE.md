@@ -166,7 +166,7 @@ React 与应用层的 GET 入口共用 `frontend/src/core/library-scope.ts`：�
 
 交付预检复用已有的提交主题与共同署名检查，不新增规则解释器。合入前的 PR 身份复用 [GitHub CLI 的 `gh pr view`](https://cli.github.com/manual/gh_pr_view)，使用工作树仓库上下文和原生 JSON 字段；Peach 只校验开放状态、精确提交及目标分支，不引入 GitHub SDK 或另一套凭据存储。临时 Git 工作树回归覆盖未取得 PR、旧提交、其他目标、远端查询期间内容变化及成功合并回执。
 
-测试结果继续复用 Python ≥3.14 标准库 `unittest`、`hashlib`、`json` 和项目的内容快照、影响域映射与外部测试结果。互斥复用既有 `filelock 4.2.0`，分片退出后回收其进程树复用开发依赖 `psutil 7.2.2`；版本与许可沿用锁定依赖及第三方许可清单，不新增运行时依赖。Peach 保留输入身份、逐文件覆盖、完成报告、批次来源和 `ready`／`integrate` 验收规则；串行、并行、浏览器与 Vitest 使用同一个恢复模型。
+测试结果继续复用 Python ≥3.14 标准库 `unittest`、`hashlib`、`json` 和项目的内容快照、影响域映射与外部测试结果。互斥复用既有 `filelock 4.2.0`，分片退出后回收其进程树复用开发依赖 `psutil 7.2.2`；版本与许可沿用锁定依赖及第三方许可清单，不新增运行时依赖。整机测试名额（ADR-0172）同样用 filelock 文件锁与全量锁的排队票实现，不另引入信号量库或调度服务。Peach 保留输入身份、逐文件覆盖、完成报告、批次来源和 `ready`／`integrate` 验收规则；串行、并行、浏览器与 Vitest 使用同一个恢复模型。
 
 CI 跨作业恢复使用 GitLab Runner 19.5 的原生 [缓存](https://docs.gitlab.com/ci/caching/) 与 [`cache:when`](https://docs.gitlab.com/ci/yaml/#cachewhen)，保存正式证明 JSON，按作业、分支及保护状态隔离。缓存可缺失，Peach 仍负责内容、环境、时效与全量批次校验；不引入缓存 SDK 或独立证明存储。GitLab 克隆地址使用标准库 `urllib.parse` 保留仓库身份并规范化认证值，作业令牌及其密码别名按存在性参与环境身份。
 
