@@ -127,10 +127,8 @@ describe('设计决定：配置控件', () => {
         assert.equal(await original.evaluate((node) => node.isConnected), true);
         assert.match(await surface.evaluate((node) => getComputedStyle(node).transitionDuration), /0.3s/);
         await tabs.getByRole('tab', { name: '添加关注', exact: true }).press('ArrowRight');
-        await tabs.getByRole('tab', { name: '标签管理', selected: true }).waitFor();
-        await tabs.getByRole('tab', { name: '标签管理', exact: true }).press('ArrowRight');
         await tabs.getByRole('tab', { name: '关注列表', selected: true }).waitFor();
-        assert.equal(await tabs.getByRole('tab').count(), 3);
+        assert.equal(await tabs.getByRole('tab').count(), 2);
         assert.equal(await surface.count(), 1);
         await page.emulateMedia({ reducedMotion: 'reduce' });
         assert.equal(await surface.evaluate((node) => getComputedStyle(node).transitionDuration), '0s');
