@@ -205,6 +205,17 @@ class MdnsPublisherTests(unittest.TestCase):
         ):
             self.assertEqual(lan_ipv4(), "198.51.100.162")
 
+    def test_gateway_endpoint_route_falls_back_to_real_host_interface(self):
+        fake_socket = MagicMock()
+        fake_socket.getsockname.return_value = ("203.0.113.1", 50000)
+        with patch("peach.mdns.socket.socket", return_value=fake_socket), patch(
+            "peach.mdns.socket.gethostname", return_value="host",
+        ), patch(
+            "peach.mdns.socket.gethostbyname_ex",
+            return_value=("host", [], ["203.0.113.1", "198.51.100.162"]),
+        ):
+            self.assertEqual(lan_ipv4(), "198.51.100.162")
+
 
 class ReachabilityTests(unittest.TestCase):
     """可达性不能由服务进程自证。

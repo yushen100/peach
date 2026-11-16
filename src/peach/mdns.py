@@ -32,15 +32,7 @@ def _normalized_name(name: str) -> str:
 
 def lan_ipv4() -> str:
     """Ask the routing table for the preferred LAN IPv4 without sending data."""
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        sock.connect(("192.0.2.1", 80))
-        routed = str(sock.getsockname()[0])
-    finally:
-        sock.close()
     benchmark = ipaddress.ip_network("198.18.0.0/15")
-    if ipaddress.ip_address(routed) not in benchmark:
-        return routed
     # Full-tunnel proxies may own the default route. Fall back to host interfaces,
     # rejecting the benchmarking range used by Mihomo and obvious host-only endpoints.
     candidates = []
@@ -53,6 +45,27 @@ def lan_ipv4() -> str:
         prefix_score = 3 if value.startswith("192.168.") else (2 if value.startswith("10.") else 1)
         endpoint_score = 0 if int(value.rsplit(".", 1)[1]) in {1, 2} else 1
         candidates.append((prefix_score, endpoint_score, value))
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    routed = None
+    try:
+        sock.connect(("192.0.2.1", 80))
+        routed = str(sock.getsockname()[0])
+    except OSError:
+        pass
+    finally:
+        sock.close()
+
+    if routed is not None:
+        routed_addr = ipaddress.ip_address(routed)
+        if isinstance(routed_addr, ipaddress.IPv4Address) and routed_addr not in benchmark:
+            routed_prefix = 3 if routed.startswith("192.168.") else (2 if routed.startswith("10.") else 1)
+            routed_endpoint = 0 if int(routed.rsplit(".", 1)[1]) in {1, 2} else 1
+            routed_score = (routed_prefix, routed_endpoint)
+            best_candidate_score = max(candidates)[:2] if candidates else (-1, -1)
+            if routed_score >= best_candidate_score:
+                return routed
+
     if not candidates:
         raise RuntimeError("no publishable LAN IPv4 address; pass --mdns-address")
     return max(candidates)[2]
