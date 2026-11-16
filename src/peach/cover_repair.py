@@ -411,16 +411,26 @@ class CoverRepair:
 
     def _repair(self, backup: Path, run_id, checkpoint) -> Counter:
         from . import body_parts, spine_label
-        from .face_detect import FaceDetector
+        from .face_detect import FaceDetector, FaceModelUnavailable
         from .fsutil import atomic_write_text
         from .task_control import Cancelled
 
-        # 模型装封面时只用本机已有的，这里取一次；取不到的那一步退回原有判据，不拦着做。
-        spine_label.default_reader(allow_download=True)
-        parts = body_parts.default_detector(allow_download=True)
-        detector = FaceDetector()
+        # 后台补修只用随包或数据目录里已有的模型，不联网取（与头像人脸的后台补测一样）。取不到的那一步
+        # 退回原有判据或跳过，不拦着其余几步：书脊番号没有就按原有判据切，部位没有就只按脸，人脸检测器
+        # 没有就这一轮不补脸，那几张仍算待处理，等模型有了（安装包随附、补判脚本取过）再补。
+        spine_label.default_reader(allow_download=False)
+        parts = body_parts.default_detector(allow_download=False)
+        try:
+            detector = FaceDetector(allow_download=False)
+        except (FaceModelUnavailable, ImportError):
+            LOGGER.info('Cover repair: no local face model, faces are left for a later run')
+            detector = None
         plan = self.plan()
-        total = len(plan['judge']) + 2 * len(plan['crop']) + len(plan['face'])
+        def faces(listed) -> int:
+            """进度里补脸那一步的张数；没有人脸检测器时这一轮不补脸，不计进总数。"""
+            return len(listed) if detector is not None else 0
+
+        total = len(plan['judge']) + 2 * len(plan['crop']) + faces(plan['face'])
         counts: Counter = Counter()
         done = 0
 
@@ -471,11 +481,11 @@ class CoverRepair:
             # 重算后改判整幅的封面这时才够补判、要在整张图里重找脸：重新出一次名单，同一轮做完。
             again = self.plan()
             more = [(path, evidence) for path, evidence in again['judge'] if path.stem not in attempted]
-            total += len(more) + max(0, len(again['face']) - len(plan['face']))
+            total += len(more) + max(0, faces(again['face']) - faces(plan['face']))
             judge_all(more)
         finally:
             transport.close()
-        for path in self.plan()['face']:
+        for path in (self.plan()['face'] if detector is not None else ()):
             step()
             if not path.is_file() or not face_stale(path, parts=parts is not None):
                 continue

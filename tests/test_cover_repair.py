@@ -127,6 +127,30 @@ class CoverRepairTests(unittest.TestCase):
         self.assertIn("recropped", json.loads(result))
         self.assertEqual(self.repair.plan()["crop"], [])
 
+    def test_a_run_uses_local_models_only_and_skips_faces_when_the_face_model_is_missing(self):
+        """后台补修不联网取模型；没有人脸模型时照样重算切点、记回执，缺脸的几张留到下次。"""
+        from peach.face_detect import FaceModelUnavailable
+        old = self.cover("SSIS-002", rules=False)
+        old.with_suffix(".face.json").unlink()
+        with patch("peach.spine_label.default_reader") as reader, \
+                patch("peach.body_parts.default_detector", return_value=None) as parts, \
+                patch("peach.face_detect.FaceDetector",
+                      side_effect=FaceModelUnavailable("errors.faceDetect.faceModelMissing", {"path": "yunet.onnx"})) as detector, \
+                patch.object(cover_repair, "HostLimitedTransport"), patch.object(cover_repair, "SourceTransport"), \
+                patch("peach.cover_artwork.spine_box", return_value=None), \
+                patch("peach.cover_artwork.text_across_file", return_value=lambda cut: 0):
+            self.repair.status()
+            self.repair.worker.join()
+            self.repair.begin()
+            self.repair.worker.join()
+        for call in (reader, parts, detector):
+            self.assertEqual(call.call_args.kwargs, {"allow_download": False})
+        self.assertEqual(jav_poster_crop.read_sidecar(old)["rules"], jav_poster_crop.CROP_RULES)
+        (row_id, result), = self.database.rows()
+        self.assertTrue(row_id.startswith(cover_repair.RECEIPT_PREFIX))
+        self.assertNotIn("faces", json.loads(result))
+        self.assertEqual(self.repair.plan()["face"], [old])
+
     def test_nothing_starts_before_the_estimate(self):
         self.assertFalse(self.repair.begin())
 
