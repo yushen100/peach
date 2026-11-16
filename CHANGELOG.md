@@ -59,6 +59,10 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Updates**: Upgrading fixes data older versions left behind: FC2 sellers as labels, scrambled FC2 titles, labels and series under an alias, retired and old NFO tags, Blu-ray duplicates in New releases, wants marked acquired by a cover, and old cloud download notes (#715). / **更新**：升级时修正旧版本留下的数据：记成厂牌的 FC2 卖家、带乱码串的 FC2 标题、写成别名的厂牌与系列、退役标签与旧版 NFO 标签、新作里重复的蓝光版、被封面标成已到手的想要，以及云下载的旧说明（#715）。
 
 - **Settings**: Cloud download works with a CloudDrive2 token limited to a folder instead of saying the folder or offline capability is missing (#211). / **配置**：CloudDrive2 令牌限定了根目录时云下载照常可用，不再报找不到文件夹或云下载能力未取得（#211）。
+- **Library**: NFO files, posters and screenshot thumbnails that older versions listed as works leave the collection on upgrade; the files stay on disk (#715). / **馆藏**：旧版当成作品登记的 NFO、海报和截图缩略图升级后移出馆藏，盘上文件不动（#715）。
+- **Library**: Avatars installed while the face model was unavailable get face framing after upgrade, using only local images (#715). / **馆藏**：人脸模型不可用时装上的头像，升级后补上按脸取景，只读本机图片（#715）。
+- **Ledger**: Docker and peach serve also prune old ledger backups, and one upgrade writes a single pre-upgrade backup instead of one per repair (#715). / **账本**：Docker 与 peach serve 也按保留份数清理账本备份，一次升级只写一份升级前备份（#715）。
+- **Ledger**: Failed task records, empty crash logs, repair resume files and processing state files no longer pile up; upgrading clears the backlog (#715). / **账本**：失败的任务记录、空崩溃日志、补修续跑文件和处理状态文件不再越积越多，升级时清掉旧版积下的（#715）。
 - **Sourcing**: Background jobs no longer use your JavDB account, so it isn't suspended for browsing too fast; a suspension shows its resume time (#702). / **采集**：后台任务读 JavDB 不再带登录账号，免得账号被判浏览过快停用；账号被停时提示停的是账号和恢复时间（#702）。
 - **Sourcing**: Refused sources show who and for how long instead of asking for a new cookie, and one paused source no longer stalls a browser batch (#702). / **采集**：来源被拒时点名并写明暂停多久，不再一律让人更新 Cookie；某个来源暂停时浏览器添加不再整批干等一天（#702）。
 - **Library**: DMM video previews in JAV details play again after DMM moved them to a new host (#697). / **馆藏**：DMM 换了预告视频的主机后，JAV 详情里的 DMM 视频预览重新能播（#697）。
