@@ -60,6 +60,9 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Updates**: Repairs and migrations is grouped by kind, and repairs awaiting your OK can be started all at once or a group at a time (#723). / **更新**：「修复与迁移」按类分组，等确认的修复可一次全部开始或按组开始（#723）。
 
 ### Fixed / 修复
+
+- **Interface**: The userscript's floating panel keeps its position and appearance on pages with sidebar styles (peach-mitao/peach-userscript#41). / **界面**：网页的侧栏样式不再挤压用户脚本的悬浮面板（peach-mitao/peach-userscript#41）。
+
 - **Library**: Profile links copied with `&amp;` in the address open the right page, and archive, blog and catalog link names show in the interface language; existing links are fixed on upgrade (#715). / **馆藏**：地址里带 `&amp;` 的资料页链接能打开正确的页面，官网存档、博客、作品页等链接名按界面语言显示；已有链接升级后自动改正（#715）。
 - **Updates**: Upgrading fixes data older versions left behind: FC2 sellers as labels, scrambled FC2 titles, labels and series under an alias, retired and old NFO tags, Blu-ray duplicates in New releases, wants marked acquired by a cover, and old cloud download notes (#715). / **更新**：升级时修正旧版本留下的数据：记成厂牌的 FC2 卖家、带乱码串的 FC2 标题、写成别名的厂牌与系列、退役标签与旧版 NFO 标签、新作里重复的蓝光版、被封面标成已到手的想要，以及云下载的旧说明（#715）。
 - **Updates**: Repairs and migrations lists older data that needs your OK before changing: unverified cast JavDB added to FC2 titles, descriptions saved as performers, code folders saved as creators, the same file listed twice, and English-named duplicates from r18.dev; the database is backed up first (#715). / **更新**：「修复与迁移」列出要你确认后才改的旧数据：JavDB 给 FC2 作品自动填入、身份未核实的演员，建成女优的描述称呼，当成创作者的番号目录，登记了两次的同一文件，以及 r18.dev 英文名建成的重复实体；执行前先备份账本（#715）。
