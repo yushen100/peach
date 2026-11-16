@@ -187,7 +187,7 @@ class SubtitleMemoryApiTests(unittest.TestCase):
             self.assertIsNone(client.get("/api/player/memory?video=item:2&auto=zh").json()["selected"])
 
     def test_preference_put_resolves_subtitle_files_outside_the_event_loop(self):
-        from peach.routes_media import preferred_chinese
+        from peach.web_subtitle_tracks import preferred_chinese
         (self.media / "sample.chs.vtt").write_text(VTT, encoding="utf-8")
         inspected = []
 
@@ -197,7 +197,7 @@ class SubtitleMemoryApiTests(unittest.TestCase):
             inspected.append(True)
             return preferred_chinese(*args)
 
-        with self.client as client, mock.patch("peach.routes_media.preferred_chinese", side_effect=resolve):
+        with self.client as client, mock.patch("peach.web_subtitle_tracks.preferred_chinese", side_effect=resolve):
             response = client.put("/api/player/memory?video=item:1&auto=zh", json={"rate": 1.5})
             self.assertEqual(response.status_code, 200)
             self.assertIsNotNone(response.json()["selected"])

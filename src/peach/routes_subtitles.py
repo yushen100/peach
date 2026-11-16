@@ -53,7 +53,7 @@ def _memory_payload(request: Request, video: str, value: dict, auto: str = "") -
     `selected` 换成可播放的中文轨；只是推导，不写记忆文件。"""
     selected = value["selected"]
     if auto == "zh" and not value["selection_explicit"] and video.startswith("item:"):
-        from .routes_media import preferred_chinese
+        from .web_subtitle_tracks import preferred_chinese
         selected = preferred_chinese(request.app.state, int(video.split(":")[1]))
     return {**{key: value[key] for key in subtitle_memory.PREFERENCES if key in value},
             "selected": selected, "tracks": [

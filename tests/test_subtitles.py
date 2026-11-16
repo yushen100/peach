@@ -442,7 +442,7 @@ class SubtitleApiTests(unittest.TestCase):
 
     def test_a_stuck_media_folder_answers_with_ledger_tracks_within_the_deadline(self):
         """网盘目录答不上：列表只回账本登记的字幕，正文按读不到回；都不把请求挂住，也不缓存这次结果。"""
-        from peach.routes_media import _subtitle_bytes, _subtitle_rows
+        from peach.web_subtitle_tracks import _subtitle_bytes, _subtitle_rows
         with self._client() as client:
             state = client.app.state
             self.assertTrue(state.media_engine.filesystem.allowed_roots)
@@ -461,11 +461,11 @@ class SubtitleApiTests(unittest.TestCase):
             self.assertIn("ABP-758.srt", names)
 
     def test_discovery_stays_inside_authorized_media_roots(self):
-        from peach.routes_media import _subtitle_rows
+        from peach.web_subtitle_tracks import _subtitle_rows
         with self._client() as client:
             state = client.app.state
             state.media_engine.filesystem.allowed_roots = (self.outside,)
-            with mock.patch("peach.routes_media.subtitles.discover_sidecars") as discover:
+            with mock.patch("peach.web_subtitle_tracks.subtitles.discover_sidecars") as discover:
                 _subtitle_rows(state, 1)
             discover.assert_not_called()
 
@@ -473,7 +473,7 @@ class SubtitleApiTests(unittest.TestCase):
         """字幕列表一次、每条轨各一次：正片目录在网盘上时，每次列目录都是一趟网络往返。"""
         (self.media / "ABP-758.srt").write_text("1\n00:00:00,000 --> 00:00:05,000\n旁挂\n", encoding="utf-8")
         with self._client() as client, mock.patch(
-                "peach.routes_media.subtitles.discover_sidecars", wraps=subtitles.discover_sidecars) as discover:
+                "peach.web_subtitle_tracks.subtitles.discover_sidecars", wraps=subtitles.discover_sidecars) as discover:
             tracks = client.get("/api/assets/1/subtitles").json()["subtitles"]
             for track in tracks:
                 client.get(track["src"])
