@@ -525,10 +525,9 @@
     "windowsOnly": "The console-less runner launcher is Windows only"
   },
   "machine_lock": {
-    "description": "Run one command while holding the machine-wide heavy-load lock, then release it.\n\nThe local CI runner's build, smoke and image jobs use it to queue on the same lock as local tests (`test_evidence.machine_lock_path`);\nthe test entry takes this lock itself, so jobs that go through the test entry must not wrap it again or they will wait on themselves.\n\nUsage: python scripts/machine_lock.py [--wait SECONDS] -- COMMAND ARGS...\n",
+    "description": "Run one command while holding every machine-wide test slot, then release them.\n\nThe local CI runner's build, smoke and image jobs use it to queue on the same slots as local tests (`scripts/test_slots.py`, ADR-0172), taking all of them like a full run;\nif the command calls the test entry again, the entry sees the slots are held by its parent and does not queue a second time.\n\nUsage: python scripts/machine_lock.py [--wait SECONDS] -- COMMAND ARGS...\n",
     "waitHelp": "Maximum seconds to wait; within the CI job time limit this is enough for one full local run",
-    "commandMissing": "No command to run",
-    "timedOut": "Waited {{seconds}} seconds and still could not get the machine-wide heavy-load lock ({{holder}})."
+    "commandMissing": "No command to run"
   },
   "commit_subject": {
     "badForm": "Commit subject \"{{subject}}\" must be type(scope): description, e.g. {{example}}",
@@ -2492,6 +2491,13 @@
     "phaseTimings": "Time per phase (test execution includes each test stage): {{phases}}",
     "slowTest": "Slow test {{seconds}}s: {{name}}",
     "inputsChanged": "Inputs changed during verification; kept {{kept}} unaffected results. Run auto to fill in the rest."
+  },
+  "test_slots": {
+    "waiting": "Waiting for machine-wide test slots (this run needs {{need}} of {{total}}{{place}}), up to {{minutes}} more minutes; holders are reported every minute:",
+    "holder": "slot {{slot}}: {{scope}}, pid {{pid}}, {{root}}, since {{since}}, running {{minutes}} min",
+    "holdersUnknown": "holder details not available yet (just exited or not yet recorded)",
+    "timedOut": "Waited {{minutes}} minutes and no machine-wide test slot came free; no tests were run.",
+    "badCount": "{{variable}} must be a whole number of at least 1; got {{value}}"
   },
   "test_shard_results": {
     "badFields": "Invalid shard report fields",

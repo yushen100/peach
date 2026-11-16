@@ -17,7 +17,7 @@ import threading
 import time
 import unittest
 from collections.abc import Iterable
-from contextlib import contextmanager, nullcontext
+from contextlib import ExitStack, contextmanager, nullcontext
 from functools import lru_cache, partial
 from pathlib import Path
 
@@ -28,7 +28,7 @@ TESTS = ROOT / "tests"
 if not __package__:
     sys.path.insert(0, str(ROOT))
     __package__ = "scripts"
-from . import change_impact, test_evidence, test_history, test_resume, test_run_progress, test_shard_results
+from . import change_impact, test_evidence, test_history, test_resume, test_run_progress, test_shard_results, test_slots
 from .test_inputs import repository_paths_read_by as repository_paths_read_by
 
 #: 给人看的输出用哪种语言。作为脚本运行时 `__main__` 在把测试固定到源语言之前记下本机语言；
@@ -133,7 +133,7 @@ SCOPES: dict[str, tuple[str, ...]] = {
                  "test_seed_pack.py", "test_seed_followup.py", "test_seed_corrections.py"),
     "tooling": ("test_scripts.py", "test_trash_junk.py", "test_auth.py", "test_access.py", "test_cli.py", "test_server.py", "test_diagnostics.py", "test_error_reporting.py", "test_remote_reporting.py", "test_reporting_*.py", "test_library_sharing.py", "test_research_archive.py", "test_library_diagnostics.py", "test_script_policy.py",
                 "test_scan.py", "test_record_rehome.py", "test_wants.py", "test_push_discovery.py", "test_media_probe.py", "test_subtitles.py", "test_onboarding.py", "test_configuration_sources.py", "test_clouddrive_proxy.py", "test_folder_picker.py", "test_ledger_backups.py", "test_clear_camera_filename_codes.py",
-                "test_agent_worktree.py", "test_ci_test_evidence.py", "test_check_public_text.py", "test_issue_intake.py", "test_star_history.py", "test_test_evidence.py", "test_test_history.py", "test_test_environment.py", "test_dependency_policy.py",
+                "test_agent_worktree.py", "test_ci_test_evidence.py", "test_check_public_text.py", "test_issue_intake.py", "test_star_history.py", "test_test_evidence.py", "test_test_history.py", "test_test_slots.py", "test_test_environment.py", "test_dependency_policy.py",
                 "test_version_bump.py", "test_changelog.py", "test_release_due.py", "test_release_candidate.py", "test_media_build_cache.py", "test_runner_launcher.py",
                 "test_restart_windows_tray.py", "test_deploy_windows_tray.py", "test_runtime_prepare.py",
                 "test_buildinfo.py", "test_versioning.py", "test_macos_standalone.py",
@@ -444,7 +444,7 @@ FULL_ONLY_PREFIXES: tuple[str, ...] = (
     "scripts/ci_plan.py", "scripts/test_environment.py", "scripts/change_impact.py", "scripts/test_focus.py",
     "scripts/test_history.py", "uv.lock",
     "scripts/test_resume.py", "scripts/test_run_progress.py", "scripts/test_environment_identity.py",
-    "scripts/test_shard_results.py", "scripts/test_inputs.py",
+    "scripts/test_shard_results.py", "scripts/test_inputs.py", "scripts/test_slots.py",
     "migrations/",
     "tests/support/",
     "package.json",
@@ -1332,6 +1332,10 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(t("test_runner.resumePlanParentOnly"))
     if args.rerun_failures and not args.focus:
         parser.error(t("test_runner.rerunFailuresFocusOnly"))
+    try:
+        test_slots.slot_count()
+    except ValueError as error:
+        parser.error(str(error))
     if args.focus:
         return run_focus(parser, args)
     if os.environ.get("PEACH_TEST_FOCUS") or os.environ.get("PEACH_E2E_FILES") or os.environ.get("PEACH_VITEST_FILES"):
@@ -1362,6 +1366,9 @@ def main(argv: list[str] | None = None) -> int:
             return verified_run(args, requested, scopes, files)
     except test_evidence.Timeout as error:
         return busy(error)
+    except test_slots.SlotTimeout as error:
+        print(error, flush=True)
+        return 2
 
 
 def full_suite_guard(parser, args, scopes):
@@ -1399,11 +1406,27 @@ def _is_ancestor(pid: object) -> bool:
 
 
 def run_focus(parser, args) -> int:
-    """定向调试不签发记录，不取得机器级资源锁。"""
+    """定向调试不签发记录；含浏览器用例或点了较多文件时占 1 个整机名额。"""
     if args.shard_count != 1:
         parser.error(t("test_runner.focusWithShards"))
     from . import test_focus
-    return test_focus.run(sys.modules[__name__], args)
+    guard = machine_slots("focus", full=False) if test_slots.focus_needs_slot(args.focus) else nullcontext()
+    try:
+        with guard:
+            return test_focus.run(sys.modules[__name__], args)
+    except test_slots.SlotTimeout as error:
+        print(error, flush=True)
+        return 2
+
+
+def machine_slots(scope: str, *, full: bool):
+    """整机测试名额（ADR-0172）：全量取满，其余取 1 个。
+
+    CI、持有名额的运行派出的子进程，以及用例里调用运行器时都不排队，否则会自己等自己。"""
+    if test_slots.exempt() or test_history.nested():
+        return nullcontext()
+    total = test_slots.slot_count()
+    return test_slots.held(total if full else 1, total=total, scope=scope, root=str(ROOT))
 
 
 #: 内部并行的前端与浏览器容器，和普通分片按阶段执行。
@@ -1425,7 +1448,7 @@ def verified_run(args, requested, scopes, files) -> int:
     with test_run_progress.phase(phases, '输入快照'):
         context = test_evidence.inputs(ROOT)
     state = context["state"]
-    with test_evidence.run_lock(ROOT, state, scope=" ".join(scopes), root=str(ROOT)):
+    with test_evidence.run_lock(ROOT, state, scope=" ".join(scopes), root=str(ROOT)), ExitStack() as slots:
         if not force and test_evidence.covers(
                 test_evidence.read(ROOT, state), scopes):
             print(t("test_runner.reused"), flush=True)
@@ -1447,6 +1470,9 @@ def verified_run(args, requested, scopes, files) -> int:
         if records and not force:
             print(t("test_runner.coverage", reused=len(progress.required) - len(progress.pending),
                     pending=len(progress.pending)), flush=True)
+        if progress.pending:
+            # 锁的顺序固定：全量锁、同状态锁、整机名额；只有真要跑用例时才排名额。
+            slots.enter_context(machine_slots(" ".join(requested), full="full" in scopes))
         progress.start()
         FLAKY.clear()
         with test_run_progress.phase(phases, '测试执行'):

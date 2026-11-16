@@ -27,6 +27,9 @@ CREDENTIAL_FLAGS = frozenset({'GITHUB_TOKEN', 'CI_JOB_TOKEN', 'CI_REGISTRY_PASSW
                               'CI_DEPENDENCY_PROXY_PASSWORD'})
 ENTRY_FLAGS = frozenset({'PYTHONPATH', 'PEACH_REPORTING_TEST_MODE', 'PEACH_TEST_RUN_TEMP',
                          'PEACH_E2E_CHROME', 'PEACH_LANGUAGE'})
+#: 整机名额的个数与持有标记只决定何时开跑，不改变被验证的环境；算进来的话，名额设置不同的两个会话
+#: 签出的记录互不承认，持有名额期间核对的键也会和开跑前对不上。
+SCHEDULING_FLAGS = frozenset({'PEACH_TEST_SLOTS', 'PEACH_TEST_SLOTS_HELD'})
 
 
 def _file_digest(path: str) -> str:
@@ -85,7 +88,7 @@ def environment_flags(environ=None) -> dict:
     values = os.environ if environ is None else environ
     return {key: flag_identity(key, value) for key, value in values.items()
             if key.startswith(('PEACH_', 'CI', 'GITHUB_', 'PYTHON'))
-            and key not in RUN_METADATA | ENTRY_FLAGS and (key not in CREDENTIAL_FLAGS or value)}
+            and key not in RUN_METADATA | ENTRY_FLAGS | SCHEDULING_FLAGS and (key not in CREDENTIAL_FLAGS or value)}
 
 
 def chrome_executable() -> str | None:

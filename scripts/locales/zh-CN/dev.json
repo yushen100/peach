@@ -525,10 +525,9 @@
     "windowsOnly": "无控制台 runner 启动器仅用于 Windows"
   },
   "machine_lock": {
-    "description": "拿着整机的重负载锁运行一条命令，结束后释放。\n\n本机 CI runner 的构建、冒烟与镜像作业用它和本机测试排同一把锁（`test_evidence.machine_lock_path`）；\n测试入口自己会拿这把锁，经测试入口的作业不要再套一层，否则会自己等自己。\n\n用法：python scripts/machine_lock.py [--wait 秒] -- 命令 参数...\n",
+    "description": "占满整机测试名额运行一条命令，结束后释放。\n\n本机 CI runner 的构建、冒烟与镜像作业用它和本机测试排同一组名额（`scripts/test_slots.py`，ADR-0172），像全量一样取满全部名额；\n命令里再调用测试入口时，入口看到名额已被父进程持有，不会再排一次。\n\n用法：python scripts/machine_lock.py [--wait 秒] -- 命令 参数...\n",
     "waitHelp": "最多等多少秒；CI 作业时限内足够让本机一轮全量跑完",
-    "commandMissing": "缺少要运行的命令",
-    "timedOut": "等了 {{seconds}} 秒仍拿不到整机重负载锁（{{holder}}）。"
+    "commandMissing": "缺少要运行的命令"
   },
   "commit_subject": {
     "badForm": "提交主题「{{subject}}」须为 type(scope): 描述，如 {{example}}",
@@ -2492,6 +2491,13 @@
     "phaseTimings": "分阶段耗时（测试执行包含各测试阶段）：{{phases}}",
     "slowTest": "慢测试 {{seconds}}s：{{name}}",
     "inputsChanged": "验证期间输入改变；保留 {{kept}} 项未受影响的结果，请运行 auto 补齐。"
+  },
+  "test_slots": {
+    "waiting": "等待整机测试名额（本次要 {{need}} 个，共 {{total}} 个{{place}}），最长再等 {{minutes}} 分钟；每分钟报告一次占用：",
+    "holder": "名额 {{slot}}：{{scope}}，pid {{pid}}，{{root}}，{{since}} 起，已运行 {{minutes}} 分钟",
+    "holdersUnknown": "占用者信息暂未取得（刚退出或还没写记录）",
+    "timedOut": "等了 {{minutes}} 分钟仍没有空闲的整机测试名额，本次没有运行测试。",
+    "badCount": "{{variable}} 必须是不小于 1 的整数，当前为 {{value}}"
   },
   "test_shard_results": {
     "badFields": "分片报告字段无效",
