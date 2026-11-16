@@ -485,6 +485,33 @@ def _corrects_kept_cover(target, candidate, data, verified_by):
     return not same_picture(kept, fresh)
 
 
+def _stage_problem(source, error):
+    """资料链里一档没答上的原因句。
+
+    社区那一档的原因里已经写明是哪一家了（`community()` 逐家拼过），再套一层就成了「社区来源：javdb：…」。
+    单家来源的原因不带来源名，这里补上。
+    """
+    if source in ('community', 'amane', 'amane_official'):
+        return describe_failure(error)
+    return phrase('errors.libraryProcessing.sourceProblem',
+                  {'source': source_name(source), 'problem': describe_failure(error)})
+
+
+def _kept_cover_suffices(kept, problems):
+    """本机已有能用的封面、没答上的来源又全是被拦着的：这一趟按「没换到更大的」收。
+
+    本机那张宽到 `MIN_WIDTH` 时，这一趟只是在找更大的那张。没答上的来源全是被拦着的（出口被 CloudFront
+    挡掉的 403、限流，来源层已经让它冷却，一时半会好不了）就一周内不为升级重问整条链，不记问题项，原因留
+    一条告知项（#144）。连接抖动、超时这类说不准下一趟就好的照旧记成未取得；本机没有封面或只有小图的也照旧。
+    本趟预算到顶也算「被拦着」（`source_paused`），可它下一趟就重新计数，不能因此一周不问。
+    `problems` 是 `(phrase, 是否冷却)` 列表。
+    """
+    from .scraping_access import BUDGET_SPENT
+    spent = set(BUDGET_SPENT.values())
+    return (kept is not None and max(kept) >= MIN_WIDTH and bool(problems)
+            and all(paused and said.get('code') not in spent for said, paused in problems))
+
+
 class _BudgetedPages:
     """认人 Wiki 的取页层套一层动作预算：每取一页前看一眼还剩多少。
 
@@ -943,15 +970,7 @@ class LibraryMetadataProvider:
                 pass
             except (Unavailable, SourcePaused) as error:
                 problems.append((describe_failure(error), source_paused(error)))
-        # 本机已有一张能用的封面（宽到 `MIN_WIDTH`）时，这一趟只是在找更大的那张。没答上的来源全是被拦着的
-        # （出口被 CloudFront 挡掉的 403、限流，来源层已经让它冷却，一时半会好不了）就按「没换到更大的」收：
-        # 一周内不为升级重问整条链，不记问题项，原因留一条告知项（#144）。连接抖动、超时这类说不准下一趟
-        # 就好的照旧记成未取得；本机没有封面或只有小图的也照旧，下趟再问。
-        from .scraping_access import BUDGET_SPENT
-        spent = set(BUDGET_SPENT.values())
-        # 本趟预算到顶也算「被拦着」（`source_paused`），可它下一趟就重新计数，不能因此一周不问。
-        kept_usable = (kept is not None and max(kept) >= MIN_WIDTH and bool(problems)
-                       and all(paused and said.get('code') not in spent for said, paused in problems))
+        kept_usable = _kept_cover_suffices(kept, problems)
         if chosen is None:
             if kept_usable:
                 raise CoverKept('errors.libraryProcessing.coverNotImproved', {'width': kept[0], 'height': kept[1]})
@@ -2133,12 +2152,7 @@ class _RemoteSession:
                         self._record_miss(name, code)
                         absent.append(name)
                 else:
-                    # 社区那一档的原因里已经写明是哪一家了（`community()` 逐家拼过），再套一层
-                    # 就成了「社区来源：javdb：…」。单家来源的原因不带来源名，这里补上。
-                    problems.append(describe_failure(error)
-                                    if source in ('community', 'amane', 'amane_official')
-                                    else phrase('errors.libraryProcessing.sourceProblem',
-                                                {'source': source_name(source), 'problem': describe_failure(error)}))
+                    problems.append(_stage_problem(source, error))
                     failures.append(_source_failure_details(error, code, action, source=source))
                     held.append(source_paused(error))
                 # 认人 Wiki 没给出演员时，MGStage 给的字段够停手就停，不为它落到综合索引那条 3 秒的队。
@@ -2580,6 +2594,39 @@ def _library_stages(config):
             return every
         return by_root.get(media_identity.path_key(config.locations[location][index]), every)
     return stages_of
+
+
+def _processing_libraries(config, stage):
+    """这一趟每个媒体库要做的步骤；只补封面时都按「不补资料、不补人物资料」问，联网只剩封面那一步。"""
+    stages_of = _library_stages(config)
+    if stage != COVERS_STAGE:
+        return stages_of
+    return lambda path: stages_of(path) - {'metadata', 'people'}
+
+
+def _listing_progress(guard, update, checked, total):
+    """「检查配套文件」预读目录时的进度回调：每列 50 个目录看一次停止请求并报一次进度。"""
+    listed = 0
+
+    def progress():
+        nonlocal listed
+        listed += 1
+        if listed % 50 == 0:
+            guard.check()
+            update(**stage_fields('library.checkCompanions'), checked=checked, total=total,
+                   current_asset_id=None, current_asset_name='', current_action='reading_local',
+                   current_started_at=time.time(), current_deadline_at=None)
+    return progress
+
+
+def _keep_local_evidence(local_evidence):
+    """读过的本地证据留给下一趟复用；写不进去只是下一趟重读，不盖住原来的异常。还没建起来时什么都不做。"""
+    if local_evidence is None:
+        return
+    try:
+        local_evidence.save(force=True)
+    except OSError:
+        LOGGER.warning('Could not save the local evidence index', exc_info=True)
 
 
 def _people_allowed(config):
@@ -3612,11 +3659,7 @@ def process_library(config, db_path, candidate_root, cover_root, *, location='co
         entity_watermark = checkpoints.entity_watermark
         # 每行这一轮换上了几张封面，`(asset_id, 张数)`：换上了的作品，女优可能截得出更清楚的脸。
         covered = []
-        stages_of = _library_stages(config)
-        if stage == COVERS_STAGE:
-            # 只补封面：每个媒体库都按「不补资料、不补人物资料」问，联网只剩封面那一步。
-            library_stages = stages_of
-            stages_of = lambda path: library_stages(path) - {'metadata', 'people'}
+        stages_of = _processing_libraries(config, stage)
         log_path = _processing_issue_log(config, path, state['job_id'], state_file is not None,
                                          resume=bool(resume_state))
         # 界面只展示前 20 条，完整清单在这个文件里；地址跟着状态一起给出，
@@ -3755,17 +3798,8 @@ def process_library(config, db_path, candidate_root, cover_root, *, location='co
             poster_jobs = []
             local_rows = list(checkpoints.remaining_metadata(rows))
             completed_count = len(rows) - len(local_rows)
-            listed = 0
-
-            def listing_progress():
-                nonlocal listed
-                listed += 1
-                if listed % 50 == 0:
-                    guard.check()
-                    update(**stage_fields('library.checkCompanions'), checked=completed_count, total=len(rows),
-                           current_asset_id=None, current_asset_name='', current_action='reading_local',
-                           current_started_at=time.time(), current_deadline_at=None)
-            local_evidence.prefetch([row for _, row in local_rows], listing_progress)
+            local_evidence.prefetch([row for _, row in local_rows],
+                                    _listing_progress(guard, update, completed_count, len(rows)))
             for index, (_, row) in enumerate(local_rows):
                 guard.check()
                 issues_before = state['issue_count']
@@ -3878,12 +3912,7 @@ def process_library(config, db_path, candidate_root, cover_root, *, location='co
         finally:
             # 被打断也把已经攒下的候选写全：文件里要么是上一份完整的，要么是这一份完整的。
             flush_candidates(force=True)
-            if local_evidence is not None:
-                # 读过的本地证据留给下一趟复用；写不进去只是下一趟重读，不盖住原来的异常。
-                try:
-                    local_evidence.save(force=True)
-                except OSError:
-                    LOGGER.warning('Could not save the local evidence index', exc_info=True)
+            _keep_local_evidence(local_evidence)
             remote.close()
         if checkpoints.settles_new:
             from .library_new_assets import remember

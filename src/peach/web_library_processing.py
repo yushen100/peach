@@ -98,23 +98,28 @@ def _project_speed(contract, state, run, control):
     state['speed_mode'] = mode
 
 
+def _estimate(contract, args):
+    """按查询参数拼出与启动处理同形的请求，估算这一趟的联网流量，不启动任务。"""
+    config = settings_file.active()
+    body = {'stage': args.get('stage') or ALL_STAGES}
+    if 'incremental' in args:
+        body['incremental'] = args['incremental'] == '1'
+    if 'scope' in args:
+        body['scope'] = args['scope']
+    if 'asset_ids' in args:
+        body['asset_ids'] = json.loads(args['asset_ids'])
+    if 'library_id' in args:
+        body['library_id'] = args['library_id']
+    config = scoped_config(config, body.get('library_id'))
+    _, asset_ids, stage = _processing_request(contract, config, {}, body)
+    from .processing_inventory import preview
+    return {'traffic': preview(config, contract.db_path, stage, asset_ids, args.get('inventory'),
+                               incremental=body.get('incremental', False), library_id=body.get('library_id'))}
+
+
 def q_library_processing(contract, _args):
     if _args.get('estimate') == '1':
-        config = settings_file.active()
-        body = {'stage': _args.get('stage') or ALL_STAGES}
-        if 'incremental' in _args:
-            body['incremental'] = _args['incremental'] == '1'
-        if 'scope' in _args:
-            body['scope'] = _args['scope']
-        if 'asset_ids' in _args:
-            body['asset_ids'] = json.loads(_args['asset_ids'])
-        if 'library_id' in _args:
-            body['library_id'] = _args['library_id']
-        config = scoped_config(config, body.get('library_id'))
-        _, asset_ids, stage = _processing_request(contract, config, {}, body)
-        from .processing_inventory import preview
-        return {'traffic': preview(config, contract.db_path, stage, asset_ids, _args.get('inventory'),
-                                   incremental=body.get('incremental', False), library_id=body.get('library_id'))}
+        return _estimate(contract, _args)
     state = _current(contract)
     run = _active_run(contract, state) if state.get('status') in ACTIVE else None
     if run is not None:

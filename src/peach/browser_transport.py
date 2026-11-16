@@ -590,13 +590,10 @@ class BrowserTransport:
                         browser.navigate(url, referrer=referrer)
                         phase_started = now
                     elif cleared and waited >= auto_limit:
-                        if browser.headless:
+                        reason = self._no_click_wait(browser, host)
+                        if reason:
                             raise ChallengeUnsolved(f"{host} verification did not pass automatically within "
-                                                    f"{int(elapsed)} s; the background request was ended")
-                        if host in self._unsolved:
-                            raise ChallengeUnsolved(f"{host} verification did not pass automatically within "
-                                                    f"{int(elapsed)} s; nobody clicked it last time, "
-                                                    "so it does not wait again")
+                                                    f"{int(elapsed)} s; {reason}")
                         waiting_since = wait_for_click("did not pass automatically")
                 elif elapsed >= timeout:
                     raise PageTimeout(f"{host} page did not open within {int(elapsed)} s")
@@ -611,6 +608,17 @@ class BrowserTransport:
                 _set_attention(host, None)
             if placed:
                 browser.place(visible=False)
+
+    def _no_click_wait(self, browser: _Browser, host: str) -> str:
+        """自动阶段过不了时不等人点的原因；该等就是空串。
+
+        无窗口模式没有窗口可点；窗口模式下这一站上次等过没人点（`_unsolved`），直到页面正常打开前不再等。
+        """
+        if browser.headless:
+            return "the background request was ended"
+        if host in self._unsolved:
+            return "nobody clicked it last time, so it does not wait again"
+        return ""
 
     def _gate(self, browser: _Browser, state: dict) -> dict:
         """落到站点的年龄门就替用户点那颗按钮，等它跳回要看的那一页。"""
