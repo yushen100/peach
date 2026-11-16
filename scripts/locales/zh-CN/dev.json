@@ -525,10 +525,9 @@
     "windowsOnly": "无控制台 runner 启动器仅用于 Windows"
   },
   "machine_lock": {
-    "description": "拿着整机的重负载锁运行一条命令，结束后释放。\n\n本机 CI runner 的构建、冒烟与镜像作业用它和本机测试排同一把锁（`test_evidence.machine_lock_path`）；\n测试入口自己会拿这把锁，经测试入口的作业不要再套一层，否则会自己等自己。\n\n用法：python scripts/machine_lock.py [--wait 秒] -- 命令 参数...\n",
+    "description": "占满整机测试名额运行一条命令，结束后释放。\n\n本机 CI runner 的构建、冒烟与镜像作业用它和本机测试排同一组名额（`scripts/test_slots.py`，ADR-0172），像全量一样取满全部名额；\n命令里再调用测试入口时，入口看到名额已被父进程持有，不会再排一次。\n\n用法：python scripts/machine_lock.py [--wait 秒] -- 命令 参数...\n",
     "waitHelp": "最多等多少秒；CI 作业时限内足够让本机一轮全量跑完",
-    "commandMissing": "缺少要运行的命令",
-    "timedOut": "等了 {{seconds}} 秒仍拿不到整机重负载锁（{{holder}}）。"
+    "commandMissing": "缺少要运行的命令"
   },
   "commit_subject": {
     "badForm": "提交主题「{{subject}}」须为 type(scope): 描述，如 {{example}}",
@@ -2389,10 +2388,12 @@
   "test_evidence": {
     "snapshotFailed": "无法为文件生成验证快照：{{name}}",
     "queueAhead": "；前面还有 {{count}} 个在排队",
-    "waiting": "等待 {{lock}}（{{holder}}{{place}}），最长 {{seconds}} 秒。",
+    "waiting": "等待 {{lock}}（{{holder}}{{place}}），{{limit}}。",
     "holderUnknown": "持有者信息暂未取得",
     "holderGone": "持有者刚退出或没留记录",
-    "holderSince": "{{time}} 起"
+    "holderSince": "{{time}} 起",
+    "waitLimit": "最长 {{seconds}} 秒",
+    "waitQueued": "按到达先后一直排队"
   },
   "test_focus": {
     "browserOutside": "浏览器用例不存在或超出 e2e 目录：{{selector}}",
@@ -2468,12 +2469,12 @@
     "helpResume": "正式验证续跑，full 也复用有效的完成证明",
     "helpFocus": "定向调试指定 Python/浏览器用例，不签发记录",
     "helpRerunFailures": "定向运行失败后把失败文件单独重跑一次，通过的记为偶发（CI 浏览器分片用）",
-    "helpLockTimeout": "全量锁等待秒数；0 表示锁忙时立即返回",
+    "helpLockTimeout": "全量锁等待秒数；默认按到达先后一直排队，0 表示锁忙时立即返回",
     "helpBase": "CI 选测的已验证 Git 基线",
     "helpTimings": "分片子进程把成败与逐用例耗时写到这个文件，供父进程汇总",
     "helpShardPlan": "父进程按耗时划好的逐片文件名；不给时按文件名轮转",
     "helpJobs": "本机同时跑几个分片子进程；auto 按核数定。默认串行，正式入口传 auto",
-    "lockTimeoutRange": "锁等待时间必须在 0～1800 秒之间",
+    "lockTimeoutRange": "锁等待时间不能为负数",
     "shardRange": "分片总数必须为正数，编号从 0 开始且小于总数",
     "resumePlanParentOnly": "恢复计划仅供正式父运行的分片使用",
     "rerunFailuresFocusOnly": "--rerun-failures 只用于定向运行；正式入口本来就会单独重跑失败文件",
@@ -2491,7 +2492,16 @@
     "coverage": "单项覆盖：复用 {{reused}} 项，待验证 {{pending}} 项。",
     "phaseTimings": "分阶段耗时（测试执行包含各测试阶段）：{{phases}}",
     "slowTest": "慢测试 {{seconds}}s：{{name}}",
-    "inputsChanged": "验证期间输入改变；保留 {{kept}} 项未受影响的结果，请运行 auto 补齐。"
+    "inputsChanged": "验证期间输入改变；保留 {{kept}} 项未受影响的结果，请运行 auto 补齐。",
+    "unknownScope": "未知测试域：{{scope}}"
+  },
+  "test_slots": {
+    "waiting": "等待整机测试名额（本次要 {{need}} 个，共 {{total}} 个{{place}}），按到达先后排队，每分钟报告一次占用",
+    "holder": "名额 {{slot}}：{{scope}}，pid {{pid}}，{{root}}，{{since}} 起，已运行 {{minutes}} 分钟",
+    "holdersUnknown": "占用者信息暂未取得（刚退出或还没写记录）",
+    "timedOut": "等了 {{minutes}} 分钟仍没有空闲的整机测试名额，本次没有运行测试。",
+    "badCount": "{{variable}} 必须是不小于 1 的整数，当前为 {{value}}",
+    "waitLimit": "；最长再等 {{minutes}} 分钟"
   },
   "test_shard_results": {
     "badFields": "分片报告字段无效",

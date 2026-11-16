@@ -98,49 +98,115 @@ class CIFrontendOwnershipTests(unittest.TestCase):
 
 
 class TestPlanningTests(unittest.TestCase):
-    def test_additive_exact_test_registration_selects_affected_domains_and_collection_guards(self):
+    REGISTRY_BEFORE = (
+        '[scopes]\nchecks = ["test_context_budget.py"]\ntooling = ["test_scripts.py"]\n'
+        'catalog = ["test_search_suggest.py"]\nmedia = ["test_media.py"]\n'
+        '[scope_test_ids]\n[auto_scope_files]\n"web/x.js" = ["catalog"]\n'
+        '[[auto_scope_prefixes]]\nprefix = "src/peach/media.py"\nscopes = ["media"]\n'
+        '[[auto_scope_prefixes]]\nprefix = "scripts/"\nscopes = ["tooling"]\n'
+        '[ci]\nfrontend_tests = []\nbrowser_tests = []\ntooling_workflows = []\n')
+
+    def registry_scopes(self, after):
         from scripts import change_impact
-        before = ("SCOPES = {'checks': ('test_context_budget.py',), "
-                  "'tooling': ('test_scripts.py',), 'catalog': ('test_search_suggest.py',)}\n"
-                  "AUTO_SCOPE_FILES = {}\ndef execute(): return 1\n")
-        after = before.replace("'test_scripts.py',", "'test_scripts.py', 'test_new_script.py',")
-        contents = {'scripts/test_runner.py': (before, after)}
-        self.assertEqual(runner.scopes_for_changes(contents, contents=contents)[0], ('checks', 'tooling'))
-        planned = ci_plan.plan('pull_request', list(contents), contents)
+        path = change_impact.REGISTRY
+        return runner.scopes_for_changes([path], contents={path: (self.REGISTRY_BEFORE, after)})[0]
+
+    def test_growing_the_registry_selects_old_and_new_domains_without_full(self):
+        """登记表只增不减：新增精确测试文件名、新增或扩大路径映射，只跑相关的新旧域与 checks。"""
+        from scripts import change_impact
+        before = self.REGISTRY_BEFORE
+        cases = (
+            (before.replace('"test_search_suggest.py"]', '"test_search_suggest.py", "test_new.py"]'),
+             ('checks', 'catalog')),
+            (before.replace('"test_scripts.py"]', '"test_new.py", "test_scripts.py"]'), ('checks', 'tooling')),
+            (before.replace('"web/x.js" = ["catalog"]', '"web/x.js" = ["catalog", "media"]'),
+             ('checks', 'catalog', 'media')),
+            # 新的精确映射：原先命中 scripts/ 前缀的 tooling 也一起跑。
+            (before.replace('[[auto_scope_prefixes]]', '"scripts/y.py" = ["media"]\n[[auto_scope_prefixes]]', 1),
+             ('checks', 'media', 'tooling')),
+            (before.replace('prefix = "scripts/"', 'prefix = "scripts/m_"\nscopes = ["media"]\n'
+                            '[[auto_scope_prefixes]]\nprefix = "scripts/"'), ('checks', 'media', 'tooling')),
+            (before.replace('[scope_test_ids]', '[scope_test_ids]\nmedia = ["test_media.Case.test_one"]'),
+             ('checks', 'media')),
+            (before.replace('[scopes]', '# 只改注释\n[scopes]'), ('checks',)),
+        )
+        for after, expected in cases:
+            with self.subTest(after=after):
+                self.assertEqual(sorted(self.registry_scopes(after)), sorted(expected))
+        planned = ci_plan.plan('pull_request', [change_impact.REGISTRY],
+                               {change_impact.REGISTRY: (before, cases[0][0])})
         self.assertFalse(planned['wide'])
-        self.assertFalse(planned['browser'])
-        first = change_impact.signatures('scripts/test_runner.py', before)
-        second = change_impact.signatures('scripts/test_runner.py', after)
+        first = change_impact.signatures(change_impact.REGISTRY, before)
+        second = change_impact.signatures(change_impact.REGISTRY, cases[0][0])
         from scripts import test_evidence
-        self.assertTrue(test_evidence.valid_manifest({'files': {}, 'signatures': {'scripts/test_runner.py': first}}))
-        for entries in ({}, [['tooling', [None]]], [['tooling', []], ['tooling', []]]):
-            self.assertFalse(test_evidence.valid_manifest({'files': {}, 'signatures': {
-                'scripts/test_runner.py': {**first, 'scope_entries': entries}}}))
+        self.assertTrue(test_evidence.valid_manifest({'files': {}, 'signatures': {change_impact.REGISTRY: first}}))
+        self.assertFalse(test_evidence.valid_manifest({'files': {}, 'signatures': {
+            change_impact.REGISTRY: {**first, 'registry': {'scopes': {}}}}}))
         self.assertFalse(test_evidence.valid_manifest({'files': {}, 'signatures': {'other.py': first}}))
         paths, kinds = change_impact.delta(
-            {'files': {'scripts/test_runner.py': [420, 'before', '100644']}, 'signatures': {'scripts/test_runner.py': first}},
-            {'files': {'scripts/test_runner.py': [420, 'after', '100644']}, 'signatures': {'scripts/test_runner.py': second}})
-        self.assertEqual(runner.scopes_for_changes(paths, kinds=kinds)[0], ('checks', 'tooling'))
-        catalog = before.replace("'test_search_suggest.py',", "'test_search_suggest.py', 'test_new_catalog.py',")
-        self.assertEqual(runner.scopes_for_changes(['scripts/test_runner.py'], contents={
-            'scripts/test_runner.py': (before, catalog)})[0], ('checks', 'catalog', 'tooling'))
+            {'files': {change_impact.REGISTRY: [420, 'before', '100644']},
+             'signatures': {change_impact.REGISTRY: first}},
+            {'files': {change_impact.REGISTRY: [420, 'after', '100644']},
+             'signatures': {change_impact.REGISTRY: second}})
+        self.assertEqual(runner.scopes_for_changes(paths, kinds=kinds)[0], ('checks', 'catalog'))
 
-    def test_registration_narrowing_does_not_hide_changes_to_existing_coverage_or_execution(self):
-        before = ("SCOPES = {'checks': ('test_context_budget.py',), "
-                  "'tooling': ('test_scripts.py',), 'catalog': ('test_search_suggest.py',)}\n"
-                  "AUTO_SCOPE_FILES = {}\ndef execute(): return 1\n")
-        changed = [before.replace("'test_scripts.py',", ''),
-                   before.replace("'test_scripts.py',", "'test_scripts.py', 'test_*.py',"),
-                   before.replace("'test_scripts.py',", "'test_scripts.py', '../outside.py',"),
-                   before.replace("'test_scripts.py',", "'test_new_script.py', 'test_scripts.py',"),
-                   before.replace('return 1', 'return 2'),
-                   before.replace('AUTO_SCOPE_FILES = {}', "AUTO_SCOPE_FILES = {'x.py': ('checks',)}"),
-                   before + "SCOPES['tooling'] = ()\n",
-                   before.replace("'catalog':", "'new_scope':")]
+    def test_shrinking_or_reordering_the_registry_still_runs_full(self):
+        before = self.REGISTRY_BEFORE
+        changed = [before.replace('"test_scripts.py"]', ']'),
+                   before.replace('"test_scripts.py"]', '"test_scripts.py", "test_*.py"]'),
+                   before.replace('"test_scripts.py"]', '"test_scripts.py", "../outside.py"]'),
+                   before.replace('"web/x.js" = ["catalog"]', '"web/x.js" = ["media"]'),
+                   before.replace('"web/x.js" = ["catalog"]\n', ''),
+                   before.replace('prefix = "scripts/"\nscopes = ["tooling"]', 'prefix = "scripts/"\nscopes = ["media"]'),
+                   # 新前缀排在更具体的已有前缀前面，会让后者再也命中不到。
+                   before.replace('[[auto_scope_prefixes]]\nprefix = "src/peach/media.py"',
+                                  '[[auto_scope_prefixes]]\nprefix = "src/"\nscopes = ["tooling"]\n'
+                                  '[[auto_scope_prefixes]]\nprefix = "src/peach/media.py"'),
+                   before.replace('frontend_tests = []', 'frontend_tests = ["test_x.Y.test_z"]'),
+                   before.replace('tooling_workflows = []', 'tooling_workflows = [".github/workflows/x.yml"]'),
+                   before.replace('catalog = ', 'catalogue = '),
+                   before.replace('[scopes]', '[scopes]\nnewscope = ["test_new.py"]'),
+                   before + 'extra = 1\n']
         for after in changed:
             with self.subTest(after=after):
-                self.assertEqual(runner.scopes_for_changes(['scripts/test_runner.py'], contents={
-                    'scripts/test_runner.py': (before, after)})[0], ('full',))
+                self.assertEqual(self.registry_scopes(after), ('full',))
+
+    def test_changing_a_script_selects_the_tests_that_import_it(self):
+        """改 `scripts/X.py` 选 tooling，再按文件补上沿脚本导入链用到它的测试。"""
+        cases = {'scripts/reject_agency.py': 'test_agency_reject.py',
+                 'scripts/fetch_fc2_metadata.py': 'test_fc2_metadata.py',
+                 'scripts/merge_duplicate_identities.py': 'test_duplicate_identity_merge.py',
+                 'scripts/check_readme_impact.py': 'test_readme_contracts.py',
+                 'scripts/smoke_desktop.py': 'test_frame_capture.py',
+                 # 测试只导入 agent_worktree，agent_worktree 再导入 co_author。
+                 'scripts/co_author.py': 'test_agent_worktree.py'}
+        for script, test in cases.items():
+            with self.subTest(script=script):
+                scopes, why = runner.scopes_for_changes([script])
+                self.assertIn('tooling', scopes, why)
+                selected = {path.name for scope in scopes for path in runner.selected_files(scope)}
+                self.assertIn(test, selected, why)
+                self.assertNotIn('full', scopes)
+        self.assertNotIn('delivery', runner.scopes_for_changes(['docs/TESTING.md', 'scripts/render_star_history.py'])[0])
+
+    def test_changed_language_entries_select_their_readers(self):
+        path = 'resources/locales/zh-CN/server.json'
+        before = (runner.ROOT / path).read_text(encoding='utf-8')
+        data = json.loads(before)
+        data['errors']['seesaa']['notInSearch'] += '（改）'
+        scopes = runner.scopes_for_changes([path], contents={path: (before, json.dumps(data, ensure_ascii=False))})[0]
+        self.assertEqual(scopes[:2], ('tooling', 'web'))
+        self.assertIn('test_metadata_seesaa.py', scopes)
+        self.assertNotIn('test_tray.py', scopes)
+        data = json.loads(before)
+        data['release']['message']['available'] += '（改）'
+        self.assertIn('test_tray.py', runner.scopes_for_changes(
+            [path], contents={path: (before, json.dumps(data, ensure_ascii=False))})[0])
+        # 没有前后内容时按整份文件的全部条目找读者。
+        fallback = runner.scopes_for_changes([path])[0]
+        self.assertIn('test_metadata_seesaa.py', fallback)
+        self.assertIn('test_tray.py', fallback)
+        self.assertEqual(runner.selected_files('test_tray.py'), (runner.TESTS / 'test_tray.py',))
 
     def test_checks_ci_omits_runtime_tool_installation_and_keeps_platforms(self):
         for path in ("README.md", "CONTRIBUTING.md", ".github/PULL_REQUEST_TEMPLATE.md", "docs/TESTING.md"):
@@ -865,9 +931,13 @@ class TestPlanningTests(unittest.TestCase):
         选的是 tooling。补法是 `AUTO_SCOPE_FILES` 与 `AUTO_SCOPE_PREFIXES` 让一个文件落到多个域，
         而不是把测试重复登记到不相干的域里。
         """
+        tests, _, _ = runner._import_index(runner.ROOT)
         for path in sorted((runner.ROOT / 'tests').glob('test_*.py')):
-            read = [item for item in runner.repository_paths_read_by(path.read_text(encoding='utf-8'))
-                    if not item.startswith('tests/')
+            # 导入的脚本也是它的输入：改那个脚本时同样要选到它。
+            imported = [f'scripts/{name.removeprefix("scripts.")}.py' for name in sorted(tests[path.name])
+                        if name.startswith('scripts.')]
+            read = [item for item in [*runner.repository_paths_read_by(path.read_text(encoding='utf-8')), *imported]
+                    if not item.startswith('tests/') and (runner.ROOT / item).is_file()
                     and not any(item.startswith(prefix) for prefix in runner.FULL_ONLY_PREFIXES)]
             for item in read:
                 scopes, why = runner.scopes_for_changes([item])

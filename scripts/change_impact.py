@@ -35,22 +35,10 @@ def signatures(path: str, source: str) -> dict[str, object]:
     try:
         if path.endswith(".py"):
             tree = ast.parse(source, type_comments=True)
-            result = {"behavior": digest(ast.dump(tree, include_attributes=False))}
-            if path == 'scripts/test_runner.py':
-                declarations = [node for node in tree.body if
-                    (isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.target.id == 'SCOPES')
-                    or (isinstance(node, ast.Assign) and len(node.targets) == 1
-                        and isinstance(node.targets[0], ast.Name) and node.targets[0].id == 'SCOPES')]
-                if len(declarations) == 1:
-                    declaration = declarations[0]
-                    scopes = ast.literal_eval(declaration.value)
-                    if isinstance(scopes, dict) and all(isinstance(name, str) and isinstance(patterns, tuple)
-                            and all(isinstance(pattern, str) for pattern in patterns)
-                            for name, patterns in scopes.items()):
-                        declaration.value = ast.Constant(value=None)
-                        result['scope_body'] = digest(ast.dump(tree, include_attributes=False))
-                        result['scope_entries'] = [[name, list(patterns)] for name, patterns in scopes.items()]
-            return result
+            return {"behavior": digest(ast.dump(tree, include_attributes=False))}
+        if path == REGISTRY:
+            entries = registry(source)
+            return {"behavior": digest(entries), "registry": entries}
         if path in PACKAGE_FILES:
             data = json.loads(source)
             if not isinstance(data, dict):
@@ -63,44 +51,109 @@ def signatures(path: str, source: str) -> dict[str, object]:
     return {}
 
 
-def valid_scope_entries(value: object) -> bool:
-    """验证快照中的有序登记表，拒绝重复域与非字符串模式。"""
-    if not isinstance(value, list):
+#: 选测登记表：纯数据，`test_runner` 读取；不属于执行协议，按登记差异选测（ADR-0151 修订）。
+REGISTRY = "scripts/scope_registry.toml"
+REGISTRY_SECTIONS = ("scopes", "scope_test_ids", "auto_scope_files", "auto_scope_prefixes", "ci")
+EXACT_TEST = re.compile(r"test_[A-Za-z0-9_]+\.py")
+_NAME = re.compile(r"[a-z]+")
+
+
+def _strings(value) -> bool:
+    return isinstance(value, list) and all(isinstance(item, str) for item in value)
+
+
+def _named_lists(value, *, names: bool) -> bool:
+    return isinstance(value, dict) and all(isinstance(key, str) and (not names or _NAME.fullmatch(key))
+                                           and _strings(items) for key, items in value.items())
+
+
+def valid_registry(value) -> bool:
+    """登记表的规范形状：域名为小写字母，前缀表是有序的 `[前缀, [域…]]`。"""
+    if not isinstance(value, dict) or tuple(value) != REGISTRY_SECTIONS:
         return False
-    names = set()
-    for row in value:
-        if (not isinstance(row, list) or len(row) != 2 or not isinstance(row[0], str)
-                or not re.fullmatch(r'[a-z]+', row[0]) or row[0] in names
-                or not isinstance(row[1], list) or not all(isinstance(item, str) for item in row[1])):
-            return False
-        names.add(row[0])
-    return True
+    prefixes = value["auto_scope_prefixes"]
+    return (_named_lists(value["scopes"], names=True) and _named_lists(value["scope_test_ids"], names=True)
+            and _named_lists(value["auto_scope_files"], names=False) and _named_lists(value["ci"], names=False)
+            and isinstance(prefixes, list) and all(
+                isinstance(row, list) and len(row) == 2 and isinstance(row[0], str) and _strings(row[1])
+                for row in prefixes))
 
 
-def added_scope_tests(before: dict, after: dict) -> tuple[str, ...]:
-    """只接受现有域末尾追加的精确测试文件，其他覆盖和执行变化保持完整验证。"""
-    if not before.get('scope_body') or before.get('scope_body') != after.get('scope_body'):
-        return ()
-    old, new = before.get('scope_entries'), after.get('scope_entries')
-    if not valid_scope_entries(old) or not valid_scope_entries(new) or len(old) != len(new):
-        return ()
-    changed = []
-    for first, second in zip(old, new):
-        if not isinstance(first, list) or not isinstance(second, list) or len(first) != 2 or len(second) != 2:
-            return ()
-        name, patterns = first
-        updated_name, updated = second
-        if (not isinstance(name, str) or name != updated_name or not re.fullmatch(r'[a-z]+', name)
-                or not isinstance(patterns, list) or not isinstance(updated, list)
-                or updated[:len(patterns)] != patterns):
-            return ()
-        added = updated[len(patterns):]
-        if any(not isinstance(item, str) or not re.fullmatch(r'test_[A-Za-z0-9_]+\.py', item)
-               or item in patterns for item in added):
-            return ()
+def registry(source: str) -> dict:
+    """解析登记表为规范形状；结构不对抛 ValueError。"""
+    data = tomllib.loads(source)
+    if not isinstance(data, dict) or set(data) != set(REGISTRY_SECTIONS):
+        raise ValueError("scope registry sections")
+    rows = data["auto_scope_prefixes"]
+    if not isinstance(rows, list) or not all(isinstance(row, dict) and set(row) == {"prefix", "scopes"} for row in rows):
+        raise ValueError("scope registry prefixes")
+    entries = {name: data[name] for name in REGISTRY_SECTIONS}
+    entries["auto_scope_prefixes"] = [[row["prefix"], row["scopes"]] for row in rows]
+    if not valid_registry(entries):
+        raise ValueError("scope registry shape")
+    return entries
+
+
+def load_registry(path) -> dict:
+    return registry(path.read_text(encoding="utf-8"))
+
+
+def _first_match(rows: list, path: str) -> list[str]:
+    return next((scopes for prefix, scopes in rows if path.startswith(prefix)), [])
+
+
+def _list_growth(before: dict, after: dict, *, exact: bool) -> set[str] | None:
+    """按域比较 `{域: [条目]}`：只许每个域的条目变多；返回条目变多的域。"""
+    if not set(before) <= set(after):
+        return None
+    grown = set()
+    for name, items in after.items():
+        old = before.get(name, [])
+        added = set(items) - set(old)
+        if not set(old) <= set(items) or (exact and not all(EXACT_TEST.fullmatch(item) for item in added)):
+            return None
         if added:
-            changed.append(name)
-    return tuple(changed)
+            grown.add(name)
+    return grown
+
+
+def _prefix_growth(before: list, after: list) -> set[str] | None:
+    """前缀表只许插入新前缀、扩大已有前缀的域；删除、改序或让后面的已有前缀失效都不算。"""
+    known = [prefix for prefix, _ in before]
+    kept = [row for row in after if row[0] in known]
+    if [prefix for prefix, _ in kept] != known or len({prefix for prefix, _ in after}) != len(after):
+        return None
+    affected: set[str] = set()
+    for (_, old), (_, new) in zip(before, kept):
+        if not set(old) <= set(new):
+            return None
+        affected.update(set(new) - set(old))
+    for index, (prefix, scopes) in enumerate(after):
+        if prefix in known:
+            continue
+        if any(later.startswith(prefix) for later, _ in after[index + 1:] if later in known):
+            return None
+        affected.update(scopes, _first_match(before, prefix))
+    return affected
+
+
+def registry_growth(before: dict, after: dict) -> tuple[str, ...] | None:
+    """登记表只增不减时返回相关的新旧域；任何删除、缩小、改序或 `[ci]` 变化返回 None。"""
+    if not valid_registry(before) or not valid_registry(after) or before["ci"] != after["ci"]             or list(before["scopes"]) != list(after["scopes"]):
+        return None
+    scopes = _list_growth(before["scopes"], after["scopes"], exact=True)
+    cases = _list_growth(before["scope_test_ids"], after["scope_test_ids"], exact=False)
+    files = _list_growth(before["auto_scope_files"], after["auto_scope_files"], exact=False)
+    prefixes = _prefix_growth(before["auto_scope_prefixes"], after["auto_scope_prefixes"])
+    if scopes is None or cases is None or files is None or prefixes is None:
+        return None
+    affected = scopes | cases | prefixes
+    for path in files | (set(after["auto_scope_files"]) - set(before["auto_scope_files"])):
+        old = before["auto_scope_files"].get(path) or _first_match(before["auto_scope_prefixes"], path)
+        affected.update(after["auto_scope_files"][path], old)
+    if not affected <= set(after["scopes"]):
+        return None
+    return tuple(name for name in after["scopes"] if name in affected)
 
 
 def kind(path: str, before: str | None, after: str | None) -> str:
@@ -114,8 +167,8 @@ def signature_kind(before: dict, after: dict) -> str:
         return "prose"
     if before.get("dependencies") and before.get("dependencies") == after.get("dependencies"):
         return "metadata"
-    if scopes := added_scope_tests(before, after):
-        return 'registration:' + ','.join(scopes)
+    if (scopes := registry_growth(before.get("registry"), after.get("registry"))) is not None:
+        return "registration:" + ",".join(scopes)
     return "logic"
 
 

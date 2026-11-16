@@ -28,6 +28,7 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 import urllib.error
@@ -43,6 +44,7 @@ from peach import platform as peach_platform
 from peach.config import FFMPEG_DIR
 from peach.ffmpeg import FFmpegResolver
 from peach.library_processing import process_library
+from peach.network_reachability import TARGETS as CONNECTIVITY_TARGETS
 from peach.web_contract import WebContract
 from peach.web_tutorial import CAMPAIGN, w_tutorial_progress
 from support.conditions import missing_prerequisite, windows_ledger_roots, pin_capacity_reserve
@@ -79,6 +81,141 @@ def free_port() -> int:
 
 def refuse_network(*args, **kwargs):
     raise AssertionError("演示库的 process 不应向任何外部来源发请求")
+
+
+#: 写进 e2e 服务 `PYTHONPATH` 的 `sitecustomize`：服务及其 Python 子进程只连得上回环地址。
+#: 外网主机名不解析、外网地址的 TCP 连接当场被拒，并在服务日志里记一行 `OFFLINE_MARK`。
+OFFLINE_MARK = "[e2e-offline]"
+OFFLINE_SITE = '''\
+import errno, ipaddress, socket, sys
+
+_MARK = %r
+_LOCAL_NAMES = {"", "localhost", socket.gethostname().lower()}
+
+
+def _literal(host):
+    try:
+        return ipaddress.ip_address(str(host).strip("[]").split("%%")[0])
+    except ValueError:
+        return None
+
+
+def _note(target):
+    sys.stderr.write(f"{_MARK} blocked {target}\\n")
+    sys.stderr.flush()
+
+
+_getaddrinfo = socket.getaddrinfo
+
+
+def getaddrinfo(host, *args, **kwargs):
+    name = host.decode() if isinstance(host, bytes) else host
+    if name is not None and _literal(name) is None and str(name).lower() not in _LOCAL_NAMES \\
+            and not str(name).lower().endswith(".localhost"):
+        _note(name)
+        raise socket.gaierror(socket.EAI_NONAME, f"e2e offline: {name}")
+    return _getaddrinfo(host, *args, **kwargs)
+
+
+def _outside(sock, address):
+    if sock.family not in (socket.AF_INET, socket.AF_INET6) or sock.type != socket.SOCK_STREAM:
+        return False
+    ip = _literal(address[0])
+    return ip is not None and not ip.is_loopback
+
+
+_connect, _connect_ex = socket.socket.connect, socket.socket.connect_ex
+
+
+def connect(self, address):
+    if _outside(self, address):
+        _note(address)
+        raise ConnectionRefusedError(errno.ECONNREFUSED, f"e2e offline: {address}")
+    return _connect(self, address)
+
+
+def connect_ex(self, address):
+    if _outside(self, address):
+        _note(address)
+        return errno.ECONNREFUSED
+    return _connect_ex(self, address)
+
+
+socket.getaddrinfo = getaddrinfo
+socket.socket.connect, socket.socket.connect_ex = connect, connect_ex
+''' % OFFLINE_MARK
+
+
+#: 联网探测（`network_reachability`）问的系统检测地址由断网代理照常回答：服务判在线，页面不出离线提示，
+#: 与断网前在有网机器上的样子一致。
+CONNECTIVITY_ANSWERS = {f"GET {url} HTTP/1.1": marker for url, marker in CONNECTIVITY_TARGETS}
+
+
+class OfflineProxy:
+    """e2e 服务的环境代理：联网探测照常回答，其余请求读到请求行就断开。
+
+    libcurl 不经 Python 的 socket，靠环境代理接住；Windows 上连已关闭的回环端口要重试 2 秒才被拒，
+    所以这里真的监听，漏拦的请求立刻失败、不等超时。收到的请求行留在 `requests` 里；
+    设了 `log` 时同时按到达顺序写进服务日志，前后的访问记录就是触发它的那个请求。
+    """
+
+    def __init__(self):
+        self.listener = socket.create_server(("127.0.0.1", 0))
+        self.url = f"http://127.0.0.1:{self.listener.getsockname()[1]}"
+        self.requests: list[str] = []
+        self.log = None
+        self.thread = threading.Thread(target=self._serve, name="e2e-offline-proxy", daemon=True)
+        self.thread.start()
+
+    def _serve(self):
+        while True:
+            try:
+                connection, _ = self.listener.accept()
+            except OSError:
+                return
+            with connection:
+                connection.settimeout(2)
+                try:
+                    line = connection.recv(4096).split(b"\r\n", 1)[0].decode("latin-1")
+                    if line in CONNECTIVITY_ANSWERS:
+                        body = CONNECTIVITY_ANSWERS[line]
+                        connection.sendall(b"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nConnection: close\r\n"
+                                           b"Content-Length: %d\r\n\r\n%s" % (len(body), body))
+                        continue
+                except OSError:
+                    line = ""
+                self.requests.append(line or "（空请求）")
+                if self.log is not None:
+                    self.log.write(f"{OFFLINE_MARK} proxy {line}\n")
+                    self.log.flush()
+
+    def close(self):
+        self.listener.close()
+        self.thread.join(timeout=5)
+
+
+def offline_environment(root: Path, proxy: OfflineProxy, **extra: str) -> dict[str, str]:
+    """e2e 服务子进程的环境：外网代理指向 `proxy`，Python 进程另装 `OFFLINE_SITE`。"""
+    site = root / "offline-site"
+    site.mkdir(exist_ok=True)
+    (site / "sitecustomize.py").write_text(OFFLINE_SITE, encoding="utf-8")
+    env = dict(os.environ, **extra)
+    names = ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY")
+    if os.name != "nt":
+        # POSIX 区分大小写，urllib 先读小写；Windows 的环境变量不分大小写，两份会重名。
+        names += tuple(name.lower() for name in names)
+    env.update({name: proxy.url for name in names})
+    env["NO_PROXY"] = "localhost,127.0.0.1,::1"
+    if os.name != "nt":
+        env["no_proxy"] = env["NO_PROXY"]
+    env["PYTHONPATH"] = os.pathsep.join(filter(None, (str(site), os.environ.get("PYTHONPATH"))))
+    return env
+
+
+def offline_attempts(log: str, proxy: OfflineProxy) -> list[str]:
+    """服务日志里被断网挡下的连接与代理收到的请求行，去重保序。"""
+    blocked = [line.split(OFFLINE_MARK, 1)[1].strip() for line in log.splitlines() if OFFLINE_MARK + " " in line]
+    return list(dict.fromkeys([*blocked, *(f"proxy {line}" for line in proxy.requests)]))
 
 
 #: 测量动画中间帧、密度切换和等待态替换的文件。独立测量这些时序，避免其他浏览器
@@ -177,10 +314,19 @@ class PlayerFramingE2ETests(unittest.TestCase):
         if not node or not chrome or not (FRONTEND / "node_modules/playwright-core").is_dir():
             missing_prerequisite("全屏画面测试需要 Node、playwright-core 与测试浏览器")
         environment = dict(os.environ, PEACH_E2E_CHROME=chrome)
-        result = subprocess.run(
-            [node, "--test", "e2e/player-fit.test.ts"], cwd=FRONTEND, env=environment,
-            capture_output=True, text=True, encoding="utf-8", timeout=150,
-        )
+        try:
+            result = subprocess.run(
+                [node, "--test", "e2e/player-fit.test.ts"], cwd=FRONTEND, env=environment,
+                capture_output=True, text=True, encoding="utf-8", timeout=150,
+            )
+        except subprocess.TimeoutExpired as expired:
+            partial = expired.stdout or ""
+            if isinstance(partial, bytes):
+                partial = partial.decode("utf-8", errors="replace")
+            BROWSER_LOGS.mkdir(parents=True, exist_ok=True)
+            log_path = BROWSER_LOGS / e2e_log_name("e2e/player-fit.test.ts")
+            log_path.write_text(partial, encoding="utf-8")
+            self.fail(f"全屏画面测试在 150 秒内没跑完，日志：{log_path}\n{partial}")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
@@ -215,6 +361,7 @@ class WebE2ESmokeTests(unittest.TestCase):
         cls.node, cls.ffmpeg, cls.chrome = node, str(ffmpeg.path), chrome
         cls.root = Path(tempfile.mkdtemp(prefix="peach-e2e-")).resolve()
         cls.server = None
+        cls.proxy = OfflineProxy()
         try:
             cls._build_library()
             cls._start_server()
@@ -233,6 +380,8 @@ class WebE2ESmokeTests(unittest.TestCase):
             except subprocess.TimeoutExpired:
                 server.kill()
                 server.wait(timeout=10)
+        if getattr(cls, "proxy", None) is not None:
+            cls.proxy.close()
         if getattr(cls, "log", None) is not None:
             cls.log.close()
             # 访问日志留在 TAP 旁边：哪条用例向服务端发了写请求，用例跑完之后还查得到。
@@ -297,8 +446,8 @@ class WebE2ESmokeTests(unittest.TestCase):
 
     @classmethod
     def _start_server(cls):
-        env = dict(os.environ, PEACH_DATA_ROOT=str(cls.data), PYTHONIOENCODING="utf-8")
-        cls.log = (cls.root / "serve.log").open("w", encoding="utf-8")
+        env = offline_environment(cls.root, cls.proxy, PEACH_DATA_ROOT=str(cls.data), PYTHONIOENCODING="utf-8")
+        cls.log = cls.proxy.log = (cls.root / "serve.log").open("w", encoding="utf-8")
         cls.server = subprocess.Popen(
             [sys.executable, "-X", "utf8", "-m", "peach", "serve", "--host", "127.0.0.1",
              "--port", str(cls.port), "--db", str(cls.db),
@@ -322,6 +471,11 @@ class WebE2ESmokeTests(unittest.TestCase):
     def _server_log(cls) -> str:
         cls.log.flush()
         return (cls.root / "serve.log").read_text(encoding="utf-8", errors="replace")[-4000:]
+
+    @classmethod
+    def _offline_attempts(cls) -> list[str]:
+        cls.log.flush()
+        return offline_attempts((cls.root / "serve.log").read_text(encoding="utf-8", errors="replace"), cls.proxy)
 
     @classmethod
     def _warm_stream(cls):
@@ -389,6 +543,9 @@ class WebE2ESmokeTests(unittest.TestCase):
                           f"（{seconds:.1f}s）：{path}", flush=True)
                     if failure:
                         failures.append(failure)
+        attempts = self._offline_attempts()
+        if attempts:
+            failures.append("e2e 服务尝试连外网，浏览器用例漏拦了请求或服务有后台联网：\n" + "\n".join(attempts))
         if failures:
             self.fail("\n\n".join(failures) + f"\n--- serve.log ---\n{self._server_log()}")
 
@@ -446,8 +603,9 @@ class SetupE2ETests(unittest.TestCase):
         cls.ledger_root = str(cls.media) if os.name == "nt" else "R:\\media"
         cls.port = free_port()
         cls.origin = f"http://127.0.0.1:{cls.port}"
-        env = dict(os.environ, PEACH_DATA_ROOT=str(cls.data), PYTHONIOENCODING="utf-8")
-        cls.log = (cls.root / "serve.log").open("w", encoding="utf-8")
+        cls.proxy = OfflineProxy()
+        env = offline_environment(cls.root, cls.proxy, PEACH_DATA_ROOT=str(cls.data), PYTHONIOENCODING="utf-8")
+        cls.log = cls.proxy.log = (cls.root / "serve.log").open("w", encoding="utf-8")
         cls.server = subprocess.Popen(
             [sys.executable, "-X", "utf8", "-m", "peach", "serve", "--setup", "--host", "127.0.0.1",
              "--port", str(cls.port), "--no-mdns", "--no-ledger-sync"],
@@ -483,6 +641,8 @@ class SetupE2ETests(unittest.TestCase):
             except subprocess.TimeoutExpired:
                 server.kill()
                 server.wait(timeout=10)
+        if getattr(cls, "proxy", None) is not None:
+            cls.proxy.close()
         if getattr(cls, "log", None) is not None:
             cls.log.close()
         shutil.rmtree(cls.root, ignore_errors=True)
@@ -491,6 +651,11 @@ class SetupE2ETests(unittest.TestCase):
     def _server_log(cls) -> str:
         cls.log.flush()
         return (cls.root / "serve.log").read_text(encoding="utf-8", errors="replace")[-4000:]
+
+    @classmethod
+    def _offline_attempts(cls) -> list[str]:
+        cls.log.flush()
+        return offline_attempts((cls.root / "serve.log").read_text(encoding="utf-8", errors="replace"), cls.proxy)
 
     def test_the_first_run_page_writes_errors_back_and_finishes(self):
         self.assertFalse((self.data / settings_file.SETTINGS_FILENAME).exists())
@@ -519,6 +684,7 @@ class SetupE2ETests(unittest.TestCase):
         self.assertEqual(completed.returncode, 0, f"{output}\n--- serve.log ---\n{self._server_log()}")
         self.assertRegex(output, r"# pass 1\b", output)
         self.assertRegex(output, r"# skipped 0\b", output)
+        self.assertEqual(self._offline_attempts(), [], "首启服务尝试连外网")
         discard_network_logs(output, BROWSER_LOGS / "network")
         # 改对的那一次提交在临时 Peach 数据目录里落了设置文件，媒体库就是传进去的那个目录。
         written = settings_file.load_config(environ={settings_file.DATA_ROOT_ENV: str(self.data)})
@@ -529,6 +695,50 @@ class SetupE2ETests(unittest.TestCase):
             self.assertEqual(len(written.locations["local"]), 1)
             self.assertTrue(peach_platform.is_windows_path(written.locations["local"][0]))
             self.assertEqual([Path(path) for path in written.mounts.get("local", ())], [self.media])
+
+
+class OfflineEnvironmentTests(unittest.TestCase):
+    """e2e 服务的断网：直连、环境代理与 libcurl 的外网请求都当场失败并留下记录；回环与联网探测照常。"""
+
+    PROBE = (
+        "import socket, sys, time\n"
+        "import httpx\n"
+        "from curl_cffi import requests as curl\n"
+        "from peach.network_reachability import TARGETS\n"
+        "for url, marker in TARGETS:\n"
+        "    assert marker in httpx.get(url, timeout=5).content, url\n"
+        "local = socket.create_server(('127.0.0.1', 0))\n"
+        "socket.create_connection(local.getsockname(), timeout=5).close()\n"
+        "started = time.monotonic()\n"
+        "for name, ask in (('env', lambda: httpx.get('https://javdb.com/', timeout=20)),\n"
+        "                  ('direct', lambda: httpx.get('https://javdb.com/', timeout=20, trust_env=False)),\n"
+        "                  ('curl', lambda: curl.get('https://javdb.com/', timeout=20)),\n"
+        "                  ('socket', lambda: socket.create_connection(('1.1.1.1', 443), timeout=20))):\n"
+        "    try:\n"
+        "        ask()\n"
+        "    except Exception:\n"
+        "        print('failed', name)\n"
+        "    else:\n"
+        "        print('reached', name)\n"
+        "print('seconds', time.monotonic() - started)\n")
+
+    def test_outside_requests_fail_at_once_and_are_recorded(self):
+        root = Path(tempfile.mkdtemp(prefix="peach-e2e-offline-")).resolve()
+        self.addCleanup(shutil.rmtree, root, ignore_errors=True)
+        proxy = OfflineProxy()
+        self.addCleanup(proxy.close)
+        completed = subprocess.run([sys.executable, "-c", self.PROBE], capture_output=True, text=True,
+                                   encoding="utf-8", env=offline_environment(root, proxy), timeout=60, check=False)
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        lines = completed.stdout.splitlines()
+        self.assertEqual(lines[:4], ["failed env", "failed direct", "failed curl", "failed socket"], completed.stderr)
+        self.assertLess(float(lines[4].split()[1]), 5, "漏拦的请求要当场失败，不能等超时")
+        attempts = offline_attempts(completed.stderr, proxy)
+        self.assertIn("blocked javdb.com", attempts)
+        self.assertIn("blocked ('1.1.1.1', 443)", attempts)
+        self.assertTrue(any(line.startswith("proxy CONNECT javdb.com:443") for line in attempts), attempts)
+        self.assertFalse([line for line in attempts if any(url in line for url, _ in CONNECTIVITY_TARGETS)],
+                         "联网探测由断网代理回答，不算外联")
 
 
 class MissingPrerequisiteTests(unittest.TestCase):
@@ -671,6 +881,7 @@ class MissingPrerequisiteTests(unittest.TestCase):
                     mock.patch(__name__ + ".BROWSER_LOGS", log_root), \
                     mock.patch(__name__ + ".e2e_pools", return_value=((files[:3], 2), (files[3:], 1))), \
                     mock.patch.object(case, "_server_log", return_value="serve fixture"), \
+                    mock.patch.object(case, "_offline_attempts", return_value=[]), \
                     mock.patch.object(test_history, 'record_external') as recorded, \
                     mock.patch("subprocess.run", side_effect=run), \
                     contextlib.redirect_stdout(io.StringIO()):
