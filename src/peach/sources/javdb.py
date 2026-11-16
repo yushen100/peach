@@ -32,7 +32,7 @@ from ..coded_text import Said, parallel
 from ..user_messages import nested_message
 from ..catalog_vocabulary import RESOURCE_COMMENT_SOURCE
 from ..scripting import HostLimiter
-from ..source_page_words import JAVDB_FIELDS
+from ..source_page_words import JAVDB_FIELDS, JAVDB_NO_MAGNETS
 from .base import FailureReason, Page, Session, SiteConfig, SiteRecord, SiteSource, SourceFailure
 
 #: 主机间隔由用户定（2026-09-22 定为 3 秒，每分钟 20 页）。参照面：每分钟 40～50 页会招来 3～7 天
@@ -335,7 +335,7 @@ def parse_magnets(page: Page) -> list[dict]:
             'attributes': list(dict.fromkeys(tag.get_text(' ', strip=True) for tag in row.select('.tag'))),
             'source': 'JavDB', 'source_url': page.url, 'origins': [page.url],
         }))
-    if not found and '此影片暫無網友分享磁鏈' not in container.get_text():
+    if not found and JAVDB_NO_MAGNETS not in container.get_text():
         raise SourceFailure(FailureReason.PARSE_ERROR, 'errors.javdbPublic.unrecognizedFormat')
     return list(found.values())
 
