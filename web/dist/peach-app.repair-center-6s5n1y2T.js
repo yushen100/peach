@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "d7997966-292d-47fd-bf8d-e3479d2196da", e._sentryDebugIdIdentifier = "sentry-dbid-d7997966-292d-47fd-bf8d-e3479d2196da");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "0c360de7-83bc-4a15-8c9e-c999ec5b5886", e._sentryDebugIdIdentifier = "sentry-dbid-0c360de7-83bc-4a15-8c9e-c999ec5b5886");
 	} catch {}
 })();
 import { Button as e, LinkButton as t, Note as n, Progress as r, REPAIRS_KEY as i, RESULT_PANEL as a, RESULT_SECTION as o, SectionHeading as s, StatusLabel as c, apiSend as l, confirmModal as u, fetchRepairs as d, fmtSize as f, i2 as p, interfaceLanguage as m, localizeRepairs as h, queryClient as g, repairCenterPanelSkeleton as _, require_jsx_runtime as v, t as y, useAction as b, useQuery as x, withBackoff as S } from "./peach-app.js";
@@ -99,7 +99,19 @@ function L() {
 		confirmLabel: y("settings:repairCenter.deleteSnapshots"),
 		danger: !0,
 		onConfirm: async () => m(await v(e))
-	}), O = (e) => e.backups.length ? e.backups.some((e) => e.exists) ? /* @__PURE__ */ (0, w.jsx)(t, {
+	}), O = (e) => e.filter((e) => e.mode === "confirm" && e.state === "waiting" && !e.estimating), M = (e, t) => void u({
+		title: t,
+		body: e.some((e) => e.files !== void 0) ? y("settings:repairCenter.startManyBodyDelete") : y("settings:repairCenter.startManyBody"),
+		items: e.map((e) => y("settings:repairCenter.startManyItem", {
+			title: e.title,
+			amount: e.files === void 0 ? P(e) : A(e)
+		})),
+		confirmLabel: y("settings:shared.start"),
+		danger: e.some((e) => e.files !== void 0),
+		onConfirm: async () => {
+			for (let t of e) m(await v(t));
+		}
+	}), L = (e) => e.backups.length ? e.backups.some((e) => e.exists) ? /* @__PURE__ */ (0, w.jsx)(t, {
 		href: "/settings/maintenance#ledgerBackups",
 		size: "small",
 		trailingIcon: p,
@@ -107,18 +119,36 @@ function L() {
 	}) : /* @__PURE__ */ (0, w.jsx)("span", {
 		className: "text-body-2-regular text-text-tertiary",
 		children: y("settings:repairCenter.backupCleaned")
-	}) : null, M = f.error || (r.error ? r.error.message : "");
+	}) : null, R = f.error || (r.error ? r.error.message : ""), z = o ? O(o.items) : [], B = new Set(z.map((e) => e.group)).size;
 	return /* @__PURE__ */ (0, w.jsxs)(C, { children: [
-		M ? /* @__PURE__ */ (0, w.jsx)(n, {
+		R ? /* @__PURE__ */ (0, w.jsx)(n, {
 			tone: "error",
-			children: M
+			children: R
+		}) : null,
+		o && B > 1 ? /* @__PURE__ */ (0, w.jsx)(n, {
+			tone: "info",
+			action: /* @__PURE__ */ (0, w.jsx)(e, {
+				size: "small",
+				disabled: !o.available || !!f.busy,
+				onClick: () => M(z, y("settings:repairCenter.startAllTitle")),
+				children: y("settings:repairCenter.startAll")
+			}),
+			children: y("settings:repairCenter.waitingCount", { count: z.length })
 		}) : null,
 		o?.items.length ? D(o.items).map(([t, n]) => /* @__PURE__ */ (0, w.jsxs)("section", {
 			"aria-labelledby": `repair-group-${t}`,
 			className: "flex flex-col gap-4",
-			children: [/* @__PURE__ */ (0, w.jsx)(s, {
-				id: `repair-group-${t}`,
-				children: E[t] || t
+			children: [/* @__PURE__ */ (0, w.jsxs)("div", {
+				className: "flex flex-wrap items-center justify-between gap-3",
+				children: [/* @__PURE__ */ (0, w.jsx)(s, {
+					id: `repair-group-${t}`,
+					children: E[t] || t
+				}), O(n).length > 1 ? /* @__PURE__ */ (0, w.jsx)(e, {
+					size: "small",
+					disabled: !o.available || !!f.busy,
+					onClick: () => M(O(n), y("settings:repairCenter.startGroupTitle", { group: E[t] || t })),
+					children: y("settings:repairCenter.startGroup")
+				}) : null]
 			}), /* @__PURE__ */ (0, w.jsx)("div", {
 				className: a,
 				children: n.map((t) => {
@@ -170,7 +200,7 @@ function L() {
 				children: o.history.map((e) => /* @__PURE__ */ (0, w.jsx)(F, {
 					title: e.title,
 					description: `${k(e.at)} · ${e.changed ? y("settings:repairCenter.changedCount", { count: e.changed }) : y("settings:repairCenter.noChanges")}`,
-					children: O(e)
+					children: L(e)
 				}, e.id))
 			})]
 		}) : null
@@ -178,4 +208,4 @@ function L() {
 }
 export { L as RepairCenterPage, N as repairsInterval };
 
-//# debugId=d7997966-292d-47fd-bf8d-e3479d2196da
+//# debugId=0c360de7-83bc-4a15-8c9e-c999ec5b5886

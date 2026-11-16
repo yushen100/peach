@@ -963,7 +963,16 @@
     "pendingRecheck": "{{count, number}} 部待补测",
     "preRepairBackup": "修复前的账本备份",
     "queued": "等待执行",
-    "reclaimable": "可回收 {{size}}"
+    "reclaimable": "可回收 {{size}}",
+    "startAll": "全部开始",
+    "startAllTitle": "开始全部等确认的修复",
+    "startGroup": "开始这一组",
+    "startGroupTitle": "开始「{{group}}」里等确认的修复",
+    "startManyBody": "依次开始。改账本的项先备份账本，可从账本备份恢复。",
+    "startManyBodyDelete": "依次开始。改账本的项先备份账本，可从账本备份恢复；删除的快照不能恢复。",
+    "startManyItem": "{{title}}：{{amount}}",
+    "waitingCount_one": "{{count, number}} 项修复等你确认",
+    "waitingCount_other": "{{count, number}} 项修复等你确认"
   },
   "retention": {
     "backups": "账本自动备份",

@@ -3,7 +3,8 @@
  *  历史里列出每次修复前留下的账本备份：还在的去「账本备份」恢复，清退了的照实写。页头的面包屑由管理区页头画。
  *  首屏数据随路由预取（`repair-center-data.ts`），等待时画路由骨架；有项在跑或还在统计时每 2 秒重读，做完就停。
  *  等确认的项还没开始，只写待处理的量和「开始」；开始之后才有进度条，「开始」换成状态标签。
- *  各项按改动落在哪类数据上分组（服务端 `repair_center.GROUPS`），组内先列等确认、在跑与要重试的。 */
+ *  各项按改动落在哪类数据上分组（服务端 `repair_center.GROUPS`），组内先列等确认、在跑与要重试的。
+ *  一组里有两项以上等确认时标题旁给「开始这一组」，跨两组以上时页顶给「全部开始」；都先在一个弹层里逐项列出。 */
 import { useQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { RiArrowRightLine } from '@remixicon/react';
@@ -117,13 +118,31 @@ export function RepairCenterPage() {
       confirmLabel: t('settings:repairCenter.deleteSnapshots'), danger: true,
       onConfirm: async () => update(await post(item)),
     });
+  /** 等确认、现在就能开始的项（还在统计的删除项除外）。 */
+  const startable = (items: RepairItem[]) => items.filter(item => item.mode === 'confirm' && item.state === 'waiting' && !item.estimating);
+  /** 一次开始几项：弹层逐项写名称与量，有删除项时按危险操作确认；依次开始，某项失败就停在那里、原因留在弹层里。 */
+  const startMany = (items: RepairItem[], title: string) => void confirmModal({
+    title, body: items.some(item => item.files !== undefined) ? t('settings:repairCenter.startManyBodyDelete') : t('settings:repairCenter.startManyBody'),
+    items: items.map(item => t('settings:repairCenter.startManyItem', {
+      title: item.title, amount: item.files !== undefined ? reclaimable(item) : reading(item) })),
+    confirmLabel: t('settings:shared.start'), danger: items.some(item => item.files !== undefined),
+    onConfirm: async () => { for (const item of items) update(await post(item)); },
+  });
   const backupNote = (row: RepairHistory) => !row.backups.length ? null : row.backups.some(backup => backup.exists)
     ? <LinkButton href="/settings/maintenance#ledgerBackups" size="small" trailingIcon={RiArrowRightLine}>{t('settings:repairCenter.preRepairBackup')}</LinkButton>
     : <span className="text-body-2-regular text-text-tertiary">{t('settings:repairCenter.backupCleaned')}</span>;
   const failure = action.error || (query.error ? query.error.message : '');
 
+  const waiting = data ? startable(data.items) : [];
+  const spread = new Set(waiting.map(item => item.group)).size;
+
   return <Page>
     {failure ? <Note tone="error">{failure}</Note> : null}
+    {/* 跨两组以上才给「全部开始」；只在一组里时用那一组标题旁的按钮，不摆两个做同一件事的键。 */}
+    {data && spread > 1 ? <Note tone="info" action={
+      <Button size="small" disabled={!data.available || !!action.busy}
+        onClick={() => startMany(waiting, t('settings:repairCenter.startAllTitle'))}>{t('settings:repairCenter.startAll')}</Button>}>
+      {t('settings:repairCenter.waitingCount', { count: waiting.length })}</Note> : null}
     {!data?.items.length
       ? <section aria-labelledby="repair-items" className="flex flex-col gap-4">
         <SectionHeading id="repair-items">{t('settings:repairCenter.itemsHeading')}</SectionHeading>
@@ -135,7 +154,14 @@ export function RepairCenterPage() {
       </section>
       : grouped(data.items).map(([group, items]) => (
         <section key={group} aria-labelledby={`repair-group-${group}`} className="flex flex-col gap-4">
-          <SectionHeading id={`repair-group-${group}`}>{GROUPS[group] || group}</SectionHeading>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <SectionHeading id={`repair-group-${group}`}>{GROUPS[group] || group}</SectionHeading>
+            {startable(items).length > 1
+              ? <Button size="small" disabled={!data.available || !!action.busy}
+                  onClick={() => startMany(startable(items), t('settings:repairCenter.startGroupTitle', { group: GROUPS[group] || group }))}>
+                  {t('settings:repairCenter.startGroup')}</Button>
+              : null}
+          </div>
           <div className={RESULT_PANEL}>
             {items.map(item => {
               const [label, tone] = STATES[item.state] || STATES.none;

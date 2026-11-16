@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "ad4f6427-96e0-4120-96fe-c3f579d3ab8b", e._sentryDebugIdIdentifier = "sentry-dbid-ad4f6427-96e0-4120-96fe-c3f579d3ab8b");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "3a2eabfb-d0d0-4c9d-b6e9-e04fb8bfedfe", e._sentryDebugIdIdentifier = "sentry-dbid-3a2eabfb-d0d0-4c9d-b6e9-e04fb8bfedfe");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -6768,7 +6768,16 @@ var He = "peach.settings.v1", Ue = {
 		pendingRecheck_other: "{{count, number}} videos to re-check",
 		preRepairBackup: "Pre-repair database backup",
 		queued: "Queued",
-		reclaimable: "{{size}} reclaimable"
+		reclaimable: "{{size}} reclaimable",
+		startAll: "Start all",
+		startAllTitle: "Start all repairs that need confirmation",
+		startGroup: "Start this group",
+		startGroupTitle: "Start repairs in “{{group}}” that need confirmation",
+		startManyBody: "They start one after another. Items that change the database back it up first, so you can restore it from database backups.",
+		startManyBodyDelete: "They start one after another. Items that change the database back it up first, so you can restore it from database backups. Deleted snapshots can't be restored.",
+		startManyItem: "{{title}}: {{amount}}",
+		waitingCount_one: "{{count, number}} repair needs your confirmation",
+		waitingCount_other: "{{count, number}} repairs need your confirmation"
 	},
 	retention: {
 		backups: "Automatic database backups",
@@ -13934,7 +13943,16 @@ var He = "peach.settings.v1", Ue = {
 		pendingRecheck: "{{count, number}} 部待补测",
 		preRepairBackup: "修复前的账本备份",
 		queued: "等待执行",
-		reclaimable: "可回收 {{size}}"
+		reclaimable: "可回收 {{size}}",
+		startAll: "全部开始",
+		startAllTitle: "开始全部等确认的修复",
+		startGroup: "开始这一组",
+		startGroupTitle: "开始「{{group}}」里等确认的修复",
+		startManyBody: "依次开始。改账本的项先备份账本，可从账本备份恢复。",
+		startManyBodyDelete: "依次开始。改账本的项先备份账本，可从账本备份恢复；删除的快照不能恢复。",
+		startManyItem: "{{title}}：{{amount}}",
+		waitingCount_one: "{{count, number}} 项修复等你确认",
+		waitingCount_other: "{{count, number}} 项修复等你确认"
 	},
 	retention: {
 		backups: "账本自动备份",
@@ -39431,4 +39449,4 @@ jt();
 var Kb = document.getElementById("peach-page"), qb = Kb ? Gb[Kb.dataset.page ?? ""] : void 0;
 Kb && qb && (0, Bt.createRoot)(Kb).render(/* @__PURE__ */ (0, V.jsx)(Wb, { children: /* @__PURE__ */ (0, V.jsx)(qb, { data: { ...Kb.dataset } }) }));
 
-//# debugId=ad4f6427-96e0-4120-96fe-c3f579d3ab8b
+//# debugId=3a2eabfb-d0d0-4c9d-b6e9-e04fb8bfedfe
