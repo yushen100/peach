@@ -29,7 +29,7 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from peach.config import COVER_DIR
-from peach.cover_artwork import FACE_ALGORITHM_VERSION, face_record
+from peach.cover_artwork import FACE_ALGORITHM_VERSION, face_record, needs_whole_face
 from peach.face_detect import FaceDetector, FaceModelUnavailable
 from peach.fsutil import atomic_write_text
 from peach.interface_text import dev as t
@@ -39,7 +39,13 @@ from peach.jav_poster_crop import read_sidecar
 def detect(path: Path, detector: FaceDetector) -> dict | None:
     import cv2
     image = cv2.imread(str(path))
-    return face_record(image, detector, code=path.stem, title=(read_sidecar(path) or {}).get('title', ''))
+    poster = read_sidecar(path) or {}
+    title = poster.get('title', '')
+    found = face_record(image, detector, code=path.stem, title=title)
+    # 正封取景已判成整幅显示：主脸在整幅画面里找。
+    if needs_whole_face(path.stem, title, poster, found):
+        found = face_record(image, detector, code=path.stem, title=title, whole=True)
+    return found
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -56,8 +62,10 @@ def current_face(path):
         record = json.loads(path.with_suffix('.face.json').read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return False
+    poster = read_sidecar(path) or {}
     return (isinstance(record, dict) and record.get('version') == FACE_ALGORITHM_VERSION
-            and record.get('px') == list(measure_image_file(path) or ()))
+            and record.get('px') == list(measure_image_file(path) or ())
+            and not needs_whole_face(path.stem, poster.get('title', ''), poster, record))
 
 
 def run(args: argparse.Namespace) -> int:

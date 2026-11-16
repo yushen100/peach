@@ -154,8 +154,9 @@ class CoverArtworkTests(unittest.TestCase):
             for code in ("FC2-PPV-3312576", "HEYZO-1380", "092415-001", "ABP-601"):
                 with self.subTest(code=code):
                     target = self.root / f"{code}.jpg"
-                    cover_artwork.install_cover(target, code, jpeg((90, 80, 70), (800, 500)),
-                                                (800, 500), detector=detector)
+                    # 番号封面用标准封套比例：1.6 的纯色图找不到折痕，取景判成整幅，脸也就在整幅里找。
+                    size = (800, 538) if code == "ABP-601" else (800, 500)
+                    cover_artwork.install_cover(target, code, jpeg((90, 80, 70), size), size, detector=detector)
                     record = json.loads(target.with_suffix(".face.json").read_text(encoding="utf-8"))
                     if code == "ABP-601":
                         self.assertIsNone(record["face"])
@@ -371,6 +372,34 @@ class PortraitInstallTests(unittest.TestCase):
                          ["START-404.jpg", "START-404.face.json", "START-404.poster.json",
                           "START-404.scraping.json", "START-404.jpg"])
         self.assertEqual(cover_artwork.cover_group(self.target)[-1], self.front)
+
+
+class WholeFaceTests(unittest.TestCase):
+    """取景判成整幅显示时，主脸在整幅画面里找：左边那张更大的脸不该被「只看正封」筛掉。"""
+
+    class Faces:
+        def detect(self, image):
+            return [Face(.2, .4, .07, .1, .9), Face(.75, .4, .05, .07, .9)]
+
+    def setUp(self):
+        import numpy
+        self.image = numpy.zeros((1468, 2184, 3), numpy.uint8)
+
+    def test_a_sleeve_looks_for_the_face_on_the_front_panel(self):
+        found = cover_artwork.face_record(self.image, self.Faces(), code="MIDV-192")
+        self.assertEqual(found["face"]["cx"], .75)
+
+    def test_a_whole_picture_takes_the_largest_face_anywhere(self):
+        found = cover_artwork.face_record(self.image, self.Faces(), code="MIDV-192", whole=True)
+        self.assertEqual((found["face"]["cx"], found["layout"]), (.2, "still"))
+
+    def test_only_a_cover_shown_whole_with_a_front_panel_face_is_redone(self):
+        whole = {"box": {"method": jav_poster_crop.NONE}}
+        cut = {"box": {"method": jav_poster_crop.FOLD}}
+        front_face = {"face": {"cx": .75}}
+        self.assertTrue(cover_artwork.needs_whole_face("MIDV-192", "", whole, front_face))
+        self.assertFalse(cover_artwork.needs_whole_face("MIDV-192", "", cut, front_face))
+        self.assertFalse(cover_artwork.needs_whole_face("MIDV-192", "", whole, {**front_face, "layout": "still"}))
 
 
 if __name__ == "__main__":

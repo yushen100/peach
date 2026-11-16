@@ -84,7 +84,7 @@ def _full_picture_face(faces):
     return largest if largest.score >= .7 and largest.area >= 4 * strong.area else strong
 
 
-def face_record(image, detector, *, code: str, title: str = '', verdict: str = '') -> dict | None:
+def face_record(image, detector, *, code: str, title: str = '', verdict: str = '', whole: bool = False) -> dict | None:
     """已解码的封面 → 页面取景记录；无法解码时不生成记录。
 
     脸框宽高与源图尺寸 `px` 也记下，形状与头像边车（`avatar_face.face_record_of`）
@@ -92,7 +92,8 @@ def face_record(image, detector, *, code: str, title: str = '', verdict: str = '
     （`avatar_cover_face.face_square`），而 `px` 对不上当前这张图时那一块不作数。
 
     `verdict` 是 DMM 竖版图的比对结论（`jav_poster_crop.portrait_match`）：证实是封套就按封套
-    找正封上的脸，证实不是就按整幅画面找，不再靠脸的位置与画布比例去猜版式。
+    找正封上的脸，证实不是就按整幅画面找，不再靠脸的位置与画布比例去猜版式。`whole` 是正封取景
+    已判成整幅显示（`crop_record` 给出 `none`）：主脸在整幅画面里找，不再只看右侧正封那一块。
     """
     if image is None or not getattr(image, "size", 0):
         return None
@@ -101,14 +102,14 @@ def face_record(image, detector, *, code: str, title: str = '', verdict: str = '
     faces = detector.detect(image)
     portraits = [face for face in faces if MIN_FACE_Y <= face.cy <= MAX_FACE_Y]
     largest = main_face(portraits)
-    if verdict:
-        full_cover = verdict == jav_poster_crop.POSTER
+    if whole or verdict:
+        full_cover = whole or verdict == jav_poster_crop.POSTER
     else:
         full_cover = jav_poster_crop.face_crosses_spine(width, height, {
             'cx': largest.cx, 'w': largest.width, 'h': largest.height,
             'score': largest.score} if largest else None) or _dominant_left_face(
                 image, largest, portraits, code=code, title=title) or _promotional_canvas(image, code=code, title=title)
-    if full_cover and not verdict:
+    if full_cover and not (verdict or whole):
         panel = jav_poster_crop.front_panel_box(width, height, lambda: jav_poster_crop.column_gradient(image), code, title)
         full_cover = panel['method'] != jav_poster_crop.CENTER
     if (not full_cover and (verdict == jav_poster_crop.SLEEVE or jav_poster_crop.crops_to_portrait(code, title))
@@ -199,6 +200,16 @@ def cover_templates(directory: Path) -> dict:
     return jav_poster_crop.learn_templates(records)
 
 
+def needs_whole_face(code: str, title: str, poster: dict | None, face: dict | None) -> bool:
+    """正封取景判成整幅显示，人脸却还是按封套只在右侧正封里找的：要在整幅画面里重找。
+
+    两边各判各的：人脸按脸的位置与画布比例猜版式，取景按书脊、竖版图与文字。取景判成整幅时，
+    卡片按主脸横向取景，主脸只在右半边就等于又切回了原来那一块。
+    """
+    return bool(poster and face is not None and (poster.get('box') or {}).get('method') == jav_poster_crop.NONE
+                and face.get('layout') != 'still' and jav_poster_crop.crops_to_portrait(code, title))
+
+
 def _sidecars(code: str, payload: bytes, size: tuple[int, int], detector=None, evidence=None,
               portrait: bytes | None = None, templates=None) -> dict[str, bytes]:
     title = str((evidence or {}).get('title') or '')
@@ -223,6 +234,8 @@ def _sidecars(code: str, payload: bytes, size: tuple[int, int], detector=None, e
             and poster['box']['method'] in NO_SPINE):
         face = {'px': list(size), 'layout': 'still', 'face': None}
         poster = jav_poster_crop.crop_record(code, *size, title=title, layout='still')
+    elif face is not None and needs_whole_face(code, title, poster, face):
+        face = face_record(image, active, code=code, title=title, whole=True)
     records = {jav_poster_crop.SIDECAR_SUFFIX: poster}
     if face is not None:
         records[".face.json"] = face
