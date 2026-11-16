@@ -73,6 +73,8 @@ function DockSurface({ actions, leading, children, count, label }: Omit<Selectio
   useLayoutEffect(() => {
     const node = dock.current;
     if (!node || !present) return;
+    // 进入浏览器顶层，覆盖正文与侧栏各自的层叠上下文。
+    node.showPopover?.();
     const measure = () => {
       dockSpaces.set(node, Math.ceil(node.offsetHeight + (parseFloat(getComputedStyle(node).bottom) || 0) + 16));
       publishDockSpace();
@@ -89,7 +91,7 @@ function DockSurface({ actions, leading, children, count, label }: Omit<Selectio
     };
   }, [present]);
   return (
-    <motion.div ref={dock} role="group" aria-label={label} data-selection-dock data-glass-pane=""
+    <motion.div ref={dock} popover="manual" role="group" aria-label={label} data-selection-dock data-glass-pane=""
       inert={!present} aria-hidden={!present || undefined}
       initial={instant ? false : hidden}
       animate={{ opacity: 1, transform: 'translate(-50%, 0px)' }}

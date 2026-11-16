@@ -1,7 +1,9 @@
 /* 主界面与独立页面共用的浮动操作条几何。 */
 .peach-react [data-selection-dock] {
   position: fixed;
-  z-index: 180;
+  z-index: var(--layer-popover, 1100);
+  inset: auto;
+  margin: 0;
   bottom: max(22px, env(safe-area-inset-bottom));
   left: 50%;
   display: flex;

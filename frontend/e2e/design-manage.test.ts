@@ -513,6 +513,85 @@ describe('设计决定：数据管理、索引页与资料页头', () => {
     } finally { await opened.close(); }
   });
 
+  for (const viewport of [DESKTOP, MOBILE]) {
+    it(`标签联想加载图标占位稳定，滚动条贴右并避开计数（${viewport.name}）`, { timeout: 60_000 }, async () => {
+      const opened = await openIndexPage(browser, '/tags?scope=online');
+      let release = () => {};
+      const waiting = new Promise<void>(resolve => { release = resolve });
+      try {
+        const { page } = opened;
+        await page.setViewportSize({ width: viewport.width, height: viewport.height });
+        await page.route('**/api/tag-management?**', async route => {
+          if (!new URL(route.request().url()).searchParams.get('q')) return route.continue();
+          await waiting;
+          return route.fulfill({ json: { items: Array.from({ length: 8 }, (_, at) => ({
+            id: `tag-${at}`, k: `tag-${at}`, n: 123456 + at, aliases: [], hidden: false,
+          })) } });
+        });
+        await page.getByRole('button', { name: '添加屏蔽标签', exact: true }).click();
+        const input = page.getByRole('combobox', { name: '标签名称' });
+        const idle = await input.boundingBox();
+        assert.ok(idle);
+        await input.fill('tag');
+        await page.locator('dialog[open] .ui-geist-spinner').waitFor();
+        const busy = await input.boundingBox();
+        assert.ok(busy);
+        assert.ok(Math.abs(idle.x - busy.x) < 1, '加载图标改变了输入文字的起点');
+        const slot = await page.locator('dialog[open] .ui-geist-spinner').evaluate(node => {
+          const icon = node.getBoundingClientRect(), slot = node.parentElement!.getBoundingClientRect();
+          return { width: slot.width, height: slot.height,
+            centerX: icon.x + icon.width / 2 - slot.x - slot.width / 2,
+            centerY: icon.y + icon.height / 2 - slot.y - slot.height / 2 };
+        });
+        assert.deepEqual([slot.width, slot.height], [20, 20]);
+        assert.ok(Math.abs(slot.centerX) < 1 && Math.abs(slot.centerY) < 1, '加载图标没有在占位框内居中');
+        release();
+        await page.getByRole('option').first().waitFor();
+        await page.locator('[data-trigger="ComboBox"] > .ovtrack.ov-y:not([hidden])').waitFor();
+        const geometry = await page.locator('[data-trigger="ComboBox"]').evaluate(menu => {
+          const panel = menu.getBoundingClientRect();
+          const track = menu.querySelector<HTMLElement>(':scope > .ovtrack.ov-y:not([hidden])')!.getBoundingClientRect();
+          return { edgeGap: panel.right - track.right, countGaps: [...menu.querySelectorAll('[role="option"] > span:last-child')]
+            .map(count => track.left - count.getBoundingClientRect().right) };
+        });
+        assert.ok(geometry.edgeGap >= 0 && geometry.edgeGap <= 2, '滚动条没有贴在候选面板右边缘');
+        assert.ok(geometry.countGaps.every(gap => gap >= 4), '滚动条命中区与标签计数重叠');
+        assert.deepEqual(opened.problems, []);
+      } finally {
+        release();
+        await opened.close();
+      }
+    });
+  }
+
+  it('名册多选浮条与展开的侧栏重叠时仍能接收点击', { timeout: 60_000 }, async () => {
+    const opened = await openIndexPage(browser, '/performers');
+    const { page } = opened;
+    try {
+      await page.setViewportSize({ width: 900, height: 700 });
+      await page.locator('#selectMode').click();
+      const dock = page.locator('[data-selection-dock]');
+      await dock.waitFor();
+      if (await page.locator('#filterBtn').getAttribute('aria-expanded') !== 'true') {
+        await page.locator('#filterBtn').click();
+      }
+      await page.waitForFunction(() => document.querySelector('#drawer')!.getBoundingClientRect().width > 200);
+      const overlap = await dock.evaluate((node) => {
+        const box = node.getBoundingClientRect();
+        const sidebar = document.querySelector('#drawer')!.getBoundingClientRect();
+        const left = Math.max(box.left, sidebar.left);
+        const right = Math.min(box.right, sidebar.right);
+        const top = Math.max(box.top, sidebar.top);
+        const bottom = Math.min(box.bottom, sidebar.bottom);
+        const hit = document.elementFromPoint((left + right) / 2, (top + bottom) / 2);
+        return { width: right - left, height: bottom - top, receivesInput: node.contains(hit) };
+      });
+      assert.ok(overlap.width > 0 && overlap.height > 0, '浮条与侧栏应有实际交叠区域');
+      assert.equal(overlap.receivesInput, true, '侧栏遮挡了多选浮条');
+      assert.deepEqual(opened.problems, []);
+    } finally { await opened.close(); }
+  });
+
   it('批量选择条更新计数保持节点，清空后退出且不保留可操作控件', { timeout: 60_000 }, async () => {
     const opened = await openIndexPage(browser, '/tags');
     const { page } = opened;

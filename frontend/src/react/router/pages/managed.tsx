@@ -17,7 +17,7 @@ import { useLocation } from 'react-router';
 import { appSettingsStore } from '@peach/appearance';
 import { followManageParams } from '../../follow-manage/manage-route';
 import {
-  isOverlayPath, managedEntry, openManagedRoute, peachHistory,
+  canonicalPath, isOverlayPath, managedEntry, openManagedRoute, peachHistory,
   configurationSection, isSettingsSectionPath, sectionTitle, updateManagedRoute,
 } from '@peach/history';
 import { api, isAbort } from '@peach/legacy/core';
@@ -120,6 +120,9 @@ async function openPage(path: ManagedPath, actions: ShellActions, run: Run): Pro
   }
   if (path === '/subscriptions' && search().get('tab') === 'wants') {
     peachHistory.replace('/jav?tab=wants'); return;
+  }
+  if (path === '/subscriptions' && search().get('tab') === 'tags') {
+    peachHistory.replace(canonicalPath(window.location.href)); return;
   }
   if (path === '/subscriptions' && search().get('tab') === 'source') {
     peachHistory.replace('/settings/subscriptions'); return;

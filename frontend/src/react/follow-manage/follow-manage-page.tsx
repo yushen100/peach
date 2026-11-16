@@ -21,7 +21,6 @@ import { resolveFollowSort } from '../../follow-sort';
 import type { FollowManageProps } from '../bundle';
 import { Note } from '../components/note';
 import { Page } from '../components/page';
-import { TagManager } from '../index/tag-manager';
 import { SortableBoardTabs } from '../components/navigation-order';
 import { STAT_STRIP_SIX } from '../components/stat-card';
 import { ExternalLink } from '../settings/section';
@@ -174,10 +173,6 @@ export function FollowManagePage(props: FollowManageProps) {
             onAdded={() => { void feeds.refetch(); setTab('list'); go({ tab: 'list' }) }} />
           {follow.data ? <AliasManager groups={data.author_aliases || []} readOnly={readOnly} toast={toast}
             suggestions={data.alias_suggestions || []} sources={data.sources} /> : null}
-        </div> : null}
-
-        {tab === 'tags' ? <div role="tabpanel" id="follow-panel-tags" aria-labelledby="follow-tab-tags" className="flex flex-col gap-4">
-          <TagManager scope="online" />
         </div> : null}
 
       </div>

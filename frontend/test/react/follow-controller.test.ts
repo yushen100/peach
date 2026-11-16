@@ -116,8 +116,8 @@ describe('关注域地址与会话控制', () => {
     expect(followManageParams('?page=-4&tab=invalid')).toEqual({ tab: 'list', page: 1, sort: '', dir: '' });
     expect(followManageParams('?page=3.9&tab=feeds&sort=added&dir=asc')).toEqual({ tab: 'list', page: 3, sort: 'added', dir: 'asc' });
     expect(followManageEntry('?tab=feeds')).toBe('/subscriptions');
-    expect(followManageParams('?tab=tags').tab).toBe('tags');
-    expect(followManageEntry('?tab=tags')).toBe('/subscriptions?tab=tags');
+    expect(followManageParams('?tab=tags').tab).toBe('list');
+    expect(followManageEntry('?tab=tags')).toBe('/tags?scope=online');
     expect(followManagePath({ tab: 'list', page: 1, sort: '', dir: '' })).toBe('/subscriptions');
     expect(followManageEntry('?tab=wants&page=4&sort=x')).toBe('/jav?tab=wants');
     expect(followManageEntry('?tab=wants', 'add')).toBe('/subscriptions?tab=add');
