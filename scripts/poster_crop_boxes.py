@@ -14,8 +14,8 @@ r"""给已落盘的封面算正封的取景框，写进边车。
 **原图一个字节都不动。** 产物是 `<番号>.poster.json`，和人脸取景的
 `<番号>.face.json` 同目录、同命名风格，各描述一件事。
 
-可重入：默认只处理边车缺失、算法版本落后或源图尺寸对不上的封面，所以中断之后再跑
-一遍就是续跑。封面被更大的那张替换过（`fetch_jav_covers.py --upgrade-existing`
+可重入：默认只处理边车缺失、算法版本落后、源图尺寸对不上或不是按当前切点判据（`CROP_RULES`）
+算的封面，所以中断之后再跑一遍就是续跑。封面被更大的那张替换过（`fetch_jav_covers.py --upgrade-existing`
 只升不降）时尺寸对不上，同样会重算。`--redo` 无条件全部重算。
 
 失败不写成正常值：图读不出来只计进 `unreadable` 并跳过，不留一个按零尺寸算出来的
@@ -24,13 +24,12 @@ r"""给已落盘的封面算正封的取景框，写进边车。
 from __future__ import annotations
 
 import argparse
-import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from peach import jav_poster_crop  # noqa: E402
+from peach import cover_repair, jav_poster_crop  # noqa: E402
 from peach.interface_text import dev as t  # noqa: E402
 from peach.config import COVER_DIR  # noqa: E402
 
@@ -61,8 +60,7 @@ def pending(covers: list[Path], redo: bool) -> list[tuple[Path, tuple[int, int]]
         if size is None:
             todo.append((path, (0, 0)))
             continue
-        if redo or not jav_poster_crop.is_current(
-                jav_poster_crop.read_sidecar(path), *size):
+        if redo or cover_repair.crop_stale(path, size):
             todo.append((path, size))
     return todo
 
@@ -75,38 +73,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--apply", action="store_true", help=t("poster_crop_boxes.applyHelp"))
     return parser
-
-
-def first_pass(path: Path, width: int, height: int) -> dict:
-    """一张封面重算取景要用的全部输入；竖版图比对与竖版正封描述的是这张图本身，原样沿用。
-
-    书脊番号在这一遍认（本机有模型时），模板要等全部认完才学得出来，第二遍才套。
-    """
-    from peach import cover_artwork
-
-    saved = jav_poster_crop.read_sidecar(path) or {}
-    same_image = saved.get("px") == [width, height]
-    try:
-        face = json.loads(path.with_suffix('.face.json').read_text(encoding='utf-8'))
-    except (OSError, ValueError):
-        face = {}
-    portrait = jav_poster_crop.portrait_of(saved) if same_image else None
-    front = (jav_poster_crop.front_size(saved)
-             if same_image and jav_poster_crop.front_path(path).is_file() else None)
-    gradient = jav_poster_crop.file_gradient(path)
-    title = saved.get('title', '')
-    spine = across = None
-    if jav_poster_crop.crops_to_portrait(path.stem, title) or portrait is not None:
-        import cv2
-
-        spine = cover_artwork.spine_box(cv2.imread(str(path)), path.stem, title, portrait)
-        # 一批几千张，不能把解码后的图都留在内存里：用到时才重读原图。
-        across = cover_artwork.text_across_file(path)
-    current_face = face.get('px') == [width, height]
-    return dict(code=path.stem, width=width, height=height, gradient_source=gradient, title=title,
-                face=face.get('face') if current_face and portrait is None else None,
-                layout=face.get('layout', '') if current_face and portrait is None else '',
-                portrait=portrait, front=front, spine=spine, text_across=across)
 
 
 def run(args: argparse.Namespace) -> int:
@@ -127,40 +93,24 @@ def run(args: argparse.Namespace) -> int:
                jav_poster_crop.NONE)
     counts = {**dict.fromkeys(methods, 0), "unreadable": 0}
     samples: dict[str, list[str]] = {}
-    inputs: dict[Path, dict] = {}
     for index, (path, (width, height)) in enumerate(todo, 1):
-        if width and height:
-            inputs[path] = first_pass(path, width, height)
-        if index % PROGRESS_EVERY == 0:
-            print(f"[{index}/{len(todo)}]", flush=True)
-    # 模板从这一批按书脊番号定了切点的，加上这一批没重算、边车里已记着番号框的那些学。
-    redone = {path.stem for path in inputs}
-    suffix = jav_poster_crop.SIDECAR_SUFFIX
-    untouched = [(side.name[:-len(suffix)], jav_poster_crop.read_sidecar(side.with_name(side.name[:-len(suffix)] + ".jpg")))
-                 for side in args.covers.glob(f"*{suffix}") if side.name[:-len(suffix)] not in redone]
-    templates = jav_poster_crop.learn_templates(
-        [*((path.stem, jav_poster_crop.crop_record(**work)) for path, work in inputs.items()),
-         *((code, record) for code, record in untouched if record)])
-    for index, (path, size) in enumerate(todo, 1):
-        width, height = size
         if not width or not height:
             counts["unreadable"] += 1
             print(t("poster_crop_boxes.unreadable", index=index, total=len(todo), name=path.name), flush=True)
-            continue
-        record = jav_poster_crop.crop_record(**inputs[path], templates=templates)
+    readable = [(path, size) for path, size in todo if all(size)]
+
+    def pace(index: int, first: bool) -> None:
+        if index % PROGRESS_EVERY == 0:
+            print(f"[{1 if first else 2}/2 {index}/{len(readable)}]", flush=True)
+
+    # 两遍与模板的学法在 `cover_repair.recrop`，「修复与迁移」的封面一项用的是同一份。
+    for path, record, _old in cover_repair.recrop(args.covers, readable, write=args.apply, pace=pace):
         method = record["box"]["method"]
         counts[method] += 1
         bucket = samples.setdefault(method, [])
         if len(bucket) < SAMPLES:
-            bucket.append(f"{path.name} {width}×{height} → "
-                          + " ".join(f"{key}={record['box'][key]}"
-                                     for key in ("x0", "y0", "x1", "y1")))
-        if args.apply:
-            jav_poster_crop.write_sidecar(path, record)
-        if index % PROGRESS_EVERY == 0:
-            print(f"[{index}/{len(todo)}] "
-                  + t("common.commaSeparator").join(f"{key} {value}" for key, value in counts.items()),
-                  flush=True)
+            bucket.append(f"{path.name} {record['px'][0]}×{record['px'][1]} → "
+                          + " ".join(f"{key}={record['box'][key]}" for key in ("x0", "y0", "x1", "y1")))
 
     print("\n" + t("poster_crop_boxes.summary",
                     fold=counts[jav_poster_crop.FOLD], ratio=counts[jav_poster_crop.RATIO],

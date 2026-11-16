@@ -170,6 +170,10 @@ MANUAL_SOURCE = "user:crop"
 
 #: 算法版本号。sidecar 记着它，落后的重算。改动判据、常数或框的形状都要进位。
 ALGORITHM_VERSION = "poster-crop-v13"
+#: 切点判据的修订：书脊番号、同前缀模板、比例不标准要满高折痕、横跨切线的文字。sidecar 记着它，
+#: 「修复与迁移」的封面一项据此找出按旧判据算的边车重算（`cover_repair`）。不进位 `ALGORITHM_VERSION`：
+#: 那会让所有旧边车立刻作废，页面在重算完之前全退回默认切法。判据再变就把它加一。
+CROP_RULES = 2
 #: sidecar 与封面同名换后缀：`ABW-232.jpg` → `ABW-232.poster.json`。人脸取景是
 #: `.face.json`，两者同目录、同命名风格，各描述一件事：一个是脸在哪，一个是正封在哪。
 SIDECAR_SUFFIX = ".poster.json"
@@ -847,7 +851,7 @@ def crop_record(code: str | None, width: int, height: int,
     # 封套比例的番号封面判成不裁时，页面也不能再按右缘先验切：记成整幅画面交给卡片。
     still = (box['method'] == NONE and height > 0 and SLEEVE_RATIO_MIN <= width / height < SLEEVE_RATIO_MAX
              and (portrait is not None or crops_to_portrait(code, title)))
-    return {"version": ALGORITHM_VERSION, "px": [width, height], "box": box,
+    return {"version": ALGORITHM_VERSION, "rules": CROP_RULES, "px": [width, height], "box": box,
             **({'title': title} if title else {}),
             **({'layout': 'still'} if still else {}),
             **({'portrait': portrait._asdict()} if portrait is not None else {}),

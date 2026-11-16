@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "f766b37a-6a9c-420f-8056-bbae3fd9490f", e._sentryDebugIdIdentifier = "sentry-dbid-f766b37a-6a9c-420f-8056-bbae3fd9490f");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "d64a0682-7762-4af1-aa34-0dad88861608", e._sentryDebugIdIdentifier = "sentry-dbid-d64a0682-7762-4af1-aa34-0dad88861608");
 	} catch {}
 })();
 import { Button as e, LinkButton as t, Note as n, Progress as r, REPAIRS_KEY as i, RESULT_PANEL as a, RESULT_SECTION as o, SectionHeading as s, StatusLabel as c, apiSend as l, confirmModal as u, fetchRepairs as d, fmtSize as f, i2 as p, interfaceLanguage as m, localizeRepairs as h, queryClient as g, repairCenterPanelSkeleton as _, require_jsx_runtime as v, t as y, useAction as b, useQuery as x, withBackoff as S } from "./peach-app.js";
@@ -27,7 +27,7 @@ var w = v(), T = {
 	size: f(e.bytes || 0)
 }), k = (e) => e.state === "running" && !!e.total, A = (e) => !!e.estimating || e.state === "running", j = S((e) => e?.items.some(A) ? 2e3 : !1);
 function M(e) {
-	return e.estimating ? y("settings:repairCenter.estimating") : e.state === "failed" && e.error ? e.error : e.files ? y("settings:repairCenter.reclaimable", { size: f(e.bytes || 0) }) : e.state === "waiting" ? e.pending ? y("settings:repairCenter.pendingRecheck", { count: e.pending }) : "" : k(e) ? "" : e.total ? `${E(e.done)} / ${E(e.total)}` : e.mode === "confirm" ? "" : e.changed ? y("settings:repairCenter.changedCount", { count: e.changed }) : "";
+	return e.estimating ? y("settings:repairCenter.estimating") : e.state === "failed" && e.error ? e.error : e.files ? y("settings:repairCenter.reclaimable", { size: f(e.bytes || 0) }) : e.covers ? y("settings:repairCenter.pendingCovers", { count: e.covers }) : e.state === "waiting" ? e.pending ? y("settings:repairCenter.pendingRecheck", { count: e.pending }) : "" : k(e) ? "" : e.total ? `${E(e.done)} / ${E(e.total)}` : e.mode === "confirm" ? "" : e.changed ? y("settings:repairCenter.changedCount", { count: e.changed }) : "";
 }
 function N({ title: e, description: t, progress: n, children: r }) {
 	return /* @__PURE__ */ (0, w.jsxs)("div", {
@@ -157,4 +157,4 @@ function F() {
 }
 export { F as RepairCenterPage, j as repairsInterval };
 
-//# debugId=f766b37a-6a9c-420f-8056-bbae3fd9490f
+//# debugId=d64a0682-7762-4af1-aa34-0dad88861608

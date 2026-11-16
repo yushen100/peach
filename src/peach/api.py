@@ -851,6 +851,9 @@ def create_app(
     from .follow_evidence import Reclaim
     app.state.follow_evidence = Reclaim(Path(contract.follow_sources_root) / "follow", contract,
                                         runs=contract.task_runs)
+    from .cover_repair import CoverRepair
+    app.state.cover_repair = CoverRepair(contract.cover_root, upgrade_repairs.root, contract,
+                                         contract.follow_secrets_root, runs=contract.task_runs)
     app.state.push_discovery = push_discovery
     app.state.downloads = downloads
     app.state.jav_browser = jav_browser

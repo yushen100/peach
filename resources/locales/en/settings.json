@@ -962,6 +962,8 @@
     "needsRetry": "Retry needed",
     "noChanges": "No changes",
     "nothingToDo": "Nothing to do",
+    "pendingCovers_one": "{{count, number}} cover to process",
+    "pendingCovers_other": "{{count, number}} covers to process",
     "pendingRecheck_one": "{{count, number}} video to re-check",
     "pendingRecheck_other": "{{count, number}} videos to re-check",
     "preRepairBackup": "Pre-repair database backup",

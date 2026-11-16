@@ -946,6 +946,7 @@
     "needsRetry": "需要重试",
     "noChanges": "无改动",
     "nothingToDo": "无需处理",
+    "pendingCovers": "{{count, number}} 张封面待处理",
     "pendingRecheck": "{{count, number}} 部待补测",
     "preRepairBackup": "修复前的账本备份",
     "queued": "等待执行",

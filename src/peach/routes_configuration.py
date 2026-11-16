@@ -966,10 +966,12 @@ def _repair_center(request: Request) -> dict:
     except (OSError, ValueError):
         pass
     reclaim = getattr(request.app.state, 'follow_evidence', None)
+    covers = getattr(request.app.state, 'cover_repair', None)
     with request.app.state.web_contract.read_connection() as connection:
         result = repair_center.snapshot(connection, receipt, backup_directories=directories,
                                         cloud_pending=service.cloud_display_videos() if service.available else 0,
-                                        follow_evidence_status=reclaim.status() if reclaim and service.available else None)
+                                        follow_evidence_status=reclaim.status() if reclaim and service.available else None,
+                                        cover_repair_status=covers.status() if covers and service.available else None)
     return {**result, 'available': service.available}
 
 
@@ -1005,6 +1007,20 @@ def reclaim_follow_evidence(request: Request, _args=Depends(require_auth)):
         if not request.app.state.upgrade_repairs.available:
             raise UserValueError('api.configuration.primaryOnly')
         request.app.state.follow_evidence.start()
+        return _repair_center(request)
+    except ValueError as exc:
+        raise HTTPException(409, error_detail(exc)) from exc
+
+
+@router.post('/api/configuration/repairs/cover-artwork')
+def repair_cover_artwork(request: Request, _args=Depends(require_auth)):
+    """已装封面按当前判据重判：要联网逐部取 DMM 竖版图、逐张认字，由用户在「修复与迁移」里确认后在后台做。"""
+    local_only(request)
+    same_origin(request)
+    try:
+        if not request.app.state.upgrade_repairs.available:
+            raise UserValueError('api.configuration.primaryOnly')
+        request.app.state.cover_repair.start()
         return _repair_center(request)
     except ValueError as exc:
         raise HTTPException(409, error_detail(exc)) from exc

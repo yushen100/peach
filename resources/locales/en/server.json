@@ -286,6 +286,7 @@
       "catalog": "Metadata and code cleanup",
       "dangling-candidates": "Stale review candidates",
       "follow-evidence-reclaim": "Old follow snapshots removed",
+      "cover-artwork": "Layout of installed covers",
       "javdb-actor-records": "JavDB links on people pages",
       "quality-resolution": "Quality bands",
       "source-resolution-tags": "4K tags from sources",
@@ -303,6 +304,10 @@
       "catalog": {
         "summary": "Fixes codes, titles, and other automatic metadata under the new rules. Your manual edits are kept.",
         "title": "Metadata and code cleanup"
+      },
+      "cover-artwork": {
+        "summary": "Re-crop front covers with the new rules and switch to DVD sleeves of similar quality. Originals are backed up first.",
+        "title": "Layout of installed covers"
       },
       "dangling-candidates": {
         "summary": "Candidates left by deleted assets move to the file's new ID. Ones that don't match are withdrawn.",
@@ -439,6 +444,7 @@
     "amane-bridge": "amane bridge rebuild",
     "batch": "Batch action",
     "code-samples": "Sample image fetch",
+    "cover-artwork-repair": "Cover layout repair",
     "creator-identity": "Creator identity lookup",
     "diagnostic-export": "Diagnostic export",
     "download-postprocess": "Cloud download post-processing",
@@ -1848,6 +1854,10 @@
     "coverArtwork": {
       "userCoverKept": "This video uses a cover you set, so automatic collection won't replace it"
     },
+    "coverRepair": {
+      "estimating": "Still counting covers to process. Try again later.",
+      "running": "Processing covers. Wait for this run to finish."
+    },
     "itemCover": {
       "tooLarge": "The image is too large, 32 MB at most",
       "empty": "No image was received",
@@ -2926,6 +2936,10 @@
         "pushDiscovery": "Push discovery",
         "downloads": "Download settings"
       }
+    },
+    "coverRepair": {
+      "runLabel": "Re-check cover layouts",
+      "stoppedByUser": "Stopped by the user"
     },
     "followScheduler": {
       "runtimeUnavailable": "Status of the last automatic check was not found",

@@ -770,7 +770,7 @@ class JudgePortraitScriptTests(unittest.TestCase):
         return path
 
     def test_only_doubtful_dmm_covers_are_picked(self):
-        script = batch_script('judge_cover_portraits')
+        from peach import cover_repair as script
         fold = {"box": {"x0": 1152, "y0": 0, "x1": 2184, "y1": 1468, "method": FOLD}}
         picked = {
             "fold-standard": self.install("SSIS-001", (2184, 1468), fold),
@@ -789,13 +789,13 @@ class JudgePortraitScriptTests(unittest.TestCase):
     def test_a_judged_cover_keeps_a_backup_and_is_not_picked_again(self):
         import cv2
 
-        script = batch_script('judge_cover_portraits')
+        from peach import cover_repair as script
         path = self.install("START-404", (1100, 776), {"box": {"x0": 550, "y0": 0, "x1": 1100, "y1": 776, "method": FOLD}})
         original = path.read_bytes()
         _, poster = cv2.imencode('.jpg', noise(546, 776, 8))
         with patch.object(script, "dmm_portrait", return_value=poster.tobytes()), \
                 patch.object(script, "package_sleeve", return_value=None):
-            result = script.judge(path, script.eligible(path, every=False, named=False), None, self.report)
+            result = script.judge(path, script.eligible(path, every=False, named=False), None, self.report / "originals")
         self.assertEqual((result["verdict"], result["method"], result["front"]),
                          (jav_poster_crop.POSTER, NONE, [546, 776]))
         self.assertEqual(path.read_bytes(), original, "补判只重装取景，不换封面")
@@ -803,13 +803,13 @@ class JudgePortraitScriptTests(unittest.TestCase):
         self.assertIsNone(script.eligible(path, every=True, named=False))
         with patch.object(script, "dmm_portrait", return_value=None), \
                 patch.object(script, "package_sleeve", return_value=None):
-            self.assertEqual(script.judge(path, {"source_url": "x"}, None, self.report)["status"], "no_portrait")
+            self.assertEqual(script.judge(path, {"source_url": "x"}, None, self.report / "originals")["status"], "no_portrait")
 
     def test_a_streaming_cover_is_swapped_for_a_dvd_sleeve_close_in_size(self):
         """SOD 的配信版横图换成尺寸相近的 DVD 封套；封套太小的保留配信图。"""
         import cv2
 
-        script = batch_script('judge_cover_portraits')
+        from peach import cover_repair as script
         evidence = {"source_url": "https://awsimgsrc.dmm.com/dig/digital/video/1start00435/1start00435pl.jpg"}
         _, sleeve = cv2.imencode('.jpg', noise(1092, 733, 10))
         with patch.object(script, "probe_size", return_value=(1092, 733)) as probe, \
@@ -827,7 +827,7 @@ class JudgePortraitScriptTests(unittest.TestCase):
         """2026-09 之前装的封面没有来源记录（STARS-080）：按番号查 DMM 拿地址，没换图就不写来源记录。"""
         import cv2
 
-        script = batch_script('judge_cover_portraits')
+        from peach import cover_repair as script
         path = self.install("STARS-080", (1100, 776), {"box": {"x0": 550, "y0": 0, "x1": 1100, "y1": 776, "method": FOLD}})
         path.with_suffix(".scraping.json").unlink()
         listing = "https://awsimgsrc.dmm.co.jp/pics_dig/digital/video/1stars00080/1stars00080pl.jpg"
@@ -837,7 +837,7 @@ class JudgePortraitScriptTests(unittest.TestCase):
         with patch.object(script, "dmm_listing_url", return_value=listing) as lookup, \
                 patch.object(script, "dmm_portrait", return_value=poster.tobytes()) as portrait, \
                 patch.object(script, "package_sleeve", return_value=None) as package:
-            result = script.judge(path, evidence, None, self.report)
+            result = script.judge(path, evidence, None, self.report / "originals")
         lookup.assert_called_once_with(None, "STARS-080")
         self.assertEqual((package.call_args.args[0]["source_url"], portrait.call_args.args[1]), (listing, listing))
         self.assertEqual(result["status"], "judged")

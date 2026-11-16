@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from . import follow_evidence, interface_text, system_file_repair
+from . import cover_repair, follow_evidence, interface_text, system_file_repair
 from .media_sources import CLOUD_LOCATIONS
 
 #: 列给用户看的修复：id 与是否自动执行，顺序就是页面顺序。标题与一句说明在
@@ -22,6 +22,7 @@ ITEMS = (
     ('catalog', 'auto'), ('display-local', 'auto'), ('display-cloud', 'confirm'), ('system-files', 'auto'),
     ('garbled-people', 'auto'), ('dangling-candidates', 'auto'), ('javdb-entries', 'auto'),
     ('resolution-tags', 'auto'), ('video-medium', 'auto'), ('quality-bands', 'auto'), ('interface-text', 'auto'), ('follow-evidence', 'confirm'),
+    ('cover-artwork', 'confirm'),
 )
 #: 历史里的规则：账本行 id 的前缀、计哪个字段（`None` 为资料整理的改动合计）。
 #: 前缀去掉末尾的连字符就是规则 id，名字在 `server:repairCenter.history.<id>`。
@@ -38,6 +39,7 @@ RULES = (
     ('quality-resolution-', ('assets',)),
     ('interface-text-codes-', ('rows', 'attempts')),
     (follow_evidence.RECEIPT_PREFIX, ('files',)),
+    (cover_repair.RECEIPT_PREFIX, ('judged', 'recropped', 'faces')),
 )
 #: 资料整理回执里不算「改动」的计数：重新探测、转人工与来源快照失效只是排队或让缓存重取，不是改了资料。
 _NOT_CHANGES = ('probe_retry', 'text_review', 'text_snapshots_invalidated')
@@ -128,6 +130,23 @@ def _follow_evidence(status: dict | None, rows) -> dict:
     return {'state': 'done', 'changed': _count(last.get('files'))} if last else {'state': 'none'}
 
 
+def _cover_artwork(status: dict | None, rows) -> dict:
+    """封面补修：在做就报进度，估算出有待处理的封面就等确认，做过且没剩下的报上一次改了多少张。"""
+    status = status or {}
+    phase = status.get('phase')
+    if phase == 'running':
+        return {'state': 'running', 'done': status.get('done', 0), 'total': status.get('total', 0)}
+    if phase == 'failed':
+        return {'state': 'failed', 'error': status.get('error', '')}
+    if phase == 'estimating':
+        return {'state': 'waiting', 'estimating': True}
+    if phase == 'ready' and status.get('covers'):
+        return {'state': 'waiting', 'covers': status['covers']}
+    last = next((result for row_id, _, result in rows if row_id.startswith(cover_repair.RECEIPT_PREFIX)), None)
+    return ({'state': 'done', 'changed': sum(_count(last.get(key)) for key in ('judged', 'recropped', 'faces'))}
+            if last else {'state': 'none'})
+
+
 def _display_progress(connection) -> dict[bool, tuple[int, int]]:
     """显示尺寸补测按来源拆开的进度：`{是否网盘: (完成几部, 一共几部)}`。
 
@@ -162,7 +181,7 @@ def _display_cloud(pending: int, included: bool, done: int, total: int) -> dict:
 
 
 def snapshot(connection, receipt: dict, *, cloud_pending: int, backup_directories=(),
-             follow_evidence_status: dict | None = None) -> dict:
+             follow_evidence_status: dict | None = None, cover_repair_status: dict | None = None) -> dict:
     rows = sorted(((row[0], float(row[1] or 0), json.loads(row[2] or '{}')) for row in connection.execute(
         'SELECT id, applied_at, result_json FROM ledger_upgrade_repair')), key=lambda row: row[1], reverse=True)
     local = receipt.get('local', {})
@@ -189,6 +208,7 @@ def snapshot(connection, receipt: dict, *, cloud_pending: int, backup_directorie
         'video-medium': _receipt_fact(rows, 'video-medium-', 'video'),
         'interface-text': _receipt_fact(rows, 'interface-text-codes-', 'rows', 'attempts'),
         'follow-evidence': _follow_evidence(follow_evidence_status, rows),
+        'cover-artwork': _cover_artwork(cover_repair_status, rows),
     }
     items = [{'id': key, 'title': interface_text.text(f'server:repairCenter.items.{key}.title'),
               'summary': interface_text.text(f'server:repairCenter.items.{key}.summary'), 'mode': mode, **facts[key]}
