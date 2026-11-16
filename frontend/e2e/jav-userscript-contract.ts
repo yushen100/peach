@@ -34,6 +34,11 @@ try {
           return { status: response.status, responseText: await response.text() };
         });
         await page.addInitScript(() => {
+          // 这里只核对服务端识别契约，向自动化选择器开放界面。
+          const attach = Element.prototype.attachShadow;
+          Element.prototype.attachShadow = function (options) {
+            return attach.call(this, { ...options, mode: 'open' });
+          };
           Object.assign(window, {
             GM_getValue: key => key === 'peach.jav.base' ? 'https://peach-contract.example.invalid' : 'isolated-test-token',
             GM_setValue: () => {}, GM_registerMenuCommand: () => {},
