@@ -39,6 +39,9 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Settings**: Wants recheck interval and give-up count, ledger backup count, log retention days and the transcode quality cap are adjustable (#661). / **配置**：「想要」老片的再查间隔与放弃次数、账本备份份数、日志保留天数和播放转码的画质上限都能在 Peach 配置里调了（#661）。
 - **Playback**: On phones and tablets, tap shows controls, double-tap seeks or pauses, long-press plays at 2x, and dragging sideways previews a seek (#156). / **播放**：手机和平板上轻点显示控制条，双击两侧快进快退、中间暂停，长按临时 2 倍速，横向拖动预览后跳转（#156）。
 - **Playback**: On phones and tablets, holding the left double-tap area pauses the picture and rewinds the target 2 seconds per second, jumping there on release (#684). / **播放**：手机和平板上按住画面左侧双击区，画面停住、目标每秒回退 2 秒，松手跳过去（#684）。
+- **Playback**: With a mouse, holding the left button on the picture speeds up (or rewinds on the left side) and dragging sideways previews a seek, like touch (#585). / **播放**：鼠标左键按住画面同样临时倍速（左侧为回退），横向拖动预览定位，和触屏一套手势（#585）。
+- **Playback**: Immersive mode gains hold-to-speed-up, a subtitles menu and a full-screen button that turns landscape videos sideways, and Back now leaves it (#585). / **播放**：沉浸模式可长按临时倍速，新增字幕菜单与全屏键（横版片自动横屏），返回键也能退出沉浸（#585）。
+- **Playback**: Settings > Playback adjusts hold speed, the drag skip span and double-tap area, turns picture gestures off, and can play landscape videos full screen on phones (#156, #618). / **播放**：设置「浏览与播放」可调长按倍速、拖动跳转幅度与双击区宽度，可关掉画面手势，手机上横版视频可自动全屏（#156、#618）。
 - **Playback**: Settings > Playback can turn on Chinese subtitles from the video's directory for videos whose subtitles you haven't picked yet; off by default (#428). / **播放**：设置「播放」里可打开「没选过字幕的影片自动打开同目录的中文字幕」，默认关（#428）。
 - **Playback**: Holding the Right arrow key plays at 2x until released (#275). / **播放**：按住右方向键临时 2 倍速，松开恢复原来的速度（#275）。
 - **Library**: Duplicates supports multi-select; kept groups no longer come back when a copy goes missing, and can be restored from Kept (#690). / **馆藏**：重复文件页支持多选，保留过的组不再因少一份而重新出现，可在「已保留」里取消（#690）。
@@ -107,6 +110,7 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Playback**: A subtitle picked by hand from the video's directory is remembered for that video again; before, the choice failed to save (#428). / **播放**：手动选的同目录字幕重新能按影片记住，之前这一选择存不上（#428）。
 - **Library**: DMM video previews in JAV details play again after DMM moved them to a new host (#697). / **馆藏**：DMM 换了预告视频的主机后，JAV 详情里的 DMM 视频预览重新能播（#697）。
 - **Sourcing**: Blu-ray editions in New releases merge into their DMM streaming edition, so they get the official cover and no longer appear twice (#694). / **采集**：新作里的蓝光版并入 DMM 配信版，能取到官方封面，也不再和配信版重复列出（#694）。
+- **Playback**: In immersive mode, clicking the video with a mouse pauses and resumes again; the click used to toggle twice and do nothing (#585). / **播放**：沉浸模式用鼠标点画面重新能暂停与继续，此前一下单击切两次等于没切（#585）。
 - **Sourcing**: A subscription check that finds more than 20 new releases keeps all of them in New releases, and works dropped this way before are restored after upgrading (#667). / **采集**：订阅一次拉到超过 20 部新作时全部留在「新作」里，旧版因此漏掉的作品升级后自动补回（#667）。
 - **Interface**: Idle text placeholders no longer run their shimmer, so phones stop warming up on pages full of cards (#675). / **界面**：文字占位不在加载时不再跑微光动画，满屏卡片的页面不再让手机持续发热（#675）。
 - **Interface**: Cards in JAV Discover and New releases no longer grow as they scroll into view, so the page stops jumping (#594). / **界面**：JAV 发现与新作往下滚时，卡片不再进屏才长高，页面不会被挤得跳动（#594）。

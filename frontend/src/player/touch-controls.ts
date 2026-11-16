@@ -1,5 +1,6 @@
 /* 触摸手势使用原生媒体状态；拖动只预览，松手才定位，避免远程片源反复缓冲。
  * 长按左侧双击区回退：画面停住，目标时间每秒往回走 `REWIND_PER_SECOND` 秒，松手才定位（#684）。
+ * 鼠标左键在画面上同一套：长按倍速或回退、横向拖动预览定位（#585）；没动过的单击、双击和右键菜单照旧。
  * 倍速、拖动比例、双击区域与跳转秒数读 `gestureSettings()`，每次手势开始时现读。 */
 import { t } from '../i18n';
 import { gestureSettings } from './gesture-settings';
@@ -23,7 +24,7 @@ export function wirePlayerInteractions(root: HTMLElement, video: HTMLVideoElemen
   const pointers = new Set<number>();
   let gesture: { id: number; x: number; y: number; width: number; height: number; from: number;
     volume: number; muted: boolean; axis: '' | 'seek' | 'volume' | 'scroll' | 'hold' | 'rewind'; to?: number | undefined; rate?: number;
-    menu: boolean; visible: boolean; volumeSupported?: boolean; started?: number; resume?: boolean } | null = null;
+    menu: boolean; visible: boolean; volumeSupported?: boolean; started?: number; resume?: boolean; mouse?: boolean } | null = null;
   const clock = (seconds: number) => {
     const value = Math.max(0, Math.round(seconds));
     return `${Math.floor(value / 3600) ? `${Math.floor(value / 3600)}:` : ''}${String(Math.floor(value / 60) % 60).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
@@ -82,20 +83,27 @@ export function wirePlayerInteractions(root: HTMLElement, video: HTMLVideoElemen
   root.addEventListener('pointerdown', event => {
     if (!touchEnabled) return;
     if (event.pointerType === 'touch' && !gestureSettings().touchGestures) { root.dataset.playerInput = 'touch'; active(); return }
-    if (event.pointerType !== 'touch') {
-      cancel(); root.dataset.playerInput = 'mouse'; ignoreClickUntil = 0; active(); return;
-    }
     const visible = root.classList.contains('vjs-user-active');
-    root.dataset.playerInput = 'touch'; pointers.add(event.pointerId); active();
-    if (pointers.size !== 1) { cancel(); pointers.add(event.pointerId); return }
-    if (!surface(event)) return;
-    ignoreClickUntil = Date.now() + 1000;
+    if (event.pointerType !== 'touch') {
+      cancel(); root.dataset.playerInput = 'mouse'; ignoreClickUntil = 0; active();
+      // 鼠标左键按在画面上也起手势；控件、右键和关掉手势时照旧只是鼠标。
+      if (event.pointerType !== 'mouse' || event.button !== 0
+        || !gestureSettings().touchGestures || !surface(event) || menuOpen()) return;
+      pointers.add(event.pointerId);
+    } else {
+      root.dataset.playerInput = 'touch'; pointers.add(event.pointerId); active();
+      if (pointers.size !== 1) { cancel(); pointers.add(event.pointerId); return }
+      if (!surface(event)) return;
+      ignoreClickUntil = Date.now() + 1000;
+    }
+    const mouse = event.pointerType === 'mouse';
     const rect = root.getBoundingClientRect();
     gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, width: Math.max(rect.width, 1),
       height: Math.max(rect.height, 1), from: video.currentTime, volume: video.volume, muted: video.muted,
-      axis: '', menu: menuOpen(), visible };
+      axis: '', menu: menuOpen(), visible, mouse };
     // 指针在两次事件之间被系统收回时这里会抛错，手势照样往下走，不能停在半截。
-    try { root.setPointerCapture?.(event.pointerId) } catch { /* 没捕获到也能靠 window 上的抬起收尾。 */ }
+    // 鼠标等到真起了手势才捕获：先捕获的话随后的 click 落在外壳上，画面收不到单击，切不了播放。
+    if (!mouse) try { root.setPointerCapture?.(event.pointerId) } catch { /* 没捕获到也能靠 window 上的抬起收尾。 */ }
     if (gesture.menu) return;
     hold = setTimeout(() => {
       if (!gesture || gesture.axis) return;
@@ -118,7 +126,8 @@ export function wirePlayerInteractions(root: HTMLElement, video: HTMLVideoElemen
     }, 500);
   }, { signal, capture: true });
   root.addEventListener('pointermove', event => {
-    if (!touchEnabled || event.pointerType !== 'touch') { active(); return }
+    if (!touchEnabled || (event.pointerType !== 'touch' && !gesture?.mouse)) { active(); return }
+    if (event.pointerType !== 'touch') active();
     const current = gesture;
     if (!current || current.id !== event.pointerId || current.menu || current.axis === 'hold' || current.axis === 'rewind') return;
     const dx = event.clientX - current.x, dy = event.clientY - current.y;
@@ -128,7 +137,8 @@ export function wirePlayerInteractions(root: HTMLElement, video: HTMLVideoElemen
       const full = !!document.fullscreenElement && root.contains(document.fullscreenElement)
         || root.matches('.vjs-fullscreen,.vjs-full-window,[data-peach-fullscreen]') || document.body.classList.contains('vjs-full-window');
       current.axis = Math.abs(dx) > Math.abs(dy) * 1.2 ? 'seek'
-        : full && current.x - root.getBoundingClientRect().left > current.width / 2 ? 'volume' : 'scroll';
+        : !current.mouse && full && current.x - root.getBoundingClientRect().left > current.width / 2 ? 'volume' : 'scroll';
+      if (current.mouse && current.axis === 'seek') try { root.setPointerCapture?.(event.pointerId) } catch { /* 拖出画面靠 window 上的抬起收尾。 */ }
     }
     if (current.axis === 'seek') {
       event.preventDefault(); current.to = clamp(current.from + dx / current.width * gestureSettings().swipeMinutes * 60) ?? undefined;
@@ -148,10 +158,12 @@ export function wirePlayerInteractions(root: HTMLElement, video: HTMLVideoElemen
   window.addEventListener('pointerup', event => {
     if (!pointers.has(event.pointerId)) return;
     pointers.delete(event.pointerId);
-    if (event.pointerType !== 'touch') return;
     const current = gesture;
+    if (event.pointerType !== 'touch' && !current?.mouse) return;
     if (!current || current.id !== event.pointerId) { active(); return }
-    clearTimeout(hold); clearInterval(rewinding); gesture = null; ignoreClickUntil = Date.now() + 1000;
+    clearTimeout(hold); clearInterval(rewinding); gesture = null;
+    // 鼠标没动过的那一下是普通单击，留给画面的点击切换播放；起过手势的吞掉随后的 click。
+    if (!current.mouse || current.axis) ignoreClickUntil = Date.now() + 1000;
     try { root.releasePointerCapture?.(event.pointerId) } catch { /* 已经释放过。 */ }
     if (current.rate !== undefined) video.playbackRate = current.rate;
     if (current.axis === 'seek' && current.to !== undefined) seek(current.to);
@@ -162,6 +174,8 @@ export function wirePlayerInteractions(root: HTMLElement, video: HTMLVideoElemen
     }
     else if (current.axis === 'hold' || current.axis === 'volume') {
       message = setTimeout(() => { feedback.hidden = true }, 700);
+    } else if (current.mouse) {
+      active();
     } else if (!current.axis && Math.hypot(event.clientX - current.x, event.clientY - current.y) < 12) {
       if (current.menu) { active(); return }
       const position = (current.x - root.getBoundingClientRect().left) / current.width;
@@ -194,7 +208,8 @@ export function wirePlayerInteractions(root: HTMLElement, video: HTMLVideoElemen
       event.preventDefault(); event.stopImmediatePropagation(); return;
     }
   }, { signal, capture: true });
-  video.addEventListener('click', () => {
+  // 没有控件条的播放器（沉浸模式每一格）由宿主自己管画面点击：这里再切一次，一下单击就切两次等于没切。
+  if (touchEnabled) video.addEventListener('click', () => {
     if (video.paused) void video.play().catch(() => {}); else video.pause();
   }, { signal });
   root.addEventListener('dblclick', event => {

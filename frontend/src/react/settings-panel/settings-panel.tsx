@@ -32,6 +32,7 @@ import { PREFERENCE_SECTIONS, sectionId } from '../../history/settings-route';
 import { normalizeJavImage } from '../../jav-artwork';
 import { boundedPreference } from '../../number-setting';
 import { NAME_LANGUAGES, type NameLanguage } from '../../core/entity-names';
+import { normalizeGestures } from '../../player/gesture-settings';
 import { GlowSettings } from './glow-settings';
 import { Icon, RemixIcon } from './icon';
 import { IconSwitch, SelectField } from './legacy-controls';
@@ -646,6 +647,9 @@ function CompilationToggle({ host: current, id, settingKey, label, title }: {
   );
 }
 
+/** 长按倍速的几档；归一化范围是 1.25～4（`normalizeGestures`）。 */
+const HOLD_RATES = [1.5, 2, 3, 4] as const;
+
 function PlaybackRows({ host: current, epoch }: Omit<GroupProps, 'tab'>) {
   const settings = current.store.value;
   const save = () => current.store.save();
@@ -674,6 +678,30 @@ function PlaybackRows({ host: current, epoch }: Omit<GroupProps, 'tab'>) {
             onApply={(value) => { settings.seekSeconds = value || 10; save(); current.changed('seekSeconds') }} />
         </div>
       </Row>
+      {/* 长按倍速也管右方向键，不随画面手势开关收起；拖动与双击区只在画面手势开着时有用。 */}
+      <Row title={t('settings:playbackGestures.holdRate')}>
+        <SelectField id="holdRateSetting" label={t('settings:playbackGestures.holdRate')} epoch={epoch}
+          options={HOLD_RATES.map((rate) => [String(rate), `${rate}×`] as Choice)} value={String(settings.holdRate)}
+          onPick={(value) => { settings.holdRate = normalizeGestures({ holdRate: Number(value) }).holdRate; save() }} />
+      </Row>
+      <ToggleRow id="touchGesturesSetting" title={t('settings:playbackGestures.touch')} checked={settings.touchGestures}
+        onToggle={(on) => { settings.touchGestures = on; save() }} />
+      {settings.touchGestures ? <>
+        <Row title={t('settings:playbackGestures.swipeMinutes')}>
+          <div id="swipeMinutesSetting">
+            <NumberSetting key={epoch} id="swipeMinutesSetting" label={t('settings:playbackGestures.swipeMinutes')} value={settings.swipeMinutes}
+              onApply={(value) => { settings.swipeMinutes = normalizeGestures({ swipeMinutes: value }).swipeMinutes; save() }} />
+          </div>
+        </Row>
+        <Row title={t('settings:playbackGestures.doubleTapPercent')}>
+          <div id="doubleTapPercentSetting">
+            <NumberSetting key={epoch} id="doubleTapPercentSetting" label={t('settings:playbackGestures.doubleTapPercent')} value={settings.doubleTapPercent}
+              onApply={(value) => { settings.doubleTapPercent = normalizeGestures({ doubleTapPercent: value }).doubleTapPercent; save() }} />
+          </div>
+        </Row>
+      </> : null}
+      <ToggleRow id="autoFullscreenSetting" title={t('settings:playbackGestures.autoFullscreen')} checked={settings.autoFullscreen}
+        onToggle={(on) => { settings.autoFullscreen = on; save() }} />
     </>
   );
 }

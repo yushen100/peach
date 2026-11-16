@@ -802,6 +802,13 @@
     "stop": "停下",
     "title": "播完之后"
   },
+  "playbackGestures": {
+    "autoFullscreen": "手机上播放横版视频时自动全屏",
+    "doubleTapPercent": "双击快进快退的区域宽度",
+    "holdRate": "长按倍速",
+    "swipeMinutes": "横向拖过整个画面跳转",
+    "touch": "画面手势（长按、拖动、双击）"
+  },
   "playbackTranscode": {
     "qualitySaved": "已保存画质上限",
     "saved": "已保存转码方式",

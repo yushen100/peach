@@ -813,6 +813,13 @@
     "stop": "Stop",
     "title": "When a video ends"
   },
+  "playbackGestures": {
+    "autoFullscreen": "Play landscape videos full screen on phones",
+    "doubleTapPercent": "Double-tap seek area width",
+    "holdRate": "Hold speed",
+    "swipeMinutes": "A full-width drag skips",
+    "touch": "Picture gestures (hold, drag, double-tap)"
+  },
   "playbackTranscode": {
     "qualitySaved": "Quality limit saved",
     "saved": "Transcoding mode saved",

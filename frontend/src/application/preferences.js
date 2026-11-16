@@ -1,7 +1,7 @@
 /* preferences 域控制器：本域状态与动作，启动由 Application 的生命周期统一安装。 */
 import { loadMediaSources } from './../query/media-sources';
 import { buildBars, catalogState, dropOfflineFromDefaultLoc, homePath, loadCatalog, paintCatalogFilter, repaintCatalogGrid, syncCatalogFilterScreen } from './catalog.js';
-import { appSettingsStore } from './../appearance/settings';
+import { appSettingsStore, wireGestureSettings } from './../appearance/settings';
 import { interfaceLanguage, storedInterfaceLanguage, t } from '../i18n';
 import { entityDisplayName, setNameLanguage, setNameLocale } from '../core/entity-names';
 import { orientLabel } from '../core/stored-values';
@@ -163,6 +163,7 @@ preferencesState.OFFLINE_REASON = {local:t('shell:storageOffline.localLabel'),
 preferencesState.offlineReason = key=>preferencesState.sourceProblems[key]||preferencesState.OFFLINE_REASON[key]||t('shell:storageOffline.other');
 preferencesState.settingsStore = appSettingsStore();
 preferencesState.appSettings = preferencesState.settingsStore.value;
+wireGestureSettings(preferencesState.settingsStore);
 setNameLocale(interfaceLanguage);
 setNameLanguage(preferencesState.appSettings.performerNameLanguage);
 preferencesState.saveSettings = ()=>preferencesState.settingsStore.save();
