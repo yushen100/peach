@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { it } from 'node:test';
 import { chromium, type Browser } from 'playwright-core';
-import { launch, requiredEnv } from './harness.ts';
+import { launch, requiredEnv, visit, VIEWPORTS } from './harness.ts';
 
 async function disabledFeatures(browser: Browser): Promise<Set<string>> {
   const session = await browser.newBrowserCDPSession();
@@ -27,4 +27,27 @@ it('隔离 E2E 浏览器保留 Playwright 的全部默认禁用特性，其中�
   const browser = await launch();
   try { assert.deepEqual(await disabledFeatures(browser), expected); }
   finally { await browser.close(); }
+});
+
+it('撤除页面桩期间的新请求仍被关闭流程中止', async t => {
+  const browser = await launch();
+  try {
+    const opened = await visit(browser, '/healthz', VIEWPORTS[0]!, async page => {
+      await page.route('**/healthz?close-probe=1', route => route.fulfill({ json: { ok: true } }));
+    });
+    const page = opened.page;
+    const unrouteAll = page.unrouteAll.bind(page);
+    let blocked = false;
+    t.mock.method(page, 'unrouteAll', async (options: Parameters<typeof page.unrouteAll>[0]) => {
+      await unrouteAll(options);
+      blocked = await page.evaluate(async () => {
+        try {
+          await fetch('/healthz?close-probe=1');
+          return false;
+        } catch { return true; }
+      });
+    });
+    await opened.close();
+    assert.equal(blocked, true, '撤桩和关闭上下文之间的请求必须被拦截');
+  } finally { await browser.close(); }
 });
