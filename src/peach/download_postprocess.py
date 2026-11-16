@@ -108,12 +108,28 @@ def _probe_folder(contract, task, main, folder_ids, *, on_junk=lambda result: No
                             asset_ids=folder_ids, config=config, protected_ids=[main], on_junk=on_junk)
 
 
+def collect_state_file(config, main: int) -> Path:
+    """一条下载后处理补资料的续跑状态：按正片编号一份，失败重试时接着跑。"""
+    return config.directory('state') / 'download-processing' / f'{main}.json'
+
+
+def _discard_collect_state(contract, main: int) -> None:
+    """后处理完成，这部片的续跑状态、问题日志与逐项缓存用不上了；失败的留着给重试。
+
+    与 `_collect` 同一判据认数据目录：生效配置的账本不是这一份时不碰。"""
+    from .upgrade_repairs import discard_checkpoint
+    config = settings_file.active()
+    if config.configured and Path(contract.db_path).resolve() == (
+            config.directory("database") / "ledger.db").resolve():
+        discard_checkpoint(collect_state_file(config, main))
+
+
 def _collect(contract, main: int, handle) -> dict:
     config = settings_file.active()
     if not config.configured or Path(contract.db_path).resolve() != (
             config.directory("database") / "ledger.db").resolve():
         raise UserValueError("errors.downloadPostprocess.configMismatchCollect")
-    state_file = config.directory('state') / 'download-processing' / f'{main}.json'
+    state_file = collect_state_file(config, main)
     try:
         previous = json.loads(state_file.read_text(encoding='utf-8'))
     except FileNotFoundError:
@@ -264,6 +280,7 @@ def run(contract, key: str, handle) -> dict:
         detail = Said("labels.downloadPostprocess.donePending", summary=detail,
                       pending="；".join(filter(None, pending))[:300])
     store.postprocess(task_id, POSTPROCESS_COMPLETE, detail=detail, finished=iso(time.time()))
+    _discard_collect_state(contract, main)
     contract.cache_bust()
     NOTICES.add("download", int(main), task.code or task.display_name)
     return {"task_id": task_id, "asset_id": main, "ads_isolated": isolated, 'probed': probed,

@@ -55,10 +55,10 @@ from .web_activity import (
 )
 from .web_playlists import q_playlists, w_playlist
 from .web_review import w_review_decision, w_review_genre
+from .personal_records import ASSET_REFERENCE_TABLES
 from .web_batch import (
     AD_DIRPACK,
     AD_DOMAIN,
-    ASSET_REFERENCE_TABLES,
     BUNDLE_DIR_ASSETS,
     CONTENT_BYTES,
     INTERNET_SHORTCUT_SUFFIXES,

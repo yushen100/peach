@@ -966,10 +966,16 @@ def _repair_center(request: Request) -> dict:
     except (OSError, ValueError):
         pass
     reclaim = getattr(request.app.state, 'follow_evidence', None)
+    from . import legacy_repairs
     with request.app.state.web_contract.read_connection() as connection:
         result = repair_center.snapshot(connection, receipt, backup_directories=directories,
                                         cloud_pending=service.cloud_display_videos() if service.available else 0,
-                                        follow_evidence_status=reclaim.status() if reclaim and service.available else None)
+                                        follow_evidence_status=reclaim.status() if reclaim and service.available else None,
+                                        confirm_pending=legacy_repairs.confirm_pending(
+                                            connection, service.contract,
+                                            revision=(str(service.contract.db_path),
+                                                      request.app.state.web_contract.ledger_revision()))
+                                        if service.available else {})
     return {**result, 'available': service.available}
 
 
@@ -1007,6 +1013,22 @@ def reclaim_follow_evidence(request: Request, _args=Depends(require_auth)):
         request.app.state.follow_evidence.start()
         return _repair_center(request)
     except ValueError as exc:
+        raise HTTPException(409, error_detail(exc)) from exc
+
+
+@router.post('/api/configuration/repairs/{item}')
+async def apply_confirmed_repair(item: str, request: Request, _args=Depends(require_auth)):
+    """要解除关联、删实体或合并记录的存量修正（`legacy_repairs.CONFIRMS`）：用户看过还剩几处、确认后才做。"""
+    import asyncio
+    local_only(request)
+    same_origin(request)
+    try:
+        service = request.app.state.upgrade_repairs
+        if not service.available:
+            raise UserValueError('api.configuration.primaryOnly')
+        await asyncio.to_thread(service.apply_confirmed, item)
+        return _repair_center(request)
+    except (ValueError, OSError, Timeout) as exc:
         raise HTTPException(409, error_detail(exc)) from exc
 
 

@@ -342,10 +342,29 @@ WARM_AGGREGATES = (("/api/entity/shapes", {}), ("/api/items", {"limit": "60"}), 
 WARMUP_STOP_SECONDS = 15.0
 
 
+def _prune_ledger_backups(settings: PeachSettings) -> None:
+    """账本旁的写入前备份按保留份数清退，规则与托盘启动时同一份（`ledger_backups.prune`）。
+
+    Docker 与 `peach serve` 没有托盘，只有服务启动这一处能清；有托盘的部署两处都清，删过的
+    再删是空操作。要先做一次整库完整性检查，所以放在后台线程里，不挡后台服务启动；失败只记日志。"""
+    import threading
+    from . import retention_settings
+
+    def prune():
+        try:
+            ledger_backups.prune(settings.db_path, apply=True,
+                                 keep_recent=retention_settings.backup_keep(settings.follow_state_root))
+        except Exception:
+            LOGGER.warning('Database backup retention cleanup failed', exc_info=True)
+
+    threading.Thread(target=prune, name='PeachLedgerBackupPrune', daemon=True).start()
+
+
 def _start_ledger_services(settings: PeachSettings, contract, services, migration: LedgerMigration | None = None) -> bool:
     """只读核对当前账本后，恢复任务并启动依赖账本的后台服务。
 
-    结构待迁移的写入端先整份备份再迁移；`migration` 记下进行中与失败，供请求闸门与状态接口读。"""
+    结构待迁移的写入端先整份备份再迁移；`migration` 记下进行中与失败，供请求闸门与状态接口读。
+    写入端在迁移之后、升级补修之前按保留份数清退账本备份（`_prune_ledger_backups`）。"""
     try:
         # 上次从备份恢复没走完：先把账本收拾到确定的状态，再判它能不能用（ADR-0138）。
         ledger_backups.recover(settings.db_path)
@@ -374,6 +393,8 @@ def _start_ledger_services(settings: PeachSettings, contract, services, migratio
         LOGGER.warning("Database not ready; background tasks that need it stay stopped (database: %s; schema: %s). Restart the service once the database is ready.",
                        status["database"], status["schema"])
         return False
+    if repairs is not None and repairs.available:
+        _prune_ledger_backups(settings)
     if repairs is not None:
         try:
             repairs.prepare()

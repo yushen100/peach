@@ -149,7 +149,7 @@ class LedgerTests(unittest.TestCase):
         self.assertEqual(rows, (1, "2026-09-02 10:00:00", "2026-09-03 10:00:00"))
 
     def test_deleting_the_asset_takes_its_subtitle_rows_with_it(self):
-        from peach.web_batch import ASSET_REFERENCE_TABLES
+        from peach.personal_records import ASSET_REFERENCE_TABLES
         self.assertIn("asset_subtitle", ASSET_REFERENCE_TABLES)
         subtitles.record(self.connection, "local", [self._sidecar("ABP-758.srt")],
                          "2026-09-02 10:00:00")

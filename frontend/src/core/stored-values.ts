@@ -31,9 +31,32 @@ export const orientLabel = (value: string | null | undefined): string => {
   return id;
 };
 
+/** 不带专名的通用链接名 id 与文案 key。 */
+const LINK_LABELS: Record<string, string> = {
+  'official-site': 'shell:sourceLink.officialSite',
+  blog: 'shell:sourceLink.blog',
+  'official-blog': 'shell:sourceLink.officialBlog',
+  'official-channel': 'shell:sourceLink.officialChannel',
+  'official-shop': 'shell:sourceLink.officialShop',
+};
+/** 带专名的通用链接名 `id:专名`：专名原样代入当前语言的写法。冒号前不在这里的照原文显示。 */
+const NAMED_LINK_LABELS: Record<string, string> = {
+  'official-archive': 'shell:sourceLink.officialArchive',
+  blog: 'shell:sourceLink.namedBlog',
+  'catalog-page': 'shell:sourceLink.catalogPage',
+  'label-page': 'shell:sourceLink.labelPage',
+  'series-page': 'shell:sourceLink.seriesPage',
+  'catalog-list': 'shell:sourceLink.catalogList',
+  'fan-community': 'shell:sourceLink.fanCommunity',
+  recruiting: 'shell:sourceLink.recruiting',
+  'link-hub': 'shell:sourceLink.linkHub',
+};
+
 /** 链接名：通用链接名是 id，按语言显示；平台名、公司名这类专名原样。 */
 export const linkLabel = (label: string | null | undefined): string => {
-  if (label === 'official-site') return t('shell:sourceLink.officialSite');
-  if (label === 'blog') return t('shell:sourceLink.blog');
-  return label ?? '';
+  const value = label ?? '';
+  if (LINK_LABELS[value]) return t(LINK_LABELS[value]);
+  const split = value.indexOf(':');
+  const key = split > 0 ? NAMED_LINK_LABELS[value.slice(0, split)] : undefined;
+  return key ? t(key, { name: value.slice(split + 1) }) : value;
 };

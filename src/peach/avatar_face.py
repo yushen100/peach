@@ -179,14 +179,16 @@ class FaceProbe:
     让调用方报出来，不然一次下载失败会静悄悄地把整批退回不看脸的旧判据。
     取不到之后 `RETRY_SECONDS` 内直接回 None，过了这段再试一次；取到了 `unavailable` 清空。
     窗口内别处取到了模型（活动中心的「立即重试」）就不再等，下一张图当场重试。
+    `allow_download=False` 只用安装包随附或数据目录里已有的模型，不联网（`backfill` 走这条）。
     """
 
-    def __init__(self, clock=time.monotonic):
+    def __init__(self, clock=time.monotonic, *, allow_download: bool = True):
         self._detector: FaceDetector | None = None
         self._unavailable = ""
         self._failed_at: float | None = None
         self._failed_generation = 0
         self._clock = clock
+        self._allow_download = allow_download
 
     @property
     def unavailable(self) -> str:
@@ -199,7 +201,7 @@ class FaceProbe:
                 and self._clock() - self._failed_at < RETRY_SECONDS):
             return None
         try:
-            self._detector = FaceDetector()
+            self._detector = FaceDetector() if self._allow_download else FaceDetector(allow_download=False)
         except Exception as error:              # 缺模型、缺 OpenCV、下载失败
             self._unavailable = str(error)
             self._failed_at = self._clock()
@@ -228,3 +230,54 @@ class FaceProbe:
             return None if image is None else face_record_of(image, detector)
         except Exception:                       # 单张图解不开不该拖垮整轮
             return None
+
+
+def stale(image_path: Path) -> bool:
+    """这张实体图要补测人脸：没有 sidecar、sidecar 比图旧（换图后没重检），或 `px` 与图的实际
+    尺寸对不上（含补 `px` 之前写下的）。页面遇到后两种也只会退回几何居中。"""
+    from peach.images import measure_image_file
+
+    record = read_sidecar(image_path)
+    if not isinstance(record, dict):
+        return True
+    try:
+        if sidecar_path(image_path).stat().st_mtime < Path(image_path).stat().st_mtime:
+            return True
+    except OSError:
+        return True
+    size = measure_image_file(image_path)
+    return size is not None and record.get("px") != [size[0], size[1]]
+
+
+def backfill(root: Path, probe: FaceProbe) -> dict | None:
+    """`root` 下要补测的 `*.img`（`stale`）逐张检脸、写 sidecar，返回检了几张、写了几张。
+
+    只读本机图片，探针该用不联网的那种（`FaceProbe(allow_download=False)`）。模型用不了时
+    返回 None，什么也不写，调用方下次再试。写之前拿安装头像的同一把锁，图在检测期间换过就
+    不写：新图由安装那一侧自己检。读不出的图跳过。
+    """
+    from filelock import FileLock, Timeout
+
+    checked = written = 0
+    for image_path in sorted(Path(root).glob("*.img")) if Path(root).is_dir() else ():
+        if not stale(image_path):
+            continue
+        try:
+            before = image_path.stat().st_mtime_ns
+        except OSError:
+            continue
+        record = probe(image_path)
+        if record is None:
+            if probe.unavailable:
+                return None
+            continue
+        checked += 1
+        try:
+            with FileLock(image_path.with_suffix(".install.lock"), timeout=30):
+                if image_path.stat().st_mtime_ns != before:
+                    continue
+                write_sidecar(image_path, record)
+                written += 1
+        except (OSError, Timeout):
+            continue
+    return {"checked": checked, "written": written}

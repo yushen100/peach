@@ -3,7 +3,7 @@
 `junk` 提供各流程共用的证据与隔离规则；本模块将评分转成页面数据，并执行用户的
 批量决定。自动隔离只进入回收站，永久删除需要独立的确认与取证流程。
 
-物理删除要清的引用表只写在 `personal_records.ASSET_REFERENCE_TABLES` 一处。本地文件先隔离，
+物理删除要清的引用表只写在 `personal_records.ASSET_REFERENCE_TABLES` 一处（删行走 `delete_asset_rows`）。本地文件先隔离，
 账本失败时可以恢复；rclone FUSE 挂载直接删除，账本失败时保留回收站行供重试。
 """
 from __future__ import annotations
@@ -32,7 +32,7 @@ from .catalog_vocabulary import KEEP_DUPLICATES_NOTE, NOT_JUNK_NOTE
 from .config import GENERATED_DIR, LOCATION_ROOT_DECLARATIONS
 from .field_owners import USER_MANUAL, write_owned_fields
 from .media_sources import SCANNABLE_LOCATIONS
-from .personal_records import ASSET_REFERENCE_TABLES, VANISHED
+from .personal_records import VANISHED, delete_asset_rows
 from .platform import is_unmapped, root_online, translate_ledger_path, within_root
 from .regions import normalize_region
 from .task_runs import TaskRunHandle
@@ -745,24 +745,7 @@ def commit_purge(connection, outcome: dict, *, eligible=None) -> None:
         else:
             returned.append(item)
     purged = [item["id"] for item in kept]
-    if purged:
-        marks = ",".join("?" * len(purged))
-        connection.execute(
-            f"UPDATE playlist SET current_asset_id=NULL WHERE current_asset_id IN ({marks})",
-            purged,
-        )
-        connection.execute(
-            f"UPDATE playlist SET source_seed_asset_id=NULL WHERE source_seed_asset_id IN ({marks})",
-            purged,
-        )
-        connection.execute(f"UPDATE follow_item SET asset_id=NULL WHERE asset_id IN ({marks})", purged)
-        for table in ASSET_REFERENCE_TABLES:
-            connection.execute(f"DELETE FROM {table} WHERE asset_id IN ({marks})", purged)
-        # 按文件出的资料候选键是 `asset:<编号>:<字段>`；资产删了，这些决定就没有可指的东西（#486）。
-        connection.executemany(
-            "DELETE FROM review_decision WHERE category='metadata_fields' AND item_key GLOB ?",
-            [(f"asset:{asset_id}:*",) for asset_id in purged])
-        connection.execute(f"DELETE FROM asset WHERE id IN ({marks})", purged)
+    delete_asset_rows(connection, purged)
     outcome["blocked"].extend(_blocked(item["id"], item["path"], code="labels.webBatch.changedDuringDelete")
                               for item in returned)
     outcome.update(

@@ -522,6 +522,15 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(order, ['activate','retry'])
 
+    async def test_confirmed_repair_runs_only_the_named_item(self):
+        service = self.app.state.upgrade_repairs
+        with patch.object(service, 'available', True), patch.object(
+                service, 'apply_confirmed', return_value={'changed': 1}) as apply, patch(
+                'peach.routes_configuration._repair_center', return_value={'items': [], 'history': [], 'available': True}):
+            response = await self.client.post('/api/configuration/repairs/case-duplicates?t=secret', json={})
+        self.assertEqual(response.status_code, 200)
+        apply.assert_called_once_with('case-duplicates')
+
     async def test_installation_confirmation_rejects_manual_repairs(self):
         with patch('peach.api._installation_in_progress', return_value=True), patch.object(
                 self.app.state.upgrade_repairs, 'retry') as retry:

@@ -290,6 +290,8 @@
       "quality-resolution": "画质分档",
       "source-resolution-tags": "来源的 4K 标签",
       "video-medium": "改登记为视频",
+      "sidecar-assets": "移出馆藏的 NFO 与海报",
+      "avatar-faces": "补测头像人脸",
       "stale-filename-codes": "清除误认的番号",
       "studio-unbounded-misses": "厂牌查询缓存",
       "verification-settlement": "核查差异结算",
@@ -297,7 +299,20 @@
       "enhancement-suffix-names": "名字里的视频增强代号",
       "fc2-seller-backfill": "补挂 FC2 卖家",
       "code-sibling-identity": "同番号副本补齐演员与创作者",
-      "interface-text-codes": "任务记录的界面文字"
+      "interface-text-codes": "任务记录的界面文字",
+      "entity-link-values": "资料页链接",
+      "fc2-seller-studios": "FC2 卖家记成厂牌",
+      "scrape-mark-titles": "FC2 标题里的混淆串",
+      "alias-flat-names": "厂牌与系列名",
+      "tag-vocabulary": "退役标签",
+      "feed-bluray-duplicates": "重复的蓝光版",
+      "want-image-acquired": "被封面标成已到手的想要",
+      "download-text-codes": "云下载说明",
+      "unconfirmed-fc2-cast": "FC2 作品上未核实的演员",
+      "descriptive-performers": "建成女优的描述称呼",
+      "code-folder-creators": "当成创作者的番号目录",
+      "case-duplicates": "同一文件登记了两次",
+      "r18-merges": "r18.dev 英文名建成的实体"
     },
     "items": {
       "catalog": {
@@ -344,9 +359,69 @@
         "summary": "NAS 系统目录里的缩略图、macOS 的 ._ 附属文件等移出馆藏，文件本身不删",
         "title": "系统附属文件"
       },
+      "sidecar-assets": {
+        "summary": "旧版当成作品登记的 NFO、海报、剧照和截图缩略图移出馆藏，文件本身不动",
+        "title": "NFO 与海报"
+      },
+      "avatar-faces": {
+        "summary": "人脸模型不可用时装上的头像补测人脸，圆头像按脸取景；只读本机图片",
+        "title": "头像人脸取景"
+      },
       "interface-text": {
         "title": "任务记录的界面文字",
         "summary": "旧任务记录里的说明和结论改存 code，英文界面也能显示；对不上的保留原文"
+      },
+      "entity-links": {
+        "title": "资料页链接",
+        "summary": "地址里带 &amp; 的链接重新打开到正确的页面，通用链接名按界面语言显示。"
+      },
+      "fc2-studios": {
+        "title": "FC2 卖家记成厂牌",
+        "summary": "厂牌写成卖家的 FC2 作品改为 FC2-PPV，卖家保留为创作者。"
+      },
+      "scrape-mark-titles": {
+        "title": "FC2 标题里的混淆串",
+        "summary": "去掉 JavDB 插进 FC2 标题的乱码串。"
+      },
+      "alias-flat-names": {
+        "title": "厂牌与系列名",
+        "summary": "记成别名的厂牌和系列改用主名。"
+      },
+      "tag-vocabulary": {
+        "title": "退役标签",
+        "summary": "退役与撤掉的标签、旧版本地 NFO 导入的标签按现行标签表改名或撤下。"
+      },
+      "bluray-duplicates": {
+        "title": "重复的蓝光版",
+        "summary": "新作里和 DMM 配信版同时列出的蓝光版去掉。"
+      },
+      "want-acquired": {
+        "title": "被封面标成已到手的想要",
+        "summary": "因封面图先到被标成已到手的想要，改指视频或回到待找。"
+      },
+      "download-text": {
+        "title": "云下载说明",
+        "summary": "旧云下载记录的说明按界面语言显示。"
+      },
+      "unconfirmed-fc2-cast": {
+        "title": "FC2 作品上未核实的演员",
+        "summary": "JavDB 给 FC2 作品自动填入、身份没有核实的演员解除关联，回到复核。"
+      },
+      "descriptive-performers": {
+        "title": "建成女优的描述称呼",
+        "summary": "把身高、人数这类标题描述建成的女优去掉。"
+      },
+      "code-folder-creators": {
+        "title": "当成创作者的番号目录",
+        "summary": "由番号目录或站点帖子目录建成的创作者去掉，番号补给正片。"
+      },
+      "case-duplicates": {
+        "title": "同一文件登记了两次",
+        "summary": "路径只差大小写的同一文件合成一行，个人记录保留。"
+      },
+      "r18-merges": {
+        "title": "r18.dev 英文名建成的实体",
+        "summary": "按 r18.dev 英文名建成的女优与系列，并入同一位、同一系列的日文名实体。"
       }
     }
   },
@@ -753,6 +828,7 @@
       "qrExpired": "二维码已过期，请在配置页重新扫码",
       "relocateBusy": "迁移请求正在处理",
       "relocateRejected": "无法迁移到这个位置",
+      "repairUnknown": "没有名为 {{item}} 的修复。",
       "restoreConfirmRequired": "恢复会替换当前账本，请先确认",
       "retentionBusy": "保留期限正在保存，请稍后再试",
       "serverManagedByLaunch": "访问范围与名称由服务启动配置管理",

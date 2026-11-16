@@ -290,6 +290,8 @@
       "quality-resolution": "Quality bands",
       "source-resolution-tags": "4K tags from sources",
       "video-medium": "Reclassified as videos",
+      "sidecar-assets": "NFO files and posters removed from the collection",
+      "avatar-faces": "Faces found on avatars",
       "stale-filename-codes": "Misread codes cleared",
       "studio-unbounded-misses": "Label lookup cache",
       "verification-settlement": "Verification differences settled",
@@ -297,7 +299,20 @@
       "enhancement-suffix-names": "Video enhancement tags in names",
       "fc2-seller-backfill": "FC2 sellers linked",
       "code-sibling-identity": "Cast and creators copied to same-code copies",
-      "interface-text-codes": "Interface text in task records"
+      "interface-text-codes": "Interface text in task records",
+      "entity-link-values": "Profile links",
+      "fc2-seller-studios": "FC2 sellers as labels",
+      "scrape-mark-titles": "Masked FC2 titles",
+      "alias-flat-names": "Label and series names",
+      "tag-vocabulary": "Retired tags",
+      "feed-bluray-duplicates": "Duplicate Blu-ray releases",
+      "want-image-acquired": "Wants marked acquired by a cover",
+      "download-text-codes": "Cloud download notes",
+      "unconfirmed-fc2-cast": "Unverified cast on FC2 titles",
+      "descriptive-performers": "Descriptions saved as performers",
+      "code-folder-creators": "Code folders as creators",
+      "case-duplicates": "Same file listed twice",
+      "r18-merges": "English names from r18.dev"
     },
     "items": {
       "catalog": {
@@ -344,9 +359,69 @@
         "summary": "Moves NAS system thumbnails, macOS ._ files, and similar extras out of the collection. The files aren't deleted.",
         "title": "System extras"
       },
+      "sidecar-assets": {
+        "summary": "NFO files, posters, fanart, and screenshot thumbnails that older versions listed as works leave the collection. The files aren't touched.",
+        "title": "NFO files and posters"
+      },
+      "avatar-faces": {
+        "summary": "Avatars installed while the face model was unavailable are checked for faces, so round avatars center on the face. Only local images are read.",
+        "title": "Avatar face framing"
+      },
       "interface-text": {
         "title": "Interface text in task records",
         "summary": "Earlier task records now store codes instead of text, so they show in English; unmatched text is kept"
+      },
+      "entity-links": {
+        "title": "Profile links",
+        "summary": "Links copied with &amp; in the address open the right page again, and generic link names show in your language."
+      },
+      "fc2-studios": {
+        "title": "FC2 sellers as labels",
+        "summary": "FC2 titles whose label was the seller now use FC2-PPV; the seller stays as the creator."
+      },
+      "scrape-mark-titles": {
+        "title": "Masked FC2 titles",
+        "summary": "Scrambled strings JavDB inserted into FC2 titles are removed."
+      },
+      "alias-flat-names": {
+        "title": "Label and series names",
+        "summary": "Labels and series stored under an alias use their main name."
+      },
+      "tag-vocabulary": {
+        "title": "Retired tags",
+        "summary": "Retired and dropped tags, and tags from old local NFO imports, follow the current tag list."
+      },
+      "bluray-duplicates": {
+        "title": "Duplicate Blu-ray releases",
+        "summary": "Blu-ray editions listed next to their DMM streaming edition in New releases are removed."
+      },
+      "want-acquired": {
+        "title": "Wants marked acquired by a cover",
+        "summary": "Wants marked acquired because a cover image arrived first point to the video, or go back to wanted."
+      },
+      "download-text": {
+        "title": "Cloud download notes",
+        "summary": "Notes on older cloud downloads show in your interface language."
+      },
+      "unconfirmed-fc2-cast": {
+        "title": "Unverified cast on FC2 titles",
+        "summary": "Performers JavDB added to FC2 titles without a confirmed identity are removed and go back to Review."
+      },
+      "descriptive-performers": {
+        "title": "Descriptions saved as performers",
+        "summary": "Performers named after a title description, such as a height or a headcount, are removed."
+      },
+      "code-folder-creators": {
+        "title": "Code folders as creators",
+        "summary": "Creators made from release code or site post folders are removed; codes go to the full video."
+      },
+      "case-duplicates": {
+        "title": "Same file listed twice",
+        "summary": "Rows for the same file whose paths differ only in letter case are merged, keeping your records."
+      },
+      "r18-merges": {
+        "title": "English names from r18.dev",
+        "summary": "Performers and series created under an r18.dev English name are merged into the same person or series under the Japanese name."
       }
     }
   },
@@ -753,6 +828,7 @@
       "qrExpired": "The QR code has expired. Scan it again from Settings.",
       "relocateBusy": "A migration request is already being processed.",
       "relocateRejected": "Can't move data to this location.",
+      "repairUnknown": "There is no repair named {{item}}.",
       "restoreConfirmRequired": "Restoring replaces the current database. Confirm first.",
       "retentionBusy": "Retention settings are being saved. Try again shortly.",
       "serverManagedByLaunch": "Access scope and name are managed by the service startup configuration.",

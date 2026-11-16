@@ -282,6 +282,24 @@ class DownloadPostprocessTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, '来源限流'):
                 self.collect_source(self.contract, self.asset_id, self.handle)
 
+    def test_a_finished_postprocess_drops_its_resume_state_and_a_failed_one_keeps_it(self):
+        config = SimpleNamespace(configured=True, directory=lambda name: self.root)
+        state = post.collect_state_file(config, self.asset_id)
+        state.parent.mkdir(parents=True)
+        for path in (state, state.with_suffix('.issues.jsonl')):
+            path.write_text('{}', encoding='utf-8')
+        (state.parent / f'{self.asset_id}-items').mkdir()
+        with patch.object(post.settings_file, 'active', return_value=config), \
+                patch.object(post, '_collect', side_effect=RuntimeError('simulated stage failure')), \
+                self.assertRaises(RuntimeError):
+            self.run_task()
+        self.assertTrue(state.exists())
+        with patch.object(post.settings_file, 'active', return_value=config), \
+                patch.object(post, '_collect', return_value={}), \
+                patch.object(post, '_organize', return_value={'moved': 0, 'skipped': ''}):
+            self.run_task()
+        self.assertEqual(list(state.parent.iterdir()), [])
+
     def test_metadata_or_organization_failure_never_dispatches_followups(self):
         self.handle.run_id = 123
         self.contract.task_runs = Mock()

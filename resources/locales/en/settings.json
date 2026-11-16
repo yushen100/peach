@@ -944,6 +944,9 @@
     "tunnelToken": "Tunnel token"
   },
   "repairCenter": {
+    "applyBody_one": "{{count, number}} item will be changed. The database is backed up first, so you can restore it from database backups.",
+    "applyBody_other": "{{count, number}} items will be changed. The database is backed up first, so you can restore it from database backups.",
+    "applyTitle": "Run “{{title}}”?",
     "awaitingConfirmation": "Needs confirmation",
     "backupCleaned": "Pre-repair backup removed",
     "changedCount_one": "{{count, number}} change",
@@ -962,6 +965,8 @@
     "needsRetry": "Retry needed",
     "noChanges": "No changes",
     "nothingToDo": "Nothing to do",
+    "pendingFixes_one": "{{count, number}} to fix",
+    "pendingFixes_other": "{{count, number}} to fix",
     "pendingRecheck_one": "{{count, number}} video to re-check",
     "pendingRecheck_other": "{{count, number}} videos to re-check",
     "preRepairBackup": "Pre-repair database backup",

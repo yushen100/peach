@@ -9,8 +9,8 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import Mock, patch
 
-from peach import (display_dimensions_repair, entry_links, interface_text_upgrade, quality_repair, r18_legacy_repair,
-                   upgrade_repairs, upgrade_rules)
+from peach import (display_dimensions_repair, entry_links, interface_text_upgrade, legacy_repairs, quality_repair,
+                   r18_legacy_repair, upgrade_repairs, upgrade_rules)
 from peach.entities import upsert_asset_entity
 from peach.repository import LedgerDatabase
 from peach.task_runs import TaskRunStore
@@ -930,6 +930,50 @@ class UpgradeRepairTests(unittest.TestCase):
         with self.database.read_connection() as connection:
             self.assertEqual(connection.execute('SELECT medium FROM asset WHERE id=1').fetchone()[0], 'other')
 
+    def test_sidecars_registered_as_works_leave_the_ledger_once_and_can_be_put_back(self):
+        """0.35 之前登记成作品的 NFO、海报、剧照与截图：只删账本行，受保护的留着，回执能原样插回。"""
+        from peach import repair_center, sidecar_asset_repair
+        rows = [  # (id, 路径, 媒介, 处置, 评分, 反馈)
+            (1, r'R:\media\ABC-001\ABC-001.mp4', 'video', None, None, None),
+            (2, r'R:\media\ABC-001\ABC-001.nfo', 'other', None, None, None),
+            (3, r'R:\media\ABC-001\poster.jpg', 'image', None, None, None),
+            (4, r'R:\media\ABC-001\extrafanart\fanart1.jpg', 'image', None, None, None),
+            (5, r'R:\media\gallery\cover.jpg', 'image', None, None, None),       # 图集自己的封面
+            (6, r'R:\media\ABC-001\ABC-001-fanart.jpg', 'image', None, 4, None),  # 带个人记录
+            (7, r'R:\media\ABC-001\ABC-001-thumb.jpg', 'image', None, None, 'like'),
+            (8, r'R:\media\shots\clip_4x4_thumb.jpg', 'image', None, None, None),
+            (9, r'R:\media\ABC-001\old.nfo', 'other', 'trash', None, None),
+            (10, r'R:\media\ABC-001\folder.jpg', 'image', None, None, None),     # 垃圾复核判为不是垃圾
+        ]
+        with self.database.write_transaction() as connection:
+            for key, path, medium, disposal, rating, feedback in rows:
+                connection.execute('INSERT INTO asset(id,location,path,name,medium,disposal,rating,feedback) '
+                                   "VALUES(?,'local',?,?,?,?,?,?)",
+                                   (key, path, PureWindowsPath(path).name, medium, disposal, rating, feedback))
+            connection.execute("INSERT INTO asset_tag(asset_id,tag,source) VALUES(3,'海报','scan')")
+            connection.execute("INSERT INTO review_decision(category,item_key,status,updated_at) "
+                               "VALUES('junk_file','10','rejected','now')")
+        self.service.prepare()
+        with self.database.read_connection() as connection:
+            left = [row[0] for row in connection.execute('SELECT id FROM asset ORDER BY id')]
+            stored = json.loads(connection.execute('SELECT result_json FROM ledger_upgrade_repair WHERE id=?',
+                                                   (upgrade_repairs.SIDECAR_ASSETS_KEY,)).fetchone()[0])
+            center = repair_center.snapshot(connection, {}, cloud_pending=0)
+        self.assertEqual(left, [1, 5, 6, 7, 9, 10])
+        self.assertEqual(sorted(record['asset']['id'] for record in stored['removed']), [2, 3, 4, 8])
+        self.assertTrue(Path(stored['backup']).is_file())
+        self.assertEqual(next(item['changed'] for item in center['items'] if item['id'] == 'sidecar-assets'), 4)
+        self.assertIn('sidecar-assets', [row['rule'] for row in center['history']])
+        # 回执在就不再重做；按回执插回的行与引用和原来一样。
+        with self.database.write_transaction() as connection:
+            self.assertEqual(sidecar_asset_repair.restore(connection, stored['removed']), 4)
+        self.service.prepare()
+        with self.database.read_connection() as connection:
+            self.assertEqual(len(connection.execute('SELECT id FROM asset').fetchall()), 10)
+            self.assertEqual(connection.execute('SELECT tag,source FROM asset_tag WHERE asset_id=3').fetchone()[:],
+                             ('海报', 'scan'))
+            self.assertEqual(connection.execute('PRAGMA foreign_key_check').fetchall(), [])
+
     def test_prior_restore_uses_windows_path_identity_without_exempting_other_paths(self):
         from peach import system_file_repair
         with self.database.write_transaction() as connection:
@@ -1043,7 +1087,7 @@ class UpgradeRepairTests(unittest.TestCase):
             self.assertEqual(connection.execute('SELECT catalog_title FROM asset WHERE id=1').fetchone()[0],
                              '人工题名')
         self.service.prepare()
-        self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))),2)
+        self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))), 1)
 
     def test_legacy_javdb_title_is_excluded_from_machine_text_repair(self):
         from peach import metadata_text_repair
@@ -1108,7 +1152,7 @@ class UpgradeRepairTests(unittest.TestCase):
             self.assertEqual(connection.execute('SELECT catalog_title FROM asset WHERE id=1').fetchone()[0],
                              '人工题名')
         self.service.prepare()
-        self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))), 2)
+        self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))), 1)
 
     def damaged_asset(self, key=1, *, owner='auto:makers'):
         self.asset(key, code='EXM-001', duration=1)
@@ -1136,15 +1180,17 @@ class UpgradeRepairTests(unittest.TestCase):
             row=connection.execute('SELECT catalog_title,field_owners FROM asset WHERE id=1').fetchone()
             self.assertEqual(row[0], '元の題名')
             self.assertEqual(json.loads(row[1])['catalog_title'], 'auto:dmm')
-            # 悬空候选、JavDB 记录类型、视频改登记、来源分辨率标签、画质分档与旧记录转换六条补修各记一行，这里只数更新已有资料的回执。
-            self.assertEqual(connection.execute('SELECT count(*) FROM ledger_upgrade_repair WHERE id NOT IN (?,?,?,?,?,?)',
+            # 悬空候选、JavDB 记录类型、视频改登记、附属文件删行、来源分辨率标签、画质分档与旧记录转换七条补修，以及旧版数据补修各记一行，这里只数更新已有资料的回执。
+            self.assertEqual(connection.execute('SELECT count(*) FROM ledger_upgrade_repair WHERE id NOT IN (?,?,?,?,?,?,?) '
+                                                'AND id NOT IN (SELECT value FROM json_each(?))',
                                                 (upgrade_repairs.DANGLING_KEY,
                                                  upgrade_repairs.JAVDB_RECORDS_KEY,
-                                                 upgrade_repairs.VIDEO_MEDIUM_KEY,
+                                                 upgrade_repairs.VIDEO_MEDIUM_KEY, upgrade_repairs.SIDECAR_ASSETS_KEY,
                                                  upgrade_repairs.RESOLUTION_TAGS_KEY, quality_repair.KEY,
-                                                 interface_text_upgrade.RECEIPT_KEY)).fetchone()[0], 2)
+                                                 interface_text_upgrade.RECEIPT_KEY,
+                                                 json.dumps([rule.key for rule in legacy_repairs.RULES]))).fetchone()[0], 2)
             self.assertEqual(connection.execute('PRAGMA integrity_check').fetchone()[0], 'ok')
-        self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))), 2)
+        self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))), 1)
         self.assertEqual(upgrade_repairs._read(self.service.receipt)['text_media_ids'], [1])
 
     def test_damaged_manual_titles_are_kept_and_garbled_studios_still_count_for_review(self):
@@ -1656,6 +1702,109 @@ class UpgradeRepairTests(unittest.TestCase):
         self.service._prune_task_controls()
         self.assertTrue((root / '999999.observed.json').exists())
 
+    def failed_followups(self, keys):
+        """一轮父任务派出这几条后继并全按失败结束，返回 {键: 任务 id}。"""
+        parent = self.store.start('upgrade-repairs', trigger='scheduled')
+        queued = self.store.enqueue_followups(parent.id, [(key, key.split(':')[0], key) for key in keys])['queued']
+        self.store.finish(parent.id, 'succeeded')
+        runs = {}
+        for run_id in queued:
+            run = self.store.get(run_id)
+            self.store.finish(run_id, 'failed', error='来源出错')
+            runs[run.followup_key] = run_id
+        return runs
+
+    def test_failed_followups_left_by_old_versions_are_pruned_once_with_their_controls(self):
+        from peach import update_tasks
+        self.service.prepare()
+        runs = self.failed_followups([
+            'upgrade-library:processing-v2:1',          # 结论已记进状态表
+            'upgrade-library:display-dimensions-1:2',   # 已撤下的旧规则
+            'upgrade-library:processing-v2:3',          # 回执队列里还等结算
+            'upgrade-library:processing-v2:4',          # 状态表说它正排着、指的就是这一行
+            'avatar:5', 'avatar:6'])
+        with self.database.write_transaction() as connection:
+            upgrade_repairs.upsert_items(connection, [
+                {'rule': 'media:processing-v2', 'asset_id': 1, 'state': 'failed',
+                 'run_id': runs['upgrade-library:processing-v2:1']},
+                {'rule': 'media:processing-v2', 'asset_id': 4, 'state': 'queued',
+                 'run_id': runs['upgrade-library:processing-v2:4']}], mode='finish')
+            connection.execute("UPDATE task_run SET finished_at='2000-01-01T00:00:00.000Z' WHERE id=?",
+                               (runs['avatar:5'],))
+        receipt = upgrade_repairs._read(self.service.receipt)
+        receipt['queued'] = {'upgrade-library:processing-v2:3': runs['upgrade-library:processing-v2:3']}
+        self.service._save_receipt(receipt)
+        self.service._prune_failed_followups()
+        left = {key for key, run_id in runs.items() if self.store.get(run_id) is not None}
+        self.assertEqual(left, {'upgrade-library:processing-v2:3', 'upgrade-library:processing-v2:4', 'avatar:6'})
+        controls = update_tasks.state_for(self.db).parent / 'task-controls'
+        self.assertFalse((controls / f"{runs['upgrade-library:processing-v2:1']}.speed.json").exists())
+        self.assertTrue((controls / f"{runs['avatar:6']}.speed.json").exists())
+        with self.database.read_connection() as connection:
+            result = json.loads(connection.execute('SELECT result_json FROM ledger_upgrade_repair WHERE id=?',
+                                                   (upgrade_repairs.FAILED_FOLLOWUPS_KEY,)).fetchone()[0])
+        self.assertEqual(result, {'removed': {'upgrade-library': 2, 'avatar': 1}})
+
+    def test_a_settled_failure_leaves_the_task_list_once_its_conclusion_is_recorded(self):
+        self.service.prepare()
+        key = 'upgrade-library:processing-v2:7'
+        run_id = self.failed_followups([key])[key]
+        receipt = upgrade_repairs._read(self.service.receipt)
+        receipt['queued'] = {key: run_id}
+        self.service._save_receipt(receipt)
+        self.tick_quietly()
+        with self.database.read_connection() as connection:
+            state = connection.execute("SELECT state FROM ledger_upgrade_item WHERE asset_id=7").fetchone()[0]
+        self.assertEqual(state, 'failed')
+        self.assertIsNone(self.store.get(run_id))
+
+    def test_one_time_rules_in_one_startup_share_a_single_pre_write_backup(self):
+        first = self.service._upgrade_backup()
+        self.assertEqual(self.service._upgrade_backup(), first)
+        self.assertEqual(list(self.root.glob('ledger.pre-upgrade-*.db')), [first])
+        # 只有一家领过、又没用上时才删；别的规则的回执还指着它就留着。
+        self.service._release_upgrade_backup(first)
+        self.assertTrue(first.exists())
+        # 下一次启动是新的服务实例，重新备一份。
+        later = upgrade_repairs.UpgradeRepairs(self.contract, available=True)._upgrade_backup()
+        self.assertNotEqual(later, first)
+        lone = upgrade_repairs.UpgradeRepairs(self.contract, available=True)
+        backup = lone._upgrade_backup()
+        lone._release_upgrade_backup(backup)
+        self.assertFalse(backup.exists())
+
+    def test_code_siblings_with_nothing_to_inherit_leave_no_backup_behind(self):
+        with self.database.write_transaction() as connection:
+            connection.execute('INSERT INTO ledger_upgrade_repair(id,applied_at,result_json) VALUES(?,?,?)',
+                               (upgrade_repairs.FC2_SELLERS_KEY, '1', '{}'))
+        self.service._inherit_code_siblings()
+        self.assertEqual(list(self.root.glob('ledger.pre-upgrade-*.db')), [])
+        with self.database.read_connection() as connection:
+            result = json.loads(connection.execute('SELECT result_json FROM ledger_upgrade_repair WHERE id=?',
+                                                   (upgrade_repairs.CODE_SIBLINGS_KEY,)).fetchone()[0])
+        self.assertNotIn('backup', result)
+
+    def test_writer_startup_prunes_ledger_backups_like_the_tray(self):
+        """Docker 与 `peach serve` 没有托盘，服务启动时按同一保留份数清退账本备份。"""
+        import os
+        import shutil
+        import threading
+        from peach import api
+        old = time.time() - 3 * 86400
+        for index in range(7):
+            backup = self.db.with_name(f'ledger.pre-manual-2026010{index}-000000.db')
+            shutil.copyfile(self.db, backup)
+            os.utime(backup, (old + index, old + index))
+        self.contract.upgrade_repairs = self.service
+        settings = SimpleNamespace(db_path=self.db, follow_state_root=self.root / 'state')
+        with patch.object(api, '_restore_task_center'), patch('peach.web_job_recovery.restore'):
+            self.assertTrue(api._start_ledger_services(settings, self.contract, []))
+        for thread in threading.enumerate():
+            if thread.name == 'PeachLedgerBackupPrune':
+                thread.join(60)
+        self.assertEqual(sorted(path.name for path in self.root.glob('ledger.pre-manual-*.db')),
+                         [f'ledger.pre-manual-2026010{index}-000000.db' for index in range(2, 7)])
+
     def test_local_repairs_are_atomic_idempotent_and_preserve_manual_codes(self):
         self.asset(1)
         self.asset(2, owner='user:manual')
@@ -1664,13 +1813,15 @@ class UpgradeRepairTests(unittest.TestCase):
         with self.database.read_connection() as connection:
             rows = connection.execute('SELECT id,code,duration FROM asset ORDER BY id').fetchall()
             self.assertEqual([tuple(row) for row in rows], [(1, 'SSIS-123', None), (2, 'BAD-001', None)])
-            # 悬空候选、JavDB 记录类型、视频改登记、来源分辨率标签、画质分档与旧记录转换六条补修各记一行，这里只数更新已有资料的回执。
-            self.assertEqual(connection.execute('SELECT count(*) FROM ledger_upgrade_repair WHERE id NOT IN (?,?,?,?,?,?)',
+            # 悬空候选、JavDB 记录类型、视频改登记、附属文件删行、来源分辨率标签、画质分档与旧记录转换七条补修，以及旧版数据补修各记一行，这里只数更新已有资料的回执。
+            self.assertEqual(connection.execute('SELECT count(*) FROM ledger_upgrade_repair WHERE id NOT IN (?,?,?,?,?,?,?) '
+                                                'AND id NOT IN (SELECT value FROM json_each(?))',
                                                 (upgrade_repairs.DANGLING_KEY,
                                                  upgrade_repairs.JAVDB_RECORDS_KEY,
-                                                 upgrade_repairs.VIDEO_MEDIUM_KEY,
+                                                 upgrade_repairs.VIDEO_MEDIUM_KEY, upgrade_repairs.SIDECAR_ASSETS_KEY,
                                                  upgrade_repairs.RESOLUTION_TAGS_KEY, quality_repair.KEY,
-                                                 interface_text_upgrade.RECEIPT_KEY)).fetchone()[0], 1)
+                                                 interface_text_upgrade.RECEIPT_KEY,
+                                                 json.dumps([rule.key for rule in legacy_repairs.RULES]))).fetchone()[0], 1)
         self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))), 1)
         receipt = upgrade_repairs._read(self.service.receipt)
         self.assertEqual(receipt['local']['before'], receipt['local']['after'])
@@ -2139,7 +2290,7 @@ class UpgradeRepairTests(unittest.TestCase):
                                          "WHERE id GLOB 'verification-settlement-*'").fetchall()
         self.assertEqual(len(settled), 1)
         self.assertEqual(json.loads(settled[0][0])['applied'], 1)
-        self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))), 2)
+        self.assertEqual(len(list(self.root.glob('ledger.pre-upgrade-*.db'))), 1)
 
     def test_spaced_performer_rows_already_on_disk_settle_once_in_the_background(self):
         """旧版扣在人工队列里的 `釈 アリス` 那一行，升级后在后台按新判据重判一次，对得上登记过的人就落库。"""
@@ -2551,10 +2702,11 @@ class UpgradeRepairTests(unittest.TestCase):
         self.assertEqual(process.call_args.kwargs['asset_ids'], [1])
         self.assertTrue(process.call_args.kwargs['recheck_existing'])
 
-    def checkpoint(self, name):
+    def checkpoint(self, name, job_id=None):
         """在补修状态目录里放一份续跑状态：状态文件、问题日志与逐项检查点目录。"""
         self.service.root.mkdir(parents=True, exist_ok=True)
-        (self.service.root / f'{name}.json').write_text('{}', encoding='utf-8')
+        (self.service.root / f'{name}.json').write_text(json.dumps({'job_id': job_id} if job_id else {}),
+                                                        encoding='utf-8')
         (self.service.root / f'{name}.issues.jsonl').write_text('{}\n', encoding='utf-8')
         (self.service.root / f'{name}-items').mkdir()
         (self.service.root / f'{name}-items' / 'a.json').write_text('{}', encoding='utf-8')
@@ -2616,13 +2768,129 @@ class UpgradeRepairTests(unittest.TestCase):
         self.assertEqual(kept, sorted(expected))
         with self.database.read_connection() as connection:
             result = json.loads(connection.execute("SELECT result_json FROM ledger_upgrade_repair "
-                                                   "WHERE id='upgrade-repair-checkpoints-1'").fetchone()[0])
+                                                   "WHERE id='upgrade-repair-checkpoints-2'").fetchone()[0])
         # 1、4、6 与旧批次各三个文件。
         self.assertEqual(result['removed'], 12)
         self.checkpoint('10')
         os.utime(self.service.root / '10.json', (stale, stale))
         self.service._prune_repair_checkpoints()
         self.assertTrue((self.service.root / '10.json').exists())
+
+    def test_checkpoints_are_kept_only_for_the_rule_that_still_needs_them(self):
+        """一部片在别的规则下失败，不再替这条已做完的规则留着续跑状态。"""
+        import os
+        self.service.prepare()
+        stale = time.time() - 7200
+        names = {
+            # 处理规则已做完，失败的是已撤下的旧显示尺寸规则。
+            '1': self.checkpoint('1', 'upgrade-library-processing-v2-1'),
+            # 同一条规则还在等重试。
+            '2': self.checkpoint('2', 'upgrade-library-processing-v2-2'),
+            # 状态属于旧的文字规则，现在只剩处理规则在等。
+            '3': self.checkpoint('3', 'upgrade-library-processing-v2-text-4-3'),
+            # 回执队列里正排着这条规则的键。
+            '4': self.checkpoint('4', 'upgrade-library-processing-v2-text-4-4'),
+        }
+        for path in self.service.root.iterdir():
+            os.utime(path, (stale, stale))
+        with self.database.write_transaction() as connection:
+            upgrade_repairs.upsert_items(connection, [
+                {'rule': 'media:processing-v2', 'asset_id': 1, 'state': 'done'},
+                {'rule': 'media:display-dimensions-1', 'asset_id': 1, 'state': 'failed'},
+                {'rule': 'media:processing-v2', 'asset_id': 2, 'state': 'failed'},
+                {'rule': 'media:processing-v2', 'asset_id': 3, 'state': 'failed'}], mode='finish')
+        receipt = upgrade_repairs._read(self.service.receipt)
+        receipt['queued'] = {'upgrade-library:processing-v2:text-4:4': 1}
+        self.service._save_receipt(receipt)
+        self.service._prune_repair_checkpoints()
+        kept = sorted(path.name for path in self.service.root.iterdir()
+                      if path.name[0].isdigit())
+        self.assertEqual(kept, sorted(names['2'] + names['4']))
+
+    def test_a_film_finished_in_a_batch_drops_its_earlier_single_checkpoint(self):
+        from peach.settings_file import load_config
+        self.contract.upgrade_config = load_config(environ={'PEACH_DATA_ROOT': str(self.root)})
+        for key in (1, 2):
+            self.asset(key, duration=10)
+        single = self.checkpoint('1', 'upgrade-library-processing-v2-1')
+        other = self.checkpoint('2', 'upgrade-library-processing-v2-text-4-2')
+        with patch('peach.library_processing.process_library', return_value={'status': 'complete'}), \
+                patch.object(upgrade_repairs, 'mount_unreachable', return_value=False):
+            upgrade_repairs._media_run(self.contract, 'upgrade-library:batch:processing-v2:1,2', Mock(run_id=None))
+        self.assertEqual(sorted(path.name for path in self.service.root.iterdir()), sorted(other))
+        self.assertFalse(any((self.service.root / name).exists() for name in single))
+
+    def test_processing_state_files_that_only_grew_are_cleared_once(self):
+        """本地证据缓存留状态还引用的；下载续跑状态留还在等的那部；整理批次日志留最近几份。"""
+        import os
+        from peach import organize
+        stale = time.time() - 7200
+        state = self.root / 'state'
+        items = state / 'library-processing-items'
+        items.mkdir(parents=True)
+        for name in ('1-aaa.json', '2-bbb.json', '3-ccc.json'):
+            (items / name).write_text('{}', encoding='utf-8')
+        (state / 'library-processing.json').write_text(json.dumps(
+            {'status': 'complete', 'local_metadata': {'1:x': str(items / '1-aaa.json')}}), encoding='utf-8')
+        downloads = state / 'download-processing'
+        downloads.mkdir()
+        for main in (11, 12):
+            (downloads / f'{main}.json').write_text('{}', encoding='utf-8')
+            (downloads / f'{main}-items').mkdir()
+            (downloads / f'{main}-items' / 'a.json').write_text('{}', encoding='utf-8')
+        batches = organize.batch_log_dir(self.root / 'generated')
+        batches.mkdir(parents=True)
+        for day in range(1, 8):
+            (batches / f'organize-2026010{day}-000000.json').write_text('{}', encoding='utf-8')
+        for path in [*state.rglob('*'), *batches.iterdir()]:
+            os.utime(path, (stale, stale))
+        (items / '3-ccc.json').touch()  # 一小时内刚写的不碰
+        self.asset(12)
+        with self.database.write_transaction() as connection:
+            connection.execute("INSERT INTO download_task(provider,source_uri,target,state,updated_at,postprocess_state,"
+                               "asset_id) VALUES('115','x','/115','ingested','now','failed',12)")
+        self.service._prune_processing_state()
+        self.assertEqual(sorted(path.name for path in items.iterdir()), ['1-aaa.json', '3-ccc.json'])
+        self.assertEqual(sorted(path.name for path in downloads.iterdir()), ['12-items', '12.json'])
+        self.assertEqual(len(list(batches.iterdir())), 5)
+        with self.database.read_connection() as connection:
+            result = json.loads(connection.execute('SELECT result_json FROM ledger_upgrade_repair WHERE id=?',
+                                                   (upgrade_repairs.PROCESSING_STATE_KEY,)).fetchone()[0])
+        self.assertEqual(result, {'local_evidence': 1, 'download_states': 2, 'organize_batches': 2})
+
+    def test_avatar_faces_are_backfilled_offline_and_retried_while_the_model_is_missing(self):
+        from peach import avatar_face, repair_center
+        with patch.object(avatar_face, 'backfill', return_value=None) as backfill:
+            self.service._backfill_avatar_faces()
+        probe = backfill.call_args.args[1]
+        self.assertEqual(backfill.call_args.args[0], self.root / 'avatars')
+        self.assertFalse(probe._allow_download)
+        with self.database.read_connection() as connection:
+            self.assertIsNone(connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
+                                                 (upgrade_repairs.AVATAR_FACES_KEY,)).fetchone())
+        with patch.object(avatar_face, 'backfill', return_value={'checked': 3, 'written': 2}):
+            self.service._backfill_avatar_faces()
+        with patch.object(avatar_face, 'backfill', return_value={'checked': 0, 'written': 0}) as again:
+            self.service._backfill_avatar_faces()
+        again.assert_called_once()
+        with self.database.read_connection() as connection:
+            stored = json.loads(connection.execute('SELECT result_json FROM ledger_upgrade_repair WHERE id=?',
+                                                   (upgrade_repairs.AVATAR_FACES_KEY,)).fetchone()[0])
+            center = repair_center.snapshot(connection, {}, cloud_pending=0)
+        self.assertEqual(stored, {'checked': 3, 'written': 2})
+        self.assertEqual(next(item['changed'] for item in center['items'] if item['id'] == 'avatar-faces'), 2)
+
+    def test_a_new_library_run_drops_local_evidence_its_state_does_not_reference(self):
+        from peach.library_processing import prune_local_evidence
+        path = self.root / 'state' / 'library-processing.json'
+        items = path.parent / 'library-processing-items'
+        items.mkdir(parents=True)
+        for name in ('1-aaa.json', '2-bbb.json'):
+            (items / name).write_text('{}', encoding='utf-8')
+        self.assertEqual(prune_local_evidence(path, {'1:x': str(items / '1-aaa.json')}), 1)
+        self.assertEqual([item.name for item in items.iterdir()], ['1-aaa.json'])
+        self.assertEqual(prune_local_evidence(path, {}), 1)
+        self.assertEqual(prune_local_evidence(self.root / 'absent.json', {}), 0)
 
     def test_a_new_text_rule_does_not_resume_completed_metadata_from_the_old_rule(self):
         from peach.settings_file import load_config

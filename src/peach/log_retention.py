@@ -28,8 +28,9 @@ RETENTION = timedelta(days=183)
 
 #: 切下来的段名里的标记；带它的文件不再二次切段。
 _SEGMENT_MARK = ".until-"
-#: 每个进程各一份的日志：`faulthandler` 的崩溃输出与本机事件日志（`error_reporting`）。
-_PROCESS_LOG = re.compile(r"^(?:crash|errors)-(\d+)\.log$")
+#: 每个进程各一份的日志：`faulthandler` 的崩溃输出与本机事件日志（`error_reporting`），
+#: 连同按月切下来的段（`crash-<pid>.until-<日期>.log`）：#485 之前积下的空日志多半已经切过段。
+_PROCESS_LOG = re.compile(r"^(?:crash|errors)-(\d+)(?:\.until-\d{8})?\.log$")
 #: 只有启动记录的事件日志很小；超过这个大小一定写过别的，不必读。
 _IDLE_LIMIT = 64 * 1024
 

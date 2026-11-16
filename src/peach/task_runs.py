@@ -76,6 +76,9 @@ FINISH_RETRY_DELAYS = (1.0, 5.0)
 #: 每个 task_key 默认保留多少条终态记录。活动页只看最近几轮，更早的属于日志。
 DEFAULT_KEEP = 20
 
+#: 失败与中断的后继行按结束时间保留这么多天，见 `prune` 的 `failed_days`。
+FAILED_FOLLOWUP_DAYS = 30
+
 #: 一轮任务最多能派出多少条后继（ADR-0040 第五条）。多出来的在入队时截断，截断了几条
 #: 写进父任务的摘要——静默丢弃和无上限一样，都是事后查不出来的那一类。
 #: 64 是「一部片的出演者加厂牌」那个量级的十几倍，正常扇出撞不到它。
@@ -187,6 +190,13 @@ def stamp(moment: datetime | None = None) -> str:
     """ISO-8601 UTC 文本，与 `entity`、`follow_schedule` 同一种写法。"""
     return (moment or datetime.now(timezone.utc)).astimezone(
         timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _delete_runs(connection, where: str, params) -> int:
+    """删掉满足 `where` 的运行行：下载任务指向它们的链接先清空，状态本身保留。"""
+    connection.execute("UPDATE download_task SET postprocess_run_id=NULL WHERE postprocess_run_id IN ("
+                       f"SELECT id FROM task_run WHERE {where})", params)
+    return connection.execute(f"DELETE FROM task_run WHERE {where}", params).rowcount
 
 
 def _parse(value: str | None) -> datetime | None:
@@ -780,13 +790,17 @@ class TaskRunStore:
                 recovered.append(run.id)
         return recovered
 
-    def prune(self, task_key: str, keep: int = DEFAULT_KEEP, *, keep_errors: bool = False) -> int:
+    def prune(self, task_key: str, keep: int = DEFAULT_KEEP, *, keep_errors: bool = False,
+              failed_days: float | None = FAILED_FOLLOWUP_DAYS) -> int:
         """每个 task_key 只留最近 `keep` 条终态记录，返回删掉多少条。
 
         活跃任务保留，指向已清退历史的父任务和根任务关联由删除触发器置空。
         随后清退整个数据根里已结束运行的控制文件（`task_control.prune_controls`），不限本 task_key。
-        后继使用 `keep_errors` 保留仍可重试的失败项；下载状态保留并清空已清退运行的链接。
-        阈值用 `LIMIT 1 OFFSET keep` 取「第 keep+1 新的那条 id」。
+        后继使用 `keep_errors`：成功与取消的按 `keep` 条清退；失败与中断的不占条数，按结束时间
+        保留 `failed_days` 天，过了就清退。重试不读这一行——下载按自己的后处理状态重派，
+        升级补修按 `ledger_upgrade_item`——它只供任务中心里看最近出过什么错。`failed_days`
+        为 None 时失败行全留，交给类型自己按结论清退（`FollowupType.prunes_failures`）。
+        下载状态保留并清空已清退运行的链接。阈值用 `LIMIT 1 OFFSET keep` 取「第 keep+1 新的那条 id」。
         """
         if not self.enabled or keep < 0:
             return 0
@@ -798,14 +812,32 @@ class TaskRunStore:
                 f"SELECT id FROM task_run WHERE task_key=? AND status IN ({marks}) "
                 "ORDER BY id DESC LIMIT 1 OFFSET ?", (task_key, keep)).fetchone()
             if threshold is not None:
-                connection.execute(
-                    "UPDATE download_task SET postprocess_run_id=NULL WHERE postprocess_run_id IN ("
-                    f"SELECT id FROM task_run WHERE task_key=? AND status IN ({marks}) AND id<=?)",
-                    (task_key, threshold["id"]))
-                cursor = connection.execute(
-                    f"DELETE FROM task_run WHERE task_key=? AND status IN ({marks}) "
-                    "AND id<=?", (task_key, threshold["id"]))
-                removed = cursor.rowcount
+                removed = _delete_runs(connection, f"task_key=? AND status IN ({marks}) AND id<=?",
+                                       (task_key, threshold["id"]))
+            if keep_errors and failed_days is not None:
+                cutoff = stamp(datetime.now(timezone.utc) - timedelta(days=failed_days))
+                removed += _delete_runs(
+                    connection, "task_key=? AND status IN ('failed','interrupted') "
+                    "AND followup_key IS NOT NULL AND finished_at<?", (task_key, cutoff))
+        from .task_control import prune_controls
+        prune_controls(self)
+        return removed
+
+    def delete_finished(self, run_ids) -> int:
+        """删掉这几行已结束的运行（活跃的不碰），收走它们的控制文件，返回删掉的行数。
+
+        给按自己的结论清退失败后继的调用方（`upgrade_repairs.prune_settled_failures`）。
+        """
+        ids = sorted({int(run_id) for run_id in run_ids})
+        if not self.enabled or not ids:
+            return 0
+        removed = 0
+        terminal = ",".join(f"'{name}'" for name in TERMINAL_STATUSES)
+        with self.database.write_transaction(notify=False) as connection:
+            for offset in range(0, len(ids), 900):
+                batch = ids[offset:offset + 900]
+                removed += _delete_runs(
+                    connection, f"status IN ({terminal}) AND id IN ({','.join('?' * len(batch))})", batch)
         from .task_control import prune_controls
         prune_controls(self)
         return removed

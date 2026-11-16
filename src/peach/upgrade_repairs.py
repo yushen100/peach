@@ -191,6 +191,31 @@ def discard_checkpoint(state_file: Path) -> None:
         _remove(path)
 
 
+def _job_id(rule: str, asset_id) -> str:
+    """状态表里这条影片规则（`media:<规则>`）下单部补修的任务号，续跑状态文件里记的就是它。"""
+    return f'{MEDIA_TASK}:{rule[len("media:"):]}:{asset_id}'.replace(':', '-')
+
+
+def _job_of(state_file: Path) -> str:
+    """单部补修续跑状态里记的任务号；文件不在或读不出是空串。"""
+    try:
+        value = json.loads(state_file.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return ''
+    return str(value.get('job_id') or '') if isinstance(value, dict) else ''
+
+
+def _discard_settled(root: Path, rule: str, asset_ids) -> None:
+    """这几部片在这条规则下有了结论：单部补修留下的续跑状态属于这条规则的，一并删掉。
+
+    一部片先单部跑失败、后来编进一批跑完时，批次只删自己的状态，单部那份没人再删。
+    """
+    for asset_id in asset_ids:
+        state_file = root / f'{asset_id}.json'
+        if _job_of(state_file) == _job_id(rule, asset_id):
+            discard_checkpoint(state_file)
+
+
 def _batched(planned) -> list:
     """同一规则的影片补全按 `BATCH_SIZE` 合成一批；显示尺寸补测与资料后继不动。"""
     from .followups import Followup
@@ -228,6 +253,36 @@ def settled(row, generation: str | None, now: float) -> bool:
     if row['state'] in ('failed', 'deferred'):
         return row['retry_at'] is None or float(row['retry_at']) > now
     return False
+
+
+def prune_settled_failures(store, queued_run_ids) -> int:
+    """清退结论已记进 `ledger_upgrade_item` 的影片补全失败行，返回删掉的行数。
+
+    失败行只在结算之前有用：`_settle_queue` 读它的状态给状态表记结论，记完之后重派按那一行的
+    `retry_at` 或用户点重试，任务中心里的这一行只剩历史。所以留下的只有两种：回执队列里还等
+    结算的（`queued_run_ids`），和状态表里那部片还在等或在跑、指的正是这一行的（结算前的那一刻）。
+    已撤下的旧规则（`display-dimensions-1`）与早已重派过的旧行都不在两者之中，一并清退。
+    """
+    if not getattr(store, 'enabled', False):
+        return 0
+    keep = {int(run_id) for run_id in queued_run_ids}
+    with store.database.read_connection() as connection:
+        rows = connection.execute(
+            "SELECT id,followup_key FROM task_run WHERE task_key=? AND status IN ('failed','interrupted') "
+            'AND followup_key IS NOT NULL', (MEDIA_TASK,)).fetchall()
+        if not rows:
+            return 0
+        waiting = {(row[0], row[1]): row[2] for row in connection.execute(
+            "SELECT rule,asset_id,run_id FROM ledger_upgrade_item WHERE state IN ('pending','queued')")}
+    doomed = []
+    for run_id, key in rows:
+        if run_id in keep:
+            continue
+        members = [item_of(member) for member in member_keys(key)]
+        if any(member is not None and waiting.get(member[:2]) == run_id for member in members):
+            continue
+        doomed.append(run_id)
+    return store.delete_finished(doomed)
 
 
 def _media_items(connection, *, rules=None, every=False) -> dict:
@@ -391,6 +446,14 @@ RESOLUTION_TAGS_KEY = f'source-resolution-tags-{upgrade_rules.SOURCE_RESOLUTION_
 
 
 VIDEO_MEDIUM_KEY = f'video-medium-{upgrade_rules.VIDEO_MEDIUM}'
+#: 附属文件删行（`_remove_sidecar_assets`）的回执键；规则版本见 `upgrade_rules`。
+SIDECAR_ASSETS_KEY = f'sidecar-assets-{upgrade_rules.SIDECAR_ASSETS}'
+#: 旧版永不清退的失败后继行（`_prune_failed_followups`）的回执键。
+FAILED_FOLLOWUPS_KEY = 'failed-followups-1'
+#: 处理任务积下的状态文件（`_prune_processing_state`）的回执键。
+PROCESSING_STATE_KEY = 'processing-state-files-1'
+#: 头像人脸记录补测（`_backfill_avatar_faces`）第一次做完时的回执键。
+AVATAR_FACES_KEY = 'avatar-faces-1'
 
 
 def misfiled_videos(connection) -> list[int]:
@@ -874,6 +937,33 @@ class UpgradeRepairs:
         self._listening = False
         #: 上一次判过「种子包不用派」时的指纹（`_seed_fingerprint`）；没变就不再整包读、算摘要。
         self._quiet_seed = None
+        #: 这次启动里一次性规则共用的写入前备份，与领过它的规则数（`_upgrade_backup`）。
+        self._backup: Path | None = None
+        self._backup_claims = 0
+        self._backup_lock = threading.Lock()
+
+    def _upgrade_backup(self) -> Path:
+        """一次性规则写账本前的整库备份：这次启动里第一条要写的规则备一份，后面的规则共用。
+
+        每条规则各备一份时，一次升级接连写好几份几百 MB 的整库。共用的这份是第一条规则动手前
+        的账本，按它恢复会连同之后各条规则的改动与回执一起退回，退回的规则下次启动重做，
+        所以够撤回每一条。文件不在了（被清退或手动删了）就重备一份。
+        """
+        with self._backup_lock:
+            if self._backup is None or not self._backup.is_file():
+                backup = self.contract.db_path.with_name(f'ledger.pre-upgrade-{time.time_ns()}.db')
+                sqlite_backup(self.contract.db_path, backup)
+                self._backup = backup
+            self._backup_claims += 1
+            return self._backup
+
+    def _release_upgrade_backup(self, backup: Path) -> None:
+        """没用上备份的规则交回；只有它一家领过时删掉，别的规则的回执还指着它就留着。"""
+        with self._backup_lock:
+            self._backup_claims -= 1
+            if self._backup_claims == 0 and self._backup == backup:
+                backup.unlink(missing_ok=True)
+                self._backup = None
 
     def _seed_fingerprint(self):
         """种子包派发判断的廉价指纹：包文件的修改时间与大小，加实体与种子导入记录的账本版本。
@@ -1012,10 +1102,12 @@ class UpgradeRepairs:
                 self._settle_dangling_candidates()
                 self._settle_javdb_records()
                 self._reclassify_videos()
+                self._remove_sidecar_assets()
                 self._settle_resolution_tags()
                 self._settle_quality()
                 self._convert_interface_text()
                 self._isolate_system_files()
+                self._settle_legacy()
                 return
             self._restore_receipt(None)
             sources = Path(contract.follow_sources_root)
@@ -1026,8 +1118,7 @@ class UpgradeRepairs:
                 failed = [row[0] for row in connection.execute(
                     "SELECT id FROM asset WHERE medium='video' AND duration<=0 AND disposal IS NULL")] if prior is None else []
             atomic_write_text(self.root / 'catalog-review.json', json.dumps(plan, ensure_ascii=False, indent=2))
-            backup = contract.db_path.with_name(f'ledger.pre-upgrade-{time.time_ns()}.db')
-            sqlite_backup(contract.db_path, backup)
+            backup = self._upgrade_backup()
             review = sum(row['reason'] not in ('already-original', 'already-japanese', 'manual-name')
                          and row['action'] not in ('replace', 'rename') for row in plan['fields'] + plan['names'])
             review += sum(row['verdict'] == 'review' for row in plan['aliases'])
@@ -1065,10 +1156,73 @@ class UpgradeRepairs:
             self._settle_dangling_candidates()
             self._settle_javdb_records()
             self._reclassify_videos()
+            self._remove_sidecar_assets()
             self._settle_resolution_tags()
             self._settle_quality()
             self._convert_interface_text()
             self._isolate_system_files()
+            self._settle_legacy()
+
+    def _settle_legacy(self) -> None:
+        """旧版本写下、按现行判据能确定改对的存量各补一次（`legacy_repairs.RULES`）。
+
+        先只读把还没做过的几条算一遍，有要改的才领这次启动共用的写入前备份（`_upgrade_backup`），
+        再逐条在各自的写事务里重算、改写、记回执，回执带这份备份。某条出错只记日志，其余照做，
+        下次启动再试那一条。
+        """
+        from . import legacy_repairs
+        try:
+            with self.contract.database.read_connection() as connection:
+                rules = legacy_repairs.pending(connection)
+                planned = [rule for rule in rules if rule.find(connection)]
+        except Exception:
+            LOGGER.exception('Legacy repairs: planning failed')
+            return
+        backup = None
+        if planned:
+            try:
+                backup = self._upgrade_backup()
+            except Exception:
+                LOGGER.exception('Legacy repairs: backup failed')
+                return
+        for rule in rules:
+            try:
+                with self.contract.database.write_transaction() as connection:
+                    if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?', (rule.key,)).fetchone():
+                        continue
+                    found = rule.find(connection)
+                    result = rule.fix(connection, found) if found else {'changed': 0}
+                    if found and backup is not None:
+                        result['backup'] = str(backup)
+                    connection.execute('INSERT INTO ledger_upgrade_repair(id,applied_at,result_json) VALUES(?,?,?)',
+                                       (rule.key, str(time.time()), json.dumps(result, ensure_ascii=False, default=str)))
+            except Exception:
+                LOGGER.exception('Legacy repair %s failed', rule.key)
+                continue
+            LOGGER.info('Legacy repair %s: changed %s', rule.key, result.get('changed', 0))
+
+    def apply_confirmed(self, item: str) -> dict:
+        """用户在「修复与迁移」确认的存量修正（`legacy_repairs.CONFIRMS`）：备份账本，在一个写事务里重算、
+        改写，回执 id 是 `<前缀><时刻>`。返回回执；没有要改的返回 `{'changed': 0}` 且不写回执。"""
+        from . import legacy_repairs
+        rule = legacy_repairs.confirm_rule(item)
+        if rule is None:
+            raise UserValueError('api.configuration.repairUnknown', {'item': item})
+        with self.contract.database.read_connection() as connection:
+            if not rule.find(connection, self.contract):
+                return {'changed': 0}
+        backup = self.contract.db_path.with_name(f'ledger.pre-{rule.prefix}{time.time_ns()}.db')
+        sqlite_backup(self.contract.db_path, backup)
+        with self.contract.database.write_transaction() as connection:
+            found = rule.find(connection, self.contract)
+            result = rule.fix(connection, found, self.contract) if found else {'changed': 0}
+            if found:
+                result['backup'] = str(backup)
+                connection.execute('INSERT INTO ledger_upgrade_repair(id,applied_at,result_json) VALUES(?,?,?)',
+                                   (f'{rule.prefix}{time.time_ns()}', str(time.time()),
+                                    json.dumps(result, ensure_ascii=False, default=str)))
+        LOGGER.info('Confirmed repair %s: changed %s', item, result.get('changed', 0))
+        return result
 
     def _prepare_display_dimensions(self) -> None:
         from . import display_dimensions_repair
@@ -1162,8 +1316,7 @@ class UpgradeRepairs:
             return
         backup = None
         if rows:
-            backup = self.contract.db_path.with_name(f'ledger.pre-upgrade-{time.time_ns()}.db')
-            sqlite_backup(self.contract.db_path, backup)
+            backup = self._upgrade_backup()
         with self.contract.database.write_transaction() as connection:
             changed = system_file_repair.apply(connection, rows, time.time())
             receipt[system_file_repair.RULE] = {'isolated': changed, 'backup': str(backup) if backup else None}
@@ -1279,6 +1432,37 @@ class UpgradeRepairs:
             return
         LOGGER.info('JavDB actor pages: recorded %s record types, stopped offering %s entries, disabled %s feeds',
                     len(result['recorded']), len(result['hidden']), len(result['disabled_feeds']))
+
+    def _remove_sidecar_assets(self) -> None:
+        """旧扫描登记成作品的 NFO、海报、剧照与截图缩略图从账本删行（`sidecar_asset_repair`），只做一次。
+
+        盘上文件不动、不进回收站（理由见 `sidecar_asset_repair`）。有要删的才先备份；删掉的行与引用
+        整行记进回执，`sidecar_asset_repair.restore` 按它插回。在 `prepare` 里、任务恢复之前做，
+        那时没有处理任务拿着这些行。出错只记日志，下次启动再试。
+        """
+        from . import sidecar_asset_repair as repair
+        try:
+            with self.contract.database.read_connection() as connection:
+                if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
+                                      (SIDECAR_ASSETS_KEY,)).fetchone():
+                    return
+                rows = repair.collect(connection)
+            backup = self._upgrade_backup() if rows else None
+            with self.contract.database.write_transaction() as connection:
+                if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
+                                      (SIDECAR_ASSETS_KEY,)).fetchone():
+                    return
+                removed = repair.apply(connection, rows)
+                result = {'rule': upgrade_rules.SIDECAR_ASSETS, repair.REMOVED: removed}
+                if backup is not None:
+                    result['backup'] = str(backup)
+                connection.execute('INSERT INTO ledger_upgrade_repair(id,applied_at,result_json) VALUES(?,?,?)',
+                                   (SIDECAR_ASSETS_KEY, str(time.time()),
+                                    json.dumps(result, ensure_ascii=False, default=str)))
+        except Exception:
+            LOGGER.exception('Sidecar asset row removal failed')
+            return
+        LOGGER.info('Sidecar files registered as works: removed %s ledger rows', len(removed))
 
     def _reclassify_videos(self) -> None:
         """记成 other、按现行扩展名规则是视频的行（`misfiled_videos`）改成视频，只做一次。
@@ -1436,29 +1620,40 @@ class UpgradeRepairs:
             LOGGER.exception('Failed to clean up control files of finished tasks')
 
     def _prune_repair_checkpoints(self) -> None:
-        """旧版补修完不删的续跑状态一次清掉；之后每部、每批有了结论就当场删（`discard_checkpoint`）。
+        """补修完不删的续跑状态一次清掉；之后每部、每批有了结论就当场删（`discard_checkpoint`、`_discard_settled`）。
 
-        留下的只有还用得上的：回执队列里在跑的键，以及状态表里待补、延后、失败的影片（重派时接着跑）。
-        一小时内动过的也不碰，免得和刚派出的任务抢同一份文件。回执记删掉的文件数与字节数。
+        留下的只有还用得上的：回执队列里在跑的键，以及状态表里这部片在**这条规则**下待补、延后、
+        失败的（重派同一个键时接着跑）。单部的续跑状态按文件里的 `job_id` 认是哪条规则留下的：
+        上一版按影片汇总，一部片只要在任意规则下还有失败，各条规则已做完的状态也一直留着。
+        读不出 `job_id` 的按影片判。一小时内动过的也不碰，免得和刚派出的任务抢同一份文件。
+        回执记删掉的文件数与字节数；`-1` 是上一版判据的回执，这一版换新键再清一遍。
         """
         import re
-        key = 'upgrade-repair-checkpoints-1'
+        key = 'upgrade-repair-checkpoints-2'
         try:
             with self.contract.database.read_connection() as connection:
                 if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?', (key,)).fetchone():
                     return
-                keep = {str(row[0]) for row in connection.execute(
-                    "SELECT DISTINCT asset_id FROM ledger_upgrade_item WHERE rule LIKE 'media:%'"
-                    " AND state IN ('pending','queued','deferred','failed')")}
+                open_items = [(row[0], str(row[1])) for row in connection.execute(
+                    "SELECT rule,asset_id FROM ledger_upgrade_item WHERE rule LIKE 'media:%'"
+                    " AND state IN ('pending','queued','deferred','failed')")]
             queued = list(_read(self.receipt).get('queued', {}))
-            keep |= {member.rsplit(':', 1)[1] for queued_key in queued for member in member_keys(queued_key)}
-            keep |= {f'batch-{_batch_digest(queued_key)}' for queued_key in queued if batch_members(queued_key)}
+            members = [member for queued_key in queued for member in member_keys(queued_key)]
+            # 每部片还用得上的续跑状态是哪几条规则的（按 `job_id` 认），以及这部片有没有任何还用得上的。
+            wanted = {member.replace(':', '-') for member in members}
+            wanted |= {_job_id(rule, asset_id) for rule, asset_id in open_items}
+            assets = {asset_id for _rule, asset_id in open_items} | {member.rsplit(':', 1)[1] for member in members}
+            batches = {f'batch-{_batch_digest(queued_key)}' for queued_key in queued if batch_members(queued_key)}
             pattern = re.compile(r'^(\d+|batch-[0-9a-f]{16})(\.json|\.issues\.jsonl|-items)$')
             cutoff = time.time() - 3600
             removed = size = 0
-            for path in self.root.iterdir() if self.root.is_dir() else ():
-                found = pattern.match(path.name)
-                if not found or found.group(1) in keep:
+            found = [(path, matched.group(1)) for path in (self.root.iterdir() if self.root.is_dir() else ())
+                     if (matched := pattern.match(path.name)) and matched.group(1) not in batches]
+            # 先把每部片认完再删：状态文件删掉之后，同名的问题日志与逐项目录就认不出规则了。
+            jobs = {name: _job_of(self.root / f'{name}.json') for _path, name in found if not name.startswith('batch-')}
+            for path, name in found:
+                job_id = jobs.get(name)
+                if job_id is not None and ((job_id in wanted) if job_id else (name in assets)):
                     continue
                 try:
                     if path.stat().st_mtime > cutoff:
@@ -1474,6 +1669,115 @@ class UpgradeRepairs:
             LOGGER.info('Repair resume state: removed %s files, %s bytes', removed, size)
         except Exception:
             LOGGER.exception('Failed to clean up repair resume state')
+
+    def _prune_failed_followups(self) -> None:
+        """旧版永不清退的失败后继行一次清掉，连同它们的控制文件；只做一次。
+
+        影片补全按结论清（`prune_settled_failures`）；其余后继按 `TaskRunStore.prune` 的天数清
+        （`FAILED_FOLLOWUP_DAYS`）。之后每条后继跑完、每轮结算后都照同样的判据清，这里只是不等下一轮。
+        回执按任务种类记删掉的行数。出错只记日志，下次启动再试。
+        """
+        key = FAILED_FOLLOWUPS_KEY
+        try:
+            with self.contract.database.read_connection() as connection:
+                if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?', (key,)).fetchone():
+                    return
+                keys = [row[0] for row in connection.execute(
+                    "SELECT DISTINCT task_key FROM task_run WHERE status IN ('failed','interrupted') "
+                    'AND followup_key IS NOT NULL AND task_key<>?', (MEDIA_TASK,))]
+            store = self.contract.task_runs
+            removed = {MEDIA_TASK: prune_settled_failures(store, _read(self.receipt).get('queued', {}).values())}
+            for task_key in keys:
+                removed[task_key] = store.prune(task_key, keep_errors=True)
+            removed = {name: count for name, count in removed.items() if count}
+            with self.contract.database.write_transaction() as connection:
+                connection.execute('INSERT OR IGNORE INTO ledger_upgrade_repair(id,applied_at,result_json) '
+                                   'VALUES(?,?,?)', (key, str(time.time()), json.dumps({'removed': removed})))
+            LOGGER.info('Failed follow-up rows: removed %s', removed)
+        except Exception:
+            LOGGER.exception('Failed to clean up failed follow-up rows')
+
+    def _backfill_avatar_faces(self) -> None:
+        """人物头像缺人脸记录或记录过期的补测一遍（`avatar_face.backfill`），每次启动在后台做。
+
+        人脸模型不可用时装上的头像没有 `.face.json`，页面一直按几何居中取景；换图后没重检、
+        `px` 对不上的同样退回居中。只读本机图片，只用随包或已在数据目录里的模型，不联网；
+        模型用不了就什么也不写，下次启动再试。第一次做完记回执（检了几张、写了几张），之后
+        每次启动照样补安装时没检成的。
+
+        关注作品的题材圆标不补：那里一张都过不了人脸判据的题材本来就不写记录（按整张封面显示），
+        而判据要看站点的高清原图，缺记录的分不出是没检成还是本来没有可用的脸，只能联网重取。
+        """
+        from . import avatar_face
+        try:
+            root = getattr(self.contract, 'avatar_root', None)
+            if root is None:
+                return
+            result = avatar_face.backfill(Path(root), avatar_face.FaceProbe(allow_download=False))
+            if result is None:
+                LOGGER.info('Avatar face backfill waits for the face model')
+                return
+            with self.contract.database.write_transaction() as connection:
+                connection.execute('INSERT OR IGNORE INTO ledger_upgrade_repair(id,applied_at,result_json) '
+                                   'VALUES(?,?,?)', (AVATAR_FACES_KEY, str(time.time()), json.dumps(result)))
+            LOGGER.info('Avatar face backfill: %s', result)
+        except Exception:
+            LOGGER.exception('Avatar face backfill failed')
+
+    def _prune_processing_state(self) -> None:
+        """处理任务积下的状态文件一次清掉，只做一次；之后各在自己的任务里清。
+
+        - 馆藏处理的本地证据缓存（`library-processing-items/`）：留状态文件还引用的，判据同
+          `library_processing.prune_local_evidence`。馆藏处理正在跑就不碰，留给它下一轮开工时清。
+        - 下载后处理的续跑状态（`download-processing/<正片>`）：后处理还在等、在跑或失败待重试的
+          下载指着的那部片留着，其余删掉；现在每条后处理完成时当场删。
+        - 整理批次日志（`organize-batches/`）：只留最近几份（`organize.prune_batches`），现在每次整理后都清。
+
+        一小时内动过的不碰。回执记三类各删掉多少。出错只记日志，下次启动再试。
+        """
+        import re
+        from . import organize
+        from .job_recovery import read as recovery
+        from .library_processing import prune_local_evidence
+        key = PROCESSING_STATE_KEY
+        try:
+            with self.contract.database.read_connection() as connection:
+                if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?', (key,)).fetchone():
+                    return
+                waiting = {str(row[0]) for row in connection.execute(
+                    'SELECT asset_id FROM download_task WHERE asset_id IS NOT NULL '
+                    "AND postprocess_state IN ('pending','queued','running','failed')")}
+            state_root = Path(self.contract.follow_state_root)
+            cutoff = time.time() - 3600
+            result = {'local_evidence': 0, 'download_states': 0, 'organize_batches': 0}
+            if recovery(self.contract.db_path, 'library-processing').get('status') != 'active':
+                library_state = state_root / 'library-processing.json'
+                try:
+                    stored = json.loads(library_state.read_text(encoding='utf-8'))
+                except FileNotFoundError:
+                    stored = {}
+                if isinstance(stored, dict):
+                    result['local_evidence'] = prune_local_evidence(
+                        library_state, stored.get('local_metadata'), before=cutoff)
+            pattern = re.compile(r'^(\d+)(\.json|\.issues\.jsonl|-items)$')
+            folder = state_root / 'download-processing'
+            for path in folder.iterdir() if folder.is_dir() else ():
+                found = pattern.match(path.name)
+                if not found or found.group(1) in waiting:
+                    continue
+                try:
+                    if path.stat().st_mtime > cutoff:
+                        continue
+                except OSError:
+                    continue
+                result['download_states'] += _remove(path)[0]
+            result['organize_batches'] = organize.prune_batches(Path(self.contract.candidate_root))
+            with self.contract.database.write_transaction() as connection:
+                connection.execute('INSERT OR IGNORE INTO ledger_upgrade_repair(id,applied_at,result_json) '
+                                   'VALUES(?,?,?)', (key, str(time.time()), json.dumps(result)))
+            LOGGER.info('Processing state files: %s', result)
+        except Exception:
+            LOGGER.exception('Failed to clean up processing state files')
 
     def _settle_verification(self) -> None:
         """核查差异的结算规则（ADR-0139）对存量候选跑一遍，规则版本变了才再跑。
@@ -1502,8 +1806,7 @@ class UpgradeRepairs:
                 if any(candidate.get('requires_review') for candidate in _parsed_candidates(row))]
         result = {'rows': len(rows)}
         if rows:
-            backup = contract.db_path.with_name(f'ledger.pre-upgrade-{time.time_ns()}.db')
-            sqlite_backup(contract.db_path, backup)
+            backup = self._upgrade_backup()
             summary = auto_apply_metadata(
                 contract.database, Path(contract.candidate_root), candidate_rows=rows,
                 snapshot_root=Path(contract.follow_sources_root) / 'library-metadata',
@@ -1540,8 +1843,7 @@ class UpgradeRepairs:
                 todo = fc2_sellers.pending(connection, root)
             backup = None
             if todo:
-                backup = self.contract.db_path.with_name(f'ledger.pre-upgrade-{time.time_ns()}.db')
-                sqlite_backup(self.contract.db_path, backup)
+                backup = self._upgrade_backup()
             with self.contract.database.write_transaction() as connection:
                 if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
                                       (FC2_SELLERS_KEY,)).fetchone():
@@ -1561,7 +1863,8 @@ class UpgradeRepairs:
     def _inherit_code_siblings(self) -> None:
         """同番号副本缺演员、创作者的存量整库补一次（`code_siblings.inherit`），排在卖家补挂之后。
 
-        有要补的才先备份；补上的关系逐条记回执，按批次可撤（`auto_landing_revert`）。
+        事先算不出有没有要补的，所以先领一份写入前备份，没补上任何关系就交回（`_release_upgrade_backup`）；
+        补上的关系逐条记回执，按批次可撤（`auto_landing_revert`）。
         """
         from . import code_siblings
         try:
@@ -1572,19 +1875,22 @@ class UpgradeRepairs:
                 if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
                                       (FC2_SELLERS_KEY,)).fetchone() is None:
                     return  # 卖家补挂还没做完，下次启动再来
-            backup = self.contract.db_path.with_name(f'ledger.pre-upgrade-{time.time_ns()}.db')
-            sqlite_backup(self.contract.db_path, backup)
-            with self.contract.database.write_transaction() as connection:
-                if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
-                                      (CODE_SIBLINGS_KEY,)).fetchone():
-                    return
-                result = code_siblings.inherit(connection)
-                result['backup'] = str(backup)
-                connection.execute('INSERT OR IGNORE INTO ledger_upgrade_repair(id,applied_at,result_json) '
-                                   'VALUES(?,?,?)', (CODE_SIBLINGS_KEY, str(time.time()),
-                                                     json.dumps(result, ensure_ascii=False)))
-            if not result['links']:
-                backup.unlink(missing_ok=True)
+            backup = self._upgrade_backup()
+            result = None
+            try:
+                with self.contract.database.write_transaction() as connection:
+                    if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
+                                          (CODE_SIBLINGS_KEY,)).fetchone():
+                        return
+                    result = code_siblings.inherit(connection)
+                    if result['links']:
+                        result['backup'] = str(backup)
+                    connection.execute('INSERT OR IGNORE INTO ledger_upgrade_repair(id,applied_at,result_json) '
+                                       'VALUES(?,?,?)', (CODE_SIBLINGS_KEY, str(time.time()),
+                                                         json.dumps(result, ensure_ascii=False)))
+            finally:
+                if result is None or not result['links']:
+                    self._release_upgrade_backup(backup)
             LOGGER.info('Code siblings: inherited %s links', len(result['links']))
         except Exception:
             LOGGER.exception('Code sibling inheritance failed')
@@ -1599,8 +1905,7 @@ class UpgradeRepairs:
                 pending = enhancement_names_pending(connection)
             backup = None
             if pending:
-                backup = self.contract.db_path.with_name(f'ledger.pre-upgrade-{time.time_ns()}.db')
-                sqlite_backup(self.contract.db_path, backup)
+                backup = self._upgrade_backup()
             with self.contract.database.write_transaction() as connection:
                 if connection.execute('SELECT 1 FROM ledger_upgrade_repair WHERE id=?',
                                       (ENHANCEMENT_NAMES_KEY,)).fetchone():
@@ -1643,8 +1948,7 @@ class UpgradeRepairs:
             for candidate in _parsed_candidates(row))]
         result = {'rows': len(rows)}
         if rows:
-            backup = contract.db_path.with_name(f'ledger.pre-upgrade-{time.time_ns()}.db')
-            sqlite_backup(contract.db_path, backup)
+            backup = self._upgrade_backup()
             summary = auto_apply_metadata(
                 contract.database, Path(contract.candidate_root), candidate_rows=rows,
                 snapshot_root=Path(contract.follow_sources_root) / 'library-metadata',
@@ -1832,6 +2136,11 @@ class UpgradeRepairs:
         settled_rows = self._settle_queue(receipt)
         if settled_rows is not None:
             self._save_receipt(receipt, [('settle', settled_rows)])
+            prune_settled_failures(self.contract.task_runs, receipt.get('queued', {}).values())
+            # 完成与取消的不会再按同一个键接着跑（取消的重试也不重派）：续跑状态用不上了。
+            for row in settled_rows:
+                if row['state'] in ('done', 'cancelled'):
+                    _discard_settled(self.root, row['rule'], [row['asset_id']])
         if receipt.get('dispatch_complete'):
             with self.contract.database.read_connection() as connection:
                 seed = self._seed_pending(connection)
@@ -1893,7 +2202,8 @@ class UpgradeRepairs:
         回执队列原本只增不减，上万条结束了的键还在承担防重复派发；结算后这件事交给
         状态表里那一行（`settled`）。只改两种行：本版派发时记下、还归这一轮任务管的
         （`queued` 且 `run_id` 对得上），和旧版留下、表里没有结论的。处理器自己写过结论的不动。
-        任务已被清退的，清退只删成功与取消的后继（`TaskRunStore.prune(keep_errors=True)`），按完成算。
+        任务已被清退的按完成算：跑完后的清退只删成功与取消的影片补全，失败的等这里结算之后才由
+        `prune_settled_failures` 收走。
         本版派出的失败按退避自动重派（`retry_at`）；旧版留下的失败照旧只等用户点重试
         （`retry_at` 为空），不会被自动重派。
         """
@@ -2113,6 +2423,9 @@ class UpgradeRepairs:
             self.scheduler.add_job(self._clear_stale_codes, max_instances=1)
             self.scheduler.add_job(self._prune_task_controls, max_instances=1)
             self.scheduler.add_job(self._prune_repair_checkpoints, max_instances=1)
+            self.scheduler.add_job(self._prune_failed_followups, max_instances=1)
+            self.scheduler.add_job(self._prune_processing_state, max_instances=1)
+            self.scheduler.add_job(self._backfill_avatar_faces, max_instances=1)
             self.scheduler.start()
 
     def stop(self) -> None:
@@ -2270,6 +2583,7 @@ def _settle_batch(contract, handle, rule: str, asset_ids, offline, cooling) -> d
               'retry_at': now + COOLDOWN_RETRY_SECONDS} for asset_id in cooling]
     with contract.database.write_transaction(notify=False) as connection:
         upsert_items(connection, rows, mode='finish')
+    _discard_settled(Path(contract.follow_state_root) / 'upgrade-repairs', item_rule, done)
     deferred = len(offline) + len(cooling)
     outcome = joined([part('videosUpgraded', count=len(done)),
                       part('videosDeferred', count=deferred) if deferred else []])
@@ -2339,4 +2653,5 @@ def _pause_for_capacity(service, handle, error):
     raise CapacityPaused(error.code, error.params) from error
 
 
-TYPE = register(FollowupType(MEDIA_TASK, interface_text.text('server:stage.upgrade.updateMetadata'), True, _media_run))
+TYPE = register(FollowupType(MEDIA_TASK, interface_text.text('server:stage.upgrade.updateMetadata'), True, _media_run,
+                             prunes_failures=True))

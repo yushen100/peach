@@ -490,7 +490,7 @@ class ShellBoundaryTest(unittest.TestCase):
 
     def test_the_shell_table_is_not_an_asset_reference(self):
         # 物理删除资产时要清的引用名单里没有它：壳不引用 asset，两者只按番号对上。
-        from peach.web_batch import ASSET_REFERENCE_TABLES
+        from peach.personal_records import ASSET_REFERENCE_TABLES
         self.assertNotIn("feed_discovery", ASSET_REFERENCE_TABLES)
         self.assertNotIn("feed_item", ASSET_REFERENCE_TABLES)
 

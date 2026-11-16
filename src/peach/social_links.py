@@ -111,7 +111,12 @@ def canonical_url(url: str) -> str:
 
     只换 netloc 并把 scheme 提到 https，路径、查询和片段原样保留——handle 大小写在 X 上
     不敏感，但它是用户当初复核过的写法，没有理由在这里替他改掉。
+
+    唯一的例外是地址里的 `&amp;`：从页面源码抄地址时连实体一起抄了进来，服务端收到的参数名成了
+    `amp;id`，`id` 因此丢失（`model.php?alias=x&amp;id=176`）。还原成 `&` 才是那一页。
     """
+    while "&amp;" in url:
+        url = url.replace("&amp;", "&")
     parts = urlsplit(url.strip())
     new_host = HOST_ALIASES.get((parts.hostname or "").lower())
     if new_host:
