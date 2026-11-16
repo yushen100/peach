@@ -81,6 +81,7 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Library**: Large scans retry a batch on a fresh ledger connection when the journal file is briefly blocked, instead of failing with unable to open database file (#138). / **馆藏**：大目录扫描遇到账本日志文件被短暂占用时换新连接重试当前批次，不再报 unable to open database file 中断（#138）。
 - **Playback**: Followed media and previews cached on disk stay intact when two requests save the same item at once or the cache folder is cleaned meanwhile (#521). / **播放**：两个请求同时缓存同一段媒体，或缓存目录正被清理时，缓存不再错配或让播放失败（#521）。
 - **Playback**: JAV previews play again when Peach's data folder sits in a long Windows path (#521). / **播放**：数据目录在 Windows 较深的路径下时，JAV 预告片重新能播（#521）。
+- **Library**: Setting an actress avatar no longer fails when the avatar cache is cleaned at the same moment (#521). / **馆藏**：设置女优头像时缓存恰好被清理，不再让设置失败（#521）。
 
 ## [0.58.0] - 2026-11-14
 

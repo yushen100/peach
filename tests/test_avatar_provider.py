@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
+from unittest import mock
 
 from PIL import Image
 
@@ -98,6 +99,23 @@ class AvatarProviderTests(unittest.TestCase):
             object_path = cache.store(url, body, avatar)
             object_path.write_bytes(b"tampered")
             self.assertIsNone(cache.lookup(url))
+
+    def test_vanished_evidence_cache_does_not_fail_an_avatar_install(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = AvatarCandidateCache(Path(tmp))
+            avatar = inspect_avatar(image_bytes())
+            self.assertIsNotNone(avatar)
+            provenance = provenance_now(
+                entity_id=7, provider="gfriends", source_kind="user_selected",
+                matched_name="甲", name_source="picker", external_id="7-S1/a.jpg",
+                upstream_url="https://example.invalid/a.jpg", width=avatar.width,
+                height=avatar.height, mime_type=avatar.mime_type, sha256=avatar.sha256,
+                cache_path="objects/a.jpg",
+            )
+            with mock.patch("peach.avatar_provider.atomic_write_bytes",
+                            side_effect=FileNotFoundError):
+                path = cache.store_provenance(provenance)
+            self.assertFalse(path.exists())
 
     def test_duplicate_gate_keeps_evidence_out_of_review(self):
         digest = "a" * 64
