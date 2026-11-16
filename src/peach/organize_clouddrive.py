@@ -444,6 +444,9 @@ def pikpak_renames(sample_path: str, roots):
         raise UserValueError('errors.organizeClouddrive.tokenMissing')
     address = DownloadSettings(STATE_DIR).load().clouddrive_address or discover()
     with CloudDriveClient(address, credential.values['token'], timeout=15) as cloud:
+        # 下面直接调官方接口传完整路径；限定根目录的令牌会把路径接在根目录后面，移动与改名会落到别处。
+        if cloud.root != '/':
+            raise UserValueError('errors.organizeClouddrive.tokenRootRestricted', {'root': cloud.root})
         info = cloud.find(mapping.remote)
         if info is None or info.CloudAPI.name.casefold() != 'webdav':
             raise UserValueError('errors.organizeClouddrive.webdavSourceMissing')

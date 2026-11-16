@@ -9,7 +9,7 @@ from pathlib import PureWindowsPath
 from google.protobuf.empty_pb2 import Empty
 
 from .downloads import CLOUDDRIVE_CREDENTIAL, PIKPAK_CREDENTIAL, DownloadError, Problem
-from .downloads_clouddrive import CloudDriveClient, PROBE_TIMEOUT
+from .downloads_clouddrive import CloudDriveClient, PROBE_TIMEOUT, within_token_root
 from .media_sources import SOURCES
 from .clouddrive_proxy import media_remote_path
 from .push_discovery import normalise_prefix
@@ -73,7 +73,8 @@ class LibraryChannels:
             try:
                 with self.client(config.clouddrive_address, token, timeout=PROBE_TIMEOUT) as client:
                     phase = 'token_permissions'
-                    permissions = client.token_info().permissions
+                    info = client.token_info()
+                    permissions = info.permissions
                     if not (permissions.allow_add_offline_download and permissions.allow_list_offline_downloads):
                         problems.append(Problem("labels.downloadsChannels.tokenNeedsOffline"))
                     else:
@@ -91,6 +92,7 @@ class LibraryChannels:
                             if key in seen:
                                 continue
                             seen.add(key)
+                            target = within_token_root(getattr(info, "rootDir", "") or "/", target)
                             try:
                                 folder = client.folder(target)
                                 if folder.can_offline:
