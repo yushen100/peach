@@ -201,6 +201,7 @@ class DependencyPolicyTests(unittest.TestCase):
             "curl_cffi": "curl_cffi",
             "cv2": "opencv-python-headless",
             "dmgbuild": "dmgbuild",
+            "ebmlite": "ebmlite",
             "fastapi": "fastapi",
             "filelock": "filelock",
             "google": "protobuf",
