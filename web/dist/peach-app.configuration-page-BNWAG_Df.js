@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "8845f7fc-109d-48dc-bf3c-caaf3c9e3be4", e._sentryDebugIdIdentifier = "sentry-dbid-8845f7fc-109d-48dc-bf3c-caaf3c9e3be4");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "1bbd108f-786d-404a-9f6a-f25225138a35", e._sentryDebugIdIdentifier = "sentry-dbid-1bbd108f-786d-404a-9f6a-f25225138a35");
 	} catch {}
 })();
 import { $2ec61d1d4f780267$export$a8a3e93435678ff9 as e, $3a442827418ebe87$export$eb2fcfdbd7ba97d4 as t, $542a13ca2fa5b484$export$5b6b19405a83ff9d as n, $72abaeab4d80592f$export$78efe591171d7d45 as r, $bd263d78e9bf3c56$export$f5c9f3c2c4054eec as i, $ea3928288112382f$export$439d29a4e110a164 as a, $f2ff30fde7b014be$export$3ddf2d174ce01153 as o, $fe21c36db05242bb$export$a98f0dcb43a68a25 as s, $fe21c36db05242bb$export$d7b12c4107be0d61 as c, ACCENTS as l, ActivityStatus as u, ApiError as d, Button as f, ButtonLink as p, CLOUD_LOCATIONS as m, CLOUD_PROXY_HELP as h, CONFIGURATION_KEY as g, CONFIGURATION_SECTIONS as _, CONFIGURATION_URL as v, CREDENTIAL_STATE as y, Checkbox as b, Chip as x, CommandSteps as S, Disclosure as C, ENTRY_LINKS_HELP as ee, ENTRY_LINKS_HINT as te, EmptyState as w, ErrorText as T, Eu as ne, ExternalLink as E, FOLLOW_CREDENTIALS_KEY as D, FOLLOW_INITIAL_RANGE_OPTIONS as re, Fact as O, FactList as ie, FieldLabel as ae, Footer as k, Help as A, HintText as oe, Input as j, L1 as se, LIBRARY_FOLDER_HELP as ce, LIBRARY_PROCESSING_KEY as le, Label as ue, LinkButton as de, M6 as fe, MEDIA_PROCESSING_KEY as pe, MEDIA_PROCESSING_URL as me, MEDIA_SOURCE_ICONS as he, MENU_POPOVER_SURFACE as ge, Note as M, PICK_FOLDER_URL as _e, POLICY_COLUMNS as ve, POLICY_COVER_NOTE as ye, POLICY_MATRIX as be, POLICY_SUMMARY as xe, PathLine as Se, ProcessingMode as Ce, Progress as we, RELEASE_NOTICE_EVENT as Te, REPAIR_CENTER_PATH as Ee, Rows as N, SCHEDULES as De, SEGMENT as Oe, SEGMENTED_TRACK as ke, SETTINGS_KEY as Ae, SETTINGS_URL as je, Section as P, SectionSkeleton as Me, SegmentedRadioGroup as Ne, Select as Pe, Select$1 as F, SelectItem as I, SettingsCard as Fe, SettingsRow as L, SiteLabel as Ie, SortableBoardTabs as Le, SourceLabel as Re, SourceMark as ze, Stack as R, StatusLabel as z, Switch as B, THUMBNAIL_JOBS_KEY as Be, TaskCenterLink as Ve, TaskProgress as He, TextField as Ue, TextFieldContext as We, Uz as Ge, __toESM as Ke, _p as qe, activityKind as Je, animate as Ye, apiGet as V, apiSend as H, appSettingsStore as Xe, bodyFieldErrors as Ze, boundedPreference as Qe, busyProps as U, cardClass as $e, checkClientUpdates as et, cloudProxySkeleton as tt, clsx as nt, cn as rt, codedText as W, confirmModal as it, credentialDone as at, credentialsSkeleton as ot, cx as st, d6 as ct, devicesSkeleton as lt, errorMessage as G, fetchConfiguration as ut, fetchCredentials as dt, fetchLibraryProcessing as ft, fetchMediaProcessing as pt, fetchSettings as mt, fetchThumbnailJobs as ht, fmtSize as K, i2 as gt, indexersSkeleton as _t, interfaceLanguage as vt, javBrowserSkeleton as yt, jobText as bt, joinList as xt, l1 as St, ledgerBackupsSkeleton as Ct, localizedFact as wt, momentText as Tt, motion as Et, overlayHost as Dt, peachHistory$1 as Ot, pickServerFolder as kt, pollUntil as At, previewLibraryColor as jt, processingActive as Mt, providerIcon as Nt, queryClient as Pt, randomId as Ft, rememberShape as It, require_jsx_runtime as Lt, require_react as Rt, restartEffectText as zt, saveCredential as Bt, schedulePollInterval as Vt, sectionTitle as Ht, serverLabel as q, serverLabelList as Ut, serverText as Wt, settingsPath as Gt, shellNavigate as Kt, sortCx as qt, sourceDefaultCost as Jt, stageText as Yt, t as J, translateWithNodes as Xt, useAction as Y, useClientUpdates as Zt, useLibraryTints as Qt, useMutation as $t, useOrderedLibraries as en, useQuery as X, useQueryClient as tn, useReducedMotion as nn, useRunSchedule as rn, useSaveSchedule as an, useSaveSettings as on, useSaveThumbnailMode as sn, we as cn, z3 as ln } from "./peach-app.js";
@@ -6341,8 +6341,32 @@ function Rc({ receipt: e }) {
 		}) : null]
 	});
 }
+// src/react/settings/cover-fallback-settings.tsx
+function zc({ receipt: e }) {
+	let t = X({
+		queryKey: Ae,
+		queryFn: ({ signal: e }) => mt(e),
+		refetchOnMount: "always"
+	}), n = on("cover-fallback"), r = n.error || t.error;
+	return /* @__PURE__ */ (0, Q.jsxs)(P, {
+		title: J("settings:coverFallback.title"),
+		children: [/* @__PURE__ */ (0, Q.jsx)(N, { children: /* @__PURE__ */ (0, Q.jsx)(L, {
+			label: J("settings:coverFallback.javdb"),
+			description: J("settings:coverFallback.javdbHelp"),
+			children: /* @__PURE__ */ (0, Q.jsx)(B, {
+				"aria-label": J("settings:coverFallback.javdb"),
+				isSelected: t.data?.javdbCoverFallback === !0,
+				isDisabled: !t.data || n.isPending,
+				onChange: (t) => n.mutate({ javdbCoverFallback: t }, { onSuccess: () => e(J("settings:shared.settingsSaved")) })
+			})
+		}) }), r ? /* @__PURE__ */ (0, Q.jsx)(R, {
+			divided: !0,
+			children: /* @__PURE__ */ (0, Q.jsx)(T, { children: G(r) })
+		}) : null]
+	});
+}
 // src/react/settings/source-settings.tsx
-function zc({ data: e, receipt: t, panel: n, issues: r }) {
+function Bc({ data: e, receipt: t, panel: n, issues: r }) {
 	let i = X({
 		queryKey: D,
 		queryFn: ({ signal: e }) => dt(e),
@@ -6376,6 +6400,7 @@ function zc({ data: e, receipt: t, panel: n, issues: r }) {
 			}),
 			/* @__PURE__ */ (0, Q.jsx)(Ts, { receipt: t }),
 			/* @__PURE__ */ (0, Q.jsx)(Rc, { receipt: t }),
+			/* @__PURE__ */ (0, Q.jsx)(zc, { receipt: t }),
 			/* @__PURE__ */ (0, Q.jsx)(Ac, { receipt: t }),
 			e.entry_links ? /* @__PURE__ */ (0, Q.jsx)(Oc, {
 				initial: e.entry_links,
@@ -6385,7 +6410,7 @@ function zc({ data: e, receipt: t, panel: n, issues: r }) {
 	});
 }
 // src/react/settings/configuration-shape.ts
-function Bc(e) {
+function Vc(e) {
 	let t = e.downloads;
 	if (!t) return null;
 	let n = t.media_sources ?? [];
@@ -6398,7 +6423,7 @@ function Bc(e) {
 		browserLogin: t.pikpak_browser.available
 	};
 }
-function Vc(e) {
+function Hc(e) {
 	let t = e.tunnel;
 	return {
 		port: !!(e.editable && e.port_editable !== !1),
@@ -6412,7 +6437,7 @@ function Vc(e) {
 		tunnelNote: !!(t && (!t.available || t.state === "starting" || t.state === "running" && t.url))
 	};
 }
-function Hc(e) {
+function Uc(e) {
 	let t = e.updates, n = e.update_job?.state ?? "idle", r = !t || t.state === "unchecked" && !t.checked_at && n === "idle", i = +!!t?.package_kind + (r ? 0 : +!!t?.checked_at + (t?.state === "unchecked" ? 0 : 1) + (n === "idle" ? 0 : 1)), a = e.automatic_updates, o = e.storage;
 	return {
 		releaseFacts: t?.package_kind ? 5 : 4,
@@ -6433,12 +6458,12 @@ function Hc(e) {
 	};
 }
 // src/react/settings/configuration-page.tsx
-function Uc({ receipt: e, reopenTutorial: t, section: n = "", diagnostics: r }) {
+function Wc({ receipt: e, reopenTutorial: t, section: n = "", diagnostics: r }) {
 	let i = X({
 		queryKey: g,
 		queryFn: ({ signal: e }) => ut(e)
 	}), a = i.data;
-	return a ? /* @__PURE__ */ (0, Q.jsx)(Kc, {
+	return a ? /* @__PURE__ */ (0, Q.jsx)(qc, {
 		data: a,
 		receipt: e,
 		reopenTutorial: t,
@@ -6457,7 +6482,7 @@ function Uc({ receipt: e, reopenTutorial: t, section: n = "", diagnostics: r }) 
 		})
 	});
 }
-function Wc({ data: e, sections: t, reload: n, refreshing: r }) {
+function Gc({ data: e, sections: t, reload: n, refreshing: r }) {
 	return /* @__PURE__ */ (0, Q.jsx)(Q.Fragment, { children: t.map((t) => {
 		let i = e.section_errors?.[t];
 		return i ? /* @__PURE__ */ (0, Q.jsx)(M, {
@@ -6474,14 +6499,14 @@ function Wc({ data: e, sections: t, reload: n, refreshing: r }) {
 		}, t) : null;
 	}) });
 }
-var Gc = 0;
-function Kc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i, reload: a, refreshing: o }) {
-	let [s] = (0, Z.useState)(() => `board-tabs-${++Gc}`), [c, l] = (0, Z.useState)(r), u = (0, Z.useRef)(null), d = (0, Z.useRef)(c);
+var Kc = 0;
+function qc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i, reload: a, refreshing: o }) {
+	let [s] = (0, Z.useState)(() => `board-tabs-${++Kc}`), [c, l] = (0, Z.useState)(r), u = (0, Z.useRef)(null), d = (0, Z.useRef)(c);
 	(0, Z.useEffect)(() => {
 		l(r);
 	}, [r]), (0, Z.useEffect)(() => {
-		let t = Bc(e);
-		t && It("downloads", t), It("network", Vc(e)), It("maintenance", Hc(e));
+		let t = Vc(e);
+		t && It("downloads", t), It("network", Hc(e)), It("maintenance", Uc(e));
 	}, [e]), (0, Z.useLayoutEffect)(() => {
 		if (d.current === c) return;
 		d.current = c;
@@ -6505,7 +6530,7 @@ function Kc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 	let h = {
 		data: e,
 		receipt: t
-	}, g = (t) => /* @__PURE__ */ (0, Q.jsx)(Wc, {
+	}, g = (t) => /* @__PURE__ */ (0, Q.jsx)(Gc, {
 		data: e,
 		sections: t,
 		reload: a,
@@ -6538,7 +6563,7 @@ function Kc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 		{
 			id: "sources",
 			title: _.subscriptions,
-			body: (e) => /* @__PURE__ */ (0, Q.jsx)(zc, {
+			body: (e) => /* @__PURE__ */ (0, Q.jsx)(Bc, {
 				...h,
 				panel: e,
 				issues: g(["entry_links"])
@@ -6629,6 +6654,6 @@ function Kc({ data: e, receipt: t, reopenTutorial: n, section: r, diagnostics: i
 		})] }, t))]
 	});
 }
-export { Uc as ConfigurationPage };
+export { Wc as ConfigurationPage };
 
-//# debugId=8845f7fc-109d-48dc-bf3c-caaf3c9e3be4
+//# debugId=1bbd108f-786d-404a-9f6a-f25225138a35

@@ -63,6 +63,8 @@ export interface SyncedSettings {
   /** 「想要」老片多久再查一次（天），以及查几次没找到就暂时放弃（0 表示一直查）。 */
   wantStaleSearchDays?: number;
   wantStaleAttemptLimit?: number;
+  /** 没有别的封面时用 JavDB 带水印的图（#531），默认关。 */
+  javdbCoverFallback?: boolean;
 }
 
 export interface FollowScheduleStatus {

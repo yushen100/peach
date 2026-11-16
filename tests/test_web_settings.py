@@ -139,7 +139,7 @@ class SettingsRoundTripTests(unittest.TestCase):
                           "feedHideSoloCompilations": False, "feedHideExcerpts": True,
                           "searchHistoryLimit": None, "performerNameLanguage": "zh-CN", "taskSpeedMode": "standard",
                           "interfaceLanguage": "auto", "systemLanguage": None, "javBrowserWantOnNoMatch": True,
-                          "wantStaleSearchDays": 7, "wantStaleAttemptLimit": 3})
+                          "javdbCoverFallback": False, "wantStaleSearchDays": 7, "wantStaleAttemptLimit": 3})
 
     def test_code_patterns_are_checked_when_saved(self):
         """写错的规则在保存那一刻报出来；存下的规则去掉空行，读回来是同一份。"""
@@ -230,6 +230,14 @@ class SettingsRoundTripTests(unittest.TestCase):
                                    "feedHideGroupCompilations": False, "feedHideExcerpts": False})
         self.assertEqual(web_settings.hidden_compilations(self.contract), frozenset({"solo"}))
 
+    def test_the_watermarked_cover_fallback_defaults_off_and_takes_only_booleans(self):
+        """#531：没有别的封面时用不用 JavDB 带水印的图，默认关，跟着账本走。"""
+        self.assertFalse(q_settings(self.contract)["javdbCoverFallback"])
+        with self.assertRaises(ValueError):
+            w_settings(self.contract, {"javdbCoverFallback": "on"})
+        self.assertTrue(w_settings(self.contract, {"javdbCoverFallback": True})["javdbCoverFallback"])
+        self.assertEqual(self._stored_json(), {"javdbCoverFallback": True})
+
     def test_the_browser_want_switch_defaults_on_and_takes_only_booleans(self):
         self.assertTrue(q_settings(self.contract)["javBrowserWantOnNoMatch"])
         with self.assertRaises(ValueError):
@@ -268,7 +276,7 @@ class SettingsRoundTripTests(unittest.TestCase):
                           "feedHideSoloCompilations": False, "feedHideExcerpts": True,
                           "searchHistoryLimit": None, "performerNameLanguage": "zh-CN", "taskSpeedMode": "standard",
                           "interfaceLanguage": "auto", "systemLanguage": None, "javBrowserWantOnNoMatch": True,
-                          "wantStaleSearchDays": 7, "wantStaleAttemptLimit": 3})
+                          "javdbCoverFallback": False, "wantStaleSearchDays": 7, "wantStaleAttemptLimit": 3})
         self.assertEqual(q_settings(self.contract)["sidebarOrder"], order)
         self.assertEqual(self._stored_json()["sidebarOrder"], order)
 

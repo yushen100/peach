@@ -1318,5 +1318,10 @@
     "intervalHelp": "How often to search again for releases over 90 days old that weren't found.",
     "never": "Never",
     "title": "Wants search"
+  },
+  "coverFallback": {
+    "title": "Covers",
+    "javdb": "Use watermarked JavDB images when there is no other cover",
+    "javdbHelp": "Off by default. Official and local covers always come first; an unwatermarked cover found later replaces it"
   }
 }

@@ -474,6 +474,8 @@ class LibraryMetadataProvider:
 
     #: 匿名 JavDB 资料的快照目录；没有时只在进程内存里复用。
     public_cache = None
+    #: 设置「没有别的封面时用 JavDB 带水印的图」（#531，`javdbCoverFallback`），由 `_RemoteSession` 按账本设置给。
+    watermarked_covers = False
 
     #: 由本机浏览器过验证的来源累计等人点验证的秒数（`_excuse`）。调用方拿它前后相减，把这段时间
     #: 从单项动作预算里扣掉：一个站第一次弹验证窗口时，那一问要等 `min(40, timeout) + 120` 秒，
@@ -876,7 +878,8 @@ class LibraryMetadataProvider:
                 problems += self.community_problems(code)
                 *picked, verified_by = verified_cover(self.transport, code, answers,
                                                       reference=official, siblings=siblings if official else (),
-                                                      deadline=_extended(deadline, self.excused - mark))
+                                                      deadline=_extended(deadline, self.excused - mark),
+                                                      allow_watermarked=self.watermarked_covers)
                 chosen = tuple(picked)
             except NotFound:
                 pass
@@ -903,10 +906,12 @@ class LibraryMetadataProvider:
                 raise _unreached(problems)
             raise CoverKept('errors.libraryProcessing.coverNotImproved', {'width': size[0], 'height': size[1]})
         from .cover_artwork import install_cover
+        from .jav_cover_fetch import is_javdb_image
         title = artwork_title(snapshots)
         install_cover(target, code, data, size, evidence=dict(source=candidate.source, title=title,
             source_url=candidate.url, width=size[0], height=size[1], verified_by=list(verified_by),
-            raw_sha256=hashlib.sha256(data).hexdigest(), checked_at=time.time()))
+            raw_sha256=hashlib.sha256(data).hexdigest(), checked_at=time.time(),
+            **({'watermarked': True} if is_javdb_image(candidate.url, candidate.source) else {})))
         return True
 
     def reset(self):
@@ -1721,7 +1726,16 @@ class _RemoteSession:
                                   self._config.directory('secrets'), tools_root=self._config.directory('tools'),
                                   public_cache=self._config.directory('generated') / 'jav-public',
                                   wiki_root=self._config.directory('sources') / 'library-metadata' / 'seesaa-pages'))
+            if isinstance(self._provider, LibraryMetadataProvider):
+                self._provider.watermarked_covers = self._watermarked_covers()
         return self._provider
+
+    def _watermarked_covers(self):
+        """账本设置 `javdbCoverFallback`：没有别的封面时用不用 JavDB 带水印的图，没设过按关。"""
+        if self.database is None:
+            return False
+        with self.database.read_connection() as connection:
+            return read_settings(connection).get('javdbCoverFallback') is True
 
     def reset(self):
         if self._provider is not None and hasattr(self._provider, 'reset'):

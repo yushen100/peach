@@ -871,6 +871,18 @@ class LibraryNfoTests(unittest.TestCase):
         self.assertEqual(title, '正しい題名')
         self.assertEqual(series, '\ufffd系列')
 
+    def test_the_watermarked_cover_fallback_follows_the_ledger_setting(self):
+        """#531：采集封面时按账本设置决定能不能退到 JavDB 水印图，没设过按关。"""
+        from peach.library_processing import _RemoteSession
+        database = LedgerDatabase(fresh_ledger(self.root))
+        session = _RemoteSession(None, None, None, retrying=False, database=database)
+        self.assertFalse(session._watermarked_covers())
+        with database.write_transaction() as connection:
+            connection.execute("UPDATE profile SET settings_json=? WHERE id='local-default'",
+                               (json.dumps({'javdbCoverFallback': True}),))
+        self.assertTrue(session._watermarked_covers())
+        self.assertFalse(_RemoteSession(None, None, None, retrying=False)._watermarked_covers())
+
     def test_recollect_is_only_for_a_few_named_videos_and_the_metadata_stage(self):
         from peach.web_library_processing import RECHECK_LIMIT, _recheck_grant
         self.assertTrue(_recheck_grant({'recheck': True}, 'metadata', [7]))

@@ -42,6 +42,18 @@ class CoverArtworkTests(unittest.TestCase):
         self.assertEqual(self.target.read_bytes(), data)
         self.assertFalse(self.target.with_suffix('.face.json').exists())
 
+    def test_a_javdb_image_marked_as_the_chosen_fallback_installs_and_shows(self):
+        """#531：设置打开后按水印兜底装上的那张记着 `watermarked`，装得上，也不再被当成只作印证的图藏起来。"""
+        data = jpeg((80, 90, 100))
+        evidence = {'source_url': 'https://c0.jdbstatic.com/covers/x.jpg', 'watermarked': True}
+        with patch.object(cover_artwork, 'face_record', return_value=None):
+            cover_artwork.install_cover(self.target, 'XV-507', data, (840, 472), evidence=evidence)
+        self.assertEqual(self.target.read_bytes(), data)
+        self.assertFalse(cover_artwork.has_javdb_source(self.target))
+        self.target.with_suffix('.scraping.json').write_text(
+            json.dumps({'source_url': 'https://c0.jdbstatic.com/covers/x.jpg'}), encoding='utf-8')
+        self.assertTrue(cover_artwork.has_javdb_source(self.target))
+
     def test_a_paper_canvas_keeps_a_face_left_of_the_expected_spine(self):
         detector = Detector()
         with patch.object(detector, 'detect', return_value=[Face(.478, .094, .085, .155, .838)]):

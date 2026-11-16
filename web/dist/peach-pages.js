@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "1efb543c-8ee5-4a1a-8b2d-b5ada26f0a51", e._sentryDebugIdIdentifier = "sentry-dbid-1efb543c-8ee5-4a1a-8b2d-b5ada26f0a51");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "bd39ff8d-2c65-4b48-a4a1-b7234c425254", e._sentryDebugIdIdentifier = "sentry-dbid-bd39ff8d-2c65-4b48-a4a1-b7234c425254");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -7105,6 +7105,11 @@ var He = {
 		intervalHelp: "How often to search again for releases over 90 days old that weren't found.",
 		never: "Never",
 		title: "Wants search"
+	},
+	coverFallback: {
+		title: "Covers",
+		javdb: "Use watermarked JavDB images when there is no other cover",
+		javdbHelp: "Off by default. Official and local covers always come first; an unwatermarked cover found later replaces it"
 	}
 }, Ye = {
 	download: {
@@ -14155,6 +14160,11 @@ var He = {
 		intervalHelp: "发售超过 90 天、上次没查到的作品隔多久再查。",
 		never: "一直查",
 		title: "想要查资源"
+	},
+	coverFallback: {
+		title: "封面",
+		javdb: "没有别的封面时用 JavDB 带水印的图",
+		javdbHelp: "默认关闭。官方与本地封面始终优先，之后取到不带水印的封面会自动换掉"
 	}
 }, it = {
 	download: {
@@ -39163,4 +39173,4 @@ Dt();
 var Bb = document.getElementById("peach-page"), Vb = Bb ? zb[Bb.dataset.page ?? ""] : void 0;
 Bb && Vb && (0, It.createRoot)(Bb).render(/* @__PURE__ */ (0, V.jsx)(Rb, { children: /* @__PURE__ */ (0, V.jsx)(Vb, { data: { ...Bb.dataset } }) }));
 
-//# debugId=1efb543c-8ee5-4a1a-8b2d-b5ada26f0a51
+//# debugId=bd39ff8d-2c65-4b48-a4a1-b7234c425254

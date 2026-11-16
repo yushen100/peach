@@ -14,6 +14,7 @@ import { IndexerSettings } from './indexer-settings';
 import { SectionSkeleton } from './section';
 import { FollowPreferenceRows } from './service-preferences';
 import { WantSearchSettings } from './want-search-settings';
+import { CoverFallbackSettings } from './cover-fallback-settings';
 import { t } from '../../i18n';
 
 export function SourceSettings({ data, receipt, panel, issues }: ConfigurationGroupProps) {
@@ -29,6 +30,7 @@ export function SourceSettings({ data, receipt, panel, issues }: ConfigurationGr
         : panel?.active !== false ? <SectionSkeleton label={t('settings:sourceSettings.loadingCredentials')} html={credentialsSkeleton} /> : null}
     <FollowPreferenceRows receipt={receipt} />
     <WantSearchSettings receipt={receipt} />
+    <CoverFallbackSettings receipt={receipt} />
     <IndexerSettings receipt={receipt} />
     {data.entry_links ? <EntryLinksForm initial={data.entry_links} receipt={receipt} /> : null}
   </div>;
