@@ -16,6 +16,8 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Added / 新增
 
+- **Library**: Table headers offer multi-select filters with search, pagination, select-all and exclusion controls (#744). / **馆藏**：列表列头支持搜索、多选、分页、全选与排除筛选（#744）。
+- **Interface**: Customize and reorder sorting options across library and discovery views, with release-date sorting on Home (#744). / **界面**：馆藏与发现页可自定义排序项及顺序，首页支持按发行时间排序（#744）。
 - **Library**: Delete profiles individually or in batches, with choices to keep works, move them to Trash or permanently delete their media (#738). / **馆藏**：资料页与名册多选支持删除档案，可选择保留作品、移入回收站或连同媒体永久删除（#738）。
 - **Interface**: Deletion buttons require a two-second hold with progress fill and release to cancel, while scope dialogs stay available (#738). / **界面**：删除执行键统一长按两秒确认，填充显示进度，提前松开取消，并保留范围说明弹窗（#738）。
 - **Following**: A SimpCity post with several images shows all of them in Following details, in post order, with the existing image carousel (#575). / **关注**：SimpCity 一层楼有多张图时，关注详情按正文顺序列出全部图片，可以轮播切换（#575）。
@@ -218,6 +220,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Fixed / 修复
 
+- **Following**: Leaving Home unmounts its new-release row and prevents late requests from showing it on other pages (#744). / **关注**：离开首页时卸载新作行，迟到请求不会再将它显示到其他页面（#744）。
 - **Desktop**: On macOS, opening Peach while it is running opens the web UI, so you can get in even when the system hides the menu bar icon. / **桌面**：macOS 上 Peach 已在运行时再点开应用会打开网页，菜单栏图标被系统折叠时也能进入。
 - **Updates**: Auto-repair speed set in Tasks applies to later batches and persists across restarts (#535). / **更新**：在任务中心调整自动修复的速度后，之后各批沿用这个速度，重启后仍保留（#535）。
 - **Library**: 1920×1080 and similar videos are rated 1080P instead of 2K; existing videos are corrected after upgrading (#583). / **馆藏**：1920×1080 等视频的画质分档改为 1080P，不再算作 2K；已有视频升级后自动更正（#583）。
