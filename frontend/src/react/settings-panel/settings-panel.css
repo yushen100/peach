@@ -256,7 +256,7 @@
 [data-settings-panel] [data-settings-card] [data-settings-scroll] [data-setting-row]+[data-sidebar-setting]{border-top:0}
 [data-settings-panel] [data-settings-card] [data-settings-scroll] [data-setting-row] b{font-size:14px;line-height:20px;font-weight:400}
 [data-settings-panel] [data-settings-card] [data-settings-scroll] [data-setting-row] small{font-size:12px;line-height:18px;margin-top:2px;max-width:none}
-[data-settings-panel] [data-settings-card] [data-settings-scroll] [class~=ui-gselect]{min-width:90px;min-height:32px;height:32px;padding:6px 8px;font-size:13px;border-radius:8px}
+[data-settings-panel] [data-settings-card] [data-settings-scroll] [class~=ui-gselect]{min-width:90px;min-height:32px;height:32px;padding:0;font-size:13px;border-radius:8px}
 [data-settings-panel] [data-settings-card] [data-number-control]{gap:5px;font-size:12px}
 [data-settings-panel] [data-settings-card] [data-number-control] input{width:64px;height:32px;padding:6px;border-radius:8px;font-size:13px}
 [data-settings-panel] [data-settings-card] [data-number-control] button{min-height:32px;padding:4px 8px;font-size:12px}
