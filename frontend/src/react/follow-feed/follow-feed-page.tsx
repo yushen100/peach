@@ -25,10 +25,9 @@ import { AsyncText } from '../components/async-text';
 import { RetryNote } from '../components/grid-reveal';
 import { SkeletonContent } from '../components/skeleton-content';
 import { spriteGlyph } from '../components/sprite-glyph';
-import { IconSwap } from '../components/icon-swap';
 import { useViewGlide } from '../components/use-view-glide';
 import { useMasonryGrid } from '../components/use-masonry-grid';
-import { Segments, Shuffle } from '../entity-filter/entity-filter-page';
+import { Segments, Shuffle, SortKeys } from '../entity-filter/entity-filter-page';
 import type { SegmentOption } from '../entity-filter/entity-filter';
 import { checkSummary, FOLLOW_CHECK_URL, FOLLOW_STATUS_URL, sourceIconUrl } from '../follow-manage/follow-manage';
 import { followManageEntry } from '../follow-manage/manage-route';
@@ -54,7 +53,6 @@ const Sep = () => <span data-entity-sep="" aria-hidden="true" />;
 const SETTINGS = spriteGlyph('settings');
 const CHEVRON_DOWN = spriteGlyph('chevron-down');
 const HISTORY = spriteGlyph('history');
-const SortUpIcon = spriteGlyph('arrow-up'), SortDownIcon = spriteGlyph('arrow-down');
 
 /** 照片墙那一排的图片布局两档，同壳里 `PHOTO_LAYOUTS`。 */
 /** 组合条上每个维度的名字；标签只显示标签本身。 */
@@ -501,19 +499,12 @@ function Glass({ facets, view, total, busy, props, route }: {
               </button>
             </>
           ) : null}
-          {FOLLOW_FEED_SORTS.map(([key, label]) => {
-            const pressed = view.sort === key;
-            return (
-              <button key={key} type="button" data-entity-sort={key} data-follow-sort={key} data-entity-press=""
-                aria-pressed={pressed} aria-label={sortAriaLabel(key, label, view.sort, view.dir) || undefined}
-                onClick={() => {
-                  const next = nextSort(key, view.sort, view.dir);
-                  if (next) route(next);
-                }}>
-                {label}{pressed ? <IconSwap a={SortUpIcon} b={SortDownIcon} state={view.dir === 'asc' ? 'a' : 'b'} className="size-(--icon-inline)" /> : null}
-              </button>
-            );
-          })}
+          <SortKeys group="follow" follow sorts={FOLLOW_FEED_SORTS.map(([key, label]) => ({
+            key, label, pressed: view.sort === key, dir: view.dir, ariaLabel: sortAriaLabel(key, label, view.sort, view.dir),
+          }))} onSort={key => {
+            const next = nextSort(key, view.sort, view.dir);
+            if (next) route(next);
+          }} />
         </span>
       </>}
     />

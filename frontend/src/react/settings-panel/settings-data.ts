@@ -17,6 +17,7 @@ import { apiGet, apiSend } from '../../api';
 import { withBackoff } from '../../polling';
 import { queryClient } from '../query';
 import type { NavigationOrders } from '../../navigation-order';
+import type { SortControls } from '../../sort-controls';
 
 export const SETTINGS_URL = '/api/settings';
 export const FOLLOW_SCHEDULE_URL = '/api/follow/schedule';
@@ -50,6 +51,7 @@ export interface SyncedSettings {
   sidebarOrder?: string[];
   manageOrder?: string[];
   navigationOrders?: NavigationOrders;
+  sortControls?: SortControls;
   libraryOrder?: string[];
   followInitialDays?: number;
   postSetupTutorialDone?: boolean;

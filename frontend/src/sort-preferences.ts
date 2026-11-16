@@ -7,7 +7,7 @@ export const SORTS: readonly (readonly [key: string, label: string])[] = [
   ['seed', t('settings:shared.random')], ['rating', t('settings:shared.rating')], ['o', t('settings:shared.climaxCount')], ['plays', t('settings:shared.plays')], ['dur', t('settings:shared.duration')],
   ['size', t('settings:shared.fileSize')], ['new', t('settings:shared.dateAdded')], ['played', t('settings:shared.lastWatched')],
 ];
-/** 只在 JAV 语境里出现的那一列。 */
+/** 发行时间排序，首页馆藏与 JAV 馆藏共用同一个键。 */
 export const JAV_RELEASE_SORT: readonly [key: string, label: string] = ['release', t('settings:sortOrder.releaseDate')];
 export const SORT_KEYS: readonly string[] = [...SORTS, JAV_RELEASE_SORT].map(([key]) => key);
 

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {after,before,describe,it} from 'node:test';
-import type {Browser} from 'playwright-core';
+import type {Browser,Route} from 'playwright-core';
 import {launch,layout,requiredEnv,VIEWPORTS} from './harness.ts';
 
 describe('新作封面显示时机',()=>{
@@ -8,6 +8,72 @@ describe('新作封面显示时机',()=>{
  before(async()=>{browser=await launch()});
  after(async()=>{await browser?.close()});
  for(const viewport of VIEWPORTS){
+  it(`${viewport.name} 离开目录后卸载首页新作，晚到封面轮询不会出现在其他页面`,{timeout:180000},async()=>{
+   const context=await browser.newContext({viewport:{width:viewport.width,height:viewport.height},reducedMotion:'reduce'});
+   try{
+    await context.addInitScript(()=>localStorage.setItem('peach.settings.v1',JSON.stringify({detailAutoplay:false,feedAutoScroll:false})));
+    const page=await context.newPage();
+    await page.route(/\/api\/entity\/shapes/,route=>route.fulfill({json:{home:{feed:true},entities:[]}}));
+    let first=true;
+    let pending:Route|null=null;
+    const row={items:[{id:1,code:'EXM-001',title:'示例新作',cover_state:'fetching'}]};
+    await page.route(/\/api\/feeds\/discoveries\?/,async route=>{
+     if(first){first=false;await route.fulfill({json:row})}
+     else pending=route;
+    });
+    await page.goto(requiredEnv('PEACH_E2E_ORIGIN')+'/stats');
+    const paths=['/jav?tab=wants','/jav?tab=releases','/jav?tab=discover','/performers','/performers/1','/studios','/studios/1','/tags',
+     '/stats','/tasks','/follow','/playlists','/trash','/junk-files','/?browse=folders'];
+    for(const path of paths){
+     first=true;
+     await page.evaluate(()=>{history.pushState({},'','/');window.dispatchEvent(new PopStateEvent('popstate'))});
+     await page.locator('#feedNew [data-feed-id]').waitFor({state:'visible'});
+     // 等下一次封面轮询发出后离开，响应在目标页面出现之后才返回。
+     await page.waitForRequest(request=>request.url().includes('/api/feeds/discoveries?'));
+     await page.evaluate(path=>{history.pushState({},'',path);window.dispatchEvent(new PopStateEvent('popstate'))},path);
+     await page.waitForFunction(()=>{
+      const host=document.getElementById('feedNew');
+      return host?.hidden&&host.childElementCount===0&&!host.hasAttribute('aria-busy');
+     });
+     assert.ok(pending,`${path} 已发出封面轮询`);
+     const response=page.waitForResponse(response=>response.url().includes('/api/feeds/discoveries?'));
+     await (pending as Route).fulfill({json:{items:[{...row.items[0],title:'封面轮询已返回',cover_state:'missing'}]}});
+     pending=null;
+     await response;
+     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+     assert.deepEqual(await page.locator('#feedNew').evaluate(host=>({hidden:(host as HTMLElement).hidden,children:host.childElementCount})),
+      {hidden:true,children:0},`${path} 不恢复首页新作`);
+    }
+   }finally{await context.close()}
+  });
+
+  it(`${viewport.name} 新作首屏在途时离开再返回，旧响应不能替换新页面`,{timeout:60000},async()=>{
+   const context=await browser.newContext({viewport:{width:viewport.width,height:viewport.height},reducedMotion:'reduce'});
+   try{
+    const page=await context.newPage();
+    const pending:Route[]=[];
+    await page.route(/\/api\/entity\/shapes/,route=>route.fulfill({json:{home:{feed:true},entities:[]}}));
+    await page.route(/\/api\/feeds\/discoveries\?/,route=>{pending.push(route)});
+    await page.goto(requiredEnv('PEACH_E2E_ORIGIN')+'/stats');
+    const entering=page.waitForRequest(request=>request.url().includes('/api/feeds/discoveries?'));
+    await page.evaluate(()=>{history.pushState({},'','/');window.dispatchEvent(new PopStateEvent('popstate'))});
+    await entering;
+    await page.evaluate(()=>{history.pushState({},'','/jav?tab=wants');window.dispatchEvent(new PopStateEvent('popstate'))});
+    await page.waitForFunction(()=>document.getElementById('feedNew')?.hidden);
+    const returning=page.waitForRequest(request=>request.url().includes('/api/feeds/discoveries?'));
+    await page.evaluate(()=>{history.pushState({},'','/');window.dispatchEvent(new PopStateEvent('popstate'))});
+    await returning;
+    assert.equal(pending.length,2,'返回目录开启新的首屏读取');
+    await pending[1]!.fulfill({json:{items:[{id:2,code:'EXM-002',title:'当前新作'}]}});
+    await page.locator('#feedNew [data-feed-id="2"]').waitFor({state:'visible'});
+    const oldResponse=page.waitForResponse(response=>response.url().includes('/api/feeds/discoveries?'));
+    await pending[0]!.fulfill({json:{items:[{id:1,code:'EXM-001',title:'上一页新作'}]}});
+    await oldResponse;
+    await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
+    assert.deepEqual(await page.locator('#feedNew [data-feed-id]').evaluateAll(cards=>cards.map(card=>card.getAttribute('data-feed-id'))),['2']);
+   }finally{await context.close()}
+  });
+
   it(`${viewport.name} 新作正封完整居中并补底，整幅大封不使用模糊`,{timeout:60000},async()=>{
    const context=await browser.newContext({viewport:{width:viewport.width,height:viewport.height},reducedMotion:'reduce'});
    try{

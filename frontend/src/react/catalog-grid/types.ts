@@ -68,7 +68,7 @@ export interface MediaItem {
 /** `/api/items` 的一页。第一页带总数，往后的页只说还有没有。 */
 export interface MediaPage { items: MediaItem[]; total?: number; work_total?: number; has_more?: boolean }
 
-export interface MediaPageOptions { limit: number; sort?: string; dir?: string }
+export interface MediaPageOptions { limit: number; sort?: string; dir?: string; filters?: Readonly<Record<string, string>> }
 
 /** 这一屏卡片的版式。`active` 是番号版式开关生效（JAV 模式或首页版式），`size` 是大图／小图，
  *  `portrait` 是这一屏整列都是竖屏（显式筛了竖屏），`javImage` 是「JAV 默认封面」设置。 */
@@ -148,6 +148,8 @@ export interface CatalogGridProps {
 
   /* catalog 模式 */
   filters?: Readonly<Record<string, string>>;
+  /** 列头筛选的实体范围，与作品请求共用同一组筛选。 */
+  facetScope?: Readonly<Record<string, string>>;
   batchSize?: number;
   groupCollapse?: boolean;
   /** 首页默认列表排除竖屏（另有竖屏带承接）；判据归壳。 */

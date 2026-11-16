@@ -75,7 +75,7 @@ export interface EntityBodyActions extends MediaCardActions {
 /** 从卡片网格原样递进去的那几样：版式、选择状态、缓存与骨架都是壳里同一份。 */
 type SharedGridProps = Pick<CatalogGridProps,
   'layout' | 'selectMode' | 'selected' | 'seekSeconds' | 'wireDrag' | 'skeletonHtml'
-  | 'groupCollapse' | 'canLoadMore' | 'listScope' | 'restoreNavigation'>;
+  | 'groupCollapse' | 'canLoadMore' | 'listScope' | 'restoreNavigation' | 'filters' | 'facetScope'>;
 
 export interface EntityBodyProps extends SharedGridProps {
   kind: string;

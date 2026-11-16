@@ -64,7 +64,7 @@ INTERFACE_LANGUAGE_CHOICES = ("auto", *INTERFACE_LANGUAGES)
 #: 浏览器入库没搜到资源时加不加入想要（ADR-0161）是服务端在入库队列里做的事，同样跟着账本走。
 #: 「想要」老片多久查一次、查几次放弃（`wants.cadence`）是定时查找读的，同样跟着账本走。
 SYNCED_SETTING_KEYS = frozenset({
-    "sidebarOrder", "manageOrder", "navigationOrders", "libraryOrder", "followInitialDays", "postSetupTutorialDone",
+    "sidebarOrder", "manageOrder", "navigationOrders", "sortControls", "libraryOrder", "followInitialDays", "postSetupTutorialDone",
     "organizeTemplates", "feedHideGroupCompilations", "feedHideSoloCompilations",
     "feedHideExcerpts", "searchHistoryLimit", "codePatterns", "performerNameLanguage", "taskSpeedMode",
     "interfaceLanguage", "javBrowserWantOnNoMatch", "wantStaleSearchDays", "wantStaleAttemptLimit",
@@ -98,6 +98,46 @@ NAVIGATION_ORDERS = {
     'tags': ('local', 'online'),
     'preferences': ('appearance', 'browsing', 'jav', 'search', 'content'),
 }
+SORT_CONTROL_KEYS = {
+    'catalog': ('rating', 'o', 'plays', 'dur', 'size', 'new', 'played', 'release'),
+    'jav': ('release', 'rating', 'o', 'plays', 'dur', 'size', 'new', 'played'),
+    'follow': ('new', 'hot', 'dur'),
+    'releases': ('release_date', 'source_score', 'duration', 'code', 'taste'),
+    'discover': ('taste', 'release_date', 'source_score', 'duration', 'code'),
+}
+
+
+def normalise_sort_controls(raw):
+    """保留合法排序项及隐藏选择，新排序项追加到末尾。"""
+    if not isinstance(raw, dict):
+        return {}
+    result = {}
+    for group, defaults in SORT_CONTROL_KEYS.items():
+        saved = raw.get(group)
+        if not isinstance(saved, dict):
+            continue
+        fields = {}
+        for field in ('order', 'hidden'):
+            entries = saved.get(field)
+            entries = entries if isinstance(entries, list) else []
+            fields[field] = list(dict.fromkeys(key for key in entries if isinstance(key, str) and key in defaults))
+        fields['order'] = list(dict.fromkeys(fields['order'] + list(defaults)))
+        result[group] = fields
+    return result
+
+
+def sort_controls_patch(raw):
+    if not isinstance(raw, dict) or set(raw) - SORT_CONTROL_KEYS.keys():
+        raise UserValueError('api.settings.sortControlsInvalid')
+    for group, saved in raw.items():
+        if not isinstance(saved, dict) or set(saved) != {'order', 'hidden'}:
+            raise UserValueError('api.settings.sortControlsInvalid')
+        for entries in saved.values():
+            if (not isinstance(entries, list) or len(entries) > len(SORT_CONTROL_KEYS[group])
+                    or any(not isinstance(key, str) or key not in SORT_CONTROL_KEYS[group] for key in entries)
+                    or len(set(entries)) != len(entries)):
+                raise UserValueError('api.settings.sortControlsInvalid')
+    return normalise_sort_controls(raw)
 
 
 def normalise_navigation_orders(raw):
@@ -265,6 +305,7 @@ def q_settings(contract: SettingsContract, _args=None) -> dict:
         "sidebarOrder": normalise_sidebar_order(payload.get("sidebarOrder")),
         **({"manageOrder": normalise_manage_order(payload["manageOrder"])} if "manageOrder" in payload else {}),
         **({"navigationOrders": normalise_navigation_orders(payload["navigationOrders"])} if "navigationOrders" in payload else {}),
+        **({"sortControls": normalise_sort_controls(payload["sortControls"])} if "sortControls" in payload else {}),
         **({"libraryOrder": payload["libraryOrder"]} if isinstance(payload.get("libraryOrder"), list) else {}),
         "avatarRefreshDays": AVATAR_REFRESH_SECONDS // 86400,
         "faviconRefreshDays": FAVICON_REFRESH_SECONDS // 86400,
@@ -301,6 +342,8 @@ def _navigation_patch(body):
     patch = {}
     if "navigationOrders" in body:
         patch["navigationOrders"] = navigation_orders_patch(body["navigationOrders"])
+    if "sortControls" in body:
+        patch["sortControls"] = sort_controls_patch(body["sortControls"])
     if "libraryOrder" in body:
         order = body["libraryOrder"]
         if (not isinstance(order, list) or len(order) > 1000
@@ -375,6 +418,8 @@ def w_settings(contract: SettingsContract, body) -> dict:
         if "navigationOrders" in patch:
             patch["navigationOrders"] = {**normalise_navigation_orders(current.get("navigationOrders")),
                                          **patch["navigationOrders"]}
+        if "sortControls" in patch:
+            patch["sortControls"] = {**normalise_sort_controls(current.get("sortControls")), **patch["sortControls"]}
         current.update(patch)
         updated = connection.execute(
             "UPDATE profile SET settings_json=?, updated_at=? WHERE id=?",

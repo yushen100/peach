@@ -8,6 +8,7 @@ import { esc } from '@peach/legacy/core';
 import { peachHistory, shellNavigate } from '@peach/history';
 import { RELEASE_SORTS, type DiscoveryDirection, type DiscoverySort, type ReleaseSort } from './discovery-sorts';
 import { t } from '../../i18n';
+import { columnValueSelected, mapColumnSelection, readColumnFilters, writeColumnFilters, type ColumnFilterKey, type ColumnSelection } from '../../column-filters';
 
 export { JAV_TABS, javTab, javPath, javLibraryPath } from './jav-navigation';
 
@@ -21,6 +22,7 @@ export function writeJavQuery(patch: Record<string, string>): void {
 export interface Discovery extends CoverItem {
   id: number; code: string; title: string; performers: string; release_date: string;
   studio: string; link: string; cover_url: string; has_cover: boolean; wanted: boolean;
+  studio_ref?: Omit<ReleaseFacetStudio, 'count'>;
   performer_refs?: (FaceRef & { name: string; source_actor_id?: string; source_avatar?: boolean })[];
   asset_id?: number | null; tags?: string[]; score?: number;
   /** 口味理由，服务端按中文渲染好的原句；`reason_codes`、`reason_params` 与它一一对应。 */
@@ -126,8 +128,9 @@ export function controlDiscoveryMetadata(action: 'start' | 'refresh' | 'cancel',
 export interface ReleaseFilters {
   page: number; size: number; performer: string; studio: string; tag: string; q: string;
   sort: ReleaseSort; dir: DiscoveryDirection; seed: string;
+  column_filters?: string;
 }
-export interface ReleaseFacetPerformer extends FaceRef { name: string; count: number; source_actor_id?: string; source_avatar?: boolean }
+export interface ReleaseFacetPerformer extends FaceRef { name: string; count: number; source_actor_id?: string; source_avatar?: boolean; avatar_code?: string; aliases?: string[] }
 export interface ReleaseFacetStudio { name: string; count: number; has_logo: boolean; logo_version?: string }
 /** `/api/jav/releases`：一页新作，加只取自订阅新作的筛选项。只读：`metadata_unread` 是筛选结果里
  *  从没读过来源资料的部数，读取由 `controlReleaseMetadata` 起停。 */
@@ -147,16 +150,44 @@ export function releaseFilters(search: string): ReleaseFilters {
   return { page: Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1, size, performer: params.get('performer') || '',
     studio: params.get('studio') || '', tag: params.get('tag') || '', q: (params.get('q') || '').trim(),
     sort: sort === 'random' && seed ? 'random' : RELEASE_SORTS.find(([key]) => key === sort)?.[0] || 'release_date',
-    dir: params.get('dir') === 'asc' ? 'asc' : 'desc', seed };
+    dir: params.get('dir') === 'asc' ? 'asc' : 'desc', seed,
+    ...(params.get('column_filters') ? { column_filters: params.get('column_filters')! } : {}) };
+}
+const RELEASE_COLUMNS: Record<'performer' | 'studio' | 'tag', ColumnFilterKey> = { performer: 'people', studio: 'studio', tag: 'tags' };
+
+export function releaseColumnSelection(filters: ReleaseFilters, facet: 'performer' | 'studio' | 'tag'): ColumnSelection | undefined {
+  const selected = readColumnFilters(filters.column_filters)[RELEASE_COLUMNS[facet]];
+  const values = facet === 'performer' ? mapColumnSelection(selected, value => value.slice('performer:'.length)) : selected;
+  return filters[facet] ? columnValueSelected(values, filters[facet]) ? [filters[facet]] : [] : values;
+}
+
+export function releaseColumnValues(filters: ReleaseFilters, facet: 'performer' | 'studio' | 'tag'): string[] {
+  const selected = releaseColumnSelection(filters, facet);
+  return Array.isArray(selected) ? selected : [];
+}
+
+export function setReleaseColumn(filters: ReleaseFilters, facet: 'performer' | 'studio' | 'tag', values: ColumnSelection | undefined): ReleaseFilters {
+  const selected = facet === 'performer' ? mapColumnSelection(values, value => `performer:${value}`) : values;
+  return { ...filters, [facet]: '', page: 1,
+    column_filters: writeColumnFilters(readColumnFilters(filters.column_filters), RELEASE_COLUMNS[facet], selected) };
 }
 export const releaseKey = (filters: ReleaseFilters) =>
-  ['jav-releases', filters.page, filters.size, filters.performer, filters.studio, filters.tag, filters.q, filters.sort, filters.dir, filters.seed] as const;
-const RELEASE_FILTER_KEYS = ['performer', 'studio', 'tag', 'q', 'seed'] as const;
-export function fetchReleases(filters: ReleaseFilters, signal: AbortSignal) {
+  ['jav-releases', filters.page, filters.size, filters.performer, filters.studio, filters.tag, filters.q, filters.sort, filters.dir, filters.seed, filters.column_filters || ''] as const;
+const RELEASE_FILTER_KEYS = ['performer', 'studio', 'tag', 'q', 'seed', 'column_filters'] as const;
+function releaseParams(filters: ReleaseFilters) {
   const params = new URLSearchParams({ page: String(filters.page), size: String(filters.size),
     sort: filters.sort, direction: filters.dir });
   for (const key of RELEASE_FILTER_KEYS) if (filters[key]) params.set(key, filters[key]);
-  return apiGet<ReleaseResult>(`/api/jav/releases?${params}`, signal);
+  return params;
+}
+export function fetchReleases(filters: ReleaseFilters, signal: AbortSignal) {
+  return apiGet<ReleaseResult>(`/api/jav/releases?${releaseParams(filters)}`, signal);
+}
+export function fetchReleaseColumn(filters: ReleaseFilters, column: 'people' | 'studio' | 'tags', search: string, offset: number, signal: AbortSignal) {
+  const params = releaseParams(filters);
+  params.set('column', column); params.set('column_q', search);
+  params.set('column_offset', String(offset)); params.set('column_limit', '24');
+  return apiGet<{ items: (ReleaseFacetPerformer | ReleaseFacetStudio | { name: string; count: number })[]; next_offset: number | null }>(`/api/jav/releases?${params}`, signal);
 }
 /** 新作页的资料读取：`start` 读当前筛选结果里从没读过的那几部，`cancel` 停下当前这一轮。
  *  与「发现」共用一个任务，进度同样由 `fetchDiscoveryMetadata` 轮询。 */

@@ -32,6 +32,63 @@ from support.stalls import stalled_mount
 
 
 class WebDataTests(unittest.TestCase):
+    def test_column_facets_page_scoped_people_and_search_aliases(self):
+        with self.contract.write_transaction() as connection:
+            connection.executemany(
+                "INSERT INTO entity(id,kind,canonical_name,normalized_name,created_at,updated_at) "
+                "VALUES(?,'performer',?,?,'now','now')",
+                [(9000 + index, f'Person {index}', f'person {index}') for index in range(25)])
+            connection.executemany(
+                "INSERT INTO asset_entity(asset_id,entity_id,role,source,confidence) "
+                "VALUES(1,?,'performer','test',1)", [(9000 + index,) for index in range(25)])
+            connection.execute("INSERT INTO entity_alias(entity_id,alias,normalized_alias,source,confidence) "
+                               "VALUES(11,'Alicia','alicia','test',1)")
+        people = rm_web.dispatch_api_get(self.contract, '/api/facets', {'column': 'people', 'loc': 'local'})
+        self.assertEqual(len(people['items']), 24)
+        self.assertEqual(people['next_offset'], 24)
+        tail = rm_web.dispatch_api_get(self.contract, '/api/facets', {
+            'column': 'people', 'loc': 'local', 'column_offset': '24'})
+        self.assertFalse(tail['has_more'])
+        self.assertIsNone(tail['next_offset'])
+        self.assertFalse({row['id'] for row in people['items']} & {row['id'] for row in tail['items']})
+        people['items'].extend(tail['items'])
+        self.assertEqual(len([row for row in people['items'] if row['kind'] == 'performer']), 26)
+        self.assertTrue(all(row['n'] == 1 for row in people['items']))
+        self.assertIn('Alicia', next(row for row in people['items'] if row['id'] == 11)['aliases'])
+        alias = rm_web.dispatch_api_get(self.contract, '/api/facets', {
+            'column': 'people', 'loc': 'local', 'column_q': 'Alicia'})
+        self.assertEqual([row['id'] for row in alias['items']], [11])
+        other = rm_web.dispatch_api_get(self.contract, '/api/facets', {'column': 'people', 'loc': '115'})
+        self.assertEqual([(row['kind'], row['k'], row['n']) for row in other['items']],
+                         [('creator', 'Canonical Creator', 1)])
+        self.assertIn('has_image', other['items'][0])
+        tags = rm_web.dispatch_api_get(self.contract, '/api/facets', {'column': 'tags', 'loc': 'local'})
+        self.assertEqual([(row['kind'], row['k'], row['n']) for row in tags['items']], [('tag', '足交', 1)])
+        self.assertIn('stats', rm_web.dispatch_api_get(self.contract, '/api/facets', {'loc': 'local'}))
+        with self.assertRaisesRegex(ValueError, 'invalid facet column'):
+            rm_web.dispatch_api_get(self.contract, '/api/facets', {'column': 'unknown'})
+
+    def test_table_column_filter_intersects_the_entity_scope(self):
+        query = {'scope_kind': 'creator', 'scope_name': 'Canonical Creator', 'performer': 'Canonical Alice'}
+        self.assertEqual([row['id'] for row in q_items(self.contract, query)['items']], [1])
+        self.assertEqual(q_items(self.contract, {**query, 'loc': '115'})['total'], 0)
+        with self.assertRaisesRegex(ValueError, 'invalid catalog scope'):
+            q_items(self.contract, {'scope_kind': 'unknown', 'scope_name': 'Canonical Creator'})
+
+    def test_column_multiselect_unions_each_column_and_intersects_columns(self):
+        selected = {'people': ['performer:Canonical Alice', 'creator:Canonical Creator']}
+        self.assertEqual(q_items(self.contract, {'column_filters': json.dumps(selected)})['total'], 2)
+        selected['tags'] = ['足交', '不存在的标签']
+        self.assertEqual([row['id'] for row in q_items(self.contract, {'column_filters': json.dumps(selected)})['items']], [1])
+        self.assertEqual(q_items(self.contract, {'loc': '115', 'column_filters': json.dumps(selected)})['total'], 0)
+        self.assertEqual(q_items(self.contract, {'column_filters': '{"people":[]}'})['total'], 0)
+        self.assertEqual(q_items(self.contract, {'column_filters': '{}'})['total'], 2)
+        self.assertEqual(q_items(self.contract, {'column_filters': json.dumps({
+            'people': {'exclude': ['performer:Canonical Alice']}})})['total'], 1)
+        for malformed in ('[]', 'broken', '{"people":"Alice"}', '{"people":["unknown:Alice"]}'):
+            with self.subTest(value=malformed), self.assertRaises(ValueError):
+                q_items(self.contract, {'column_filters': malformed})
+
     def test_catalog_summary_preserves_filters_without_projecting_cards(self):
         for filters in ({}, {'loc': '115'}, {'year': '2024'}, {'year': '1900'}):
             with self.subTest(filters=filters):

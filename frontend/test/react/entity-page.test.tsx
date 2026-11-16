@@ -213,6 +213,14 @@ const pressedView = (props: EntityPageProps) =>
 const readout = (props: EntityPageProps) => props.hosts.filter.querySelector('[data-entity-readout]')?.textContent;
 
 describe('首屏', () => {
+  it('列头选择另一位出演者时保留资料页身份范围', async () => {
+    const served = serve();
+    await fetchItems('performer', NAME, { tag: '演示标签' }, { jav: true, seed: '42' },
+      0, new AbortController().signal, { limit: 20, filters: { performer: '共演者', library: 'local' } });
+    const params = served.calls('/api/items')[0]!.searchParams;
+    expect(Object.fromEntries(params)).toMatchObject({ scope_kind: 'performer', scope_name: NAME,
+      performer: '共演者', library: 'local', tag: '演示标签', jav: '1', limit: '20', offset: '0' });
+  });
   it('资料页表格按页取数、全集排序并保留人物与标签筛选', async () => {
     const served = serve();
     await fetchItems('performer', NAME, { tag: '演示标签', state: 'fresh' }, { jav: true, seed: '42' },

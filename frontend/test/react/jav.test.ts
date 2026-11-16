@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { discoveryArtwork, javLibraryPath, javPath, javTab, type Discovery } from '../../src/react/jav/jav';
 import { controlDiscoveryMetadata, discoveryKey, fetchDiscoveries, fetchDiscoveryMetadata, fetchReleases, releaseFilters,
-  releaseKey } from '../../src/react/jav/jav';
+  releaseKey, releaseColumnValues, releaseColumnSelection, setReleaseColumn } from '../../src/react/jav/jav';
 import { discoveryScore, recommendationScore } from '../../src/react/jav/discovery-sorts';
 import { vi } from 'vitest';
 import { advanceImageFallback } from '../../src/card-art/image-fallback';
@@ -56,6 +56,29 @@ it('发现封面优先本机缓存，远程封面经 Peach 代理并保留原地
 });
 it('JAV 分区从深链恢复，未知分区落在馆藏', () => {
   expect(javTab('discover')).toBe('discover'); expect(javTab('wants')).toBe('wants'); expect(javTab('other')).toBe('library');
+});
+it('新作列头多选保留旧地址条件，分页归零，地址和请求恢复同一份选择', async () => {
+  const original = releaseFilters('?page=3&performer=Alice&studio=Studio');
+  expect(releaseColumnValues(original, 'performer')).toEqual(['Alice']);
+  const next = setReleaseColumn(original, 'performer', ['Alice', 'Bob, Jr.']);
+  expect(next.page).toBe(1);
+  expect(next.performer).toBe('');
+  const restored = releaseFilters(`?studio=Studio&column_filters=${encodeURIComponent(next.column_filters!)}`);
+  expect(releaseColumnValues(restored, 'performer')).toEqual(['Alice', 'Bob, Jr.']);
+  expect(releaseColumnValues(restored, 'studio')).toEqual(['Studio']);
+  expect(JSON.parse(setReleaseColumn(restored, 'performer', []).column_filters!)).toEqual({ people: [] });
+  expect(setReleaseColumn(restored, 'performer', undefined).column_filters).toBe('');
+  const excluded = setReleaseColumn(restored, 'performer', { exclude: ['Bob, Jr.'] });
+  expect(JSON.parse(excluded.column_filters!)).toEqual({ people: { exclude: ['performer:Bob, Jr.'] } });
+  expect(releaseColumnSelection(excluded, 'performer')).toEqual({ exclude: ['Bob, Jr.'] });
+  const fetcher = vi.fn(async (_input: string) => ({ ok: true, status: 200, json: async () => ({ items: [], total: 0 }) }));
+  vi.stubGlobal('fetch', fetcher);
+  try {
+    await fetchReleases(restored, new AbortController().signal);
+    const params = new URL(String(fetcher.mock.calls[0]![0]), 'https://peach.test').searchParams;
+    expect(JSON.parse(params.get('column_filters')!)).toEqual({ people: ['performer:Alice', 'performer:Bob, Jr.'] });
+    expect(params.get('studio')).toBe('Studio');
+  } finally { vi.unstubAllGlobals() }
 });
 it('新作页大小从地址恢复，查询参数与缓存按页大小隔离', async () => {
   const filters = releaseFilters('?page=3&size=50&tag=剧情&sort=duration&dir=asc');

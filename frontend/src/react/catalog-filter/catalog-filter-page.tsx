@@ -225,7 +225,7 @@ function Head({ count, refreshing, layout, sorts, actions }: CatalogFilterProps)
           onChange={actions.setLayout} /> : null}
         <CatalogViewToggle />
         <FolderBrowseToggle />
-        <SortKeys sorts={sorts} onSort={actions.setSort} />
+        <SortKeys group={layout?.name === 'jav-layout' ? 'jav' : 'catalog'} sorts={sorts} onSort={actions.setSort} />
       </span>
     </>
   );

@@ -157,7 +157,7 @@ function Discover({ readOnly, receipt, resource, query, navigate, clearText }: {
           icon={metadata?.status === 'running' ? MetadataStopGlyph : MetadataRefreshGlyph}
           onPress={() => updateMetadata(metadata?.status === 'running' ? 'stop' : 'update')} /> : null}
         <Segments label={t('catalog:entityFilter.javCardLayout')} value={layout} options={JAV_LAYOUTS} onChange={storeJavLayout} />
-        <SortKeys sorts={DISCOVERY_SORTS.map(([key, label, ariaLabel]) => ({ key, label, ariaLabel,
+        <SortKeys group="discover" sorts={DISCOVERY_SORTS.map(([key, label, ariaLabel]) => ({ key, label, ariaLabel,
           pressed: key === sort, dir: direction }))} onSort={key => {
           if (key === sort) setAscending(!ascending); else { setSort(key as DiscoverySort); setAscending(key === 'code') }
         }} /></span>

@@ -11,7 +11,7 @@ import { navigationState, openRoutedPage, paintSidebar, syncNavigation } from '.
 import { paintManagementPlaceholder } from './../management-placeholder';
 import { hideDiscoveryBars } from './loading.js';
 import { releaseManagedRoute } from './../history/managed';
-import { isFeedNewPath } from './feed.js';
+import { clearHomeFeed, isFeedNewPath } from './feed.js';
 import { tagLabel } from '../core/tags';
 import { PORTRAIT } from '../core/stored-values';
 import { followFeedLive, followState, followView, followViewPath, routeFollowFeed } from './follow.js';
@@ -69,7 +69,7 @@ export function showHomeSurfaces(){
      `#stats` 那一页不动（资料页压在它上面时它藏着继续活）。 */
   releaseManagedRoute($('#index'));
   $('#stats').hidden=true;$('#index').hidden=true;
-  if(!isFeedNewPath(location.pathname))$('#feedNew').hidden=true;
+  if(!isFeedNewPath(location.pathname))clearHomeFeed();
   $('#catalogFilter').style.display='';syncCatalogFilterScreen();
   buildManageBar();paintListTitle();   // 放在最后：管理区要盖掉上面刚恢复的首页横条
 }
@@ -292,7 +292,7 @@ export function javActive(){
 
 export function sortOptions(jav=javActive()){
   const ordered=SORTS.filter(([key])=>key!=='seed');
-  return jav?[JAV_RELEASE_SORT,...ordered]:ordered;
+  return jav?[JAV_RELEASE_SORT,...ordered]:[...ordered,JAV_RELEASE_SORT];
 }
 
 export function homeLayoutActive(){

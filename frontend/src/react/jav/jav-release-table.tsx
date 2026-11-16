@@ -15,10 +15,14 @@ import { ArtSlot } from '../components/art-slot';
 import { DataTableFrame } from '../components/data-table-frame';
 import { useTablePreferences } from '../components/table-column-preferences';
 import { TableColumnControls, TableColumnResizer } from '../components/table-column-controls';
+import { TableColumnFilter, type ColumnFilterPage } from '../components/table-column-filter';
+import { ColumnFilterAvatar } from '../components/column-filter-avatar';
 import { busyProps } from '../settings/use-action';
 import { DiscoveryFaces } from './discovery-faces';
 import type { DiscoveryDirection, ReleaseSort } from './discovery-sorts';
-import { discoveryArtwork, type Discovery, type ReleaseFacetStudio, type ReleaseFilters } from './jav';
+import { discoveryArtwork, fetchReleaseColumn, setReleaseColumn, releaseColumnValues, releaseColumnSelection, type Discovery, type ReleaseFacetPerformer, type ReleaseFacetStudio, type ReleaseFilters, type ReleaseResult } from './jav';
+import type { ColumnSelection } from '../../column-filters';
+import { entityWriting } from '../../core/entity-names';
 import { RELEASE_COLUMN_VISIBILITY_KEY, RELEASE_COLUMN_WIDTHS_KEY, RELEASE_SORT_COLUMNS, releaseColumns } from './release-table-columns';
 import { t } from '../../i18n';
 import '../catalog-grid/catalog-list.css';
@@ -26,7 +30,7 @@ import '../catalog-grid/catalog-list.css';
 const KEYS = { widths: RELEASE_COLUMN_WIDTHS_KEY, visibility: RELEASE_COLUMN_VISIBILITY_KEY };
 
 /** 厂牌格的标识：装了方形图标就用它，否则画首字。 */
-function StudioMark({ studio }: { studio: ReleaseFacetStudio | undefined; }) {
+function StudioMark({ studio }: { studio: Omit<ReleaseFacetStudio, 'count'> | undefined; }) {
   const [broken, setBroken] = useState(false);
   return studio?.has_logo && !broken
     ? <img data-list-studio-mark="" src={logoUrl(studio.name, 'icon', studio.logo_version)} alt="" width={16} height={16}
@@ -34,8 +38,30 @@ function StudioMark({ studio }: { studio: ReleaseFacetStudio | undefined; }) {
     : <span data-list-studio-mark="" aria-hidden="true">{leadingGraphemes(studio?.name || '', 1)}</span>;
 }
 
-export function ReleaseTable({ items, waiting, filters, studios, javImage, readOnly, navigate, onTag, onSort, wanting, onWant, onResource }: {
+function ReleaseColumnFilter({ column, label, filters, onChange }: {
+  column: 'people' | 'studio' | 'tags'; label: string; filters: ReleaseFilters;
+  onChange(facet: 'performer' | 'studio' | 'tag', values: ColumnSelection | undefined): void;
+}) {
+  const facet = column === 'people' ? 'performer' : column === 'tags' ? 'tag' : 'studio';
+  const scope = setReleaseColumn(filters, facet, undefined);
+  const load = async (signal: AbortSignal, search: string, offset: number): Promise<ColumnFilterPage> => {
+    const data = await fetchReleaseColumn(scope, column, search, offset, signal);
+    return { items: data.items.map(row => {
+      const person = column === 'people' ? row as ReleaseFacetPerformer : null;
+      const writing = person && entityWriting('performer', person.name, person.id);
+      return { id: row.name, label: row.name, count: row.count,
+        searchTerms: [...(person?.aliases || []), ...[writing?.ja, writing?.zh_cn].filter((value): value is string => !!value)],
+        leading: person ? <ColumnFilterAvatar person={person} /> : undefined };
+    }), nextOffset: data.next_offset ?? undefined };
+  };
+  return <TableColumnFilter id={column} label={label} values={releaseColumnSelection(filters, facet)} load={load}
+    queryKey={['jav-release-column', column, scope.performer, scope.studio, scope.tag, scope.column_filters || '', scope.q]}
+    onChange={next => onChange(facet, next)} />;
+}
+
+export function ReleaseTable({ items, waiting, filters, studios, facets, javImage, readOnly, navigate, onTag, onFilter, onSort, wanting, onWant, onResource }: {
   items: Discovery[]; waiting: boolean; filters: ReleaseFilters; studios: ReleaseFacetStudio[]; javImage: unknown; readOnly: boolean;
+  facets?: ReleaseResult['facets']; onFilter?(facet: 'performer' | 'studio' | 'tag', values: ColumnSelection | undefined): void;
   navigate(path: string): void; onTag(tag: string): void; onSort(key: ReleaseSort, dir: DiscoveryDirection): void;
   wanting(item: Discovery): boolean; onWant(item: Discovery): void; onResource(item: Discovery): void;
 }) {
@@ -74,11 +100,11 @@ export function ReleaseTable({ items, waiting, filters, studios, javImage, readO
           {(item.performer_refs?.length || 0) > 1 ? <span data-media-who-more="">{t('catalog:javDiscovery.morePeople', { count: item.performer_refs!.length - 1, total: item.performer_refs!.length })}</span> : null}
         </div> : '—';
       case 'studio':
-        return item.studio ? <span data-list-library="" title={item.studio}><StudioMark studio={logos.get(item.studio)} /><span>{item.studio}</span></span> : '—';
+        return item.studio ? <span data-list-library="" title={item.studio}><StudioMark studio={item.studio_ref || logos.get(item.studio)} /><span>{item.studio}</span></span> : '—';
       case 'tags':
         return item.tags?.length ? <div data-media-tags="" data-list-tags="">
-          {item.tags.map(tag => <button key={tag} type="button" data-media-tag="" aria-pressed={filters.tag === tag}
-            onClick={() => onTag(filters.tag === tag ? '' : tag)}>{tag}</button>)}
+          {item.tags.map(tag => <button key={tag} type="button" data-media-tag="" aria-pressed={releaseColumnValues(filters, 'tag').includes(tag)}
+            onClick={() => onTag(tag)}>{tag}</button>)}
         </div> : '—';
       case 'code': return item.code;
       case 'dur': return fmtDur(item.duration) || '—';
@@ -107,7 +133,10 @@ export function ReleaseTable({ items, waiting, filters, studios, javImage, readO
         </TableColumn> : null}{shown.map(column => <TableColumn key={column.id} id={column.id} isRowHeader={column.id === 'name'}
           allowsSorting={column.id in RELEASE_SORT_COLUMNS} {...preferences.columnProps(column.id)}>
           {({ sortDirection }) => <>
-            <span className="flex items-center gap-0.5">{column.label}
+            <span className="flex items-center gap-0.5">{facets && onFilter && ['people', 'studio', 'tags'].includes(column.id)
+              ? <ReleaseColumnFilter column={column.id as 'people' | 'studio' | 'tags'} label={column.label}
+                  filters={filters} onChange={onFilter} />
+              : column.label}
               {column.id in RELEASE_SORT_COLUMNS ? <span data-sort-indicator data-direction={sortDirection || undefined}><ChevronSortDown /></span> : null}</span>
             <TableColumnResizer preferences={preferences} id={column.id} />
           </>}

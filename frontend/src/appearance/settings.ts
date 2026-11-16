@@ -14,6 +14,7 @@ import { MANAGE_MENU_SECTIONS, normalizeManageOrder } from '../application/navig
 import { DEFAULT_SIDEBAR_ORDER, normalizeSidebarOrder } from '../sidebar';
 import { normalizeNavigationOrders, type NavigationOrders } from '../navigation-order';
 import { SORT_ALIASES, SORT_KEYS } from '../sort-preferences';
+import { normalizeSortControls, type SortControls } from '../sort-controls';
 import { DEFAULT_ACCENT, DEFAULT_HOME_GLOW, normalizeAccent, normalizeHomeGlow, type HomeGlow } from './home-glow';
 
 export { SETTINGS_KEY };
@@ -88,6 +89,7 @@ export interface AppSettings {
   sidebarOrder: string[];
   manageOrder: string[];
   navigationOrders: NavigationOrders;
+  sortControls: SortControls;
   libraryOrder: string[];
   homeGlow: HomeGlow;
   accent: string;
@@ -100,6 +102,7 @@ export const DEFAULT_SETTINGS = {
   theaterMode: false, theme: 'system', groupCollapse: true, sidebarOrder: [...DEFAULT_SIDEBAR_ORDER], manageOrder: [...MANAGE_MENU_SECTIONS],
   homeGlow: DEFAULT_HOME_GLOW, accent: DEFAULT_ACCENT, performerNameLanguage: 'zh-CN', interfaceLanguage: 'auto', systemLanguage: null,
   navigationOrders: {},
+  sortControls: {},
   libraryOrder: [],
 } as const;
 
@@ -160,6 +163,7 @@ export function normalizeAppSettings(raw: unknown): { settings: AppSettings; mig
   settings.sidebarOrder = normalizeSidebarOrder(settings.sidebarOrder);
   settings.manageOrder = normalizeManageOrder(settings.manageOrder);
   settings.navigationOrders = normalizeNavigationOrders(settings.navigationOrders);
+  settings.sortControls = normalizeSortControls(settings.sortControls);
   settings.libraryOrder = Array.isArray(settings.libraryOrder) ? [...new Set(settings.libraryOrder.filter(key => typeof key === 'string'))] : [];
   return { settings: settings as AppSettings, migrated };
 }
@@ -198,6 +202,7 @@ export interface SyncedSettings {
   sidebarOrder?: unknown;
   manageOrder?: unknown;
   navigationOrders?: unknown;
+  sortControls?: unknown;
   libraryOrder?: unknown;
 }
 
@@ -254,6 +259,13 @@ export function applySyncedSettings(
     const navigationOrders = normalizeNavigationOrders(remote.navigationOrders);
     if (JSON.stringify(navigationOrders) !== JSON.stringify(settings.navigationOrders)) {
       settings.navigationOrders = navigationOrders;
+      target.save();
+    }
+  }
+  if (remote?.sortControls) {
+    const sortControls = normalizeSortControls(remote.sortControls);
+    if (JSON.stringify(sortControls) !== JSON.stringify(settings.sortControls)) {
+      settings.sortControls = sortControls;
       target.save();
     }
   }

@@ -510,6 +510,7 @@ function EntityLoaded(props: EntityPageProps & { entity: EntityPageData }) {
             <EntityBodyPage kind={kind} name={name} view={view} roster={rosterProps} items={items.data ?? null}
               revision={itemsRevision} fetchPage={fetchPage}
               listScope={JSON.stringify([kind, name, filters, props.jav, filters.sort === 'seed' ? props.seed : ''])}
+              filters={filters} facetScope={{ scope_kind: kind, scope_name: name, jav: props.jav ? '1' : '' }}
               restoreNavigation={props.restoreNavigation}
               photos={photos} photoSize={props.photoSize}
               photoLayout={props.photoLayout} helpers={props.card.helpers} actions={bodyActions} layout={layout}

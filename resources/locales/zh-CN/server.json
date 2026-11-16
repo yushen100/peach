@@ -895,6 +895,7 @@
       "libraryOrderInvalid": "媒体库顺序须使用不重复的媒体库 ID",
       "navigationOrderUnknownEntry": "导航顺序包含无效项目",
       "navigationOrdersInvalid": "导航排序需要已知分组与顺序数组",
+      "sortControlsInvalid": "排序项设置需要有效分组、顺序和隐藏项数组",
       "performerNameLanguageInvalid": "performerNameLanguage 只收 zh-CN 或 ja",
       "profileMissing": "profile {{profile}} 不存在",
       "searchHistoryLimitInvalid": "searchHistoryLimit 只收 0 到 {{max}} 的整数",
@@ -1082,6 +1083,7 @@
     },
     "catalog": {
       "invalidReleaseYear": "发行年份须为四位年份或未知年份",
+      "invalidColumnFilters": "列筛选格式无效，请重新选择",
       "tagNotInVocabulary": "该标签不在当前词表中"
     },
     "links": {

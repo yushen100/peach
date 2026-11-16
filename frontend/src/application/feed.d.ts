@@ -8,5 +8,9 @@ export declare const feedState: { feedNewSkeletonHtml?: () => string; [key: stri
 export declare function isFeedNewPath(path: string): boolean;
 /** 记下首页有没有新作，首屏骨架据此铺不铺这一行。 */
 export declare function rememberHomeFeed(has: boolean): void;
+export declare function prepareHomeFeed(host: HTMLElement | null): void;
+export declare function renderHomeFeed(): void;
+/** 卸载首页新作组件、撤销在途打开并清空宿主。 */
+export declare function clearHomeFeed(): void;
 /** 设置里切了「在首页显示新作」：关掉卸掉那一行，打开时人在目录上（不是文件夹浏览）就当场画。 */
 export declare function syncHomeFeedSetting(folders: boolean): void;

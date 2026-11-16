@@ -129,6 +129,33 @@ class SettingsRoundTripTests(unittest.TestCase):
         self.assertEqual(q_settings(self.contract)['libraryOrder'], ['lib-b', 'lib-a'])
         self.assertEqual(w_settings(self.contract, {'libraryOrder': []})['libraryOrder'], [])
 
+    def test_sort_controls_preserve_visibility_and_merge_page_groups(self):
+        original_sidebar = q_settings(self.contract)['sidebarOrder']
+        w_settings(self.contract, {'sortControls': {'catalog': {'order': ['size', 'rating'], 'hidden': ['rating']}}})
+        saved = w_settings(self.contract, {'sortControls': {'follow': {'order': ['dur', 'new'], 'hidden': ['new', 'hot', 'dur']}}})
+        self.assertEqual(saved['sortControls']['catalog']['order'][:2], ['size', 'rating'])
+        self.assertEqual(saved['sortControls']['catalog']['hidden'], ['rating'])
+        self.assertEqual(saved['sortControls']['catalog']['order'][-1], 'release')
+        self.assertEqual(saved['sortControls']['follow'], {'order': ['dur', 'new', 'hot'], 'hidden': ['new', 'hot', 'dur']})
+        self.assertEqual(q_settings(self.contract)['sortControls'], saved['sortControls'])
+        self.assertEqual(saved['sidebarOrder'], original_sidebar)
+        reset = w_settings(self.contract, {'sortControls': {'catalog': {'order': [], 'hidden': []}}})
+        self.assertEqual(reset['sortControls']['catalog'], {'order': list(web_settings.SORT_CONTROL_KEYS['catalog']), 'hidden': []})
+        self.assertEqual(reset['sortControls']['follow'], saved['sortControls']['follow'])
+        dated = w_settings(self.contract, {'sortControls': {'catalog': {'order': ['release', 'size'], 'hidden': []}}})
+        self.assertEqual(dated['sortControls']['catalog']['order'][:2], ['release', 'size'])
+
+    def test_sort_controls_reject_invalid_payloads_before_writing(self):
+        invalid = [None, [], {'unknown': {'order': [], 'hidden': []}}, {'catalog': []},
+                   {'catalog': {'order': ['missing'], 'hidden': []}},
+                   {'catalog': {'order': [], 'hidden': ['size', 'size']}},
+                   {'catalog': {'order': [], 'hidden': [1]}},
+                   {'catalog': {'order': []}}]
+        for value in invalid:
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                w_settings(self.contract, {'sortControls': value})
+        self.assertNotIn('sortControls', self._stored_json())
+
     def test_an_unset_profile_reads_the_default_order(self):
         self.assertEqual(q_settings(self.contract),
                          {"sidebarOrder": list(DEFAULT_SIDEBAR_ORDER),

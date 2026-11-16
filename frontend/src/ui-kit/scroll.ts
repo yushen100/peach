@@ -132,6 +132,8 @@ export function wireHorizontalScroller(el:any,{drag=false,fade=true,wheel=true,e
   listen(el,'mousedown',event=>{
     moved=0;
     if(!options.drag||event.button!==0||el.scrollWidth-el.clientWidth<=1)return;
+    // 排序项拥有这段指针手势，按下时停止在途滚动，让重排时容器位置保持稳定。
+    if(event.target.closest?.('[data-navigation-order] > [data-tab]')){stopGlide();return}
     if(options.dragIgnore&&(event.shiftKey||event.ctrlKey||event.metaKey||event.altKey||event.target.closest?.(options.dragIgnore)))return;
     event.stopPropagation();stopGlide();start={x:event.pageX,left:el.scrollLeft};moved=0;document.documentElement.dataset.dragScrolling='';
   });

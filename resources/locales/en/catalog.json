@@ -83,6 +83,11 @@
     "tryAnotherName": "Try a different directory name.",
     "viewConflicts": "View credit conflicts"
   },
+  "columnFilter": {
+    "label": "Filter {{column}}",
+    "search": "Search {{column}}",
+    "noOptions": "No matching filter options"
+  },
   "catalogList": {
     "climaxCount": "Climax count",
     "dateAdded": "Date added",
@@ -999,6 +1004,12 @@
     "searching": "Searching subtitles",
     "turnOff": "Turn off subtitles",
     "turnOn": "Turn on subtitles"
+  },
+  "sortControls": {
+    "customize": "Customize sort options",
+    "reset": "Restore default sort options",
+    "syncFailed": "Saved on this device. Sync failed. {{error}}",
+    "title": "Sort options"
   },
   "tagCategories": {
     "appearance": "Appearance",
