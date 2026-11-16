@@ -95,16 +95,18 @@ def first_pass(path: Path, width: int, height: int) -> dict:
              if same_image and jav_poster_crop.front_path(path).is_file() else None)
     gradient = jav_poster_crop.file_gradient(path)
     title = saved.get('title', '')
-    spine = None
+    spine = across = None
     if jav_poster_crop.crops_to_portrait(path.stem, title) or portrait is not None:
         import cv2
 
         spine = cover_artwork.spine_box(cv2.imread(str(path)), path.stem, title, portrait)
+        # 一批几千张，不能把解码后的图都留在内存里：用到时才重读原图。
+        across = cover_artwork.text_across_file(path)
     current_face = face.get('px') == [width, height]
     return dict(code=path.stem, width=width, height=height, gradient_source=gradient, title=title,
                 face=face.get('face') if current_face and portrait is None else None,
                 layout=face.get('layout', '') if current_face and portrait is None else '',
-                portrait=portrait, front=front, spine=spine)
+                portrait=portrait, front=front, spine=spine, text_across=across)
 
 
 def run(args: argparse.Namespace) -> int:

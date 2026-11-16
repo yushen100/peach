@@ -8,6 +8,8 @@
 文字检测复用 `avatar_watermark` 的 PP-OCRv3 DB 模型，识别用同一来源 opencv_zoo 的 CRNN 英文模型
 （数字与小写字母），都走 OpenCV 自带的 dnn，不另引运行时。只在标准折痕位置附近那一条竖带里找，
 竖带按段放大后识别：整条压到 736 像素时标签字太小，一个都认不出。
+
+同一个检测模型也数横跨切线的文字（`text_across`）：大字跨过切线说明那里没有书脊，是一整幅画面。
 """
 from __future__ import annotations
 
@@ -38,6 +40,13 @@ SEARCH_RIGHT = 0.06
 TILE_RATIO = 1.5
 #: 竖排文字框（高比宽大这么多倍）转两个方向都识别一遍。
 VERTICAL_RATIO = 1.5
+#: 数横跨切线的文字：切线左右各这么多倍图高的竖带，按带宽切方块检测。
+ACROSS_BAND = 0.3
+#: 横排框（宽至少是高的这么多倍）在切线两边各伸出这么多倍图高才算横跨。实测全库 2175 张要切的封面：
+#: 至少 2 处时抓到全部仍切错的整幅图（MXDLP-318、SETBD-001、SGKX-016、STARS-532 等），认出书脊番号的
+#: 封套一张不中；伸出量放到 2% 图高，书脊竖排字与正封标题连成的框会混进来。
+ACROSS_WIDE = 1.5
+ACROSS_REACH = 0.04
 
 
 class CodePattern:
@@ -112,7 +121,8 @@ class SpineReader:
             last = index
         return "".join(text)
 
-    def _words(self, image):
+    def _boxes(self, image):
+        """一块图上的文字框（原图坐标）。块按长边缩放到检测模型的输入尺寸。"""
         import cv2
         import numpy
 
@@ -125,7 +135,12 @@ class SpineReader:
         for quad in boxes:
             points = (numpy.array(quad, numpy.float32) / scale).astype(numpy.int32)
             x, y, w, h = cv2.boundingRect(points)
-            x, y = max(0, x), max(0, y)
+            yield max(0, x), max(0, y), w, h
+
+    def _words(self, image):
+        import cv2
+
+        for x, y, w, h in self._boxes(image):
             patch = image[y:y + h, x:x + w]
             if not patch.size:
                 continue
@@ -156,6 +171,32 @@ class SpineReader:
                     if any(pattern.matches(word) for word in words):
                         hits.append((x + left, x + left + w))
         return max(hits, key=lambda hit: hit[1]) if hits else None
+
+    def text_across(self, image, cut: int) -> int:
+        """切线 `cut` 两侧那条竖带里横跨切线的横排文字有几处（`count_across`）。"""
+        if image is None or not getattr(image, "size", 0):
+            return 0
+        height, width = image.shape[:2]
+        left, right = max(0, cut - round(ACROSS_BAND * height)), min(width, cut + round(ACROSS_BAND * height))
+        if right - left < 16:
+            return 0
+        tile = right - left
+        boxes = []
+        with self._lock:
+            for top in range(0, height, max(1, tile * 2 // 3)):
+                boxes += [(x + left, y + top, w, h) for x, y, w, h in self._boxes(image[top:top + tile, left:right])]
+        return count_across(boxes, cut, height)
+
+
+def count_across(boxes, cut: int, height: int) -> int:
+    """横排、在切线两边都伸出 `ACROSS_REACH` 倍图高的文字框数。
+
+    真封套的书脊把封底和正封隔开，正封的字跨不过去；整幅宣传图的大标题、宣传语常横跨中间。
+    竖排框不算：书脊上的竖排字常和紧挨着的正封竖排标题连成一个框，看着也跨过了折痕。
+    """
+    reach = ACROSS_REACH * height
+    return sum(1 for x, _y, w, h in boxes
+               if w >= ACROSS_WIDE * h and cut - x >= reach and x + w - cut >= reach)
 
 
 _READER: list[SpineReader] = []

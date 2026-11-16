@@ -640,7 +640,7 @@ class WebContract:
 
     @staticmethod
     def _cover_focus(sidecar: str) -> dict | None:
-        """sidecar 里的人脸中心与整幅画面标记。缺少坐标时页面退回固定取景。
+        """sidecar 里的人脸中心（整幅画面有更大的主体部位时用它）与整幅画面标记。缺少坐标时页面退回固定取景。
 
         两个轴都给出去：哪个轴生效由容器和图片的宽高比决定，不由这里判断。
         缺哪个键就不带哪个键，前端各自回落，不要拿另一个轴的值顶替。
@@ -654,6 +654,10 @@ class WebContract:
         except (OSError, ValueError):
             return None
         focus = {'layout': 'still'} if record.get('layout') == 'still' else {}
+        # 整幅画面上比主脸还大的部位（`cover_artwork.face_record` 的 `subject`）：卡片按它取景。
+        subject = record.get("subject")
+        if focus and isinstance(subject, dict):
+            face = subject
         if isinstance(face, dict):
             focus.update({axis: face[axis] for axis in ("cx", "cy") if axis in face})
         return focus or None

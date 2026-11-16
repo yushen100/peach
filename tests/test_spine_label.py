@@ -112,6 +112,31 @@ class OffRatioFoldTests(unittest.TestCase):
         self.assertEqual(found["box"]["method"], FOLD)
 
 
+class TextAcrossTests(unittest.TestCase):
+    def test_only_wide_text_reaching_well_past_both_sides_counts(self):
+        """图高 1000、切线 1100：伸出两边各 40 像素以上的横排框才算。"""
+        boxes = [(900, 50, 400, 80),     # 大标题横跨：算
+                 (1000, 900, 300, 60),   # 底部宣传语横跨：算
+                 (1080, 300, 60, 300),   # 竖排框（书脊字连着正封标题）：不算
+                 (1070, 600, 200, 40),   # 左边只伸出 30：不算
+                 (1200, 700, 300, 50)]   # 整个在正封里：不算
+        self.assertEqual(spine_label.count_across(boxes, 1100, 1000), 2)
+
+    def test_text_across_the_cut_shows_the_whole_picture(self):
+        """MXDLP-318 型：标准封套比例、没有书脊，「中出し」和底部宣传语横跨切线。"""
+        record = jav_poster_crop.crop_record("MXDLP-318", 2184, 1472, ColumnProfile([0.1] * 2184, [0.3] * 2184),
+                                             text_across=lambda cut: 5)
+        self.assertEqual(record["box"]["method"], jav_poster_crop.NONE)
+
+    def test_one_crossing_or_a_read_spine_keeps_the_cut(self):
+        profile = ColumnProfile([0.1] * 2184, [0.3] * 2184)
+        once = jav_poster_crop.crop_record("SSIS-001", 2184, 1468, profile, text_across=lambda cut: 1)
+        self.assertNotEqual(once["box"]["method"], jav_poster_crop.NONE)
+        labelled = jav_poster_crop.crop_record("JUR-908", 2184, 1468, profile, spine=(1045, 1139),
+                                               text_across=lambda cut: 9)
+        self.assertEqual((labelled["box"]["method"], labelled["box"]["x0"]), (FOLD, 1151))
+
+
 def reader_available() -> bool:
     return spine_label.default_reader() is not None
 

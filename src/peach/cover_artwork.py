@@ -10,7 +10,7 @@ from pathlib import Path
 
 from filelock import FileLock
 
-from . import jav_poster_crop
+from . import body_parts, jav_poster_crop
 from .face_detect import FaceDetector, FaceModelUnavailable, decode, main_face
 from .jav_cover_fetch import Unavailable, is_javdb_image
 
@@ -84,7 +84,8 @@ def _full_picture_face(faces):
     return largest if largest.score >= .7 and largest.area >= 4 * strong.area else strong
 
 
-def face_record(image, detector, *, code: str, title: str = '', verdict: str = '', whole: bool = False) -> dict | None:
+def face_record(image, detector, *, code: str, title: str = '', verdict: str = '', whole: bool = False,
+                parts=None) -> dict | None:
     """已解码的封面 → 页面取景记录；无法解码时不生成记录。
 
     脸框宽高与源图尺寸 `px` 也记下，形状与头像边车（`avatar_face.face_record_of`）
@@ -94,6 +95,10 @@ def face_record(image, detector, *, code: str, title: str = '', verdict: str = '
     `verdict` 是 DMM 竖版图的比对结论（`jav_poster_crop.portrait_match`）：证实是封套就按封套
     找正封上的脸，证实不是就按整幅画面找，不再靠脸的位置与画布比例去猜版式。`whole` 是正封取景
     已判成整幅显示（`crop_record` 给出 `none`）：主脸在整幅画面里找，不再只看右侧正封那一块。
+
+    `parts` 是部位检测器（`body_parts.PartDetector`）。整幅画面上比主脸还大的部位记成 `subject`，
+    卡片按它取景（`web_state._cover_focus`）；没有更大的记 `None`，表示查过了。`face` 不动：
+    换头像按脸框在封面上截方图，不能把臀部当成脸。
     """
     if image is None or not getattr(image, "size", 0):
         return None
@@ -120,10 +125,40 @@ def face_record(image, detector, *, code: str, title: str = '', verdict: str = '
     low, high = (0.0, 1.0) if full_cover or jav_poster_crop.is_scene_cover(code, title) else (MIN_FACE_Y, MAX_FACE_Y)
     faces = [face for face in faces if low <= face.cy <= high]
     best = _full_picture_face(faces) if full_cover else main_face(faces)
+    still = full_cover or jav_poster_crop.is_scene_cover(code, title)
+    subject = {}
+    if still and parts is not None:
+        found = body_parts.main_subject(parts.detect(image), best.width * best.height if best else 0.0)
+        subject = {'subject': {'cx': found.cx, 'cy': found.cy, 'w': found.w, 'h': found.h, 'kind': found.kind,
+                               'score': found.score} if found else None}
     return {"version": FACE_ALGORITHM_VERSION, "ratio": round(ratio, 3), "px": [int(width), int(height)],
-            **({'layout': 'still'} if full_cover or jav_poster_crop.is_scene_cover(code, title) else {}), "face": (
+            **({'layout': 'still'} if still else {}), "face": (
         {"cx": best.cx, "cy": best.cy, "w": best.width, "h": best.height,
-         "score": best.score} if best else None)}
+         "score": best.score} if best else None), **subject}
+
+
+def text_across_of(image):
+    """`crop_record` 的 `text_across`：数切线上横跨的横排文字。本机没有文字检测模型时是 None。"""
+    if image is None or not getattr(image, "size", 0):
+        return None
+    from . import spine_label
+    reader = spine_label.default_reader()
+    return None if reader is None else (lambda cut: reader.text_across(image, cut))
+
+
+def text_across_file(path: Path):
+    """同 `text_across_of`，但用到时才读原图，同一切点只量一次：重算整个目录时不留解码后的图。"""
+    seen: dict[int, int] = {}
+
+    def across(cut: int) -> int:
+        if cut not in seen:
+            import cv2
+
+            measure = text_across_of(cv2.imread(str(path)))
+            seen[cut] = measure(cut) if measure is not None else 0
+        return seen[cut]
+
+    return across
 
 
 #: 竖版正封至少要有横图这么高的这个比例才装：页面大图位按高铺满，比横图矮就是降了清晰度。
@@ -219,9 +254,11 @@ def _sidecars(code: str, payload: bytes, size: tuple[int, int], detector=None, e
     except ImportError:
         pass
     match, front = _portrait_verdict(image, portrait)
+    # 注入了人脸检测器的（测试、脚本）自己决定要不要部位检测；装封面的正常路径用本机已有的模型。
+    parts = body_parts.default_detector() if detector is None else None
     try:
         active = detector if detector is not None else _default_detector()
-        face = face_record(image, active, code=code, title=title, verdict=match.verdict if match else '')
+        face = face_record(image, active, code=code, title=title, verdict=match.verdict if match else '', parts=parts)
     except (FaceModelUnavailable, ImportError):
         face = None
     poster = jav_poster_crop.crop_record(
@@ -229,13 +266,14 @@ def _sidecars(code: str, payload: bytes, size: tuple[int, int], detector=None, e
         (lambda: jav_poster_crop.column_gradient(image)) if image is not None else None,
         title=title, face=(face or {}).get('face'), layout=(face or {}).get('layout', ''),
         portrait=match, front=front, spine=spine_box(image, code, title, match), templates=templates,
+        text_across=text_across_of(image),
     )
     if (match is None and face is None and min(abs(size[0] / size[1] - ratio) for ratio in PROMOTIONAL_ASPECTS) < .015
             and poster['box']['method'] in NO_SPINE):
         face = {'px': list(size), 'layout': 'still', 'face': None}
         poster = jav_poster_crop.crop_record(code, *size, title=title, layout='still')
     elif face is not None and needs_whole_face(code, title, poster, face):
-        face = face_record(image, active, code=code, title=title, whole=True)
+        face = face_record(image, active, code=code, title=title, whole=True, parts=parts)
     records = {jav_poster_crop.SIDECAR_SUFFIX: poster}
     if face is not None:
         records[".face.json"] = face

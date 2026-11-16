@@ -25,6 +25,9 @@ r"""头像上的站点水印：检出、裁掉或修掉。
 from __future__ import annotations
 
 import hashlib
+import io
+import zipfile
+
 import httpx
 from .peach_proxy import read_url
 from dataclasses import dataclass
@@ -104,10 +107,11 @@ def _digest(path: Path) -> str:
 
 
 def ensure_model(path: Path | None = None, *, allow_download: bool = True,
-                 url: str = MODEL_URL, sha256: str = MODEL_SHA256) -> Path:
+                 url: str = MODEL_URL, sha256: str = MODEL_SHA256, member: str | None = None) -> Path:
     """本地那份校验通过就用，否则按固定 URL 取一次再校验。
 
-    `url` 与 `sha256` 给同一来源（opencv_zoo）的其他定版模型用，例如书脊番号识别的 CRNN（`spine_label`）。
+    `url` 与 `sha256` 给其他定版模型用，例如书脊番号识别的 CRNN（`spine_label`）。`member` 是
+    `url` 指向的压缩包（例如 PyPI 的 wheel）里模型的路径：取下整包、解出这一个文件，校验的是解出来的模型。
     """
     target = Path(path) if path is not None else MODEL_PATH
     if target.is_file() and _digest(target) == sha256:
@@ -117,8 +121,12 @@ def ensure_model(path: Path | None = None, *, allow_download: bool = True,
     target.parent.mkdir(parents=True, exist_ok=True)
     partial = target.with_suffix(target.suffix + ".part")
     try:
-        partial.write_bytes(read_url(url, timeout=120))
-    except (OSError, httpx.HTTPError) as error:
+        payload = read_url(url, timeout=120)
+        if member is not None:
+            with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+                payload = archive.read(member)
+        partial.write_bytes(payload)
+    except (OSError, httpx.HTTPError, zipfile.BadZipFile, KeyError) as error:
         partial.unlink(missing_ok=True)
         raise WatermarkModelUnavailable("errors.avatarWatermark.downloadFailed", {"error": str(error)}) from error
     digest = _digest(partial)

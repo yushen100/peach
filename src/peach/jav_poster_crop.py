@@ -712,6 +712,8 @@ def label_fold(width: int, height: int, gradient_source: GradientSource,
 #: 误差超过 0.6% 图高的 7 张；厂牌、系列分组覆盖的封面大多也被前缀覆盖，只多出几张。
 TEMPLATE_MIN_SAMPLES = 2
 TEMPLATE_SPREAD = 0.006
+#: 切线上横跨的横排文字至少这么多处就是一整幅画面（量法与实测在 `spine_label.count_across`）。
+TEXT_ACROSS_MIN = 2
 
 
 def template_key(code: str | None, width: int, height: int) -> tuple[str, float] | None:
@@ -799,7 +801,7 @@ def crop_record(code: str | None, width: int, height: int,
                 gradient_source: GradientSource = None, *, title: str = '', face: dict | None = None,
                 layout: str = '', portrait: PortraitMatch | None = None,
                 front: Sequence[int] | None = None, spine: Sequence[int] | None = None,
-                templates=None) -> dict:
+                templates=None, text_across: Callable[[int], int] | None = None) -> dict:
     """可直接落盘的 sidecar 内容：算法版本、源图尺寸、框。
 
     有 DMM 竖版图的比对结果（`portrait_match`）时以它为准：对上的是封套，按折痕或 DMM 的左缘切；
@@ -807,7 +809,8 @@ def crop_record(code: str | None, width: int, height: int,
     竖版图的尺寸，页面大图位改用它。没有比对结果的走原有判据。`spine` 是书脊上认出的番号框
     （`spine_label`），认出了就按它定书脊右缘（`label_fold`），并记进 sidecar 供学模板。认不出时
     同前缀同比例的封套学到的模板（`learn_templates`）定切点：小图上番号字太小认不出，同一家的
-    大图认得出，书脊宽度是同一个。
+    大图认得出，书脊宽度是同一个。`text_across` 数切线上横跨的横排文字（`spine_label.text_across`），
+    至少 `TEXT_ACROSS_MIN` 处就整幅显示；只在定下切点之后问一次。
 
     番号形态先判：不该裁的图连梯度都不算，`gradient_source` 是惰性的就一次都不解码。
     """
@@ -837,6 +840,10 @@ def crop_record(code: str | None, width: int, height: int,
         fold = template_fold(code, width, height, templates)
         if fold is not None and 0 < fold < width:
             box = _panel(width, height, fold, FOLD)
+    # 横排大字跨过切线：那里没有书脊，是一整幅画面。认出书脊番号的不问，那条竖带就是书脊。
+    if (not labelled and text_across is not None and box['method'] in (FOLD, RATIO, MATCH)
+            and text_across(int(box['x0'])) >= TEXT_ACROSS_MIN):
+        box = _whole(width, height)
     # 封套比例的番号封面判成不裁时，页面也不能再按右缘先验切：记成整幅画面交给卡片。
     still = (box['method'] == NONE and height > 0 and SLEEVE_RATIO_MIN <= width / height < SLEEVE_RATIO_MAX
              and (portrait is not None or crops_to_portrait(code, title)))

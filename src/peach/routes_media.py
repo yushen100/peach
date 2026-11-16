@@ -907,7 +907,7 @@ def _apply_cover_crop(state, payload: dict):
             code, size[0], size[1], jav_poster_crop.file_gradient(path), title=title,
             face=face.get('face') if current_face else None, portrait=portrait, front=front,
             spine=jav_poster_crop.spine_of(saved) if same_image else None,
-            templates=cover_artwork.cover_templates(path.parent))
+            templates=cover_artwork.cover_templates(path.parent), text_across=cover_artwork.text_across_file(path))
         if portrait is None and current_face and face.get('layout') == 'still':
             record['box'] = dict(x0=0, y0=0, x1=size[0], y1=size[1], method=jav_poster_crop.NONE)
     else:
