@@ -382,7 +382,7 @@ describe('路由冒烟', () => {
       const beforeReturn = served;
       await go('/');
       await expectBody(opened.page, '/', [feedCards.first()]);
-      assert.equal(served, beforeReturn, '返回首页沿用新作缓存');
+      assert.equal(served, beforeReturn + 1, '返回首页读取最新新作');
       await go('/junk-files');
       await opened.page.locator('#count [data-junk-filters]').waitFor();
       assert.equal(await opened.page.locator('#feedNew').isHidden(), true, '垃圾文件页不展示订阅新作');

@@ -571,7 +571,7 @@ describe('作品详情岛', () => {
       const editor = page.locator('dialog[data-item-edit-dialog]');
       await editor.waitFor();
       const tag = (name: string) => editor.locator(`[data-detail-tag] [data-tag="${name}"]`);
-      await editor.locator('[data-remove-tag="剧情"]').click();
+      await editor.locator('[data-remove-tag="剧情"]').press('Enter', { delay: 2100 });
       await tag('剧情').waitFor({ state: 'detached' });
       await editor.locator('#tagPlus').click();
       await editor.locator('#tagPicker:not([hidden])').waitFor();
@@ -738,7 +738,7 @@ describe('作品详情岛', () => {
       await undo(page);
       await wait(PLAYLIST.items);
       await page.locator('#stage [data-queue-remove="15"]').click();
-      await page.locator('[data-modal-confirm]').click();
+      await page.locator('[data-modal-confirm]').press('Enter', { delay: 2100 });
       await wait([11, 14, 16]);
       await undo(page);
       await wait(PLAYLIST.items);

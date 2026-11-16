@@ -1206,7 +1206,7 @@ describe('设计决定：作品卡、管理页与复核', () => {
       const page = opened.page;
       const cards = page.locator('#grid [data-junk-card]');
       assert.equal(await cards.count(), 3);
-      await cards.first().locator('[data-junk-action="dispose"]').click();
+      await cards.first().locator('[data-junk-action="dispose"]').press('Enter', { delay: 2100 });
       await page.waitForFunction(() => document.querySelectorAll('#grid [data-junk-card]').length === 2, null,
         { timeout: 10_000 });
       assert.deepEqual(opened.state.batches, [{ ids: [9101], operation: 'dispose', disposal_reason: 'junk' }]);
@@ -1226,7 +1226,7 @@ describe('设计决定：作品卡、管理页与复核', () => {
     }
   });
 
-  it('垃圾卡是探索卡那一副：不描边不铺底，键行三颗同高居中，移入回收站静止就是实底红', { timeout: 90_000 }, async () => {
+  it('垃圾卡复用探索卡，键行同高居中，移入回收站使用长按删除的红字与浅色底', { timeout: 90_000 }, async () => {
     const opened = await openJunkWith(browser, [junkItem(9201, 'archive', '推广.zip'), junkItem(9202, 'url', '官网.url')]);
     try {
       const page = opened.page;
@@ -1238,7 +1238,8 @@ describe('设计决定：作品卡、管理页与复核', () => {
           return {
             action: (button as HTMLElement).dataset.junkAction, height: Math.round(rect.height),
             justify: style.justifyContent, paint: [style.backgroundImage, getComputedStyle(button, '::before').backgroundImage],
-            ink: style.color, text: button.textContent ?? '',
+            ink: style.color, background: style.backgroundColor, hold: button.hasAttribute('data-hold-confirm'),
+            before: getComputedStyle(button, '::before').content, text: button.textContent ?? '',
           };
         });
         const rect = (node: Element | null) => {
@@ -1287,8 +1288,11 @@ describe('设计决定：作品卡、管理页与复核', () => {
       const dispose = wide.keys.find((key) => key.action === 'dispose')!;
       assert.match(wide.raw, /^linear-gradient/, `--board-red 没解析成渐变：${wide.raw}`);
       assert.ok(wide.red[0]!.length >= 2, `--board-red 的色标没读出来：${JSON.stringify(wide.red)}`);
-      assert.deepEqual(dispose.paint, wide.red, `移入回收站静止态不是 --board-red 那一组实底红：${JSON.stringify(dispose)}`);
-      assert.equal(dispose.ink, 'rgb(255, 255, 255)');
+      assert.equal(dispose.hold, true);
+      assert.deepEqual(dispose.paint[0], []);
+      assert.equal(dispose.before, 'none');
+      assert.equal(dispose.background, await tokenColor(page, '#grid [data-junk-card]', '--color-background-primary-default'));
+      assert.equal(dispose.ink, await tokenColor(page, '#grid [data-junk-card]', '--color-text-error-primary'));
       for (const key of wide.keys.filter((one) => one.action !== 'dispose')) {
         assert.notDeepEqual(key.paint, wide.red, `${key.action} 也画成了红键`);
       }
