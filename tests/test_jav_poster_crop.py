@@ -823,6 +823,29 @@ class JudgePortraitScriptTests(unittest.TestCase):
             self.assertIsNone(script.package_sleeve(evidence, (2184, 1542), None))
         self.assertIsNone(script.package_sleeve({"source_url": "https://image.mgstage.com/pb_e_x.jpg"}, (800, 538), None))
 
+    def test_a_cover_without_a_source_record_is_looked_up_by_code(self):
+        """2026-09 之前装的封面没有来源记录（STARS-080）：按番号查 DMM 拿地址，没换图就不写来源记录。"""
+        import cv2
+
+        script = batch_script('judge_cover_portraits')
+        path = self.install("STARS-080", (1100, 776), {"box": {"x0": 550, "y0": 0, "x1": 1100, "y1": 776, "method": FOLD}})
+        path.with_suffix(".scraping.json").unlink()
+        listing = "https://awsimgsrc.dmm.co.jp/pics_dig/digital/video/1stars00080/1stars00080pl.jpg"
+        _, poster = cv2.imencode('.jpg', noise(546, 776, 8))
+        evidence = script.eligible(path, every=False, named=False)
+        self.assertEqual(evidence, {})
+        with patch.object(script, "dmm_listing_url", return_value=listing) as lookup, \
+                patch.object(script, "dmm_portrait", return_value=poster.tobytes()) as portrait, \
+                patch.object(script, "package_sleeve", return_value=None) as package:
+            result = script.judge(path, evidence, None, self.report)
+        lookup.assert_called_once_with(None, "STARS-080")
+        self.assertEqual((package.call_args.args[0]["source_url"], portrait.call_args.args[1]), (listing, listing))
+        self.assertEqual(result["status"], "judged")
+        self.assertFalse(path.with_suffix(".scraping.json").exists(), "老图从哪儿来不知道，不能记成查到的地址")
+        mgs = self.install("ABP-001", (2184, 1542), {"box": {"x0": 1100, "y0": 0, "x1": 2184, "y1": 1542, "method": FOLD}},
+                           url="https://image.mgstage.com/pb_e_abp-001.jpg")
+        self.assertIsNone(script.eligible(mgs, every=True, named=False))
+
 
 class ManualBoxTests(unittest.TestCase):
     """人在详情页自己框的那一块，与算出来的框共用同一份边车。"""

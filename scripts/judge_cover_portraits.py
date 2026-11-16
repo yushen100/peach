@@ -3,6 +3,10 @@
 新装的封面在 `install_cover` 里当场判；这个脚本补判装在这之前的那些。默认只挑可能判错的：比例
 不是标准 DVD 封套、没找到折痕、被判成整幅画面或标题带 VR 的；`--all` 连标准封套一起判。不带
 `--apply` 只列候选。每个番号写一份结果到 `--report`，原有整组文件先备份到 `--report/originals`。
+
+来源记录（`.scraping.json`）里的 DMM 横图地址推出竖版图与 DVD 封套地址。没有来源记录的（2026-09
+之前装的封面不记来源）按番号查 DMM 目录拿横图地址；换成 DVD 封套时写入它的来源记录，没换图就不写：
+那张老图从哪儿来的不知道，不能记成查到的地址。来源记录写明是别家的（JavBus、MGS 等）不碰。
 """
 from __future__ import annotations
 
@@ -23,7 +27,7 @@ from peach.fsutil import atomic_write_text
 from peach.images import measure_image_file, measure_image_size
 from peach.interface_text import dev as t
 from peach.jav_cover_fetch import (AWS_MODERN, PACKAGE_PREFERENCE, HostLimitedTransport, Unavailable, candidate_for,
-                                   dmm_portrait, dmm_portrait_url, official_image, package_cid, probe_size)
+                                   dmm_evidence, dmm_portrait, dmm_portrait_url, official_image, package_cid, probe_size)
 from peach.scraping_access import SourceTransport
 
 
@@ -54,8 +58,11 @@ def eligible(path: Path, *, every: bool, named: bool) -> dict | None:
     url = str(evidence.get('source_url') or '')
     size = measure_image_file(path)
     record = crop.read_sidecar(path) or {}
-    if not size or not dmm_portrait_url(url) or is_user_cover(path) or crop.is_manual(record):
+    # 有来源地址却不是 DMM 横图：是别家的图，不碰。没有来源地址的留到补判时按番号查。
+    if not size or (url and not dmm_portrait_url(url)) or is_user_cover(path) or crop.is_manual(record):
         return None
+    if not url and not crop.crops_to_portrait(path.stem, str(record.get('title') or '')):
+        return None  # 没有来源记录、又不是番号封面：按番号查不到东西
     if named:
         return evidence
     if size[0] / size[1] < crop.SLEEVE_RATIO_MIN:
@@ -92,14 +99,26 @@ def package_sleeve(evidence: dict, size: tuple[int, int], transport):
                                    'installed_sha256': digest, 'checked_at': time.time()}
 
 
+def dmm_listing_url(transport, code: str) -> str:
+    """按番号查 DMM 目录得到的配信版横图地址；查不到是空串。"""
+    for candidate in dmm_evidence(transport, code).candidates:
+        if dmm_portrait_url(candidate.url) and '/digital/video/' in candidate.url:
+            return candidate.url
+    return ''
+
+
 def judge(path: Path, evidence: dict, transport, report: Path) -> dict:
     backup = report / 'originals'
     size = measure_image_file(path)
     payload = path.read_bytes()
-    upgraded = package_sleeve(evidence, size, transport)
+    source = str(evidence.get('source_url') or '') or dmm_listing_url(transport, path.stem)
+    if not source:
+        return {'code': path.stem, 'status': 'no_portrait'}
+    upgraded = package_sleeve({**evidence, 'source_url': source}, size, transport)
     if upgraded is not None:
         payload, size, evidence = upgraded
-    portrait = dmm_portrait(transport, str(evidence['source_url']))
+        source = str(evidence['source_url'])
+    portrait = dmm_portrait(transport, source)
     if portrait is None and upgraded is None:
         return {'code': path.stem, 'status': 'no_portrait'}
     for member in cover_group(path):
@@ -107,7 +126,8 @@ def judge(path: Path, evidence: dict, transport, report: Path) -> dict:
         if member.exists() and not saved.exists():
             saved.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(member, saved)
-    install_cover(path, path.stem, payload, size, evidence=evidence, portrait=portrait)
+    # 没有来源记录、也没换图的不写来源记录：空的 `{}` 会让人以为来源查过了。
+    install_cover(path, path.stem, payload, size, evidence=evidence or None, portrait=portrait)
     record = crop.read_sidecar(path) or {}
     found = crop.portrait_of(record)
     return {'code': path.stem, 'status': 'judged', 'verdict': found.verdict if found else None,
