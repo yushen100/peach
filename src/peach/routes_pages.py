@@ -170,6 +170,14 @@ def _setup_destination(config, *, history_guide: bool) -> str:
     return _normal_url(config) + ('taste?onboarding=1' if history_guide else '?onboarding=1')
 
 
+def _setup_needs_tls(*, standalone: bool, windows: bool, host: str) -> bool:
+    """首设完成后要去 HTTPS 固定入口（`_normal_url`）的部署：源码部署在 Windows 上，或别的系统对局域网监听。
+
+    签发工具缺了就只能一次次回到设置页（#395）：这类部署先核对并报给用户，设置不落盘，装好后可以重试。
+    """
+    return not standalone and not distribution.docker() and (windows or not listening.is_loopback(host))
+
+
 def _normal_url(config) -> str:
     """设置完成之后本机浏览器要去的地址。
 
@@ -625,9 +633,7 @@ async def setup_submit_json(request: Request):
         resolved, _broken = onboarding.resolve_config(answers.data_root)
         if resolved.path.exists():
             raise HTTPException(status_code=409, detail="settings file already exists")
-        # 源码部署在 Windows 上，或别的系统对局域网监听时，完成后要去 HTTPS 固定入口（`_normal_url`）；
-        # 签发工具缺了就只能一次次回到设置页（#395）：先核对并报给用户，设置不落盘，装好后可以重试。
-        require_tls = not standalone and not distribution.docker() and (windows or not listening.is_loopback(answers.host))
+        require_tls = _setup_needs_tls(standalone=standalone, windows=windows, host=answers.host)
         try:
             applied = onboarding.apply(resolved, answers, windows=windows, access_password=password,
                                        peach_proxy_values=proxy_values, require_tls=require_tls)
