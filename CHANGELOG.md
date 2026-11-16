@@ -48,7 +48,8 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Playback**: Software transcoding of a whole video uses at most half the CPU cores, so other playing videos are not slowed down (#174). / **播放**：服务端软件转码整部视频时最多占一半 CPU 核，同时在播的视频不再被拖慢（#174）。
 - **Playback**: New videos start at the volume last set in this browser instead of 100% (#161). / **播放**：新打开的视频从这台浏览器上次调过的音量起播，不再每次都是 100%（#161）。
 - **Updates**: The changelog and release pages put English first; Chinese notes and downloads are folded by language (#680). / **更新**：更新日志与发布页改为英文在前，中文说明和下载说明按语言折叠（#680）。
-- **Sourcing**: Bundled userscript 0.7.16 gives the main button its own row and pairs other actions with icons, two to a row (peach-mitao/peach-userscript#38). / **采集**：随附用户脚本更新至 0.7.16，浮卡主按钮单独一行，其余操作带图标两个一行（peach-mitao/peach-userscript#38）。
+- **Sourcing**: Bundled userscript 0.7.18 shows Peach's reason for an automatic retry, naming the source, with times like "tonight 21:39" (peach-mitao/peach-userscript#40). / **采集**：随附用户脚本更新至 0.7.18，待自动重试显示 Peach 给的原因并点名来源，时间写成「今晚 21:39」（peach-mitao/peach-userscript#40）。
+- **Sourcing**: The userscript gives the main button its own row and pairs other actions with icons, two to a row (peach-mitao/peach-userscript#38). / **采集**：用户脚本浮卡主按钮单独一行，其余操作带图标两个一行（peach-mitao/peach-userscript#38）。
 - **Sourcing**: The userscript puts notices at the top of its floating cards and every button at the bottom (peach-mitao/peach-userscript#37). / **采集**：用户脚本浮卡里的提示统一排在最上方，按钮都在最下面（peach-mitao/peach-userscript#37）。
 - **Sourcing**: The userscript scrolls codes and performer names that don't fit back and forth within the panel row (peach-mitao/peach-userscript#34). / **采集**：用户脚本浮卡里放不下的番号、女优名改为在行内来回滚动（peach-mitao/peach-userscript#34）。
 
