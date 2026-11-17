@@ -1117,6 +1117,24 @@ class LibraryNfoTests(unittest.TestCase):
                     self.assertEqual(payload['title'], 'Café & A & B')
                     self.assertEqual(original, raw)
 
+    def test_repairing_nfo_ampersands_preserves_cdata_fields_and_comment_boundaries(self):
+        document = ('<?xml version="1.0" encoding="{encoding}"?>'
+                    '<?example <![CDATA[ & marker?><movie>'
+                    '<!-- <![CDATA[ remains comment & text -->'
+                    '<studio>A & B</studio>'
+                    '<title><![CDATA[Café & A &amp; B &unknown;]]></title>'
+                    '<actor><name><![CDATA[Actor & Name]]></name></actor></movie>')
+        for encoding in ('utf-8', 'utf-16', 'utf-16-le', 'utf-16-be', 'iso-8859-1'):
+            with self.subTest(encoding=encoding):
+                raw = document.format(encoding=encoding).encode(encoding)
+                path = self.root / 'cdata.nfo'
+                path.write_bytes(raw)
+                payload, original = read_nfo(path)
+                self.assertEqual(payload['title'], 'Café & A &amp; B &unknown;')
+                self.assertEqual(payload['maker'], 'A & B')
+                self.assertEqual(payload['actresses'], [{'japanese_name': 'Actor & Name'}])
+                self.assertEqual(original, raw)
+
     def test_art_cannot_escape_media_directory(self):
         folder = self.root / 'film'
         folder.mkdir()
@@ -3797,6 +3815,56 @@ class LibraryWatchdogTests(unittest.TestCase):
         (media / 'poster.jpg').write_bytes(b'not read here')
         _fourth, reads = self._nfo_run(media, db, provider)
         self.assertEqual(reads, 1)
+
+    @windows_ledger_roots
+    def test_old_nfo_evidence_is_read_again_in_later_and_resumed_runs(self):
+        from peach import library_processing, media_io
+        media = self.root / 'media'
+        media.mkdir()
+        (media / 'ABW-212.mp4').write_bytes(b'video')
+        (media / 'ABW-214.mp4').write_bytes(b'video')
+        (media / 'ABW-212.nfo').write_text(
+            '<movie><title><![CDATA[Café & A]]></title><studio>A & B</studio>'
+            '<sorttitle>ABW-212</sorttitle></movie>', encoding='utf-8')
+        db = fresh_ledger(self.root)
+        provider = self._provider()
+        config = self._config(media)
+        process_library(config, db, self.root / 'generated', self.root / 'covers', stage='scan')
+        first, reads = self._nfo_run(media, db, provider)
+        self.assertEqual(reads, 1)
+        cache_root = Path(next(iter(first['local_metadata'].values()))).parent
+        index_path = cache_root / 'index.json'
+        cache_index = json.loads(index_path.read_text(encoding='utf-8'))
+        nfo_key = None
+        for position, (key, cached_path) in enumerate(first['local_metadata'].items()):
+            legacy = json.loads(Path(cached_path).read_text(encoding='utf-8'))
+            legacy.pop('nfo_parser', None)
+            if legacy['local'][1]:
+                nfo_key = key
+                legacy['local'][2]['title'] = 'Café &amp; A'
+            legacy_path = cache_root / f'legacy-{position}.json'
+            legacy_path.write_text(json.dumps(legacy, ensure_ascii=False), encoding='utf-8')
+            cache_index['entries'][key][1] = legacy_path.name
+            first['local_metadata'][key] = str(legacy_path)
+        self.assertIsNotNone(nfo_key)
+        index_path.write_text(json.dumps(cache_index), encoding='utf-8')
+
+        with patch('peach.library_processing._read_local_metadata',
+                   wraps=library_processing._read_local_metadata) as local_read:
+            later, reads = self._nfo_run(media, db, provider)
+        self.assertEqual(reads, 1)
+        self.assertEqual(local_read.call_count, 1)
+        cached = json.loads(Path(later['local_metadata'][nfo_key]).read_text(encoding='utf-8'))
+        self.assertEqual(cached['local'][2]['title'], 'Café & A')
+        with patch('peach.library_processing.read_nfo', wraps=media_io.read_nfo) as read:
+            resumed = process_library(
+                config, db, self.root / 'generated', self.root / 'covers', stage='metadata',
+                provider_factory=lambda: provider,
+                resume_state={**first, 'status': 'interrupted', 'completed_metadata': []})
+        self.assertEqual(read.call_count, 1)
+        cached = json.loads(Path(resumed['local_metadata'][nfo_key]).read_text(encoding='utf-8'))
+        self.assertEqual(cached['local'][2]['title'], 'Café & A')
+        self.assertEqual(self._nfo_run(media, db, provider)[1], 0)
 
     @windows_ledger_roots
     def test_a_source_that_failed_is_kept_for_diagnosis_when_another_one_answered(self):

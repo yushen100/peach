@@ -32,7 +32,7 @@ from .profiles import read_settings
 from .images import measure_image_file
 from .jav_cover_fetch import MIN_WIDTH, DeadlineExceeded, NotFound
 from .sources.base import SourceFailure
-from .library_nfo import sidecars, SidecarIndex
+from .library_nfo import NFO_PARSER_VERSION, sidecars, SidecarIndex
 from .media_io import directory_files, read_nfo, local_art, root_online, directory_entries, file_stat
 from .genre_decisions import load_genre_decisions
 from .metadata import (candidate_text_is_valid, source_text_is_valid,
@@ -3476,6 +3476,8 @@ class _LocalEvidenceCache:
             code, verify, payload, entries = cached['local']
         except (OSError, ValueError, KeyError, TypeError):
             return None
+        if verify and cached.get('nfo_parser') != NFO_PARSER_VERSION:
+            return None
         entries = [(source, document, translate_ledger_path(path)) for source, document, path in entries]
         if not all(Path(path).is_file() for _, _, path in entries):
             return None
@@ -3495,7 +3497,8 @@ class _LocalEvidenceCache:
             cached = json.loads(Path(cached_path).read_text(encoding='utf-8')) if cached_path else None
         except (OSError, ValueError):
             cached = None
-        if cached is not None:
+        if cached is not None and (not cached['local'][1]
+                                   or cached.get('nfo_parser') == NFO_PARSER_VERSION):
             code, verify, payload, entries = cached['local']
             poster_jobs.extend((row, translate_ledger_path(source), name, Path(target))
                                for source, name, target in cached['posters'])
@@ -3508,7 +3511,8 @@ class _LocalEvidenceCache:
                                      self.state, update, issue, poster_jobs, self.code_patterns)
         if local is not None and self.state['issue_count'] == issues_before:
             code, verify, payload, entries = local
-            record = dict(local=[code, verify, payload, [(source, document, str(path)) for source, document, path in entries]],
+            record = dict(nfo_parser=NFO_PARSER_VERSION,
+                          local=[code, verify, payload, [(source, document, str(path)) for source, document, path in entries]],
                           posters=[(str(source), name, str(target)) for _, source, name, target in poster_jobs[offset:]])
             encoded = json.dumps(record, ensure_ascii=False)
             digest = hashlib.sha256(encoded.encode()).hexdigest()
