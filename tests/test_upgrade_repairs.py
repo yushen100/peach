@@ -1734,6 +1734,132 @@ class UpgradeRepairTests(unittest.TestCase):
                                "VALUES(?,'local',?,?,'video',?,?,?)",
                                (key, rf'R:\media\{key}.mp4', 'SSIS-123.mp4', code, json.dumps({'code': owner}), duration))
 
+    def amane_cache_sample(self):
+        from peach import artifact_rules, amane_cache_repair, library_processing, metadata_amane
+        from peach.review_csv import write_rows
+        self.service.prepare()
+        self.asset(1, code='123456_789', owner='user:manual', duration=90)
+        self.asset(2, code='SSIS-123', owner='user:manual', duration=90)
+        receipt = upgrade_repairs._read(self.service.receipt)
+        receipt.pop(amane_cache_repair.RULE)
+        receipt['dispatch_complete'] = True
+        self.seed_receipt(receipt)
+        directory = self.root / 'sources/library-metadata'
+        directory.mkdir(parents=True, exist_ok=True)
+        documents = {
+            '123456_789-freejavbt': {'id': '123456_789', 'title': 'Old mismatched title',
+                                   'content_id': '123456_789'},
+            'SSIS-123-makers': {'id': 'SSIS-123', 'title': 'Old title', 'poster_url': '',
+                                'raw': {'thumb_urls': ['https://cdn.example/SSIS123_2.jpg']}},
+            'ABC-001-freejavbt': {'id': 'ABC-001', 'title': 'Unchanged'},
+            'ABC-002-makers': {'id': 'ABC-002', 'poster_url': 'https://cdn.example/abc-ps.jpg',
+                              'raw': {'thumb_urls': ['https://cdn.example/abc-pl.jpg']}},
+            '123456_789-r18dev': {'id': '123456_789', 'title': 'Other source'},
+        }
+        for name, payload in documents.items():
+            path = directory / (name + '.json')
+            path.write_text(json.dumps(payload), encoding='utf-8')
+            artifact_rules.remember(path, str(upgrade_rules.PROVIDER_EVIDENCE))
+        # 旧桥回报请求URL中的番号，客户端身份核对仍会接受，不能假定旧错配已被挡住。
+        found, failures = metadata_amane.split_report('123456_789', {'sites': {'freejavbt': {
+            'status': 'found', 'metadata': {'number': '123456_789', 'title': 'Old mismatched title'}}}})
+        self.assertEqual((len(found), failures), (1, {}))
+        misses = library_processing._MissCache(library_processing.misses_path(self.service.config))
+        for source, code in [('freejavbt', '123456_789'), ('makers', 'SSIS-123'),
+                             ('cover', 'SSIS-123'), ('freejavbt', 'ABC-001'),
+                             ('r18dev', '123456_789'), ('cover', 'ABC-001')]:
+            misses.record(source, code)
+        free = {'source': 'freejavbt', 'value': 'Old mismatched title', 'candidate_key': 'old-free'}
+        manual = {'source': 'local_nfo', 'value': 'Manual title', 'candidate_key': 'manual'}
+        candidates = self.root / 'generated' / upgrade_repairs.CANDIDATE_FILE
+        rows = [{'item_key': 'asset:1:title', 'asset_id': 1, 'code': '123456_789', 'field': 'title',
+                 'source_count': 2, 'candidates_json': json.dumps([free, manual])},
+                {'item_key': 'asset:1:studio', 'asset_id': 1, 'code': '123456_789', 'field': 'studio',
+                 'source_count': 1, 'candidates_json': json.dumps([free])}]
+        write_rows(candidates, library_processing.FIELDS, rows, atomic=True)
+        with self.database.write_transaction() as connection:
+            connection.execute("UPDATE asset SET catalog_title='Approved title' WHERE id=1")
+            connection.execute("INSERT INTO review_decision(category,item_key,status,updated_at) "
+                               "VALUES('metadata_fields','asset:1:studio','approved','now')")
+            upgrade_repairs.upsert_items(connection, [
+                {'rule': 'media:processing-v2', 'asset_id': key, 'state': 'done'} for key in (1, 2)], mode='seed')
+        return directory, candidates
+
+    def test_amane_cache_repair_reopens_only_affected_sources_after_an_existing_receipt(self):
+        from peach import amane_cache_repair, artifact_rules, cover_artwork, library_processing
+        from peach.review_csv import read_rows
+        directory, candidates = self.amane_cache_sample()
+        bodies = {path: path.read_bytes() for path in directory.glob('*.json')}
+        self.service.prepare()
+        receipt = upgrade_repairs._read(self.service.receipt)
+        self.assertEqual(receipt[amane_cache_repair.RULE]['state'], 'done')
+        self.assertEqual(receipt['amane_media_ids'], [1, 2])
+        for path, body in bodies.items():
+            self.assertEqual(path.read_bytes(), body)
+            affected = path.stem in {'123456_789-freejavbt', 'SSIS-123-makers'}
+            self.assertEqual(artifact_rules.current(path, str(upgrade_rules.PROVIDER_EVIDENCE)), not affected)
+        self.assertEqual([source for source, _ in cover_artwork.metadata_snapshots(directory, '123456_789')],
+                         ['r18dev'])
+        misses = library_processing._MissCache(library_processing.misses_path(self.service.config))
+        for source, code in [('freejavbt', '123456_789'), ('makers', 'SSIS-123'), ('cover', 'SSIS-123')]:
+            self.assertFalse(misses.fresh(source, code))
+        for source, code in [('freejavbt', 'ABC-001'), ('r18dev', '123456_789'), ('cover', 'ABC-001')]:
+            self.assertTrue(misses.fresh(source, code))
+        rows = {row['item_key']: json.loads(row['candidates_json']) for row in read_rows(candidates)}
+        self.assertEqual([entry['source'] for entry in rows['asset:1:title']], ['local_nfo'])
+        self.assertEqual([entry['source'] for entry in rows['asset:1:studio']], ['freejavbt'])
+        with self.database.read_connection() as connection:
+            self.assertEqual(connection.execute('SELECT catalog_title FROM asset WHERE id=1').fetchone()[0],
+                             'Approved title')
+        with patch('peach.library_processing._people_allowed', return_value=False), \
+                patch('peach.seed_followup.plan', return_value=[]), \
+                patch.object(upgrade_repairs, '_stale_previews', return_value=False):
+            planned = self.service._plan(receipt)
+        self.assertEqual({row.key for row in planned}, {
+            f'upgrade-library:processing-v2:{amane_cache_repair.RULE}:{key}' for key in (1, 2)})
+        provider = SimpleNamespace(amane=Mock(return_value=[('makers', {
+            'id': 'SSIS-123', 'title': 'Fresh title', 'poster_url': 'https://cdn.example/SSIS123_1.jpg'})]),
+            excused=0.0)
+        remote = library_processing._RemoteSession(self.service.config, lambda: provider, misses,
+                                                   retrying=False, recheck_existing=True)
+        remote._chain = lambda *args: ('makers',)
+        entries = remote._metadata({'id': 2, 'path': r'R:\media\2.mp4'}, 'SSIS-123', ['title'],
+                                   update=lambda **state: None, issue=lambda *args, **kwargs: None)
+        self.assertEqual(provider.amane.call_count, 1)
+        self.assertEqual(entries[0][1]['poster_url'], 'https://cdn.example/SSIS123_1.jpg')
+        with self.database.read_connection() as connection:
+            row = dict(connection.execute('SELECT * FROM asset WHERE id=1').fetchone())
+        groups = {}
+        library_processing._merge_candidates(groups, row, '123456_789', 'freejavbt',
+            {'id': '123456_789', 'title': 'Fresh verified title'},
+            directory / '123456_789-freejavbt.json', {}, verify_existing=True)
+        candidate = json.loads(groups['asset:1:title']['candidates_json'])[0]
+        self.assertTrue(candidate['requires_review'])
+
+    def test_amane_cache_repair_resumes_the_recorded_plan_after_a_partial_file_failure(self):
+        from peach import amane_cache_repair, artifact_rules, library_processing
+        directory, _candidates = self.amane_cache_sample()
+        original = amane_cache_repair.apply
+        def interrupted(*args):
+            original(*args)
+            raise OSError('interrupted after cache writes')
+        with patch.object(amane_cache_repair, 'apply', side_effect=interrupted), \
+                self.assertLogs('peach.upgrade_repairs', level='ERROR'):
+            self.service.prepare()
+        pending = upgrade_repairs._read(self.service.receipt)[amane_cache_repair.RULE]
+        self.assertEqual(pending['state'], 'prepared')
+        fresh = directory / 'SSIS-123-makers.json'
+        fresh.write_text(json.dumps({'id': 'SSIS-123', 'poster_url': 'new.jpg'}), encoding='utf-8')
+        artifact_rules.remember(fresh, str(upgrade_rules.PROVIDER_EVIDENCE))
+        library_processing.misses_path(self.service.config).unlink()
+        self.service.prepare()
+        complete = upgrade_repairs._read(self.service.receipt)[amane_cache_repair.RULE]
+        self.assertEqual(complete['state'], 'done')
+        self.assertEqual(complete['plan']['withdrawn'], pending['plan']['withdrawn'])
+        self.assertTrue(artifact_rules.current(fresh, str(upgrade_rules.PROVIDER_EVIDENCE)))
+        self.service.prepare()
+        self.assertEqual(upgrade_repairs._read(self.service.receipt)[amane_cache_repair.RULE], complete)
+
     def test_codes_missing_their_label_suffix_are_restored_once_with_a_receipt(self):
         """#124：旧版把 `IBW-483z` 的 `z` 当版次剥掉，只改回扫描写入、去掉尾字母正好等于旧值的番号。"""
         rows = [

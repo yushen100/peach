@@ -10,7 +10,7 @@ from pathlib import Path
 
 from filelock import FileLock
 
-from . import body_parts, jav_poster_crop
+from . import amane_cache_repair, body_parts, jav_poster_crop
 from .face_detect import FaceDetector, FaceModelUnavailable, decode, main_face
 from .jav_cover_fetch import Unavailable, is_javdb_image
 
@@ -46,6 +46,8 @@ def metadata_snapshots(root: Path, code: str) -> list[tuple[str, dict]]:
     found = []
     for path in sorted(Path(root).glob(code + '-*.json')):
         try:
+            if amane_cache_repair.invalidated(path):
+                continue
             payload = json.loads(path.read_text(encoding='utf-8'))
         except (OSError, ValueError):
             continue

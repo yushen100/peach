@@ -94,6 +94,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Fixed / 修复
 
+- **Sourcing**: Retry affected FreeJavBT matches and maker posters after upgrading the metadata bridge (#772). / **采集**：升级资料桥后，定向重采受影响的 FreeJavBT 匹配和片商海报（#772）。
 - **Desktop**: LAN discovery selects a real interface when a tunnel owns the default route and keeps valid private-network routes (#726). / **桌面**：局域网发现避开占用默认路由的隧道接口，保留有效私网路由（#726）。
 - **Sourcing**: Local NFO files accept unescaped ampersands while preserving UTF-16, CDATA text and original file bytes (#725). / **采集**：本地 NFO 可读取未转义的 &，保留 UTF-16、CDATA 文本和原始文件字节（#725）。
 - **Review**: Duplicate review shows covers and full filenames when space allows, with highlighted name and path differences (#739). / **复核**：重复文件显示已有封面，空间足够时显示完整文件名，名称和路径差异按复核样式高亮（#739）。
