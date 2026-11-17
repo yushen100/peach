@@ -101,10 +101,21 @@ def read_nfo(path: Path):
     declarations = raw.replace(b'\x00', b'').upper()
     if len(raw) > 1024 * 1024 or b'<!DOCTYPE' in declarations or b'<!ENTITY' in declarations:
         raise UserValueError('errors.libraryNfo.tooLargeOrEntities')
+    # UTF-16 的 & 占两个字节，直接替换单个字节会改变后续字符。
+    if raw.startswith((b'\xff\xfe', b'\xfe\xff')):
+        document = raw.decode('utf-16')
+    elif raw.startswith(b'<\x00'):
+        document = raw.decode('utf-16-le')
+    elif raw.startswith(b'\x00<'):
+        document = raw.decode('utf-16-be')
+    else:
+        document = raw
     try:
-        root = ET.fromstring(raw)
+        root = ET.fromstring(document)
     except ET.ParseError:
-        sanitized = re.sub(rb'&(?!(?:amp|lt|gt|apos|quot|#\d+|#x[0-9a-fA-F]+);)', b'&amp;', raw)
+        pattern = r'&(?!(?:amp|lt|gt|apos|quot|#\d+|#x[0-9a-fA-F]+);)'
+        sanitized = (re.sub(pattern, '&amp;', document) if isinstance(document, str)
+                     else re.sub(pattern.encode('ascii'), b'&amp;', raw))
         root = ET.fromstring(sanitized)
     if root.tag not in {'movie', 'episodedetails', 'musicvideo'}:
         raise UserValueError('errors.libraryNfo.notVideo')
