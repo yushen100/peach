@@ -91,16 +91,8 @@ def sidecars(video: Path, files: dict[str, Path] | None = None):
     return SidecarIndex(files).for_video(video)
 
 
-def read_nfo(path: Path):
-    """保留完整原文；拒绝 DTD，并限制 XML 的输入体积。"""
-    with path.open('rb') as handle:
-        raw = handle.read(1024 * 1024 + 1)
-    from .processing_traffic import record_media_read
-    record_media_read(path, len(raw))
-    # XML 的 UTF-16/32 编码包含零字节；声明检查同样覆盖这些编码。
-    declarations = raw.replace(b'\x00', b'').upper()
-    if len(raw) > 1024 * 1024 or b'<!DOCTYPE' in declarations or b'<!ENTITY' in declarations:
-        raise UserValueError('errors.libraryNfo.tooLargeOrEntities')
+def _nfo_root(raw: bytes):
+    """按原编码解析 XML，仅在解析失败后补全裸 & 的转义。"""
     # UTF-16 的 & 占两个字节，直接替换单个字节会改变后续字符。
     if raw.startswith((b'\xff\xfe', b'\xfe\xff')):
         document = raw.decode('utf-16')
@@ -111,12 +103,25 @@ def read_nfo(path: Path):
     else:
         document = raw
     try:
-        root = ET.fromstring(document)
+        return ET.fromstring(document)
     except ET.ParseError:
         pattern = r'&(?!(?:amp|lt|gt|apos|quot|#\d+|#x[0-9a-fA-F]+);)'
         sanitized = (re.sub(pattern, '&amp;', document) if isinstance(document, str)
                      else re.sub(pattern.encode('ascii'), b'&amp;', raw))
-        root = ET.fromstring(sanitized)
+        return ET.fromstring(sanitized)
+
+
+def read_nfo(path: Path):
+    """保留完整原文；拒绝 DTD，并限制 XML 的输入体积。"""
+    with path.open('rb') as handle:
+        raw = handle.read(1024 * 1024 + 1)
+    from .processing_traffic import record_media_read
+    record_media_read(path, len(raw))
+    # XML 的 UTF-16/32 编码包含零字节；声明检查同样覆盖这些编码。
+    declarations = raw.replace(b'\x00', b'').upper()
+    if len(raw) > 1024 * 1024 or b'<!DOCTYPE' in declarations or b'<!ENTITY' in declarations:
+        raise UserValueError('errors.libraryNfo.tooLargeOrEntities')
+    root = _nfo_root(raw)
     if root.tag not in {'movie', 'episodedetails', 'musicvideo'}:
         raise UserValueError('errors.libraryNfo.notVideo')
     def text(*keys):
