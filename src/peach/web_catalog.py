@@ -49,6 +49,7 @@ from .web_activity import DEFAULT_PROFILE_ID
 from .web_state import WebContract
 from .western_artwork import artwork_key
 from .user_messages import UserValueError
+from .table_filters import column_filters
 
 
 GROUP_TABLES = ('asset_catalog', 'asset_entity', 'entity')
@@ -314,33 +315,6 @@ def column_search(query):
     patterns = _suggest_patterns(query)
     parameters = [patterns[name] for name in re.findall(r':(\w+)', SUGGEST_ENTITY_MATCH)]
     return re.sub(r':\w+', '?', SUGGEST_ENTITY_MATCH), parameters
-
-
-def column_filters(raw, allowed):
-    """解析列头多选，缺少分组表示全选，空数组表示不选，exclude 保存排除项。"""
-    if raw is None or raw == '':
-        return {}
-    try:
-        value = json.loads(raw)
-    except (ValueError, TypeError):
-        raise UserValueError('api.catalog.invalidColumnFilters') from None
-    if not isinstance(value, dict) or set(value) - set(allowed):
-        raise UserValueError('api.catalog.invalidColumnFilters')
-    selected = {}
-    for column, selection in value.items():
-        exclude = isinstance(selection, dict)
-        if exclude and set(selection) != {'exclude'}:
-            raise UserValueError('api.catalog.invalidColumnFilters')
-        values = selection['exclude'] if exclude else selection
-        if not isinstance(values, list) or any(not isinstance(item, str) or not item.strip() for item in values):
-            raise UserValueError('api.catalog.invalidColumnFilters')
-        if column == 'people' and any(
-                ':' not in item or item.split(':', 1)[0] not in {'performer', 'creator', 'owner'}
-                or not item.split(':', 1)[1] or (item.startswith('owner:') and item != 'owner:none') for item in values):
-            raise UserValueError('api.catalog.invalidColumnFilters')
-        unique = list(dict.fromkeys(values))
-        selected[column] = {'exclude': unique} if exclude else unique
-    return selected
 
 
 SCALAR_COLUMN_EXPRESSIONS = {

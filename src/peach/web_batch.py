@@ -161,7 +161,7 @@ def q_ads(contract: WebContract, limit=200, offset=0, kind="", status="pending",
 
 
 def _junk_table_rows(pool, kind, raw):
-    from .web_table_filters import filter_rows
+    from .table_filters import filter_rows
     # 评分缓存只读，媒体库归属与筛选字段属于这次请求。
     rows = [dict(item) for item in pool if not kind or item["junk_kind"] == kind]
     _attach_library(rows)

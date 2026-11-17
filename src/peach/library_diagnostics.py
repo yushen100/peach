@@ -69,7 +69,7 @@ def group(key, rows=None, *, config=None, filters=None):
     facets = {}
     if config is not None:
         from .media_identity import ownership
-        from .web_table_filters import filter_rows
+        from .table_filters import filter_rows
         for item in ordered:
             if "library_id" not in item:
                 item["library_id"] = ownership(config, item["path"]).get("library_id", "")

@@ -45,7 +45,7 @@ class WebDataTests(unittest.TestCase):
         self.assertEqual({row['k']: row['n'] for row in options['items']}, {'0': 1, '4': 1})
 
     def test_queue_facets_intersect_columns_and_count_each_row_once(self):
-        from peach.web_table_filters import filter_rows
+        from peach.table_filters import filter_rows
         rows = [{'id': 1, 'library': ['a'], 'why': ['x', 'x', 'y']},
                 {'id': 2, 'library': ['b'], 'why': ['x']}, {'id': 3, 'library': ['a'], 'why': []}]
         filtered, facets = filter_rows(rows, '{"library":["a"],"why":{"exclude":["y"]}}',

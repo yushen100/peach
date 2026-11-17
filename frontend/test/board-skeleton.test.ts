@@ -157,7 +157,7 @@ describe('Board 页面骨架', () => {
   it('关注表格视图是 Board UI 表格外框，当前排序那一列带方向', () => {
     const root = follow({ followLayout: 'table' });
     const table = root.querySelector('.follow-skeleton-table[data-board-data-table] table.bui-table')!;
-    expect([...table.querySelectorAll('thead th')].map((th) => th.textContent)).toEqual(['', '创作者', '来源', '站点', '状态', '上次检查', '']);
+    expect([...table.querySelectorAll('thead th')].map((th) => th.textContent)).toEqual(['', '创作者', '来源', '站点', '状态', '上次检查', '操作']);
     expect(table.querySelectorAll('tbody tr')).toHaveLength(20);
     expect([...table.querySelectorAll('[data-sort-indicator][data-direction]')].map((mark) => [mark.parentElement!.textContent, mark.getAttribute('data-direction')]))
       .toEqual([['上次检查', 'descending']]);

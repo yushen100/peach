@@ -234,7 +234,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Fixed / 修复
 
-- **Media** — Existing portraits, favicons, confirmed-source images and complete video sizes are read from local caches first, and cached video stills remain available without FFmpeg (#754). / **媒体** — 已有头像、站点图标、已确认来源的图片和完整视频大小优先读取本地缓存，已生成的视频静帧在 FFmpeg 不可用时仍可显示（#754）。
+- **Playback**: Cached images, video sizes and generated stills are reused before online reads or frame extraction (#754). / **播放**：图片、视频大小和已生成静帧优先复用本地缓存（#754）。
 - **Sourcing**: Wants distinguishes source failures from empty results, reads JavDB pages when its API requires login and restores confirmed resources (#717). / **采集**：想要区分来源失败与正常空结果，JavDB 接口要求登录时读取作品页，并恢复已确证资源的误放弃状态（#717）。
 - **Following**: Leaving Home unmounts its new-release row and prevents late requests from showing it on other pages (#744). / **关注**：离开首页时卸载新作行，迟到请求不会再将它显示到其他页面（#744）。
 - **Desktop**: On macOS, opening Peach while it is running opens the web UI, so you can get in even when the system hides the menu bar icon. / **桌面**：macOS 上 Peach 已在运行时再点开应用会打开网页，菜单栏图标被系统折叠时也能进入。
