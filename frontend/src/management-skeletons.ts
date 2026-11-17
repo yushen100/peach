@@ -11,8 +11,8 @@ const chart = 'min-w-0 rounded-2-5xl bg-background-secondary-default p-5 flex fl
 const check = (label = '', size: 'md' | 'sm' = 'md', className = '') => `<span class="group inline-flex items-center select-none ${size === 'sm' ? 'gap-1.5' : 'gap-2'} ${className}">`
   + `<span class="flex shrink-0 items-center justify-center rounded-sm ${size === 'sm' ? 'size-3.5' : 'size-4'} border bg-background-primary-default shadow-xs border-border-checkbox-default"></span>`
   + `${label ? `<span class="${size === 'sm' ? 'text-body-2-medium' : 'text-body-medium'} text-text-primary">${label}</span>` : ''}</span>`;
-/** 玻璃条上的药丸，类名同 `react/components/filter-glass.tsx` 的 `GlassPill`。 */
-const glassPill = (label: string) => `<button ${wait} class="h-8 rounded-full border border-(--glass-low) bg-transparent px-3 text-body-2-regular leading-none whitespace-nowrap">${label}</button>`;
+/** 文字动作与 `FilterActionButton` 使用同档 BoardUI 按钮。 */
+const filterAction = (label: string) => islandButton({ label, size: 'small', variant: 'secondary', attrs: wait });
 
 /** 统计首屏与 StatsPage 的读数卡、双列库存图和三列分布图共用布局。 */
 export function statsSkeleton(): string {
@@ -93,8 +93,8 @@ export function duplicatesSkeleton(): string {
   return `<div class="peach-react"><div class="mx-auto w-full max-w-board pb-10.5">
     ${islandGlassRows({ label: t('cleanup:duplicates.summaryLabel'), attrs: ' data-filter-frame="" data-duplicates-frame=""',
       controls: queueControlsSkeletonHtml('duplicates'),
-      top: [t('cleanup:duplicates.allKeepLargest'), t('cleanup:duplicates.allKeepLongest'), t('cleanup:duplicates.allKeepAll')].map(glassPill).join('')
-        + `<span class="ml-auto"></span>${glassPill(text('4.5em'))}` })}
+      top: [t('cleanup:duplicates.allKeepLargest'), t('cleanup:duplicates.allKeepLongest'), t('cleanup:duplicates.allKeepAll')].map(filterAction).join('')
+        + `<span class="ml-auto"></span>${filterAction(text('4.5em'))}` })}
     ${group.repeat(2)}
   </div></div>`;
 }

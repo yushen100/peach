@@ -319,7 +319,7 @@ describe('设计决定：关注详情、作品详情、播放器与侧栏', () =
     }
   });
 
-  it('作品详情标签与反馈键：标签复用卡片，反馈键悬停换色，长按删除保留红字并改变底色', { timeout: 60_000 }, async () => {
+  it('作品详情标签与反馈键：标签复用卡片，单击回收反馈键悬停换色', { timeout: 60_000 }, async () => {
     const opened = await openItemPage(browser, `/assets/${ITEM.plain}`, DESKTOP);
     try {
       const page = opened.page;
@@ -361,11 +361,11 @@ describe('设计决定：关注详情、作品详情、播放器与侧栏', () =
       const read = () => dispose.evaluate(node => ({ color: getComputedStyle(node).color,
         background: getComputedStyle(node).backgroundColor, hold: node.hasAttribute('data-hold-confirm') }));
       const rest = await read();
-      assert.equal(rest.hold, true);
-      assert.equal(rest.color, await tokenColor(page, '#stage [data-item-detail]', '--color-text-error-primary'));
+      assert.equal(rest.hold, false);
+      assert.equal(rest.color, await tokenColor(page, '#stage [data-item-detail]', '--muted'));
       await dispose.hover();
       const hovered = await read();
-      assert.equal(hovered.color, rest.color);
+      assert.equal(hovered.color, await tokenColor(page, '#stage [data-item-detail]', '--meter'));
       assert.notEqual(hovered.background, rest.background);
       assert.deepEqual(withoutPlayer(opened.problems), []);
     } finally {

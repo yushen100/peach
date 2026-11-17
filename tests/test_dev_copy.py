@@ -56,6 +56,20 @@ class DevCopyTests(unittest.TestCase):
             self.assertEqual(result['text'], '回收站里有 12 项')
             self.assertEqual(json.loads(path.read_text(encoding='utf-8')), {'trash': {'count': '回收站里有 {{count}} 项'}})
 
+    def test_number_formatted_locale_copy_preserves_the_formatter_when_saved(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp).resolve()
+            path = root / 'resources/locales/zh-CN/cleanup.json'
+            path.parent.mkdir(parents=True)
+            path.write_text('{"selectAll": "全选（{{count, number}} 个）"}', encoding='utf-8')
+            candidate, = dev_copy.candidates(root, '全选（1,234 个）')
+            self.assertEqual(candidate['template'], '全选（{count} 个）')
+            result = dev_copy.save(root, {'original': '全选（1,234 个）',
+                'replacement': '选择全部 {count} 个', 'candidate': candidate})
+            self.assertEqual(result['text'], '选择全部 1,234 个')
+            self.assertEqual(json.loads(path.read_text(encoding='utf-8')),
+                             {'selectAll': '选择全部 {{count, number}} 个'})
+
     def test_status_recovers_from_a_short_read_lock_and_preserves_persistent_denial(self):
         from peach import dev_copy_runtime as runtime
         with tempfile.TemporaryDirectory() as tmp:

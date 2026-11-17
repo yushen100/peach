@@ -525,6 +525,24 @@ class ResourceJunkQueueTests(unittest.TestCase):
 
         self.assertEqual([item["id"] for item in result["items"]], [90])
 
+    def test_release_artwork_without_a_code_field_or_sibling_video_is_preserved(self):
+        base = r'B:\云下载\kpkp3.com_483SGKX-016'
+        self.add(301, '115', base + r'\kpkp3.com_483SGKX-016.jpg', 'image', 230258)
+        self.add(302, '115', base + r'\kpkp3.com_483SGKX-016B.jpg', 'image', 196355)
+        self.add(303, '115', base + r'\kpkp3.com_483SGKX-016_点击进入.jpg', 'image', 230258)
+        self.assertEqual([item['id'] for item in q_ads(self.contract)['items']], [303])
+        self.assertEqual(junk.isolate(self.contract.database, asset_ids=[301, 302])['isolated'], 0)
+
+    def test_fc2_bonus_parts_are_preserved_beside_the_full_length_main(self):
+        code = 'FC2-PPV-4592208'
+        base = r'A:\日本\FC2\FC2-PPV-4592208'
+        self.add(310, 'pikpak', base + r'\fc4592208.mp4', 'video', 5 * 1024**3, 5340, code=code)
+        self.add(311, 'pikpak', base + r'\fc4592208_sp.mp4', 'video', 102400332, 260.994067, code=code)
+        self.add(312, 'pikpak', base + r'\fc4592208_gift2.mp4', 'video', 90 * 1024**2, 90, code=code)
+        self.add(313, 'pikpak', base + r'\FC2-PPV-4592208 短片.mp4', 'video', 90 * 1024**2, 90, code=code)
+        self.assertEqual([item['id'] for item in q_ads(self.contract)['items']], [313])
+        self.assertEqual(junk.isolate(self.contract.database, asset_ids=[311, 312])['isolated'], 0)
+
     def test_cover_and_screenshot_outlive_their_promo_directory(self):
         """目录名带域名只说明从哪个站下的，说明不了目录里的图是广告。"""
         # 正片本体的体积在候选范围外，这里只作为截图的对照存在。
@@ -702,12 +720,12 @@ class ResourceJunkQueueTests(unittest.TestCase):
         self.add(10, '115', r'B:\云下载\notes.txt', 'other', 470)
         self.add_download(2, 'ABP-616', r'B:\云下载', 1)
         items = {item['id']: item for item in q_ads(self.contract, limit=200)['items']}
-        self.assertEqual(set(items), {2, 3, 4, 7})
+        self.assertEqual(set(items), {2, 3, 7})
         self.assertIn('SSIS-839 下载包里的附带短视频，正片长 120 分', items[2]['why'])
         self.assertIn('附带压缩包', items[7]['why'])
         self.assertLess(items[7]['score'], web_batch.AUTO_TRASH_SCORE)
         checked = junk.isolate(self.contract.database, asset_ids=list(range(1, 11)), protected_ids=[1])
-        self.assertEqual(sorted(checked['ids']), [2, 3, 4])
+        self.assertEqual(sorted(checked['ids']), [2, 3])
 
     def test_untracked_folders_under_the_download_root_use_their_own_release_video(self):
         # 下载根由已有任务确定；没有任务行的旧下载按目录名里的番号认正片。

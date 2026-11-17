@@ -44,7 +44,7 @@ import { OnlineTagDock } from './online-tag-dock';
 import { TagAlphabet, TagCloud, TagDock, TagFilters, type TagEntry } from './index-tags';
 import { TagManager } from './tag-manager';
 import { TagEditor, useTagStatusCounts } from './tag-operations';
-import { GlassPill } from '../components/filter-glass';
+import { FilterActionButton } from '../components/filter-glass';
 import { t } from '../../i18n';
 
 /* 厂牌与事务所是两种实体，不是同一份数据的两种筛选：厂牌出片，事务所出人。所以这个开关切的
@@ -303,7 +303,7 @@ export function IndexPage(props: IndexProps) {
       ) : null}
       {kind === 'tags' ? (
         <TagFilters categories={categories} category={category} online={onlineTags}
-          actions={onlineTags ? <GlassPill onPress={() => setAddingBlockedTag(true)}>{t('catalog:tagManager.blockByName')}</GlassPill> : undefined}
+          actions={onlineTags ? <FilterActionButton onPress={() => setAddingBlockedTag(true)}>{t('catalog:tagManager.blockByName')}</FilterActionButton> : undefined}
           readout={result.isPending ? undefined : readout}
           status={{ hidden: false, blocked: false, ...tagCounts, onChange: (hidden) => { if (hidden) openManager('hidden') },
             ...(onlineTags ? { onBlocked: () => openManager('blocked') } : {}) }}

@@ -90,6 +90,8 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Updates**: Repairs and migrations is grouped by kind, and repairs awaiting your OK can be started all at once or a group at a time (#723). / **更新**：「修复与迁移」按类分组，等确认的修复可一次全部开始或按组开始（#723）。
 
 ### Fixed / 修复
+- **Library**: Junk review preserves release artwork and FC2 bonus clips alongside the main movie (#752). / **馆藏**：垃圾复核保留作品封面、九宫格和与正片并存的 FC2 特典（#752）。
+- **Interface**: Filter text actions use standard buttons. Single-file trash uses a click, bulk trash confirms with a hold, and number labels remain editable (#752). / **界面**：筛选文字动作统一标准按钮，单文件单击回收，整批确认长按执行，带数字的按钮文案可编辑（#752）。
 - **Settings**: When the data folder can't be written to, diagnostics no longer resend the same error every time it happens (#331). / **配置**：数据目录写不进去时，错误诊断不再在每次发生时重复上传同一个错误（#331）。
 
 - **Interface**: Table filters gray out offline libraries and show standard loading feedback at the bottom while fetching options (#751). / **界面**：表格筛选中的离线媒体库置灰，下拉读取与续页时在列表底部显示标准加载态（#751）。

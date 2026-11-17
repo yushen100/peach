@@ -7,7 +7,7 @@ import { tagSkeletonHtml, TAG_PAGE_SIZES } from '../../tag-skeleton';
 import { DataTableFooter } from '../components/table-controls';
 import { IndexSearch } from './index-search';
 import { useTagPageBounds, useTagPagination } from './tag-pagination';
-import { GlassPill } from '../components/filter-glass';
+import { FilterActionButton } from '../components/filter-glass';
 import { Note } from '../components/note';
 import { enterPageSelection, exitPageSelection, usePageSelection } from '../components/page-selection';
 import { SelectionDock } from '../components/selection-dock';
@@ -78,11 +78,11 @@ export function TagManager({ search, category = 'all', view = 'cloud', onCategor
         ...(online ? { onBlocked: () => { setBlocked(true); setHidden(false) } } : {}) }}
       actions={<>
         {/* 「添加屏蔽标签」在线范围三档都在：还没抓到过的标签不在任何一档里，得有个地方直接填名字。 */}
-        {online ? <GlassPill onPress={() => setEditing('block')}>{t('catalog:tagManager.blockByName')}</GlassPill> : null}
-        {inventory.data?.duplicate_groups.length ? <GlassPill busy={action.busy === 'repair'} onPress={() => run({ operation: 'repair', ids: [] })}>{t('catalog:tagManager.mergeDuplicates')}</GlassPill> : null}
+        {online ? <FilterActionButton onPress={() => setEditing('block')}>{t('catalog:tagManager.blockByName')}</FilterActionButton> : null}
+        {inventory.data?.duplicate_groups.length ? <FilterActionButton busy={action.busy === 'repair'} onPress={() => run({ operation: 'repair', ids: [] })}>{t('catalog:tagManager.mergeDuplicates')}</FilterActionButton> : null}
         {/* 标签还没到时也摆着（按不动），取到以后这一排不再长出一颗键把旁边的挤开。 */}
-        {inventory.isPending || visible.length ? <GlassPill busy={!visible.length} onPress={() => setPicked(current => new Map([...current, ...visible.map(row => [row.k, row] as const)]))}>{t('catalog:tagManager.selectPage')}</GlassPill> : null}
-        {picked.size ? <GlassPill onPress={exitPageSelection}>{t('catalog:tagManager.clearSelection')}</GlassPill> : null}
+        {inventory.isPending || visible.length ? <FilterActionButton busy={!visible.length} onPress={() => setPicked(current => new Map([...current, ...visible.map(row => [row.k, row] as const)]))}>{t('catalog:tagManager.selectPage')}</FilterActionButton> : null}
+        {picked.size ? <FilterActionButton onPress={exitPageSelection}>{t('catalog:tagManager.clearSelection')}</FilterActionButton> : null}
       </>} />
     {inventory.isPending ? <div dangerouslySetInnerHTML={{ __html:tagSkeletonHtml({ mode:activeView, pageSize:pagination.pageSize }) }} />
       : inventory.isError ? <Note tone="error" action={<Button variant="secondary" onClick={() => void inventory.refetch()}>{t('catalog:shared.retryNow')}</Button>}>{t('catalog:tagManager.loadFailed')}</Note>

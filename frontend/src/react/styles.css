@@ -439,17 +439,6 @@ html:has([data-selection-dock]) { scroll-padding-bottom: var(--selection-dock-sp
 }
 .peach-react button[data-tag-mode] svg { width: 16px; height: 16px; }
 
-/* 浮层上动作键（`components/filter-glass.tsx` 的 `GlassPill`）指上去的那一下：同一副料，
- * 细线让给整圈 rim，落影把它从浮层上托起来，跟首页筛选条上滑到指针下的那块一样。那一档
- * `backdrop-filter` 提亮写在 `web/board.css`：构建会把标准属性折成 Chromium 不认的前缀写法。 */
-/* 按下（全选了）的那一颗字也提到玻璃正文色：只铺底不提字，深色下读着像是被禁用了。 */
-.peach-react [data-glass-pill][aria-pressed="true"] { color: var(--glass-text); }
-.peach-react [data-glass-pill]:is(:hover:not([aria-busy]), [aria-pressed="true"]) {
-  border-color: transparent;
-  background: linear-gradient(180deg, var(--glass-sheen), transparent 62%), var(--glass-pick-fill);
-  box-shadow: inset 0 0 0 1px var(--glass-rim), var(--glass-pick-shadow);
-}
-
 /* 索引页的过滤框与播放列表的新建框在窄屏把字号提到 16px：小于这一档，手机浏览器聚焦时
  * 会把整页放大。 */
 @media (width < 761px) {

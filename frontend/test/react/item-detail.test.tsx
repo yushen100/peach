@@ -16,7 +16,7 @@ import {
 import { ItemDetailPage } from '../../src/react/item-detail/item-detail-page';
 import { tagLabel } from '../../src/core/tags';
 import { queryClient } from '../../src/react/query';
-import { hold, click, mount, pending, settle, type } from './render';
+import { click, mount, pending, settle, type } from './render';
 
 afterEach(() => { queryClient.clear(); localStorage.removeItem('peach.recentTags') });
 notifyManager.setScheduler((notify) => notify());
@@ -476,10 +476,10 @@ describe('写完之后', () => {
     expect(done.trashChanged).toHaveBeenCalledWith(null, true);
   });
 
-  it('移入回收站之后交给壳：这一档可能要把它从列表里拿掉', async () => {
+  it('单击移入回收站后交给壳更新列表和撤销回执', async () => {
     serve(() => ({ feedback: null, disposal: 'trash' }));
     const { host, actions: done } = await show(item(1));
-    await hold(host.querySelector('[data-kind="dispose"]'));
+    await click(host.querySelector('[data-kind="dispose"]'));
     await settle();
     expect(done.trashChanged).toHaveBeenCalledWith('trash', false);
     expect(done.toast.mock.calls[0]![0]).toBe('已移入回收站');

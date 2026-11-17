@@ -1,10 +1,10 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "a25e4b5f-30c0-42ee-81a1-add1b28ef351", e._sentryDebugIdIdentifier = "sentry-dbid-a25e4b5f-30c0-42ee-81a1-add1b28ef351");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "84ed5508-e91c-4fcc-8fe6-fceb811fac33", e._sentryDebugIdIdentifier = "sentry-dbid-84ed5508-e91c-4fcc-8fe6-fceb811fac33");
 	} catch {}
 })();
-import { Button as e, CardTags as t, CatalogViewToggle as n, CloudDownloadDialog as r, EmptyState as i, FilterGlassRows as a, Icon as o, LOC as s, ListLibrary as c, Note as l, OA as u, QUALITY_GOALS_KEY as d, QueueIdentity as f, QueuePicture as p, QueueTable as m, SelectAllPill as h, SelectionDock as g, SortKeys as _, __toESM as v, enterPageSelection as y, errorMessage as b, exitPageSelection as x, fetchQualityGoals as S, fmtDur as C, fmtSize as w, previewUrl as T, require_jsx_runtime as E, require_react as D, t as O, useCatalogView as k, useDense as A, useLibraryTints as j, usePageSelection as M, useQuery as N, useQueueSort as P } from "./peach-app.js";
+import { Button as e, CardTags as t, CatalogViewToggle as n, CloudDownloadDialog as r, EmptyState as i, FilterGlassRows as a, Icon as o, LOC as s, ListLibrary as c, Note as l, OA as u, QUALITY_GOALS_KEY as d, QueueIdentity as f, QueuePicture as p, QueueTable as m, SelectAllButton as h, SelectionDock as g, SortKeys as _, __toESM as v, enterPageSelection as y, errorMessage as b, exitPageSelection as x, fetchQualityGoals as S, fmtDur as C, fmtSize as w, previewUrl as T, require_jsx_runtime as E, require_react as D, t as O, useCatalogView as k, useDense as A, useLibraryTints as j, usePageSelection as M, useQuery as N, useQueueSort as P } from "./peach-app.js";
 import { Page as F } from "./peach-app.page-QAncjzM1.js";
 import { JavBatchResources as I } from "./peach-app.jav-batch-resources-B1BkGgyg.js";
 // src/react/quality-goals/quality-goals-page.tsx
@@ -298,4 +298,4 @@ function V({ toast: t, ...o }) {
 }
 export { V as QualityGoalsPage };
 
-//# debugId=a25e4b5f-30c0-42ee-81a1-add1b28ef351
+//# debugId=84ed5508-e91c-4fcc-8fe6-fceb811fac33
