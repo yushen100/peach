@@ -30,12 +30,12 @@ class OcrUnavailable(UserFacingError, RuntimeError):
 
 
 class ImageReader:
-    """同一后台任务复用一个 OCR 引擎。"""
+    """批量识别缓存帧，按平台选用本机引擎。"""
 
     def __init__(self, tools_root: Path, *, platform: str | None = None):
         self.tools_root = Path(tools_root)
         self.platform = sys.platform if platform is None else platform
-        self.reader = None
+        self.parameters = None
 
     def read(self, paths: list[Path]) -> list[str]:
         try:
@@ -44,22 +44,24 @@ class ImageReader:
             if self.platform == 'darwin':
                 return self._macos(paths)
             return self._portable(paths)
-        except (ImportError, OSError, RuntimeError, ValueError) as error:
+        except (ImportError, OSError, RuntimeError, ValueError, subprocess.SubprocessError) as error:
             if isinstance(error, OcrUnavailable):
                 raise
             raise OcrUnavailable(error) from error
 
     def _portable(self, paths):
-        from rapidocr import RapidOCR
         from .avatar_watermark import ensure_model
-        if self.reader is None:
+        from .ocr_runtime import python
+        if self.parameters is None:
             root = self.tools_root / 'rapidocr'
             parameters = {'Global.model_root_dir': str(root)}
             for kind, relative, sha256 in MODEL_SPECS:
                 model = ensure_model(root / Path(relative).name, url=MODEL_ROOT + relative, sha256=sha256)
                 parameters[f'{kind}.model_path'] = str(model)
-            self.reader = RapidOCR(params=parameters)
-        return [' '.join(self.reader(str(path)).txts or ()) for path in paths]
+            self.parameters = parameters
+        return self._process([str(python(self.tools_root)), '-X', 'utf8',
+                              str(PROJECT_ROOT / 'resources/ocr/worker.py')], paths,
+                             {'parameters': self.parameters})
 
     @staticmethod
     def _macos(paths):
@@ -83,14 +85,19 @@ class ImageReader:
         return texts
 
     def _windows(self, paths):
-        from .task_control import run
         executable = shutil.which('powershell.exe')
         if executable is None:
             raise OcrUnavailable('Windows PowerShell unavailable')
         helper = PROJECT_ROOT / 'resources/ocr/windows.ps1'
-        result = run([executable, '-NoProfile', '-NonInteractive', '-File', str(helper)],
+        return self._process([executable, '-NoProfile', '-NonInteractive', '-File', str(helper)],
+                             paths, {'language': 'zh-Hans-CN'})
+
+    @staticmethod
+    def _process(command, paths, parameters):
+        from .task_control import run
+        result = run(command,
                      input=json.dumps({'paths': [str(path) for path in paths],
-                                       'language': 'zh-Hans-CN'}).encode('utf-8'),
+                                       **parameters}).encode('utf-8'),
                      capture_output=True, timeout=120,
                      creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
         if result.returncode:

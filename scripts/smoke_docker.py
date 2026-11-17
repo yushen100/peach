@@ -125,6 +125,19 @@ def transcode_checks(name: str, identity: str = "1000:1000") -> None:
         assert report["streams"][0] == {"codec_name": "h264", "pix_fmt": "yuv420p"}, report
 
 
+def ocr_checks(name: str, identity: str = "1000:1000") -> None:
+    """从镜像资源读取模型并通过独立 OCR 环境识别本地合成文字。"""
+    text = exec_as(name, identity, "python", "-c",
+                  "from pathlib import Path; from PIL import Image, ImageDraw, ImageFont; "
+                  "from peach.image_ocr import ImageReader; "
+                  "path=Path('/data/smoke-media/ocr.png'); "
+                  "image=Image.new('RGB',(960,160),'white'); "
+                  "ImageDraw.Draw(image).text((30,40),'SIGNUP BONUS DOWNLOAD APP',"
+                  "font=ImageFont.load_default(size=40),fill='black'); image.save(path); "
+                  "print(ImageReader(Path('/data/tools')).read([path])[0])")
+    assert 'signup' in text.casefold() and 'download' in text.casefold(), text
+
+
 def amane_checks(name: str, identity: str = "1000:1000") -> None:
     """断网容器直接载入随镜像分发的独立环境与全部站点类。"""
     runtime = "/app/amane-runtime"
@@ -254,6 +267,7 @@ def main() -> None:
         assert media == {"status": 206, "size": 64}, media
         transcode_checks(name)
         amane_checks(name)
+        ocr_checks(name)
         config_path = "/data/config.toml"
         original = docker("exec", name, "cat", config_path)
         exec_as(name, "1000:1000", "python", "-c",
@@ -277,7 +291,7 @@ def main() -> None:
 
         print(json.dumps({"image": args.image, "checks": ["first-setup", "non-root", "ready", "auth", "configuration",
                                                          "scan", "range", "vaapi-stack", "transcode-fallback",
-                                                         "amane-prerequisites", "reload", "restart", "persistence",
+                                                         "amane-prerequisites", "visual-ocr", "reload", "restart", "persistence",
                                                          "uid-gid-migration", "group-add", "readonly-data",
                                                          "invalid-identity"]}))
     finally:

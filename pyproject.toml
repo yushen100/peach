@@ -92,8 +92,6 @@ macos = ["pyobjc-framework-Cocoa==12.2.2; sys_platform == 'darwin'"]
 vision = [
     "opencv-python-headless==5.0.0.93", "numpy==2.5.4",
     "pyobjc-framework-Vision==12.2.2; sys_platform == 'darwin'",
-    "rapidocr==3.10.0; sys_platform == 'linux'",
-    "onnxruntime==1.32.0; sys_platform == 'linux'",
 ]
 maintenance-115 = ["p115client==0.0.9.7.2"]
 # 字形复核与英文媒体文件名分词工具。

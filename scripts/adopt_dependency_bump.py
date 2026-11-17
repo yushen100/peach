@@ -93,6 +93,13 @@ RECIPES = {
         "commands": (),
         "checks": (("uv", "lock", "--check"),),
     },
+    "ocr": {
+        "label": "OCR 独立 Python 依赖",
+        "manifests": ("resources/ocr/environment/pyproject.toml", "resources/ocr/environment/uv.lock"),
+        "derived": (),
+        "commands": (),
+        "checks": (("uv", "lock", "--project", "resources/ocr/environment", "--check"),),
+    },
     "amane": {
         "label": "amane 桥的独立 Python 依赖",
         "manifests": ("tools/amane-bridge/pyproject.toml", "tools/amane-bridge/uv.lock"),

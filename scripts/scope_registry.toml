@@ -260,6 +260,7 @@ follow = [
 "resources/junk/promo_attachment_names.json" = ["catalog", "tooling"]
 "src/peach/junk_visual.py" = ["catalog", "media", "metadata"]
 "src/peach/image_ocr.py" = ["catalog", "media", "metadata"]
+"src/peach/ocr_runtime.py" = ["catalog", "media", "metadata", "packaging"]
 "scripts/windows_ocr.ps1" = ["catalog", "media", "metadata", "tooling"]
 # 补女优资料后继的解析与读写层、一次补完的脚本，测试都在 `test_performer_profile_followup.py`。
 "scripts/run_performer_profiles.py" = ["metadata"]

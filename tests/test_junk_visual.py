@@ -6,7 +6,6 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
-from types import ModuleType, SimpleNamespace
 from unittest import TestCase, skipUnless
 from unittest.mock import Mock, patch
 
@@ -209,19 +208,57 @@ class VisualEvidenceTests(TestCase):
 
 
 class ImageReaderTests(TestCase):
-    def test_portable_engine_uses_verified_models_and_reuses_the_reader(self):
-        module = ModuleType('rapidocr')
-        engine = Mock(return_value=SimpleNamespace(txts=('download app',)))
-        module.RapidOCR = Mock(return_value=engine)
+    def test_portable_engine_uses_verified_models_and_an_independent_python(self):
         reader = ImageReader(Path('tools'), platform='linux')
-        with patch.dict(sys.modules, {'rapidocr': module}), \
+        with patch('peach.ocr_runtime.python', return_value=Path('ocr-python')), \
+                patch.object(reader, '_process', return_value=['download app']) as process, \
                 patch('peach.avatar_watermark.ensure_model', side_effect=lambda path, **_: path) as ensure:
             self.assertEqual(reader.read([Path('a.png')]), ['download app'])
             self.assertEqual(reader.read([Path('b.png')]), ['download app'])
-        module.RapidOCR.assert_called_once()
+        self.assertEqual(process.call_args.args[0][:3], ['ocr-python', '-X', 'utf8'])
+        self.assertEqual(len(process.call_args.args[2]['parameters']), 4)
         self.assertEqual(ensure.call_count, 3)
         for call in ensure.call_args_list:
             self.assertEqual(len(call.kwargs['sha256']), 64)
+
+    def test_runtime_preparation_uses_the_lock_and_does_not_repeat_a_completed_install(self):
+        from peach import ocr_runtime
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            runtime = root / 'manifest'
+            runtime.mkdir()
+            for name in ('pyproject.toml', 'uv.lock'):
+                (runtime / name).write_text(name)
+            executable = root / 'ocr-runtime/.venv' / (
+                'Scripts/python.exe' if sys.platform == 'win32' else 'bin/python')
+
+            def install(*args, **kwargs):
+                executable.parent.mkdir(parents=True)
+                executable.touch()
+                return subprocess.CompletedProcess([], 0, b'', b'')
+
+            with patch.dict('os.environ', {'PEACH_OCR_PYTHON': ''}), \
+                    patch.object(ocr_runtime, 'RUNTIME', runtime), \
+                    patch('peach.runtime_prepare.find_uv', return_value=Path('uv')), \
+                    patch('peach.peach_proxy.client_options', return_value={'trust_env': True}), \
+                    patch('peach.task_control.run', side_effect=install) as run:
+                self.assertEqual(ocr_runtime.python(root), executable)
+                self.assertEqual(ocr_runtime.python(root), executable)
+            run.assert_called_once()
+            self.assertIn('--locked', run.call_args.args[0])
+            self.assertEqual(run.call_args.args[0][5], '3.14')
+
+    def test_runtime_installation_failure_preserves_the_error_and_no_success_receipt(self):
+        from peach import ocr_runtime
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            with patch.dict('os.environ', {'PEACH_OCR_PYTHON': ''}), \
+                    patch('peach.runtime_prepare.find_uv', return_value=Path('uv')), \
+                    patch('peach.peach_proxy.client_options', return_value={'trust_env': True}), \
+                    patch('peach.task_control.run', return_value=subprocess.CompletedProcess([], 1, b'', b'bad wheel')):
+                with self.assertRaisesRegex(RuntimeError, 'bad wheel'):
+                    ocr_runtime.python(root)
+            self.assertFalse((root / 'ocr-runtime/installed.sha256').exists())
 
     @skipUnless(sys.platform == 'darwin', 'macOS Vision')
     def test_macos_native_engine_reads_a_local_image(self):

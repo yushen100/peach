@@ -29,7 +29,9 @@ updates:
       timezone: Asia/Taipei
 
   - package-ecosystem: uv
-    directory: /
+    directories:
+      - /
+      - /resources/ocr/environment
     schedule:
       interval: weekly
       day: monday
