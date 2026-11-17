@@ -67,9 +67,9 @@ export function SectionToc({ label, entries, children }: {
     }
   }, [active]);
 
-  return <div ref={root} className="ui-section-page">
-    <nav ref={scrollRef} aria-label={label} className="ui-section-toc">
-      <PillTabList className="ui-section-toc-items" data-pill-nav="">
+  return <div ref={root} data-section-page="">
+    <nav ref={scrollRef} aria-label={label} data-section-toc="">
+      <PillTabList data-section-toc-items="" data-pill-nav="">
         {entries.map(entry => <a key={entry.id} href={`#${entry.id}`}
           aria-current={active === entry.id ? 'location' : undefined}
           data-pill-selected={active === entry.id ? '' : undefined} data-pill-variant="gray"

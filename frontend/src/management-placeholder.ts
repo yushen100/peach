@@ -60,7 +60,7 @@ const PLACEHOLDERS: Record<string, () => string> = {
   '/review': () => reviewSkeletonHtml(),
   /* 来源目录与正文保持同一分栏，来源名称等数据到齐后替换占位。 */
   '/sources': () => `<div class="scraping-page"><p>${esc(t('manage:scrapingSources.proxyHint'))}</p>
-    <div class="ui-section-page"><div class="ui-section-toc" aria-hidden="true">
+    <div data-section-page><div data-section-toc aria-hidden="true">
       ${Array.from({ length: 12 }, () => '<div class="skeleton" style="height:36px;margin-bottom:4px;border-radius:8px"></div>').join('')}
     </div><div>${pageSkeletonHtml(t('manage:scrapingSources.loading'), { cards: true, count: 4, fill: false, className: 'cleanup-skeleton' })}</div></div></div>`,
 };

@@ -30,7 +30,7 @@ describe('来源链接与凭据布局', () => {
           const offset = parseFloat(getComputedStyle(target).scrollMarginTop)
             + parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop);
           return Math.abs(target.getBoundingClientRect().top - offset) <= 2
-            && document.querySelector('.ui-section-toc [aria-current]')?.getAttribute('href') === '#source-javdb';
+            && document.querySelector('[data-section-toc] [aria-current]')?.getAttribute('href') === '#source-javdb';
         });
         assert.equal(await code.inputValue(), 'DEMO-001');
         assert.ok(await page.locator('#source-dmm').isVisible(), '跳转后其余来源正文被隐藏');
@@ -40,12 +40,12 @@ describe('来源链接与凭据布局', () => {
           await nav.hover();
           await page.mouse.wheel(0, 5000);
           await page.waitForFunction(() => {
-            const node = document.querySelector('.ui-section-toc')!;
+            const node = document.querySelector('[data-section-toc]')!;
             return node.scrollWidth - node.clientWidth - node.scrollLeft <= 2;
           });
           assert.equal(await page.evaluate(() => scrollY), before, '目录滚轮带动了正文');
           await page.mouse.wheel(0, -5000);
-          await page.waitForFunction(() => document.querySelector('.ui-section-toc')!.scrollLeft <= 2);
+          await page.waitForFunction(() => document.querySelector('[data-section-toc]')!.scrollLeft <= 2);
           assert.equal(await page.evaluate(() => scrollY), before, '反向目录滚轮带动了正文');
         }
         const dimensions = await layout(page);

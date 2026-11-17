@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "c8062823-d421-498d-99ab-8a0be51f7e3f", e._sentryDebugIdIdentifier = "sentry-dbid-c8062823-d421-498d-99ab-8a0be51f7e3f");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "093b4a69-4d36-42c5-a56f-98c6008f38b3", e._sentryDebugIdIdentifier = "sentry-dbid-093b4a69-4d36-42c5-a56f-98c6008f38b3");
 	} catch {}
 })();
 import { $fe21c36db05242bb$export$d7b12c4107be0d61 as e, AMANE_BRIDGE_CHECK_URL as t, AMANE_BRIDGE_KEY as n, AMANE_BRIDGE_REBUILD_URL as r, Button as i, CHECK_ALL_KEY as a, COVER_JOB_KEY as o, CUSTOM_SOURCES_KEY as s, CUSTOM_SOURCES_URL as c, Checkbox as l, Disclosure as u, ErrorText as d, ExternalLink as f, Fact as p, FactList as m, FieldLabel as h, Footer as g, Help as _, Input as v, IssueRow as y, LinkButton as ee, Note as b, PillTabList as x, Rows as te, SCRAPING_CHECK_ALL_URL as S, SCRAPING_CHECK_URL as ne, SCRAPING_COVER_URL as C, SCRAPING_KEY as w, SCRAPING_SETTINGS_URL as re, SEGMENT as ie, SEGMENTED_TRACK as ae, Section as T, SegmentedRadioGroup as oe, Select$1 as se, SelectField as E, SelectItem as ce, SettingsRow as le, SiteMark as D, Stack as O, StatusLabel as k, TaskProgress as A, __toESM as j, activityKind as M, apiSend as N, busyProps as P, checkText as ue, codedText as F, composingKey as de, confirmModal as fe, cx as I, errorMessage as L, esc as R, fetchAmaneBridge as z, fetchCheckAllJob as B, fetchCoverJob as pe, fetchCustomSources as me, fetchSources as he, i2 as ge, interfaceLanguage as _e, jobText as V, joinList as ve, momentText as ye, partsLabel as be, queryClient as H, require_jsx_runtime as xe, require_react as Se, serverLabel as Ce, spinnerHtml as we, t as U, useAction as W, useBackgroundJob as G, useHorizontalScroller as Te, useMutation as K, useQuery as Ee } from "./peach-app.js";
@@ -34,13 +34,13 @@ function ke({ label: e, entries: t, children: n }) {
 		e && t && (t.offsetTop < e.scrollTop ? e.scrollTop = t.offsetTop : t.offsetTop + t.offsetHeight > e.scrollTop + e.clientHeight && (e.scrollTop = t.offsetTop + t.offsetHeight - e.clientHeight), t.offsetLeft < e.scrollLeft ? e.scrollLeft = t.offsetLeft : t.offsetLeft + t.offsetWidth > e.scrollLeft + e.clientWidth && (e.scrollLeft = t.offsetLeft + t.offsetWidth - e.clientWidth));
 	}, [a]), /* @__PURE__ */ (0, Y.jsxs)("div", {
 		ref: r,
-		className: "ui-section-page",
+		"data-section-page": "",
 		children: [/* @__PURE__ */ (0, Y.jsx)("nav", {
 			ref: i,
 			"aria-label": e,
-			className: "ui-section-toc",
+			"data-section-toc": "",
 			children: /* @__PURE__ */ (0, Y.jsx)(x, {
-				className: "ui-section-toc-items",
+				"data-section-toc-items": "",
 				"data-pill-nav": "",
 				children: t.map((e) => /* @__PURE__ */ (0, Y.jsxs)("a", {
 					href: `#${e.id}`,
@@ -822,4 +822,4 @@ function Ge({ toast: e }) {
 }
 export { Ge as ScrapingPage, Ie as linkHost, Fe as networkOptions };
 
-//# debugId=c8062823-d421-498d-99ab-8a0be51f7e3f
+//# debugId=093b4a69-4d36-42c5-a56f-98c6008f38b3
