@@ -21,20 +21,21 @@ def _nodes(lock: dict, package: str, version: str) -> set[str]:
             and pin.get("version") == version}
 
 
-def _verify_archive(project: Path, lock: dict, entry: dict, nodes: list[str]) -> bool:
+def verified_nodes(project: Path, lock: dict, entry: dict) -> set[str]:
+    """返回同包同版本且都锁到已登记压缩包的节点。"""
     artifact = entry["artifact"]
     package_file = (project / artifact).resolve()
     if not package_file.is_relative_to(project) or not entry["source"].startswith("https://"):
-        return False
-    expected = _nodes(lock, entry["package"], entry["version"])
-    if not nodes or set(nodes) != expected:
-        return False
-    for node in expected:
+        return set()
+    nodes = _nodes(lock, entry["package"], entry["version"])
+    if not nodes:
+        return set()
+    for node in nodes:
         pin = lock[node]
         if pin.get("resolved") != f"file:{artifact}" or pin.get("integrity") != entry["integrity"]:
-            return False
+            return set()
     digest = b64encode(sha512(package_file.read_bytes()).digest()).decode("ascii")
-    return f"sha512-{digest}" == entry["integrity"]
+    return nodes if f"sha512-{digest}" == entry["integrity"] else set()
 
 
 def _verify_advisories(project: Path, lock: dict, active: list[dict], package: str,
@@ -48,7 +49,7 @@ def _verify_advisories(project: Path, lock: dict, active: list[dict], package: s
     for version, affected in by_version.items():
         candidates = [entry for entry in active if entry["package"] == package
                       and entry["version"] == version and advisories <= set(entry["advisories"])]
-        if len(candidates) != 1 or not _verify_archive(project, lock, candidates[0], affected):
+        if len(candidates) != 1 or verified_nodes(project, lock, candidates[0]) != set(affected):
             return []
         proofs.append({**candidates[0], "advisories": sorted(advisories)})
     return proofs
