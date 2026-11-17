@@ -20,7 +20,6 @@ import { apiGet, apiSend } from '../../api';
 import { codedText } from '../../core/server-text';
 import { EDITION_TONE } from '../../core/jav-title';
 import { Button } from '@/components/base/buttons/button';
-import { HoldActionButton } from '../components/hold-button';
 import { RiArrowDownSLine } from '@remixicon/react';
 import { CatalogGridPage } from '../catalog-grid/catalog-grid-page';
 import { patchCatalogItems, replaceCatalogItem } from '../catalog-grid/catalog-grid';
@@ -451,8 +450,8 @@ function Side({ item, queue, write, helpers, actions }: {
           <button type="button" id="betterVersion" data-fb="quality" aria-label={t('catalog:detailFeedback.betterVersion')}
             title={item.better_version ? (item.better_version_reason || t('catalog:detailFeedback.betterVersionMarked')) : t('catalog:detailFeedback.betterVersionTip')}
             aria-pressed={!!item.better_version} {...busy('quality')} onClick={write.quality}><Glyph name="sparkles" /></button>
-          <HoldActionButton holdToConfirm={item.disposal !== 'trash'} data-kind="dispose" data-fb="dispose" aria-label={t('catalog:shared.moveToTrash')} title={t('catalog:detailFeedback.trashTip')}
-            aria-pressed={item.disposal === 'trash'} {...busy('dispose')} onClick={() => write.feedback('dispose')}><Glyph name="trash" /></HoldActionButton>
+          <button type="button" data-kind="dispose" data-fb="dispose" aria-label={t('catalog:shared.moveToTrash')} title={t('catalog:detailFeedback.trashTip')}
+            aria-pressed={item.disposal === 'trash'} {...busy('dispose')} onClick={() => write.feedback('dispose')}><Glyph name="trash" /></button>
         </div>
         <Preference item={item} open={reasonOpen} write={write} />
         <button type="button" data-kind="o" {...busy('o')} onClick={() => write.feedback('o')}>

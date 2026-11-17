@@ -26,7 +26,7 @@ import { CloudDownloadDialog, type DownloadPrefill } from '../activity/cloud-dow
 import type { QualityGoalsProps } from '../bundle';
 import { CardTags, Icon } from '../components/card-meta';
 import { EmptyState } from '../components/empty-state';
-import { FilterGlassRows, SelectAllPill } from '../components/filter-glass';
+import { FilterGlassRows, SelectAllButton } from '../components/filter-glass';
 import { QueueIdentity, QueuePicture, QueueTable } from '../components/queue-table';
 import { useQueueSort } from '../components/queue-sort';
 import { useCatalogView } from '../catalog-grid/catalog-view';
@@ -147,7 +147,7 @@ export function QualityGoalsPage({ toast, ...props }: QualityGoalsProps) {
         attrs={{ 'data-catalog-frame': '', 'data-filter-frame': '' }} bottomClassName="min-h-12" bottom={<><span data-catalog-summary="">
           <span data-catalog-readout="" role="status">
             {t('manage:hdUpgrades.summaryLabel')} · {t('manage:hdUpgrades.videoCount', { count: Number(data.total || 0) })}</span>
-          <SelectAllPill label={t('manage:hdUpgrades.selectAll')} picked={chosen.length} total={items.length} onChange={pickAll} />
+          <SelectAllButton label={t('manage:hdUpgrades.selectAll')} picked={chosen.length} total={items.length} onChange={pickAll} />
         </span>
         <span data-entity-sorts=""><CatalogViewToggle /><SortKeys sorts={order.sorts} onSort={order.onSort} /></span></>} />
       {view === 'list'

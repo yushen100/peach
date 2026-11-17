@@ -20,7 +20,7 @@ import type { DuplicatesProps } from '../bundle';
 import { runBulkAction, type BulkAction, type BulkHost } from '../components/bulk-action';
 import { cardClass } from '../components/card';
 import { EmptyState } from '../components/empty-state';
-import { FilterGlassRows, GlassPill, SelectAllPill } from '../components/filter-glass';
+import { FilterGlassRows, FilterActionButton, SelectAllButton } from '../components/filter-glass';
 import { useQueueSort } from '../components/queue-sort';
 import { SortKeys } from '../entity-filter/entity-filter-page';
 import { Note } from '../components/note';
@@ -257,7 +257,7 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
     setPending(key);
     keep.mutate({ group, on });
   };
-  const selectPage = <SelectAllPill label={t('cleanup:duplicates.selectPage')} picked={chosen.length} total={groups.length}
+  const selectPage = <SelectAllButton label={t('cleanup:duplicates.selectPage')} picked={chosen.length} total={groups.length}
     onChange={(on) => { if (on) enterPageSelection(); setPicked(on ? new Set(groups.map(groupKey)) : new Set()) }} />;
   const dockActions = keptView
     ? [unkeepAction(t('cleanup:duplicates.unkeep'))]
@@ -279,33 +279,33 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
         top={keptView
           ? <>
               {groups.length
-                ? <GlassPill busy={pending === 'all:unkeep'} onPress={() => runAll(unkeepAction(t('cleanup:duplicates.allUnkeep')), 'all:unkeep')}>
+                ? <FilterActionButton busy={pending === 'all:unkeep'} onPress={() => runAll(unkeepAction(t('cleanup:duplicates.allUnkeep')), 'all:unkeep')}>
                     {t('cleanup:duplicates.allUnkeep')}
-                  </GlassPill>
+                  </FilterActionButton>
                 : null}
               <span className="ml-auto" />
-              <GlassPill onPress={() => switchView('pending')}>{t('cleanup:duplicates.backToPending')}</GlassPill>
+              <FilterActionButton onPress={() => switchView('pending')}>{t('cleanup:duplicates.backToPending')}</FilterActionButton>
             </>
           : <>
               {groups.length ? <>
-                <GlassPill busy={pending === 'all:largest'} onPress={() => runAll(keepRuleAction('largest', ''), 'all:largest')}>
+                <FilterActionButton busy={pending === 'all:largest'} onPress={() => runAll(keepRuleAction('largest', ''), 'all:largest')}>
                   {t('cleanup:duplicates.allKeepLargest')}
-                </GlassPill>
-                <GlassPill busy={pending === 'all:longest'} onPress={() => runAll(keepRuleAction('longest', ''), 'all:longest')}>
+                </FilterActionButton>
+                <FilterActionButton busy={pending === 'all:longest'} onPress={() => runAll(keepRuleAction('longest', ''), 'all:longest')}>
                   {t('cleanup:duplicates.allKeepLongest')}
-                </GlassPill>
+                </FilterActionButton>
                 {bulkCloudPreferences(groups, configured).map((location) => (
-                  <GlassPill key={location} busy={pending === `all:${location}`}
+                  <FilterActionButton key={location} busy={pending === `all:${location}`}
                     onPress={() => runAll(keepRuleAction(location, ''), `all:${location}`)}>
                     <SourceLabel source={location} label={t('cleanup:duplicates.allPreferStorage', { storage: LOC[location] || location })} />
-                  </GlassPill>
+                  </FilterActionButton>
                 ))}
-                <GlassPill busy={pending === 'all:keep'} onPress={() => runAll(keepAllAction(''), 'all:keep')}>
+                <FilterActionButton busy={pending === 'all:keep'} onPress={() => runAll(keepAllAction(''), 'all:keep')}>
                   {t('cleanup:duplicates.allKeepAll')}
-                </GlassPill>
+                </FilterActionButton>
               </> : null}
               <span className="ml-auto" />
-              <GlassPill onPress={() => switchView('kept')}>{t('cleanup:duplicates.viewKept', { count: keptCount })}</GlassPill>
+              <FilterActionButton onPress={() => switchView('kept')}>{t('cleanup:duplicates.viewKept', { count: keptCount })}</FilterActionButton>
             </>}
         bottom={<><span data-catalog-summary="">
           <span data-catalog-readout="" role="status">

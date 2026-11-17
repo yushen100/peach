@@ -547,7 +547,7 @@ export function loadJunk(surface){
 const JUNK_DISPOSE_ALL='/api/ads/dispose-all',JUNK_RESTORE_ALL='/api/ads/restore-all';
 export function disposeAllJunk(kind,count){
   return confirmModal({title:tr('shell:batchJunk.disposeAll'),body:confirmBody(tr('shell:batchJunk.confirmDisposeAll',{count}),'undo'),
-    confirmLabel:tr('shell:batchJunk.disposeAll'),danger:true,onConfirm:async()=>{
+    confirmLabel:tr('shell:batchJunk.disposeAll'),danger:true,holdToConfirm:true,onConfirm:async()=>{
       let result;
       try{result=await api(JUNK_DISPOSE_ALL,{method:'POST',body:JSON.stringify({kind,status:'pending',expected:count})})}
       catch(error){

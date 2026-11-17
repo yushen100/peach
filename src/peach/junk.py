@@ -9,7 +9,8 @@ from pathlib import PureWindowsPath
 
 from . import interface_text
 from .catalog_rules import (
-    _jav_code_pattern, is_jav_code, promo_free_key, release_code_from_filename, without_store_prefix,
+    FC2_BONUS_PREFIX, _jav_code_pattern, fc2_collection_label, is_jav_code, promo_free_key,
+    release_code_from_filename, without_store_prefix,
 )
 from .junk_words import (AD_BRAND, AD_BRAND_FORM, AD_DIR_BRAND_MEDIA, AD_DIR_FORM, PAGE_PROMO_CLAIM, PART_MARK,
                          PROMO_FILLER, PROMO_PHRASE)
@@ -253,10 +254,13 @@ def _junk_rows(connection, *, asset_ids=None, roots=None, visual_ids=()):
 
 
 def _junk_file_eligible(row) -> bool:
-    """资料边车、STRM指针和文件自身带番号的分卷不属于垃圾附件。"""
+    """保护资料边车、STRM 指针、带番号的作品图片和视频分卷。"""
     item = _windows_path(row["name"] or row["path"] or "")
     # STRM 的大小与名字描述的是链接文件，不能作为远端影片的垃圾证据。
     if item.suffix.casefold() in MEDIA_SIDECAR_SUFFIXES or item.suffix.casefold() == '.strm':
+        return False
+    if (row['medium'] == 'image' and release_code_from_filename(item.stem)
+            and not PROMO_PHRASE.search(PROMO_DOMAIN.sub('', item.stem))):
         return False
     if not (row["medium"] == "video" and PART_MARK.search(item.stem)):
         return True
@@ -574,8 +578,8 @@ def _video_evidence(row, stem: str, longer: dict, promo_dir: bool,
     duration = row["duration"]
     longest = longer.get(code)
     if longest and REAL_CODE.match(code) and duration is not None and 0 < duration < longest * 0.2 \
-            and not PART_MARK.search(stem):
-        # 分卷已排除，真番号下不到两成时长基本就是片段/预告，单独即可入队复核。
+            and not PART_MARK.search(stem) and not fc2_collection_label(row).startswith(FC2_BONUS_PREFIX):
+        # 分卷和特典已排除，同番号下不到两成时长的其余短版进入片段复核。
         # 用户标记的 `反抗不如享受.mp4`（ABW-220，244 秒）正好卡在旧的 35 分门外。
         score += 40; why.append(_Reason("fullVersionExists", minutes=f"{longest/60:.0f}"))
     if duration is not None and 0 < duration < 240:

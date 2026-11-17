@@ -13,7 +13,6 @@ import { memo, useRef, useState, type CSSProperties, type MouseEvent } from 'rea
 import { RiFolderOpenLine } from '@remixicon/react';
 import { esc, fmtSize } from '@peach/legacy/core';
 import { Button } from '@/components/base/buttons/button';
-import { HoldButton } from '../components/hold-button';
 
 import {
   junkDecision, junkKindMeta,
@@ -76,8 +75,8 @@ export function JunkActions({ state, compact }: { state: ReturnType<typeof useJu
         {...busyProps(busy === 'reveal')} onClick={reveal}>{compact ? null : t('cleanup:junk.reveal')}</Button>
       <Button variant="secondary" size={size} data-junk-action={decision.operation} title={decision.label}
         {...busyProps(busy === decision.operation)} onClick={operate(decision.operation)}>{decision.label}</Button>
-      <HoldButton variant="danger" size={size} data-junk-action="dispose" title={t('cleanup:duplicates.moveToTrash')}
-        {...busyProps(busy === 'dispose')} onClick={operate('dispose')}>{t('cleanup:duplicates.moveToTrash')}</HoldButton>
+      <Button variant="danger" size={size} data-junk-action="dispose" title={t('cleanup:duplicates.moveToTrash')}
+        {...busyProps(busy === 'dispose')} onClick={operate('dispose')}>{t('cleanup:duplicates.moveToTrash')}</Button>
       <span data-junk-state="" aria-live="polite" className="basis-full text-caption-1-regular text-text-secondary empty:hidden">
         {status}</span>
     </div>

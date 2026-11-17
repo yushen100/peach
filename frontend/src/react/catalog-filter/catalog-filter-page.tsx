@@ -15,7 +15,7 @@ import { popBadges } from '@peach/legacy/ui';
 import { AsyncText } from '../components/async-text';
 import { Button } from '@/components/base/buttons/button';
 
-import { FilterGlassRows, FilterPill, GlassPill } from '../components/filter-glass';
+import { FilterGlassRows, FilterPill, FilterActionButton } from '../components/filter-glass';
 import { useViewGlide } from '../components/use-view-glide';
 import { LibraryShortcuts } from '../library-shortcuts/shortcut-controls';
 import { FolderBrowseToggle } from '../catalog-folders/catalog-folders-page';
@@ -225,7 +225,7 @@ function Head({ count, refreshing, layout, sorts, previewOnly, actions }: Catalo
     <>
       <span data-catalog-summary=""><Readout count={count} /><LibraryShortcuts currentHref={actions.currentHref} />
         {/* 只显示有预览图时（设置或地址），这一次看全部的入口；回首页、刷新后按设置重新生效。 */}
-        {previewOnly && actions.showAll ? <GlassPill onPress={actions.showAll}>{t('catalog:catalogFilter.showAll')}</GlassPill> : null}</span>
+        {previewOnly && actions.showAll ? <FilterActionButton onPress={actions.showAll}>{t('catalog:catalogFilter.showAll')}</FilterActionButton> : null}</span>
       <span data-entity-sorts="">
         <Shuffle onPress={shuffle} busy={shuffling || refreshing} />
         {/* 按名字换键：JAV 与首页各一组，React Aria 的单选组挂上之后不改 `name`。 */}

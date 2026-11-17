@@ -20,7 +20,7 @@ import { TaskProgress } from '../components/task-progress';
 import { activityKind } from '../../activity-kinds';
 import { EmptyState } from '../components/empty-state';
 import { DataTableFooter } from '../components/table-controls';
-import { FilterGlassRows, FilterPill, GlassPill } from '../components/filter-glass';
+import { FilterGlassRows, FilterPill, FilterActionButton } from '../components/filter-glass';
 import { Segments, Shuffle, SortKeys } from '../entity-filter/entity-filter-page';
 import { Chip } from '@/components/base/badges/chip';
 import { recommendationScore, RELEASE_SORTS, type DiscoveryDirection, type ReleaseSort } from './discovery-sorts';
@@ -205,7 +205,7 @@ export function Releases({ readOnly, receipt, resource, query, navigate, clearTe
         </div></div>} bottom={<>
         <span data-catalog-readout="">{waiting ? <span data-skeleton="count" aria-hidden className="relative inline-block h-3.5 w-37.5 rounded-md align-middle skeleton-sheen" />
           : filtered ? t('catalog:javReleases.matchedCount', { matched: data?.total || 0, count: data?.candidate_total || 0 }) : t('catalog:countLabel.works', { count: data?.total || 0 })}</span>
-        {filtered ? <GlassPill onPress={clear}>{t('catalog:shared.clearFilters')}</GlassPill> : null}
+        {filtered ? <FilterActionButton onPress={clear}>{t('catalog:shared.clearFilters')}</FilterActionButton> : null}
         <span data-entity-sorts="">
           <Shuffle onPress={reshuffle} busy={filters.sort === 'random' && releases.isFetching} />
           {view === 'cards' ? <Segments label={t('catalog:entityFilter.javCardLayout')} value={layout} options={JAV_LAYOUTS} onChange={storeJavLayout} /> : null}

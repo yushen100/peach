@@ -14,7 +14,7 @@ import { useRef, type MouseEvent } from 'react';
 import { Button } from '@/components/base/buttons/button';
 
 import { JUNK_KIND_OPTIONS, junkPath, junkSummaryLabel, junkViewLink } from '../../junk-queue';
-import { FilterGlassRows, SelectAllPill } from '../components/filter-glass';
+import { FilterGlassRows, SelectAllButton } from '../components/filter-glass';
 import { CatalogViewToggle } from '../catalog-grid/catalog-view-toggle';
 import { SortKeys } from '../entity-filter/entity-filter-page';
 import type { EntitySortKey } from '../entity-filter/entity-filter';
@@ -82,7 +82,7 @@ export function JunkCount({ route, page, failed, pickAll, sorts, onSort, onNavig
             {junkSummaryLabel(view)} · <AsyncText text={figure} busy={figure === undefined} placeholder={<span data-skeleton="count"
               aria-hidden className="relative inline-block h-3.5 w-12 rounded-md align-middle skeleton-sheen" />} />
           </span>
-          {pickAll && pickAll.loaded.length ? <SelectAllPill label={t('cleanup:junk.selectAll', { count: pickAll.loaded.length })}
+          {pickAll && pickAll.loaded.length ? <SelectAllButton label={t('cleanup:junk.selectAll', { count: pickAll.loaded.length })}
             picked={pickAll.picked} total={pickAll.loaded.length} onChange={pickAll.onChange} /> : null}
           {/* 同回收站的「清空回收站」那一档：危险操作用实底红键，件数写在确认框里。 */}
           {onDisposeAll ? <Button size="small" variant="danger" data-junk-dispose-all="" onClick={onDisposeAll}>

@@ -22,7 +22,7 @@ import { Releases } from './jav-releases';
 import { JavHeader } from './jav-header';
 import { IndexSearch } from '../index/index-search';
 import { spriteGlyph } from '../components/sprite-glyph';
-import { FilterGlassRows, FilterIconButton, FilterPill, GlassPill } from '../components/filter-glass';
+import { FilterGlassRows, FilterIconButton, FilterPill, FilterActionButton } from '../components/filter-glass';
 import { LibraryShortcuts } from '../library-shortcuts/shortcut-controls';
 import { Segments, SortKeys } from '../entity-filter/entity-filter-page';
 import { TaskProgress } from '../components/task-progress';
@@ -149,7 +149,7 @@ function Discover({ readOnly, receipt, resource, query, navigate, clearText }: {
       </div></div>} bottom={<>
         <span data-catalog-readout="">{waiting ? <span data-skeleton="count" aria-hidden className="relative inline-block h-3.5 w-37.5 rounded-md align-middle skeleton-sheen" /> : t('catalog:countLabel.works', { count: items.length })}</span>
         <LibraryShortcuts currentHref={() => location.pathname + location.search} />
-        {query || tag ? <GlassPill onPress={() => { setTag(''); clearText() }}>{t('catalog:shared.clearFilters')}</GlassPill> : null}
+        {query || tag ? <FilterActionButton onPress={() => { setTag(''); clearText() }}>{t('catalog:shared.clearFilters')}</FilterActionButton> : null}
         <span data-entity-sorts="">
         {scope === 'external' ? <FilterIconButton data-entity-batch="" data-jav-metadata-update=""
           label={metadata?.status === 'running' ? t('catalog:javDiscover.stopUpdating') : t('catalog:javDiscover.updateMetadata')}

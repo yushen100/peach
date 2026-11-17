@@ -1,13 +1,13 @@
-/* 粘在顶栏下沿的那条玻璃操作条：一个小标题后面一排胶囊键，或者上下两排的筛选浮层。
+/* 粘在顶栏下沿的玻璃操作条：标题、筛选项与文字操作，或上下两排的筛选浮层。
  *
  * 料（漂移的两团、斜光、内嵌边与落影）由 `web/board.css` 的 `[data-glass-pane]` 一处给，
  * 几何、饱和度与文字色在 `../styles.css` 的 `[data-filter-glass]`，高对比与减少透明度的回退
  * 也在那一条上。吸到顶栏下沿那一刻由 `use-stuck.ts` 标 `data-stuck`，影换成抬起来那一档。
- * 胶囊键取紧凑档（32px）、透明底、一圈 `--glass-low`，
- * 悬停换成 `--glass-rim` 边加 `--glass-pick-fill` 底——玻璃上的键不是 BoardUI 那种实心按钮。 */
+ * 文字操作共用 BoardUI 的 32px 小号按钮，筛选项使用类型对应的选中面。 */
 import { useRef, type ReactNode, type RefObject } from 'react';
 import { cx } from '@/utils/cx';
 import { IconButton, type IconButtonProps } from '@/components/base/buttons/icon-button';
+import { Button } from '@/components/base/buttons/button';
 import { spinnerHtml } from '@peach/legacy/ui';
 
 import { GlassDrift } from './glass-drift';
@@ -107,31 +107,25 @@ export function FilterPill(
   );
 }
 
-/* 浮层上的动作键：平时一圈 `--glass-low` 细线，悬停浮起一块首页那种提亮的玻璃（料在 `../styles.css`
- * 的 `[data-glass-pill]`）。只换填充的话，浅色下那一档白压在同样发白的浮层上分不出来。 */
-const PILL = 'h-8 cursor-pointer rounded-full border border-(--glass-low) bg-transparent px-3'
-  + ' text-body-2-regular leading-none whitespace-nowrap text-inherit outline-none'
-  + ' focus-visible:ring-2 focus-visible:ring-border-focus-ring'
-  + ' aria-busy:cursor-wait aria-busy:opacity-55';
-
-export function GlassPill(
+/** 筛选浮窗的文字操作统一使用 BoardUI 小号按钮，选中态使用主动作表面。 */
+export function FilterActionButton(
   { children, onPress, busy = false, pressed, ...data }:
   { children: ReactNode; onPress(): void; busy?: boolean; pressed?: boolean | 'mixed' } & Record<`data-${string}`, string>,
 ) {
   return (
-    <button type="button" data-glass-pill="" {...data} className={PILL} aria-pressed={pressed} aria-busy={busy || undefined}
-      aria-disabled={busy || undefined} onClick={() => { if (!busy) onPress() }}>
+    <Button {...data} size="small" variant={pressed ? 'primary' : 'secondary'}
+      aria-pressed={pressed} aria-busy={busy || undefined} disabled={busy} onClick={onPress}>
       {children}
-    </button>
+    </Button>
   );
 }
 
 /** 处理队列页浮层下排、读数后面那颗「全选」：按这一屏已取回的条目全选或全不选。全选了是按下，
  *  选了一部分是半按下（`aria-pressed="mixed"`），再点一次全选。 */
-export function SelectAllPill({ label, picked, total, onChange }: {
+export function SelectAllButton({ label, picked, total, onChange }: {
   label: string; picked: number; total: number; onChange(on: boolean): void;
 }) {
   const all = total > 0 && picked === total;
-  return <GlassPill data-select-all="" pressed={all ? true : picked > 0 ? 'mixed' : false} onPress={() => onChange(!all)}>
-    {label}</GlassPill>;
+  return <FilterActionButton data-select-all="" pressed={all ? true : picked > 0 ? 'mixed' : false} onPress={() => onChange(!all)}>
+    {label}</FilterActionButton>;
 }

@@ -7,12 +7,48 @@ import { ITEM, openItemPage } from './item-fixture.ts';
 import {
   DESKTOP, MOBILE, tokenColor, openAccess, settledRun, openActivity, qualityGoal, openQualityGoals,
   openScraping, openProcessing, openCatalog, openCatalogBars, openCatalogFixture, RUNNING_JOB, FAILED_JOB,
-  installDesignBrowser, openReview,
+  installDesignBrowser, openReview, openJunkWith, junkItem,
 } from './design-fixture.ts';
 
 describe('设计决定：控件、状态与首页顶部', () => {
   let browser: Browser;
   installDesignBrowser((next) => { browser = next; });
+
+  it('垃圾单项回收单击执行，全部回收在确认弹窗长按执行', { timeout: 60_000 }, async () => {
+    for (const viewport of [DESKTOP, MOBILE]) {
+      const opened = await openJunkWith(browser, [junkItem(1, 'video', 'promo.mp4'), junkItem(2, 'image', 'promo.jpg')], viewport);
+      try {
+        const { page, state } = opened;
+        const controls = page.locator('[data-junk-filters-frame]');
+        const shapes = await controls.locator('[data-select-all], [data-junk-dispose-all]').evaluateAll(elements =>
+          elements.map(element => ({ height: element.getBoundingClientRect().height, radius: getComputedStyle(element).borderRadius })));
+        assert.equal(shapes.length, 2);
+        assert.deepEqual(shapes, [{ height: 32, radius: '8px' }, { height: 32, radius: '8px' }]);
+        await page.locator('#grid [data-junk-action="dispose"]').first().click();
+        await page.waitForFunction(() => document.querySelectorAll('#grid [data-junk-card]').length === 1);
+        assert.deepEqual(state.batches, [{ ids: [1], operation: 'dispose', disposal_reason: 'junk' }]);
+
+        const disposed: unknown[] = [];
+        await page.route('**/api/ads/dispose-all', route => {
+          disposed.push(JSON.parse(route.request().postData() || '{}'));
+          state.items = [];
+          return route.fulfill({ json: { ok: true, changed: 1, ids: [2] } });
+        });
+        await page.locator('[data-junk-dispose-all]').click();
+        const confirm = page.locator('dialog[open] [data-hold-confirm]');
+        await confirm.waitFor();
+        await confirm.click();
+        assert.deepEqual(disposed, []);
+        await confirm.focus();
+        await page.keyboard.down('Space');
+        await page.waitForFunction(() => !document.querySelector('dialog[open] [data-hold-confirm]'));
+        await page.keyboard.up('Space');
+        assert.deepEqual(disposed, [{ kind: '', status: 'pending', expected: 1 }]);
+      } finally {
+        await opened.close();
+      }
+    }
+  });
 
   it('复核状态沿用首页玻璃控件尺寸，空分类保留选中玻璃与状态入口', { timeout: 60_000 }, async () => {
     for (const viewport of [DESKTOP, MOBILE]) {

@@ -740,9 +740,8 @@ body [data-follow-status=seen],body [data-follow-status=ignored]{background:colo
    标准属性留在不经转换的共享样式表里，数值逐项对齐首页上下两块玻璃。 */
 body .peach-react :is([data-review-filter],[data-filter-glass]){backdrop-filter:var(--glass-optic,blur(22px)) saturate(160%) var(--glass-lume)}
 body .peach-react [data-selection-dock]{backdrop-filter:var(--glass-optic,blur(22px)) saturate(145%)}
-/* 浮层上提亮的那一小块不由滑动玻璃给的几处：动作键悬停（`GlassPill`），垃圾文件分类条上换视图那一枚
-   与首屏骨架里的当前分类（`junk-queue.css`）。提亮同 `[data-view-glide]`。 */
-body .peach-react :is([data-glass-pill]:hover:not([aria-busy]),:is([data-junk-view-link],[data-junk-count-skeleton] [data-junk-kind-link])[aria-current="page"]){backdrop-filter:var(--glass-pick)}
+/* 垃圾分类条的当前视图与首屏骨架分类使用 `[data-view-glide]` 的提亮。 */
+body .peach-react :is([data-junk-view-link],[data-junk-count-skeleton] [data-junk-kind-link])[aria-current="page"]{backdrop-filter:var(--glass-pick)}
 /* 设置面板左栏（`settings-panel.css`）与它那块滑动玻璃。高对比与减弱透明照全站玻璃一起退成实底；
    主题切换拍快照的那一帧不采样背后。 */
 body [data-settings-nav]{backdrop-filter:var(--glass-optic,blur(22px)) saturate(160%) var(--glass-lume)}

@@ -100,7 +100,7 @@ def _python_replacement(source: str, selected: dict, replacement: str):
 
 
 _LOCALE_VALUE = re.compile(r':\s*"(?P<raw>(?:[^"\\]|\\.)*)"')
-_I18N_FIELD = re.compile(r"\{\{\s*(\w+)\s*\}\}")
+_I18N_FIELD = re.compile(r"\{\{\s*(\w+)(?:\s*,\s*number)?\s*\}\}")
 
 
 def _locale_candidates(source: str, original: str):
@@ -123,8 +123,9 @@ def _locale_candidates(source: str, original: str):
                "quote": '"', "i18n": True, "template": template, "values": found.groupdict()}
 
 
-def _locale_replacement(selected: dict, replacement: str):
-    """{名字} 写回成 {{名字}}；占位要原样保留、各出现一次。"""
+def _locale_replacement(selected: dict, replacement: str, expression: str):
+    """占位按原文写回，保留数字格式声明，各出现一次。"""
+    tokens = {match[1]: match[0] for match in _I18N_FIELD.finditer(json.loads('"' + expression + '"'))}
     values, rendered, used = [], [], []
     try:
         for literal, name, spec, conversion in Formatter().parse(replacement):
@@ -134,7 +135,7 @@ def _locale_replacement(selected: dict, replacement: str):
                 if name not in selected["values"] or spec or conversion:
                     raise ValueError("placeholder not in the original template")
                 used.append(name)
-                values.append("{{" + name + "}}")
+                values.append(tokens[name])
                 rendered.append(selected["values"][name])
     except ValueError as error:
         raise UserValueError("errors.devCopy.placeholdersChanged", {"open": "{{", "close": "}}"}) from error
@@ -192,7 +193,7 @@ def save(root: Path, body: dict) -> dict:
     if selected.get("python"):
         escaped, text = _python_replacement(source, selected, replacement)
     elif selected.get("i18n"):
-        escaped, text = _locale_replacement(selected, replacement)
+        escaped, text = _locale_replacement(selected, replacement, source[selected['start']:selected['end']])
     elif quote:
         escaped = replacement.replace("\\", "\\\\").replace(quote, "\\" + quote).replace("\n", "\\n").replace("\r", "\\r")
         if quote == "`":
