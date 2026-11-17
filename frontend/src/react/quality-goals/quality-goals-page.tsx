@@ -22,6 +22,7 @@ import { LOC, fmtDur, fmtSize } from '@peach/legacy/core';
 import { Button } from '@/components/base/buttons/button';
 
 import { errorMessage } from '../../api';
+import { queueContentSkeletonHtml } from '../../queue-skeleton';
 import { CloudDownloadDialog, type DownloadPrefill } from '../activity/cloud-download-dialog';
 import type { QualityGoalsProps } from '../bundle';
 import { CardTags, Icon } from '../components/card-meta';
@@ -36,6 +37,7 @@ import { Note } from '../components/note';
 import { Page } from '../components/page';
 import { enterPageSelection, exitPageSelection, usePageSelection } from '../components/page-selection';
 import { SelectionDock } from '../components/selection-dock';
+import { providerIcon } from '../components/source-label';
 import { useDense } from '../components/use-dense';
 import { useLibraryTints } from '../components/library-tint';
 import { ListLibrary } from '../catalog-grid/catalog-list-page';
@@ -45,6 +47,7 @@ import {
   fetchQualityGoals, previewUrl, QUALITY_GOALS_KEY, type QualityGoal,
 } from './quality-goals';
 import { t } from '../../i18n';
+import type { TableFilters } from '../components/use-table-filters';
 
 /** 判定原因按「高清 / 无水印 / 完整版」那样的分隔拆成几枚只读标签。 */
 const reasonTags = (reason: string | null) => (reason || '').split(/\s*\/\s*/).map((part) => part.trim()).filter(Boolean);
@@ -104,15 +107,22 @@ function GoalCard({ item, openItem, searchResources, javTitleHtml, javDisplayNam
 
 export function QualityGoalsPage({ toast, ...props }: QualityGoalsProps) {
   const [download, setDownload] = useState<DownloadPrefill | null>(null);
-  const [picked, setPicked] = useState<ReadonlySet<number>>(new Set());
-  const selecting = usePageSelection(() => setPicked(new Set()));
+  const [picked, setPicked] = useState<ReadonlyMap<number, QualityGoal>>(new Map());
+  const selecting = usePageSelection(() => setPicked(new Map()));
   const [resources, setResources] = useState<Discovery[] | null>(null);
-  const goals = useQuery({ queryKey: QUALITY_GOALS_KEY, queryFn: ({ signal }) => fetchQualityGoals(signal) });
   const view = useCatalogView();
+  const [filters, setFilters] = useState<TableFilters>({});
+  const activeFilters = view === 'list' ? filters : {};
+  const encoded = JSON.stringify(activeFilters);
+  const goals = useQuery({ queryKey: encoded === '{}' ? QUALITY_GOALS_KEY : [...QUALITY_GOALS_KEY, encoded],
+    queryFn: ({ signal }) => fetchQualityGoals(signal, encoded === '{}' ? undefined : activeFilters), placeholderData: previous => previous });
   const order = useQueueSort<QualityGoal>('quality-goals', {
     size: (item) => Number(item.size || 0), dur: (item) => Number(item.duration || 0), new: (item) => item.id,
   });
   const data = goals.data;
+  if (goals.isPending) return <Page><div dangerouslySetInnerHTML={{
+    __html: queueContentSkeletonHtml('quality-goals', t('shell:spinner.loading'), ['w-20', 'w-24']),
+  }} /></Page>;
   if (!data) {
     return (
       <Page>
@@ -121,7 +131,7 @@ export function QualityGoalsPage({ toast, ...props }: QualityGoalsProps) {
     );
   }
   const items = order.sort(data.items || []);
-  if (!items.length) {
+  if (!items.length && view !== 'list') {
     return (
       <Page>
         <EmptyState icon={RiSparklingLine} title={t('manage:hdUpgrades.emptyTitle')}>
@@ -131,12 +141,17 @@ export function QualityGoalsPage({ toast, ...props }: QualityGoalsProps) {
     );
   }
   /* 每一部都能勾，「全选」就是这一屏全部；批量查找资源只带有番号的那几部，没有番号的查不了。 */
-  const chosen = items.filter((item) => picked.has(item.id));
+  const chosen = [...picked.values()];
   const searchable = chosen.filter((item) => item.code);
-  const pickAll = (on: boolean) => { if (on) enterPageSelection(); setPicked(on ? new Set(items.map((item) => item.id)) : new Set()) };
+  const pickAll = (on: boolean) => { if (goals.isFetching || goals.isError) return; if (on) enterPageSelection(); setPicked(current => {
+    const next = new Map(current);
+    for (const item of items) { if (on) next.set(item.id, item); else next.delete(item.id); }
+    return next;
+  }) };
   const pick = (id: number, on: boolean) => { if (on) enterPageSelection(); setPicked((current) => {
-    const next = new Set(current);
-    if (on) next.add(id); else next.delete(id);
+    const next = new Map(current);
+    const item = items.find(item => item.id === id);
+    if (on && item) next.set(id, item); else next.delete(id);
     return next;
   }) };
   return (
@@ -147,11 +162,20 @@ export function QualityGoalsPage({ toast, ...props }: QualityGoalsProps) {
         attrs={{ 'data-catalog-frame': '', 'data-filter-frame': '' }} bottomClassName="min-h-12" bottom={<><span data-catalog-summary="">
           <span data-catalog-readout="" role="status">
             {t('manage:hdUpgrades.summaryLabel')} · {t('manage:hdUpgrades.videoCount', { count: Number(data.total || 0) })}</span>
-          <SelectAllButton label={t('manage:hdUpgrades.selectAll')} picked={chosen.length} total={items.length} onChange={pickAll} />
+          <SelectAllButton label={t('manage:hdUpgrades.selectAll')} picked={items.filter(item => picked.has(item.id)).length} total={items.length} onChange={pickAll} />
         </span>
         <span data-entity-sorts=""><CatalogViewToggle /><SortKeys sorts={order.sorts} onSort={order.onSort} /></span></>} />
       {view === 'list'
-        ? <QueueTable table="quality-goals" label={t('manage:hdUpgrades.summaryLabel')} items={items} selected={picked} selecting={selecting}
+        ? <QueueTable table="quality-goals" label={t('manage:hdUpgrades.summaryLabel')} items={items} selected={new Set(picked.keys())} selecting={selecting}
+            busy={goals.isFetching}
+            filters={{ values: activeFilters, facets: data.column_facets ?? {}, onChange: setFilters }}
+            filterColumns={{
+              source: { values: item => item.location, option: id => {
+                const ProviderIcon = providerIcon(id);
+                return { label: LOC[id] || id, leading: <ProviderIcon /> };
+              } },
+              reason: { values: item => reasonTags(item.reason), option: id => ({ label: id === 'none' ? t('cleanup:shared.none') : id }) },
+            }}
             sort={{ options: order.sorts.map(({ key, label }) => ({ id: key, label })), sorting: order.sorting, onChange: order.setSorting }}
             rowLabel={(item) => t('manage:hdUpgrades.selectVideo', { title: props.javDisplayName(item) })}
             onPick={(item, on) => pick(item.id, on)}
@@ -184,6 +208,7 @@ export function QualityGoalsPage({ toast, ...props }: QualityGoalsProps) {
         <Button size="small" variant="ghost" onClick={exitPageSelection}>{t('manage:hdUpgrades.clearSelection')}</Button>
       </SelectionDock>
       <JavBatchResources items={resources} close={() => setResources(null)} readOnly={false} receipt={toast} />
+      {goals.isError ? <Note tone="error">{errorMessage(goals.error)}</Note> : null}
       {/* 列表只取前 200 部；总数比这多时说清楚这一页不是全部。 */}
       {Number(data.total || 0) > items.length
         ? <p className="mt-6 text-center text-caption-1-regular text-text-secondary">

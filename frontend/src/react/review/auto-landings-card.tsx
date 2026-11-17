@@ -91,9 +91,11 @@ export function AutoLandingsCard(
     { id: 'work', label: t('manage:shared.video'), width: 300, min: 240, value: (item) => workLabel(item),
       render: (item) => <Work item={item} openItem={openItem} /> },
     { id: 'written', label: t('manage:autoLandings.columnWritten'), width: 320, min: 220, value: (item) => `${fieldName(item)}${writtenText(item)}`,
+      filter: { values: fieldName },
       render: (item) => <Written item={item} /> },
     // 规则与时间是次要信息，叠成一列，桌面宽度下整张表不必横向滚动。
     { id: 'rule', label: t('manage:autoLandings.columnRuleTime'), width: 176, min: 144, value: (item) => item.at ?? 0,
+      filter: { values: ruleName },
       render: (item) => (
         <span title={item.batch} className="flex min-w-0 flex-col gap-0.5 text-text-secondary">
           <span className="truncate text-body-2-regular">{ruleName(item)}</span>

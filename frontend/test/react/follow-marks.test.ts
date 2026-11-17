@@ -5,6 +5,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { FollowContext, FollowGroup, FollowItem, FollowSource } from '../../src/react/follow-feed/follow-feed';
+import { onlineAuthorRingHtml } from '../../src/react/index/index-controller';
 import {
   FOLLOW_UNTITLED, authorAvatarHtml, followAuthorEntity, followAuthorName, followBadges, followCompactWhen, followIdentity, followMediaIssue,
   followTitle, followTitleMarks, followWhen, learnFollowDims, sourceIcon, sourceMark,
@@ -39,6 +40,18 @@ describe('来源图标', () => {
 });
 
 describe('创作者', () => {
+  it('关注署名与在线作者名册共用已保存的本地头像', () => {
+    const portrait = { id: 90, name: 'Kou', has_image: true, image_version: 'local-photo' };
+    const bound = source(1, { author_entity: portrait, official_avatar_url: '/official.png' });
+    const card = document.createElement('div');
+    card.innerHTML = authorAvatarHtml([bound], 'Kou');
+    const index = document.createElement('div');
+    index.innerHTML = onlineAuthorRingHtml({ k: 'Kou', key: 'entity:90', n: 1, entity_id: 90, held_by: '',
+      avatar: '/official.png', avatar_fallback: '', providers: [], author_entity: portrait });
+    for (const host of [card, index]) expect(host.querySelector('img')?.getAttribute('src'))
+      .toBe('/entity-image?kind=creator&id=90&thumb=1&v=local-photo');
+  });
+
   it('作者导航只认唯一实体，并跟随实际发布者', () => {
     const bound = source(1, { entity_id: 90, entity_name: 'Kou', author_key: 'entity:90', author_name: 'Kou' });
     expect(followAuthorEntity([bound, source(2)])).toBe('Kou');

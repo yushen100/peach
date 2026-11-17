@@ -276,6 +276,7 @@ class FollowContractTests(unittest.TestCase):
             # 题材圆标的取景从这个目录下的 sidecar 读。不给临时目录的话，判据变成
             # 「这台机器上碰巧缓存过哪些题材图」，同一份代码换台机器就是另一个结果。
             candidate_root=self.root / "generated",
+            avatar_root=self.root / 'generated' / 'avatars',
             # 状态根同理：创作者清单在那里，不给就会读到这台机器上的 42 万个名字，
             # 快慢和结果都由本机状态决定。
             follow_state_root=self.root / "state")
@@ -2100,6 +2101,23 @@ class FollowContractTests(unittest.TestCase):
         self._seed()
         full = self._get()
         self.assertFalse(full["has_more"], "一页装得下时不该说还有下一页")
+
+    def test_sources_share_the_bound_entity_portrait_reference(self):
+        first = self._seed(ref='first')
+        second = self._seed(ref='second')
+        with self.contract.database.write_transaction() as connection:
+            entity_id = connection.execute(
+                "INSERT INTO entity(kind,canonical_name,normalized_name,created_at,updated_at) "
+                "VALUES('creator','Author','author',?,?)", (MOMENT.isoformat(), MOMENT.isoformat())
+            ).lastrowid
+            connection.execute("UPDATE follow_source SET entity_id=? WHERE id IN (?,?)",
+                               (entity_id, first, second))
+        portrait = {'id': entity_id, 'name': 'Author', 'has_image': True,
+                    'image_version': 'saved-photo', 'avatar_focus': {'axis': 'y', 'pct': 20}}
+        with mock.patch('peach.web_catalog.entity_ref', return_value=portrait) as reference:
+            payload = self._get(summary='1')
+        self.assertEqual([row['author_entity'] for row in payload['sources']], [portrait, portrait])
+        reference.assert_called_once_with(self.contract, 'creator', entity_id, 'Author')
 
     def test_paging_does_not_repeat_or_skip_items(self):
         """翻页靠 OFFSET，排序必须绝对稳定，否则两页之间会重复或漏掉条目。"""

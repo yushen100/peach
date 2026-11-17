@@ -12,7 +12,7 @@ export function DiscoveryFaces({ item }: { item: Discovery }) {
     : [...new Set(item.performers.split(/[,，、;/]/).filter(Boolean))].map(name => ({ name }));
   const faces = people.slice(0, 5).map((person, index) => {
     const style = { '--media-avatar-index': index } as CSSProperties;
-    const face = person.source_avatar && person.source_actor_id && !person.has_image
+    const face = person.source_avatar && person.source_actor_id && !person.has_image && !person.has_avatar
       ? { children: <SourceAvatar code={item.code} person={person} /> }
       : { dangerouslySetInnerHTML: { __html: avatarInner(person.name, person, null) } };
     return person.id

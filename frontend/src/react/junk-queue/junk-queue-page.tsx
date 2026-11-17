@@ -28,6 +28,7 @@ import { useQueueSort } from '../components/queue-sort';
 import { JunkCount } from './junk-count';
 import { fetchJunkPage, groupJunkCopies, junkQueryKey, type JunkItem, type JunkPage, type JunkQueueProps, type JunkRoute } from './junk-queue';
 import { t } from '../../i18n';
+import type { TableFilters, RemoteTableFilters } from '../components/use-table-filters';
 
 const CheckGlyph = spriteGlyph('check');
 
@@ -35,9 +36,13 @@ const sameRoute = (key: readonly unknown[], route: JunkRoute) => key[1] === rout
 
 export function JunkQueuePage(props: JunkQueueProps) {
   const route: JunkRoute = { kind: props.kind, view: props.view };
+  const [filters, setFilters] = useState<TableFilters>({});
+  const view = useCatalogView();
+  const activeFilters = view === 'list' ? filters : {};
+  const encoded = JSON.stringify(activeFilters);
   const query = useQuery<JunkPage, Error>({
-    queryKey: junkQueryKey(route, props.revision),
-    queryFn: ({ signal }) => fetchJunkPage(route, signal),
+    queryKey: encoded === '{}' ? junkQueryKey(route, props.revision) : [...junkQueryKey(route, props.revision), encoded],
+    queryFn: ({ signal }) => fetchJunkPage(route, signal, encoded === '{}' ? undefined : activeFilters),
     placeholderData: (previous, previousQuery) =>
       (previousQuery && sameRoute(previousQuery.queryKey, route) ? previous : undefined),
   });
@@ -64,19 +69,21 @@ export function JunkQueuePage(props: JunkQueueProps) {
   const order = useQueueSort<JunkItem>('junk-files', { size: (item) => Number(item.size || 0), new: (item) => item.id });
   const { navigate, selectAll } = props.actions;
   const loaded = (query.data?.items || []).map((item) => item.id);
-  const pickAll = query.data ? { loaded, picked: loaded.filter((id) => props.selected.has(id)).length,
+  const pickAll = query.data && !query.isFetching && !query.isError ? { loaded, picked: loaded.filter((id) => props.selected.has(id)).length,
     onChange: (on: boolean) => selectAll(loaded, on) } : null;
   const count = host
     ? createPortal(<JunkCount route={route} page={query.data} failed={query.isError && !query.data} pickAll={pickAll}
       sorts={order.sorts} onSort={order.onSort} onNavigate={navigate}
-      onDisposeAll={route.view === 'pending' && Number(query.data?.total || 0) > 0
-        ? () => props.actions.disposeAll(route.kind, Number(query.data!.total)) : undefined} />, host)
+      onDisposeAll={!query.isFetching && !query.isError && route.view === 'pending' && Number(query.data?.total || 0) > 0
+        ? () => encoded === '{}' ? props.actions.disposeAll(route.kind, Number(query.data!.total))
+          : props.actions.disposeAll(route.kind, Number(query.data!.total), encoded) : undefined} />, host)
     : null;
   return (
     <>
       {count}
       <JunkBody key={`${route.view}:${route.kind}`} props={props} data={query.data} pending={waiting}
-        error={query.data ? null : query.error} retry={() => void query.refetch()} order={order} />
+        filters={{ values: activeFilters, facets: query.data?.column_facets ?? {}, onChange: setFilters }}
+        error={query.error} busy={query.isFetching || query.isError} retry={() => void query.refetch()} order={order} />
     </>
   );
 }
@@ -96,9 +103,11 @@ function useCountHost(row: HTMLElement | null): HTMLElement | null {
 }
 
 /** 一个分类、一个视图的网格：骨架、卡片、往下露的下一段与空态。 */
-function JunkBody({ props, data, pending, error, retry, order }: {
+function JunkBody({ props, data, pending, error, retry, order, filters, busy }: {
   props: JunkQueueProps; data: JunkPage | undefined; pending: boolean; error: Error | null; retry(): void;
   order: ReturnType<typeof useQueueSort<JunkItem>>;
+  filters: RemoteTableFilters;
+  busy: boolean;
 }) {
   const view = useCatalogView();
   const reveal = useSkeletonReveal(pending, props.skeletonHtml);
@@ -129,7 +138,7 @@ function JunkBody({ props, data, pending, error, retry, order }: {
   const content = () => {
     if (pending) return null;
     if (!data) return <RetryNote message={requestErrorMessage(error)} onRetry={retry} />;
-    if (!items.length) {
+    if (!items.length && view !== 'list') {
       const dismissed = props.view === 'dismissed';
       return (
         <EmptyState icon={CheckGlyph} title={dismissed ? t('cleanup:junk.emptyExcluded') : t('cleanup:junk.emptyUndecided')}
@@ -139,7 +148,11 @@ function JunkBody({ props, data, pending, error, retry, order }: {
       );
     }
     /* 列表版式一次画齐：整批已经在手上，表格行比卡矮，不用往下一段段露。 */
-    if (view === 'list') return <JunkList items={groups.flatMap(visible)} copies={copyInfo} view={props.view} selected={props.selected} selecting={props.selectMode} actions={props.actions} order={order} />;
+    if (view === 'list') return <>
+      <JunkList items={groups.flatMap(visible)} copies={copyInfo} view={props.view} selected={props.selected} selecting={props.selectMode} actions={props.actions} order={order} filters={filters} busy={busy} />
+      {Number(data.total || 0) > items.length ? <p data-junk-truncated="" className="py-6 text-center text-caption-1-regular text-text-secondary">
+        {t('cleanup:junk.truncated', { shown: items.length.toLocaleString(), count: Number(data.total) })}</p> : null}
+    </>;
     return (
       <>
         <div data-media-grid="" data-junk-grid="" data-select-mode={props.selectMode ? '' : undefined}>
@@ -161,6 +174,7 @@ function JunkBody({ props, data, pending, error, retry, order }: {
   return (
     <div data-junk-body="" data-grid-reveal={reveal.fading ? '' : undefined}>
       {reveal.layer}
+      {data && error ? <RetryNote message={requestErrorMessage(error)} onRetry={retry} /> : null}
       {content()}
     </div>
   );

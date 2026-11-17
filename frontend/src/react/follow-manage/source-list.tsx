@@ -64,6 +64,8 @@ import { AuthorAvatar, ErrorLine, SourceIcon, SourceLink, StatusBadge } from './
 import { codedText, jobText } from '../../core/server-text';
 import { FOLLOW_CHECK_TASK } from '../../running-tasks';
 import { joinList, t } from '../../i18n';
+import { useTableFilters } from '../components/use-table-filters';
+import { statusText } from './follow-manage';
 
 const sourceTableFeatures = tableFeatures({
   rowPaginationFeature,
@@ -271,6 +273,15 @@ export function SourceList(props: SourceListProps) {
 
   const groups = useMemo(() => authorGroups(sources, sort, dir, aliases), [sources, sort, dir, aliases]);
   const rows = useMemo(() => tableRows(groups, sort, dir, aliases), [groups, sort, dir, aliases]);
+  const filtered = useTableFilters(rows, {
+    author: { values: row => row.author, option: (name, row) => ({
+      leading: row && <AuthorAvatar group={row.group} name={name} small /> }) },
+    source: { values: row => row.source.label, option: (_, row) => ({
+      leading: row && <SourceIcon provider={row.source.provider} /> }) },
+    provider: { values: row => row.source.provider_label, option: (_, row) => ({
+      leading: row && <SourceIcon provider={row.source.provider} /> }) },
+    status: { values: row => statusText(row.source) },
+  }, () => onPage(1));
 
   const { job, running, outcome, start: check } = useBackgroundJob<CheckJob, number[]>({
     queryKey: FOLLOW_CHECK_KEY,
@@ -502,11 +513,11 @@ export function SourceList(props: SourceListProps) {
   const asTable = layout === 'table';
   const preferences = useTablePreferences('follow-sources', preferenceColumns);
   // 越界的页码落到末页：地址栏里挂着的可能是上一次、来源更多时的页码。
-  const win = pageWindow(asTable ? rows.length : groups.length, pageSize, page);
+  const win = pageWindow(asTable ? filtered.items.length : groups.length, pageSize, page);
 
   const table = useTable({
     features: sourceTableFeatures,
-    data: rows,
+    data: filtered.items,
     columns,
     /* 行的身份是来源 ID，不是它在这一页里的下标：换页、换排序之后 `rowSelection` 里记着的
        仍是同一批来源，卡片视图读的也是同一组数。 */
@@ -666,12 +677,12 @@ export function SourceList(props: SourceListProps) {
                     isRowHeader={header.column.id === 'source'} {...preferences.columnProps(header.id)}>
                     {({ sortDirection }) => <>{header.id === 'select' ? text : sortable ? (
                       <span className="flex items-center gap-0.5">
-                        {text}
+                        {filtered.header(header.id, COLUMN_LABELS[header.id] || header.id) ?? text}
                         <span data-sort-indicator data-direction={sortDirection || undefined}>
                           <ChevronSortDown />
                         </span>
                       </span>
-                    ) : <VisuallyHidden>{text}</VisuallyHidden>}<TableColumnResizer preferences={preferences} id={header.id} /></>}
+                    ) : filtered.header(header.id, COLUMN_LABELS[header.id] || header.id) ?? text}<TableColumnResizer preferences={preferences} id={header.id} /></>}
                   </TableColumn>
                 );
               })}

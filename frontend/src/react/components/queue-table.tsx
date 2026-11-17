@@ -18,10 +18,13 @@ import { useTablePreferences, type TableColumnSpec } from './table-column-prefer
 import { QUEUE_COLUMNS, queueTableKeys, type QueueTablePage } from '../../queue-columns';
 import { useLibraryTints } from './library-tint';
 import { t } from '../../i18n';
+import { useTableFilters, type TableFilter, type RemoteTableFilters } from './use-table-filters';
+import { useLibraryFilterOptions } from './library-filter-options';
+import { ActivityStatus } from './activity-motion';
 import '../catalog-grid/catalog-list.css';
 
 export function QueueTable<T extends { id: number; library_id?: unknown }>({
-  table, label, items, cells, selected, selecting, sort, rowLabel, onPick, onPickAll,
+  table, label, items, cells, selected, selecting, sort, rowLabel, onPick, onPickAll, filters, filterColumns = {}, busy = false,
 }: {
   table: QueueTablePage;
   /** 每一列的单元格，键是 `QUEUE_COLUMNS` 里那一列的 id。 */
@@ -29,7 +32,15 @@ export function QueueTable<T extends { id: number; library_id?: unknown }>({
   label: string; items: readonly T[]; selected: ReadonlySet<number>; selecting: boolean;
   sort: { options: { id: string; label: string }[]; sorting: SortingState; onChange(next: SortingState): void };
   rowLabel(item: T): string; onPick(item: T, on: boolean): void; onPickAll(on: boolean): void;
+  filters?: RemoteTableFilters;
+  filterColumns?: Record<string, TableFilter<T>>;
+  busy?: boolean;
 }) {
+  const libraryOptions = useLibraryFilterOptions();
+  const filtered = useTableFilters(items, { ...filterColumns, library: {
+    values: item => typeof item.library_id === 'string' && item.library_id ? item.library_id : 'none',
+    option: id => libraryOptions.get(id) ?? { label: id === 'none' ? t('cleanup:shared.none') : id },
+  } }, () => {}, filters);
   const columns = useMemo(() => QUEUE_COLUMNS[table](), [table]);
   const specs = useMemo<TableColumnSpec[]>(() => [
     { id: 'select', label: t('catalog:catalogList.selectColumn'), width: 48, min: 48, max: 48, required: true },
@@ -49,7 +60,7 @@ export function QueueTable<T extends { id: number; library_id?: unknown }>({
   };
   const byId = (key: string) => items.find((item) => String(item.id) === key);
   return (
-    <div data-catalog-view-mode="list" data-catalog-table="" data-queue-table="" className="flex min-w-0 flex-col gap-4">
+    <div data-catalog-view-mode="list" data-catalog-table="" data-queue-table="" aria-busy={busy || undefined} className="flex min-w-0 flex-col gap-4">
       <div className="flex flex-wrap justify-end gap-2" role="toolbar" aria-label={label}>
         <div data-toolbar-actions="">
           <TableColumnControls preferences={preferences} label={label} />
@@ -64,14 +75,14 @@ export function QueueTable<T extends { id: number; library_id?: unknown }>({
           <TableHeader>
             {selecting ? <TableColumn id="select" {...preferences.columnProps('select')}>
               <Checkbox slot={null} aria-label={label} isSelected={picked > 0 && picked === items.length}
-                isIndeterminate={picked > 0 && picked < items.length} onChange={onPickAll} />
+                isDisabled={busy} isIndeterminate={picked > 0 && picked < items.length} onChange={onPickAll} />
             </TableColumn> : null}
             {shown.map((column, index) => (
               <TableColumn key={column.id} id={column.id} isRowHeader={index === 0} allowsSorting={!!column.sortable}
                 {...preferences.columnProps(column.id)}>
                 {({ sortDirection }) => <>
                   <span className="flex items-center gap-0.5">
-                    {column.header}
+                    {filtered.header(column.id, column.header) ?? column.header}
                     {column.sortable ? <span data-sort-indicator="" data-direction={sortDirection || undefined}><ChevronSortDown /></span> : null}
                   </span>
                   <TableColumnResizer preferences={preferences} id={column.id} />
@@ -80,8 +91,8 @@ export function QueueTable<T extends { id: number; library_id?: unknown }>({
             ))}
             <TableColumn id="remaining-space" aria-label={t('catalog:catalogList.rowSpacer')} data-table-space="" width={preferences.spaceWidth} minWidth={0} />
           </TableHeader>
-          <TableBody>
-            {items.map((item) => (
+          <TableBody renderEmptyState={() => busy ? null : t('shell:dataTable.empty')}>
+            {(busy ? [] : filtered.items).map((item) => (
               <TableRow key={item.id} id={String(item.id)} data-id={item.id} data-catalog-row="" data-library={library(item)}
                 data-board-selected={selected.has(item.id) || undefined}>
                 {selecting ? <TableCell><Checkbox slot={null} aria-label={rowLabel(item)} isSelected={selected.has(item.id)}
@@ -93,6 +104,7 @@ export function QueueTable<T extends { id: number; library_id?: unknown }>({
           </TableBody>
         </Table>
       </DataTableFrame>
+      {busy ? <ActivityStatus kind="linear-dots" label={t('shell:spinner.loading')} /> : null}
     </div>
   );
 }

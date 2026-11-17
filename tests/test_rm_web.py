@@ -32,6 +32,43 @@ from support.stalls import stalled_mount
 
 
 class WebDataTests(unittest.TestCase):
+    def test_scalar_column_filters_match_displayed_stars_and_resolution(self):
+        with self.contract.write_transaction() as connection:
+            connection.execute("UPDATE asset SET rating=80,width=1920,height=1080 WHERE id=1")
+            connection.execute("UPDATE asset SET rating=NULL,width=NULL,height=NULL WHERE id=2")
+        selected = json.dumps({'rating': ['4'], 'resolution': ['1920x1080']})
+        result = q_items(self.contract, {'column_filters': selected})
+        self.assertEqual([row['id'] for row in result['items']], [1])
+        self.assertEqual(q_items(self.contract, {'column_filters': '{"rating":["0"]}'})['total'], 1)
+        self.assertEqual(q_items(self.contract, {'column_filters': '{"resolution":{"exclude":["none"]}}'})['total'], 1)
+        options = rm_web.dispatch_api_get(self.contract, '/api/facets', {'column': 'rating'})
+        self.assertEqual({row['k']: row['n'] for row in options['items']}, {'0': 1, '4': 1})
+
+    def test_queue_facets_intersect_columns_and_count_each_row_once(self):
+        from peach.web_table_filters import filter_rows
+        rows = [{'id': 1, 'library': ['a'], 'why': ['x', 'x', 'y']},
+                {'id': 2, 'library': ['b'], 'why': ['x']}, {'id': 3, 'library': ['a'], 'why': []}]
+        filtered, facets = filter_rows(rows, '{"library":["a"],"why":{"exclude":["y"]}}',
+                                      {'library': lambda row: row['library'], 'why': lambda row: row['why']})
+        self.assertEqual([row['id'] for row in filtered], [3])
+        self.assertEqual(facets['why'], [{'id': 'none', 'count': 1}, {'id': 'x', 'count': 1}, {'id': 'y', 'count': 1}])
+        self.assertEqual(facets['library'], [{'id': 'a', 'count': 1}, {'id': 'b', 'count': 1}])
+        with self.assertRaises(ValueError):
+            filter_rows(rows, '{"unknown":[]}', {'library': lambda row: row['library']})
+
+    def test_quality_column_filters_apply_before_the_returned_page_limit(self):
+        with self.contract.write_transaction() as connection:
+            connection.executemany("INSERT INTO asset(id,location,path,name,medium,size) VALUES(?,'local',?,?,'video',1)",
+                                   [(1000 + i, f'R:/Media/filter-{i}.mp4', f'filter-{i}.mp4') for i in range(205)])
+            connection.executemany("INSERT INTO asset_quality_goal(profile_id,asset_id,wanted,reason,updated_at) VALUES('local-default',?,1,?,'now')",
+                                   [(1000 + i, 'tail' if i == 0 else 'common') for i in range(205)])
+        with mock.patch.object(web_stats.settings_file, 'active', return_value=object()), \
+                mock.patch('peach.media_identity.ownership', return_value={'library_id': 'a'}):
+            result = rm_web.q_quality_goals(self.contract, {'limit': '200', 'column_filters': '{"reason":["tail"]}'})
+        self.assertEqual(result['total'], 1)
+        self.assertEqual([row['id'] for row in result['items']], [1000])
+        self.assertEqual(result['column_facets']['reason'], [{'id': 'common', 'count': 204}, {'id': 'tail', 'count': 1}])
+
     def test_column_facets_page_scoped_people_and_search_aliases(self):
         with self.contract.write_transaction() as connection:
             connection.executemany(

@@ -1,4 +1,4 @@
-export type ColumnFilterKey = 'people' | 'library' | 'studio' | 'tags';
+export type ColumnFilterKey = 'people' | 'library' | 'studio' | 'tags' | 'rating' | 'resolution';
 export type ColumnSelection = string[] | { exclude: string[] };
 export type ColumnFilters = Partial<Record<ColumnFilterKey, ColumnSelection>>;
 
@@ -25,7 +25,7 @@ export function readColumnFilters(raw: string | undefined): ColumnFilters {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
     return Object.fromEntries(Object.entries(value).filter(([key, selection]) => {
       const values = Array.isArray(selection) ? selection : selection && typeof selection === 'object' ? selection.exclude : null;
-      return ['people', 'library', 'studio', 'tags'].includes(key) && Array.isArray(values)
+      return ['people', 'library', 'studio', 'tags', 'rating', 'resolution'].includes(key) && Array.isArray(values)
         && values.every(value => typeof value === 'string' && value.trim());
     }));
   } catch { return {} }

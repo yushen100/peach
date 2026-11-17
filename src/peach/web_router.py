@@ -187,6 +187,7 @@ def _get_ads(contract, args):
         max(int(args.get("offset", "0")), 0),
         args.get("kind", ""),
         args.get("status", "pending"),
+        args.get("column_filters"),
     )
 
 

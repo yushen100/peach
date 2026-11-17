@@ -1,10 +1,7 @@
 import { apiGet } from '../../api';
-import { useQuery } from '@tanstack/react-query';
-import { fetchMediaSources, MEDIA_SOURCES_KEY } from '../media-sources';
-import { useLibraryTints } from '../components/library-tint';
+import { useLibraryFilterOptions } from '../components/library-filter-options';
 import { TableColumnFilter, type ColumnFilterOption, type ColumnFilterPage } from '../components/table-column-filter';
 import { ColumnFilterAvatar } from '../components/column-filter-avatar';
-import { SourceMark } from '../settings/section';
 import type { FaceRef } from '../../card-art/markup';
 import { readColumnFilters, writeColumnFilters } from '../../column-filters';
 import { entityDisplayName, entityWriting } from '../../core/entity-names';
@@ -13,21 +10,29 @@ import { t } from '../../i18n';
 
 /** 筛选口径沿用作品请求，列内切换时保留其余列的条件。 */
 export function CatalogColumnFilter({ column, label, filters, scope, revision, tagLabel, onChange }: {
-  column: 'people' | 'library' | 'tags'; label: string; filters: Readonly<Record<string, string>>;
+  column: 'people' | 'library' | 'tags' | 'rating' | 'resolution'; label: string; filters: Readonly<Record<string, string>>;
   scope: Readonly<Record<string, string>>; revision: number; tagLabel(tag: string): string;
   onChange(filters: Record<string, string>): void;
 }) {
   useEntityNames();
-  const libraries = useLibraryTints({ names: column === 'library' });
-  const sources = useQuery({ queryKey: MEDIA_SOURCES_KEY, queryFn: ({ signal }) => fetchMediaSources(signal),
-    enabled: column === 'library' });
+  const libraries = useLibraryFilterOptions(column === 'library');
   const selected = readColumnFilters(filters.column_filters);
   const remaining = { ...filters, column_filters: writeColumnFilters(selected, column, undefined) };
   const params = new URLSearchParams(Object.entries({ ...scope, ...remaining, column }).filter(([, value]) => value));
   const load = async (signal: AbortSignal, search: string, offset: number): Promise<ColumnFilterPage> => {
     const query = new URLSearchParams(params);
-    query.set('column_q', search); query.set('column_offset', String(offset)); query.set('column_limit', '24');
+    const term = search.normalize('NFKC').toLocaleLowerCase();
+    const scalarSearch = column === 'rating' ? '' : column === 'resolution'
+      ? term && t('manage:shared.notFound').toLocaleLowerCase().includes(term) ? 'none' : term.replace(/\s/g, '').replace(/×/g, 'x') : search;
+    query.set('column_q', scalarSearch); query.set('column_offset', String(offset)); query.set('column_limit', '24');
     const data = await apiGet<{ items: (FaceRef & { kind: string; k: string; n: number; aliases?: string[] })[]; next_offset: number | null }>(`/api/facets?${query}`, signal);
+    if (column === 'rating' || column === 'resolution') return {
+      items: data.items.map(row => ({ id: row.k, count: row.n,
+        label: column === 'rating' ? row.k === '0' ? t('catalog:ratingControl.unrated') : t('catalog:ratingControl.rated', { score: row.k })
+          : row.k === 'none' ? t('manage:shared.notFound') : row.k.replace('x', ' × ') }))
+        .filter(row => column !== 'rating' || row.label.normalize('NFKC').toLocaleLowerCase().includes(term)),
+      nextOffset: data.next_offset ?? undefined,
+    };
     const options = data.items.map(row => ({ id: `${row.kind}:${row.k}`, count: row.n,
       label: row.kind === 'tag' ? tagLabel(row.k) : entityDisplayName(row.kind, row.k, row.id),
       searchTerms: [row.k, ...(row.aliases || []), ...[entityWriting(row.kind, row.k, row.id)?.ja,
@@ -40,16 +45,7 @@ export function CatalogColumnFilter({ column, label, filters, scope, revision, t
       nextOffset: data.next_offset ?? undefined };
   };
   return <TableColumnFilter id={column} label={label} values={selected[column]}
-    options={[...libraries.values()].filter(library => library.name).map(library => {
-      const offline = !!library.roots?.length && library.roots.every(root => {
-        const source = sources.data?.sources.find(source => source.location === root.location);
-        const status = root.root_id ? source?.roots?.find(status => status.root_id === root.root_id) : source;
-        return status?.online === false;
-      });
-      return { id: library.id, label: library.name, disabled: offline,
-        title: offline ? t('shell:sourceTools.libraryOffline') : undefined,
-        leading: <SourceMark mark={library.icon} /> };
-    })}
+    options={[...libraries.values()]}
     load={column === 'library' ? undefined : load} queryKey={['table-column-filter', String(params), revision]}
     onChange={next => {
       const encoded = writeColumnFilters(selected, column, next);

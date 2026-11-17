@@ -52,14 +52,15 @@ const followPageSize = (): number => {
     return Number(JSON.parse(localStorage.getItem('peach.settings.v1')||'{}').followPageSize)||20;
   } catch { return 20 }
 };
-/* 表格的列、列名与排序指示照 React 那张 Board UI `Table`：「选择」「操作」两列名只给读屏，
+/* 表格的列、列名与排序指示照 React 那张 Board UI `Table`：选择列由勾选框提供名称，
    当前排序落在哪一列，那一列的指示就朝哪头。 */
-const TABLE_COLUMNS = [['select', ''], ['author', t('shell:shared.creators')], ['source', t('shell:followTable.source')], ['provider', t('shell:followTable.site')], ['status', t('shell:followTable.status')], ['checked', t('shell:followTable.lastChecked')], ['actions', '']] as const;
+const TABLE_COLUMNS = [['select', ''], ['author', t('shell:shared.creators')], ['source', t('shell:followTable.source')], ['provider', t('shell:followTable.site')], ['status', t('shell:followTable.status')], ['checked', t('shell:followTable.lastChecked')], ['actions', t('follow:shared.actions')]] as const;
 const COLUMN_OF: Partial<Record<SortKey, string>> = { name: 'author', source: 'source', provider: 'provider', status: 'status', checked: 'checked' };
 export const SORT_MARK = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12.7071 15.2929C12.3166 15.6834 11.6834 15.6834 11.2929 15.2929L7.70711 11.7071C7.07714 11.0771 7.52331 10 8.41421 10H15.5858C16.4767 10 16.9229 11.0771 16.2929 11.7071L12.7071 15.2929Z" fill="currentColor"/></svg>';
 const followTable = (rows: number, { sort, dir }: { sort: SortKey; dir: SortDir }) => {
   const head = TABLE_COLUMNS.map(([id, name]) => {
     if (!name) return '<th></th>';
+    if (id === 'actions') return `<th>${name}</th>`;
     const direction = COLUMN_OF[sort] === id ? ` data-direction="${dir === 'asc' ? 'ascending' : 'descending'}"` : '';
     return `<th><span class="flex items-center gap-0.5">${name}<span data-sort-indicator${direction}>${SORT_MARK}</span></span></th>`;
   }).join('');

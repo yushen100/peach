@@ -1,6 +1,6 @@
 .peach-react [data-column-filter-avatar] { position: relative; display: inline-grid; place-items: center; flex: none; width: 24px; height: 24px; overflow: hidden; border-radius: 50%; background: var(--color-background-tertiary-default); }
+.peach-react [data-column-filter-avatar][data-avatar-size="medium"] { width: 32px; height: 32px; }
 .peach-react [data-column-filter-avatar] > span { grid-area: 1 / 1; }
-.peach-react [data-column-filter-avatar] img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .peach-react [data-column-filter-options] { overflow-anchor: none; }
 .peach-react [data-column-filter-offline] { cursor: not-allowed; }
 .peach-react [data-column-filter-offline] img { filter: grayscale(1); }

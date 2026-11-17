@@ -28,6 +28,7 @@ import {
 } from '../components/fieldset';
 import { Note } from '../components/note';
 import { SiteMark } from '../components/site-mark';
+import { ColumnFilterAvatar } from '../components/column-filter-avatar';
 import { TaskProgress } from '../components/task-progress';
 import { activityKind } from '../../activity-kinds';
 import { spriteGlyph } from '../components/sprite-glyph';
@@ -77,6 +78,9 @@ function LinkTable(
   if (!items.length) return null;
   const columns: DataColumn<LinkRow>[] = [
     { id: 'entity', label: t('cleanup:links.columnEntry'), width: 180, min: 128, value: (item) => item.entity,
+      filter: { values: item => item.entity, option: (name, item) => ({
+        leading: item && <ColumnFilterAvatar person={{ ...item.face, id: item.entity_id, name }}
+          kind={item.entity_kind} markId={item.entity_kind === 'studio' || item.entity_kind === 'agency' ? item.id : null} /> }) },
       render: (item) => <a className="flex min-w-24 items-center gap-2 text-text-secondary hover:text-text-primary hover:underline"
         href={item.entity_id && item.entity_kind ? entityPath(item.entity_kind, item.entity, item.entity_id) : undefined} data-link-identity="">
         <span data-link-avatar="" className={`relative flex size-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-media-placeholder text-caption-1-medium text-text-primary ${LEGACY_AVATAR_IMG}`}
@@ -88,11 +92,15 @@ function LinkTable(
         <span className="min-w-0 wrap-anywhere">{item.entity}</span>
       </a> },
     { id: 'kind', label: t('cleanup:shared.type'), width: 128, value: (item) => LINK_KINDS[item.link_kind] || item.link_kind,
+      filter: { values: item => item.link_kind, option: kind => ({ label: LINK_KINDS[kind] || kind }) },
       render: (item) => LINK_KINDS[item.link_kind] || item.link_kind },
     { id: 'label', label: t('cleanup:links.columnName'), min: 128, value: (item) => linkLabel(item.label),
+      filter: { values: item => linkLabel(item.label) || new URL(item.url).hostname,
+        option: (_, item) => ({ leading: item && <SiteMark linkId={item.id} /> }) },
       render: (item) => <span className="flex min-w-24 items-center gap-2" data-link-name="">
         <span className="min-w-0 wrap-anywhere">{linkLabel(item.label) || new URL(item.url).hostname}</span></span> },
     { id: 'note', label: t('cleanup:links.columnResult'), width: 320, min: 192, value: (item) => item.note,
+      filter: { values: item => serverLabel(item.note_code ?? '', item.note, item.note_params) },
       render: (item) => <div className="min-w-0 w-full" data-link-result={confirmed ? 'gone' : 'unclear'}>
         {/^(?:HTTP\s+)?[1-5]\d{2}$/.test(item.note.trim())
           ? <StatusLabel tone={confirmed || /^(?:HTTP\s+)?5\d{2}$/.test(item.note.trim()) ? 'error' : 'warning'} data-link-code="">{item.note.trim()}</StatusLabel>
@@ -103,6 +111,8 @@ function LinkTable(
           : null}
       </div> },
     { id: 'url', label: t('cleanup:links.columnUrl'), width: 360, min: 180, value: (item) => item.url,
+      filter: { values: item => new URL(item.url).hostname,
+        option: (_, item) => ({ leading: item && <SiteMark linkId={item.id} /> }) },
       render: (item) => <a href={item.url} target="_blank" rel="noopener noreferrer" title={item.url} data-link-address=""
         className="flex min-w-0 items-center gap-1 text-text-secondary hover:text-text-primary">
         <SiteMark linkId={item.id} />

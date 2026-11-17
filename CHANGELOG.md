@@ -18,6 +18,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 - **Review**: Select individual duplicate files for Trash, confirm the remaining count, and undo the selected disposal (#739). / **复核**：重复文件可逐份勾选回收，确认时显示保留数，处置后可撤销（#739）。
 - **Review**: Junk files with the same name and size collapse into expandable groups while retaining individual actions (#719). / **复核**：垃圾队列将同名同大小的候选折叠展示，展开后可逐份处理（#719）。
+- **Interface**: Searchable column filters extend to subscriptions, aliases, cleanup, review and diagnostics tables, with rating and resolution filters in Library (#754). / **界面**：订阅、别名、清理、复核和诊断表格补齐列头筛选，馆藏新增评分与分辨率筛选（#754）。
 - **Review**: Junk review combines video frames, promo text, QR codes, size and duration, with protection for advertising intros (#750). / **复核**：垃圾复核综合多帧画面、推广文字、二维码、大小和时长，保护带广告片头的视频（#750）。
 - **Library**: Table headers offer multi-select filters with search, pagination, select-all and exclusion controls (#744). / **馆藏**：列表列头支持搜索、多选、分页、全选与排除筛选（#744）。
 - **Interface**: Customize and reorder sorting options across library and discovery views, with release-date sorting on Home (#744). / **界面**：馆藏与发现页可自定义排序项及顺序，首页支持按发行时间排序（#744）。
@@ -233,6 +234,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Fixed / 修复
 
+- **Media** — Existing portraits, favicons, confirmed-source images and complete video sizes are read from local caches first, and cached video stills remain available without FFmpeg (#754). / **媒体** — 已有头像、站点图标、已确认来源的图片和完整视频大小优先读取本地缓存，已生成的视频静帧在 FFmpeg 不可用时仍可显示（#754）。
 - **Sourcing**: Wants distinguishes source failures from empty results, reads JavDB pages when its API requires login and restores confirmed resources (#717). / **采集**：想要区分来源失败与正常空结果，JavDB 接口要求登录时读取作品页，并恢复已确证资源的误放弃状态（#717）。
 - **Following**: Leaving Home unmounts its new-release row and prevents late requests from showing it on other pages (#744). / **关注**：离开首页时卸载新作行，迟到请求不会再将它显示到其他页面（#744）。
 - **Desktop**: On macOS, opening Peach while it is running opens the web UI, so you can get in even when the system hides the menu bar icon. / **桌面**：macOS 上 Peach 已在运行时再点开应用会打开网页，菜单栏图标被系统折叠时也能进入。

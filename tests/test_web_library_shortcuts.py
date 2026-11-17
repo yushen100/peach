@@ -29,7 +29,9 @@ class LibraryShortcutsTests(unittest.TestCase):
                 CREATE TABLE asset(id INTEGER PRIMARY KEY,medium TEXT,disposal TEXT,size INTEGER,snapshot_path TEXT,name TEXT,path TEXT);
                 CREATE TABLE asset_entity(asset_id INTEGER,entity_id INTEGER,role TEXT);
             """)
-        self.contract = WebContract(self.path)
+        generated = Path(self.tmp.name) / 'generated'
+        self.contract = WebContract(self.path, candidate_root=generated,
+                                    avatar_root=generated / 'avatars', logo_root=generated / 'logos')
 
     def read(self):
         return dispatch_api_get(self.contract, "/api/library-shortcuts", {})
@@ -130,6 +132,12 @@ class LibraryShortcutsTests(unittest.TestCase):
             '/follow-avatar?provider=kemono&ref=fanbox%2F123',
             '/follow-avatar?provider=pawchive&ref=fanbox%2F123'])
         self.assertEqual(entity_ref(self.contract, 'creator', 4, '创作者')['source_avatar_url'], creator['image_url'])
+        with closing(sqlite3.connect(self.path)) as c, c:
+            c.execute("INSERT INTO asset(id,name,medium,size,snapshot_path) VALUES(12,'main.mp4','video',100,'main.jpg')")
+            c.execute("INSERT INTO asset_entity VALUES(12,4,'creator')")
+        with mock.patch.object(WebContract, 'has_avatar', return_value=True):
+            local = self.write(action='favorite', entity_id=4, on=True)['favorites'][0]
+        self.assertEqual(local['image_url'], '/avatar?id=12')
         unknown = self.write(action='favorite', entity_id=5, on=True)['favorites'][1]
         self.assertEqual(unknown['image_url'], '')
         with closing(sqlite3.connect(self.path)) as c:

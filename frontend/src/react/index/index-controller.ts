@@ -33,6 +33,7 @@ export function personAvatar(item: IndexPerson & Pick<FaceRef, 'logo_version'>, 
 
 export function onlineAuthorRingHtml(author: OnlineAuthor): string {
   const name = String(author.k || '');
+  if (author.author_entity) return avatarInner(name, author.author_entity, null, 'creator');
   const initial = (name.match(/[A-Za-z0-9]/)?.[0] || Array.from(name)[0] || '?').toUpperCase();
   const image = author.avatar ? `<img src="${esc(author.avatar)}" alt="" loading="lazy" referrerpolicy="no-referrer" ${
     imageFallbackAttrs({ fallbacks: [author.avatar_fallback || ''] })}>` : '';

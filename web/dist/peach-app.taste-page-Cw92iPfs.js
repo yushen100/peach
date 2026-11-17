@@ -1,20 +1,19 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "af2ac8bf-6e1a-4050-8e2e-b3636a1c3d14", e._sentryDebugIdIdentifier = "sentry-dbid-af2ac8bf-6e1a-4050-8e2e-b3636a1c3d14");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "bed0bc5f-30a7-46aa-8f35-087562c5bff9", e._sentryDebugIdIdentifier = "sentry-dbid-bed0bc5f-30a7-46aa-8f35-087562c5bff9");
 	} catch {}
 })();
-import { $542a13ca2fa5b484$export$5b6b19405a83ff9d as e, $b4f18e3395fe64d7$export$3d96ec278d3efce4 as t, $b4f18e3395fe64d7$export$3e41faf802a29e71 as n, $b4f18e3395fe64d7$export$b2539bed5023c21c as r, Button as i, ButtonLink as a, Disclosure as o, E3 as s, EmptyState as c, FLOW_LABEL_X as l, FLOW_VIEWBOX as u, Gg as d, Input as f, M6 as p, MENU_ITEM as m, MENU_ITEM_INTERACTIVE as h, MENU_POPOVER_SURFACE as g, MenuDialog as _, Note as v, OV as y, Progress as b, Rf as x, SEGMENT as ee, SEGMENTED_TRACK as te, STAT_STRIP as ne, SegmentedTabList as re, Select$1 as ie, SelectItem as ae, StatCard as S, TASTE_REFRESH_KEY as oe, TASTE_REFRESH_TASK as se, TASTE_WINDOWS as ce, TaskProgress as le, Wt as C, Xt as ue, _8 as w, __toESM as de, aB as fe, activityKind as pe, avatarInner as me, busyProps as T, cB as he, cardClass as E, clsx as D, codedText as O, configureTasteBrowser as k, confirmModal as A, cx as j, errorMessage as M, f1 as N, fetchTaste as ge, fetchTasteJob as _e, firstGrapheme as ve, flowGraph as ye, flowLabel as be, fmtSize as xe, g4 as Se, historySpan as Ce, importTasteExport as we, jobText as Te, joinList as Ee, keepPreviousData as De, mM as Oe, pv as P, queryClient as F, r2 as ke, radarRows as Ae, rankDetail as je, rankShares as Me, removeTasteSource as Ne, require_jsx_runtime as Pe, require_react as Fe, serverLabel as Ie, serverLabelList as Le, siteMarkUrl as Re, startTasteRefresh as ze, statCardClass as Be, t as I, tasteDate as Ve, tasteDimensions as He, tasteHours as Ue, tasteKey as L, tasteRefetchInterval as We, tasteTime as Ge, topScores as Ke, uo as qe, useBackgroundJob as Je, useMutation as Ye, useQuery as Xe } from "./peach-app.js";
-import { ActivityHeat as Ze, BAR_DOMAIN as Qe, ExpandableRanking as $e, PolarAngleAxis as et, Polygon as tt, barLabel as nt, selectPolarAxisScale as rt, selectPolarAxisTicks as R } from "./peach-app.expandable-ranking-msnIi2GJ.js";
-import { LEGACY_AVATAR_IMG as it } from "./peach-app.legacy-avatar-NSITxLRS.js";
-import { Page as at } from "./peach-app.page-QAncjzM1.js";
-import { ActivePoints as ot, AnimatedItems as st, CHART_CARD as ct, CHART_COLORS as lt, CartesianLabelListContextProvider as ut, CategoryTick as dt, ChartBackground as ft, ChartContainer as pt, ChartHead as mt, ChartLegend as ht, ChartLegendContent as gt, ChartTip as _t, ChartTooltip as vt, ChartTooltipContent as yt, DefaultZIndexes as bt, Dots as xt, EvilBarChart as St, LabelListFromLabelProp as Ct, Layer as z, LoadingIndicator as wt, PolarChart as Tt, PolarLabelContextProvider as Et, PolarLabelFromLabelProp as Dt, RegisterGraphicalItemId as Ot, SetPolarGraphicalItem as kt, SetPolarLegendPayload as At, SetTooltipEntrySettings as jt, Text as Mt, ZIndexLayer as Nt, adaptEventsOfChild as Pt, addRadiusAxis as Ft, arrayTooltipSearcher as It, categoryAxisWidth as Lt, cn as Rt, createSelector as B, defaultPolarChartProps as zt, defaultPolarRadiusAxisProps as Bt, fitLabel as Vt, getAxisTypeBasedOnLayout as Ht, getBandSizeOfAxis as Ut, getClassNameFromUnknown as Wt, getColorsCount as Gt, getTooltipNameProp as Kt, getValueByDataKey as qt, identity as Jt, interpolate as Yt, isArrayLike as Xt, isCategoricalAxis as Zt, isNullish as Qt, iteratee as $t, matchAnimationItems as en, matchByIndex as tn, noop as nn, polarToCartesian as V, removeRadiusAxis as rn, resolveDefaultProps as an, selectAngleAxis as on, selectChartDataAndAlwaysIgnoreIndexes as sn, selectChartLayout as cn, selectPolarViewBox as ln, selectRadiusAxis as un, selectUnfilteredPolarItems as dn, svgPropertiesAndEvents as fn, svgPropertiesNoEvents as H, svgPropertiesNoEventsFromUnknown as pn, tone as mn, useAnimationCallbacks as hn, useAnimationStartSnapshot as gn, useAppDispatch as _n, useAppSelector as U, useIsPanorama as vn, usePolarChartLayout as yn } from "./peach-app.chart-tip-CRxYp6KT.js";
+import { $542a13ca2fa5b484$export$5b6b19405a83ff9d as e, $b4f18e3395fe64d7$export$3d96ec278d3efce4 as t, $b4f18e3395fe64d7$export$3e41faf802a29e71 as n, $b4f18e3395fe64d7$export$b2539bed5023c21c as r, Button as i, ButtonLink as a, Disclosure as o, E3 as s, EmptyState as c, FLOW_LABEL_X as l, FLOW_VIEWBOX as u, Gg as d, Input as f, LEGACY_AVATAR_IMG as p, M6 as m, MENU_ITEM as h, MENU_ITEM_INTERACTIVE as g, MENU_POPOVER_SURFACE as _, MenuDialog as v, Note as y, OV as b, Progress as x, Rf as S, SEGMENT as ee, SEGMENTED_TRACK as te, STAT_STRIP as ne, SegmentedTabList as re, Select$1 as ie, SelectItem as ae, StatCard as C, TASTE_REFRESH_KEY as oe, TASTE_REFRESH_TASK as se, TASTE_WINDOWS as ce, TaskProgress as le, Wt as w, Xt as ue, _8 as T, __toESM as de, aB as fe, activityKind as pe, avatarInner as E, busyProps as D, cB as me, cardClass as O, clsx as k, codedText as A, configureTasteBrowser as he, confirmModal as j, cx as ge, errorMessage as M, f1 as _e, fetchTaste as ve, fetchTasteJob as ye, firstGrapheme as be, flowGraph as xe, flowLabel as Se, fmtSize as Ce, g4 as we, historySpan as Te, importTasteExport as Ee, jobText as De, joinList as Oe, keepPreviousData as ke, mM as Ae, pv as je, queryClient as N, r2 as Me, radarRows as Ne, rankDetail as Pe, rankShares as Fe, removeTasteSource as Ie, require_jsx_runtime as Le, require_react as Re, serverLabel as ze, serverLabelList as Be, siteMarkUrl as Ve, startTasteRefresh as He, statCardClass as Ue, t as P, tasteDate as We, tasteDimensions as Ge, tasteHours as Ke, tasteKey as F, tasteRefetchInterval as qe, tasteTime as Je, topScores as Ye, uo as Xe, useBackgroundJob as Ze, useMutation as I, useQuery as Qe } from "./peach-app.js";
+import { ActivityHeat as $e, BAR_DOMAIN as et, ExpandableRanking as tt, PolarAngleAxis as nt, Polygon as rt, barLabel as it, selectPolarAxisScale as at, selectPolarAxisTicks as L } from "./peach-app.expandable-ranking-msnIi2GJ.js";
+import { Page as ot } from "./peach-app.page-QAncjzM1.js";
+import { ActivePoints as st, AnimatedItems as ct, CHART_CARD as lt, CHART_COLORS as ut, CartesianLabelListContextProvider as dt, CategoryTick as ft, ChartBackground as pt, ChartContainer as mt, ChartHead as ht, ChartLegend as gt, ChartLegendContent as _t, ChartTip as vt, ChartTooltip as yt, ChartTooltipContent as bt, DefaultZIndexes as xt, Dots as St, EvilBarChart as Ct, LabelListFromLabelProp as wt, Layer as R, LoadingIndicator as Tt, PolarChart as Et, PolarLabelContextProvider as Dt, PolarLabelFromLabelProp as Ot, RegisterGraphicalItemId as kt, SetPolarGraphicalItem as At, SetPolarLegendPayload as jt, SetTooltipEntrySettings as Mt, Text as Nt, ZIndexLayer as Pt, adaptEventsOfChild as Ft, addRadiusAxis as It, arrayTooltipSearcher as Lt, categoryAxisWidth as Rt, cn as zt, createSelector as z, defaultPolarChartProps as Bt, defaultPolarRadiusAxisProps as Vt, fitLabel as Ht, getAxisTypeBasedOnLayout as Ut, getBandSizeOfAxis as Wt, getClassNameFromUnknown as Gt, getColorsCount as Kt, getTooltipNameProp as qt, getValueByDataKey as Jt, identity as Yt, interpolate as B, isArrayLike as Xt, isCategoricalAxis as Zt, isNullish as Qt, iteratee as $t, matchAnimationItems as en, matchByIndex as tn, noop as nn, polarToCartesian as V, removeRadiusAxis as rn, resolveDefaultProps as an, selectAngleAxis as on, selectChartDataAndAlwaysIgnoreIndexes as sn, selectChartLayout as cn, selectPolarViewBox as ln, selectRadiusAxis as un, selectUnfilteredPolarItems as dn, svgPropertiesAndEvents as fn, svgPropertiesNoEvents as H, svgPropertiesNoEventsFromUnknown as pn, tone as mn, useAnimationCallbacks as hn, useAnimationStartSnapshot as gn, useAppDispatch as _n, useAppSelector as U, useIsPanorama as vn, usePolarChartLayout as yn } from "./peach-app.chart-tip-CRxYp6KT.js";
 import { BrowserIcon as bn } from "./peach-app.browser-icon-N9Od-bAf.js";
-var xn = B([(e, t) => R(e, "angleAxis", t, !1)], (e) => {
+var xn = z([(e, t) => L(e, "angleAxis", t, !1)], (e) => {
 	if (e) return e.map((e) => e.coordinate);
-}), Sn = B([(e, t) => R(e, "radiusAxis", t, !1)], (e) => {
+}), Sn = z([(e, t) => L(e, "radiusAxis", t, !1)], (e) => {
 	if (e) return e.map((e) => e.coordinate);
-}), W = /* @__PURE__ */ de(Fe()), Cn = [
+}), W = /* @__PURE__ */ de(Re()), Cn = [
 	"gridType",
 	"radialLines",
 	"angleAxisId",
@@ -119,7 +118,7 @@ var jn = (e, t, n, r) => {
 }, Nn = (e) => {
 	var t = e.cx, n = e.cy, r = e.radius, i = Dn({}, H(e));
 	return /*#__PURE__*/ W.createElement("circle", G({}, i, {
-		className: D("recharts-polar-grid-concentric-circle", e.className),
+		className: k("recharts-polar-grid-concentric-circle", e.className),
 		cx: t,
 		cy: n,
 		r
@@ -127,7 +126,7 @@ var jn = (e, t, n, r) => {
 }, Pn = (e) => {
 	var t = e.radius, n = Dn({}, H(e));
 	return /*#__PURE__*/ W.createElement("path", G({}, n, {
-		className: D("recharts-polar-grid-concentric-polygon", e.className),
+		className: k("recharts-polar-grid-concentric-polygon", e.className),
 		d: jn(t, e.cx, e.cy, e.polarAngles)
 	}));
 }, Fn = (e) => {
@@ -149,7 +148,7 @@ var jn = (e, t, n, r) => {
 	radiusAxisId: 0,
 	gridType: "polygon",
 	radialLines: !0,
-	zIndex: bt.grid,
+	zIndex: xt.grid,
 	stroke: "#ccc",
 	strokeWidth: 1,
 	fill: "none"
@@ -165,7 +164,7 @@ var jn = (e, t, n, r) => {
 		polarRadius: v,
 		zIndex: f
 	}, p);
-	return y.outerRadius <= 0 ? null : /*#__PURE__*/ W.createElement(Nt, { zIndex: y.zIndex }, /*#__PURE__*/ W.createElement("g", { className: "recharts-polar-grid" }, /*#__PURE__*/ W.createElement(Fn, G({
+	return y.outerRadius <= 0 ? null : /*#__PURE__*/ W.createElement(Pt, { zIndex: y.zIndex }, /*#__PURE__*/ W.createElement("g", { className: "recharts-polar-grid" }, /*#__PURE__*/ W.createElement(Fn, G({
 		gridType: n,
 		radialLines: r
 	}, y, {
@@ -185,7 +184,7 @@ function Rn(e) {
 	return Array.isArray(e) ? e : Array.from(e);
 }
 // node_modules/es-toolkit/dist/compat/math/maxBy.mjs
-function zn(e, t = Jt) {
+function zn(e, t = Yt) {
 	if (e == null) return;
 	let n = Rn(e);
 	if (n.length === 0) return;
@@ -197,7 +196,7 @@ function zn(e, t = Jt) {
 	return i;
 }
 // node_modules/es-toolkit/dist/compat/math/minBy.mjs
-function Bn(e, t = Jt) {
+function Bn(e, t = Yt) {
 	if (e == null) return;
 	let n = Rn(e);
 	if (n.length === 0) return;
@@ -293,10 +292,10 @@ function Yn(e, t) {
 var Xn = "radiusAxis";
 function Zn(e) {
 	var t = _n(), n = yn(), r = (0, W.useMemo)(() => {
-		var t = e.type, r = Jn(e, Vn), i = Ht(n, "radiusAxis", t);
+		var t = e.type, r = Jn(e, Vn), i = Ut(n, "radiusAxis", t);
 		if (i != null) return q(q({}, r), {}, { type: i });
 	}, [e, n]);
-	return (0, W.useEffect)(() => r == null ? nn : (t(Ft(r)), () => {
+	return (0, W.useEffect)(() => r == null ? nn : (t(It(r)), () => {
 		t(rn(r));
 	}), [t, r]), null;
 }
@@ -334,7 +333,7 @@ var Qn = (e, t, n, r) => {
 		y2: l.y
 	});
 	return /*#__PURE__*/ W.createElement("line", K({ className: "recharts-polar-radius-axis-line" }, u));
-}, nr = (e, t, n) => /*#__PURE__*/ W.isValidElement(e) ? /*#__PURE__*/ W.cloneElement(e, t) : typeof e == "function" ? e(t) : /*#__PURE__*/ W.createElement(Mt, K({}, t, { className: "recharts-polar-radius-axis-tick-value" }), n), rr = (e, t) => {
+}, nr = (e, t, n) => /*#__PURE__*/ W.isValidElement(e) ? /*#__PURE__*/ W.cloneElement(e, t) : typeof e == "function" ? e(t) : /*#__PURE__*/ W.createElement(Nt, K({}, t, { className: "recharts-polar-radius-axis-tick-value" }), n), rr = (e, t) => {
 	var n = e.angle, r = e.tickFormatter, i = e.stroke, a = e.tick, o = Jn(e, Un), s = $n(e.orientation), c = H(o), l = pn(a), u = t.map((t, o) => {
 		var u = Qn(t, e.angle, e.cx, e.cy), d = q(q(q(q({
 			textAnchor: s,
@@ -343,20 +342,20 @@ var Qn = (e, t, n, r) => {
 			stroke: "none",
 			fill: i
 		}, l), {}, { index: o }, u), {}, { payload: t });
-		return /*#__PURE__*/ W.createElement(z, K({
-			className: D("recharts-polar-radius-axis-tick", Wt(a)),
+		return /*#__PURE__*/ W.createElement(R, K({
+			className: k("recharts-polar-radius-axis-tick", Gt(a)),
 			key: `tick-${t.coordinate}`
-		}, Pt(e, t, o)), nr(a, d, r ? r(t.value, o) : t.value));
+		}, Ft(e, t, o)), nr(a, d, r ? r(t.value, o) : t.value));
 	});
-	return /*#__PURE__*/ W.createElement(z, { className: "recharts-polar-radius-axis-ticks" }, u);
+	return /*#__PURE__*/ W.createElement(R, { className: "recharts-polar-radius-axis-ticks" }, u);
 }, ir = (e) => {
-	var t = e.radiusAxisId, n = U(ln), r = U((e) => rt(e, "radiusAxis", t)), i = U((e) => R(e, "radiusAxis", t, !1));
+	var t = e.radiusAxisId, n = U(ln), r = U((e) => at(e, "radiusAxis", t)), i = U((e) => L(e, "radiusAxis", t, !1));
 	if (n == null || !i || !i.length || r == null) return null;
 	var a = q(q({}, e), {}, { scale: r }, n), o = a.tick, s = a.axisLine;
-	return /*#__PURE__*/ W.createElement(Nt, { zIndex: a.zIndex }, /*#__PURE__*/ W.createElement(z, { className: D("recharts-polar-radius-axis", Xn, a.className) }, s && tr(a, i), o && rr(a, i), /*#__PURE__*/ W.createElement(Et, er(a.angle, a.cx, a.cy, i), /*#__PURE__*/ W.createElement(Dt, { label: a.label }), a.children)));
+	return /*#__PURE__*/ W.createElement(Pt, { zIndex: a.zIndex }, /*#__PURE__*/ W.createElement(R, { className: k("recharts-polar-radius-axis", Xn, a.className) }, s && tr(a, i), o && rr(a, i), /*#__PURE__*/ W.createElement(Dt, er(a.angle, a.cx, a.cy, i), /*#__PURE__*/ W.createElement(Ot, { label: a.label }), a.children)));
 };
 function ar(e) {
-	var t = an(e, Bt);
+	var t = an(e, Vt);
 	return /*#__PURE__*/ W.createElement(W.Fragment, null, /*#__PURE__*/ W.createElement(Zn, {
 		domain: t.domain,
 		id: t.radiusAxisId,
@@ -429,13 +428,13 @@ function fr(e, t) {
 	}
 	return (t === "string" ? String : Number)(e);
 }
-var pr = (e, t) => rt(e, "radiusAxis", t), mr = B([pr], (e) => {
+var pr = (e, t) => at(e, "radiusAxis", t), mr = z([pr], (e) => {
 	if (e != null) return { scale: e };
-}), hr = B([un, pr], (e, t) => {
+}), hr = z([un, pr], (e, t) => {
 	if (e != null && t != null) return lr(lr({}, e), {}, { scale: t });
-}), gr = (e, t, n, r) => R(e, "radiusAxis", t, r), _r = (e, t, n) => on(e, n), vr = (e, t, n) => rt(e, "angleAxis", n), yr = B([_r, vr], (e, t) => {
+}), gr = (e, t, n, r) => L(e, "radiusAxis", t, r), _r = (e, t, n) => on(e, n), vr = (e, t, n) => at(e, "angleAxis", n), yr = z([_r, vr], (e, t) => {
 	if (e != null && t != null) return lr(lr({}, e), {}, { scale: t });
-}), br = (e, t, n, r) => R(e, "angleAxis", n, r), xr = B([
+}), br = (e, t, n, r) => L(e, "angleAxis", n, r), xr = z([
 	_r,
 	vr,
 	ln
@@ -447,15 +446,15 @@ var pr = (e, t) => rt(e, "radiusAxis", t), mr = B([pr], (e) => {
 		cx: n.cx,
 		cy: n.cy
 	};
-}), Sr = (e, t, n, r, i) => i, Cr = B([
+}), Sr = (e, t, n, r, i) => i, Cr = z([
 	cn,
 	hr,
 	gr,
 	yr,
 	br
-], (e, t, n, r, i) => Zt(e, "radiusAxis") ? Ut(t, n, !1) : Ut(r, i, !1)), wr = B([dn, Sr], (e, t) => {
+], (e, t, n, r, i) => Zt(e, "radiusAxis") ? Wt(t, n, !1) : Wt(r, i, !1)), wr = z([dn, Sr], (e, t) => {
 	if (e != null) return e.find((e) => e.type === "radar" && t === e.id)?.dataKey;
-}), Tr = B([
+}), Tr = z([
 	mr,
 	xr,
 	sn,
@@ -551,7 +550,7 @@ var Pr = (e) => {
 		dataKey: t,
 		type: a,
 		color: Nr(r, i),
-		value: Kt(n, t),
+		value: qt(n, t),
 		payload: e
 	}];
 }, Fr = /*#__PURE__*/ W.memo((e) => {
@@ -564,7 +563,7 @@ var Pr = (e) => {
 			fill: i,
 			nameKey: void 0,
 			dataKey: t,
-			name: Kt(a, t),
+			name: qt(a, t),
 			hide: o,
 			type: s,
 			color: Nr(n, i),
@@ -572,13 +571,13 @@ var Pr = (e) => {
 			graphicalItemId: c
 		}
 	};
-	return /*#__PURE__*/ W.createElement(jt, { tooltipEntrySettings: l });
+	return /*#__PURE__*/ W.createElement(Mt, { tooltipEntrySettings: l });
 });
 function Ir(e) {
 	var t = e.points, n = e.props, r = n.dot, i = n.dataKey;
 	n.id;
 	var a = jr(n, Er), o = H(a);
-	return /*#__PURE__*/ W.createElement(xt, {
+	return /*#__PURE__*/ W.createElement(St, {
 		points: t,
 		dot: r,
 		className: "recharts-radar-dots",
@@ -590,7 +589,7 @@ function Ir(e) {
 function Lr(e) {
 	var t = e.radiusAxis, n = e.angleAxis, r = e.displayedData, i = e.dataKey, a = e.bandSize, o = n.cx, s = n.cy, c = !1, l = [], u = n.type === "number" ? 0 : a ?? 0;
 	r.forEach((e, r) => {
-		var a = qt(e, n.dataKey, r), d = qt(e, i), f = (n.scale.map(a) ?? 0) + u, p = Array.isArray(d) ? sr(d) : d, m = Qt(p) ? 0 : t.scale.map(p) ?? 0;
+		var a = Jt(e, n.dataKey, r), d = Jt(e, i), f = (n.scale.map(a) ?? 0) + u, p = Array.isArray(d) ? sr(d) : d, m = Qt(p) ? 0 : t.scale.map(p) ?? 0;
 		Array.isArray(d) && d.length >= 2 && (c = !0), l.push(Y(Y({}, V(o, s, m, f)), {}, {
 			name: a,
 			value: d,
@@ -631,12 +630,12 @@ function Rr(e) {
 			fill: void 0
 		});
 	});
-	return /*#__PURE__*/ W.createElement(ut, { value: t ? i : void 0 }, r);
+	return /*#__PURE__*/ W.createElement(dt, { value: t ? i : void 0 }, r);
 }
 function zr(e) {
 	var t = e.points, n = e.baseLinePoints, r = e.props;
 	if (t == null) return null;
-	var i = r.shape, a = r.isRange, o = r.connectNulls, s = /*#__PURE__*/ W.isValidElement(i) ? /*#__PURE__*/ W.cloneElement(i, Y(Y({}, r), {}, { points: t })) : typeof i == "function" ? i(Y(Y({}, r), {}, { points: t })) : /*#__PURE__*/ W.createElement(tt, J({}, fn(r), {
+	var i = r.shape, a = r.isRange, o = r.connectNulls, s = /*#__PURE__*/ W.isValidElement(i) ? /*#__PURE__*/ W.cloneElement(i, Y(Y({}, r), {}, { points: t })) : typeof i == "function" ? i(Y(Y({}, r), {}, { points: t })) : /*#__PURE__*/ W.createElement(rt, J({}, fn(r), {
 		onMouseEnter: (e) => {
 			var t = r.onMouseEnter;
 			t && t(r, e);
@@ -649,24 +648,24 @@ function zr(e) {
 		baseLinePoints: a ? n : void 0,
 		connectNulls: o
 	}));
-	return /*#__PURE__*/ W.createElement(z, { className: "recharts-radar-polygon" }, s, /*#__PURE__*/ W.createElement(Ir, {
+	return /*#__PURE__*/ W.createElement(R, { className: "recharts-radar-polygon" }, s, /*#__PURE__*/ W.createElement(Ir, {
 		props: r,
 		points: t
 	}));
 }
 var Br = (e, t) => e == null ? [] : t === 1 ? e.flatMap((e) => e.status === "removed" ? [] : [e.next]) : e.flatMap((e) => e.status === "removed" ? [] : e.status === "matched" ? [Y(Y({}, e.next), {}, {
-	x: Yt(e.prev.x, e.next.x, t),
-	y: Yt(e.prev.y, e.next.y, t)
+	x: B(e.prev.x, e.next.x, t),
+	y: B(e.prev.y, e.next.y, t)
 })] : [Y(Y({}, e.next), {}, {
-	x: Yt(e.next.cx, e.next.x, t),
-	y: Yt(e.next.cy, e.next.y, t)
+	x: B(e.next.cx, e.next.x, t),
+	y: B(e.next.cy, e.next.y, t)
 })]);
 function Vr(e) {
 	var t = e.props, n = e.previousPointsRef, r = e.previousBaseLinePointsRef, i = t.points, a = t.baseLinePoints, o = t.isAnimationActive, s = t.animationBegin, c = t.animationDuration, l = t.animationEasing, u = t.animationMatchBy, d = t.animationInterpolateFn, f = t.onAnimationStart, p = t.onAnimationEnd, m = gn(t, r), h = m.startValue, g = en(h ?? null, a, u), _ = hn(f, p), v = _.isAnimating, y = _.handleAnimationStart, b = _.handleAnimationEnd, x = yn();
 	return x == null ? null : /*#__PURE__*/ W.createElement(Rr, {
 		showLabels: !v,
 		points: i
-	}, /*#__PURE__*/ W.createElement(st, {
+	}, /*#__PURE__*/ W.createElement(ct, {
 		animationInput: t,
 		animationIdPrefix: "recharts-radar-",
 		items: i,
@@ -687,7 +686,7 @@ function Vr(e) {
 			baseLinePoints: r,
 			props: t
 		});
-	}), /*#__PURE__*/ W.createElement(Ct, { label: t.label }), t.children);
+	}), /*#__PURE__*/ W.createElement(wt, { label: t.label }), t.children);
 }
 function Hr(e) {
 	var t = (0, W.useRef)(void 0), n = (0, W.useRef)(void 0);
@@ -711,13 +710,13 @@ var Ur = {
 	label: !1,
 	legendType: "rect",
 	radiusAxisId: 0,
-	zIndex: bt.area
+	zIndex: xt.area
 };
 function Wr(e) {
 	var t = e.hide, n = e.className, r = e.points;
 	if (t) return null;
-	var i = D("recharts-radar", n);
-	return /*#__PURE__*/ W.createElement(Nt, { zIndex: e.zIndex }, /*#__PURE__*/ W.createElement(z, { className: i }, /*#__PURE__*/ W.createElement(Hr, e)), /*#__PURE__*/ W.createElement(ot, {
+	var i = k("recharts-radar", n);
+	return /*#__PURE__*/ W.createElement(Pt, { zIndex: e.zIndex }, /*#__PURE__*/ W.createElement(R, { className: i }, /*#__PURE__*/ W.createElement(Hr, e)), /*#__PURE__*/ W.createElement(st, {
 		points: r,
 		mainColor: Nr(e.stroke, e.fill),
 		itemDataKey: e.dataKey,
@@ -734,10 +733,10 @@ function Gr(e) {
 }
 function Kr(e) {
 	var t = an(e, Ur);
-	return /*#__PURE__*/ W.createElement(Ot, {
+	return /*#__PURE__*/ W.createElement(kt, {
 		id: t.id,
 		type: "radar"
-	}, (e) => /*#__PURE__*/ W.createElement(W.Fragment, null, /*#__PURE__*/ W.createElement(kt, {
+	}, (e) => /*#__PURE__*/ W.createElement(W.Fragment, null, /*#__PURE__*/ W.createElement(At, {
 		type: "radar",
 		id: e,
 		data: void 0,
@@ -745,7 +744,7 @@ function Kr(e) {
 		hide: t.hide,
 		angleAxisId: t.angleAxisId,
 		radiusAxisId: t.radiusAxisId
-	}), /*#__PURE__*/ W.createElement(At, { legendPayload: Pr(t) }), /*#__PURE__*/ W.createElement(Fr, {
+	}), /*#__PURE__*/ W.createElement(jt, { legendPayload: Pr(t) }), /*#__PURE__*/ W.createElement(Fr, {
 		dataKey: t.dataKey,
 		stroke: t.stroke,
 		strokeWidth: t.strokeWidth,
@@ -801,21 +800,21 @@ function Zr(e, t) {
 	}
 	return (t === "string" ? String : Number)(e);
 }
-var Qr = ["axis"], $r = Jr(Jr({}, zt), {}, {
+var Qr = ["axis"], $r = Jr(Jr({}, Bt), {}, {
 	layout: "centric",
 	startAngle: 90,
 	endAngle: -270
 }), ei = /*#__PURE__*/ (0, W.forwardRef)((e, t) => {
 	var n = an(e, $r);
-	return /*#__PURE__*/ W.createElement(Tt, {
+	return /*#__PURE__*/ W.createElement(Et, {
 		chartName: "RadarChart",
 		defaultTooltipEventType: "axis",
 		validateTooltipEventTypes: Qr,
-		tooltipPayloadSearcher: It,
+		tooltipPayloadSearcher: Lt,
 		categoricalChartProps: n,
 		ref: t
 	});
-}), X = Pe(), ti = W.memo(function({ cx: e, cy: t, dataKey: n, chartId: r, className: i, fillOpacity: a = 1, type: o = "default", maskId: s }) {
+}), X = Le(), ti = W.memo(function({ cx: e, cy: t, dataKey: n, chartId: r, className: i, fillOpacity: a = 1, type: o = "default", maskId: s }) {
 	let c = W.useId().replace(/:/g, ""), l = `url(#${r}-colors-${String(n)})`;
 	if (e === void 0 || t === void 0) return null;
 	switch (o) {
@@ -869,7 +868,7 @@ var Qr = ["axis"], $r = Jr(Jr({}, zt), {}, {
 }));
 ni.displayName = "DefaultDot";
 var ri = W.memo(({ cx: e, cy: t, dotId: n, fillOpacity: r, gradientUrl: i, className: a, maskId: o }) => /* @__PURE__ */ (0, X.jsxs)("g", {
-	className: Rt(a, "text-background"),
+	className: zt(a, "text-background"),
 	mask: o ? `url(#${o})` : void 0,
 	children: [
 		/* @__PURE__ */ (0, X.jsx)("defs", { children: /* @__PURE__ */ (0, X.jsx)("clipPath", {
@@ -907,7 +906,7 @@ var ri = W.memo(({ cx: e, cy: t, dotId: n, fillOpacity: r, gradientUrl: i, class
 }));
 ri.displayName = "PrimaryBorderDot";
 var ii = W.memo(({ cx: e, cy: t, dotId: n, fillOpacity: r, gradientUrl: i, className: a, maskId: o }) => /* @__PURE__ */ (0, X.jsxs)("g", {
-	className: Rt(a, "text-background"),
+	className: zt(a, "text-background"),
 	mask: o ? `url(#${o})` : void 0,
 	children: [
 		/* @__PURE__ */ (0, X.jsx)("defs", { children: /* @__PURE__ */ (0, X.jsx)("clipPath", {
@@ -959,15 +958,15 @@ function Q({ config: e, data: t, children: n, className: r, chartProps: i, backg
 	]);
 	return /* @__PURE__ */ (0, X.jsx)(ui, {
 		value: h,
-		children: /* @__PURE__ */ (0, X.jsxs)(pt, {
+		children: /* @__PURE__ */ (0, X.jsxs)(mt, {
 			className: r,
 			config: e,
-			children: [/* @__PURE__ */ (0, X.jsx)(wt, { isLoading: c }), /* @__PURE__ */ (0, X.jsxs)(ei, {
+			children: [/* @__PURE__ */ (0, X.jsx)(Tt, { isLoading: c }), /* @__PURE__ */ (0, X.jsxs)(ei, {
 				id: u,
 				data: c ? p : t,
 				...i,
 				children: [
-					a && /* @__PURE__ */ (0, X.jsx)(ft, { variant: a }),
+					a && /* @__PURE__ */ (0, X.jsx)(pt, { variant: a }),
 					n,
 					c && /* @__PURE__ */ (0, X.jsx)(Di, {})
 				]
@@ -1036,7 +1035,7 @@ function hi({ tick: e = {
 	fontSize: 12
 }, tickLine: t = !1, ...n }) {
 	let { isLoading: r } = Z();
-	return r ? null : /* @__PURE__ */ (0, X.jsx)(et, {
+	return r ? null : /* @__PURE__ */ (0, X.jsx)(nt, {
 		tick: e,
 		tickLine: t,
 		...n
@@ -1056,10 +1055,10 @@ function gi({ tick: e = {
 }
 function _i({ variant: e, roundness: t, defaultIndex: n }) {
 	let { isLoading: r, selectedDataKey: i } = Z();
-	return r ? null : /* @__PURE__ */ (0, X.jsx)(vt, {
+	return r ? null : /* @__PURE__ */ (0, X.jsx)(yt, {
 		defaultIndex: n,
 		cursor: !1,
-		content: /* @__PURE__ */ (0, X.jsx)(yt, {
+		content: /* @__PURE__ */ (0, X.jsx)(bt, {
 			selected: i,
 			roundness: t,
 			variant: e
@@ -1068,10 +1067,10 @@ function _i({ variant: e, roundness: t, defaultIndex: n }) {
 }
 function vi({ variant: e, align: t = "center", verticalAlign: n = "bottom", isClickable: r = !1 }) {
 	let { isLoading: i, selectedDataKey: a, selectDataKey: o } = Z();
-	return i ? null : /* @__PURE__ */ (0, X.jsx)(ht, {
+	return i ? null : /* @__PURE__ */ (0, X.jsx)(gt, {
 		verticalAlign: n,
 		align: t,
-		content: /* @__PURE__ */ (0, X.jsx)(gt, {
+		content: /* @__PURE__ */ (0, X.jsx)(_t, {
 			selected: a,
 			onSelectChange: o,
 			isClickable: r,
@@ -1122,7 +1121,7 @@ var yi = (e, t, n, r) => {
 		stopOpacity: n?.[i]
 	}, a);
 }) }), xi = ({ id: e, dataKey: t, config: n }) => {
-	let r = Gt(n[t] ?? {});
+	let r = Kt(n[t] ?? {});
 	return /* @__PURE__ */ (0, X.jsx)("linearGradient", {
 		id: `${e}-colors-${t}`,
 		x1: "0",
@@ -1135,7 +1134,7 @@ var yi = (e, t, n, r) => {
 		})
 	});
 }, Si = ({ id: e, dataKey: t, config: n }) => {
-	let r = Gt(n[t] ?? {});
+	let r = Kt(n[t] ?? {});
 	return /* @__PURE__ */ (0, X.jsx)("linearGradient", {
 		id: `${e}-radar-stroke-${t}`,
 		x1: "0",
@@ -1148,7 +1147,7 @@ var yi = (e, t, n, r) => {
 		})
 	});
 }, Ci = ({ id: e, dataKey: t, config: n }) => {
-	let r = Gt(n[t] ?? {}), i = r === 1 ? [.8, .3] : Array.from({ length: r }, (e, t) => t === 0 ? .8 : .3);
+	let r = Kt(n[t] ?? {}), i = r === 1 ? [.8, .3] : Array.from({ length: r }, (e, t) => t === 0 ? .8 : .3);
 	return /* @__PURE__ */ (0, X.jsx)("radialGradient", {
 		id: `${e}-radar-fill-${t}`,
 		cx: "50%",
@@ -1217,13 +1216,13 @@ Q.Radar = di, Q.Dot = fi, Q.ActiveDot = pi, Q.PolarGrid = mi, Q.PolarAngleAxis =
 // src/react/taste/charts.tsx
 function Oi(e) {
 	let { x: t = 0, cx: n, textAnchor: r, payload: i, ...a } = e, o = String(i?.value ?? ""), s = typeof n == "number" ? n * 2 : 0, c = s ? r === "start" ? s - t : r === "end" ? t : 2 * Math.min(t, s - t) : 56;
-	return /* @__PURE__ */ (0, X.jsxs)("g", { children: [/* @__PURE__ */ (0, X.jsx)("title", { children: o }), /* @__PURE__ */ (0, X.jsx)(Mt, {
+	return /* @__PURE__ */ (0, X.jsxs)("g", { children: [/* @__PURE__ */ (0, X.jsx)("title", { children: o }), /* @__PURE__ */ (0, X.jsx)(Nt, {
 		...a,
 		x: t,
 		textAnchor: r,
 		fill: "currentColor",
 		fontSize: 12,
-		children: Vt(o, c - 4)
+		children: Ht(o, c - 4)
 	})] });
 }
 var ki = [
@@ -1241,8 +1240,8 @@ var ki = [
 	"fill-chart-5",
 	"fill-chart-6"
 ], ji = { value: {
-	label: I("manage:tasteCharts.tagOccurrences"),
-	colors: mn(lt[3])
+	label: P("manage:tasteCharts.tagOccurrences"),
+	colors: mn(ut[3])
 } }, Mi = [
 	"min-h-24",
 	"min-h-24",
@@ -1255,7 +1254,7 @@ var ki = [
 	"min-h-64"
 ], Ni = 26, Pi = { radius: ji.value }, Fi = (e, t) => Math.sqrt(e / t);
 function Ii({ rows: e, label: t }) {
-	let n = Ae(e);
+	let n = Ne(e);
 	if (!n.length) return null;
 	let r = n[0].value, i = n.map((e) => ({
 		...e,
@@ -1263,9 +1262,9 @@ function Ii({ rows: e, label: t }) {
 	}));
 	return /* @__PURE__ */ (0, X.jsx)("div", {
 		role: "img",
-		"aria-label": I("manage:tasteCharts.radarSummary", {
+		"aria-label": P("manage:tasteCharts.radarSummary", {
 			label: t,
-			items: Ee(i.map((e) => e.name))
+			items: Oe(i.map((e) => e.name))
 		}),
 		children: /* @__PURE__ */ (0, X.jsxs)(Q, {
 			data: i,
@@ -1284,17 +1283,17 @@ function Ii({ rows: e, label: t }) {
 					tick: !1
 				}),
 				/* @__PURE__ */ (0, X.jsx)(Q.Radar, { dataKey: "radius" }),
-				/* @__PURE__ */ (0, X.jsx)(_t, { valueKey: "value" })
+				/* @__PURE__ */ (0, X.jsx)(vt, { valueKey: "value" })
 			]
 		})
 	});
 }
 function Li({ rows: e, label: t }) {
-	let n = Ke(e, 8);
+	let n = Ye(e, 8);
 	return n.length ? /* @__PURE__ */ (0, X.jsx)("section", {
 		"aria-label": t,
 		className: `flex grow flex-col ${Mi[n.length]}`,
-		children: /* @__PURE__ */ (0, X.jsxs)(St, {
+		children: /* @__PURE__ */ (0, X.jsxs)(Ct, {
 			data: n,
 			config: ji,
 			layout: "horizontal",
@@ -1310,43 +1309,43 @@ function Li({ rows: e, label: t }) {
 			},
 			className: "aspect-auto text-text-secondary",
 			children: [
-				/* @__PURE__ */ (0, X.jsx)(St.YAxis, {
+				/* @__PURE__ */ (0, X.jsx)(Ct.YAxis, {
 					dataKey: "name",
 					interval: 0,
-					tick: /* @__PURE__ */ (0, X.jsx)(dt, { along: "y" }),
-					width: Lt(n.map((e) => e.name))
+					tick: /* @__PURE__ */ (0, X.jsx)(ft, { along: "y" }),
+					width: Rt(n.map((e) => e.name))
 				}),
-				/* @__PURE__ */ (0, X.jsx)(St.XAxis, {
+				/* @__PURE__ */ (0, X.jsx)(Ct.XAxis, {
 					hide: !0,
-					domain: Qe
+					domain: et
 				}),
-				/* @__PURE__ */ (0, X.jsx)(St.Bar, {
+				/* @__PURE__ */ (0, X.jsx)(Ct.Bar, {
 					dataKey: "value",
 					enableHoverHighlight: !0,
 					barProps: {
 						dataKey: "value",
-						label: nt("right")
+						label: it("right")
 					}
 				}),
-				/* @__PURE__ */ (0, X.jsx)(_t, {})
+				/* @__PURE__ */ (0, X.jsx)(vt, {})
 			]
 		})
 	}) : null;
 }
 function Ri({ flows: e }) {
-	let [t, n] = (0, W.useState)(null), r = ye(e);
+	let [t, n] = (0, W.useState)(null), r = xe(e);
 	if (!r) return null;
 	let i = t?.node ?? null, a = (e, n) => t ? i === null ? t.label === n : e.source === i || e.target === i : !0;
 	return /* @__PURE__ */ (0, X.jsxs)("section", {
-		className: ct,
+		className: lt,
 		children: [
-			/* @__PURE__ */ (0, X.jsx)(mt, {
-				title: I("manage:tasteCharts.creatorLeadSources"),
+			/* @__PURE__ */ (0, X.jsx)(ht, {
+				title: P("manage:tasteCharts.creatorLeadSources"),
 				figure: (t ? t.value : r.total).toLocaleString(),
-				note: t ? t.label : I("manage:tasteCharts.leadsUnit", { count: r.total })
+				note: t ? t.label : P("manage:tasteCharts.leadsUnit", { count: r.total })
 			}),
 			/* @__PURE__ */ (0, X.jsx)("ol", {
-				"aria-label": I("manage:tasteCharts.sitesAndCreatorLeads"),
+				"aria-label": P("manage:tasteCharts.sitesAndCreatorLeads"),
 				className: "flex flex-col sm:hidden",
 				children: [...r.links].sort((e, t) => t.value - e.value).map((e) => /* @__PURE__ */ (0, X.jsxs)("li", {
 					className: "flex items-baseline justify-between gap-3 border-b border-separator-border py-2 text-body-2-regular text-text-primary last:border-b-0",
@@ -1365,7 +1364,7 @@ function Ri({ flows: e }) {
 					viewBox: `0 0 ${u.width} ${r.height}`,
 					fill: "none",
 					role: "img",
-					"aria-label": I("manage:tasteCharts.sitesAndCreatorLeads"),
+					"aria-label": P("manage:tasteCharts.sitesAndCreatorLeads"),
 					className: "block h-auto w-full",
 					onPointerLeave: () => n(null),
 					children: [/* @__PURE__ */ (0, X.jsx)("g", { children: r.links.map((e) => /* @__PURE__ */ (0, X.jsx)("path", {
@@ -1373,7 +1372,7 @@ function Ri({ flows: e }) {
 						strokeWidth: e.width,
 						tabIndex: 0,
 						role: "img",
-						"aria-label": I("manage:tasteCharts.leadCount", {
+						"aria-label": P("manage:tasteCharts.leadCount", {
 							name: e.label,
 							count: e.value
 						}),
@@ -1394,7 +1393,7 @@ function Ri({ flows: e }) {
 					}, e.key)) }), /* @__PURE__ */ (0, X.jsx)("g", { children: r.nodes.map((e) => /* @__PURE__ */ (0, X.jsxs)("g", {
 						tabIndex: 0,
 						role: "img",
-						"aria-label": I("manage:tasteCharts.leadCount", {
+						"aria-label": P("manage:tasteCharts.leadCount", {
 							name: e.name,
 							count: e.value
 						}),
@@ -1423,7 +1422,7 @@ function Ri({ flows: e }) {
 							textAnchor: e.side === "source" ? "end" : "start",
 							dominantBaseline: "middle",
 							className: "fill-text-secondary text-caption-1-regular",
-							children: [be(e.name), /* @__PURE__ */ (0, X.jsx)("tspan", {
+							children: [Se(e.name), /* @__PURE__ */ (0, X.jsx)("tspan", {
 								x: l[e.side],
 								dy: 15,
 								children: e.side === "source" ? e.value.toLocaleString() : `${e.share.toFixed(1)}%`
@@ -1434,7 +1433,7 @@ function Ri({ flows: e }) {
 			}),
 			/* @__PURE__ */ (0, X.jsxs)("footer", {
 				className: "flex justify-between gap-3 text-caption-1-regular text-text-secondary max-sm:hidden",
-				children: [/* @__PURE__ */ (0, X.jsx)("span", { children: I("manage:tasteCharts.sourceSites") }), /* @__PURE__ */ (0, X.jsx)("span", { children: I("manage:tasteCharts.creatorsLeadShare") })]
+				children: [/* @__PURE__ */ (0, X.jsx)("span", { children: P("manage:tasteCharts.sourceSites") }), /* @__PURE__ */ (0, X.jsx)("span", { children: P("manage:tasteCharts.creatorsLeadShare") })]
 			})
 		]
 	});
@@ -1442,36 +1441,36 @@ function Ri({ flows: e }) {
 // src/react/taste/browser-sources.tsx
 var zi = "flex min-w-0 items-center gap-3 rounded-xl bg-background-primary-default p-3";
 function Bi({ browsers: e, sources: t, range: n, children: r }) {
-	let [a, o] = (0, W.useState)(!1), [s, c] = (0, W.useState)(""), [l, u] = (0, W.useState)(""), m = Ye({
-		mutationFn: (e) => k(e, n),
+	let [a, o] = (0, W.useState)(!1), [s, c] = (0, W.useState)(""), [l, u] = (0, W.useState)(""), p = I({
+		mutationFn: (e) => he(e, n),
 		onSuccess: (e) => {
-			F.setQueryData(L(n), e.dashboard), o(!1), c(""), u("");
+			N.setQueryData(F(n), e.dashboard), o(!1), c(""), u("");
 		}
 	});
 	return /* @__PURE__ */ (0, X.jsxs)("section", {
-		className: `${E()} flex flex-col gap-4`,
-		"aria-label": I("manage:tasteSources.dataSources"),
+		className: `${O()} flex flex-col gap-4`,
+		"aria-label": P("manage:tasteSources.dataSources"),
 		children: [
 			/* @__PURE__ */ (0, X.jsxs)("div", {
 				className: "flex flex-wrap items-center justify-between gap-3",
 				children: [/* @__PURE__ */ (0, X.jsx)("h3", {
 					className: "text-title-2-medium text-text-primary",
-					children: I("manage:tasteSources.dataSources")
+					children: P("manage:tasteSources.dataSources")
 				}), /* @__PURE__ */ (0, X.jsx)(i, {
 					variant: "secondary",
 					onClick: () => o(!0),
 					disabled: a,
-					children: I("manage:tasteSources.addBrowser")
+					children: P("manage:tasteSources.addBrowser")
 				})]
 			}),
-			m.error ? /* @__PURE__ */ (0, X.jsx)(v, {
+			p.error ? /* @__PURE__ */ (0, X.jsx)(y, {
 				tone: "error",
-				children: M(m.error)
+				children: M(p.error)
 			}) : null,
 			a ? /* @__PURE__ */ (0, X.jsxs)("form", {
 				className: "flex flex-col gap-3",
 				onSubmit: (e) => {
-					e.preventDefault(), m.isPending || m.mutate({
+					e.preventDefault(), p.isPending || p.mutate({
 						operation: "add",
 						name: s,
 						path: l
@@ -1479,37 +1478,37 @@ function Bi({ browsers: e, sources: t, range: n, children: r }) {
 				},
 				children: [
 					/* @__PURE__ */ (0, X.jsx)(f, {
-						label: I("manage:tasteSources.browserName"),
+						label: P("manage:tasteSources.browserName"),
 						value: s,
 						onChange: c,
 						maxLength: 80,
 						isRequired: !0,
-						isDisabled: m.isPending
+						isDisabled: p.isPending
 					}),
 					/* @__PURE__ */ (0, X.jsx)(f, {
-						label: I("manage:tasteSources.profilePath"),
+						label: P("manage:tasteSources.profilePath"),
 						value: l,
 						onChange: u,
 						maxLength: 1024,
 						isRequired: !0,
-						isDisabled: m.isPending,
-						hint: I("manage:tasteSources.profilePathHint")
+						isDisabled: p.isPending,
+						hint: P("manage:tasteSources.profilePathHint")
 					}),
 					/* @__PURE__ */ (0, X.jsxs)("div", {
 						className: "flex gap-2",
 						children: [/* @__PURE__ */ (0, X.jsx)(i, {
 							variant: "ghost",
-							disabled: m.isPending,
+							disabled: p.isPending,
 							onClick: () => {
-								o(!1), m.reset();
+								o(!1), p.reset();
 							},
-							children: I("manage:shared.cancel")
+							children: P("manage:shared.cancel")
 						}), /* @__PURE__ */ (0, X.jsx)(i, {
 							type: "submit",
 							variant: "secondary",
 							disabled: !s.trim() || !l.trim(),
-							...T(m.isPending),
-							children: I("manage:shared.add")
+							...D(p.isPending),
+							children: P("manage:shared.add")
 						})]
 					})
 				]
@@ -1539,14 +1538,14 @@ function Bi({ browsers: e, sources: t, range: n, children: r }) {
 									}),
 									/* @__PURE__ */ (0, X.jsx)("span", {
 										className: "text-caption-1-regular text-text-secondary",
-										children: e.enabled ? e.available ? I("manage:tasteSources.profileCount", { count: e.profiles }) : I("manage:tasteSources.profileUnavailable") : I("manage:tasteSources.readingStopped")
+										children: e.enabled ? e.available ? P("manage:tasteSources.profileCount", { count: e.profiles }) : P("manage:tasteSources.profileUnavailable") : P("manage:tasteSources.readingStopped")
 									}),
 									n.length ? /* @__PURE__ */ (0, X.jsxs)("span", {
 										className: "text-caption-1-regular text-text-secondary",
 										children: [
-											I("manage:tasteSources.historyCount", { count: r }),
+											P("manage:tasteSources.historyCount", { count: r }),
 											" · ",
-											I("manage:tasteSources.bookmarkCount", { count: a })
+											P("manage:tasteSources.bookmarkCount", { count: a })
 										]
 									}) : null
 								]
@@ -1556,20 +1555,20 @@ function Bi({ browsers: e, sources: t, range: n, children: r }) {
 								children: [/* @__PURE__ */ (0, X.jsx)(i, {
 									variant: "secondary",
 									size: "small",
-									...T(m.isPending),
+									...D(p.isPending),
 									iconOnly: !0,
-									leadingIcon: e.enabled ? y : d,
-									"aria-label": `${e.enabled ? I("manage:tasteSources.stopReading") : I("manage:customSources.enable")} ${e.name}`,
+									leadingIcon: e.enabled ? b : d,
+									"aria-label": `${e.enabled ? P("manage:tasteSources.stopReading") : P("manage:customSources.enable")} ${e.name}`,
 									onClick: () => {
-										e.enabled ? A({
-											title: I("manage:tasteSources.stopReadingTitle", { browser: e.name }),
-											body: I("manage:tasteSources.stopReadingBody"),
-											confirmLabel: I("manage:tasteSources.stopReading"),
-											onConfirm: () => m.mutateAsync({
+										e.enabled ? j({
+											title: P("manage:tasteSources.stopReadingTitle", { browser: e.name }),
+											body: P("manage:tasteSources.stopReadingBody"),
+											confirmLabel: P("manage:tasteSources.stopReading"),
+											onConfirm: () => p.mutateAsync({
 												operation: "disable",
 												id: e.id
 											})
-										}) : m.mutate({
+										}) : p.mutate({
 											operation: "enable",
 											id: e.id
 										});
@@ -1578,17 +1577,17 @@ function Bi({ browsers: e, sources: t, range: n, children: r }) {
 									variant: "secondary",
 									size: "small",
 									iconOnly: !0,
-									leadingIcon: p,
-									...T(m.isPending),
-									"aria-label": I("manage:tasteSources.deleteBrowserTitle", { browser: e.name }),
+									leadingIcon: m,
+									...D(p.isPending),
+									"aria-label": P("manage:tasteSources.deleteBrowserTitle", { browser: e.name }),
 									onClick: () => {
-										A({
-											title: I("manage:tasteSources.deleteBrowserTitle", { browser: e.name }),
-											body: I("manage:tasteSources.deleteBrowserBody"),
-											confirmLabel: I("manage:tasteSources.deleteBrowser"),
+										j({
+											title: P("manage:tasteSources.deleteBrowserTitle", { browser: e.name }),
+											body: P("manage:tasteSources.deleteBrowserBody"),
+											confirmLabel: P("manage:tasteSources.deleteBrowser"),
 											danger: !0,
 											holdToConfirm: !0,
-											onConfirm: () => m.mutateAsync({
+											onConfirm: () => p.mutateAsync({
 												operation: "delete_browser",
 												id: e.id
 											})
@@ -1604,7 +1603,7 @@ function Bi({ browsers: e, sources: t, range: n, children: r }) {
 	});
 }
 // src/react/taste/taste-page.tsx
-var Vi = 10, Hi = j(m, h, "text-body-2-medium"), Ui = `${E()} flex flex-col gap-4`, Wi = "rounded-xl bg-background-primary-default p-3", Gi = I("manage:taste.readHistoryTooltip"), Ki = I("manage:taste.noSourceHint"), qi = I("manage:taste.noLeadHint"), Ji = I("manage:taste.noCategoryHint"), Yi = I("manage:taste.gapHint"), Xi = I("manage:taste.noBrowserTagHint"), Zi = I("manage:taste.noBrowserCreatorHint"), Qi = I("manage:taste.noDomainHint"), $i = I("manage:taste.noPeachTagHint"), ea = I("manage:taste.noPeachCreatorHint"), ta = I("manage:taste.noPeachActressHint"), na = I("manage:taste.guideLocal"), ra = I("manage:taste.guideRemote"), ia = I("manage:taste.guideRefresh"), aa = I("manage:taste.removeSourceBody"), oa = "peach-taste-guide-dismissed", sa = "\0", ca = (e, t) => {
+var Vi = 10, Hi = ge(h, g, "text-body-2-medium"), Ui = `${O()} flex flex-col gap-4`, Wi = "rounded-xl bg-background-primary-default p-3", Gi = P("manage:taste.readHistoryTooltip"), Ki = P("manage:taste.noSourceHint"), qi = P("manage:taste.noLeadHint"), Ji = P("manage:taste.noCategoryHint"), Yi = P("manage:taste.gapHint"), Xi = P("manage:taste.noBrowserTagHint"), Zi = P("manage:taste.noBrowserCreatorHint"), Qi = P("manage:taste.noDomainHint"), $i = P("manage:taste.noPeachTagHint"), ea = P("manage:taste.noPeachCreatorHint"), ta = P("manage:taste.noPeachActressHint"), na = P("manage:taste.guideLocal"), ra = P("manage:taste.guideRemote"), ia = P("manage:taste.guideRefresh"), aa = P("manage:taste.removeSourceBody"), oa = "peach-taste-guide-dismissed", sa = "\0", ca = (e, t) => {
 	let [n = "", r = ""] = e.split(sa);
 	return /* @__PURE__ */ (0, X.jsxs)(X.Fragment, { children: [
 		n,
@@ -1614,15 +1613,15 @@ var Vi = 10, Hi = j(m, h, "text-body-2-medium"), Ui = `${E()} flex flex-col gap-
 }, la = (0, W.createContext)(/* @__PURE__ */ (0, X.jsx)(a, {
 	size: "small",
 	href: "/",
-	children: I("manage:shared.browseCollection")
+	children: P("manage:shared.browseCollection")
 }));
 function ua() {
 	return (0, W.useContext)(la);
 }
 function $({ icon: e, term: t, figure: n, detail: r, detailTitle: i, accent: a }) {
 	return /* @__PURE__ */ (0, X.jsx)("div", {
-		className: Be(),
-		children: /* @__PURE__ */ (0, X.jsx)(S, {
+		className: Ue(),
+		children: /* @__PURE__ */ (0, X.jsx)(C, {
 			label: t,
 			icon: e,
 			accent: a,
@@ -1638,8 +1637,8 @@ function $({ icon: e, term: t, figure: n, detail: r, detailTitle: i, accent: a }
 function da({ name: e, domain: t }) {
 	return /* @__PURE__ */ (0, X.jsxs)("span", {
 		className: "relative inline-grid size-8 shrink-0 place-items-center overflow-hidden rounded-lg bg-background-tertiary-default text-caption-1-medium text-text-secondary",
-		children: [ve(e).toUpperCase(), /* @__PURE__ */ (0, X.jsx)("img", {
-			src: Re({ domain: t }),
+		children: [be(e).toUpperCase(), /* @__PURE__ */ (0, X.jsx)("img", {
+			src: Ve({ domain: t }),
 			alt: "",
 			loading: "lazy",
 			width: 20,
@@ -1651,20 +1650,20 @@ function da({ name: e, domain: t }) {
 }
 function fa({ html: e }) {
 	return /* @__PURE__ */ (0, X.jsx)("span", {
-		className: `relative inline-grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-media-placeholder text-caption-1-medium text-text-secondary ${it}`,
+		className: `relative inline-grid size-8 shrink-0 place-items-center overflow-hidden rounded-full bg-media-placeholder text-caption-1-medium text-text-secondary ${p}`,
 		dangerouslySetInnerHTML: { __html: e }
 	});
 }
 function pa({ rows: e, kind: t, visual: n, empty: r, onSignal: i }) {
 	if (!e.length) return /* @__PURE__ */ (0, X.jsx)(c, {
 		size: "compact",
-		icon: P,
-		title: I("manage:taste.notEnoughData"),
+		icon: je,
+		title: P("manage:taste.notEnoughData"),
 		actions: /* @__PURE__ */ (0, X.jsx)(ua, {}),
 		children: r
 	});
-	let a = Me(e);
-	return /* @__PURE__ */ (0, X.jsx)($e, {
+	let a = Fe(e);
+	return /* @__PURE__ */ (0, X.jsx)(tt, {
 		previewCount: Vi,
 		className: "inline-grid w-full gap-x-7 gap-y-2 sm:grid-cols-2",
 		children: e.map((e, r) => {
@@ -1692,7 +1691,7 @@ function pa({ rows: e, kind: t, visual: n, empty: r, onSignal: i }) {
 					name: e.name,
 					domain: s
 				}) : null,
-				n !== "none" && n !== "domain" && (e.entity_id || e.has_avatar || !s) ? /* @__PURE__ */ (0, X.jsx)(fa, { html: me(e.name, e.entity_id ? {
+				n !== "none" && n !== "domain" && (e.entity_id || e.has_avatar || !s) ? /* @__PURE__ */ (0, X.jsx)(fa, { html: E(e.name, e.entity_id ? {
 					id: e.entity_id,
 					has_image: !!e.has_image,
 					image_version: e.image_version,
@@ -1706,10 +1705,10 @@ function pa({ rows: e, kind: t, visual: n, empty: r, onSignal: i }) {
 						children: e.name
 					}), /* @__PURE__ */ (0, X.jsx)("small", {
 						className: "text-caption-1-regular text-text-secondary",
-						children: je(e)
+						children: Pe(e)
 					})]
 				}),
-				o ? /* @__PURE__ */ (0, X.jsx)(ke, {
+				o ? /* @__PURE__ */ (0, X.jsx)(Me, {
 					"aria-hidden": !0,
 					className: "size-4 shrink-0 text-text-tertiary"
 				}) : null
@@ -1731,7 +1730,7 @@ function pa({ rows: e, kind: t, visual: n, empty: r, onSignal: i }) {
 }
 function ma({ label: e, panels: i, onSignal: a }) {
 	return /* @__PURE__ */ (0, X.jsxs)(r, {
-		className: `${E({ padding: "none" })} flex flex-col`,
+		className: `${O({ padding: "none" })} flex flex-col`,
 		children: [/* @__PURE__ */ (0, X.jsx)("div", {
 			className: "px-4 pt-3",
 			children: /* @__PURE__ */ (0, X.jsx)(re, {
@@ -1758,29 +1757,29 @@ function ha({ data: e, onSignal: t, navigate: n }) {
 	if (!r?.headline) return null;
 	let i = r.confidence || {}, o = [...(r.explore || []).map((e) => ({
 		key: `tag:${e.tag}`,
-		title: O(e, "title"),
-		detail: O(e, "detail"),
+		title: A(e, "title"),
+		detail: A(e, "detail"),
 		act: () => t("tag", e.tag)
 	})), ...(r.next_steps || []).map((e) => ({
 		key: `route:${e.route}`,
-		title: O(e, "title"),
-		detail: O(e, "detail"),
+		title: A(e, "title"),
+		detail: A(e, "detail"),
 		act: () => n(e.route)
 	}))];
 	return /* @__PURE__ */ (0, X.jsxs)("section", {
 		className: Ui,
-		"aria-label": I("manage:taste.summary"),
+		"aria-label": P("manage:taste.summary"),
 		children: [
 			/* @__PURE__ */ (0, X.jsxs)("header", {
 				className: "flex flex-col gap-2",
 				children: [
 					/* @__PURE__ */ (0, X.jsx)("h3", {
 						className: "text-title-2-medium text-text-primary",
-						children: I("manage:taste.summary")
+						children: P("manage:taste.summary")
 					}),
 					/* @__PURE__ */ (0, X.jsx)("p", {
 						className: "max-w-prose text-title-2-regular wrap-anywhere text-text-primary",
-						children: O(r, "headline")
+						children: A(r, "headline")
 					}),
 					/* @__PURE__ */ (0, X.jsxs)("p", {
 						className: "flex flex-wrap items-center gap-2 text-body-2-regular text-text-secondary",
@@ -1789,7 +1788,7 @@ function ha({ data: e, onSignal: t, navigate: n }) {
 							className: `size-2 shrink-0 rounded-full ${i.level === "high" ? "bg-status-lime-text" : i.level === "medium" ? "bg-status-yellow-text" : "bg-text-tertiary"}`
 						}), /* @__PURE__ */ (0, X.jsx)("span", {
 							className: "min-w-0 wrap-anywhere",
-							children: O(i, "label") || I("manage:taste.stillLearning")
+							children: A(i, "label") || P("manage:taste.stillLearning")
 						})]
 					})
 				]
@@ -1800,10 +1799,10 @@ function ha({ data: e, onSignal: t, navigate: n }) {
 					className: `flex min-w-0 flex-col gap-1 ${Wi}`,
 					children: [/* @__PURE__ */ (0, X.jsx)("span", {
 						className: "text-caption-1-regular text-text-secondary",
-						children: O(e, "label")
+						children: A(e, "label")
 					}), /* @__PURE__ */ (0, X.jsx)("b", {
 						className: "text-body-2-medium break-words text-text-primary",
-						children: O(e, "text")
+						children: A(e, "text")
 					})]
 				}, e.label))
 			}) : null,
@@ -1822,19 +1821,19 @@ function ha({ data: e, onSignal: t, navigate: n }) {
 							className: "text-caption-1-regular wrap-anywhere text-text-secondary",
 							children: e.detail
 						})]
-					}), /* @__PURE__ */ (0, X.jsx)(ke, {
+					}), /* @__PURE__ */ (0, X.jsx)(Me, {
 						"aria-hidden": !0,
 						className: "size-4 shrink-0 text-text-tertiary"
 					})]
 				}, e.key))
 			}) : /* @__PURE__ */ (0, X.jsx)(c, {
 				size: "compact",
-				icon: P,
-				title: I("manage:taste.nothingToExplore"),
+				icon: je,
+				title: P("manage:taste.nothingToExplore"),
 				actions: /* @__PURE__ */ (0, X.jsx)(a, {
 					size: "small",
 					href: "/",
-					children: I("manage:shared.browseCollection")
+					children: P("manage:shared.browseCollection")
 				}),
 				children: qi
 			})
@@ -1850,12 +1849,12 @@ function ga({ onboarding: e, done: t }) {
 		}
 	});
 	return t || n ? null : /* @__PURE__ */ (0, X.jsx)("div", {
-		className: E({
+		className: O({
 			padding: "none",
 			className: "p-4"
 		}),
 		children: /* @__PURE__ */ (0, X.jsxs)(o, {
-			summary: I("manage:taste.importGuide"),
+			summary: P("manage:taste.importGuide"),
 			defaultOpen: e,
 			children: [
 				/* @__PURE__ */ (0, X.jsx)("p", {
@@ -1868,21 +1867,21 @@ function ga({ onboarding: e, done: t }) {
 				}),
 				/* @__PURE__ */ (0, X.jsxs)("ul", {
 					className: "flex list-disc flex-col gap-1 pl-5 text-body-2-regular text-text-secondary",
-					children: [/* @__PURE__ */ (0, X.jsx)("li", { children: ca(I("manage:taste.guideChrome", { link: sa }), /* @__PURE__ */ (0, X.jsxs)("a", {
+					children: [/* @__PURE__ */ (0, X.jsx)("li", { children: ca(P("manage:taste.guideChrome", { link: sa }), /* @__PURE__ */ (0, X.jsxs)("a", {
 						href: "https://takeout.google.com/",
 						target: "_blank",
 						rel: "noopener noreferrer",
 						className: "text-text-primary underline-offset-4 hover:underline",
-						children: ["Google Takeout", /* @__PURE__ */ (0, X.jsx)(C, {
+						children: ["Google Takeout", /* @__PURE__ */ (0, X.jsx)(w, {
 							"aria-hidden": !0,
 							className: "size-(--icon-inline) shrink-0"
 						})]
-					})) }), /* @__PURE__ */ (0, X.jsx)("li", { children: ca(I("manage:taste.guideOther", { link: sa }), /* @__PURE__ */ (0, X.jsxs)("a", {
+					})) }), /* @__PURE__ */ (0, X.jsx)("li", { children: ca(P("manage:taste.guideOther", { link: sa }), /* @__PURE__ */ (0, X.jsxs)("a", {
 						href: "https://github.com/purarue/browserexport",
 						target: "_blank",
 						rel: "noopener noreferrer",
 						className: "text-text-primary underline-offset-4 hover:underline",
-						children: ["browserexport", /* @__PURE__ */ (0, X.jsx)(C, {
+						children: ["browserexport", /* @__PURE__ */ (0, X.jsx)(w, {
 							"aria-hidden": !0,
 							className: "size-(--icon-inline) shrink-0"
 						})]
@@ -1903,7 +1902,7 @@ function ga({ onboarding: e, done: t }) {
 							} catch {}
 							r(!0);
 						},
-						children: I("manage:shared.skip")
+						children: P("manage:shared.skip")
 					})
 				})
 			]
@@ -1923,16 +1922,16 @@ function _a({ busy: t, onRefresh: n, onImport: r, onImportBookmarks: a }) {
 			leadingIcon: s,
 			title: Gi,
 			onClick: n,
-			...T(t),
-			children: I("manage:taste.readBrowserHistory")
+			...D(t),
+			children: P("manage:taste.readBrowserHistory")
 		}), /* @__PURE__ */ (0, X.jsx)(i, {
 			ref: o,
 			iconOnly: !0,
-			leadingIcon: N,
-			"aria-label": I("manage:taste.moreHistoryOptions"),
+			leadingIcon: _e,
+			"aria-label": P("manage:taste.moreHistoryOptions"),
 			"aria-haspopup": "dialog",
 			"aria-expanded": c,
-			...T(t),
+			...D(t),
 			onClick: () => {
 				t || l(!0);
 			}
@@ -1943,9 +1942,9 @@ function _a({ busy: t, onRefresh: n, onImport: r, onImportBookmarks: a }) {
 		onOpenChange: l,
 		placement: "bottom end",
 		offset: 4,
-		className: g,
-		children: /* @__PURE__ */ (0, X.jsxs)(_, {
-			"aria-label": I("manage:taste.moreHistoryOptions"),
+		className: _,
+		children: /* @__PURE__ */ (0, X.jsxs)(v, {
+			"aria-label": P("manage:taste.moreHistoryOptions"),
 			className: "flex w-52 flex-col gap-1 outline-none",
 			children: [
 				/* @__PURE__ */ (0, X.jsxs)("button", {
@@ -1955,35 +1954,35 @@ function _a({ busy: t, onRefresh: n, onImport: r, onImportBookmarks: a }) {
 					children: [/* @__PURE__ */ (0, X.jsx)(s, {
 						"aria-hidden": !0,
 						className: "size-4 shrink-0"
-					}), I("manage:taste.readBrowserHistory")]
+					}), P("manage:taste.readBrowserHistory")]
 				}),
 				/* @__PURE__ */ (0, X.jsxs)("button", {
 					type: "button",
 					className: Hi,
 					onClick: () => u(r),
-					children: [/* @__PURE__ */ (0, X.jsx)(x, {
+					children: [/* @__PURE__ */ (0, X.jsx)(S, {
 						"aria-hidden": !0,
 						className: "size-4 shrink-0"
-					}), I("manage:taste.importHistoryFile")]
+					}), P("manage:taste.importHistoryFile")]
 				}),
 				/* @__PURE__ */ (0, X.jsxs)("button", {
 					type: "button",
 					className: Hi,
 					onClick: () => u(a),
-					children: [/* @__PURE__ */ (0, X.jsx)(Se, {
+					children: [/* @__PURE__ */ (0, X.jsx)(we, {
 						"aria-hidden": !0,
 						className: "size-4 shrink-0"
-					}), I("manage:taste.importBookmarksFile")]
+					}), P("manage:taste.importBookmarksFile")]
 				})
 			]
 		})
 	})] });
 }
 function va({ sources: e, browsers: t, window: n, toast: r, emptyActions: a }) {
-	let o = Ye({
-		mutationFn: (e) => Ne(e, n),
+	let o = I({
+		mutationFn: (e) => Ie(e, n),
 		onSuccess: (e) => {
-			F.setQueryData(L(n), e.dashboard), r(I("manage:taste.sourceRemoved"));
+			N.setQueryData(F(n), e.dashboard), r(P("manage:taste.sourceRemoved"));
 		}
 	});
 	return /* @__PURE__ */ (0, X.jsxs)(Bi, {
@@ -1992,7 +1991,7 @@ function va({ sources: e, browsers: t, window: n, toast: r, emptyActions: a }) {
 		range: n,
 		children: [o.error ? /* @__PURE__ */ (0, X.jsx)("div", {
 			className: "sm:col-span-2",
-			children: /* @__PURE__ */ (0, X.jsx)(v, {
+			children: /* @__PURE__ */ (0, X.jsx)(y, {
 				tone: "error",
 				children: M(o.error)
 			})
@@ -2002,10 +2001,10 @@ function va({ sources: e, browsers: t, window: n, toast: r, emptyActions: a }) {
 			children: [
 				/* @__PURE__ */ (0, X.jsx)("span", {
 					className: "inline-grid size-8 shrink-0 place-items-center rounded-lg text-text-secondary",
-					children: e.browser === "browserexport" ? /* @__PURE__ */ (0, X.jsx)(x, {
+					children: e.browser === "browserexport" ? /* @__PURE__ */ (0, X.jsx)(S, {
 						"aria-hidden": !0,
 						className: "size-4"
-					}) : /* @__PURE__ */ (0, X.jsx)(w, {
+					}) : /* @__PURE__ */ (0, X.jsx)(T, {
 						"aria-hidden": !0,
 						className: "size-4"
 					})
@@ -2017,7 +2016,7 @@ function va({ sources: e, browsers: t, window: n, toast: r, emptyActions: a }) {
 						children: e.profile
 					}), /* @__PURE__ */ (0, X.jsx)("small", {
 						className: "min-w-0 text-caption-1-regular break-words text-text-secondary",
-						children: I(e.bookmarks ? "manage:taste.importedBookmarks" : "manage:taste.importedHistory", {
+						children: P(e.bookmarks ? "manage:taste.importedBookmarks" : "manage:taste.importedHistory", {
 							host: e.host,
 							count: Number(e.visits || e.bookmarks || 0)
 						})
@@ -2026,16 +2025,16 @@ function va({ sources: e, browsers: t, window: n, toast: r, emptyActions: a }) {
 				/* @__PURE__ */ (0, X.jsx)(i, {
 					variant: "secondary",
 					size: "small",
-					"aria-label": I("manage:taste.removeSourceLabel", { source: e.profile }),
+					"aria-label": P("manage:taste.removeSourceLabel", { source: e.profile }),
 					className: "shrink-0",
 					iconOnly: !0,
-					leadingIcon: p,
-					...T(o.isPending),
+					leadingIcon: m,
+					...D(o.isPending),
 					onClick: () => {
-						o.isPending || A({
-							title: I("manage:taste.removeSource"),
+						o.isPending || j({
+							title: P("manage:taste.removeSource"),
 							body: aa,
-							confirmLabel: I("manage:taste.removeSource"),
+							confirmLabel: P("manage:taste.removeSource"),
 							holdToConfirm: !0,
 							onConfirm: () => o.mutateAsync(e.source_key)
 						});
@@ -2044,73 +2043,73 @@ function va({ sources: e, browsers: t, window: n, toast: r, emptyActions: a }) {
 			]
 		}, e.source_key)) }) : t.length ? null : /* @__PURE__ */ (0, X.jsx)(c, {
 			size: "compact",
-			icon: w,
-			title: I("manage:taste.noSourcesTitle"),
+			icon: T,
+			title: P("manage:taste.noSourcesTitle"),
 			actions: a,
 			children: Ki
 		})]
 	});
 }
 function ya(e) {
-	let { onSignal: o, navigate: s, toast: l, onboarding: u } = e, [d, f] = (0, W.useState)("all"), [p, m] = (0, W.useState)("browser"), h = (0, W.useRef)(null), g = (0, W.useRef)(null), _ = Xe({
-		queryKey: L(d),
-		queryFn: ({ signal: e }) => ge(d, e),
-		placeholderData: De,
-		refetchInterval: We
-	}), { job: y, running: b, outcome: x, start: S } = Je({
+	let { onSignal: o, navigate: s, toast: l, onboarding: u } = e, [d, f] = (0, W.useState)("all"), [p, m] = (0, W.useState)("browser"), h = (0, W.useRef)(null), g = (0, W.useRef)(null), _ = Qe({
+		queryKey: F(d),
+		queryFn: ({ signal: e }) => ve(d, e),
+		placeholderData: ke,
+		refetchInterval: qe
+	}), { job: v, running: b, outcome: x, start: S } = Ze({
 		queryKey: oe,
-		queryFn: ({ signal: e }) => _e(e),
-		start: () => ze(d),
+		queryFn: ({ signal: e }) => ye(e),
+		start: () => He(d),
 		taskKey: se,
 		onFinish: (e) => {
-			e.status !== "failed" && (F.invalidateQueries({ queryKey: ["taste"] }), l(e.warnings?.length ? I("manage:taste.partialHistory") : I("manage:taste.analysisUpdated")));
+			e.status !== "failed" && (N.invalidateQueries({ queryKey: ["taste"] }), l(e.warnings?.length ? P("manage:taste.partialHistory") : P("manage:taste.analysisUpdated")));
 		}
-	}), C = Ye({
-		mutationFn: (e) => ge(e, void 0, !0),
+	}), C = I({
+		mutationFn: (e) => ve(e, void 0, !0),
 		onSuccess: (e, t) => {
-			F.setQueryData(L(t), e);
+			N.setQueryData(F(t), e);
 		}
-	}), w = Ye({
-		mutationFn: (e) => we(e),
+	}), w = I({
+		mutationFn: (e) => Ee(e),
 		onSuccess: (e) => {
-			F.setQueryData(L("all"), e.dashboard), f("all"), l(I("manage:taste.dataImported"));
+			N.setQueryData(F("all"), e.dashboard), f("all"), l(P("manage:taste.dataImported"));
 		}
-	}), de = (e) => {
+	}), T = (e) => {
 		let t = e.currentTarget.files?.[0];
 		e.currentTarget.value = "", t && !w.isPending && (w.reset(), w.mutate(t));
-	}, me = () => {
+	}, de = () => {
 		b || S.isPending || (S.reset(), S.mutate());
 	}, E = _.data;
-	if (!E) return /* @__PURE__ */ (0, X.jsx)(at, { children: /* @__PURE__ */ (0, X.jsx)(v, {
+	if (!E) return /* @__PURE__ */ (0, X.jsx)(ot, { children: /* @__PURE__ */ (0, X.jsx)(y, {
 		tone: "error",
-		title: I("manage:taste.loadFailedTitle"),
-		children: _.error ? M(_.error) : I("manage:taste.loadFailedBody")
+		title: P("manage:taste.loadFailedTitle"),
+		children: _.error ? M(_.error) : P("manage:taste.loadFailedBody")
 	}) });
-	let D = E.summary || {}, O = E.coverage || {}, k = E.rankings || {}, A = E.storage || {}, j = He(k.browser_categories || []), N = Ae(j).length > 0, ve = E.gaps || [], ye = O.tagged || 0, be = O.identified || 0, Ee = S.error ? M(S.error) : w.error ? M(w.error) : C.error ? M(C.error) : x?.status === "failed" ? Te(x, "error") || I("manage:taste.readNotFound") : "", ke = /* @__PURE__ */ (0, X.jsxs)("div", {
+	let O = E.summary || {}, k = E.coverage || {}, A = E.rankings || {}, he = E.storage || {}, j = Ge(A.browser_categories || []), ge = Ne(j).length > 0, _e = E.gaps || [], be = k.tagged || 0, xe = k.identified || 0, Se = S.error ? M(S.error) : w.error ? M(w.error) : C.error ? M(C.error) : x?.status === "failed" ? De(x, "error") || P("manage:taste.readNotFound") : "", Oe = /* @__PURE__ */ (0, X.jsxs)("div", {
 		className: "flex flex-wrap justify-center gap-2",
 		children: [/* @__PURE__ */ (0, X.jsx)(i, {
 			variant: "secondary",
-			...T(b || S.isPending || w.isPending),
-			onClick: me,
-			children: I("manage:taste.readBrowserHistory")
+			...D(b || S.isPending || w.isPending),
+			onClick: de,
+			children: P("manage:taste.readBrowserHistory")
 		}), /* @__PURE__ */ (0, X.jsx)(i, {
 			variant: "secondary",
-			...T(w.isPending),
+			...D(w.isPending),
 			onClick: () => h.current?.click(),
-			children: I("manage:taste.importHistoryFile")
+			children: P("manage:taste.importHistoryFile")
 		})]
 	});
-	return /* @__PURE__ */ (0, X.jsx)(at, { children: /* @__PURE__ */ (0, X.jsxs)(la, {
+	return /* @__PURE__ */ (0, X.jsx)(ot, { children: /* @__PURE__ */ (0, X.jsxs)(la, {
 		value: d === "all" ? p === "peach" ? /* @__PURE__ */ (0, X.jsx)(a, {
 			size: "small",
 			variant: "secondary",
 			href: "/",
-			children: I("manage:shared.browseCollection")
-		}) : ke : /* @__PURE__ */ (0, X.jsx)(i, {
+			children: P("manage:shared.browseCollection")
+		}) : Oe : /* @__PURE__ */ (0, X.jsx)(i, {
 			size: "small",
 			variant: "secondary",
 			onClick: () => f("all"),
-			children: I("manage:taste.viewAllTime")
+			children: P("manage:taste.viewAllTime")
 		}),
 		children: [
 			/* @__PURE__ */ (0, X.jsxs)(r, {
@@ -2121,22 +2120,22 @@ function ya(e) {
 					/* @__PURE__ */ (0, X.jsxs)("div", {
 						className: "flex flex-wrap items-center justify-between gap-3",
 						children: [/* @__PURE__ */ (0, X.jsxs)(re, {
-							"aria-label": I("manage:taste.evidenceLabel"),
+							"aria-label": P("manage:taste.evidenceLabel"),
 							className: te,
 							children: [/* @__PURE__ */ (0, X.jsx)(n, {
 								id: "peach",
 								className: ee,
-								children: I("manage:taste.peachActivity")
+								children: P("manage:taste.peachActivity")
 							}), /* @__PURE__ */ (0, X.jsx)(n, {
 								id: "browser",
 								className: ee,
-								children: I("manage:taste.browserHistory")
+								children: P("manage:taste.browserHistory")
 							})]
 						}), /* @__PURE__ */ (0, X.jsxs)("div", {
 							className: "flex flex-wrap items-center gap-2",
 							children: [
 								/* @__PURE__ */ (0, X.jsx)(ie, {
-									"aria-label": I("manage:taste.rangeLabel"),
+									"aria-label": P("manage:taste.rangeLabel"),
 									selectedKey: d,
 									onSelectionChange: (e) => {
 										e !== null && f(String(e));
@@ -2148,7 +2147,7 @@ function ya(e) {
 								}),
 								/* @__PURE__ */ (0, X.jsx)(_a, {
 									busy: b || S.isPending || w.isPending,
-									onRefresh: me,
+									onRefresh: de,
 									onImport: () => h.current?.click(),
 									onImportBookmarks: () => g.current?.click()
 								}),
@@ -2158,7 +2157,7 @@ function ya(e) {
 									tabIndex: -1,
 									"aria-hidden": !0,
 									className: "hidden",
-									onChange: de
+									onChange: T
 								}),
 								/* @__PURE__ */ (0, X.jsx)("input", {
 									ref: g,
@@ -2167,14 +2166,14 @@ function ya(e) {
 									"aria-hidden": !0,
 									className: "hidden",
 									"data-bookmark-import": !0,
-									onChange: de
+									onChange: T
 								})
 							]
 						})]
 					}),
 					/* @__PURE__ */ (0, X.jsx)(ga, {
 						onboarding: u,
-						done: !!(D.history_sources || E.updated_at)
+						done: !!(O.history_sources || E.updated_at)
 					}),
 					/* @__PURE__ */ (0, X.jsxs)("div", {
 						"aria-live": "polite",
@@ -2182,38 +2181,38 @@ function ya(e) {
 						children: [
 							b ? /* @__PURE__ */ (0, X.jsx)(le, {
 								kind: pe("taste-refresh"),
-								label: Te(y, "message") || I("manage:taste.refreshing"),
-								value: y?.checked,
-								total: y?.total
+								label: De(v, "message") || P("manage:taste.refreshing"),
+								value: v?.checked,
+								total: v?.total
 							}) : null,
 							w.isPending ? /* @__PURE__ */ (0, X.jsx)(le, {
 								kind: "gather",
-								label: I("manage:taste.importing")
+								label: P("manage:taste.importing")
 							}) : null,
-							E.stale && E.error ? /* @__PURE__ */ (0, X.jsx)(v, {
+							E.stale && E.error ? /* @__PURE__ */ (0, X.jsx)(y, {
 								tone: "error",
 								action: /* @__PURE__ */ (0, X.jsx)(i, {
 									variant: "secondary",
 									size: "small",
-									...T(C.isPending),
+									...D(C.isPending),
 									onClick: () => C.mutate(d),
-									children: I("manage:shared.retryNow")
+									children: P("manage:shared.retryNow")
 								}),
-								children: I("manage:taste.updateFailedStale", {
-									time: Ge(E.computed_at),
-									error: Ie(E.message_code ?? "", E.error, E.message_params)
+								children: P("manage:taste.updateFailedStale", {
+									time: Je(E.computed_at),
+									error: ze(E.message_code ?? "", E.error, E.message_params)
 								})
 							}) : E.stale ? /* @__PURE__ */ (0, X.jsx)(le, {
 								kind: pe("taste-refresh"),
-								label: I("manage:taste.updatingStale", { time: Ge(E.computed_at) })
+								label: P("manage:taste.updatingStale", { time: Je(E.computed_at) })
 							}) : null,
-							Ee ? /* @__PURE__ */ (0, X.jsx)(v, {
+							Se ? /* @__PURE__ */ (0, X.jsx)(y, {
 								tone: "error",
-								children: Ee
+								children: Se
 							}) : null,
-							x?.warnings?.length ? /* @__PURE__ */ (0, X.jsx)(v, {
+							x?.warnings?.length ? /* @__PURE__ */ (0, X.jsx)(y, {
 								tone: "warning",
-								children: Le(x.warnings, x.warning_codes, x.warning_params).join(I("shell:format.semicolonSeparator"))
+								children: Be(x.warnings, x.warning_codes, x.warning_params).join(P("shell:format.semicolonSeparator"))
 							}) : null
 						]
 					}),
@@ -2226,92 +2225,92 @@ function ya(e) {
 								children: [
 									/* @__PURE__ */ (0, X.jsx)($, {
 										accent: 0,
-										icon: qe,
-										term: I("manage:tasteSkeleton.browsingHistory"),
-										figure: Number(D.history_visits || 0).toLocaleString(),
-										detail: Ce(D),
-										detailTitle: `${Ve(D.range_start)}—${Ve(D.range_end)}`
+										icon: Xe,
+										term: P("manage:tasteSkeleton.browsingHistory"),
+										figure: Number(O.history_visits || 0).toLocaleString(),
+										detail: Te(O),
+										detailTitle: `${We(O.range_start)}—${We(O.range_end)}`
 									}),
 									/* @__PURE__ */ (0, X.jsx)($, {
 										accent: 1,
-										icon: Oe,
-										term: I("manage:tasteSkeleton.tasteDimensions"),
+										icon: Ae,
+										term: P("manage:tasteSkeleton.tasteDimensions"),
 										figure: j.length.toLocaleString(),
-										detail: j[0]?.name || I("manage:taste.noTopDimension")
+										detail: j[0]?.name || P("manage:taste.noTopDimension")
 									}),
 									/* @__PURE__ */ (0, X.jsx)($, {
 										accent: 2,
-										icon: P,
-										term: I("manage:tasteSkeleton.browsingLeads"),
-										figure: ve.length.toLocaleString()
+										icon: je,
+										term: P("manage:tasteSkeleton.browsingLeads"),
+										figure: _e.length.toLocaleString()
 									}),
 									/* @__PURE__ */ (0, X.jsx)($, {
 										accent: 3,
-										icon: Se,
-										term: I("manage:taste.bookmarks"),
-										figure: Number(D.bookmarks || 0).toLocaleString(),
-										detail: I("manage:taste.privateExports", {
-											count: Number(A.exports || 0),
-											size: xe(A.bytes || 0)
+										icon: we,
+										term: P("manage:taste.bookmarks"),
+										figure: Number(O.bookmarks || 0).toLocaleString(),
+										detail: P("manage:taste.privateExports", {
+											count: Number(he.exports || 0),
+											size: Ce(he.bytes || 0)
 										})
 									})
 								]
 							}),
 							/* @__PURE__ */ (0, X.jsxs)("section", {
-								className: N ? `${Ui} md:flex-row md:gap-6` : Ui,
-								"aria-label": I("manage:taste.browsingProfile"),
+								className: ge ? `${Ui} md:flex-row md:gap-6` : Ui,
+								"aria-label": P("manage:taste.browsingProfile"),
 								children: [/* @__PURE__ */ (0, X.jsxs)("div", {
-									className: N ? "flex shrink-0 flex-col gap-2 pb-5 md:w-80 md:pr-6 md:pb-0" : "flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1",
+									className: ge ? "flex shrink-0 flex-col gap-2 pb-5 md:w-80 md:pr-6 md:pb-0" : "flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1",
 									children: [
 										/* @__PURE__ */ (0, X.jsx)("span", {
 											className: "text-caption-1-regular text-text-secondary",
-											children: I("manage:taste.browsingProfile")
+											children: P("manage:taste.browsingProfile")
 										}),
-										N ? /* @__PURE__ */ (0, X.jsx)(Ii, {
+										ge ? /* @__PURE__ */ (0, X.jsx)(Ii, {
 											rows: j,
-											label: I("manage:taste.topDimensions")
+											label: P("manage:taste.topDimensions")
 										}) : null,
 										/* @__PURE__ */ (0, X.jsx)("small", {
 											className: "text-caption-1-regular text-text-secondary",
-											children: E.updated_at ? I("manage:taste.updatedAt", { date: Ve(E.updated_at) }) : I("manage:taste.historyNotFetched")
+											children: E.updated_at ? P("manage:taste.updatedAt", { date: We(E.updated_at) }) : P("manage:taste.historyNotFetched")
 										})
 									]
 								}), /* @__PURE__ */ (0, X.jsx)("div", {
 									className: "flex min-w-0 grow flex-col",
 									children: j.length ? /* @__PURE__ */ (0, X.jsx)(Li, {
 										rows: j,
-										label: I("manage:taste.dimensionRanking")
+										label: P("manage:taste.dimensionRanking")
 									}) : /* @__PURE__ */ (0, X.jsx)(c, {
 										size: "compact",
-										icon: P,
-										title: I("manage:taste.noDimensions"),
+										icon: je,
+										title: P("manage:taste.noDimensions"),
 										actions: /* @__PURE__ */ (0, X.jsx)(ua, {}),
 										children: Ji
 									})
 								})]
 							}),
-							/* @__PURE__ */ (0, X.jsx)(Ze, {
+							/* @__PURE__ */ (0, X.jsx)($e, {
 								activity: E.activity,
-								title: I("manage:taste.browsingActivity"),
-								dailyTitle: I("manage:taste.dailyActivity"),
+								title: P("manage:taste.browsingActivity"),
+								dailyTitle: P("manage:taste.dailyActivity"),
 								words: {
-									unit: (e) => I("manage:taste.siteVisitsUnit", { count: e }),
-									series: I("manage:taste.visitsSeries"),
-									cell: (e) => I("manage:taste.visitsCell", { count: e })
+									unit: (e) => P("manage:taste.siteVisitsUnit", { count: e }),
+									series: P("manage:taste.visitsSeries"),
+									cell: (e) => P("manage:taste.visitsCell", { count: e })
 								},
 								tone: 4,
-								empty: I("manage:taste.noVisitsHint")
+								empty: P("manage:taste.noVisitsHint")
 							}),
 							/* @__PURE__ */ (0, X.jsx)(Ri, { flows: E.creator_flows }),
 							/* @__PURE__ */ (0, X.jsx)(ma, {
-								label: I("manage:taste.browserDimensions"),
+								label: P("manage:taste.browserDimensions"),
 								onSignal: o,
 								panels: [
 									{
 										id: "tags",
-										name: I("manage:shared.tags"),
+										name: P("manage:shared.tags"),
 										props: {
-											rows: k.browser_tags || [],
+											rows: A.browser_tags || [],
 											kind: "tag",
 											visual: "none",
 											empty: Xi
@@ -2319,9 +2318,9 @@ function ya(e) {
 									},
 									{
 										id: "creators",
-										name: I("manage:shared.creators"),
+										name: P("manage:shared.creators"),
 										props: {
-											rows: k.browser_creators || [],
+											rows: A.browser_creators || [],
 											kind: "creator",
 											visual: "creator",
 											empty: Zi
@@ -2329,19 +2328,19 @@ function ya(e) {
 									},
 									{
 										id: "performers",
-										name: I("manage:shared.actresses"),
+										name: P("manage:shared.actresses"),
 										props: {
-											rows: k.browser_performers || [],
+											rows: A.browser_performers || [],
 											kind: "performer",
 											visual: "entity",
-											empty: I("manage:taste.noActressHistory")
+											empty: P("manage:taste.noActressHistory")
 										}
 									},
 									{
 										id: "domains",
-										name: I("manage:taste.topSites"),
+										name: P("manage:taste.topSites"),
 										props: {
-											rows: k.domains || [],
+											rows: A.domains || [],
 											kind: "",
 											visual: "domain",
 											empty: Qi
@@ -2349,9 +2348,9 @@ function ya(e) {
 									},
 									{
 										id: "gaps",
-										name: I("manage:tasteSkeleton.browsingLeads"),
+										name: P("manage:tasteSkeleton.browsingLeads"),
 										props: {
-											rows: ve,
+											rows: _e,
 											kind: "",
 											visual: "none",
 											empty: Yi
@@ -2371,71 +2370,71 @@ function ya(e) {
 									/* @__PURE__ */ (0, X.jsx)($, {
 										accent: 0,
 										icon: ue,
-										term: I("manage:taste.watchedInPeach"),
-										figure: Number(D.peach_items || 0).toLocaleString(),
-										detail: Ue(D.peach_seconds || 0)
+										term: P("manage:taste.watchedInPeach"),
+										figure: Number(O.peach_items || 0).toLocaleString(),
+										detail: Ke(O.peach_seconds || 0)
 									}),
 									/* @__PURE__ */ (0, X.jsx)($, {
 										accent: 1,
 										icon: fe,
-										term: I("manage:shared.like"),
-										figure: Number(D.liked || 0).toLocaleString()
+										term: P("manage:shared.like"),
+										figure: Number(O.liked || 0).toLocaleString()
 									}),
 									/* @__PURE__ */ (0, X.jsx)($, {
 										accent: 2,
-										icon: he,
-										term: I("manage:taste.disliked"),
-										figure: Number(D.disliked || 0).toLocaleString()
+										icon: me,
+										term: P("manage:taste.disliked"),
+										figure: Number(O.disliked || 0).toLocaleString()
 									}),
 									/* @__PURE__ */ (0, X.jsx)($, {
 										accent: 3,
-										icon: Oe,
-										term: I("manage:taste.tagged"),
-										figure: ye.toLocaleString()
+										icon: Ae,
+										term: P("manage:taste.tagged"),
+										figure: be.toLocaleString()
 									})
 								]
 							}),
 							/* @__PURE__ */ (0, X.jsxs)("section", {
 								className: `${Ui} md:flex-row md:gap-6`,
-								"aria-label": I("manage:taste.peachViewing"),
+								"aria-label": P("manage:taste.peachViewing"),
 								children: [/* @__PURE__ */ (0, X.jsxs)("div", {
 									className: "flex shrink-0 flex-col gap-0.5 pb-5 md:w-72 md:pr-6 md:pb-0",
 									children: [
 										/* @__PURE__ */ (0, X.jsx)("span", {
 											className: "text-caption-1-regular text-text-secondary",
-											children: I("manage:taste.peachViewing")
+											children: P("manage:taste.peachViewing")
 										}),
 										/* @__PURE__ */ (0, X.jsx)("b", {
 											className: "text-display-4-medium tabular-nums text-text-primary",
-											children: Number(D.peach_items || 0).toLocaleString()
+											children: Number(O.peach_items || 0).toLocaleString()
 										}),
 										/* @__PURE__ */ (0, X.jsx)("span", {
 											className: "text-body-2-regular text-text-secondary",
-											children: I("manage:taste.watchedOrRatedUnit", { count: Number(D.peach_items || 0) })
+											children: P("manage:taste.watchedOrRatedUnit", { count: Number(O.peach_items || 0) })
 										})
 									]
 								}), /* @__PURE__ */ (0, X.jsxs)("div", {
 									className: "flex min-w-0 grow flex-col",
 									children: [/* @__PURE__ */ (0, X.jsx)(ba, {
-										term: I("manage:taste.tagged"),
-										value: ye,
-										rest: O.untagged || 0
-									}), /* @__PURE__ */ (0, X.jsx)(ba, {
-										term: I("manage:taste.identified"),
+										term: P("manage:taste.tagged"),
 										value: be,
-										rest: O.unidentified || 0
+										rest: k.untagged || 0
+									}), /* @__PURE__ */ (0, X.jsx)(ba, {
+										term: P("manage:taste.identified"),
+										value: xe,
+										rest: k.unidentified || 0
 									})]
 								})]
 							}),
 							/* @__PURE__ */ (0, X.jsx)(ma, {
-								label: I("manage:taste.peachDimensions"),
+								label: P("manage:taste.peachDimensions"),
 								onSignal: o,
 								panels: [
 									{
 										id: "tags",
-										name: I("manage:shared.tags"),
+										name: P("manage:shared.tags"),
 										props: {
-											rows: k.peach_tags || [],
+											rows: A.peach_tags || [],
 											kind: "tag",
 											visual: "none",
 											empty: $i
@@ -2443,9 +2442,9 @@ function ya(e) {
 									},
 									{
 										id: "creators",
-										name: I("manage:shared.creators"),
+										name: P("manage:shared.creators"),
 										props: {
-											rows: k.peach_creators || [],
+											rows: A.peach_creators || [],
 											kind: "creator",
 											visual: "creator",
 											empty: ea
@@ -2453,9 +2452,9 @@ function ya(e) {
 									},
 									{
 										id: "performers",
-										name: I("manage:shared.actresses"),
+										name: P("manage:shared.actresses"),
 										props: {
-											rows: k.peach_performers || [],
+											rows: A.peach_performers || [],
 											kind: "performer",
 											visual: "entity",
 											empty: ta
@@ -2477,7 +2476,7 @@ function ya(e) {
 				browsers: E.browsers || [],
 				window: d,
 				toast: l,
-				emptyActions: ke
+				emptyActions: Oe
 			})
 		]
 	}) });
@@ -2492,12 +2491,12 @@ function ba({ term: e, value: t, rest: n }) {
 				className: "tabular-nums",
 				children: [t.toLocaleString(), /* @__PURE__ */ (0, X.jsx)("span", {
 					className: "ml-1.5 text-caption-1-regular text-text-secondary",
-					children: I("manage:taste.remainingCount", { count: n })
+					children: P("manage:taste.remainingCount", { count: n })
 				})]
 			})]
-		}), /* @__PURE__ */ (0, X.jsx)(b, {
+		}), /* @__PURE__ */ (0, X.jsx)(x, {
 			meter: !0,
-			label: I("manage:shared.termProgress", {
+			label: P("manage:shared.termProgress", {
 				term: e,
 				value: t.toLocaleString(),
 				total: r.toLocaleString()
@@ -2509,4 +2508,4 @@ function ba({ term: e, value: t, rest: n }) {
 }
 export { oa as TASTE_GUIDE_KEY, ya as TastePage };
 
-//# debugId=af2ac8bf-6e1a-4050-8e2e-b3636a1c3d14
+//# debugId=bed0bc5f-30a7-46aa-8f35-087562c5bff9

@@ -76,6 +76,19 @@ def system_diagnostics(request: Request, args: dict[str, str] = Depends(require_
     return diagnostics.report(request.app.state.settings, request.app.state.mount_reachability.summary())
 
 
+@router.get("/api/diagnostics/library")
+def library_diagnostic_rows(request: Request, args: dict[str, str] = Depends(require_auth)):
+    """库健康按完整分组筛选，返回上限沿用诊断报告。"""
+    from . import library_diagnostics
+    local_only(request)
+    key = args.get("group", "")
+    if key not in library_diagnostics.GROUP_CODES:
+        raise UserValueError("api.catalog.invalidColumnFilters")
+    data = library_diagnostics.library(request.app.state.settings, settings_file.active(),
+                                       {key: args.get("column_filters")})
+    return data["groups"][key]
+
+
 @router.get("/api/diagnostics/bundle")
 def diagnostic_bundle(request: Request, args: dict[str, str] = Depends(require_auth)):
     from . import diagnostic_context, diagnostics, support_bundle
