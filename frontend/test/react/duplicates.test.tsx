@@ -4,11 +4,12 @@
 import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as legacyUi from '@peach/legacy/ui';
+import { advanceImageFallback } from '../../src/card-art/image-fallback';
 
 import { DuplicatesPage } from '../../src/react/duplicates/duplicates-page';
+import { ComparisonText } from '../../src/react/review/comparison-text';
 import {
-  cloudPreferenceLocations, distinctName, DUPLICATES_KEY, duplicateVictims, mixedCloudPreferences, prefetchDuplicates,
-  sharedNamePrefix,
+  cloudPreferenceLocations, DUPLICATES_KEY, duplicateVictims, mixedCloudPreferences, prefetchDuplicates,
   type DuplicateFile, type DuplicateGroup, type DuplicatesData,
 } from '../../src/react/duplicates/duplicates';
 import { cloudLocations, MEDIA_SOURCES_KEY, type MediaSourcesData } from '../../src/react/media-sources';
@@ -64,6 +65,19 @@ async function open(payload: DuplicatesData = data) {
 }
 
 const card = (host: ParentNode, code: string) => host.querySelector(`section[aria-label="${code}"]`)!;
+
+it('重复副本优先显示已有封面，加载失败后依次回退抽帧和播放占位', async () => {
+  const files = [file(1, { code: 'ABC-001', has_cover: true, cover_version: 'cover-v1' }), file(2)];
+  const { host } = await open({ total: 1, files: 2, reclaimable: GB, groups: [group('ABC-001', files)] });
+  const images = host.querySelectorAll<HTMLImageElement>('.duplicate-row img');
+  expect(images[0]!.getAttribute('src')).toBe('/cover?code=ABC-001&thumb=2&v=cover-v1');
+  expect(images[1]!.getAttribute('src')).toBe('/thumb?id=2&c=4');
+  expect(advanceImageFallback(images[0])).toBe('retry');
+  expect(images[0]!.getAttribute('src')).toBe('/thumb?id=1&c=4');
+  expect(advanceImageFallback(images[0])).toBe('drop');
+  expect(host.querySelectorAll('.duplicate-row img')).toHaveLength(1);
+  expect(host.querySelector('button[aria-label="预览 ABC-1.mp4"]')).not.toBeNull();
+});
 
 describe('网盘保留选项', () => {
   it('本地与在线来源不算网盘；已配置但离线的网盘仍然算，没配根目录的不算', () => {
@@ -148,6 +162,48 @@ it('批量保留最大先确认，弹层点名条数与字节数；确认后进�
   expect(sentBody(fetcher, batches.at(-1))).toEqual({ ids: [2, 4], operation: 'restore' });
 });
 
+it('逐文件选择只回收勾选的副本，并给出保留数及撤销', async () => {
+  const seen = confirmEverything();
+  const fetcher = fetchMock(200, { ok: true });
+  vi.stubGlobal('fetch', fetcher);
+  const { host, toast } = await open();
+  const selected = card(host, 'ABC-001');
+  const one = selected.querySelector<HTMLInputElement>('input[aria-label="选择回收 ABC-1.mp4"]')!;
+  const two = selected.querySelector<HTMLInputElement>('input[aria-label="选择回收 ABC-2.mp4"]')!;
+  expect(one.checked).toBe(false);
+  expect(two.checked).toBe(false);
+  await click(two);
+  await click(buttonNamed('回收所选 1 项', selected));
+  await settle();
+  expect(seen[0]!.body).toContain('其余 1 个文件保留');
+  expect(seen[0]!.holdToConfirm).toBe(true);
+  const batch = fetcher.mock.calls.findIndex((call) => call[0] === '/api/batch');
+  expect(sentBody(fetcher, batch)).toEqual({ ids: [2], operation: 'dispose', disposal_reason: 'duplicate' });
+  const { undo } = toast.mock.calls[0]![1] as { undo(): Promise<void> };
+  await undo();
+  const batches = fetcher.mock.calls.flatMap((call, index) => call[0] === '/api/batch' ? [sentBody(fetcher, index)] : []);
+  expect(batches.at(-1)).toEqual({ ids: [2], operation: 'restore' });
+});
+
+it('逐文件回收失败保留选择并显示错误', async () => {
+  vi.stubGlobal('fetch', fetchMock(500, { error: 'write failed' }));
+  const seen: Confirmation[] = [];
+  vi.spyOn(legacyUi, 'confirmModal').mockImplementation((async (options: Confirmation) => {
+    seen.push(options);
+    await Promise.resolve(options.onConfirm?.()).catch(() => {});
+    return { confirmed: false };
+  }) as typeof legacyUi.confirmModal);
+  const { host, toast } = await open();
+  const selected = card(host, 'ABC-001');
+  const two = selected.querySelector<HTMLInputElement>('input[aria-label="选择回收 ABC-2.mp4"]')!;
+  await click(two);
+  await click(buttonNamed('回收所选 1 项', selected));
+  await settle();
+  expect(two.checked).toBe(true);
+  expect(host.textContent).toContain('移入回收站失败');
+  expect(toast).not.toHaveBeenCalled();
+});
+
 it('一次最多 200 条，超过的分批发', async () => {
   confirmEverything();
   const fetcher = fetchMock(200, { ok: true });
@@ -209,15 +265,33 @@ it('没有重复组时是一张空态，不画批量条', async () => {
   expect(buttonNamed('全部保留最大', host)).toBeNull();
 });
 
-it('同组副本只在中段不同时，名字去掉共有开头、退到断词处，差别留在显示的那一段里', () => {
-  const names = ['ABC-123 [1080p] 转载站甲.mp4', 'ABC-123 [720p] 转载站甲.mp4', 'ABC-123 [480p] 转载站甲.mp4'];
-  const prefix = sharedNamePrefix(names);
-  expect(prefix).toBe('ABC-123 [');
-  expect(names.map((name) => distinctName(name, prefix)))
-    .toEqual(['…1080p] 转载站甲.mp4', '…720p] 转载站甲.mp4', '…480p] 转载站甲.mp4']);
-  // 共有段太短、只有一份或名字整个都是共有段时，原样显示。
-  expect(sharedNamePrefix(['AB-1.mp4', 'AB-2.mp4'])).toBe('');
-  expect(sharedNamePrefix(['ABC-123 一份.mp4'])).toBe('');
-  expect(sharedNamePrefix(['ABC-123 part.mp4', 'ABC-123 part.mp4'])).toBe('ABC-123 part.');
-  expect(distinctName('ABC-123 part.mp4', 'ABC-123 part.mp4')).toBe('ABC-123 part.mp4');
+it('完整保留相同文件名，并以复核高亮标出名称和路径差异', async () => {
+  const shared = 'ssni-677-C.mp4';
+  const files = [file(1, { name: shared, path: 'R:\\first\\ssni-677-C.mp4' }),
+    file(2, { name: shared, path: 'R:\\second\\ssni-677-C.mp4' })];
+  const { host } = await open({ total: 1, files: 2, reclaimable: GB, groups: [group('SSNI-677', files)] });
+  const names = host.querySelectorAll('button[title="ssni-677-C.mp4"]');
+  expect([...names].map(name => name.textContent)).toEqual([shared, shared]);
+  expect(host.querySelectorAll('.duplicate-row mark[data-review-difference]').length).toBeGreaterThan(0);
+});
+
+it('文件名的不同规格用复核高亮显示，原文完整保留', async () => {
+  const files = [file(1, { name: 'ABC-123 [1080p].mp4' }), file(2, { name: 'ABC-123 [720p].mp4' })];
+  const { host } = await open({ total: 1, files: 2, reclaimable: GB, groups: [group('ABC-123', files)] });
+  for (const item of files) {
+    const name = host.querySelector(`button[title="${item.name}"]`)!;
+    expect(name.textContent).toBe(item.name);
+    expect(name.querySelector('mark[data-review-difference]')).not.toBeNull();
+  }
+});
+
+it('中间截断保留可见差异高亮，恢复完整宽度后原文与高亮一起恢复', async () => {
+  const value = '甲ABC-123 [1080p] 演示文件.mp4';
+  const reference = '乙ABC-123 [720p] 演示文件.mp4';
+  const host = await mount(<ComparisonText value={value} reference={reference} cut={{ start: 3, end: value.length - 4 }} />);
+  expect(host.textContent).toBe('甲AB….mp4');
+  expect(host.querySelector('mark')?.textContent).toBe('甲');
+  const full = await mount(<ComparisonText value={value} reference={reference} />);
+  expect(full.textContent).toBe(value);
+  expect(full.querySelector('mark')?.textContent).toBe('甲');
 });

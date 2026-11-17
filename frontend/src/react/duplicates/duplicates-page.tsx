@@ -11,6 +11,7 @@ import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { confirmModal, MEDIA_SOURCE_ICONS } from '@peach/legacy/ui';
 import { fmtDur, fmtSize, LOC } from '@peach/legacy/core';
+import { coverUrl } from '@peach/card-art';
 
 import { Button } from '@/components/base/buttons/button';
 import { Checkbox } from '@/components/base/checkbox/checkbox';
@@ -26,6 +27,8 @@ import { SortKeys } from '../entity-filter/entity-filter-page';
 import { Note } from '../components/note';
 import { enterPageSelection, exitPageSelection, usePageSelection } from '../components/page-selection';
 import { SelectionDock } from '../components/selection-dock';
+import { FilenameComparison } from '../components/filename-comparison';
+import { ComparisonText } from '../review/comparison-text';
 import { SourceLabel } from '../components/source-label';
 import { spriteGlyph } from '../components/sprite-glyph';
 import { TRASH_KEY } from '../data-cleanup/data-cleanup';
@@ -34,8 +37,8 @@ import { queryClient } from '../query';
 import { SourceMark } from '../settings/section';
 import { busyProps } from '../settings/use-action';
 import {
-  batchOperate, bulkCloudPreferences, distinctName, DUPLICATES_KEY, duplicateVictims, fetchDuplicates, fetchKeptDuplicates, groupKey,
-  keepGroup, keepGroups, KEEP_LABELS, KEPT_DUPLICATES_KEY, mixedCloudPreferences, sharedNamePrefix, victimBytes,
+  batchOperate, bulkCloudPreferences, DUPLICATES_KEY, duplicateVictims, fetchDuplicates, fetchKeptDuplicates, groupKey,
+  keepGroup, keepGroups, KEEP_LABELS, KEPT_DUPLICATES_KEY, mixedCloudPreferences, victimBytes,
   type DuplicateFile, type DuplicateGroup, type KeepRule,
 } from './duplicates';
 import { t } from '../../i18n';
@@ -116,25 +119,28 @@ function evidenceFlag(group: DuplicateGroup) {
   </span>;
 }
 
-/** 一份副本。`prefix` 是组内共有的名字开头，显示时用「…」顶替，整名在 title 里。 */
-function FileRow({ file, prefix, openItem }: { file: DuplicateFile; prefix: string; openItem(id: number): void }) {
+/** 一份副本，名称与路径沿用复核页的差异高亮。 */
+function FileRow({ file, reference, openItem, selected, onSelect }: {
+  file: DuplicateFile; reference?: DuplicateFile; openItem(id: number): void;
+  selected: boolean; onSelect?: (on: boolean) => void;
+}) {
   const open = () => openItem(file.id);
   const location = LOC[file.location] || file.location || file.drive;
+  const thumbnail = `/thumb?id=${file.id}&c=4`;
   return (
     <div className="duplicate-row items-center gap-3 border-t border-separator-border px-5 py-4 max-compact:p-4">
       {/* 封面格居中用 `inline-grid`：`grid` 与旧样式表同名，不生成这个工具类。 */}
       <button type="button" onClick={open} aria-label={t('cleanup:duplicates.previewFile', { name: file.name })}
         className="relative row-span-2 inline-grid aspect-16/10 w-full cursor-pointer place-items-center overflow-hidden rounded-2lg bg-media-placeholder text-text-secondary">
         <PLAY aria-hidden className="size-6" />
-        <img src={`/thumb?id=${file.id}&c=4`} alt="" loading="lazy"
-          onError={(event) => event.currentTarget.remove()}
+        <img key={file.cover_version || thumbnail} src={file.has_cover ? coverUrl(file, 2) : thumbnail} alt="" loading="lazy"
+          data-drop="self" data-fallbacks={file.has_cover ? thumbnail : undefined}
           className="absolute inset-0 size-full object-contain" />
       </button>
       <span className="flex min-w-0 items-center gap-2 max-duplicate-narrow:col-start-2 max-duplicate-narrow:-col-end-1">
-        <button type="button" onClick={open} title={file.name} data-middle-truncate data-middle-truncate-within
-          className="min-w-0 shrink cursor-pointer truncate text-left text-body-regular hover:text-text-secondary">
-          {distinctName(file.name, prefix)}
-        </button>
+        {onSelect ? <Checkbox slot={null} aria-label={t('cleanup:duplicates.selectFile', { name: file.name })}
+          isSelected={selected} onChange={onSelect} /> : null}
+        <FilenameComparison value={file.name} reference={reference?.name} onOpen={open} />
         {file.is_largest || file.is_longest || file.is_new
           ? <span className="flex flex-none gap-1">
               {file.is_new ? <i className={`${MARK} not-italic bg-background-primary-hover text-text-primary`}>{t('cleanup:duplicates.newCopy')}</i> : null}
@@ -151,7 +157,7 @@ function FileRow({ file, prefix, openItem }: { file: DuplicateFile; prefix: stri
       <span className={MONO}>{fmtDur(file.duration)}</span>
       {/* 路径整条折行显示：同一组的几份常只在中段不同，截断会让它们看起来一模一样。 */}
       <span className={`${MONO} col-start-2 -col-end-1 min-w-0 pt-0.5 wrap-anywhere max-duplicate-narrow:col-span-full`}>
-        {file.path ?? ''}
+        <ComparisonText value={file.path ?? ''} reference={reference?.path ?? undefined} />
       </span>
     </div>
   );
@@ -164,11 +170,13 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
   const sources = useQuery({ queryKey: MEDIA_SOURCES_KEY, queryFn: ({ signal }) => fetchMediaSources(signal) });
   const [pending, setPending] = useState('');
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
-  usePageSelection(() => setPicked(new Set()));
+  const [pickedFiles, setPickedFiles] = useState<ReadonlySet<number>>(new Set());
+  usePageSelection(() => { setPicked(new Set()); setPickedFiles(new Set()) });
   const host: BulkHost = { receipt: toast, failure: (cause) => failure(t('cleanup:duplicates.bulkFailed'), cause) };
   const dispose = useMutation({
     mutationFn: (ids: readonly number[]) => batchOperate(ids, 'dispose'),
     onSuccess: (_result, ids) => {
+      setPickedFiles((current) => new Set([...current].filter((id) => !ids.includes(id))));
       refresh();
       toast(t('cleanup:duplicates.movedToTrash', { count: ids.length }), {
         undo: async () => {
@@ -222,7 +230,7 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
   const keptCount = Number(duplicates.data?.kept ?? data.kept ?? 0);
   const configured = cloudLocations(sources.data);
   const chosen = groups.filter((group) => picked.has(groupKey(group)));
-  const switchView = (next: 'pending' | 'kept') => { setPicked(new Set()); setView(next) };
+  const switchView = (next: 'pending' | 'kept') => { setPicked(new Set()); setPickedFiles(new Set()); setView(next) };
   const toggle = (group: DuplicateGroup, on: boolean) => {
     if (on) enterPageSelection();
     setPicked((current) => {
@@ -248,6 +256,27 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
         + t('shell:bulkAction.canUndo'),
       confirmLabel: t('cleanup:duplicates.moveToTrash'),
       holdToConfirm: true,
+      onConfirm: () => { setPending(key); return dispose.mutateAsync(ids) },
+    });
+  };
+  const selectFile = (id: number, on: boolean) => {
+    if (on) enterPageSelection();
+    setPickedFiles((current) => {
+      const next = new Set(current);
+      if (on) next.add(id); else next.delete(id);
+      return next;
+    });
+  };
+  const runFiles = (group: DuplicateGroup, key: string) => {
+    if (pending) return;
+    const ids = group.files.filter((file) => pickedFiles.has(file.id)).map((file) => file.id);
+    if (!ids.length) return;
+    void confirmModal({
+      title: t('cleanup:duplicates.moveToTrash'),
+      body: t('cleanup:duplicates.selectedTrashBody', {
+        count: ids.length, remaining: group.files.length - ids.length, size: fmtSize(victimBytes([group], ids)),
+      }) + t('shell:bulkAction.canUndo'),
+      confirmLabel: t('cleanup:duplicates.moveToTrash'), holdToConfirm: true,
       onConfirm: () => { setPending(key); return dispose.mutateAsync(ids) },
     });
   };
@@ -327,7 +356,6 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
       {groups.length
         ? groups.map((group, index) => {
             const one = [group];
-            const prefix = sharedNamePrefix(group.files.map((file) => file.name));
             const key = (rule: string) => `${index}:${rule}`;
             return (
               <section key={groupKey(group)} aria-label={group.code} className={GROUP}
@@ -351,6 +379,11 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
                       ? <Button variant="secondary" size="small" {...busy(key('unkeep'))}
                           onClick={() => keepOne(group, key('unkeep'), false)}>{t('cleanup:duplicates.unkeep')}</Button>
                       : <>
+                          <Button variant="danger" size="small" {...busy(key('files'))}
+                            disabled={pending !== '' || !group.files.some((file) => pickedFiles.has(file.id))}
+                            onClick={() => runFiles(group, key('files'))}>
+                            {t('cleanup:duplicates.trashSelectedFiles', { count: group.files.filter((file) => pickedFiles.has(file.id)).length })}
+                          </Button>
                           <Button variant="secondary" size="small" {...busy(key('largest'))}
                             onClick={() => run({ groups: one, keep: 'largest', key: key('largest') })}>{t('cleanup:duplicates.keepLargest')}</Button>
                           <Button variant="secondary" size="small" {...busy(key('longest'))}
@@ -368,7 +401,9 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
                         </>}
                   </span>
                 </div>
-                <div>{group.files.map((file) => <FileRow key={file.id} file={file} prefix={prefix} openItem={openItem} />)}</div>
+                <div>{group.files.map((file) => <FileRow key={file.id} file={file}
+                  reference={group.files.find(other => other.id !== file.id)} openItem={openItem}
+                  selected={pickedFiles.has(file.id)} onSelect={keptView ? undefined : (on) => selectFile(file.id, on)} />)}</div>
               </section>
             );
           })

@@ -75,7 +75,10 @@
     "unkeptGroups_one": "Removed {{count, number}} group from Kept",
     "unkeptGroups_other": "Removed {{count, number}} groups from Kept",
     "unkeptOne": "{{code}} is back in the duplicate list",
-    "viewKept": "Kept ({{count, number}})"
+    "viewKept": "Kept ({{count, number}})",
+    "selectFile": "Select {{name}} for Trash",
+    "trashSelectedFiles": "Trash {{count, number}} selected",
+    "selectedTrashBody": "Move the {{count, number}} selected files ({{size}}) to Trash and keep the other {{remaining, number}} files."
   },
   "junk": {
     "backToUndecided": "Back to undecided",
@@ -108,7 +111,10 @@
     "undecided": "Undecided",
     "unknownSize": "Unknown size",
     "untitled": "Unnamed item",
-    "viewUndecided": "View undecided"
+    "viewUndecided": "View undecided",
+    "copies": "{{count, number}} copies with the same name and size · {{size}} total",
+    "showCopies": "Show copies",
+    "hideCopies": "Hide copies"
   },
   "links": {
     "allReachable": "All links are reachable.",

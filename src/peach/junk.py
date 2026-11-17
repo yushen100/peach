@@ -130,7 +130,7 @@ def _windows_parent(text: str) -> PureWindowsPath:
 def _promo_directory_parts(parts: tuple[str, ...]) -> bool:
     """`_promo_directory` 按目录分量缓存：同一目录下的几百个文件判的是同一组分量。"""
     for text in parts:
-        if AD_DIR_APP.search(text) or AD_DIR_FORM.search(text):
+        if AD_DIR_FORM.search(text) or (AD_DIR_APP.search(text) and AD_BRAND.search(text)):
             return True
         if AD_BRAND.search(text) and AD_DIR_BRAND_MEDIA.search(text):
             return True
@@ -504,6 +504,17 @@ def _download_attachment_reasons(connection, rows) -> dict[int, tuple[str, bool]
     return reasons
 
 
+def _software_file(path: str) -> bool:
+    """包管理器内部文件、软件元数据和动态库不参与媒体垃圾判断。"""
+    item = _windows_path(path)
+    name = item.name.casefold()
+    return ('node_modules' in {part.casefold() for part in item.parts}
+            or name in {'package.json', 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml'}
+            or (item.suffix.casefold() in {'', '.txt', '.json', '.rst'}
+                and name.startswith(('readme', 'license', 'licence', 'notice')))
+            or item.suffix.casefold() in {'.md', '.dll'})
+
+
 def _repeated_copies(connection, *, roots=None) -> dict[tuple[str, int], int]:
     """同名同体积的小文件各出现在多少个发行包目录；只统计到达门槛的组合。
 
@@ -521,6 +532,8 @@ def _repeated_copies(connection, *, roots=None) -> dict[tuple[str, int], int]:
             "AND size>0 AND size<? AND path IS NOT NULL "
             "AND (COALESCE(medium,'other')<>'video' OR duration IS NULL OR duration<=1200)" + scope,
             (*SCANNABLE_LOCATIONS, JUNK_VIDEO_MAX_BYTES, *parameters)):
+        if _software_file(str(path)):
+            continue
         folder = str(path).rpartition("\\")[0]
         if folder not in releases:
             releases[folder] = bool(release_code_from_filename(folder.rpartition("\\")[2]))
@@ -642,6 +655,21 @@ def scored_candidates(database, *, asset_ids=None, roots=None) -> tuple[list[dic
         _promo_directory_parts.cache_clear()
 
 
+def _non_video_evidence(item, stem, suffix, *, self_evident, promo_directory):
+    """非视频推广形态的分数与理由，配套作品文件及已单独计分的网页附件不叠加。"""
+    if (item.get('medium') == 'video' or self_evident
+            or suffix in PAGE_ARCHIVE_SUFFIXES or suffix in INTERNET_SHORTCUT_SUFFIXES):
+        return 0, []
+    if is_decorated_name(stem) and (item.get('size') or 0) <= DECORATED_MAX_BYTES:
+        return 60, [_Reason('decoratedImage')]
+    if AD_BRAND.search(stem) and (AD_BRAND_FORM.search(stem)
+            or (item.get('medium') == 'image' and (item.get('size') or 0) <= BRAND_TINY_BYTES)):
+        return 60, [_Reason('promoBrand')]
+    if promo_directory:
+        return 50, [_Reason('promoDirectory')]
+    return 0, []
+
+
 def _scored_candidates(database, *, asset_ids, roots) -> tuple[list[dict], frozenset[int]]:
     from . import junk_visual
     (rows, longer, dismissed_ids, folder_assets, folder_videos, short_attachments,
@@ -651,6 +679,8 @@ def _scored_candidates(database, *, asset_ids, roots) -> tuple[list[dict], froze
     out = []
     for r in rows:
         d = dict(r)
+        if _software_file(d.get('path') or d.get('name') or ''):
+            continue
         s, why = 0, []
         name = d.get("name") or _windows_path(d.get("path") or "").name
         name_path = _windows_path(name)
@@ -715,19 +745,8 @@ def _scored_candidates(database, *, asset_ids, roots) -> tuple[list[dict], froze
         elif AD_DIRPACK.search(folder) and not self_evident:
             directory_points = 45; why.append(_Reason("promoDirectoryPack"))
         s += directory_points
-        # 非视频的推广形态：装饰符小图、品牌推广名、住在推广目录。`self_evident`
-        # （真番号、内容级体积、正片配套图）与网页存档、网址快捷方式已单独计分，
-        # 这里不重复叠加。
-        if (d.get("medium") != "video" and not self_evident and not page_archive
-                and suffix not in INTERNET_SHORTCUT_SUFFIXES):
-            if is_decorated_name(nm) and (d.get("size") or 0) <= DECORATED_MAX_BYTES:
-                s += 60; why.append(_Reason("decoratedImage"))
-            elif AD_BRAND.search(nm) and (
-                    AD_BRAND_FORM.search(nm)
-                    or (d.get("medium") == "image" and (d.get("size") or 0) <= BRAND_TINY_BYTES)):
-                s += 60; why.append(_Reason("promoBrand"))
-            elif promo_dir:
-                s += 50; why.append(_Reason("promoDirectory"))
+        points, reasons = _non_video_evidence(d, nm, suffix, self_evident=self_evident, promo_directory=promo_dir)
+        s += points; why.extend(reasons)
         if d.get("medium") == "video":
             points, weak, reasons = _video_evidence(
                 d, nm, longer, promo_dir, directory_points, short_attachments.get(d["id"], ""))
@@ -741,6 +760,8 @@ def _scored_candidates(database, *, asset_ids, roots) -> tuple[list[dict], froze
         if review_only and s - review_only < AUTO_TRASH_SCORE:
             s = min(s, AUTO_TRASH_SCORE - 1)
         if s >= JUNK_REVIEW_SCORE:
+            if _repeated_copy_reason(d, copies):
+                d['copy_group'] = json.dumps([name.casefold(), int(d['size']), d['junk_kind']], ensure_ascii=False)
             d["score"] = s; d["why"] = " · ".join(why); d["why_parts"] = why_parts(why)
             out.append(d)
     out.sort(key=lambda x: (-x["score"], -(x["size"] or 0)))

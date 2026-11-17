@@ -103,6 +103,11 @@ def attach_artwork_fields(contract: WebContract, item: dict) -> None:
     if is_pointer(item.get('path') or item.get('name') or ''):
         item['size'] = None
         item['is_strm'] = True
+    attach_cover_fields(contract, item)
+
+
+def attach_cover_fields(contract: WebContract, item: dict) -> None:
+    """本地封面、版本和取景投影，保留调用方的文件属性。"""
     key = artwork_key(item['id'], item.get('code'))
     item['has_cover'] = contract.has_cover(key)
     item['cover_key'] = key if item['has_cover'] else ''

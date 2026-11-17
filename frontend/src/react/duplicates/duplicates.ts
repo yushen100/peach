@@ -23,6 +23,10 @@ export const BATCH_LIMIT = 200;
 /** `/api/duplicates` 里的一个文件。字段与 `web_batch.q_duplicates` 对齐。 */
 export interface DuplicateFile {
   id: number;
+  code?: string | null;
+  has_cover?: boolean;
+  cover_key?: string;
+  cover_version?: string;
   name: string;
   path: string | null;
   location: string;
@@ -96,27 +100,6 @@ export const fetchKeptDuplicates = (signal?: AbortSignal) =>
 
 /** 一组的文件 id 连起来，当作这组在选择集里的键。 */
 export const groupKey = (group: DuplicateGroup) => group.files.map((file) => file.id).join(',');
-
-/* 名字之间在哪里断开算一个词：空格、连字符、下划线、点、括号与路径分隔符。 */
-const NAME_BREAK = /[\s\-_.()[\]【】/\\]/;
-
-/** 一组副本共有的开头，退到最后一个断词处：同一部片子的几份常只在中段不同（分辨率、
- *  转载站、序号），整名中段截断正好把唯一的差别切掉。共有段不足 8 个字或只有一份时为空。 */
-export function sharedNamePrefix(names: readonly string[]): string {
-  if (names.length < 2) return '';
-  let end = 0;
-  const first = names[0]!;
-  while (end < first.length && names.every((name) => name[end] === first[end])) end += 1;
-  // 共有段一直到某一个名字的结尾时，那个名字整个都是共有段，退一格留出能显示的部分。
-  if (names.some((name) => name.length <= end)) end = Math.max(0, end - 1);
-  let cut = end;
-  while (cut > 0 && !NAME_BREAK.test(first[cut - 1]!)) cut -= 1;
-  return cut >= 8 ? first.slice(0, cut) : '';
-}
-
-/** 组内显示的名字：去掉组里共有的开头，用「…」顶替；组头已经写着番号。 */
-export const distinctName = (name: string, prefix: string) =>
-  prefix && name.startsWith(prefix) && name.length > prefix.length ? `…${name.slice(prefix.length)}` : name;
 
 /** 首屏分组就绪后显示；来源独立读取，供「留 115」等可选规则使用。不给 `staleTime`，
  *  `/duplicates` 是 `refresh:'reopen'`，进来就重取。 */

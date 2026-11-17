@@ -88,7 +88,7 @@ export function duplicatesSkeleton(): string {
     <div class="flex flex-wrap items-center gap-3 bg-background-tertiary-default p-5 max-compact:p-4 dark:bg-background-secondary-default">
       ${check()}<b class="text-title-2-medium">${text('5em')}</b><span class="font-mono text-caption-1-regular leading-5">${text('8em')}</span>
       <span class="rounded-sm px-2 py-0.5 text-caption-1-regular leading-5">${text('4em')}</span>
-      <span class="ml-auto flex flex-wrap gap-2 max-compact:ml-0 max-compact:w-full">${[t('cleanup:duplicates.keepLargest'), t('cleanup:duplicates.keepLongest'), t('cleanup:duplicates.keepAll'), t('cleanup:duplicates.trashGroup')].map(label => islandButton({ variant: 'secondary', size: 'small', label, attrs: wait })).join('')}</span>
+      <span class="ml-auto flex flex-wrap gap-2 max-compact:ml-0 max-compact:w-full">${islandButton({ variant: 'secondary', size: 'small', label: t('cleanup:duplicates.trashSelectedFiles', { count: 0 }), attrs: wait })}${[t('cleanup:duplicates.keepLargest'), t('cleanup:duplicates.keepLongest'), t('cleanup:duplicates.keepAll'), t('cleanup:duplicates.trashGroup')].map(label => islandButton({ variant: 'secondary', size: 'small', label, attrs: wait })).join('')}</span>
     </div>${row.repeat(2)}</section>`;
   return `<div class="peach-react"><div class="mx-auto w-full max-w-board pb-10.5">
     ${islandGlassRows({ label: t('cleanup:duplicates.summaryLabel'), attrs: ' data-filter-frame="" data-duplicates-frame=""',

@@ -26,7 +26,7 @@ import { JunkList } from './junk-list';
 import { useCatalogView } from '../catalog-grid/catalog-view';
 import { useQueueSort } from '../components/queue-sort';
 import { JunkCount } from './junk-count';
-import { fetchJunkPage, junkQueryKey, type JunkItem, type JunkPage, type JunkQueueProps, type JunkRoute } from './junk-queue';
+import { fetchJunkPage, groupJunkCopies, junkQueryKey, type JunkItem, type JunkPage, type JunkQueueProps, type JunkRoute } from './junk-queue';
 import { t } from '../../i18n';
 
 const CheckGlyph = spriteGlyph('check');
@@ -105,7 +105,21 @@ function JunkBody({ props, data, pending, error, retry, order }: {
   const batch = Math.max(1, props.batchSize || 60);
   const [segments, setSegments] = useState(1);
   const items = order.sort(data?.items || []);
-  const shown = items.slice(0, segments * batch);
+  const groups = groupJunkCopies(items);
+  const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set());
+  const toggleCopies = (id: number) => setExpanded((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    return next;
+  });
+  const visible = (group: JunkItem[]) => expanded.has(group[0]!.id) ? group : group.slice(0, 1);
+  const shown = groups.slice(0, segments * batch).flatMap(visible);
+  const copyGroups = new Map(groups.filter((group) => group.length > 1).map((group) => [group[0]!.id, group]));
+  const copyInfo = (item: JunkItem) => {
+    const group = copyGroups.get(item.id);
+    return group ? { count: group.length, bytes: group.reduce((sum, member) => sum + Number(member.size || 0), 0),
+      expanded: expanded.has(item.id), toggle: () => toggleCopies(item.id) } : undefined;
+  };
   const { canLoadMore } = props;
   const more = useCallback(() => {
     if (canLoadMore?.() === false) return;
@@ -125,18 +139,18 @@ function JunkBody({ props, data, pending, error, retry, order }: {
       );
     }
     /* 列表版式一次画齐：整批已经在手上，表格行比卡矮，不用往下一段段露。 */
-    if (view === 'list') return <JunkList items={items} view={props.view} selected={props.selected} selecting={props.selectMode} actions={props.actions} order={order} />;
+    if (view === 'list') return <JunkList items={groups.flatMap(visible)} copies={copyInfo} view={props.view} selected={props.selected} selecting={props.selectMode} actions={props.actions} order={order} />;
     return (
       <>
         <div data-media-grid="" data-junk-grid="" data-select-mode={props.selectMode ? '' : undefined}>
           {shown.map((item) => (
             <JunkCard key={item.id} item={item} view={props.view} selected={props.selected.has(item.id)}
-              selectMode={props.selectMode} helpers={props.helpers} actions={props.actions} />
+              selectMode={props.selectMode} helpers={props.helpers} actions={props.actions} copies={copyInfo(item)} />
           ))}
         </div>
-        {shown.length < items.length ? <RevealMore key={segments} onMore={more} /> : null}
+        {segments * batch < groups.length ? <RevealMore key={segments} onMore={more} /> : null}
         {/* 队列一次只取前 200 条：露到底了还有没取的，说清楚是截断而不是全部。 */}
-        {shown.length >= items.length && Number(data.total || 0) > items.length
+        {segments * batch >= groups.length && Number(data.total || 0) > items.length
           ? <p data-junk-truncated="" className="py-6 text-center text-caption-1-regular text-text-secondary">
               {t('cleanup:junk.truncated', { shown: items.length.toLocaleString(), count: Number(data.total) })}
             </p>
