@@ -4,6 +4,7 @@
 import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import * as legacyUi from '@peach/legacy/ui';
+import { advanceImageFallback } from '../../src/card-art/image-fallback';
 
 import { DuplicatesPage } from '../../src/react/duplicates/duplicates-page';
 import {
@@ -64,6 +65,19 @@ async function open(payload: DuplicatesData = data) {
 }
 
 const card = (host: ParentNode, code: string) => host.querySelector(`section[aria-label="${code}"]`)!;
+
+it('重复副本优先显示已有封面，加载失败后依次回退抽帧和播放占位', async () => {
+  const files = [file(1, { code: 'ABC-001', has_cover: true, cover_version: 'cover-v1' }), file(2)];
+  const { host } = await open({ total: 1, files: 2, reclaimable: GB, groups: [group('ABC-001', files)] });
+  const images = host.querySelectorAll<HTMLImageElement>('.duplicate-row img');
+  expect(images[0]!.getAttribute('src')).toBe('/cover?code=ABC-001&thumb=2&v=cover-v1');
+  expect(images[1]!.getAttribute('src')).toBe('/thumb?id=2&c=4');
+  expect(advanceImageFallback(images[0])).toBe('retry');
+  expect(images[0]!.getAttribute('src')).toBe('/thumb?id=1&c=4');
+  expect(advanceImageFallback(images[0])).toBe('drop');
+  expect(host.querySelectorAll('.duplicate-row img')).toHaveLength(1);
+  expect(host.querySelector('button[aria-label="预览 ABC-1.mp4"]')).not.toBeNull();
+});
 
 describe('网盘保留选项', () => {
   it('本地与在线来源不算网盘；已配置但离线的网盘仍然算，没配根目录的不算', () => {

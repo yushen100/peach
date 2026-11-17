@@ -13,6 +13,10 @@ describe('重复文件逐份回收', () => {
       const batches: { ids: number[]; operation: string; disposal_reason?: string }[] = [];
       let disposed = false;
       const opened = await visit(browser, '/duplicates', viewport, async page => {
+        await page.route('**/cover?**', route => route.fulfill({
+          contentType: 'image/png',
+          body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jD1sAAAAASUVORK5CYII=', 'base64'),
+        }));
         await page.route('**/thumb?**', route => route.fulfill({
           contentType: 'image/png',
           body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jD1sAAAAASUVORK5CYII=', 'base64'),
@@ -21,6 +25,7 @@ describe('重复文件逐份回收', () => {
           const files = [1, 2, 3].filter(id => !disposed || id !== 2).map(id => ({
             id, name: `ABC-${id}.mp4`, path: `R:\\Media\\ABC-${id}.mp4`, location: 'local', drive: 'R:',
             size: 1000, duration: 3600, is_largest: id === 1, is_longest: id === 1,
+            code: 'ABC-001', has_cover: id === 1, cover_version: id === 1 ? 'fixture-cover' : '',
           }));
           return route.fulfill({ json: { total: 1, files: files.length, reclaimable: 2000, groups: [{
             code: 'ABC-001', count: files.length, identical: true, drives: ['R:'], cross_drive: false,
@@ -39,6 +44,12 @@ describe('重复文件逐份回收', () => {
         const group = page.getByRole('region', { name: 'ABC-001', exact: true });
         await group.waitFor();
         await settle(page);
+        await page.waitForFunction(() => {
+          const image = document.querySelector<HTMLImageElement>('.duplicate-row img[src^="/cover?"]');
+          return image?.complete && image.naturalWidth > 0;
+        });
+        const cover = group.locator('img[src="/cover?code=ABC-001&thumb=2&v=fixture-cover"]');
+        assert.equal(await cover.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0), true);
         const selected = page.getByRole('checkbox', { name: '选择回收 ABC-2.mp4', exact: true });
         assert.equal(await selected.isChecked(), false);
         await group.locator('label').filter({ has: selected }).click();

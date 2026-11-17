@@ -4224,6 +4224,25 @@ class DuplicateDetectionTests(unittest.TestCase):
         self.assertEqual(result["total"], 1)
         self.assertEqual(result["groups"][0]["count"], 2)
 
+    def test_duplicate_files_read_current_cover_without_mutating_cached_groups(self):
+        self.add('ABW-232', 7200, 5_000_000_000)
+        self.add('ABW-232', 7200, 3_000_000_000)
+        self.con.execute("UPDATE asset SET path=?,name='clip.strm' WHERE id=1", (r'R:\Media\clip.strm',))
+        self.con.commit()
+        with mock.patch.object(self.contract, 'has_cover', return_value=True) as available, \
+                mock.patch.object(self.contract, 'cover_version', return_value='cover-v1'), \
+                mock.patch.object(self.contract, 'cover_frame', return_value=None), \
+                mock.patch.object(self.contract, 'poster_box', return_value=None):
+            files = self.groups()['groups'][0]['files']
+            self.assertTrue(all(item['has_cover'] for item in files))
+            self.assertEqual(files[0]['cover_key'], 'ABW-232')
+            self.assertEqual(files[0]['cover_version'], 'cover-v1')
+            self.assertEqual(files[0]['size'], 5_000_000_000)
+            available.return_value = False
+            files = self.groups()['groups'][0]['files']
+            self.assertTrue(all(not item['has_cover'] for item in files))
+            self.assertNotIn('cover_version', files[0])
+
     def test_shared_filename_rips_with_missing_duration_are_candidates(self):
         """同名且已知时长在容差内的副本进入重复候选，缺测量的一份保留。"""
         kept = self.add("SSIS-001", 7200, 9_000_000_000, name="SSIS-001.mp4")

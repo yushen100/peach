@@ -11,6 +11,7 @@ import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { confirmModal, MEDIA_SOURCE_ICONS } from '@peach/legacy/ui';
 import { fmtDur, fmtSize, LOC } from '@peach/legacy/core';
+import { coverUrl } from '@peach/card-art';
 
 import { Button } from '@/components/base/buttons/button';
 import { Checkbox } from '@/components/base/checkbox/checkbox';
@@ -123,14 +124,15 @@ function FileRow({ file, prefix, openItem, selected, onSelect }: {
 }) {
   const open = () => openItem(file.id);
   const location = LOC[file.location] || file.location || file.drive;
+  const thumbnail = `/thumb?id=${file.id}&c=4`;
   return (
     <div className="duplicate-row items-center gap-3 border-t border-separator-border px-5 py-4 max-compact:p-4">
       {/* 封面格居中用 `inline-grid`：`grid` 与旧样式表同名，不生成这个工具类。 */}
       <button type="button" onClick={open} aria-label={t('cleanup:duplicates.previewFile', { name: file.name })}
         className="relative row-span-2 inline-grid aspect-16/10 w-full cursor-pointer place-items-center overflow-hidden rounded-2lg bg-media-placeholder text-text-secondary">
         <PLAY aria-hidden className="size-6" />
-        <img src={`/thumb?id=${file.id}&c=4`} alt="" loading="lazy"
-          onError={(event) => event.currentTarget.remove()}
+        <img key={file.cover_version || thumbnail} src={file.has_cover ? coverUrl(file, 2) : thumbnail} alt="" loading="lazy"
+          data-drop="self" data-fallbacks={file.has_cover ? thumbnail : undefined}
           className="absolute inset-0 size-full object-contain" />
       </button>
       <span className="flex min-w-0 items-center gap-2 max-duplicate-narrow:col-start-2 max-duplicate-narrow:-col-end-1">

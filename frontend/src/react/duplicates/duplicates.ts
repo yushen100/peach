@@ -23,6 +23,10 @@ export const BATCH_LIMIT = 200;
 /** `/api/duplicates` 里的一个文件。字段与 `web_batch.q_duplicates` 对齐。 */
 export interface DuplicateFile {
   id: number;
+  code?: string | null;
+  has_cover?: boolean;
+  cover_key?: string;
+  cover_version?: string;
   name: string;
   path: string | null;
   location: string;

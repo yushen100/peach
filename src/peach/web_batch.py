@@ -38,7 +38,7 @@ from .regions import normalize_region
 from .task_runs import TaskRunHandle
 from .task_stages import batch_progress
 from .web_activity import DEFAULT_PROFILE_ID
-from .web_catalog import attach_card_performers
+from .web_catalog import attach_cover_fields, attach_card_performers
 from .media_sources import cost_for
 from .os_errors import CodedTimeoutError
 from .user_messages import UserFacingError, UserOSError, UserValueError
@@ -1216,7 +1216,11 @@ def q_duplicates(contract: WebContract, args):
     pending, kept = contract.cached_until_changed(
         "duplicate-groups", lambda: _duplicate_listing(contract), tables=DUPLICATE_TABLES)
     groups = kept if args.get("view") == "kept" else pending
-    window = groups[offset:offset + limit]
+    window = [{**group, 'files': [dict(item) for item in group['files']]}
+              for group in groups[offset:offset + limit]]
+    for group in window:
+        for item in group['files']:
+            attach_cover_fields(contract, item)
     return {
         "total": len(groups),
         "files": sum(g["count"] for g in groups),
