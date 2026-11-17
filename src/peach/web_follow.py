@@ -1306,6 +1306,18 @@ def _author_portraits(contract, identities: dict[int, str]) -> dict:
     return portraits
 
 
+def _attach_source_portraits(contract, sources: list[dict]) -> None:
+    """批量装配来源的人物图片与已缓存头像引用。"""
+    identities = {source['entity_id']: source['entity_name'] for source in sources
+                  if source['entity_id']}
+    portraits = _author_portraits(contract, identities)
+    root = Path(contract.candidate_root) / follow_assets.ROOT_NAME
+    for source in sources:
+        source['author_entity'] = portraits.get(source['entity_id'])
+        cached = follow_assets.cached_avatar_urls(root, [source['official_avatar_url'], source['avatar_url']])
+        source['cached_avatar_url'] = cached[0] if cached else ''
+
+
 def _legacy_history_end(row) -> bool:
     """把旧版记成 error 的「往回翻到尽头」认回来。
 
@@ -2035,15 +2047,7 @@ def q_follow(contract, args) -> dict:
         source_rows, alias_map, author_aliases, tag_policy = (
             inputs.sources, inputs.alias_map, inputs.author_aliases, inputs.tag_policy)
         sources = [_source_payload(row, alias_map) for row in source_rows]
-        identities = {source['entity_id']: source['entity_name'] for source in sources
-                      if source['entity_id']}
-        portraits = _author_portraits(contract, identities)
-        for source in sources:
-            source['author_entity'] = portraits.get(source['entity_id'])
-            cached = follow_assets.cached_avatar_urls(
-                Path(contract.candidate_root) / follow_assets.ROOT_NAME,
-                [source['official_avatar_url'], source['avatar_url']])
-            source['cached_avatar_url'] = cached[0] if cached else ''
+        _attach_source_portraits(contract, sources)
         alias_suggestions = _follow_alias_suggestions(source_rows, alias_map)
         # 作者、来源和标签都不是库里的列：author_key 要经实体绑定、来源 metadata 和
         # 别名映射推导，tags 要从条目 metadata JSON 解析再去噪。在 SQL 里重写这两套
