@@ -181,7 +181,7 @@ export function AliasManager({ groups, suggestions, sources = [], readOnly, toas
   };
   /* 移除的撤销按原来的显示名把别名逐条加回去。 */
   const dropSaved: BulkAction<{ name: string; canonical: string }> = {
-    key: 'remove', reversal: 'undo', label: t('follow:creatorAliases.removeSelectedCount', { count: 0 }), holdToConfirm: true,
+    key: 'remove', reversal: 'undo', label: t('follow:creatorAliases.removeSelectedCount', { count: 0 }),
     confirm: (items) => ({ title: t('follow:creatorAliases.removeSelectedTitle'),
       body: t('follow:creatorAliases.removeSelectedBody', { count: items.length }), items: items.map((item) => item.name),
       confirmLabel: t('follow:creatorAliases.removeSelectedConfirm') }),
@@ -197,7 +197,6 @@ export function AliasManager({ groups, suggestions, sources = [], readOnly, toas
 
   const removeSome = (name: string) => void confirmModal({
     title: t('follow:creatorAliases.removeTitle'), body: REMOVE_BODY(name),
-    holdToConfirm: true,
     confirmLabel: t('follow:creatorAliases.removeTitle'),
     onConfirm: () => drop.mutateAsync(name),
   });

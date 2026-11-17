@@ -374,7 +374,6 @@ function usePlaylistReorder(queue: DetailQueue, itemId: number, actions: ItemDet
       const before = ids;
       void confirmModal({
         title: t('catalog:detailQueue.removeFromPlaylist'), body: t('catalog:detailQueue.removeConfirmBody'), confirmLabel: t('catalog:detailQueue.removeFromPlaylist'),
-        holdToConfirm: true,
         onConfirm: async () => {
           const playlist = await write({ action: 'remove', asset_id: assetId });
           /* 撤销要把它放回它那一位：`add` 只会补在末尾，所以补完再按移出之前那份顺序排一次。

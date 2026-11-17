@@ -6,7 +6,6 @@ import { useQuery } from '@tanstack/react-query';
 import { RiStarLine, RiExternalLinkLine, RiDeleteBinLine, RiSearchLine } from '@remixicon/react';
 
 import { Button, ButtonLink } from '@/components/base/buttons/button';
-import { HoldButton } from '../components/hold-button';
 import { Checkbox } from '@/components/base/checkbox/checkbox';
 import { Input } from '@/components/base/input/input';
 
@@ -106,8 +105,8 @@ function WantRow({ want, readOnly, busy, onReset, onRemove, onCloudDownload, dow
           {want.phase === 'searching' || want.phase === 'given_up' ? (
             <Button variant="primary" size="small" leadingIcon={RiSearchLine} onClick={onCloudDownload}>{t('catalog:shared.searchTorrents')}</Button>
           ) : null}
-          <HoldButton variant="danger" size="small" leadingIcon={RiDeleteBinLine} disabled={readOnly} {...busyProps(busy === `remove:${want.id}`)}
-            onClick={onRemove}>{t('catalog:shared.remove')}</HoldButton>
+          <Button variant="danger" size="small" leadingIcon={RiDeleteBinLine} disabled={readOnly} {...busyProps(busy === `remove:${want.id}`)}
+            onClick={onRemove}>{t('catalog:shared.remove')}</Button>
         </div>
       </div>
       </div>
@@ -213,7 +212,7 @@ export function WantList({ readOnly, toast, query = '', clearQuery }: WantListPr
   const allPicked = items.length > 0 && chosen.length === items.length;
   const host = { receipt: toast };
   const removeMany: BulkAction<Want> = {
-    key: 'remove', label: t('catalog:shared.remove'), reversal: 'undo', danger: true, holdToConfirm: true,
+    key: 'remove', label: t('catalog:shared.remove'), reversal: 'undo', danger: true,
     confirm: (rows) => ({ title: t('catalog:wants.removeMany'), body: t('catalog:wants.removeManyBody', { count: rows.length }) }),
     run: async (rows) => {
       const { previous } = await removeWants(rows.map((want) => want.id));

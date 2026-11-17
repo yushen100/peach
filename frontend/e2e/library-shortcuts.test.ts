@@ -134,7 +134,7 @@ describe('我的收藏弹层', () => {
         await settle(page, '[data-catalog-frame]');
         await page.getByRole('button', { name: '我的收藏', exact: true }).click();
         await dialog.getByRole('tab', { name: '保存的筛选', exact: true }).click();
-        await dialog.getByRole('button', { name: '删除筛选VR 待看', exact: true }).press('Enter', { delay: 2100 });
+        await dialog.getByRole('button', { name: '删除筛选VR 待看', exact: true }).click();
         await link.waitFor({ state: 'detached' });
         await dialog.getByRole('tab', { name: '全部', exact: true }).click();
         await dialog.getByRole('button', { name: /^取消收藏/ }).click();

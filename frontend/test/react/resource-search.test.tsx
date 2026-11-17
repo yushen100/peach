@@ -5,7 +5,7 @@ import { ResourceSearch } from '../../src/react/activity/resource-search';
 import { IndexerSettings } from '../../src/react/settings/indexer-settings';
 import { SourceLink } from '../../src/react/follow-manage/source-view';
 import { queryClient } from '../../src/react/query';
-import { buttonNamed, click, hold, mount, section, settle, submit, type } from './render';
+import { buttonNamed, click, mount, section, settle, submit, type } from './render';
 
 afterEach(() => queryClient.clear());
 
@@ -116,7 +116,7 @@ it('设置保存后清空 API key，移除需再保存才生效', async () => {
   await settle();
   expect(posts).toHaveLength(1);
   expect(named(host, '索引器 1 API key')?.value).toBe('');
-  await hold(host.querySelector('button[aria-label="移除索引器 1"]'));
+  await click(host.querySelector('button[aria-label="移除索引器 1"]'));
   expect(posts).toHaveLength(1);
   await submit(section(host, '资源搜索'));
   expect(posts[1]).toEqual({ indexers: [] });

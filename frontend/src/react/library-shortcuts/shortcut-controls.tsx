@@ -2,7 +2,6 @@ import { useEffect, useId, useLayoutEffect, useRef, useState, type ComponentProp
 import { VisuallyHidden } from 'react-aria-components';
 import { attachOverlayScrollbar, revealTexts, spinnerHtml, wireHorizontalScroller } from '@peach/legacy/ui';
 import { Button, ButtonLink } from '@/components/base/buttons/button';
-import { HoldButton } from '../components/hold-button';
 import { Input } from '@/components/base/input/input';
 import { ObjectOrderDialog } from '../components/object-order-dialog';
 import { errorMessage } from '../../api';
@@ -201,8 +200,8 @@ function ShortcutContents({ currentHref, kind, close }: { currentHref?: () => st
         actions={<ButtonLink size="small" href="/" onClick={close}>{t('settings:favoritesPanel.browseCollection')}</ButtonLink>}>{t('settings:favoritesPanel.noSavedFiltersHelp')}</EmptyState> : null}
       {data.filters.map((row) => <div key={row.id} className="flex min-w-0 items-center justify-between gap-2">
         <a href={row.href} onClick={close} className="min-w-0 flex-1 break-all text-body-regular text-text-primary underline">{row.name}</a>
-        <HoldButton variant="secondary" size="small" aria-label={t('settings:favoritesPanel.deleteFilterLabel', { name: row.name })} {...busyProps(write.isPending)}
-          onClick={() => { if (!write.isPending) write.mutate({ action: 'delete_filter', id: row.id }) }}>{t('settings:shared.delete')}</HoldButton>
+        <Button variant="secondary" size="small" aria-label={t('settings:favoritesPanel.deleteFilterLabel', { name: row.name })} {...busyProps(write.isPending)}
+          onClick={() => { if (!write.isPending) write.mutate({ action: 'delete_filter', id: row.id }) }}>{t('settings:shared.delete')}</Button>
       </div>)}
       {currentHref ? <form onSubmit={submit} className="flex flex-col gap-3" aria-label={t('settings:favoritesPanel.saveCurrentFilter')}>
         <Input label={t('settings:favoritesPanel.filterName')} value={name} onChange={setName} maxLength={80} />

@@ -14,7 +14,6 @@
  * 发生的事；本机监视在总开关关着时读作「没有运行」，分不出是没开还是坏了。 */
 import { useState, type FormEvent } from 'react';
 import { RiDeleteBinLine } from '@remixicon/react';
-import { HoldButton } from '../components/hold-button';
 
 import { SettingsRow } from '@/components/application/settings/settings-rows';
 import { Button } from '@/components/base/buttons/button';
@@ -147,7 +146,7 @@ export function PushDiscoveryForm({ initial, receipt }: {
                     onSelectionChange={(key) => { if (key !== null) edit(index, { root: String(key) }); }}>
                     {roots.map((root) => <SelectItem key={root} id={root}>{root}</SelectItem>)}
                   </Select>
-                  <HoldButton variant="danger" iconOnly leadingIcon={RiDeleteBinLine} aria-label={t('settings:pushDiscovery.removeRow')}
+                  <Button variant="danger" iconOnly leadingIcon={RiDeleteBinLine} aria-label={t('settings:pushDiscovery.removeRow')}
                     onClick={() => setRows((list) => list.filter((_row, i) => i !== index))} />
                 </div>
               ))}

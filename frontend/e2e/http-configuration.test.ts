@@ -168,7 +168,7 @@ describe('普通 HTTP 的配置与播放', () => {
           await section.getByRole('button', { name: '添加索引器', exact: true }).click();
           await section.getByRole('textbox', { name: /名称/ }).nth(1).fill('HTTP 测试');
           await section.getByRole('textbox', { name: /Torznab 地址/ }).nth(1).fill('https://indexer.example/api');
-          await section.getByRole('button', { name: '移除索引器 1', exact: true }).press('Enter', { delay: 2100 });
+          await section.getByRole('button', { name: '移除索引器 1', exact: true }).click();
           phase = `保存 ${path} 索引器`;
           const saved = page.waitForResponse(response => response.url() === `${origin}/api/configuration/indexers`
             && response.request().method() === 'POST');

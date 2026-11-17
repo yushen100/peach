@@ -7,7 +7,7 @@ import { SETUP_QUESTIONS_URL, SETUP_URL, type SetupDone, type SetupQuestions } f
 import { RESTART_REDIRECT_MS } from '../../src/react/restart-redirect';
 import { MEDIA_SOURCE_OPTIONS } from '../../src/core/media-sources';
 import { FIRST_ACCESS_DENIED } from '../../src/react/pages/first-access';
-import { hold, buttonNamed, choose, click, mount, settle, switches, type } from './render';
+import { buttonNamed, choose, click, mount, settle, switches, type } from './render';
 import '../../src/copy-editor-core.js';
 
 const questions = (over: Partial<SetupQuestions> = {}): SetupQuestions => ({
@@ -374,7 +374,7 @@ describe('媒体库', () => {
     expect(document.activeElement).toBe(paths(host)[1]);
     await type(paths(host)[1], 'E:\\More');
     expect(host.textContent).toContain('完成设置后扫描 2 个文件夹');
-    await hold(rows(host)[0]!.querySelector('button[aria-label="移除这个文件夹"]'));
+    await click(rows(host)[0]!.querySelector('button[aria-label="移除这个文件夹"]'));
     expect(paths(host).map((input) => input.value)).toEqual(['E:\\More']);
     expect(rows(host)[0]!.querySelector('button[aria-label="移除这个文件夹"]')).toBeNull();
     await submitForm(host);

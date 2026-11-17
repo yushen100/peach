@@ -413,13 +413,8 @@ describe('顶栏搜索', () => {
       await page.locator('#q').click();
       await page.locator(`${OPTION}[data-search-value="丙片"]`).waitFor({ timeout: 5_000 });
       assert.deepEqual(await recent(), ['甲片', '乙片', '丙片'], '搜索记录没有照设置只摆三条');
-      await page.locator(`${MENU} [data-remove-history="乙片"]`).hover();
-      await page.mouse.down();
-      try {
-        await page.waitForFunction(() => !document.querySelector('#searchMenu [data-search-value="乙片"]'));
-      } finally {
-        await page.mouse.up();
-      }
+      await page.locator(`${MENU} [data-remove-history="乙片"]`).click();
+      await page.waitForFunction(() => !document.querySelector('#searchMenu [data-search-value="乙片"]'));
       assert.deepEqual(await recent(), ['甲片', '丙片']);
       assert.deepEqual(posts, [{ operation: 'remove', query: '乙片' }]);
       await page.waitForTimeout(300);

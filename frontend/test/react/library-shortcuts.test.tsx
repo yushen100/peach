@@ -4,7 +4,7 @@ import { registerNameWritings, setNameLanguage } from '../../src/core/entity-nam
 import { queryClient } from '../../src/react/query';
 import { FavoriteButton, LibraryShortcuts } from '../../src/react/library-shortcuts/shortcut-controls';
 import { favoriteHref, isFavorite, SHORTCUTS_KEY, type Favorite, type Shortcuts } from '../../src/react/library-shortcuts/library-shortcuts';
-import { hold, click, mount, pending, settle, submit, type } from './render';
+import { click, mount, pending, settle, submit, type } from './render';
 
 notifyManager.setScheduler((notify) => notify());
 beforeEach(() => { registerNameWritings([]); setNameLanguage('zh-CN') });
@@ -129,7 +129,7 @@ describe('我的收藏', () => {
     const savedLink = () => [...document.querySelectorAll('a')].find(link => link.textContent === 'VR 待看');
     expect(savedLink()?.getAttribute('href')).toBe('/watch-later?loc=&tag=VR&jav=1');
     expect(savedLink()?.getAttribute('title')).toBeNull();
-    await hold(document.querySelector('[aria-label="删除筛选VR 待看"]'));
+    await click(document.querySelector('[aria-label="删除筛选VR 待看"]'));
     await settle();
     expect(savedLink()).toBeUndefined();
   });

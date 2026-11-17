@@ -15,7 +15,6 @@ import { fetchCoverNow, type CoverNow } from '../jav/jav';
 
 import type { FeedNew } from './feed-new';
 import { t } from '../../i18n';
-import { attachHoldToConfirm } from '../../ui-kit/hold-to-confirm';
 
 /** 封面格的「优先处理」「立即重试」：不进后台那条队，当场取这一部的封面，等的时候是不定进度圆环。
  *  取完只换这一格，不重画整行；没取到就落成「无封面」，原因换成这一次的。回这一部取没取到。 */
@@ -47,7 +46,6 @@ export function FeedNewRow({ feedNew, host, wire, act, settled, error, retry }: 
 }) {
   const actions = useContext(ShellActionsContext);
   const box = useRef<HTMLDivElement>(null);
-  const wantHolds = useRef(new Map<HTMLButtonElement, () => void>());
   const [sourceFaces, setSourceFaces] = useState<HTMLElement[]>([]);
   const html = feedNew?.items.length ? feedNew.html : '';
   const [reserve] = useState(() => host.getAttribute('aria-busy') === 'true');
@@ -80,17 +78,6 @@ export function FeedNewRow({ feedNew, host, wire, act, settled, error, retry }: 
     if (html) wire(box.current?.querySelector('.feednewrow') ?? null);
     setSourceFaces([...box.current?.querySelectorAll<HTMLElement>('[data-feed-source-avatar]') ?? []]);
   }, [wire, html]);
-  const syncWantHold = (button: HTMLButtonElement) => {
-    wantHolds.current.get(button)?.();
-    wantHolds.current.delete(button);
-    button.title = button.dataset.feedAction === 'unwant' ? t('follow:wantToggle.remove') : t('follow:wantToggle.want');
-    if (button.dataset.feedAction === 'unwant') wantHolds.current.set(button, attachHoldToConfirm(button));
-  };
-  useLayoutEffect(() => {
-    const holds = wantHolds.current;
-    box.current?.querySelectorAll<HTMLButtonElement>('[data-feed-action="unwant"]').forEach(syncWantHold);
-    return () => { holds.forEach(detach => detach()); holds.clear() };
-  }, [html]);
   const click = async (event: MouseEvent<HTMLDivElement>) => {
     const link = (event.target as Element).closest<HTMLAnchorElement>('a.feednewopen, a.feednewall');
     if (link && actions && !event.button && !event.metaKey && !event.ctrlKey && !event.altKey && !event.shiftKey) {
@@ -110,7 +97,7 @@ export function FeedNewRow({ feedNew, host, wire, act, settled, error, retry }: 
       const wanted = action === 'want';
       button.dataset.feedAction = wanted ? 'unwant' : 'want';
       button.setAttribute('aria-pressed', String(wanted));
-      syncWantHold(button);
+      button.title = wanted ? t('follow:wantToggle.remove') : t('follow:wantToggle.want');
       return;
     }
     if (action === 'ignore') card.remove();
