@@ -220,6 +220,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Fixed / 修复
 
+- **Interface**: Table filters gray out offline libraries and show standard loading feedback at the bottom while fetching options (#751). / **界面**：表格筛选中的离线媒体库置灰，下拉读取与续页时在列表底部显示标准加载态（#751）。
 - **Sourcing**: Wants distinguishes source failures from empty results, reads JavDB pages when its API requires login and restores confirmed resources (#717). / **采集**：想要区分来源失败与正常空结果，JavDB 接口要求登录时读取作品页，并恢复已确证资源的误放弃状态（#717）。
 - **Following**: Leaving Home unmounts its new-release row and prevents late requests from showing it on other pages (#744). / **关注**：离开首页时卸载新作行，迟到请求不会再将它显示到其他页面（#744）。
 - **Desktop**: On macOS, opening Peach while it is running opens the web UI, so you can get in even when the system hides the menu bar icon. / **桌面**：macOS 上 Peach 已在运行时再点开应用会打开网页，菜单栏图标被系统折叠时也能进入。
