@@ -1089,6 +1089,34 @@ class LibraryNfoTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             read_nfo(path)
 
+    def test_unescaped_ampersand_in_nfo_tolerated(self):
+        path = self.root / 'unescaped.nfo'
+        path.write_text('<movie><title>Test &amp; Demo</title><plot>A & B</plot></movie>', encoding='utf-8')
+        payload, _ = read_nfo(path)
+        self.assertEqual(payload['title'], 'Test & Demo')
+
+    def test_unescaped_ampersands_preserve_nfo_encoding_and_original_bytes(self):
+        document = '<?xml version="1.0" encoding="{encoding}"?><movie><title>Café & A &amp; B</title></movie>'
+        for encoding in ('utf-8', 'utf-16', 'utf-16-le', 'utf-16-be', 'iso-8859-1'):
+            with self.subTest(encoding=encoding):
+                raw = document.format(encoding=encoding).encode(encoding)
+                path = self.root / 'unescaped.nfo'
+                path.write_bytes(raw)
+                payload, original = read_nfo(path)
+                self.assertEqual(payload['title'], 'Café & A & B')
+                self.assertEqual(original, raw)
+
+    def test_utf16_without_bom_can_begin_with_xml_whitespace(self):
+        for encoding in ('utf-16-le', 'utf-16-be'):
+            for prefix in (' ', '\t', '\r', '\n'):
+                with self.subTest(encoding=encoding, prefix=prefix):
+                    raw = (prefix + '<movie><title>Café & A &amp; B</title></movie>').encode(encoding)
+                    path = self.root / 'unescaped.nfo'
+                    path.write_bytes(raw)
+                    payload, original = read_nfo(path)
+                    self.assertEqual(payload['title'], 'Café & A & B')
+                    self.assertEqual(original, raw)
+
     def test_art_cannot_escape_media_directory(self):
         folder = self.root / 'film'
         folder.mkdir()
