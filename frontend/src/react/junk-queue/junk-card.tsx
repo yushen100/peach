@@ -34,6 +34,7 @@ export interface JunkCardProps {
   selectMode: boolean;
   helpers: JunkQueueHelpers;
   actions: JunkQueueActions;
+  copies?: { count: number; bytes: number; expanded: boolean; toggle(): void };
 }
 
 type Busy = '' | 'reveal' | JunkOperation;
@@ -91,7 +92,7 @@ export const junkReasons = (item: JunkItem) => (item.why ? partsLabel(item.why_p
 export const junkPreview = (item: JunkItem) =>
   item.junk_kind === 'video' ? `/thumb?id=${item.id}&c=4` : item.junk_kind === 'image' ? `/photo-thumb?id=${item.id}` : '';
 
-function JunkCardView({ item, view, selected, selectMode, helpers, actions }: JunkCardProps) {
+function JunkCardView({ item, view, selected, selectMode, helpers, actions, copies }: JunkCardProps) {
   const card = useRef<HTMLElement | null>(null);
   const dense = useDense();
   const state = useJunkActions(item, view, actions);
@@ -146,6 +147,12 @@ function JunkCardView({ item, view, selected, selectMode, helpers, actions }: Ju
           <CardTags tags={reasons} label={(tag) => tag} readOnly title={reasons.join(' · ') || undefined} />
         </div>
       </div>
+      {copies ? <div data-junk-actions="" className="flex flex-wrap items-center gap-2 px-4 py-2 text-caption-1-regular text-text-secondary">
+        <span>{t('cleanup:junk.copies', { count: copies.count, size: fmtSize(copies.bytes) })}</span>
+        <Button variant="ghost" size="small" onClick={(event) => { event.stopPropagation(); copies.toggle() }}>
+          {t(copies.expanded ? 'cleanup:junk.hideCopies' : 'cleanup:junk.showCopies')}
+        </Button>
+      </div> : null}
       <JunkActions state={state} compact={dense} />
     </article>
   );

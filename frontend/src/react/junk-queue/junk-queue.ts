@@ -15,6 +15,8 @@ export const JUNK_LIMIT = 200;
 /** `/api/ads` 的一条。只列卡片读到的字段，其余原样带着，壳的缓存要的是整条。 */
 export interface JunkItem {
   id: number;
+  /** 同名同大小的扩散附件，仅用于折叠展示。 */
+  copy_group?: string;
   name?: string;
   junk_kind?: string;
   why?: string;
@@ -24,6 +26,22 @@ export interface JunkItem {
   location?: string;
   cost?: string;
   [field: string]: unknown;
+}
+
+/** 每组保留原始文件行和顺序，逐文件处置继续使用各自 id。 */
+export function groupJunkCopies(items: readonly JunkItem[]): JunkItem[][] {
+  const groups: JunkItem[][] = [];
+  const copies = new Map<string, JunkItem[]>();
+  for (const item of items) {
+    const previous = item.copy_group ? copies.get(item.copy_group) : undefined;
+    if (previous) previous.push(item);
+    else {
+      const group = [item];
+      groups.push(group);
+      if (item.copy_group) copies.set(item.copy_group, group);
+    }
+  }
+  return groups;
 }
 
 /** `/api/ads` 的回话：`total` 是这一视图、这一类的条数，`all_total` 是这一视图各类合计，

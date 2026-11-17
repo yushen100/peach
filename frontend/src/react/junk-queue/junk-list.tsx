@@ -1,5 +1,6 @@
 /* 垃圾文件的列表版式：首页列表那一副（`../components/queue-table.tsx`），一行一条，列是文件、类型、判定理由、
  * 体积与那三颗键。点名字或缩略图同点卡片：视频与图片打开预览，别的同「查看位置」。 */
+import { Button } from '@/components/base/buttons/button';
 import { fmtSize } from '@peach/legacy/core';
 
 import { CardTags } from '../components/card-meta';
@@ -10,7 +11,9 @@ import { JunkActions, junkOpenable, junkPreview, junkReasons, useJunkActions } f
 import { junkKindMeta, type JunkItem, type JunkQueueActions, type JunkView } from './junk-queue';
 import { t } from '../../i18n';
 
-function JunkName({ item, view, actions }: { item: JunkItem; view: JunkView; actions: JunkQueueActions }) {
+type Copies = { count: number; bytes: number; expanded: boolean; toggle(): void };
+
+function JunkName({ item, view, actions, copies }: { item: JunkItem; view: JunkView; actions: JunkQueueActions; copies?: Copies }) {
   const state = useJunkActions(item, view, actions);
   const [, glyph] = junkKindMeta(item);
   const preview = junkPreview(item);
@@ -20,17 +23,25 @@ function JunkName({ item, view, actions }: { item: JunkItem; view: JunkView; act
     const row = document.querySelector<HTMLElement>(`[data-queue-table] [data-id="${item.id}"]`);
     if (row) actions.open(item, row);
   };
-  return <QueueIdentity name={name} onOpen={open}
-    picture={<QueuePicture src={preview} glyph={glyph} />} />;
+  return <div>
+    <QueueIdentity name={name} onOpen={open} picture={<QueuePicture src={preview} glyph={glyph} />} />
+    {copies ? <div className="flex flex-wrap items-center gap-2 text-caption-1-regular text-text-secondary">
+      <span>{t('cleanup:junk.copies', { count: copies.count, size: fmtSize(copies.bytes) })}</span>
+      <Button variant="ghost" size="small" onClick={(event) => { event.stopPropagation(); copies.toggle() }}>
+        {t(copies.expanded ? 'cleanup:junk.hideCopies' : 'cleanup:junk.showCopies')}
+      </Button>
+    </div> : null}
+  </div>;
 }
 
 function JunkRowActions({ item, view, actions }: { item: JunkItem; view: JunkView; actions: JunkQueueActions }) {
   return <JunkActions state={useJunkActions(item, view, actions)} compact />;
 }
 
-export function JunkList({ items, view, selected, selecting, actions, order }: {
+export function JunkList({ items, view, selected, selecting, actions, order, copies }: {
   items: readonly JunkItem[]; view: JunkView; selected: ReadonlySet<number>; selecting: boolean; actions: JunkQueueActions;
   order: ReturnType<typeof useQueueSort<JunkItem>>;
+  copies?: (item: JunkItem) => Copies | undefined;
 }) {
   return (
     <QueueTable table="junk-files" label={t('cleanup:junk.categories')} items={items} selected={selected} selecting={selecting}
@@ -39,7 +50,7 @@ export function JunkList({ items, view, selected, selecting, actions, order }: {
       onPick={(item) => actions.toggleSelection(item.id, false)}
       onPickAll={(on) => actions.selectAll(items.map((item) => item.id), on)}
       cells={{
-        name: (item) => <JunkName item={item} view={view} actions={actions} />,
+        name: (item) => <JunkName item={item} view={view} actions={actions} copies={copies?.(item)} />,
         library: (item) => <ListLibrary item={{ library_id: item.library_id }} />,
         kind: (item) => junkKindMeta(item)[0],
         why: (item) => {

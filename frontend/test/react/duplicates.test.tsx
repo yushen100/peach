@@ -148,6 +148,48 @@ it('批量保留最大先确认，弹层点名条数与字节数；确认后进�
   expect(sentBody(fetcher, batches.at(-1))).toEqual({ ids: [2, 4], operation: 'restore' });
 });
 
+it('逐文件选择只回收勾选的副本，并给出保留数及撤销', async () => {
+  const seen = confirmEverything();
+  const fetcher = fetchMock(200, { ok: true });
+  vi.stubGlobal('fetch', fetcher);
+  const { host, toast } = await open();
+  const selected = card(host, 'ABC-001');
+  const one = selected.querySelector<HTMLInputElement>('input[aria-label="选择回收 ABC-1.mp4"]')!;
+  const two = selected.querySelector<HTMLInputElement>('input[aria-label="选择回收 ABC-2.mp4"]')!;
+  expect(one.checked).toBe(false);
+  expect(two.checked).toBe(false);
+  await click(two);
+  await click(buttonNamed('回收所选 1 项', selected));
+  await settle();
+  expect(seen[0]!.body).toContain('其余 1 个文件保留');
+  expect(seen[0]!.holdToConfirm).toBe(true);
+  const batch = fetcher.mock.calls.findIndex((call) => call[0] === '/api/batch');
+  expect(sentBody(fetcher, batch)).toEqual({ ids: [2], operation: 'dispose', disposal_reason: 'duplicate' });
+  const { undo } = toast.mock.calls[0]![1] as { undo(): Promise<void> };
+  await undo();
+  const batches = fetcher.mock.calls.flatMap((call, index) => call[0] === '/api/batch' ? [sentBody(fetcher, index)] : []);
+  expect(batches.at(-1)).toEqual({ ids: [2], operation: 'restore' });
+});
+
+it('逐文件回收失败保留选择并显示错误', async () => {
+  vi.stubGlobal('fetch', fetchMock(500, { error: 'write failed' }));
+  const seen: Confirmation[] = [];
+  vi.spyOn(legacyUi, 'confirmModal').mockImplementation((async (options: Confirmation) => {
+    seen.push(options);
+    await Promise.resolve(options.onConfirm?.()).catch(() => {});
+    return { confirmed: false };
+  }) as typeof legacyUi.confirmModal);
+  const { host, toast } = await open();
+  const selected = card(host, 'ABC-001');
+  const two = selected.querySelector<HTMLInputElement>('input[aria-label="选择回收 ABC-2.mp4"]')!;
+  await click(two);
+  await click(buttonNamed('回收所选 1 项', selected));
+  await settle();
+  expect(two.checked).toBe(true);
+  expect(host.textContent).toContain('移入回收站失败');
+  expect(toast).not.toHaveBeenCalled();
+});
+
 it('一次最多 200 条，超过的分批发', async () => {
   confirmEverything();
   const fetcher = fetchMock(200, { ok: true });

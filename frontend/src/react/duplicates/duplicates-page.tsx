@@ -117,7 +117,10 @@ function evidenceFlag(group: DuplicateGroup) {
 }
 
 /** 一份副本。`prefix` 是组内共有的名字开头，显示时用「…」顶替，整名在 title 里。 */
-function FileRow({ file, prefix, openItem }: { file: DuplicateFile; prefix: string; openItem(id: number): void }) {
+function FileRow({ file, prefix, openItem, selected, onSelect }: {
+  file: DuplicateFile; prefix: string; openItem(id: number): void;
+  selected: boolean; onSelect?: (on: boolean) => void;
+}) {
   const open = () => openItem(file.id);
   const location = LOC[file.location] || file.location || file.drive;
   return (
@@ -131,6 +134,8 @@ function FileRow({ file, prefix, openItem }: { file: DuplicateFile; prefix: stri
           className="absolute inset-0 size-full object-contain" />
       </button>
       <span className="flex min-w-0 items-center gap-2 max-duplicate-narrow:col-start-2 max-duplicate-narrow:-col-end-1">
+        {onSelect ? <Checkbox slot={null} aria-label={t('cleanup:duplicates.selectFile', { name: file.name })}
+          isSelected={selected} onChange={onSelect} /> : null}
         <button type="button" onClick={open} title={file.name} data-middle-truncate data-middle-truncate-within
           className="min-w-0 shrink cursor-pointer truncate text-left text-body-regular hover:text-text-secondary">
           {distinctName(file.name, prefix)}
@@ -164,11 +169,13 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
   const sources = useQuery({ queryKey: MEDIA_SOURCES_KEY, queryFn: ({ signal }) => fetchMediaSources(signal) });
   const [pending, setPending] = useState('');
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
-  usePageSelection(() => setPicked(new Set()));
+  const [pickedFiles, setPickedFiles] = useState<ReadonlySet<number>>(new Set());
+  usePageSelection(() => { setPicked(new Set()); setPickedFiles(new Set()) });
   const host: BulkHost = { receipt: toast, failure: (cause) => failure(t('cleanup:duplicates.bulkFailed'), cause) };
   const dispose = useMutation({
     mutationFn: (ids: readonly number[]) => batchOperate(ids, 'dispose'),
     onSuccess: (_result, ids) => {
+      setPickedFiles((current) => new Set([...current].filter((id) => !ids.includes(id))));
       refresh();
       toast(t('cleanup:duplicates.movedToTrash', { count: ids.length }), {
         undo: async () => {
@@ -222,7 +229,7 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
   const keptCount = Number(duplicates.data?.kept ?? data.kept ?? 0);
   const configured = cloudLocations(sources.data);
   const chosen = groups.filter((group) => picked.has(groupKey(group)));
-  const switchView = (next: 'pending' | 'kept') => { setPicked(new Set()); setView(next) };
+  const switchView = (next: 'pending' | 'kept') => { setPicked(new Set()); setPickedFiles(new Set()); setView(next) };
   const toggle = (group: DuplicateGroup, on: boolean) => {
     if (on) enterPageSelection();
     setPicked((current) => {
@@ -248,6 +255,27 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
         + t('shell:bulkAction.canUndo'),
       confirmLabel: t('cleanup:duplicates.moveToTrash'),
       holdToConfirm: true,
+      onConfirm: () => { setPending(key); return dispose.mutateAsync(ids) },
+    });
+  };
+  const selectFile = (id: number, on: boolean) => {
+    if (on) enterPageSelection();
+    setPickedFiles((current) => {
+      const next = new Set(current);
+      if (on) next.add(id); else next.delete(id);
+      return next;
+    });
+  };
+  const runFiles = (group: DuplicateGroup, key: string) => {
+    if (pending) return;
+    const ids = group.files.filter((file) => pickedFiles.has(file.id)).map((file) => file.id);
+    if (!ids.length) return;
+    void confirmModal({
+      title: t('cleanup:duplicates.moveToTrash'),
+      body: t('cleanup:duplicates.selectedTrashBody', {
+        count: ids.length, remaining: group.files.length - ids.length, size: fmtSize(victimBytes([group], ids)),
+      }) + t('shell:bulkAction.canUndo'),
+      confirmLabel: t('cleanup:duplicates.moveToTrash'), holdToConfirm: true,
       onConfirm: () => { setPending(key); return dispose.mutateAsync(ids) },
     });
   };
@@ -351,6 +379,11 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
                       ? <Button variant="secondary" size="small" {...busy(key('unkeep'))}
                           onClick={() => keepOne(group, key('unkeep'), false)}>{t('cleanup:duplicates.unkeep')}</Button>
                       : <>
+                          <Button variant="danger" size="small" {...busy(key('files'))}
+                            disabled={pending !== '' || !group.files.some((file) => pickedFiles.has(file.id))}
+                            onClick={() => runFiles(group, key('files'))}>
+                            {t('cleanup:duplicates.trashSelectedFiles', { count: group.files.filter((file) => pickedFiles.has(file.id)).length })}
+                          </Button>
                           <Button variant="secondary" size="small" {...busy(key('largest'))}
                             onClick={() => run({ groups: one, keep: 'largest', key: key('largest') })}>{t('cleanup:duplicates.keepLargest')}</Button>
                           <Button variant="secondary" size="small" {...busy(key('longest'))}
@@ -368,7 +401,8 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
                         </>}
                   </span>
                 </div>
-                <div>{group.files.map((file) => <FileRow key={file.id} file={file} prefix={prefix} openItem={openItem} />)}</div>
+                <div>{group.files.map((file) => <FileRow key={file.id} file={file} prefix={prefix} openItem={openItem}
+                  selected={pickedFiles.has(file.id)} onSelect={keptView ? undefined : (on) => selectFile(file.id, on)} />)}</div>
               </section>
             );
           })

@@ -174,6 +174,34 @@ class ResourceJunkQueueTests(unittest.TestCase):
         finally:
             connection.close()
 
+    def test_software_packages_and_course_assets_stay_out_of_the_junk_queue(self):
+        next_id = 1
+        for release in ('ABC-001', 'ABC-002', 'ABC-003'):
+            for name in ('README.md', 'LICENSE-MIT.txt', 'package.json', 'gen-mapping.ts'):
+                self.add(next_id, 'local', rf'R:\games\{release}\node_modules\windows-1252\{name}', 'other')
+                next_id += 1
+            self.add(next_id, 'local', rf'R:\games\{release}\bin\runtime.dll', 'other')
+            next_id += 1
+        self.add(next_id, 'local', r'R:\courses\Enjoy App 其实也是很好的客户端\assets\001_audio.mp3', 'audio')
+        self.add(next_id + 1, 'local', r'R:\courses\Happy mapping\gen-mapping.ts', 'video', 1000, 10)
+        self.assertEqual(q_ads(self.contract)['items'], [])
+        checked = junk.isolate(self.db_path, asset_ids=list(range(1, next_id + 2)))
+        self.assertEqual(checked['isolated'], 0)
+
+    def test_repeated_attachments_keep_file_ids_and_offer_one_display_group(self):
+        for asset_id in (1, 2, 3):
+            self.add(asset_id, 'local', rf'R:\releases\ABC-00{asset_id}\attachment.pdf', 'other', 401006)
+        items = q_ads(self.contract)['items']
+        self.assertEqual({item['id'] for item in items}, {1, 2, 3})
+        self.assertEqual(len({item['copy_group'] for item in items}), 1)
+        self.assertEqual(sum(item['size'] for item in items), 1203018)
+
+    def test_app_boundaries_keep_advertising_and_transport_streams_readable(self):
+        self.add(1, 'local', r'R:\media\含羞草APP\❤含 羞 草❤.png', 'image')
+        self.add(2, 'local', r'R:\media\点击下载APP.ts', 'video', 1000, 10)
+        self.add(3, 'local', r'R:\media\Happy anniversary.ts', 'video', 1000, 10)
+        self.assertEqual({item['id'] for item in q_ads(self.contract)['items']}, {1, 2})
+
     def test_automatic_isolation_requires_a_scope_and_observes_source_and_directory_boundaries(self):
         for aid, location, folder in ((1, 'local', 'media'), (2, 'local', 'media2'), (3, '115', 'media')):
             self.add(aid, location, rf'R:\{folder}\点击进入.url', 'other')

@@ -61,7 +61,10 @@
     "unkeepBody": "将取消 {{count, number}} 组的都保留，这些组回到待处理，不改动任何文件。",
     "unkeptGroups": "已取消保留 {{count, number}} 组",
     "unkeptOne": "{{code}} 已回到待处理",
-    "viewKept": "已保留 {{count, number}} 组"
+    "viewKept": "已保留 {{count, number}} 组",
+    "selectFile": "选择回收 {{name}}",
+    "trashSelectedFiles": "回收所选 {{count, number}} 项",
+    "selectedTrashBody": "将所选 {{count, number}} 个文件移入回收站（共 {{size}}），其余 {{remaining, number}} 个文件保留。"
   },
   "junk": {
     "backToUndecided": "返回待判断",
@@ -92,7 +95,10 @@
     "undecided": "待判断",
     "unknownSize": "大小未知",
     "untitled": "未命名资源",
-    "viewUndecided": "查看待判断"
+    "viewUndecided": "查看待判断",
+    "copies": "同名同大小 {{count, number}} 份 · 共 {{size}}",
+    "showCopies": "展开副本",
+    "hideCopies": "收起副本"
   },
   "links": {
     "allReachable": "全部链接均可访问。",

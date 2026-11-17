@@ -130,7 +130,7 @@ def _windows_parent(text: str) -> PureWindowsPath:
 def _promo_directory_parts(parts: tuple[str, ...]) -> bool:
     """`_promo_directory` 按目录分量缓存：同一目录下的几百个文件判的是同一组分量。"""
     for text in parts:
-        if AD_DIR_APP.search(text) or AD_DIR_FORM.search(text):
+        if AD_DIR_FORM.search(text) or (AD_DIR_APP.search(text) and AD_BRAND.search(text)):
             return True
         if AD_BRAND.search(text) and AD_DIR_BRAND_MEDIA.search(text):
             return True
@@ -504,6 +504,17 @@ def _download_attachment_reasons(connection, rows) -> dict[int, tuple[str, bool]
     return reasons
 
 
+def _software_file(path: str) -> bool:
+    """包管理器内部文件、软件元数据和动态库不参与媒体垃圾判断。"""
+    item = _windows_path(path)
+    name = item.name.casefold()
+    return ('node_modules' in {part.casefold() for part in item.parts}
+            or name in {'package.json', 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml'}
+            or (item.suffix.casefold() in {'', '.txt', '.json', '.rst'}
+                and name.startswith(('readme', 'license', 'licence', 'notice')))
+            or item.suffix.casefold() in {'.md', '.dll'})
+
+
 def _repeated_copies(connection, *, roots=None) -> dict[tuple[str, int], int]:
     """同名同体积的小文件各出现在多少个发行包目录；只统计到达门槛的组合。
 
@@ -521,6 +532,8 @@ def _repeated_copies(connection, *, roots=None) -> dict[tuple[str, int], int]:
             "AND size>0 AND size<? AND path IS NOT NULL "
             "AND (COALESCE(medium,'other')<>'video' OR duration IS NULL OR duration<=1200)" + scope,
             (*SCANNABLE_LOCATIONS, JUNK_VIDEO_MAX_BYTES, *parameters)):
+        if _software_file(str(path)):
+            continue
         folder = str(path).rpartition("\\")[0]
         if folder not in releases:
             releases[folder] = bool(release_code_from_filename(folder.rpartition("\\")[2]))
@@ -651,6 +664,8 @@ def _scored_candidates(database, *, asset_ids, roots) -> tuple[list[dict], froze
     out = []
     for r in rows:
         d = dict(r)
+        if _software_file(d.get('path') or d.get('name') or ''):
+            continue
         s, why = 0, []
         name = d.get("name") or _windows_path(d.get("path") or "").name
         name_path = _windows_path(name)
@@ -741,6 +756,8 @@ def _scored_candidates(database, *, asset_ids, roots) -> tuple[list[dict], froze
         if review_only and s - review_only < AUTO_TRASH_SCORE:
             s = min(s, AUTO_TRASH_SCORE - 1)
         if s >= JUNK_REVIEW_SCORE:
+            if _repeated_copy_reason(d, copies):
+                d['copy_group'] = json.dumps([name.casefold(), int(d['size']), d['junk_kind']], ensure_ascii=False)
             d["score"] = s; d["why"] = " · ".join(why); d["why_parts"] = why_parts(why)
             out.append(d)
     out.sort(key=lambda x: (-x["score"], -(x["size"] or 0)))

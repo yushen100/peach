@@ -7,9 +7,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanJunkKind, junkCountSkeletonHtml, junkPath, junkRoute } from '../../src/junk-queue';
 import { JunkQueuePage } from '../../src/react/junk-queue/junk-queue-page';
 import {
-  junkQueryString, type JunkItem, type JunkPage, type JunkQueueActions, type JunkQueueProps,
+  groupJunkCopies, junkQueryString, type JunkItem, type JunkPage, type JunkQueueActions, type JunkQueueProps,
 } from '../../src/react/junk-queue/junk-queue';
 import { queryClient } from '../../src/react/query';
+import { setCatalogView } from '../../src/react/catalog-grid/catalog-view';
 import { click, fetchMock, mount, pending, settle } from './render';
 
 afterEach(() => { queryClient.clear() });
@@ -327,4 +328,27 @@ describe('一屏卡片', () => {
     expect(cards(host).map((card) => card.dataset.id)).toEqual(['2', '3']);
     expect(settled).toHaveBeenLastCalledWith(2);
   });
+});
+
+
+it('同名同大小的候选折叠成一组，未分组的文件各自保留', () => {
+  const items = [junk(1, { copy_group: 'same' }), junk(2, { copy_group: 'same' }), junk(3)];
+  expect(groupJunkCopies(items).map(group => group.map(item => item.id))).toEqual([[1, 2], [3]]);
+});
+
+it.each(['cards', 'list'])('%s 展开副本后逐份操作，处置只交给所点的那一份', async (view) => {
+  setCatalogView(view);
+  const items = [junk(1, { copy_group: 'same' }), junk(2, { copy_group: 'same' })];
+  vi.stubGlobal('fetch', fetchMock(200, answer(items)));
+  const operations = actions();
+  const { host } = await open(props({ actions: operations }));
+  const rows = view === 'list' ? '[data-catalog-row]' : '[data-junk-card]';
+  expect(host.querySelectorAll(rows)).toHaveLength(1);
+  expect(host.textContent).toContain('同名同大小 2 份');
+  await click([...host.querySelectorAll('button')].find(button => button.textContent === '展开副本'));
+  expect(host.querySelectorAll(rows)).toHaveLength(2);
+  const second = host.querySelector(`${rows}[data-id="2"]`)!;
+  await click(second.querySelector('[data-junk-action="dismiss-junk"]'));
+  expect(operations.operate).toHaveBeenCalledWith(items[1], 'dismiss-junk');
+  await act(async () => setCatalogView('cards'));
 });
