@@ -1742,6 +1742,9 @@
       "downloadFailed": "Couldn't get the text detection model: {{error}}",
       "checksumMismatch": "The text detection model failed verification: expected {{expected}}, got {{actual}}"
     },
+    "junkVisual": {
+      "ocrUnavailable": "Visual promotion analysis unavailable ({{reason}})"
+    },
     "previewCache": {
       "playlistNotFetched": "Playlist not found",
       "contentSteering": "Content Steering playlists aren't supported yet",
@@ -3462,6 +3465,7 @@
       "internetShortcut": "Internet shortcut",
       "pageArchive": "Saved web page",
       "wholeNamePromo": "The whole name is promo text",
+      "visualPromotion": "Promo signals in {{matched}}/{{total}} frames, wording in {{claims}} frames",
       "mostlyPromo": "Promo text makes up most of the name",
       "promoNeighbours": "{{count}} more promo names like it in this directory",
       "promoCreator": "The creator field is a promo site domain",

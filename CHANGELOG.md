@@ -16,6 +16,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Added / 新增
 
+- **Review**: Junk review combines video frames, promo text, QR codes, size and duration, with protection for advertising intros (#750). / **复核**：垃圾复核综合多帧画面、推广文字、二维码、大小和时长，保护带广告片头的视频（#750）。
 - **Library**: Table headers offer multi-select filters with search, pagination, select-all and exclusion controls (#744). / **馆藏**：列表列头支持搜索、多选、分页、全选与排除筛选（#744）。
 - **Interface**: Customize and reorder sorting options across library and discovery views, with release-date sorting on Home (#744). / **界面**：馆藏与发现页可自定义排序项及顺序，首页支持按发行时间排序（#744）。
 - **Library**: Delete profiles individually or in batches, with choices to keep works, move them to Trash or permanently delete their media (#738). / **馆藏**：资料页与名册多选支持删除档案，可选择保留作品、移入回收站或连同媒体永久删除（#738）。
@@ -91,6 +92,7 @@ Entries are written for users to scan: one sentence each, saying where something
 ### Fixed / 修复
 - **Settings**: When the data folder can't be written to, diagnostics no longer resend the same error every time it happens (#331). / **配置**：数据目录写不进去时，错误诊断不再在每次发生时重复上传同一个错误（#331）。
 
+- **Interface**: Table filters gray out offline libraries and show standard loading feedback at the bottom while fetching options (#751). / **界面**：表格筛选中的离线媒体库置灰，下拉读取与续页时在列表底部显示标准加载态（#751）。
 - **Interface**: Multi-select action bars stay above the sidebar and page content (#690). / **界面**：多选操作浮条置于侧栏和页面内容上方（#690）。
 - **Interface**: The userscript's floating panel keeps its position and appearance on pages with sidebar styles (peach-mitao/peach-userscript#41). / **界面**：网页的侧栏样式不再挤压用户脚本的悬浮面板（peach-mitao/peach-userscript#41）。
 
@@ -220,7 +222,6 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Fixed / 修复
 
-- **Interface**: Table filters gray out offline libraries and show standard loading feedback at the bottom while fetching options (#751). / **界面**：表格筛选中的离线媒体库置灰，下拉读取与续页时在列表底部显示标准加载态（#751）。
 - **Sourcing**: Wants distinguishes source failures from empty results, reads JavDB pages when its API requires login and restores confirmed resources (#717). / **采集**：想要区分来源失败与正常空结果，JavDB 接口要求登录时读取作品页，并恢复已确证资源的误放弃状态（#717）。
 - **Following**: Leaving Home unmounts its new-release row and prevents late requests from showing it on other pages (#744). / **关注**：离开首页时卸载新作行，迟到请求不会再将它显示到其他页面（#744）。
 - **Desktop**: On macOS, opening Peach while it is running opens the web UI, so you can get in even when the system hides the menu bar icon. / **桌面**：macOS 上 Peach 已在运行时再点开应用会打开网页，菜单栏图标被系统折叠时也能进入。

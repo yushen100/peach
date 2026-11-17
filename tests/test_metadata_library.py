@@ -39,6 +39,10 @@ def setUpModule():
     reserve = without_capacity_reserve()
     reserve.start()
     unittest.addModuleCleanup(reserve.stop)
+    # 本模块隔离系统 OCR；逐帧判定与后台接线由 test_junk_visual 覆盖。
+    reader = patch('peach.image_ocr.ImageReader.read', return_value=[''] * 9)
+    reader.start()
+    unittest.addModuleCleanup(reader.stop)
 
 
 def stub_provider():

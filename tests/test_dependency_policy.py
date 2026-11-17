@@ -176,6 +176,8 @@ class DependencyPolicyTests(unittest.TestCase):
 
     def test_python_dependencies_are_exactly_pinned(self):
         declared = list(self.pyproject["project"]["dependencies"])
+        ocr = tomllib.loads((ROOT / 'resources/ocr/environment/pyproject.toml').read_text(encoding='utf-8'))
+        declared.extend(ocr['project']['dependencies'])
         for values in self.pyproject["project"]["optional-dependencies"].values():
             declared.extend(values)
         self.assertTrue(declared)
@@ -190,6 +192,7 @@ class DependencyPolicyTests(unittest.TestCase):
             "tldextract": "tldextract",
             "AppKit": "pyobjc-framework-Cocoa",
             "Foundation": "pyobjc-framework-Cocoa",
+            "Vision": "pyobjc-framework-Vision",
             "PIL": "pillow",
             "PyObjCTools": "pyobjc-framework-Cocoa",
             "apscheduler": "APScheduler",
@@ -254,6 +257,18 @@ class DependencyPolicyTests(unittest.TestCase):
             {owner.casefold() for module, owner in owners.items() if module in external} - names,
             set(),
         )
+
+    def test_ocr_environment_has_isolated_dependencies_and_a_takeover_recipe(self):
+        root = ROOT / 'resources/ocr/environment'
+        manifest = tomllib.loads((root / 'pyproject.toml').read_text(encoding='utf-8'))
+        self.assertEqual(manifest['project']['requires-python'], '>=3.14,<3.15')
+        requirements = manifest['project']['dependencies']
+        self.assertEqual({item.split('==')[0] for item in requirements},
+                         {'rapidocr', 'onnxruntime', 'opencv-python-headless', 'numpy'})
+        key, recipe = adopt.recipe_for(['resources/ocr/environment/uv.lock'])
+        self.assertEqual(key, 'ocr')
+        self.assertEqual(recipe['checks'],
+                         (('uv', 'lock', '--project', 'resources/ocr/environment', '--check'),))
 
     def test_frontend_manifest_is_exact_and_matches_vendored_paths(self):
         manifest = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))
