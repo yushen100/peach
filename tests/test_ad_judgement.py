@@ -626,6 +626,40 @@ class ResourceJunkQueueTests(unittest.TestCase):
         self.assertEqual(junk._promo_name_reason('.rar', path, 128 * 1024), '')
         self.assertEqual(junk._promo_name_reason('.rar', r'B:\MVP\n1025.rar', 4111), '')
 
+    def test_creator_folder_promotional_video_names_enter_review(self):
+        names = (
+            '美女荷官在线发牌_vip5678.mp4',
+            '激情隨時看.mp4',
+            'N房间的精彩直播 只有你想不到的刺激.mp4',
+        )
+        for asset_id, name in enumerate(names, 1):
+            self.add(asset_id, '115', rf'B:\创作者\示例作者\作品\{name}', 'video',
+                     8 * 1024**2, 90, creator='示例作者')
+
+        items = q_ads(self.contract, limit=200)['items']
+        self.assertEqual({item['id'] for item in items}, {1, 2, 3})
+        for item in items:
+            self.assertGreaterEqual(item['score'], junk.JUNK_REVIEW_SCORE)
+            self.assertLess(item['score'], junk.AUTO_TRASH_SCORE)
+            self.assertIn('推广视频的固定命名', item['why'])
+        checked = junk.isolate(self.db_path, asset_ids=[1, 2, 3])
+        self.assertEqual((checked['isolated'], checked['review']), (0, 3))
+
+        w_batch(self.contract, {'ids': [1], 'operation': 'dismiss-junk'})
+        self.assertEqual({item['id'] for item in q_ads(self.contract)['items']}, {2, 3})
+        w_batch(self.contract, {'ids': [1], 'operation': 'reconsider-junk'})
+        self.assertEqual({item['id'] for item in q_ads(self.contract)['items']}, {1, 2, 3})
+
+    def test_creator_video_promo_names_require_matching_name_and_small_size(self):
+        for asset_id, name, size in (
+            (1, '美女荷官剧情片.mp4', 8 * 1024**2),
+            (2, '6月28日(1).mov', 12 * 1024**2),
+            (3, '美女荷官在线发牌_vip5678.mp4', 32 * 1024**2 + 1),
+        ):
+            self.add(asset_id, '115', rf'B:\创作者\示例作者\作品\{name}', 'video',
+                     size, 90, creator='示例作者')
+        self.assertEqual(q_ads(self.contract)['items'], [])
+
     def test_promotional_page_navigation_images_with_inherited_release_code(self):
         base = r'B:\MVP\1pon-092415_001-fhd'
         page = base + r'\花一分钟记住我们的网址 - sex5.xxx_files'

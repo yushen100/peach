@@ -12,7 +12,7 @@ from unittest.mock import patch
 import io
 import zipfile
 
-from peach import avatar_watermark, body_parts, face_detect, face_match, face_models, spine_label, update_packages
+from peach import avatar_watermark, body_parts, face_detect, face_match, face_models, image_ocr, spine_label, update_packages
 from support.outcomes import told
 from scripts import fetch_face_models
 from scripts.package_windows_release import package as package_release
@@ -102,8 +102,11 @@ class DockerImageTests(unittest.TestCase):
         added = {Path(target).name: (url, digest) for digest, url, target in re.findall(
             r"ADD --chmod=a\+rX --checksum=sha256:([0-9a-f]{64}) \\\n\s+(\S+) \\\n\s+(/app/tools/face-models/\S+)",
             dockerfile)}
-        self.assertEqual(added, {name: (url, digest) for name, url, digest, *member in fetch_face_models.FILES
-                                 if not member})
+        # 镜像同时携带共享视觉模型与 Linux OCR 模型，各按运行时登记的地址和哈希核对。
+        expected = {name: (url, digest) for name, url, digest, *member in fetch_face_models.FILES if not member}
+        expected.update({Path(relative).name: (image_ocr.MODEL_ROOT + relative, digest)
+                         for _, relative, digest in image_ocr.MODEL_SPECS})
+        self.assertEqual(added, expected)
         # 从 wheel 里解出的那几个：镜像只取脚本钉的那一个 wheel，解出的文件与成员和 `FILES` 一一对应。
         wheels = re.findall(r"ADD --checksum=sha256:[0-9a-f]{64} \\\n\s+(\S+) \\\n\s+/tmp/\S+\.whl", dockerfile)
         self.assertEqual(wheels, [fetch_face_models.WHEEL])

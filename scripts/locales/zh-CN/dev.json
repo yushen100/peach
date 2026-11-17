@@ -1847,6 +1847,7 @@
     "description": "取 YuNet 与 SFace 两个人脸模型及其许可证，逐个校验 SHA-256 后放进发行包的模型目录。\n\nWindows 构建放进程序目录的 `tools/face-models`，macOS 放 `Peach.app/Contents/Resources/tools/face-models`，\n运行时由 `peach.face_detect.bundled_model` 认这一份；Docker 镜像在 Dockerfile 里按同一组地址与哈希取。\n下载先落到缓存目录，缓存里哈希对得上的文件不再联网。\n"
   },
   "adopt_dependency_bump": {
+    "ocrRuntime": "OCR 独立 Python 依赖",
     "stepPreflight": "提交后预检（工作树根目录，PowerShell 7）：{{command}}",
     "stepTest": "测试：{{command}}",
     "stepDeliver": "交付：推送工作者分支并创建交付 PR，核对当前提交的 CI；ready 后由协调者 integrate",

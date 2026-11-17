@@ -1742,6 +1742,9 @@
       "downloadFailed": "取文字检测模型失败：{{error}}",
       "checksumMismatch": "文字检测模型校验不符：期望 {{expected}}，实际 {{actual}}"
     },
+    "junkVisual": {
+      "ocrUnavailable": "画面推广识别未取得结果（{{reason}}）"
+    },
     "previewCache": {
       "playlistNotFetched": "播放列表未取得",
       "contentSteering": "暂不支持 Content Steering 播放列表",
@@ -3462,6 +3465,7 @@
       "internetShortcut": "网址快捷方式",
       "pageArchive": "网页存档",
       "wholeNamePromo": "整个名字都是推广语",
+      "visualPromotion": "{{total}} 帧中 {{matched}} 帧含推广线索，{{claims}} 帧含推广用语",
       "mostlyPromo": "推广语占了名字主体",
       "promoNeighbours": "同目录另有 {{count}} 个同类推广名",
       "promoCreator": "创作者位是推广站域名",

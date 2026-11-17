@@ -173,8 +173,9 @@ def _junk_scope(kind, status) -> tuple[str, str]:
 
 def _junk_queues(contract: WebContract) -> tuple[list[dict], list[dict]]:
     """评分缓存拆成待判断与已排除两份，顺序同页面。"""
+    from . import junk_visual
     out, dismissed_ids = contract.cached_until_changed(
-        "junk-scored", lambda: _scored_junk(contract), tables=JUNK_SCORE_TABLES)
+        "junk-scored", lambda: _scored_junk(contract), junk_visual.version(contract), tables=JUNK_SCORE_TABLES)
     return ([item for item in out if item["id"] not in dismissed_ids],
             [item for item in out if item["id"] in dismissed_ids])
 
