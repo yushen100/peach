@@ -19,13 +19,14 @@ import { MENU_POPOVER_SURFACE } from '@/components/base/dropdown/menu-styles';
 import { Glyph } from './glyph';
 import { t } from '../../i18n';
 
-export function NamePicker({ current, choices, onChoose, onAddAlias, onMerge, onDelete }: {
+export function NamePicker({ current, choices, onChoose, onAddAlias, onMerge, onDelete, onContribute }: {
   current: string;
   choices: { value: string; label: string }[];
   onChoose(name: string): void;
   onAddAlias(): void;
   onMerge?: () => void;
   onDelete?: () => void;
+  onContribute?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const toggle = useRef<HTMLButtonElement>(null);
@@ -59,6 +60,8 @@ export function NamePicker({ current, choices, onChoose, onAddAlias, onMerge, on
             </MenuSection>
             <Separator data-namepick-rule="" />
             <MenuSection>
+              {onContribute ? <MenuItem id="contribute-name" textValue={t('catalog:seedName.title')}
+                onAction={onContribute}><Glyph name="globe" /><span>{t('catalog:seedName.title')}</span></MenuItem> : null}
               <MenuItem id="alias" textValue={t('catalog:namePicker.addAlias')} data-namepick-alias="" onAction={onAddAlias}>
                 <Glyph name="plus" /><span>{t('catalog:namePicker.addAliasMenu')}</span>
               </MenuItem>

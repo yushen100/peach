@@ -1,4 +1,24 @@
 {
+  "seedName": {
+    "title": "Contribute a Chinese name",
+    "save": "Submit suggestion",
+    "description": "Fields marked * are required.",
+    "original": "Japanese stage name from the source",
+    "originalPlaceholder": "Select a Japanese stage name",
+    "originalRequired": "Select a Japanese stage name.",
+    "identity": "View public performer IDs",
+    "chinese": "Chinese name",
+    "nameRequired": "Enter a Chinese name.",
+    "nameInvalid": "Enter a Chinese name using Chinese characters.",
+    "traditional": "This is Traditional Chinese",
+    "evidence": "Public reference link (optional)",
+    "evidenceHelp": "If you have a source, link to a public page that connects both names.",
+    "evidenceInvalid": "Enter a valid HTTPS link.",
+    "noIdentity": "No verifiable source ID and original stage name yet. Complete the performer profile before contributing.",
+    "loading": "Reading performer identity…",
+    "delivery": "Suggestions are saved locally. Enable public metadata contributions to send them for review with the weekly snapshot.",
+    "saved": "Chinese name candidate saved. Check public metadata contributions for sharing and adoption details."
+  },
   "avatarPicker": {
     "backToChoices": "Back to options",
     "baseImage": "Base image",

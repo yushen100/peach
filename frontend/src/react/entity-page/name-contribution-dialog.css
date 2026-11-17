@@ -1,0 +1,9 @@
+[data-seed-name-stage-field] [data-invalid] > button {
+  background-color: var(--color-background-tertiary-error);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-seed-name-stage-field] [data-invalid] > button {
+    animation: field-shake var(--board-motion);
+  }
+}

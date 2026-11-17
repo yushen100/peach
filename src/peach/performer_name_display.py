@@ -34,9 +34,10 @@ def writing(canonical: str, page: dict, source_url: str) -> dict:
     original = list(dict.fromkeys(
         name for name in [page["name"], *(entry["name"] for entry in page["aliases"])] if name))
     key = _key(canonical)
-    for zh, ja in _REVIEWED_WRITINGS:
+    for zh, ja in (*page.get('seed_writings', ()), *_REVIEWED_WRITINGS):
         if key in {_key(zh), _key(ja)} and ja in original:
-            return {"zh_cn": zh, "ja": ja, "source": source_url, "basis": "reviewed-writing"}
+            return {"zh_cn": zh, "ja": ja, "source": page.get('seed_evidence', {}).get((zh, ja), source_url),
+                    "basis": "reviewed-writing"}
     matches = [name for name in original if _key(name) == key]
     # 多个原文写法折为相同字形时，只有主名确定属于当前艺名才选主名。
     ja = page["name"] if page["name"] in matches else matches[0] if len(matches) == 1 else None
@@ -48,7 +49,7 @@ def writing(canonical: str, page: dict, source_url: str) -> dict:
 
 def _stage_key(name: str, page: dict) -> str:
     originals = {page["name"], *(entry["name"] for entry in page["aliases"])}
-    for zh, ja in _REVIEWED_WRITINGS:
+    for zh, ja in (*page.get('seed_writings', ()), *_REVIEWED_WRITINGS):
         if ja in originals and _key(name) in {_key(zh), _key(ja)}:
             return _key(zh)
     return _key(name)
@@ -155,6 +156,9 @@ def display(connection, entity_id: int, canonical: str, aliases: list[dict], gro
     """名称菜单与别名行共享语言投影；原始别名和可选名称的值不改写。"""
     profile = read_profile(connection, entity_id)
     page = page_names(profile)
+    from .seed_catalog import performer_pairs
+    page['seed_writings'] = performer_pairs(connection, entity_id)
+    page['seed_evidence'] = page['seed_writings']
     source_url = (profile or {}).get("source_url", "")
     # 同一写法另有来源时 `aliases` 只带其中一行的来源，用户添的那几条直接按来源查。
     manual = list(dict.fromkeys([
@@ -211,7 +215,11 @@ def variants(connection) -> list[dict]:
             continue
         profile = profiles.get(person["id"], {})
         raw = json.loads(profile.get("raw_json") or "{}")
-        names = writing(person["canonical_name"], page_names({"raw": raw}), profile.get("source_url", ""))
+        from .seed_catalog import performer_pairs
+        page = page_names({'raw': raw})
+        page['seed_writings'] = performer_pairs(connection, person['id'])
+        page['seed_evidence'] = page['seed_writings']
+        names = writing(person["canonical_name"], page, profile.get("source_url", ""))
         romaji = _romaji_names(connection, person["id"], person["canonical_name"], profile)
         result.append({"id": person["id"], "kind": person["kind"],
                        "canonical_name": person["canonical_name"], "en": romaji[0] if romaji else None,

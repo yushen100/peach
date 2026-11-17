@@ -121,6 +121,7 @@ export interface EntityHeroActions {
   chooseName(name: string): void;
   /** 打开「添加别名」弹层。 */
   addAlias(): void;
+  contributeName?: () => void;
   /** 打开「合并重复档案」弹层；这一类不能合并时不给（菜单里就没有这一项）。 */
   mergeDuplicate?: () => void;
   /** 确认后删除当前档案并返回名册。 */

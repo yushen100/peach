@@ -40,6 +40,7 @@ import {
   type EntityPageData, type EntityPageProps, type PhotoPage,
 } from './entity-page';
 import { MergeDialog } from './merge-dialog';
+import { NameContributionDialog } from './name-contribution-dialog';
 import { useEntityOnline } from './use-entity-online';
 import { PENDING_REFETCH_MS, usePendingWorkRefetch } from '../components/pending-work';
 import { pollUntil } from '../../polling';
@@ -267,6 +268,7 @@ function EntityLoaded(props: EntityPageProps & { entity: EntityPageData }) {
   });
 
   const [merging, setMerging] = useState(false);
+  const [contributingName, setContributingName] = useState(false);
   /* 合并成了：回执，再打开保留的那一份（当前页可能就是被并掉的那份）。 */
   const merged = useCallback((done: EntityMergeResult) => {
     helpers.receipt(t('shell:entityMerge.done', { source: done.source.canonical_name, target: done.target.canonical_name }));
@@ -275,6 +277,7 @@ function EntityLoaded(props: EntityPageProps & { entity: EntityPageData }) {
   }, [actions, helpers, kind, refreshEntity]);
   const heroActions = useMemo<EntityHeroActions>(() => ({
     openEntity: actions.openEntity,
+    ...(kind === 'performer' ? { contributeName: () => setContributingName(true) } : {}),
     /* 换统称要重写整条实体的扁平投影，先把代价说清再问。确认键、标题和成功回执共用「更改统称」这一个
        动词；写入失败时弹层留在原地，原因写在正文下方等重试。地址换成新名字，由壳重进这一页。 */
     chooseName: (chosen) => {
@@ -494,6 +497,8 @@ function EntityLoaded(props: EntityPageProps & { entity: EntityPageData }) {
         feedError={!feed.data && feed.isError ? errorMessage(feed.error) : undefined} retryFeed={() => { void feed.refetch() }}
         feedHost={entityId && feedRows ? hosts.feed : null} jav={javPage} actions={heroActions} helpers={heroHelpers} />
       {merging && entityId ? <MergeDialog kind={kind} currentId={Number(entityId)} close={() => setMerging(false)} onMerged={merged} /> : null}
+      {contributingName && entityId ? <NameContributionDialog entityId={Number(entityId)} close={() => setContributingName(false)}
+        saved={() => helpers.receipt(t('catalog:seedName.saved'))} /> : null}
       {createPortal(
         <EntityFilterPage kind={kind} name={name} view={view} views={views} state={filters.state || ''}
           states={props.states} tags={tags} combo={combo} readout={readout} busy={busy}

@@ -988,6 +988,10 @@ def resolve_genre(raw: object,
         return None
     if decisions and key in decisions:
         return decisions[key]
+    from .seed_catalog import indexes
+    published = indexes()[2]
+    if key in published:
+        return published[key]
     if is_non_content_genre(key):
         return None
     return _CONTENT_INDEX.get(key, UNMAPPED)

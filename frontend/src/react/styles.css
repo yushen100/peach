@@ -21,6 +21,7 @@
 @import "./components/surface-motion.css";
 @import "./junk-queue/junk-queue.css";
 @import "./entity-hero/entity-hero.css";
+@import "./entity-page/name-contribution-dialog.css";
 @import "./entity-filter/entity-filter.css";
 @import "./catalog-filter/catalog-filter.css";
 @import "./catalog-folders/catalog-folders.css";

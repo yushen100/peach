@@ -765,6 +765,8 @@ def create_app(
     from .library_sharing import Service as LibrarySharing
     from . import settings_file
     sharing = LibrarySharing(settings_file.active(), contract)
+    from .seed_sharing import Service as SeedSharing
+    seed_sharing = SeedSharing(settings_file.active(), contract)
     from .automatic_updates import AutomaticUpdates
     from .routes_configuration import managed_configuration
     automatic_updates = AutomaticUpdates(
@@ -799,7 +801,7 @@ def create_app(
         # 握手要等 cloudflared 连上边缘，断网时会等满 `wait_timeout`；放在后台，本机访问
         # 不等公网入口。连接进度由 `tunnel_manager.snapshot()` 报告。
         tunnel_startup = asyncio.create_task(asyncio.to_thread(_start_tunnel, settings, tunnel_manager))
-        services = (follow_scheduler, feed_scheduler, push_discovery, downloads, recovery_service, jav_browser, upgrade_repairs,
+        services = (seed_sharing, follow_scheduler, feed_scheduler, push_discovery, downloads, recovery_service, jav_browser, upgrade_repairs,
                     follow_backfill, _app.state.cover_repair)
         activation = _LedgerActivation(_app, settings, contract, services, automatic_updates, sharing)
         _app.state.ledger_activation = activation
@@ -835,6 +837,7 @@ def create_app(
             await asyncio.to_thread(upgrade_repairs.stop)
             await asyncio.to_thread(follow_backfill.stop)
             await asyncio.to_thread(sharing.stop)
+            await asyncio.to_thread(seed_sharing.stop)
             push_discovery.stop()
             await asyncio.to_thread(jav_browser.stop)
             downloads.stop()
@@ -872,6 +875,7 @@ def create_app(
     app.state.ledger_migration = LedgerMigration()
     app.state.web_contract = contract
     app.state.library_sharing = sharing
+    app.state.seed_sharing = seed_sharing
     app.state.repository = repository
     app.state.media_engine = media_engine
     app.state.preview_service = preview_service

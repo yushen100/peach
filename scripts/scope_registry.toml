@@ -67,7 +67,7 @@ metadata = [
     "test_maker_directory_harvest.py", "test_studio_name_variant_merge.py", "test_javdb_cn_names.py",
     "test_link_rediscovery.py", "test_link_label_owner.py", "test_link_repair.py",
     "test_resource_identification.py", "test_agency_entity.py", "test_agency_reject.py",
-    "test_label_maker.py", "test_seed_pack.py", "test_seed_followup.py", "test_seed_corrections.py",
+    "test_label_maker.py", "test_seed_pack.py", "test_seed_followup.py", "test_seed_corrections.py", "test_seed_contributions.py",
 ]
 tooling = [
     "test_scripts.py", "test_trash_junk.py", "test_auth.py", "test_access.py", "test_cli.py",
@@ -256,6 +256,14 @@ follow = [
 "src/peach/seed_pack.py" = ["metadata", "tooling"]
 "scripts/seed_pack.py" = ["metadata", "tooling"]
 "src/peach/seed_followup.py" = ["metadata", "tooling"]
+"src/peach/seed_contributions.py" = ["metadata", "tooling"]
+"src/peach/seed_observations.py" = ["metadata", "tooling"]
+"src/peach/seed_sharing.py" = ["metadata", "tooling", "web"]
+"src/peach/seed_catalog.py" = ["metadata", "tooling", "packaging"]
+"src/peach/seed_name_proposals.py" = ["metadata", "web"]
+"src/peach/seed_contribution_archive.py" = ["metadata", "tooling"]
+"scripts/seed_contributions.py" = ["metadata", "tooling"]
+"resources/seed/metadata.json" = ["metadata", "tooling", "packaging"]
 # 推广附件命名词库：垃圾复核队列（`test_ad_judgement.py`）与回收站脚本（`test_trash_junk.py`）都读它。
 "resources/junk/promo_attachment_names.json" = ["catalog", "tooling"]
 "src/peach/junk_visual.py" = ["catalog", "media", "metadata"]

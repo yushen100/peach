@@ -16,6 +16,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Added / 新增
 
+- **Metadata**: Opt in to public metadata contributions and suggest Chinese performer names with evidence for reviewed seed packs (#768). / **资料**：可预览并自愿贡献公开元信息，提交有依据的女优中文名，经复核后随种子分发（#768）。
 - **Review**: Select individual duplicate files for Trash, confirm the remaining count, and undo the selected disposal (#739). / **复核**：重复文件可逐份勾选回收，确认时显示保留数，处置后可撤销（#739）。
 - **Review**: Junk files with the same name and size collapse into expandable groups while retaining individual actions (#719). / **复核**：垃圾队列将同名同大小的候选折叠展示，展开后可逐份处理（#719）。
 - **Interface**: Searchable column filters extend to subscriptions, aliases, cleanup, review and diagnostics tables, with rating and resolution filters in Library (#754). / **界面**：订阅、别名、清理、复核和诊断表格补齐列头筛选，馆藏新增评分与分辨率筛选（#754）。

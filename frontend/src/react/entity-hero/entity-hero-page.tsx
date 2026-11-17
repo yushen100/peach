@@ -87,7 +87,7 @@ export function EntityHeroPage({ kind, name, entity, feedNew, feedHost, feedErro
               <h2 lang={textLang(displayName)}>{displayName}</h2>
               {kind !== 'tag' ? <NamePicker current={entity.canonical_name} choices={nameChoices(entity, nameScript())}
                 onChoose={actions.chooseName} onAddAlias={actions.addAlias} onMerge={actions.mergeDuplicate}
-                onDelete={actions.deleteProfile} /> : null}
+                onDelete={actions.deleteProfile} onContribute={actions.contributeName} /> : null}
               {entity.id ? <FavoriteButton item={{ entity_id: Number(entity.id), kind, name: entity.canonical_name || name, favorite: entity.favorite }} /> : null}
             </div>
             <PendingWork work={entity.pending_work} />
