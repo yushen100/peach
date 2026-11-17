@@ -8,7 +8,7 @@ import { MEDIA_SOURCE_ICONS } from '../../src/ui-kit/media-source-icons';
 import { MediaSettings } from '../../src/react/settings/media-settings';
 import { MEDIA_PROCESSING_KEY } from '../../src/react/settings-panel/settings-data';
 import { queryClient } from '../../src/react/query';
-import { hold, buttonNamed, choose, click, fetchMock, mount, section, sentBody, settle, submit, type } from './render';
+import { buttonNamed, choose, click, fetchMock, mount, section, sentBody, settle, submit, type } from './render';
 
 vi.mock('../../src/react/settings/service-preferences', () => ({ VideoThumbnailRow: () => null }));
 vi.mock('../../src/react/settings/cloud-proxy-settings', () => ({ CloudProxySettings: () => null }));
@@ -297,7 +297,7 @@ describe('媒体目录', () => {
     expect(document.activeElement).toBe(paths(host)[1]);
     const removes = host.querySelectorAll('[aria-label="移除这个文件夹"]');
     expect(removes).toHaveLength(2);
-    await hold(removes[0]);
+    await click(removes[0]);
     expect(paths(host).map((input) => input.value)).toEqual(['']);
   });
 });

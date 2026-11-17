@@ -123,7 +123,7 @@ describe('标签身份', () => {
     await click(host.querySelector('[data-item-edit-open]'));
     const dialog = document.querySelector<HTMLDialogElement>('dialog[data-item-edit-dialog]')!;
     expect(dialog.open).toBe(true);
-    await hold(dialog.querySelector('[data-item-edit] [data-remove-tag="剧情"]'));
+    await click(dialog.querySelector('[data-item-edit] [data-remove-tag="剧情"]'));
     await click(dialog.querySelector('#tagPlus'));
     await type(dialog.querySelector('#tagPickSearch') as HTMLInputElement, '新标签');
     await act(async () => { dialog.querySelector('#tagPickSearch')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })) });

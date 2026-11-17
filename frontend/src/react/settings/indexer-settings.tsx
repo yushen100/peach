@@ -3,7 +3,6 @@ import { useEffect, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/base/buttons/button';
-import { HoldButton } from '../components/hold-button';
 import { Checkbox } from '@/components/base/checkbox/checkbox';
 import { Input } from '@/components/base/input/input';
 import { apiGet, apiSend, errorMessage } from '../../api';
@@ -86,9 +85,9 @@ function IndexerForm({ initial, receipt }: { initial: State; receipt(message: st
                     isDisabled={Boolean(action.busy)} onChange={(clear_api_key) => update(row.key, { clear_api_key })}>
                     {t('settings:indexers.clearApiKey')}
                   </Checkbox> : null}
-                  <HoldButton variant="danger" type="button" size="small" disabled={Boolean(action.busy)}
+                  <Button variant="danger" type="button" size="small" disabled={Boolean(action.busy)}
                     aria-label={t('settings:indexers.removeLabel', { index: index + 1 })}
-                    onClick={() => setRows(rows.filter((item) => item.key !== row.key))}>{t('settings:shared.remove')}</HoldButton>
+                    onClick={() => setRows(rows.filter((item) => item.key !== row.key))}>{t('settings:shared.remove')}</Button>
                 </div>
               </div>
             </Disclosure>

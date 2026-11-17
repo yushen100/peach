@@ -9,7 +9,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { queryClient } from '../../src/react/query';
 import { WANT_PAGE_SIZE, WantList } from '../../src/react/wants/want-list';
 import { recordWantMagnets, WANTS_KEY, type Want, type WantsData } from '../../src/react/wants/wants';
-import { actionOrder, buttonNamed, choose, click, hold, mount, settle, type } from './render';
+import { actionOrder, buttonNamed, choose, click, mount, settle, type } from './render';
 
 afterEach(() => { queryClient.clear(); localStorage.clear() });
 notifyManager.setScheduler((notify) => notify());
@@ -79,7 +79,7 @@ it('按待找、未发售、暂时放弃、已入库分段，段名带条数；�
   expect(buttonNamed('重新查找', host.querySelector('[data-want-id="3"]')!)).not.toBeNull();
   expect(buttonNamed('重新查找', host.querySelector('[data-want-id="2"]')!)).toBeNull();
   expect(actionOrder(buttonNamed('重新查找', host.querySelector('[data-want-id="3"]')!)!.parentElement))
-    .toEqual(['JavDB', '重新查找', '查找资源', '按住移除']);
+    .toEqual(['JavDB', '重新查找', '查找资源', '移除']);
 });
 
 it('资源查询取得磁链后清除卡片上旧的未命中提示，历史查找记录保持可读', async () => {
@@ -197,9 +197,7 @@ it('移除与重新查找按这一条的 id 发', async () => {
   const row = () => host.querySelector('[data-want-id="3"]')!;
   await click(buttonNamed('重新查找', row()));
   await settle();
-  await click(buttonNamed('按住移除', row()));
-  expect(posts(fetcher)).toHaveLength(1);
-  await hold(buttonNamed('按住移除', row()));
+  await click(buttonNamed('移除', row()));
   await settle();
   expect(posts(fetcher)).toEqual([
     ['/api/wants', { action: 'reset', ids: [3] }], ['/api/wants', { action: 'remove', ids: [3] }],
@@ -212,7 +210,7 @@ it('只读的机器：输入框、添加与每行的键都禁用', async () => {
   const { host } = await open(true);
   expect(host.querySelector<HTMLInputElement>('input[aria-label="番号"]')!.disabled).toBe(true);
   expect(buttonNamed('添加', host)!.disabled).toBe(true);
-  expect(buttonNamed('按住移除', host)!.disabled).toBe(true);
+  expect(buttonNamed('移除', host)!.disabled).toBe(true);
   expect(buttonNamed('查找资源', host)!.disabled).toBe(false);
 });
 

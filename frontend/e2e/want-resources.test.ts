@@ -50,9 +50,9 @@ describe('JAV 入库作品卡', () => {
         assert.equal(await page.locator('#stats').getByRole('button', { name: '查找资源', exact: true }).count(), 2, '通用入口与作品入口分别保留一处');
         assert.equal(await page.getByRole('combobox', { name: '下载到', exact: true }).count(), 0, '下载目标在资源下载面板中选择');
         const source = card.getByRole('link', { name: 'JavDB', exact: true });
-        assert.deepEqual(await source.evaluate(node => [...node.parentElement!.querySelectorAll('button, a')].map(action => action.textContent)), ['JavDB', 'sukebei', 'JavBus', '查找资源', '按住移除']);
+        assert.deepEqual(await source.evaluate(node => [...node.parentElement!.querySelectorAll('button, a')].map(action => action.textContent)), ['JavDB', 'sukebei', 'JavBus', '查找资源', '移除']);
         const find = card.getByRole('button', { name: '查找资源', exact: true });
-        const remove = card.getByRole('button', { name: '按住移除', exact: true });
+        const remove = card.getByRole('button', { name: '移除', exact: true });
         assert.equal(await find.locator('svg').count(), 1);
         assert.notEqual(await find.evaluate(el => getComputedStyle(el).background), await source.evaluate(el => getComputedStyle(el).background));
         assert.notEqual(await remove.evaluate(el => getComputedStyle(el).background), await find.evaluate(el => getComputedStyle(el).background));
