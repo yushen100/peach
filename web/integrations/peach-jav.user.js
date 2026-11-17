@@ -10,7 +10,7 @@
 // @supportURL   https://github.com/peach-mitao/peach-userscript/issues
 // @homepageURL  https://github.com/peach-mitao/peach-userscript
 // @license      AGPL-3.0-or-later
-// @version      0.7.19
+// @version      0.7.20
 // @description  Detect video codes on web pages, select titles, and send them to Peach for download and library import.
 // @description:zh-CN 识别网页中的番号，选择影片并交给 Peach 下载入库。
 // @description:zh-TW 識別網頁中的番號，選擇影片並交給 Peach 下載入庫。
@@ -294,9 +294,10 @@
   const STORAGE_ENABLED = 'peach.jav.enabled';
   const STORAGE_POSITION = 'peach.jav.position';
   const STORAGE_APPEARANCE = 'peach.jav.appearance';
+  const STORAGE_THEME = 'peach.jav.theme';
   const STORAGE_BATCH_ORDER = 'peach.jav.batch-order';
   const ROOT_ID = 'peach-jav-action';
-  const SCRIPT_VERSION = "0.7.19";
+  const SCRIPT_VERSION = "0.7.20";
   // 0.6.3 起默认名改为英文；发布页切换前仍返回原名。
   const PUBLISHED_NAMES = ['Peach Userscript', 'Peach · JAV 入库'];
   const PEACH_LOGO = "data:image/png;base64,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";
@@ -465,6 +466,7 @@
   }
 
   const DARK_STYLE = `color-scheme:dark;--field-ring-hover:rgba(255,255,255,.24);
+      --color-switch-off-chip-start:var(--color-background-tertiary-default);--color-switch-off-chip-end:var(--color-background-tertiary-default);
       --color-status-lime-background:color-mix(in srgb,oklch(27.4% .072 132.109) 60%,transparent);--color-status-lime-text:oklch(76.8% .233 130.85);
       --color-status-yellow-background:color-mix(in srgb,oklch(28.6% .066 53.813) 60%,transparent);--color-status-yellow-text:oklch(79.5% .184 86.047);
       --color-status-rose-background:color-mix(in srgb,oklch(27.1% .105 12.094) 60%,transparent);--color-status-rose-text:oklch(64.5% .246 16.439);
@@ -491,6 +493,10 @@
       --color-border-button-default:#ebebeb;--color-border-button-hover:oklch(87% 0 0);--color-border-button-active:oklch(70.8% 0 0);
       --color-accent-400:#3392ff;--color-accent-500:oklch(62.3% .214 259.815);--color-accent-600:oklch(54.6% .245 262.881);--color-accent-700:oklch(48.8% .243 264.376);
       --color-text-white:#fff;--color-text-error:oklch(57.7% .245 27.325);--color-separator-border:#ebebeb;
+      --color-control-indicator-background:#fff;--color-control-indicator-background-subtle:#f5f5f5;
+      --color-switch-off-chip-start:#fff;--color-switch-off-chip-end:#f5f5f5;
+      --color-switch-on-chip-start:color-mix(in oklab,var(--color-accent-500) 63%,var(--color-accent-600));
+      --color-switch-on-chip-end:color-mix(in oklab,var(--color-accent-600) 16%,var(--color-accent-700));
       --update-script-foreground:oklch(54.6% .245 262.881);--update-peach-foreground:oklch(55.5% .163 48.998);
       --elevation-xs:0 1px 2px 0 rgb(0 0 0 / .05);--elevation-dropdown:0 1px 1px 0 rgb(0 0 0 / .04),0 4px 4px 0 rgb(0 0 0 / .02);
       --ground:var(--color-background-full);--surface:var(--color-background-secondary-default);--sunk:var(--color-background-tertiary-default);
@@ -566,9 +572,11 @@
     .geist-button.launcher{touch-action:none;cursor:grab}.geist-button.launcher:active{cursor:grabbing}
     .geist-button.launcher[data-count]{position:relative;overflow:visible}
     .geist-button.launcher[data-count]::after{content:attr(data-count);position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;padding:0 5px;box-sizing:border-box;border-radius:9px;
-      display:grid;place-items:center;background:var(--color-status-blue-background);color:var(--color-status-blue-text);font:var(--board-caption-semibold);box-shadow:0 0 0 2px var(--ground);pointer-events:none}
-    .geist-button.launcher[data-count-tone=ended]::after{background:var(--color-status-lime-background);color:var(--color-status-lime-text)}
-    .geist-button.launcher[data-count-tone=failed]::after{background:var(--color-status-rose-background);color:var(--color-status-rose-text)}
+      --count-background:var(--color-status-blue-background);display:grid;place-items:center;
+      background:linear-gradient(var(--count-background),var(--count-background)),var(--ground);
+      color:var(--color-status-blue-text);font:var(--board-caption-semibold);box-shadow:0 0 0 2px var(--ground);pointer-events:none}
+    .geist-button.launcher[data-count-tone=ended]::after{--count-background:var(--color-status-lime-background);color:var(--color-status-lime-text)}
+    .geist-button.launcher[data-count-tone=failed]::after{--count-background:var(--color-status-rose-background);color:var(--color-status-rose-text)}
     .shared-note{margin:8px 0 0}.shared-foot{display:flex;justify-content:flex-end;gap:16px;margin-top:8px}.shared-foot:not(:has(>:not([hidden]))){display:none}
     .shared-action[data-action=retry-failed]{margin-right:auto;color:var(--color-status-rose-text)}.shared-action[data-action=retry-failed]:hover{color:var(--color-status-rose-text);opacity:.8}
     .shared-action-icon{width:14px;height:14px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -619,6 +627,7 @@
     .want-toggle{gap:6px}.want-toggle svg{fill:currentColor;stroke:none}.want-toggle[data-added]{cursor:default;color:var(--ink-2)}.want-toggle[data-added]:hover{background:var(--color-background-primary-default)}
     .geist-button:focus-visible{outline:2px solid var(--tungsten);outline-offset:2px}
     @media(hover:hover) and (pointer:fine){.geist-button:not(:disabled,[aria-disabled=true]):hover{background-color:var(--color-background-primary-hover);border-color:var(--color-border-button-hover)}
+      .geist-button.launcher:not(:disabled,[aria-disabled=true]):hover{background:linear-gradient(var(--color-background-primary-hover),var(--color-background-primary-hover)),var(--ground)}
       .geist-button.primary:not(:disabled,[aria-disabled=true]):hover::before{opacity:1}}
     .geist-button.primary:not(:disabled,[aria-disabled=true]):active{background:var(--board-blue-active)}.geist-button.primary:not(:disabled,[aria-disabled=true]):active::before{opacity:0}
     .geist-button:disabled,.geist-button[aria-disabled=true]{background:var(--surface);color:var(--color-text-tertiary);box-shadow:none;cursor:default;transition:none}
@@ -632,9 +641,37 @@
     .geist-input:focus{outline:0;box-shadow:inset 0 0 0 2px var(--color-border-button-active)}.geist-input[aria-invalid=true]{border-color:var(--drop)}
     .field{display:grid;gap:4px;min-width:0}.field label{font:var(--board-body-medium)}.hint{font:var(--board-caption);color:var(--muted);overflow-wrap:anywhere}
     .secret{display:flex;align-items:center;gap:8px}.secret .geist-button{flex:none}
-    fieldset.display-scope{margin:0;padding:0;border:0;display:grid;gap:8px;min-width:0}
-    .display-scope legend{font:var(--board-body-medium);margin-bottom:8px}.display-scope label{display:flex;align-items:center;gap:8px;cursor:pointer}
-    .display-scope input{accent-color:var(--color-accent-500);width:16px;height:16px;margin:0;flex:none}
+    .connection-settings{min-width:0}.connection-settings summary{cursor:pointer;font:var(--board-body-medium)}
+    .connection-settings summary .hint{display:block;margin-top:4px;font:var(--board-caption)}
+    .connection-settings summary:focus-visible{outline:2px solid var(--tungsten);outline-offset:2px;border-radius:4px}
+    .connection-fields{display:grid;gap:16px;margin-top:16px}
+    .geist-button.setting-select-trigger{width:100%;justify-content:space-between;gap:6px;padding:8px 10px;font:var(--board-body-medium)}
+    .setting-select-trigger svg{flex:none;color:var(--ink-2);transition:transform .2s ease}
+    .setting-select-trigger[aria-expanded=true] svg{transform:rotate(180deg)}
+    .setting-menu{position:fixed;inset:auto;margin:0;padding:8px;max-height:240px;overflow:auto;overscroll-behavior:contain;
+      border:1px solid var(--line);border-radius:16px;background:var(--color-background-primary-default);color:var(--ink);box-shadow:var(--elevation-dropdown);
+      opacity:0;transform:scale(.95);filter:blur(2px);transform-origin:top left;
+      transition:opacity .15s ease-out,transform .15s ease-out,filter .15s ease-out,display .15s allow-discrete,overlay .15s allow-discrete}
+    .setting-menu[data-placement=top]{transform-origin:bottom left}
+    .setting-menu:popover-open{opacity:1;transform:scale(1);filter:blur(0)}
+    @starting-style{.setting-menu:popover-open{opacity:0;transform:scale(.95);filter:blur(2px)}}
+    .setting-menu button{display:flex;align-items:center;width:100%;min-height:36px;padding:8px;border:0;border-radius:10px;
+      background:transparent;color:var(--ink);font:var(--board-body-medium);text-align:left;cursor:pointer;outline:none}
+    .setting-menu button+button{margin-top:4px}
+    .setting-menu button:is(:hover,:focus-visible,[aria-selected=true]){background:var(--color-background-primary-hover)}
+    .setting-switch{position:relative;display:flex;align-items:center;justify-content:space-between;gap:16px;cursor:pointer}
+    .setting-switch-copy{display:grid;gap:4px;min-width:0}.setting-switch-title{font:var(--board-body-medium)}
+    .setting-switch input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+    .switch-track{position:relative;flex:none;width:42px;height:24px;border-radius:999px;background:var(--color-background-tertiary-default);transition:background .2s ease}
+    .switch-thumb{position:absolute;left:3px;top:3px;display:grid;place-items:center;width:18px;height:18px;border-radius:999px;
+      background:linear-gradient(var(--color-control-indicator-background) 43.837%,var(--color-control-indicator-background-subtle));
+      box-shadow:0 3px 3px #00000008,0 .75px 0 #0000000d;transition:transform .2s ease}
+    .switch-chip{width:7.5px;height:7.5px;border:.375px solid color-mix(in srgb,var(--line) 50%,transparent);border-radius:999px;
+      background:linear-gradient(to top,var(--color-switch-off-chip-start) 43.837%,var(--color-switch-off-chip-end));box-shadow:0 3px 3px #00000008}
+    .setting-switch input:checked+.switch-track{background:var(--board-blue);box-shadow:inset 0 1.5px #ffffff40,inset 0 0 0 .75px var(--color-accent-500)}
+    .setting-switch input:checked+.switch-track .switch-thumb{transform:translateX(18px)}
+    .setting-switch input:checked+.switch-track .switch-chip{border-color:var(--color-accent-600);background:linear-gradient(to top,var(--color-switch-on-chip-start) 43.837%,var(--color-switch-on-chip-end))}
+    .setting-switch input:focus-visible+.switch-track{outline:2px solid var(--tungsten);outline-offset:2px}
     .batch-frame{position:relative;min-width:0}
     .batch-list{position:relative;border:1px solid var(--line);border-radius:var(--control-radius);overflow:auto;overscroll-behavior:contain;
       max-height:min(480px,calc(100dvh - 320px));min-height:97px;scrollbar-width:none;background:var(--color-background-primary-default)}
@@ -844,22 +881,154 @@
     return button;
   }
 
+  // Select 的按钮、菜单行与定位沿用 Peach Select；Popover 承接顶层、外点与 Escape 关闭。
+  function settingSelect(id, title, options, current, hint = '') {
+    const root = element('div', 'field');
+    const label = element('label', '', title);
+    label.htmlFor = id;
+    const trigger = control(title, {icon:'collapse'});
+    trigger.classList.remove('icon');
+    trigger.classList.add('setting-select-trigger');
+    trigger.id = id;
+    trigger.setAttribute('role', 'combobox');
+    trigger.setAttribute('aria-haspopup', 'listbox');
+    trigger.setAttribute('aria-expanded', 'false');
+    const caption = element('span');
+    trigger.prepend(caption);
+    const menu = element('div', 'setting-menu');
+    menu.id = `${id}-options`;
+    menu.popover = 'auto';
+    menu.setAttribute('role', 'listbox');
+    menu.setAttribute('aria-label', title);
+    trigger.setAttribute('aria-controls', menu.id);
+    trigger.popoverTargetElement = menu;
+    let value = options.some(([key]) => key === current) ? current : options[0][0];
+    const rows = options.map(([key, text]) => {
+      const row = element('button', '', text);
+      row.type = 'button';
+      row.tabIndex = -1;
+      row.setAttribute('role', 'option');
+      row.dataset.value = key;
+      row.addEventListener('click', () => {
+        value = key;
+        paint();
+        menu.hidePopover();
+        trigger.focus();
+      });
+      menu.append(row);
+      return row;
+    });
+    const selected = () => rows.find(row => row.dataset.value === value);
+    function paint() {
+      for (const row of rows) row.setAttribute('aria-selected', String(row.dataset.value === value));
+      caption.textContent = selected().textContent;
+    }
+    const position = () => {
+      const anchor = trigger.getBoundingClientRect();
+      menu.style.width = `${Math.min(anchor.width, innerWidth - 32)}px`;
+      menu.style.maxHeight = '240px';
+      const naturalHeight = menu.scrollHeight + menu.offsetHeight - menu.clientHeight;
+      const under = innerHeight - 16 - anchor.bottom - 4, over = anchor.top - 20;
+      const downward = under >= naturalHeight || under >= over;
+      const height = Math.min(naturalHeight, Math.max(0, downward ? under : over));
+      menu.dataset.placement = downward ? 'bottom' : 'top';
+      menu.style.maxHeight = `${height}px`;
+      menu.style.left = `${Math.max(16, Math.min(anchor.left, innerWidth - menu.offsetWidth - 16))}px`;
+      menu.style.top = `${downward ? anchor.bottom + 4 : anchor.top - 4 - height}px`;
+    };
+    const closeOnScroll = event => {
+      if (event.target instanceof Node && event.target.contains(trigger)) menu.hidePopover();
+    };
+    const stopWatching = () => {
+      window.removeEventListener('resize', position);
+      root.getRootNode().removeEventListener('scroll', closeOnScroll, true);
+    };
+    menu.addEventListener('toggle', event => {
+      const open = event.newState === 'open';
+      trigger.setAttribute('aria-expanded', String(open));
+      if (open) {
+        position();
+        selected().focus();
+        window.addEventListener('resize', position);
+        root.getRootNode().addEventListener('scroll', closeOnScroll, true);
+      } else stopWatching();
+    });
+    trigger.addEventListener('keydown', event => {
+      if (!['ArrowDown', 'ArrowUp'].includes(event.key)) return;
+      event.preventDefault();
+      if (!menu.matches(':popover-open')) menu.showPopover();
+      selected().focus();
+    });
+    menu.addEventListener('keydown', event => {
+      if (event.key === 'Escape' || event.key === 'Tab') {
+        if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); }
+        menu.hidePopover();
+        trigger.focus();
+        return;
+      }
+      const index = rows.indexOf(menu.getRootNode().activeElement);
+      let next;
+      if (event.key === 'ArrowDown') next = rows[(index + 1) % rows.length];
+      else if (event.key === 'ArrowUp') next = rows[(index - 1 + rows.length) % rows.length];
+      else if (event.key === 'Home') next = rows[0];
+      else if (event.key === 'End') next = rows.at(-1);
+      else if (event.key.length === 1 && event.key !== ' ') next = rows.find(row => row.textContent.startsWith(event.key));
+      if (next) { event.preventDefault(); next.focus(); }
+    });
+    root.append(label, trigger, menu);
+    if (hint) {
+      const help = element('p', 'hint', hint);
+      help.id = `${id}-hint`;
+      trigger.setAttribute('aria-describedby', help.id);
+      root.append(help);
+    }
+    paint();
+    return {root, get value() { return value; }, dispose() {
+      stopWatching();
+      if (menu.matches(':popover-open')) menu.hidePopover();
+    }};
+  }
+
+  // BoardUI Switch md 的轨道、拇指与内嵌标记，使用原生输入处理键盘与保存。
+  function settingSwitch(name, title, hint, checked) {
+    const root = element('label', 'setting-switch');
+    const copy = element('span', 'setting-switch-copy');
+    const help = element('span', 'hint', hint);
+    help.id = `${name}-hint`;
+    copy.append(element('span', 'setting-switch-title', title), help);
+    const input = element('input');
+    Object.assign(input, {type:'checkbox', name, checked});
+    input.setAttribute('role', 'switch');
+    input.setAttribute('aria-label', title);
+    input.setAttribute('aria-describedby', help.id);
+    const track = element('span', 'switch-track'), thumb = element('span', 'switch-thumb');
+    track.setAttribute('aria-hidden', 'true');
+    thumb.append(element('span', 'switch-chip'));
+    track.append(thumb);
+    root.append(copy, input, track);
+    return {root, input};
+  }
+
   // 按钮区：主按钮单独一行整宽；次要操作每行最多两个、平分宽度，只有一个时占整行；
-  // 图标键（识别本页番号、手动查询）排在第一行次要操作的最右，没有次要操作时单独一行靠右。
+  // 图标键排在第一行次要操作最右；已入库且没有次要操作时与打开馆藏同排，其余单独一行靠右。
   // 只在组成变了时重排，避免每次刷新都把按钮摘下再放回、丢掉键盘焦点。
   const actionIds = new WeakMap();
   let nextActionId = 0;
-  function layoutActions(area, main, secondary, icons) {
+  function layoutActions(area, main, secondary, icons, compact = false) {
     const id = button => { if (!actionIds.has(button)) actionIds.set(button, ++nextActionId); return actionIds.get(button); };
     const shown = secondary.filter(button => button && button !== main && !button.hidden), keys = icons.filter(button => !button.hidden);
-    const key = [main ? id(main) : 0, ...shown.map(id), '|', ...keys.map(id)].join(',');
+    const key = [compact, main ? id(main) : 0, ...shown.map(id), '|', ...keys.map(id)].join(',');
     if (area.dataset.layout === key) return false;
     area.dataset.layout = key;
     const row = (...nodes) => { const line = element('div', 'action-row'); line.append(...nodes); return line; };
     const rows = main ? [row(main)] : [];
     const group = element('div', 'action-keys'); group.append(...keys);
     for (let index = 0; index < shown.length; index += 2) rows.push(row(...shown.slice(index, index + 2)));
-    if (keys.length) shown.length ? rows[main ? 1 : 0].append(group) : rows.push(row(group));
+    if (keys.length) {
+      if (shown.length) rows[main ? 1 : 0].append(group);
+      else if (compact && main) rows[0].append(group);
+      else rows.push(row(group));
+    }
     // 隐藏的按钮仍留在区内（不占位），状态变了再排进来。
     const spare = element('div', 'action-spare'); spare.hidden = true;
     spare.append(...[...secondary, ...icons, main].filter(button => button && !rows.some(line => line.contains(button))));
@@ -933,8 +1102,10 @@
 
   function applyAppearance(root) {
     const value = appearance();
+    const preference = GM_getValue(STORAGE_THEME, 'peach');
+    const theme = ['light', 'dark'].includes(preference) ? preference : value?.theme;
     root.toggleAttribute('data-peach-appearance', Boolean(value));
-    if (value && value.theme !== 'system') root.dataset.theme = value.theme; else delete root.dataset.theme;
+    if (theme && theme !== 'system') root.dataset.theme = theme; else delete root.dataset.theme;
     for (const step of [400, 500, 600, 700]) {
       const style = surfaceTrees.get(root).content.style;
       if (value) style.setProperty(`--color-accent-${step}`, value.colors[step]);
@@ -1423,7 +1594,7 @@
     return { base: base.origin, token };
   }
 
-  // 设置里勾了「浏览记录」时，作品浮卡与女优页的查询带 `record=1`，Peach 据此记一笔；缺省不记。
+  // 开启「浏览记录」时，作品浮卡与女优页的查询带 record=1；缺省不记。
   function recordBrowsing() {
     try { return GM_getValue(STORAGE_RECORD, false) === true; } catch { return false; }
   }
@@ -2280,11 +2451,11 @@
       body.append(wrapper);
       return { wrapper, input, help };
     }
-    const address = field('peach-base', 'Peach 地址', '可粘贴配对信息，一并填好令牌。', 'url');
+    const address = field('peach-base', 'Peach 地址', '可粘贴配对信息。', 'url');
     address.input.placeholder = 'https://peach.example.com';
     address.input.value = String(GM_getValue(STORAGE_BASE, '') || '');
-    address.input.autofocus = true;
-    const secret = field('peach-token', '专用令牌', '在 Peach 配置 → 下载渠道 → 浏览器添加 JAV 生成。', 'password');
+    address.input.autofocus = !saved;
+    const secret = field('peach-token', '专用令牌', '在 Peach「浏览器添加 JAV」中生成。', 'password');
     secret.input.placeholder = saved ? '已保存，留空保留' : '粘贴专用令牌';
     const secretRow = element('div', 'secret');
     secret.input.replaceWith(secretRow);
@@ -2299,31 +2470,25 @@
       reveal.setAttribute('aria-pressed', String(visible));
     });
     secretRow.append(secret.input, reveal);
-    const display = element('fieldset', 'display-scope');
-    display.append(element('legend', '', '按钮显示范围'));
+    const connection = element('details', 'connection-settings');
+    connection.open = !saved;
+    const connectionSummary = element('summary', '', 'Peach 连接');
+    connectionSummary.id = 'peach-connection-summary';
+    connectionSummary.autofocus = Boolean(saved);
+    connectionSummary.append(element('span', 'hint', saved ? `已保存 · ${saved.base}` : '填写地址与专用令牌'));
+    const connectionFields = element('div', 'connection-fields');
+    connectionFields.append(address.wrapper, secret.wrapper);
+    connection.append(connectionSummary, connectionFields);
+    body.prepend(connection);
+    const themeValue = GM_getValue(STORAGE_THEME, 'peach');
+    const theme = settingSelect('peach-theme', '主题',
+      [['peach', '跟随 Peach'], ['light', '浅色'], ['dark', '深色']], themeValue);
     const displayValue=GM_getValue(STORAGE_ENABLED,true) === false ? 'off' : GM_getValue(STORAGE_DISPLAY,'jav') === 'always' ? 'always' : 'jav';
-    for (const [value, title] of [['jav', '仅在 JAV 网站显示'], ['always', '在所有网页常驻显示'], ['off','彻底关闭图标']]) {
-      const option = element('label');
-      const radio = element('input');
-      Object.assign(radio, {type:'radio', name:'peach-display', value, checked:displayValue === value});
-      option.append(radio, document.createTextNode(title)); display.append(option);
-    }
-    display.append(element('p','hint','关闭后从篡改猴菜单「开启」恢复。'));
-    body.append(display);
-    const sound = element('fieldset', 'display-scope');
-    sound.append(element('legend', '', '提示音'));
-    const soundOption = element('label'), soundInput = element('input');
-    Object.assign(soundInput, {type:'checkbox', name:'peach-success-sound', checked:GM_getValue(STORAGE_SOUND, true) !== false});
-    soundOption.append(soundInput, document.createTextNode('点加入和影片完成入库时播放提示音'));
-    sound.append(soundOption);
-    body.append(sound);
-    const record = element('fieldset', 'display-scope');
-    record.append(element('legend', '', '浏览记录'));
-    const recordOption = element('label'), recordInput = element('input');
-    Object.assign(recordInput, {type:'checkbox', name:'peach-record-browsing', checked:recordBrowsing()});
-    recordOption.append(recordInput, document.createTextNode('把打开过的作品页、女优页记进 Peach，作推荐参考'));
-    record.append(recordOption, element('p','hint','只记在你的 Peach 里；列表与批量识别不算。'));
-    body.append(record);
+    const display = settingSelect('peach-display', '显示范围',
+      [['jav', '仅 JAV 网站'], ['always', '所有网页'], ['off', '关闭图标']], displayValue, '关闭后可从菜单「开启」恢复。');
+    const sound = settingSwitch('peach-success-sound', '提示音', '加入、入库完成时播放。', GM_getValue(STORAGE_SOUND, true) !== false);
+    const record = settingSwitch('peach-record-browsing', '浏览记录', '记录作品、女优页到 Peach，用于推荐。', recordBrowsing());
+    body.append(theme.root, display.root, sound.root, record.root);
     const error = element('p', 'geist-note');
     error.id = 'peach-settings-error';
     error.dataset.variant = 'error';
@@ -2370,7 +2535,7 @@
       closing = false;
       dialog.removeAttribute('data-closing');
       coverPanels();
-      address.input.focus();
+      (connection.open ? address.input : connectionSummary).focus();
     } };
     coverPanels();
     const cleanup = () => {
@@ -2378,6 +2543,8 @@
       closeGeneration++;
       closing = false;
       secret.input.value = '';
+      theme.dispose();
+      display.dispose();
       if (settingsView?.root === root) settingsView = null;
       root.remove();
       if (current && !subpageOpen()) {
@@ -2417,7 +2584,7 @@
     form.addEventListener('submit', event => {
       event.preventDefault();
       if (composing || closing) return;
-      const range=display.querySelector('input:checked').value;
+      const range=display.value;
       if(range==='off' && !saved && !address.input.value.trim() && !secret.input.value.trim()) {
         try{GM_setValue(STORAGE_ENABLED,false);}catch{
           error.textContent='设置未能保存，请检查脚本管理器的存储权限后重试。';error.hidden=false;return;
@@ -2440,6 +2607,7 @@
           ? '请输入有效的 Peach 地址，不含路径、查询参数或账号密码。HTTP 仅支持本机地址。'
           : '请输入专用令牌；更换 Peach 地址时需要重新填写令牌。';
         error.hidden = false;
+        connection.open = true;
         invalid.focus();
         return;
       }
@@ -2448,8 +2616,9 @@
         GM_setValue(STORAGE_BASE, config.base);
         if(range !== 'off')GM_setValue(STORAGE_DISPLAY,range);
         GM_setValue(STORAGE_ENABLED,range !== 'off');
-        GM_setValue(STORAGE_SOUND,soundInput.checked);
-        GM_setValue(STORAGE_RECORD,recordInput.checked);
+        GM_setValue(STORAGE_SOUND,sound.input.checked);
+        GM_setValue(STORAGE_RECORD,record.input.checked);
+        GM_setValue(STORAGE_THEME,theme.value);
       } catch {
         error.textContent = '设置未能保存，请检查脚本管理器的存储权限后重试。';
         error.hidden = false;
@@ -2692,7 +2861,7 @@
     const main = !view.button.hidden ? view.button
       : [view.ahead, view.want].find(button => !button.hidden && !button.hasAttribute('data-added')) || null;
     for (const button of [view.button, view.alternate, view.ahead, view.want]) button.classList.toggle('primary', button === main);
-    layoutActions(view.area, main, [view.button, view.alternate, view.ahead, view.want], [view.recheck, view.scan]);
+    layoutActions(view.area, main, [view.button, view.alternate, view.ahead, view.want], [view.recheck, view.scan], terminalSuccess);
     if (view.busy) {
       const spinner = element('span', 'ui-geist-spinner');
       spinner.setAttribute('aria-hidden', 'true');
@@ -3789,7 +3958,7 @@
   setInterval(() => { if (!document.hidden) refresh(); }, 5000);
   refresh();
   if (typeof GM_addValueChangeListener === 'function') {
-    for (const key of [STORAGE_INSTALLED, STORAGE_UPDATES, STORAGE_APPEARANCE, STORAGE_POSITION, STORAGE_DISPLAY]) updateListeners.push(GM_addValueChangeListener(key, () => {
+    for (const key of [STORAGE_INSTALLED, STORAGE_UPDATES, STORAGE_APPEARANCE, STORAGE_THEME, STORAGE_POSITION, STORAGE_DISPLAY]) updateListeners.push(GM_addValueChangeListener(key, () => {
       updateCache = readUpdateCache(); paintAllUpdates();
       for (const root of surfaces) if (root.isConnected) applyAppearance(root);
     }));
