@@ -47,3 +47,26 @@ jobs:
           cache-to: type=gha,mode=max,scope=docker-${{ matrix.arch }}
       - name: 验收临时容器
         run: python3 scripts/smoke_docker.py longmeidao/peach:test
+      - name: 导出 NAS 真机验收镜像
+        if: github.event_name == 'workflow_dispatch' && matrix.arch == 'amd64'
+        run: |
+          set -euo pipefail
+          image="peach-nas:candidate-${GITHUB_SHA:0:12}"
+          docker tag longmeidao/peach:test "$image"
+          docker image inspect "$image" > image-inspect.json
+          docker image save "$image" | gzip > peach-nas-amd64.tar.gz
+          sha256sum peach-nas-amd64.tar.gz > SHA256SUMS
+          printf '%s\n' "$GITHUB_SHA" > SOURCE_COMMIT
+      - name: 保存 NAS 真机验收产物
+        if: github.event_name == 'workflow_dispatch' && matrix.arch == 'amd64'
+        uses: actions/upload-artifact@v7
+        with:
+          name: nas-candidate-${{ github.sha }}
+          path: |
+            peach-nas-amd64.tar.gz
+            image-inspect.json
+            SHA256SUMS
+            SOURCE_COMMIT
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
