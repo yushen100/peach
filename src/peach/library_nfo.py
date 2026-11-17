@@ -96,9 +96,9 @@ def _nfo_root(raw: bytes):
     # UTF-16 的 & 占两个字节，直接替换单个字节会改变后续字符。
     if raw.startswith((b'\xff\xfe', b'\xfe\xff')):
         document = raw.decode('utf-16')
-    elif raw.startswith(b'<\x00'):
+    elif raw.startswith((b'<\x00', b' \x00', b'\t\x00', b'\r\x00', b'\n\x00')):
         document = raw.decode('utf-16-le')
-    elif raw.startswith(b'\x00<'):
+    elif raw.startswith((b'\x00<', b'\x00 ', b'\x00\t', b'\x00\r', b'\x00\n')):
         document = raw.decode('utf-16-be')
     else:
         document = raw

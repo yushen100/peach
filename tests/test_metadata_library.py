@@ -1106,6 +1106,17 @@ class LibraryNfoTests(unittest.TestCase):
                 self.assertEqual(payload['title'], 'Café & A & B')
                 self.assertEqual(original, raw)
 
+    def test_utf16_without_bom_can_begin_with_xml_whitespace(self):
+        for encoding in ('utf-16-le', 'utf-16-be'):
+            for prefix in (' ', '\t', '\r', '\n'):
+                with self.subTest(encoding=encoding, prefix=prefix):
+                    raw = (prefix + '<movie><title>Café & A &amp; B</title></movie>').encode(encoding)
+                    path = self.root / 'unescaped.nfo'
+                    path.write_bytes(raw)
+                    payload, original = read_nfo(path)
+                    self.assertEqual(payload['title'], 'Café & A & B')
+                    self.assertEqual(original, raw)
+
     def test_art_cannot_escape_media_directory(self):
         folder = self.root / 'film'
         folder.mkdir()
