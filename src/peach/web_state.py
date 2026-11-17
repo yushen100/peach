@@ -383,7 +383,8 @@ class WebContract:
             return None
         if not tables:
             return sum(revisions.values())
-        return sum(revisions.get(table, 0) for table in set(tables))
+        return sum(revisions.get(table, revisions.get('asset', 0) if table == 'asset_catalog' else 0)
+                   for table in set(tables))
 
     def ledger_tables_except(self, excluded) -> tuple[str, ...]:
         """登记了版本的账本表，去掉 `excluded`：聚合读的表太多、列不全时，按「除这几张以外」声明依赖。

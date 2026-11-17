@@ -70,7 +70,7 @@ LOGGER = logging.getLogger(__name__)
 
 #: 垃圾评分读的账本表。不声明时任何一次提交（关注检查、任务记录）都让下一次打开当场重评
 #: 十万行；声明后后台任务的提交先回上一份、后台重算（ADR-0146），前台写入照旧当场重算。
-JUNK_SCORE_TABLES = ("asset", "review_decision", "download_task")
+JUNK_SCORE_TABLES = ("asset_catalog", "review_decision", "download_task")
 
 # Linux 容器可从 mountinfo 识别媒体实际所在的 FUSE 文件系统。
 MOUNTINFO_PATH = Path("/proc/self/mountinfo")

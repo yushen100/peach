@@ -432,7 +432,7 @@ class UpgradeRepairTests(unittest.TestCase):
         with patch('peach.library_processing._people_allowed', return_value=False), \
                 patch('peach.seed_followup.plan', return_value=[]), \
                 patch('peach.media_sources.cost_for', side_effect=lambda _location, path, _config:
-                      'metered' if path == '1.mp4' else 'free'):
+                      'metered' if PureWindowsPath(path).name == '1.mp4' else 'free'):
             planned = self.service._plan(receipt)
         self.assertEqual(len(planned), 64)
         self.assertTrue(all(':display-dimensions-2:' in row.key for row in planned))
@@ -678,7 +678,7 @@ class UpgradeRepairTests(unittest.TestCase):
         receipt.update(dispatch_complete=True, queued={old_key: 999})
         self.service._save_receipt(receipt)
         with self.database.write_transaction() as connection:
-            connection.execute("UPDATE asset SET path='replacement.mp4',size=200,mtime='2026-11-07' WHERE id=1")
+            connection.execute("UPDATE asset SET path='R:\\media\\replacement.mp4',size=200,mtime='2026-11-07' WHERE id=1")
         new_key = self.display_key()
         self.assertNotEqual(new_key, old_key)
         with patch.object(media_probe, 'measure') as probe:
@@ -807,6 +807,7 @@ class UpgradeRepairTests(unittest.TestCase):
         self.assertTrue(self.service._wake.is_set(), '自己派的补测跑完就叫醒派发线程')
 
     def test_a_malformed_path_is_not_mistaken_for_an_offline_mount(self):
+        self.mount_status.stop()
         """路径写法本身不对不是挂载掉线：抛 `MalformedPath`；本机没挂载的来源照旧算读不到。"""
         import os
         from peach.platform import UNMAPPED_ROOT
@@ -847,7 +848,7 @@ class UpgradeRepairTests(unittest.TestCase):
             self.asset(key, duration=10)
 
         def unreachable(path):
-            if path == "2.mp4":
+            if PureWindowsPath(path).name == "2.mp4":
                 raise upgrade_repairs.MalformedPath('errors.upgradeRepairs.malformedPath', {'path': 'bad'})
             return False
         with patch('peach.library_processing.process_library', return_value={'status': 'complete'}) as process, \
@@ -1710,6 +1711,7 @@ class UpgradeRepairTests(unittest.TestCase):
         holder = tempfile.TemporaryDirectory()
         self.addCleanup(holder.cleanup)
         self.root = Path(holder.name).resolve()
+        (self.root / 'config.toml').write_text("[media.locations]\nlocal = ['R:\\media']\n'115' = ['B:\\media']\n", encoding='utf-8')
         self.db = fresh_ledger(self.root)
         self.database = LedgerDatabase(self.db)
         self.store = TaskRunStore(self.database, host='upgrade-test')
@@ -1720,6 +1722,9 @@ class UpgradeRepairTests(unittest.TestCase):
             logo_root=self.root / 'logos', avatar_root=self.root / 'avatars', snapshot_root=self.root / 'snapshots',
             followups=SimpleNamespace(wake=Mock()))
         self.service = upgrade_repairs.UpgradeRepairs(self.contract, available=True)
+        self.mount_status = patch('peach.upgrade_repairs.mount_unreachable', return_value=False)
+        self.mount_status.start()
+        self.addCleanup(self.mount_status.stop)
         from peach.settings_file import load_config
         self.service.config = load_config(environ={'PEACH_DATA_ROOT': str(self.root)})
 
@@ -1727,7 +1732,7 @@ class UpgradeRepairTests(unittest.TestCase):
         with self.database.write_transaction() as connection:
             connection.execute('INSERT INTO asset(id,location,path,name,medium,code,field_owners,duration) '
                                "VALUES(?,'local',?,?,'video',?,?,?)",
-                               (key, f'{key}.mp4', 'SSIS-123.mp4', code, json.dumps({'code': owner}), duration))
+                               (key, rf'R:\media\{key}.mp4', 'SSIS-123.mp4', code, json.dumps({'code': owner}), duration))
 
     def test_codes_missing_their_label_suffix_are_restored_once_with_a_receipt(self):
         """#124：旧版把 `IBW-483z` 的 `z` 当版次剥掉，只改回扫描写入、去掉尾字母正好等于旧值的番号。"""
@@ -2088,7 +2093,7 @@ class UpgradeRepairTests(unittest.TestCase):
             for key, name, code in assets:
                 connection.execute('INSERT INTO asset(id,location,path,name,medium,code,field_owners,duration) '
                                    "VALUES(?,'local',?,?,'video',?,?,60)",
-                                   (key, name, name, code, json.dumps({'code': 'scan:filename'})))
+                                   (key, rf'R:\media\{name}', name, code, json.dumps({'code': 'scan:filename'})))
             connection.execute('UPDATE asset SET catalog_title=?,field_owners=? WHERE id=1',
                                ('クリスタル映像の題名', json.dumps({'code': 'scan:filename',
                                                                    'catalog_title': 'review:r18dev'})))
@@ -2783,6 +2788,22 @@ class UpgradeRepairTests(unittest.TestCase):
         self.assertIn('foreign key violations', payload['message'])
         self.assertEqual(self.service.error, 'foreign key violations')
 
+    def test_media_planning_uses_current_roots_and_retains_removed_assets_with_records(self):
+        self.asset(1, duration=10)
+        self.asset(2, duration=10)
+        with self.database.write_transaction() as connection:
+            connection.execute("UPDATE asset SET path='R:\\removed\\two.mp4',play_count=3,rating=80 WHERE id=2")
+        receipt = {'queued': {}, 'media_ids': [1, 2]}
+        with patch('peach.library_processing._people_allowed', return_value=False), \
+                patch('peach.seed_followup.plan', return_value=[]), \
+                patch('peach.media_sources.cost_for', return_value='free'):
+            planned = self.service._plan(receipt)
+            self.assertEqual([upgrade_repairs.item_of(item.key)[1] for item in planned], [1])
+            (self.root / 'config.toml').write_text('[media.locations]\n', encoding='utf-8')
+            self.assertEqual(self.service._plan(dict(receipt)), [])
+        with self.database.read_connection() as connection:
+            self.assertEqual(tuple(connection.execute('SELECT play_count,rating FROM asset WHERE id=2').fetchone()), (3, 80))
+
     def test_media_dispatch_is_bounded_and_rechecks_deferred_cost(self):
         from peach.settings_file import load_config
         self.service.config = load_config(environ={'PEACH_DATA_ROOT': str(self.root)})
@@ -3243,3 +3264,4 @@ class LedgerActivationTests(unittest.IsolatedAsyncioTestCase):
         automatic.start.assert_called_once()
         sharing.start.assert_called_once()
         await activation.stop()
+

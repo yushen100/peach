@@ -99,6 +99,24 @@ class LedgerRevisionTests(unittest.TestCase):
         web_activity.w_play(self.contract, {"id": 1})
         self.assertGreater(self.contract.ledger_revision(tables), before)
 
+    def test_catalog_revision_preserves_cached_content_after_play_and_refreshes_after_edits(self):
+        from peach import web_activity
+        insert_asset(self.db_path, 1)
+        tables = ('asset_catalog',)
+        before = self.contract.ledger_revision(tables)
+        self.assertEqual(self.contract.cached_until_changed('content', self.compute, tables=tables), 1)
+        web_activity.w_play(self.contract, {'id': 1})
+        self.assertEqual(self.contract.ledger_revision(tables), before)
+        self.assertEqual(self.contract.cached_until_changed('content', self.compute, tables=tables), 1)
+        with self.contract.write_transaction() as connection:
+            connection.execute("UPDATE asset SET catalog_title='Edited' WHERE id=1")
+        self.assertEqual(self.contract.cached_until_changed('content', self.compute, tables=tables), 2)
+        with closing(sqlite3.connect(self.db_path)) as connection:
+            columns = {row[1] for row in connection.execute('PRAGMA table_info(asset)')}
+            sql = connection.execute("SELECT sql FROM sqlite_schema WHERE name='rev_asset_catalog_update'").fetchone()[0]
+        listed = {name.strip() for name in re.search(r"\bOF\b(.*?)\bON\s+asset\b", sql, re.S)[1].split(',')}
+        self.assertEqual(listed, columns - PLAYBACK_PROGRESS - {'play_count'})
+
     def test_a_write_from_another_connection_recomputes_and_nothing_else_does(self):
         self.assertEqual(self.contract.cached_until_changed("taste", self.compute), 1)
         self.assertEqual(self.contract.cached_until_changed("taste", self.compute), 1)
@@ -571,7 +589,7 @@ class DeclaredTablesTests(unittest.TestCase):
         declarations = {
             "GROUP_TABLES": GROUP_TABLES, "TOPS_TABLES": TOPS_TABLES,
             "FACETS_TABLES": FACETS_TABLES, "INDEX_TABLES": INDEX_TABLES,
-            "STATS_TABLES": web_stats.STATS_TABLES,
+            "STATS_TABLES": web_stats.STATS_TABLES, "PLAY_STATS_TABLES": web_stats.PLAY_STATS_TABLES,
             "CATALOG_TOTAL_TABLES": CATALOG_TOTAL_TABLES,
             "FOLLOW_GROUP_TABLES": web_follow.FOLLOW_GROUP_TABLES,
             "TASTE_TABLES": web_stats.TASTE_TABLES,
@@ -581,7 +599,9 @@ class DeclaredTablesTests(unittest.TestCase):
         names = {tuple(tables): name for name, tables in declarations.items()}
         leaks: dict[str, set[str]] = {}
         for label, declared, reads in self.reads.frames:
-            extra = reads - set(declared)
+            # asset_catalog 是 asset 除起播计数和观看进度之外的修订号。
+            represented = set(declared) | ({'asset'} if 'asset_catalog' in declared else set())
+            extra = reads - represented
             if declared and extra:
                 leaks.setdefault(names.get(declared, label), set()).update(extra)
         self.maxDiff = None
