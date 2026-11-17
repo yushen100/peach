@@ -655,6 +655,21 @@ def scored_candidates(database, *, asset_ids=None, roots=None) -> tuple[list[dic
         _promo_directory_parts.cache_clear()
 
 
+def _non_video_evidence(item, stem, suffix, *, self_evident, promo_directory):
+    """非视频推广形态的分数与理由，配套作品文件及已单独计分的网页附件不叠加。"""
+    if (item.get('medium') == 'video' or self_evident
+            or suffix in PAGE_ARCHIVE_SUFFIXES or suffix in INTERNET_SHORTCUT_SUFFIXES):
+        return 0, []
+    if is_decorated_name(stem) and (item.get('size') or 0) <= DECORATED_MAX_BYTES:
+        return 60, [_Reason('decoratedImage')]
+    if AD_BRAND.search(stem) and (AD_BRAND_FORM.search(stem)
+            or (item.get('medium') == 'image' and (item.get('size') or 0) <= BRAND_TINY_BYTES)):
+        return 60, [_Reason('promoBrand')]
+    if promo_directory:
+        return 50, [_Reason('promoDirectory')]
+    return 0, []
+
+
 def _scored_candidates(database, *, asset_ids, roots) -> tuple[list[dict], frozenset[int]]:
     from . import junk_visual
     (rows, longer, dismissed_ids, folder_assets, folder_videos, short_attachments,
@@ -730,19 +745,8 @@ def _scored_candidates(database, *, asset_ids, roots) -> tuple[list[dict], froze
         elif AD_DIRPACK.search(folder) and not self_evident:
             directory_points = 45; why.append(_Reason("promoDirectoryPack"))
         s += directory_points
-        # 非视频的推广形态：装饰符小图、品牌推广名、住在推广目录。`self_evident`
-        # （真番号、内容级体积、正片配套图）与网页存档、网址快捷方式已单独计分，
-        # 这里不重复叠加。
-        if (d.get("medium") != "video" and not self_evident and not page_archive
-                and suffix not in INTERNET_SHORTCUT_SUFFIXES):
-            if is_decorated_name(nm) and (d.get("size") or 0) <= DECORATED_MAX_BYTES:
-                s += 60; why.append(_Reason("decoratedImage"))
-            elif AD_BRAND.search(nm) and (
-                    AD_BRAND_FORM.search(nm)
-                    or (d.get("medium") == "image" and (d.get("size") or 0) <= BRAND_TINY_BYTES)):
-                s += 60; why.append(_Reason("promoBrand"))
-            elif promo_dir:
-                s += 50; why.append(_Reason("promoDirectory"))
+        points, reasons = _non_video_evidence(d, nm, suffix, self_evident=self_evident, promo_directory=promo_dir)
+        s += points; why.extend(reasons)
         if d.get("medium") == "video":
             points, weak, reasons = _video_evidence(
                 d, nm, longer, promo_dir, directory_points, short_attachments.get(d["id"], ""))
