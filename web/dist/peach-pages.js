@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "f1e72b34-f65a-4a5a-8da2-947b6cf5f705", e._sentryDebugIdIdentifier = "sentry-dbid-f1e72b34-f65a-4a5a-8da2-947b6cf5f705");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "37d95bfa-9c8e-4647-8db6-50458bf67765", e._sentryDebugIdIdentifier = "sentry-dbid-37d95bfa-9c8e-4647-8db6-50458bf67765");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -1465,7 +1465,7 @@ Ve.createInstance, Ve.dir, Ve.init, Ve.loadResources, Ve.reloadResources, Ve.use
 var He = "peach.settings.v1", Ue = {
 	seedName: {
 		title: "Contribute a Chinese name",
-		save: "Submit suggestion",
+		save: "Submit candidate",
 		description: "Fields marked * are required.",
 		original: "Japanese stage name from the source",
 		originalPlaceholder: "Select a Japanese stage name",
@@ -1480,7 +1480,7 @@ var He = "peach.settings.v1", Ue = {
 		evidenceInvalid: "Enter a valid HTTPS link.",
 		noIdentity: "No verifiable source ID and original stage name yet. Complete the performer profile before contributing.",
 		loading: "Reading performer identity…",
-		delivery: "Suggestions are saved locally. Enable public metadata contributions to send them for review with the weekly snapshot.",
+		delivery: "Candidates are saved locally. Enable public metadata contributions to send them for review with the weekly snapshot.",
 		saved: "Chinese name candidate saved. Check public metadata contributions for sharing and adoption details."
 	},
 	avatarPicker: {
@@ -5886,7 +5886,7 @@ var He = "peach.settings.v1", Ue = {
 		images: "Public cover references and manual crop image digests, dimensions and coordinates. No images are sent.",
 		sources: "Stored source matches, confirmed missing entries, failure categories, observation times and request durations.",
 		excluded: "No videos, image bytes, filenames, paths, credentials, ratings or viewing history. Values that cannot be safely projected are omitted and counted in the preview.",
-		notice: "Metadata is sent to Sentry through the separate research receiver for maintainer review. Work combinations may reveal library interests, and the receiver sees connection IPs. Only reviewed public facts enter release seed packs; agreement alone does not approve a claim. Turning this off stops future sends but does not withdraw received data.",
+		notice: "Metadata is sent to Sentry through the separate research receiver for maintainer review. Work combinations may reveal library interests, and the receiver sees connection IPs. Only reviewed public facts enter release seed packs; agreement alone does not approve a claim. Turning this off stops future sends. Previously received data stays with the recipient.",
 		unavailable: "No metadata receiver configured",
 		preview: "Preview local metadata",
 		previewData: "View contribution data",
@@ -39824,4 +39824,4 @@ jt();
 var Kb = document.getElementById("peach-page"), qb = Kb ? Gb[Kb.dataset.page ?? ""] : void 0;
 Kb && qb && (0, Bt.createRoot)(Kb).render(/* @__PURE__ */ (0, V.jsx)(Wb, { children: /* @__PURE__ */ (0, V.jsx)(qb, { data: { ...Kb.dataset } }) }));
 
-//# debugId=f1e72b34-f65a-4a5a-8da2-947b6cf5f705
+//# debugId=37d95bfa-9c8e-4647-8db6-50458bf67765

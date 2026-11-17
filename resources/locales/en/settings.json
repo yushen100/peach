@@ -11,7 +11,7 @@
     "images": "Public cover references and manual crop image digests, dimensions and coordinates. No images are sent.",
     "sources": "Stored source matches, confirmed missing entries, failure categories, observation times and request durations.",
     "excluded": "No videos, image bytes, filenames, paths, credentials, ratings or viewing history. Values that cannot be safely projected are omitted and counted in the preview.",
-    "notice": "Metadata is sent to Sentry through the separate research receiver for maintainer review. Work combinations may reveal library interests, and the receiver sees connection IPs. Only reviewed public facts enter release seed packs; agreement alone does not approve a claim. Turning this off stops future sends but does not withdraw received data.",
+    "notice": "Metadata is sent to Sentry through the separate research receiver for maintainer review. Work combinations may reveal library interests, and the receiver sees connection IPs. Only reviewed public facts enter release seed packs; agreement alone does not approve a claim. Turning this off stops future sends. Previously received data stays with the recipient.",
     "unavailable": "No metadata receiver configured",
     "preview": "Preview local metadata",
     "previewData": "View contribution data",
