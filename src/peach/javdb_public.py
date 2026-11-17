@@ -681,8 +681,8 @@ class PublicAPI:
             raise PublicSourceUnavailable("errors.javdbPublic.unrecognizedFormat")
         return [row for row in rows if isinstance(row, dict)]
 
-    def peek_movie(self, code: str) -> dict | None:
-        """只读已取得的资料，不触发网络；供发现排序投影。"""
+    def peek_movie_identity(self, code: str) -> str | None:
+        """只读当前确认的唯一来源身份，歧义和缺失保持未取得。"""
         with self.lock:
             canonical = normalise_code_key(code)
             identity_key = 'movie-id:' + canonical
@@ -693,7 +693,17 @@ class PublicAPI:
                 identity = stored.value if stored else None
             if not isinstance(identity, list) or len(identity) != 1:
                 return None
-            key = f'movie:{canonical}:{identity[0]}'
+            value = identity[0]
+            return value if isinstance(value, str) and re.fullmatch(r'[A-Za-z0-9]+', value) else None
+
+    def peek_movie(self, code: str) -> dict | None:
+        """只读已取得的资料，不触发网络；供发现排序投影。"""
+        with self.lock:
+            identity = self.peek_movie_identity(code)
+            if identity is None:
+                return None
+            canonical = normalise_code_key(code)
+            key = f'movie:{canonical}:{identity}'
             cache_key = self._cache_key(key)
             hit = self.cache.get(cache_key)
             snapshot = self.snapshots.get(cache_key) or self._store().load(identity_cache_key(key))

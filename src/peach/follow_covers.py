@@ -120,10 +120,6 @@ class FollowCoverService:
                       if media_index is not None else self.media_resolver.resolve(item))
         except FollowMediaUnavailable as exc:
             raise FollowCoverUnavailable(str(exc)) from exc
-        choice = self.resolver.ffmpeg()
-        if choice is None:
-            raise FollowCoverUnavailable("ffmpeg unavailable")
-
         fingerprint = hashlib.sha256(
             f"{_CACHE_VERSION}\0{target.url}".encode("utf-8")
         ).hexdigest()[:16]
@@ -143,6 +139,9 @@ class FollowCoverService:
                 return destination
             if self._recent_miss(destination.name):
                 raise FollowCoverUnavailable("video cover generation failed")
+            choice = self.resolver.ffmpeg()
+            if choice is None:
+                raise FollowCoverUnavailable("ffmpeg unavailable")
             self._extract_frame(choice, target, destination)
             # URL 变化时留下旧帧没有价值；只清理同一条目、同一个视频的旧缓存。
             for stale in self.root.glob(f"{item.id}-*.jpg"):

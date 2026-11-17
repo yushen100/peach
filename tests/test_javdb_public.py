@@ -2,8 +2,10 @@
 import hashlib
 import io
 import json
+import os
 import tempfile
 import threading
+import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -802,6 +804,40 @@ class DetailProjectionTests(unittest.TestCase):
                                  b'first' if identity == 'XeYkdb' else b'second')
             image.assert_called_once_with('MIKR-023', 'cover', movie=source)
 
+    def test_confirmed_source_images_are_read_without_requesting_movie_metadata(self):
+        from peach.javdb_identity import RULE
+        from peach.jav_discovery_metadata import discovery_metadata
+        from peach.remote_media_cache import cache_for
+        discovery_metadata(self.contract).remember('EXM-001',
+            {'id': 'Exact', 'number': 'EXM-001', 'javdb_rule': RULE})
+        cache = cache_for(self.contract)
+        for index in ('cover', '0'):
+            cache.bytes(f'jav:EXM-001:Exact:image:{index}', lambda: b'cached-image')
+        api = PublicAPI()
+        with patch('peach.web_jav_detail.PUBLIC_API', api), \
+                patch.object(api, 'movie', side_effect=AssertionError('cached image requested metadata')) as movie:
+            for index in ('cover', '0'):
+                self.assertEqual(jav_image(self.contract, {'code': 'EXM-001', 'image': index}),
+                                 (b'cached-image', JAV_IMAGE_MAX_AGE))
+        movie.assert_not_called()
+
+    def test_observed_ambiguous_identity_prevents_reusing_an_older_bound_image(self):
+        from peach.javdb_identity import RULE
+        from peach.jav_discovery_metadata import discovery_metadata
+        from peach.javdb_public import PublicIdentityAmbiguous, public_cache_scope
+        from peach.remote_media_cache import cache_for
+        discovery_metadata(self.contract).remember('EXM-001',
+            {'id': 'Exact', 'number': 'EXM-001', 'javdb_rule': RULE})
+        cache_for(self.contract).bytes('jav:EXM-001:Exact:image:cover', lambda: b'cached-image')
+        api = PublicAPI()
+        with public_cache_scope(self.contract.cover_root.parent / 'jav-public'):
+            api._remember('movie-id:EXM-001', ['Exact', 'Other'])
+        with patch('peach.web_jav_detail.PUBLIC_API', api), patch.object(api, 'movie',
+                side_effect=PublicIdentityAmbiguous('errors.javdbPublic.identityAmbiguous',
+                                                   {'identities': 'Exact、Other'})):
+            with self.assertRaises(PublicIdentityAmbiguous):
+                jav_image(self.contract, {'code': 'EXM-001'})
+
     def test_browser_people_projects_local_actor_rules_without_writes(self):
         from peach.web_jav_browser_people import cached_people
         source = {'actors': [{'name': '甲', 'gender': 0}, {'name': '乙', 'gender': 1},
@@ -904,6 +940,24 @@ class DetailProjectionTests(unittest.TestCase):
         self.assertEqual(result[0], b'sample')
         movie.assert_not_called()
         image.assert_called_once_with('https://tp.spfcas.com/actor.jpg')
+
+    def test_expired_actor_portrait_is_served_before_deferred_refresh(self):
+        from peach.remote_media_cache import AVATAR_REFRESH_SECONDS, cache_for
+        cache = cache_for(self.contract)
+        key = 'jav:actor:Person'
+        cache.bytes(key, lambda: b'cached-portrait')
+        path, = cache.folder(key).glob('*.data')
+        past = time.time() - AVATAR_REFRESH_SECONDS - 1
+        os.utime(path, (past, past))
+        deferred = []
+        with patch('peach.web_jav_detail._fetch_image', return_value='data:image/jpeg;base64,ZnJlc2g=') as fetch:
+            response = jav_image(self.contract, {'code': 'EXM-001', 'image': 'actor:Person'}, defer=deferred.append)
+            self.assertEqual(response[0], b'cached-portrait')
+            fetch.assert_not_called()
+            self.assertEqual(len(deferred), 1)
+            deferred[0]()
+        self.assertEqual(path.read_bytes(), b'fresh')
+        fetch.assert_called_once()
 
     def setUp(self):
         for name in ('dmm_preview', 'javdb_preview'):

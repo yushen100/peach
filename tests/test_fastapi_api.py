@@ -903,6 +903,75 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
         stub.start()
         self.addCleanup(stub.stop)
 
+    async def test_expired_avatar_is_available_before_its_background_refresh(self):
+        from starlette.requests import Request
+        from peach import follow_assets, routes_media
+        old = b'\x89PNG\r\n\x1a\n' + b'\x00' * 24
+        fresh = old + b'updated'
+        path = follow_assets.cache_path(routes_media._asset_root(self.app.state), 'avatars',
+                                       follow_assets.avatar_cache_key(service='fanbox', id='123'))
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(old)
+        past = time.time() - routes_media.AVATAR_REFRESH_SECONDS - 1
+        os.utime(path, (past, past))
+        request = Request({'type': 'http', 'method': 'GET', 'headers': [], 'app': self.app})
+        with patch.object(follow_assets, 'fetch_image', return_value=fresh) as fetch, \
+                patch.object(routes_media, 'resolve_official_avatar', return_value='https://pixiv.pximg.net/icon.png'):
+            response = routes_media.follow_avatar(request, service='fanbox', id='123', args={})
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(Path(response.path).read_bytes(), old)
+            fetch.assert_not_called()
+            await response.background()
+        self.assertEqual(path.read_bytes(), fresh)
+        fetch.assert_called_once()
+
+    async def test_expired_favicon_is_available_before_its_background_refresh(self):
+        from peach import link_marks, routes_media
+        generated = self.root / 'generated'
+        path = link_marks.cached_path(generated / 'link-marks', 'https://metadata.example/')
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b'cached-icon')
+        past = time.time() - routes_media.FAVICON_REFRESH_SECONDS - 1
+        os.utime(path, (past, past))
+        with patch.object(routes_media, 'GENERATED_DIR', generated), \
+                patch.object(routes_media.site_icons, 'best_mark', return_value=b'fresh-icon') as fetch:
+            response = routes_media._site_mark_response(self.app.state, 'https://metadata.example/', path.parent)
+            self.assertEqual(Path(response.path).read_bytes(), b'cached-icon')
+            fetch.assert_not_called()
+            await response.background()
+        self.assertEqual(path.read_bytes(), b'fresh-icon')
+        fetch.assert_called_once()
+
+    async def test_site_and_link_favicons_share_existing_local_bytes(self):
+        from peach import link_marks, routes_media
+        generated = self.root / 'generated'
+        path = link_marks.cached_path(generated / 'link-marks', 'https://metadata.example/')
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b'cached-icon')
+        with patch.object(routes_media, 'GENERATED_DIR', generated), \
+                patch.object(routes_media.site_icons, 'best_mark') as fetch:
+            response = routes_media._site_mark_response(self.app.state, 'https://metadata.example/',
+                                                       generated / 'site-marks')
+        self.assertEqual(Path(response.path), path)
+        self.assertIsNone(response.background)
+        fetch.assert_not_called()
+
+    async def test_expired_favicon_of_a_gone_link_only_uses_local_bytes(self):
+        from peach import link_marks, routes_media
+        generated = self.root / 'generated'
+        path = link_marks.cached_path(generated / 'link-marks', 'https://metadata.example/')
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b'cached-icon')
+        past = time.time() - routes_media.FAVICON_REFRESH_SECONDS - 1
+        os.utime(path, (past, past))
+        with patch.object(routes_media, 'GENERATED_DIR', generated), \
+                patch.object(routes_media.site_icons, 'best_mark') as fetch:
+            response = routes_media._site_mark_response(self.app.state, 'https://metadata.example/',
+                                                       path.parent, allow_fetch=False)
+        self.assertEqual(Path(response.path), path)
+        self.assertIsNone(response.background)
+        fetch.assert_not_called()
+
     async def test_follow_avatar_is_fetched_once_and_then_served_from_disk(self):
         """头像是元数据，落在本机：浏览器不直接碰 pixiv，第二次显示也不再问上游。"""
         denied = await self.client.get("/follow-avatar?service=fanbox&id=30917150")
@@ -1420,11 +1489,11 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
                    for link_id in (901, 902)]
         self.assertEqual([answer.status_code for answer in answers], [200, 200])
         self.assertNotEqual(answers[0].content, answers[1].content)
-        self.assertEqual(len(list((self.root / "generated" / "link-marks").iterdir())), 2)
+        self.assertEqual(len(list((self.root / "generated" / "link-marks").glob('*.png'))), 2)
         self.assertTrue(all(url.startswith("https://web.archive.org/") for url in asked), asked)
 
-    async def test_a_link_marked_gone_gets_no_mark_and_no_upstream_request(self):
-        """已失效的链接不再去取图标：停放域名的一次请求就够杀毒软件报警。"""
+    async def test_a_gone_link_without_a_cached_mark_has_no_upstream_request(self):
+        """失效链接缺少本地圆标时返回未取得。"""
         asked = self._archive_links(lambda url: "red")
         with closing(sqlite3.connect(self.db)) as connection, connection:
             connection.execute(
@@ -2783,6 +2852,36 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
             {"height": 360, "label": "360p"},
         ])
         self.assertEqual(response.json()["size"], 11458972)
+
+    async def test_follow_qualities_reuses_the_complete_default_media_cache_size(self):
+        from peach.follow_stream import FollowMediaUnavailable, ResolvedFollowMedia
+        with closing(sqlite3.connect(self.db)) as connection, connection:
+            connection.executescript((ROOT / 'migrations/0018_online_follow.sql').read_text(encoding='utf-8'))
+            connection.execute("INSERT INTO follow_source(id,provider,ref,label,url,semantics,created_at,updated_at) "
+                "VALUES(2,'rule34video','r34/1','Creator','https://rule34video.com/u','work','x','x')")
+            connection.execute("INSERT INTO follow_item(id,source_id,external_id,title,url,media_url,release_key,first_seen_at,last_seen_at) "
+                "VALUES(9,2,'9','Remote','https://rule34video.com/video/9/x/',"
+                "'https://rule34video.com/get_file/9.mp4/','remote','x','x')")
+        body = b'complete-media'
+        requests = []
+        def upstream(request):
+            requests.append(request.method)
+            self.assertEqual(request.method, 'GET')
+            return httpx.Response(200, request=request, stream=httpx.ByteStream(body),
+                                  headers={'content-type': 'video/mp4', 'content-length': str(len(body))})
+        self._swap_http_client(upstream)
+        url = 'https://rule34video.com/get_file/9.mp4/'
+        target = ResolvedFollowMedia(url, 'https://rule34video.com/video/9/x/',
+                                    allowed_hosts=('rule34video.com',), qualities=((720, url),))
+        with patch.object(self.app.state.follow_media_resolver, 'resolve', return_value=target) as resolve:
+            stored = await self.client.get('/follow-stream?id=9&t=secret')
+            self.assertEqual(stored.content, body)
+            facts = await self.client.get('/follow-qualities?id=9&t=secret')
+            self.assertEqual(facts.json(), {'qualities': [{'height': 720, 'label': '720p'}], 'size': len(body)})
+            resolve.side_effect = FollowMediaUnavailable('errors.followStream.mediaUrlUnavailable')
+            offline = await self.client.get('/follow-qualities?id=9&t=secret')
+        self.assertEqual(offline.json(), {'qualities': [], 'size': len(body)})
+        self.assertEqual(requests, ['GET'])
 
     async def test_follow_qualities_reports_no_size_when_upstream_refuses_the_head(self):
         """字节数取不到不是错误：清晰度照给，`size` 给 None。

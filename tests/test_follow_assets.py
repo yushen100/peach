@@ -55,6 +55,17 @@ class CachePathTests(unittest.TestCase):
 
 
 class CachedImageTests(unittest.TestCase):
+    def test_cached_avatar_candidates_precede_uncached_official_sources(self):
+        official = '/follow-avatar?service=fanbox&id=123'
+        mirror = '/follow-avatar?provider=kemono&ref=fanbox%2F123'
+        key = follow_assets.avatar_cache_key(provider='kemono', ref='fanbox/123')
+        path = follow_assets.cache_path(self.root, 'avatars', key)
+        path.parent.mkdir(parents=True)
+        path.write_bytes(PNG)
+        self.assertEqual(follow_assets.prioritize_avatar_urls(self.root, [official, mirror, mirror]),
+                         [mirror, official])
+        self.assertEqual(follow_assets.cached_avatar_urls(self.root, [official, mirror]), [mirror])
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.root = Path(self.tmp.name)
