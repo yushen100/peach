@@ -216,35 +216,35 @@ class MdnsPublisherTests(unittest.TestCase):
             self.assertEqual(lan_ipv4(), "198.51.100.162")
 
 
-    def test_valid_routed_private_networks_are_equal_and_gateway_addresses_can_be_real_hosts(self):
-        for routed in ('10.20.30.1', '172.20.0.2', '192.168.50.162'):
+    def test_valid_routed_addresses_are_preferred_even_at_gateway_endpoints(self):
+        for routed in ('192.0.2.1', '198.51.100.2', '203.0.113.162'):
             with self.subTest(routed=routed):
                 fake_socket = MagicMock()
                 fake_socket.getsockname.return_value = (routed, 50000)
                 adapters = [SimpleNamespace(name='eth0', nice_name='Ethernet', ips=[
                     SimpleNamespace(is_IPv4=True, ip=routed),
-                    SimpleNamespace(is_IPv4=True, ip='192.168.99.100')])]
+                    SimpleNamespace(is_IPv4=True, ip='192.0.2.100')])]
                 with patch('peach.mdns.socket.socket', return_value=fake_socket), \
                         patch('peach.mdns.ifaddr.get_adapters', return_value=adapters):
                     self.assertEqual(lan_ipv4(), routed)
 
     def test_a_guest_network_adapter_can_own_the_real_lan_route(self):
         fake_socket = MagicMock()
-        fake_socket.getsockname.return_value = ('10.2.3.4', 50000)
+        fake_socket.getsockname.return_value = ('203.0.113.4', 50000)
         adapter = SimpleNamespace(name='eth0', nice_name='VMware VMXNET3 Ethernet Adapter', ips=[
-            SimpleNamespace(is_IPv4=True, ip='10.2.3.4')])
+            SimpleNamespace(is_IPv4=True, ip='203.0.113.4')])
         with patch('peach.mdns.socket.socket', return_value=fake_socket), \
                 patch('peach.mdns.ifaddr.get_adapters', return_value=[adapter]):
-            self.assertEqual(lan_ipv4(), '10.2.3.4')
+            self.assertEqual(lan_ipv4(), '203.0.113.4')
 
     def test_unavailable_route_uses_interfaces_and_closes_the_socket(self):
         fake_socket = MagicMock()
         fake_socket.connect.side_effect = OSError('no route')
         adapter = SimpleNamespace(name='en0', nice_name='Wi-Fi', ips=[
-            SimpleNamespace(is_IPv4=True, ip='10.2.3.4')])
+            SimpleNamespace(is_IPv4=True, ip='203.0.113.4')])
         with patch('peach.mdns.socket.socket', return_value=fake_socket), \
                 patch('peach.mdns.ifaddr.get_adapters', return_value=[adapter]):
-            self.assertEqual(lan_ipv4(), '10.2.3.4')
+            self.assertEqual(lan_ipv4(), '203.0.113.4')
         fake_socket.close.assert_called_once()
 
     def test_no_publishable_interfaces_reports_an_error(self):
