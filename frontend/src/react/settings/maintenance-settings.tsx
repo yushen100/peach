@@ -17,6 +17,7 @@ import { groupRoot } from './configuration-panel';
 import { LedgerBackupSettings } from './ledger-backup-settings';
 import { RetentionSettings } from './retention-settings';
 import { LibrarySharingSettings } from './library-sharing-settings';
+import { SeedSharingSettings } from './seed-sharing-settings';
 import { RemoteReportingSettings } from './remote-reporting-settings';
 import { Disclosure, ErrorText, ExternalLink, Fact, FactList, Footer, Help, Rows, Section, Stack } from './section';
 import { StorageSettings } from './storage-settings';
@@ -41,6 +42,7 @@ export function MaintenanceSettings(
           <LibrarySharingSettings initial={data.library_sharing} receipt={receipt} />
         </div> : null}
       </Section> : null}
+      <SeedSharingSettings receipt={receipt} />
       <Facts facts={data.facts} receipt={receipt} />
       <TutorialSettings receipt={receipt} reopenTutorial={reopenTutorial} />
       {data.uninstall ? <UninstallSettings uninstall={data.uninstall} receipt={receipt} /> : null}

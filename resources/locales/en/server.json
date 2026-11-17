@@ -1207,6 +1207,15 @@
     }
   },
   "errors": {
+    "seedSharing": {
+      "invalidChoice": "Choose whether to enable public metadata contributions.",
+      "previewFirst": "Preview the local metadata and confirm the sharing scope first.",
+      "tooLarge": "Metadata exceeds the per-send limit. No sendable preview was created.",
+      "noPerformer": "The performer profile was not found.",
+      "noIdentity": "A verifiable public identity or original Japanese name is missing.",
+      "invalidName": "Enter a valid Chinese name.",
+      "invalidEvidence": "Use a public HTTPS link and remove any account or tracking parameters."
+    },
     "ledger": {
       "writeBusy": "The local database is busy: this write waited more than {{seconds}} s and was not saved. Try again later."
     },

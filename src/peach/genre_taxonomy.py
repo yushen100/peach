@@ -976,8 +976,8 @@ def resolve_genre(raw: object,
                   decisions: Mapping[str, str | None] | None = None) -> str | None:
     """一个来源原文的去向：Peach 标签、`None`（非内容，明确排除）、或 `UNMAPPED`。
 
-    查表顺序是用户决定、非内容、内容表。`decisions` 是用户在复核页当场定下的那批，
-    键已规范化。它排在两张静态表前面：用户刚说过的话不该被发版时写下的默认盖掉，
+    查表顺序是用户决定、公共种子、非内容、内容表。`decisions` 是用户在复核页当场定下的那批，
+    键已规范化。它排在发布资料前面：用户刚说过的话不该被发版时写下的默认盖掉，
     而把同一个词收录成别的标签正是他改主意的方式。
 
     抓取与复核折叠候选走同一个函数。各写一份的代价是「表里补了这个词，页面上它仍然
@@ -988,6 +988,12 @@ def resolve_genre(raw: object,
         return None
     if decisions and key in decisions:
         return decisions[key]
+    # 历史标签重算会独立执行旧源码，比较静态词表时不能混入当前安装的包。
+    if __package__:
+        from .seed_catalog import indexes
+        published = indexes()[2]
+        if key in published:
+            return published[key]
     if is_non_content_genre(key):
         return None
     return _CONTENT_INDEX.get(key, UNMAPPED)

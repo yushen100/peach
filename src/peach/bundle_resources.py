@@ -7,6 +7,9 @@ def data_files(root):
     seed = root / 'resources/seed/entities.json'
     if not seed.is_file():
         raise FileNotFoundError(f'public entity seed pack is missing: {seed}')
+    metadata = root / 'resources/seed/metadata.json'
+    if not metadata.is_file():
+        raise FileNotFoundError(f'public metadata seed pack is missing: {metadata}')
     resources = [(root / name, name) for name in ('web', 'migrations', 'resources')]
     resources += [(root / 'tools/amane-bridge' / name, 'tools/amane-bridge')
                   for name in ('bridge.py', 'pyproject.toml', 'uv.lock')]

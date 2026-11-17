@@ -1467,6 +1467,8 @@ def _source_candidate(source, document, value, evidence_path, mode):
                      catalog_evidence=extract_catalog_evidence(document))
     if source == 'javdb':
         candidate.update(javdb_rule=document.get('javdb_rule'), source_id=document.get('source_id'))
+    if source == 'public-seed':
+        candidate['seed_revision'] = document['seed_revision']
     if mode in ('review', 'identity-review'):
         candidate['requires_review'] = True
     if mode == 'identity-review':
@@ -2120,6 +2122,14 @@ class _RemoteSession:
         # 素人缺演员：MGStage 给的是素人名义，直到有一个认人 Wiki 给出演员才算问到（ADR-0145）。
         wants_cast = 'performers' in missing and any(name in metadata_routes.WIKI_STAGE for name in chain)
         results = _MetadataResults(self, code, received)
+        if self._consult:
+            from .seed_catalog import payload as seed_payload
+            published = seed_payload(code)
+            if published:
+                results.cached([self._evidence('public-seed', code, published)])
+                provided = self._provided(code, results.entries)
+                if required and set(required).issubset(provided) and not wants_tags:
+                    return results.entries
         problems, held, entries = [], [], results.entries
         # 没答上的来源逐家留原因（`failures`），说过「没有」的另记一份（`absent`）：两样是两回事。
         failures, absent = [], []
@@ -2183,12 +2193,17 @@ class _RemoteSession:
         tag_entries = self._preferred_tags(row, code, missing, chain, entries, attempted,
             update=update, issue=issue, deadline=_extended(deadline, _excused(self._provider) - mark))
         results.cached(tag_entries)
+        self._report_metadata_result(row, entries, problems, held, failures, absent, action=action, issue=issue)
+        return entries
+
+    @staticmethod
+    def _report_metadata_result(row, entries, problems, held, failures, absent, *, action, issue):
         if entries:
             if problems:
                 issue(row, phrase('errors.libraryProcessing.someSourcesUnfetched',
                                   {'problems': joined_phrases(problems)}), action=action,
                       diagnostics={'failures': failures, 'absent': absent})
-            return entries
+            return
         # 链上任何一档还在正常作答，这一行就是真没取到；全被限住时才算没轮到。
         paused = bool(held) and all(held)
         issue(row, phrase('errors.libraryProcessing.metadataPaused' if paused
@@ -2196,7 +2211,6 @@ class _RemoteSession:
               if problems else MISS_MESSAGES[action],
               action=action, retryable=True, paused=paused,
               **({'diagnostics': {'failures': failures, 'absent': absent}} if failures else {}))
-        return []
 
     def _provided(self, code, entries):
         from .metadata_alias_resolve import stage_name

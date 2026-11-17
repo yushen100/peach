@@ -1207,6 +1207,15 @@
     }
   },
   "errors": {
+    "seedSharing": {
+      "invalidChoice": "请选择是否开启公共资料贡献。",
+      "previewFirst": "请先预览本机资料并确认分享范围。",
+      "tooLarge": "资料超过单次发送上限，未生成可发送的预览。",
+      "noPerformer": "未找到当前女优资料。",
+      "noIdentity": "缺少可核对的公开身份或日文原名。",
+      "invalidName": "请填写有效的中文名。",
+      "invalidEvidence": "请使用公开的 HTTPS 链接，移除账号或跟踪参数后再提交。"
+    },
     "ledger": {
       "writeBusy": "本地数据库正忙：这次写入排队超过 {{seconds}} 秒，没有保存，请稍后重试。"
     },

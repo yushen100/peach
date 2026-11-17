@@ -444,6 +444,41 @@ def save_library_sharing(request: Request, body: dict = Body(...), _args=Depends
         raise HTTPException(400, error_detail(error)) from error
 
 
+@router.get('/api/configuration/seed-sharing')
+def read_seed_sharing(request: Request, _args=Depends(require_auth)):
+    local_only(request)
+    return request.app.state.seed_sharing.snapshot()
+
+
+@router.get('/api/configuration/seed-sharing/preview')
+def preview_seed_sharing(request: Request, _args=Depends(require_auth)):
+    local_only(request)
+    same_origin(request)
+    return JSONResponse(request.app.state.seed_sharing.preview(), headers={'Cache-Control': 'no-store'})
+
+
+@router.post('/api/configuration/seed-sharing')
+def save_seed_sharing(request: Request, body: dict = Body(...), _args=Depends(require_auth)):
+    local_only(request)
+    same_origin(request)
+    return request.app.state.seed_sharing.save(body)
+
+
+@router.get('/api/configuration/seed-sharing/name')
+def seed_name_plan(request: Request, entity_id: int, _args=Depends(require_auth)):
+    local_only(request)
+    from .seed_name_proposals import plan
+    return JSONResponse(plan(request.app.state.web_contract, entity_id), headers={'Cache-Control': 'no-store'})
+
+
+@router.post('/api/configuration/seed-sharing/name')
+def save_seed_name(request: Request, body: dict = Body(...), _args=Depends(require_auth)):
+    local_only(request)
+    same_origin(request)
+    from .seed_name_proposals import save
+    return save(request.app.state.web_contract, settings_file.active(), body)
+
+
 @router.post("/api/configuration/automatic-updates")
 def save_automatic_updates(request: Request, body: dict = Body(...), _args=Depends(require_auth)):
     local_only(request)

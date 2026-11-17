@@ -1000,6 +1000,8 @@ A 盘垃圾隔离使用短名称 `peach-purge-<32 位 UUID>.peach-quarantine`，
 - 实体事实包位于 `resources/seed/entities.json`，维护者显式导出、复核并随应用版本分发。`scripts/seed_pack.py export` 只读账本，继承累计撤销；用户升级后，扫描与采集结算后的种子后继按内容摘要派发导入。wheel、Docker 和桌面构建共用资源清单，缺包即拒绝打包；桌面制品验收核对 v2 格式和摘要。结构校验复用已固定的 Pydantic 2.14.1（MIT），摘要使用 Python 标准库 SHA-256，持久导入历史和纠错复用既有 SQLite 实现，无新增依赖；不引入远端更新器或加密容器。别名保留源 confidence，用户资料由归属保护，种子不含图片，包中缺席不视为错误撤销。维护流程见[实体事实种子](SEED.md)，分发边界见 [ADR-0117](adr/0117-public-entity-seed-distribution.md)，纠错见 [ADR-0106](adr/0106-seed-correction-history-and-explicit-withdrawals.md)。
 - 数据管理首屏直接复用实际 `cleanupfieldset` 正文和操作条，只有计数等待取数；资源同步与重复文件网盘操作根据 `/api/sources` 已配置来源显示，离线来源保留入口。资源同步的检查与执行覆盖已配置的 local、115、PikPak，一次检查同时报失效记录、空文件夹与孤儿缓存；按目录清理也支持本地磁盘。
 
+公共元信息贡献复用实体种子的公开事实投影、现有字段归属、来源检查、来源快照与封面取景边车。独立同意与 Sentry 传输沿用研究通道的 gzip、最终门槛和有限回执；归档与去重使用标准库 SQLite、SHA-256，结构验证复用已锁定的 Pydantic，无新增依赖。公共事实仍经维护者逐项复核；姓名显示复用 `performer_name_display`，作品补空复用现有资料链，标签映射保留本机决定优先，取景复用图片指纹和现有安装事务。维护流程见[公共资料贡献](SEED.md#公共资料贡献)。
+
 ## 必须复用的成熟实现
 
 下表每行是一项能力：中列是必须复用的实现（带固定版本与许可证），右列是 Peach 自己负责的部分和不能越过的约束。

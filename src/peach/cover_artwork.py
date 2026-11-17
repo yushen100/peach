@@ -351,6 +351,11 @@ def install_cover(target: Path, code: str, payload: bytes, size: tuple[int, int]
     target = Path(target)
     target.parent.mkdir(parents=True, exist_ok=True)
     prepared = _sidecars(code, payload, size, detector, evidence, portrait, cover_templates(target.parent))
+    if not jav_poster_crop.is_manual(jav_poster_crop.read_sidecar(target)):
+        from .seed_catalog import crop as published_crop
+        crop = published_crop(code, payload, size)
+        if crop:
+            prepared[jav_poster_crop.SIDECAR_SUFFIX] = json.dumps(crop).encode('utf-8')
     if evidence is not None:
         prepared[".scraping.json"] = json.dumps(evidence, ensure_ascii=False).encode("utf-8")
     token = uuid.uuid4().hex

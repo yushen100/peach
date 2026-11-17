@@ -1,4 +1,24 @@
 {
+  "seedName": {
+    "title": "贡献中文名",
+    "save": "提交候选",
+    "description": "带 * 的项目为必填。",
+    "original": "来源中的日文艺名",
+    "originalPlaceholder": "选择日文艺名",
+    "originalRequired": "请选择日文艺名。",
+    "identity": "查看人物来源编号",
+    "chinese": "中文名",
+    "nameRequired": "请填写中文名。",
+    "nameInvalid": "请输入包含汉字的中文名。",
+    "traditional": "这是繁体中文写法",
+    "evidence": "公开参考链接（选填）",
+    "evidenceHelp": "有出处时，可附上能核对这两个名字的公开页面。",
+    "evidenceInvalid": "请输入有效的 HTTPS 链接。",
+    "noIdentity": "尚未取得可核对的来源编号与原文艺名。补齐人物资料后再贡献。",
+    "loading": "正在读取人物身份…",
+    "delivery": "候选先保存在本机。开启「公共资料贡献」后才会随每周快照发送复核。",
+    "saved": "中文名候选已保存，分享与采纳状态请在公共资料贡献中查看"
+  },
   "avatarPicker": {
     "backToChoices": "返回备选图片",
     "baseImage": "底图",

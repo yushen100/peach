@@ -64,6 +64,7 @@ from .metadata_policy import (
 from .metadata_routes import classify
 from .review_csv import read_candidates
 from .javdb_identity import current_candidate as current_javdb_candidate
+from .seed_catalog import current_candidate as current_seed_candidate
 from .sources import fc2
 from .user_messages import UserValueError
 
@@ -862,6 +863,7 @@ def _evidence_candidates(row: dict, field: str = "") -> list[dict]:
             and not blacklisted(field, str(c.get("source") or "").strip())
             and not c.get('requires_identity_review')
             and (str(c.get('source') or '').strip() != 'javdb' or current_javdb_candidate(c))
+            and current_seed_candidate(c)
             and candidate_text_is_valid(c)
             and _original_title_candidate(field, c, str(row.get('code') or ''))]
 
@@ -1994,8 +1996,9 @@ def auto_apply_metadata(database, candidate_root, *, batch_size=AUTO_APPLY_BATCH
                     continue
                 row["candidates"] = _row_candidates(row, genres)
                 row['candidates'] = [candidate for candidate in row['candidates']
-                                     if str(candidate.get('source') or '').strip() != 'javdb'
-                                     or current_javdb_candidate(candidate)]
+                                     if current_seed_candidate(candidate) and
+                                     (str(candidate.get('source') or '').strip() != 'javdb'
+                                      or current_javdb_candidate(candidate))]
                 prior = decided.get(item_key)
                 verified = verification_outcome(connection, row)
                 if verified is not None:
