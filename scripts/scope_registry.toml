@@ -10,7 +10,7 @@ checks = [
 ]
 follow = ["test_follow*.py", "test_http.py", "test_migrations.py", "test_wants_web.py"]
 catalog = [
-    "test_ad_judgement.py", "test_composite_name_split.py", "test_media_libraries.py",
+    "test_ad_judgement.py", "test_junk_visual.py", "test_composite_name_split.py", "test_media_libraries.py",
     "test_media_folders.py", "test_content_region.py", "test_performer_delete.py", "test_entity_batch.py",
     "test_duplicate_identity_merge.py", "test_entity_classification.py", "test_company_profiles.py",
     "test_fc2_sellers.py", "test_entity_merge.py", "test_entity_redirect.py", "test_fastapi_api.py",
@@ -30,7 +30,7 @@ catalog = [
 # 任务中心的两个文件跟着 `test_jobs.py` 走：`jobs.py` 与 `task_runs.py` 是同一条
 # 接线的两端，改哪一端都要两边一起验。
 media = [
-    "test_external_playback.py", "test_runtime_consistency.py", "test_endcard.py", "test_fastapi_api.py",
+    "test_junk_visual.py", "test_external_playback.py", "test_runtime_consistency.py", "test_endcard.py", "test_fastapi_api.py",
     "test_jobs.py", "test_task_runs.py", "test_followups.py", "test_task_center_integration.py",
     "test_task_control.py", "test_task_resources.py", "test_resource_platform.py", "test_face_models.py",
     "test_frame_capture.py", "test_timeline_sheets.py", "test_processing_control.py",
@@ -47,7 +47,7 @@ sync = [
     "test_runtime_prepare.py", "test_listening.py",
 ]
 metadata = [
-    "test_custom_metadata.py", "test_scraping_access.py", "test_browser_transport.py", "test_metadata*.py",
+    "test_junk_visual.py", "test_custom_metadata.py", "test_scraping_access.py", "test_browser_transport.py", "test_metadata*.py",
     "test_genre_taxonomy.py", "test_processing_control.py", "test_processing_traffic.py",
     "test_processing_inventory.py", "test_fc2*.py", "test_local_poster.py", "test_media_io.py",
     "test_community_catalog.py", "test_babepedia_match.py", "test_western_artwork.py",
@@ -258,6 +258,9 @@ follow = [
 "src/peach/seed_followup.py" = ["metadata", "tooling"]
 # 推广附件命名词库：垃圾复核队列（`test_ad_judgement.py`）与回收站脚本（`test_trash_junk.py`）都读它。
 "resources/junk/promo_attachment_names.json" = ["catalog", "tooling"]
+"src/peach/junk_visual.py" = ["catalog", "media", "metadata"]
+"src/peach/image_ocr.py" = ["catalog", "media", "metadata"]
+"scripts/windows_ocr.ps1" = ["catalog", "media", "metadata", "tooling"]
 # 补女优资料后继的解析与读写层、一次补完的脚本，测试都在 `test_performer_profile_followup.py`。
 "scripts/run_performer_profiles.py" = ["metadata"]
 "src/peach/avwikidb.py" = ["metadata"]
@@ -300,6 +303,10 @@ follow = [
 # 脚本默认归 tooling；有自己领域测试的脚本两边都跑：领域测试验它的判据，
 # tooling 里的脚本策略门槛验它的形态。
 # 有序：按顺序取第一个命中的前缀，更具体的前缀写在前面。
+
+[[auto_scope_prefixes]]
+prefix = "resources/ocr/"
+scopes = ["catalog", "media", "metadata", "packaging"]
 
 [[auto_scope_prefixes]]
 prefix = "src/peach/mkvindex.py"

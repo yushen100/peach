@@ -16,6 +16,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Added / 新增
 
+- **Review**: Junk review combines video frames, promo text, QR codes, size and duration, with protection for advertising intros (#750). / **复核**：垃圾复核综合多帧画面、推广文字、二维码、大小和时长，保护带广告片头的视频（#750）。
 - **Library**: Table headers offer multi-select filters with search, pagination, select-all and exclusion controls (#744). / **馆藏**：列表列头支持搜索、多选、分页、全选与排除筛选（#744）。
 - **Interface**: Customize and reorder sorting options across library and discovery views, with release-date sorting on Home (#744). / **界面**：馆藏与发现页可自定义排序项及顺序，首页支持按发行时间排序（#744）。
 - **Library**: Delete profiles individually or in batches, with choices to keep works, move them to Trash or permanently delete their media (#738). / **馆藏**：资料页与名册多选支持删除档案，可选择保留作品、移入回收站或连同媒体永久删除（#738）。
@@ -219,8 +220,6 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Settings**: The Compose and Docker docs open with NAS LAN access and the first-time setup password (#125). / **配置**：Compose 与 Docker 文档开头写明 NAS 局域网访问和首次设置密码（#125）。
 
 ### Fixed / 修复
-
-- **Review**: Junk files recognizes more casino and community promo clips mixed into creator folders (#747). / **复核**：垃圾文件可识别混在创作者目录中的更多博彩与社区推广短片（#747）。
 
 - **Sourcing**: Wants distinguishes source failures from empty results, reads JavDB pages when its API requires login and restores confirmed resources (#717). / **采集**：想要区分来源失败与正常空结果，JavDB 接口要求登录时读取作品页，并恢复已确证资源的误放弃状态（#717）。
 - **Following**: Leaving Home unmounts its new-release row and prevents late requests from showing it on other pages (#744). / **关注**：离开首页时卸载新作行，迟到请求不会再将它显示到其他页面（#744）。

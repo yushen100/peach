@@ -236,8 +236,8 @@ def _scope_clause(*, asset_ids=None, roots=None):
     return (" AND (" + " OR ".join(clauses) + ")", tuple(values)) if clauses else (" AND 0", ())
 
 
-def _junk_rows(connection, *, asset_ids=None, roots=None):
-    """读取能进入垃圾复核的物理文件；字幕、NFO 与大视频在最外层排除。"""
+def _junk_rows(connection, *, asset_ids=None, roots=None, visual_ids=()):
+    """读取物理候选及有视觉证据的视频；字幕与 NFO 在外层排除。"""
     marks = ",".join("?" for _ in SCANNABLE_LOCATIONS)
     scope, parameters = _scope_clause(asset_ids=asset_ids, roots=roots)
     rows = connection.execute(
@@ -245,8 +245,8 @@ def _junk_rows(connection, *, asset_ids=None, roots=None):
         "feedback,disposal,play_count,leave_ratio,o_count,studio,ctx_orient,path "
         f"FROM asset WHERE location IN ({marks}) AND disposal IS NULL "
         "AND (COALESCE(medium,'other')<>'video' OR (size < ? "
-        "AND (duration IS NULL OR duration <= 1200)))" + scope,
-        (*SCANNABLE_LOCATIONS, JUNK_VIDEO_MAX_BYTES, *parameters)).fetchall()
+        "AND (duration IS NULL OR duration <= 1200)) OR id IN (SELECT value FROM json_each(?)))" + scope,
+        (*SCANNABLE_LOCATIONS, JUNK_VIDEO_MAX_BYTES, json.dumps(tuple(visual_ids)), *parameters)).fetchall()
     # NFO 是媒体资料边车，不是等待清理的物理内容；即使名字或所在目录带推广词，
     # 也应由资料读取报告解析问题，不能进入会把文件移入回收站的垃圾队列。
     return [row for row in rows if _junk_file_eligible(row)]
@@ -599,10 +599,12 @@ def _video_evidence(row, stem: str, longer: dict, promo_dir: bool,
 
 def _judgement_inputs(database, *, asset_ids, roots):
     """读取同一账本快照中的候选、用户决定、作品版本与目录上下文。"""
+    from . import junk_visual
+    visual = junk_visual.read(database)
     with database.read_connection() as c:
-        rows = _junk_rows(c, asset_ids=asset_ids, roots=roots)
+        rows = _junk_rows(c, asset_ids=asset_ids, roots=roots, visual_ids=visual)
         if not rows:
-            return [], {}, frozenset(), {}, {}, {}, {}, {}
+            return [], {}, frozenset(), {}, {}, {}, {}, {}, visual
         # 同番号是否存在明显更长的版本；只在 code 是真番号时才有意义。
         longer = {r[0]: r[1] for r in c.execute(
             "SELECT code, max(duration) FROM asset WHERE medium='video' AND code IS NOT NULL "
@@ -620,7 +622,7 @@ def _judgement_inputs(database, *, asset_ids, roots):
         download_attachments = _download_attachment_reasons(c, rows)
         copies = _repeated_copies(c, roots=context)
     return (rows, longer, frozenset(dismissed_ids), folder_assets, folder_videos, short_attachments,
-            download_attachments, copies)
+            download_attachments, copies, visual)
 
 
 def scored_candidates(database, *, asset_ids=None, roots=None) -> tuple[list[dict], frozenset[int]]:
@@ -637,8 +639,9 @@ def scored_candidates(database, *, asset_ids=None, roots=None) -> tuple[list[dic
 
 
 def _scored_candidates(database, *, asset_ids, roots) -> tuple[list[dict], frozenset[int]]:
+    from . import junk_visual
     (rows, longer, dismissed_ids, folder_assets, folder_videos, short_attachments,
-     download_attachments, copies) = _judgement_inputs(database, asset_ids=asset_ids, roots=roots)
+     download_attachments, copies, visual) = _judgement_inputs(database, asset_ids=asset_ids, roots=roots)
     # 每个目录里挂着推广名的候选有多少个；插页判据要看它有没有同伙。
     promo_neighbours = _promo_neighbour_counts(rows)
     out = []
@@ -728,6 +731,9 @@ def _scored_candidates(database, *, asset_ids, roots) -> tuple[list[dict], froze
         # 有真实创作者归属、且名字剥完仍有实质描述的，是被打了水印的正片，不是广告。
         if real_owner and residue >= 14 and not (attachment_reason or attachment_reasons):
             s -= 45
+        s, weak, reasons = junk_visual.adjust_score(d, visual.get(d['id']), s)
+        review_only += weak
+        why.extend(reasons)
         if review_only and s - review_only < AUTO_TRASH_SCORE:
             s = min(s, AUTO_TRASH_SCORE - 1)
         if s >= JUNK_REVIEW_SCORE:
@@ -743,6 +749,7 @@ def isolate(database, *, asset_ids=None, roots=None, protected_ids=()) -> dict:
     人工保留、个人记录、文件自身作品身份和调用方点名的正片受保护。写入前重查评分依据，
     扫描或人工操作在计算期间改变了资产时留待下一次判定。
     """
+    from . import junk_visual
     if asset_ids is None and roots is None:
         raise ValueError("automatic junk check needs asset ids or source roots")
     if not isinstance(database, LedgerDatabase):
@@ -759,7 +766,7 @@ def isolate(database, *, asset_ids=None, roots=None, protected_ids=()) -> dict:
         holders = record_holders(connection, [row['id'] for row in chosen])
         for row in chosen:
             current = connection.execute("SELECT * FROM asset WHERE id=?", (row['id'],)).fetchone()
-            if not _can_isolate(connection, current, row, holders):
+            if not _can_isolate(connection, current, row, holders) or junk_visual.preserves_intro(database, current):
                 continue
             connection.execute(
                 "UPDATE asset SET disposal='trash',disposal_reason='junk',feedback_at=? WHERE id=? AND disposal IS NULL",

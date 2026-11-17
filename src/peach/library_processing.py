@@ -3029,6 +3029,8 @@ def _generate_preview(config, row, database, resolver, *, progress):
         result = connection.execute(
             "UPDATE asset SET snapshot_path=? WHERE id=? AND path=? AND location=? "
             "AND medium='video' AND disposal IS NULL", (str(destination), row['id'], row['path'], row['location']))
+    if result.rowcount:
+        row.update(snapshot_path=str(destination), duration=duration)
     return bool(result.rowcount)
 
 
@@ -3046,6 +3048,8 @@ def _generate_previews(config, rows, database, *, update, issue, guard,
                        completed=(), checkpoint=lambda row: None, initial_made=0, allow_metered=False):
     """来源失败与抽帧失败各自保留可重试项目。媒体库处理方式不生成九宫格的作品跳过。"""
     from .previews import PreviewUnavailable
+    from . import junk_visual
+    from .image_ocr import ImageReader, OcrUnavailable
     if database is None:
         return 0
     stages_of = _library_stages(config)
@@ -3054,16 +3058,18 @@ def _generate_previews(config, rows, database, *, update, issue, guard,
     base_done = sum(_checkpoint_key(row) in completed for row in rows)
     rows = [row for row in rows if _checkpoint_key(row) not in completed]
     resolver = FFmpegResolver(config.directory('tools') / 'ffmpeg')
+    image_reader = ImageReader(config.directory('tools'))
     made = initial_made
     for index, row in enumerate(rows):
         if metadata_only(config.directory('state')):
             break
         started = time.time()
         deadline = deadline_after(PREVIEW_TIMEOUT_SECONDS)
-        def progress(row=row, index=index, made=made, started=started, deadline=deadline):
+        def progress(row=row, index=index, made=made, started=started, deadline=deadline,
+                     phase='library.makePreviews'):
             guard.check()
             try:
-                update(**stage_fields('library.makePreviews'), checked=base_done + index, total=base_done + len(rows), previews=made,
+                update(**stage_fields(phase), checked=base_done + index, total=base_done + len(rows), previews=made,
                        current_asset_id=row['id'], current_asset_name=Path(str(row['name'] or '')).name,
                        current_action='generating_preview', current_started_at=started,
                        current_deadline_at=time.time() + max(0, deadline - time.monotonic()))
@@ -3075,12 +3081,15 @@ def _generate_previews(config, rows, database, *, update, issue, guard,
         progress()
         try:
             made += int(_generate_preview(config, row, database, resolver, progress=progress))
+            if row.get('snapshot_path'):
+                junk_visual.analyse(database, row, image_reader,
+                                    checkpoint=lambda: progress(phase='library.checkJunk'))
         except InterruptedError:
             raise
-        except (OSError, ValueError, subprocess.SubprocessError, PreviewUnavailable) as error:
+        except (OSError, ValueError, subprocess.SubprocessError, PreviewUnavailable, OcrUnavailable) as error:
             from .error_reporting import event
             event('library-preview', error, asset_id=row['id'])
-            message = (said_of(error) if isinstance(error, (ValueError, PreviewUnavailable)) else
+            message = (said_of(error) if isinstance(error, (ValueError, PreviewUnavailable, OcrUnavailable)) else
                        phrase('errors.libraryProcessing.previewTimeout') if isinstance(error, subprocess.SubprocessError)
                        else phrase('errors.libraryProcessing.previewFailed'))
             details = {'diagnostics': error.diagnostics} if isinstance(error, _PreviewCaptureError) else {}

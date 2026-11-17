@@ -89,7 +89,12 @@ build = [
 macos = ["pyobjc-framework-Cocoa==12.2.2; sys_platform == 'darwin'"]
 # numpy 本来就是 opencv 的传递依赖，这里显式钉住：`face_detect.decode` 直接 import 它
 # 把字节喂给 `cv2.imdecode`，被 import 的外部模块必须有声明的归属。
-vision = ["opencv-python-headless==5.0.0.93", "numpy==2.5.4"]
+vision = [
+    "opencv-python-headless==5.0.0.93", "numpy==2.5.4",
+    "pyobjc-framework-Vision==12.2.2; sys_platform == 'darwin'",
+    "rapidocr==3.10.0; sys_platform == 'linux'",
+    "onnxruntime==1.32.0; sys_platform == 'linux'",
+]
 maintenance-115 = ["p115client==0.0.9.7.2"]
 # 字形复核与英文媒体文件名分词工具。
 naming = [

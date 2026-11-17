@@ -56,3 +56,12 @@ AD_DIR_FORM = re.compile(
 AD_DIR_BRAND_MEDIA = re.compile(r"(?:视频|視頻|影视|影視|传媒|傳媒|直播|短视频|短視頻)", re.I)
 
 PAGE_PROMO_CLAIM = re.compile(r"(?:记住|記住).{0,12}(?:网址|網址)|(?:网址|網址).{0,8}(?:发布|發布)")
+
+# 画面推广词与域名、二维码及全片采样分布组合使用。
+VISUAL_PROMO_TERM = re.compile(
+    r"赔率|賠率|彩金|博彩|赌场|賭場|在线发牌|在線發牌|征求赢家|徵求贏家|"
+    r"一键约会|一鍵約會|一键约她|一鍵約她|会员聚会|會員聚會|"
+    r"扫码下载|掃碼下載|扫码安装|掃碼安裝|下载app|下載app|免费体验|免費體驗|"
+    r"裸聊室|裸聊区|裸聊區|一对一(?:或一对多)?服务|一對一(?:或一對多)?服務|在线客服|在線客服|"
+    r"livecasino|signupbonus|register(?:now|free)|downloadapp", re.I)
+VISUAL_PROMO_BRAND = re.compile(r"vip[0-9]{3,}", re.I)
