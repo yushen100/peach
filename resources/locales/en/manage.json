@@ -775,6 +775,7 @@
     "waited": " · waited {{elapsed}}"
   },
   "scrapingSources": {
+    "contents": "On this page",
     "loadFailed": "Couldn't load fetch sources.",
     "loadFailedTitle": "Couldn't load fetch sources",
     "loading": "Loading fetch sources",

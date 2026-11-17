@@ -694,6 +694,7 @@
     "waited": " · 已等待 {{elapsed}}"
   },
   "scrapingSources": {
+    "contents": "本页目录",
     "loadFailed": "读取采集来源失败",
     "loadFailedTitle": "采集来源读取失败",
     "loading": "正在读取采集来源",

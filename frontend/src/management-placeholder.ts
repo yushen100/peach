@@ -58,10 +58,11 @@ const PLACEHOLDERS: Record<string, () => string> = {
   // 旧地址 /resource-sync 打开后转到资源同步二级页，占位先画成那一页，转过去时同一个键不重画。
   '/resource-sync': () => cleanupToolSkeletonHtml('resource-sync'),
   '/review': () => reviewSkeletonHtml(),
-  /* 采集来源是 812px 窄列里一叠同宽的 Fieldset：连接检查、高清封面，再接各个来源。骨架画四块，
-     那是首屏装得下的张数；说明那一句是静态文案，与数据无关，立刻显示。 */
+  /* 来源目录与正文保持同一分栏，来源名称等数据到齐后替换占位。 */
   '/sources': () => `<div class="scraping-page"><p>${esc(t('manage:scrapingSources.proxyHint'))}</p>
-    ${pageSkeletonHtml(t('manage:scrapingSources.loading'), { cards: true, count: 4, fill: false, className: 'cleanup-skeleton' })}</div>`,
+    <div data-section-page><div data-section-toc aria-hidden="true">
+      ${Array.from({ length: 12 }, () => '<div class="skeleton" style="height:36px;margin-bottom:4px;border-radius:8px"></div>').join('')}
+    </div><div>${pageSkeletonHtml(t('manage:scrapingSources.loading'), { cards: true, count: 4, fill: false, className: 'cleanup-skeleton' })}</div></div></div>`,
 };
 
 /** 关注管理的骨架照这台浏览器上次选的视图画，排序框与方向键照地址栏上的那一档画：等数据的这段时间画成

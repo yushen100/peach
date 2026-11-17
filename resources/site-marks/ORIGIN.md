@@ -22,6 +22,7 @@
 | javbus.png | `https://www.javbus.com/favicon.ico` | 官方站点的 favicon |
 | avbase.png | `https://www.avbase.net/favicon.ico` | 首页需验证，公开 favicon 可读取 |
 | r18dev.png | 已有 `https://r18.dev/` 站标缓存 | 复用 dev 字标；官方 favicon 核对为同一标识 |
+| prestige.png | 已有 `https://www.prestige-av.com/` 站标缓存，2026-09-24 保存的 128×128 PNG | 站点维护时当前渲染版本未取得图标，复用既有红底白色 P 标识 |
 | fc2.png | 已有 FC2 站标缓存；原图来源见 `site_icons.HOST_OVERRIDES['fc2.com']` | 复用用户确认的纯红色独角兽 |
 | 1pondo.png | 已有 `https://www.1pondo.tv/` 站标缓存 | 复用现有一本道标识 |
 | iwara.png | `https://www.iwara.tv/logo.png`（首页唯一声明的 icon，540×540，25,990 B，SHA-256 `00E00534BCD49920E030536DD83652A7B74E3DAE3C5F8C88CB298CB0F9539F05`），经 `link_marks.render_mark` 合成 | 官方 logo、manifest 的 192/512 图标与 Google 图标缓存都是透明底纯白字形，原样显示在浅色主题下看不见；按外链圆标的单色字形规则换成中性深灰圆底白字，与 `/link-mark` 的 Iwara 圆标一致 |

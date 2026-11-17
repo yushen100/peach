@@ -8,6 +8,51 @@ describe('来源链接与凭据布局', () => {
   before(async () => { browser = await launch(); });
   after(async () => { await browser?.close(); });
   for (const viewport of VIEWPORTS) {
+    it(`目录跳转保留表单内容，窄屏滚轮可横向浏览来源（${viewport.name}）`, { timeout: 60_000 }, async () => {
+      const opened = await visit(browser, '/sources', viewport);
+      const { page } = opened;
+      try {
+        const nav = page.getByRole('navigation', { name: '本页目录', exact: true });
+        await nav.waitFor();
+        await settle(page);
+        const anchors = await nav.locator('a').evaluateAll(links => links.map(link => ({
+          target: Boolean(document.getElementById(link.getAttribute('href')!.slice(1))),
+          icon: Boolean(link.querySelector('img,svg')),
+        })));
+        assert.ok(anchors.every(link => link.target), '目录链接缺少对应正文分区');
+        assert.ok(anchors.slice(0, 3).every(link => !link.icon), '非站点分区显示了站标');
+        const code = page.getByRole('textbox', { name: '馆藏番号', exact: true });
+        await code.fill('DEMO-001');
+        await nav.locator('a[href="#source-javdb"]').focus();
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(() => {
+          const target = document.getElementById('source-javdb')!;
+          const offset = parseFloat(getComputedStyle(target).scrollMarginTop)
+            + parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop);
+          return Math.abs(target.getBoundingClientRect().top - offset) <= 2
+            && document.querySelector('[data-section-toc] [aria-current]')?.getAttribute('href') === '#source-javdb';
+        });
+        assert.equal(await code.inputValue(), 'DEMO-001');
+        assert.ok(await page.locator('#source-dmm').isVisible(), '跳转后其余来源正文被隐藏');
+        if (viewport.mobile) {
+          await nav.evaluate(node => { node.scrollLeft = 0 });
+          const before = await page.evaluate(() => scrollY);
+          await nav.hover();
+          await page.mouse.wheel(0, 5000);
+          await page.waitForFunction(() => {
+            const node = document.querySelector('[data-section-toc]')!;
+            return node.scrollWidth - node.clientWidth - node.scrollLeft <= 2;
+          });
+          assert.equal(await page.evaluate(() => scrollY), before, '目录滚轮带动了正文');
+          await page.mouse.wheel(0, -5000);
+          await page.waitForFunction(() => document.querySelector('[data-section-toc]')!.scrollLeft <= 2);
+          assert.equal(await page.evaluate(() => scrollY), before, '反向目录滚轮带动了正文');
+        }
+        const dimensions = await layout(page);
+        assert.ok(dimensions.scrollWidth <= dimensions.viewportWidth + 1, JSON.stringify(dimensions));
+        assert.deepEqual(opened.problems, []);
+      } finally { await opened.close(); }
+    });
     it(`自定义来源可试查、保存且表单无横向溢出（${viewport.name}）`, { timeout: 60_000 }, async () => {
       const opened = await visit(browser, '/sources', viewport);
       const page = opened.page;
