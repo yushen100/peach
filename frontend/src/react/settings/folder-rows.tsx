@@ -6,9 +6,9 @@
  * 页面包因此不必带上主界面的请求封装。 */
 import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { RiDeleteBinLine } from '@remixicon/react';
-import { HoldButton } from '../components/hold-button';
 import { MEDIA_SOURCE_ICONS } from '@peach/legacy/ui';
 
+import { Button } from '@/components/base/buttons/button';
 import { IconButton } from '@/components/base/buttons/icon-button';
 import { Input } from '@/components/base/input/input';
 import { Label } from '@/components/base/input/label';
@@ -179,7 +179,7 @@ export function FolderRow({ label, path, onPath, error, inputRef, picking, onPic
           validationBehavior="aria" isInvalid={Boolean(error)} hint={error || undefined} />
         {status ? <div className="flex h-9 shrink-0 items-center">{status}</div> : null}
         <IconButton icon={FolderSearchIcon} aria-label={t('settings:folderRow.pickDirectory')} onClick={onPick} {...busyProps(picking)} />
-        {onRemove ? <HoldButton variant="danger" iconOnly leadingIcon={RiDeleteBinLine} aria-label={t('settings:folderRow.removeDirectory')} onClick={onRemove} /> : null}
+        {onRemove ? <Button variant="danger" iconOnly leadingIcon={RiDeleteBinLine} aria-label={t('settings:folderRow.removeDirectory')} onClick={onRemove} /> : null}
       </div>
       <div className="flex flex-wrap items-end gap-2">
         {children}

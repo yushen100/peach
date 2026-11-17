@@ -14,7 +14,7 @@ import { javActive, scheduleStickySurfaces, setJavLayout, sortOptions, syncHeade
 import { navigationState, openRoutedPage } from './navigation.js';
 import { releaseHoverPreviews } from './../card-art/hover';
 import { preferencesState, wireDrag } from './preferences.js';
-import { attachHoldToConfirm, fitSkeleton, formModal, indexSkeletonHtml, wireHorizontalScroller } from '../ui-kit';
+import { fitSkeleton, formModal, indexSkeletonHtml, wireHorizontalScroller } from '../ui-kit';
 import { feedRowHtml, feedState, loadEntityShapes, wireFeedNewRow } from './feed.js';
 import { receiptsState } from './receipts.js';
 import { JAV_LAYOUTS, PHOTO_LAYOUTS, javLayout, photoLayout, photoSize, storePhotoLayout, storePhotoSize } from './../appearance/layout';
@@ -143,7 +143,6 @@ export async function entityAliasForm(mine,write){
     onConfirm:()=>write({alias:field.value.trim()})});
   const field=form.dialog.querySelector('[name=alias]');
   applicationEffects.handler(field, 'oninput', ()=>{form.confirmButton.disabled=!field.value.trim()});
-  const detachHolds=[...form.dialog.querySelectorAll('[data-alias-drop]')].map(attachHoldToConfirm);
   /* 撤销只认自己添的那几个：刮削和合并留下的别名是这条实体当初被认成这个人的依据，
      一次点击删不得。服务端按来源守这条线，这里只列它报回来的那几个。 */
   form.dialog.querySelectorAll('[data-alias-drop]').forEach(chip=>applicationEffects.handler(chip, 'onclick', async()=>{
@@ -154,7 +153,6 @@ export async function entityAliasForm(mine,write){
     receiptsState.actionReceipt(t('shell:entityAlias.removed', { alias: gone }),{undo:async()=>{await write({alias:gone})}});
   }));
   const {confirmed,result}=await form.done;
-  detachHolds.forEach(detach=>detach());
   if(!confirmed)return undefined;
   /* 撞上另一份档案的别名时别名照常写了，先给回执再由资料页问要不要合并；撞上对方的名字时没写，只交给资料页。 */
   if(result?.added)receiptsState.actionReceipt(t('shell:entityAlias.added', { alias: result.alias }),{undo:async()=>{

@@ -2,7 +2,7 @@ import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, expect, it, vi } from 'vitest';
 import { queryClient } from '../../src/react/query';
 import { IndexerSettings } from '../../src/react/settings/indexer-settings';
-import { hold, buttonNamed, click, mount, pending, settle, submit, type } from './render';
+import { buttonNamed, click, mount, pending, settle, submit, type } from './render';
 
 notifyManager.setScheduler(notify => notify());
 it('普通 HTTP 的随机源支持添加、编辑、移除和保存索引器', async () => {
@@ -20,7 +20,7 @@ it('普通 HTTP 的随机源支持添加、编辑、移除和保存索引器', a
   await type(names[0], '第一个');
   await type(names[1], '第二个');
   await type(host.querySelectorAll<HTMLInputElement>('input[type="url"]')[1], 'https://indexer.example/api');
-  await hold(host.querySelector('button[aria-label="移除索引器 1"]'));
+  await click(host.querySelector('button[aria-label="移除索引器 1"]'));
   await submit(host.querySelector('form'));
   const sent = JSON.parse(String(fetch.mock.calls.at(-1)?.[1]?.body));
   expect(sent.indexers).toHaveLength(1);

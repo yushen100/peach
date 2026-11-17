@@ -16,7 +16,7 @@ import { FOLLOW_CREDENTIALS_KEY, setFollowItemStatus, type FollowFeedHelpers, ty
 import { openPhotoLightbox } from '../../src/react/photo-lightbox/photo-lightbox-dialog';
 import { queryClient } from '../../src/react/query';
 import { wantFollowKey } from '../../src/react/wants/wants';
-import { hold, buttonNamed, click, mount, pending, settle, type } from './render';
+import { buttonNamed, click, mount, pending, settle, type } from './render';
 
 /* 灯箱自己的开合与翻页在 `photo-lightbox.test.tsx`；这里只看详情把哪一组、从第几张交给它。 */
 vi.mock('../../src/react/photo-lightbox/photo-lightbox-dialog', () => ({ openPhotoLightbox: vi.fn(async () => {}) }));
@@ -136,7 +136,7 @@ describe('取数', () => {
     expect(host.querySelector('[data-remove-tag="精选"]')).not.toBeNull();
     expect(queryClient.getQueryData<FollowDetailData>(followItemKey(sibling.id))?.group?.primary.tags).toContain('精选');
     expect(receipts.toast).toHaveBeenCalledWith('已添加标签「精选」', expect.objectContaining({ undo: expect.any(Function) }));
-    await hold(host.querySelector('[aria-label="删除标签 精选"]')); await settle();
+    await click(host.querySelector('[aria-label="删除标签 精选"]')); await settle();
     expect(host.querySelector('[data-remove-tag="精选"]')).toBeNull();
     expect(host.querySelector('[data-remove-tag="source"]')).not.toBeNull();
     await editTags(host);

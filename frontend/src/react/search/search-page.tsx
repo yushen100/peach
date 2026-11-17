@@ -10,7 +10,6 @@
  * Escape 先关下拉再清字、空输入回车用占位里那个推荐词。 */
 import { useLayoutEffect, useReducer, useRef, type MouseEvent, type ReactNode } from 'react';
 import { avatarInner } from '@peach/card-art';
-import { HoldActionButton } from '../components/hold-button';
 
 import { apiGet, apiSend } from '../../api';
 import { entityDisplayName } from '../../core/entity-names';
@@ -602,10 +601,10 @@ function Row({ entry, active, helpers, onPick, onPeek, onRemove }: {
         {entry.type === 'history' ? (
           /* 按下就 preventDefault，不让删除键把焦点从输入框抢走：抢走会触发 `#q` 的失焦，那个处理器
              140ms 后收起整个下拉栏，于是「删一条记录」实际等于「关掉整个下拉栏」。 */
-          <HoldActionButton data-remove-history={entry.value} aria-label={tr('catalog:searchSuggest.removeHistory', { query: entry.value })}
+          <button type="button" data-remove-history={entry.value} aria-label={tr('catalog:searchSuggest.removeHistory', { query: entry.value })}
             onMouseDown={keep} onClick={(event) => { event.stopPropagation(); void onRemove(entry.value) }}>
             <Sprite name="x" />
-          </HoldActionButton>
+          </button>
         ) : null}
       </div>
     );

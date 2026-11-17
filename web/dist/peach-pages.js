@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "6c7cf909-1f35-4f43-bcf1-2b35a3f3f8fe", e._sentryDebugIdIdentifier = "sentry-dbid-6c7cf909-1f35-4f43-bcf1-2b35a3f3f8fe");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "61a6f31d-caac-4627-bf77-7fb1c01d0a7e", e._sentryDebugIdIdentifier = "sentry-dbid-61a6f31d-caac-4627-bf77-7fb1c01d0a7e");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -37836,73 +37836,8 @@ function Wy({ prefix: e, suffix: t, unit: n, fieldClassName: r, ...i }) {
 		trailingIcon: n || t ? a : void 0
 	});
 }
-// src/ui-kit/hold-to-confirm.ts
-var Gy = 2e3;
-function Ky(e) {
-	let t, n = null, r = null, i = !1, a = e.getAttribute("aria-description"), o = e.getAttribute("title"), s = F("shell:holdToConfirm.instruction");
-	e.dataset.holdConfirm = "", e.setAttribute("aria-description", s), e.title = o ? `${o}\n${s}` : s;
-	let c = () => e.isConnected && !e.disabled && e.getAttribute("aria-disabled") !== "true" && e.getAttribute("aria-busy") !== "true" && !document.hidden, l = () => {
-		clearTimeout(t), t = void 0, delete e.dataset.holding;
-	}, u = () => {
-		c() && t === void 0 && (e.dataset.holdReset = "", getComputedStyle(e, "::after").clipPath, delete e.dataset.holdReset, e.dataset.holding = "", t = setTimeout(() => {
-			if (!c()) l();
-			else {
-				t = void 0, i = !0;
-				try {
-					e.click();
-				} finally {
-					i = !1, delete e.dataset.holding;
-				}
-			}
-		}, Gy));
-	}, d = (e) => {
-		e.button === 0 && e.isPrimary && !e.altKey && n === null && (n = e.pointerId, u());
-	}, f = (e) => {
-		n === e.pointerId && (n = null, l());
-	}, p = () => {
-		n = null, l();
-	}, m = (e) => {
-		["Enter", " "].includes(e.key) && (e.preventDefault(), e.repeat || r || e.altKey || (r = e.key, u()));
-	}, h = (e) => {
-		e.key === r && (e.preventDefault(), r = null, l());
-	}, g = (e) => {
-		i || (e.preventDefault(), e.stopImmediatePropagation());
-	}, _ = () => {
-		n = null, r = null, l();
-	}, v = () => {
-		document.hidden && _();
-	}, y = (e) => e.preventDefault(), b = new MutationObserver(() => {
-		c() || _();
-	});
-	return b.observe(e, {
-		attributes: !0,
-		attributeFilter: [
-			"disabled",
-			"aria-disabled",
-			"aria-busy"
-		]
-	}), e.addEventListener("pointerdown", d), e.addEventListener("pointerleave", p), e.addEventListener("keydown", m), e.addEventListener("keyup", h), e.addEventListener("click", g, !0), e.addEventListener("blur", _), e.addEventListener("contextmenu", y), window.addEventListener("pointerup", f), window.addEventListener("pointercancel", f), window.addEventListener("blur", _), document.addEventListener("visibilitychange", v), () => {
-		_(), b.disconnect(), e.removeEventListener("pointerdown", d), e.removeEventListener("pointerleave", p), e.removeEventListener("keydown", m), e.removeEventListener("keyup", h), e.removeEventListener("click", g, !0), e.removeEventListener("blur", _), e.removeEventListener("contextmenu", y), window.removeEventListener("pointerup", f), window.removeEventListener("pointercancel", f), window.removeEventListener("blur", _), document.removeEventListener("visibilitychange", v), delete e.dataset.holdConfirm, delete e.dataset.holdReset, a === null ? e.removeAttribute("aria-description") : e.setAttribute("aria-description", a), o === null ? e.removeAttribute("title") : e.title = o;
-	};
-}
-// src/react/components/hold-button.tsx
-function qy(e = !0) {
-	let t = (0, I.useRef)(null);
-	return (0, I.useLayoutEffect)(() => {
-		if (e) return Ky(t.current);
-	}, [e]), t;
-}
-function Jy({ children: e, iconOnly: t, holdToConfirm: n = !0, ...r }) {
-	let i = qy(n);
-	return /* @__PURE__ */ (0, V.jsx)(wr, {
-		...r,
-		ref: i,
-		iconOnly: t,
-		children: e && n ? F("shell:holdToConfirm.label", { action: e }) : e
-	});
-}
 // src/react/settings/folder-rows.tsx
-function Yy({ className: e }) {
+function Gy({ className: e }) {
 	return /* @__PURE__ */ (0, V.jsx)("svg", {
 		"aria-hidden": !0,
 		viewBox: "0 0 24 24",
@@ -37915,8 +37850,8 @@ function Yy({ className: e }) {
 		children: /* @__PURE__ */ (0, V.jsx)("use", { href: "#i-folder-search" })
 	});
 }
-var Xy = jg, Zy = (e) => Fg[e] || "database", Qy = (e) => Mg.includes(e);
-function $y({ label: e, className: t, children: n }) {
+var Ky = jg, qy = (e) => Fg[e] || "database", Jy = (e) => Mg.includes(e);
+function Yy({ label: e, className: t, children: n }) {
 	return /* @__PURE__ */ (0, V.jsxs)("div", {
 		className: B("flex min-w-0 flex-col gap-1", t),
 		children: [/* @__PURE__ */ (0, V.jsx)(ug, {
@@ -37926,13 +37861,13 @@ function $y({ label: e, className: t, children: n }) {
 		}), n]
 	});
 }
-function eb({ children: e }) {
+function Xy({ children: e }) {
 	return /* @__PURE__ */ (0, V.jsx)("div", {
 		className: "flex w-full flex-wrap items-start gap-2",
 		children: e
 	});
 }
-function tb({ index: e, cost: t, error: n, onChange: r }) {
+function Zy({ index: e, cost: t, error: n, onChange: r }) {
 	return /* @__PURE__ */ (0, V.jsxs)("div", {
 		"data-media-read-policy": e,
 		className: "flex w-full flex-col gap-1 @lg:w-32",
@@ -37964,10 +37899,10 @@ function tb({ index: e, cost: t, error: n, onChange: r }) {
 		]
 	});
 }
-function nb() {
+function Qy() {
 	return /* @__PURE__ */ (0, V.jsx)(Vg, { children: F("settings:folderRow.readPolicyHelp") });
 }
-function rb({ initial: e, blank: t, pickFolder: n, describe: r, focusAfterPick: i = !1 }) {
+function $y({ initial: e, blank: t, pickFolder: n, describe: r, focusAfterPick: i = !1 }) {
 	let [a, o] = (0, I.useState)(e), [s, c] = (0, I.useState)([]), [l, u] = (0, I.useState)(null), [d, f] = (0, I.useState)(null), p = (0, I.useRef)(!1), m = (0, I.useRef)([]);
 	(0, I.useLayoutEffect)(() => {
 		l !== null && (m.current[l]?.focus(), u(null));
@@ -38010,7 +37945,7 @@ function rb({ initial: e, blank: t, pickFolder: n, describe: r, focusAfterPick: 
 		}
 	};
 }
-function ib({ label: e, path: t, onPath: n, error: r, inputRef: i, picking: a, onPick: o, onRemove: s, status: c, children: l }) {
+function eb({ label: e, path: t, onPath: n, error: r, inputRef: i, picking: a, onPick: o, onRemove: s, status: c, children: l }) {
 	let u = (0, I.useRef)(null), d = () => {
 		let e = u.current;
 		e && e.ownerDocument.activeElement !== e && (e.scrollLeft = e.scrollWidth);
@@ -38042,12 +37977,12 @@ function ib({ label: e, path: t, onPath: n, error: r, inputRef: i, picking: a, o
 					children: c
 				}) : null,
 				/* @__PURE__ */ (0, V.jsx)(G_, {
-					icon: Yy,
+					icon: Gy,
 					"aria-label": F("settings:folderRow.pickDirectory"),
 					onClick: o,
 					...Cg(a)
 				}),
-				s ? /* @__PURE__ */ (0, V.jsx)(Jy, {
+				s ? /* @__PURE__ */ (0, V.jsx)(wr, {
 					variant: "danger",
 					iconOnly: !0,
 					leadingIcon: rg,
@@ -38061,8 +37996,8 @@ function ib({ label: e, path: t, onPath: n, error: r, inputRef: i, picking: a, o
 		})]
 	});
 }
-function ab({ index: e, value: t, onChange: n, options: r = Xy }) {
-	return /* @__PURE__ */ (0, V.jsx)($y, {
+function tb({ index: e, value: t, onChange: n, options: r = Ky }) {
+	return /* @__PURE__ */ (0, V.jsx)(Yy, {
 		label: F("settings:folderRow.storage"),
 		className: "w-full @lg:w-60",
 		children: /* @__PURE__ */ (0, V.jsx)(ev, {
@@ -38075,13 +38010,13 @@ function ab({ index: e, value: t, onChange: n, options: r = Xy }) {
 			children: r.map(([e, t]) => /* @__PURE__ */ (0, V.jsxs)(tv, {
 				id: e,
 				textValue: t,
-				children: [/* @__PURE__ */ (0, V.jsx)(Jg, { mark: Zy(e) }), t]
+				children: [/* @__PURE__ */ (0, V.jsx)(Jg, { mark: qy(e) }), t]
 			}, e))
 		})
 	});
 }
 // src/react/settings/library-icon-picker.tsx
-var ob = [
+var nb = [
 	["", F("settings:libraryIcons.auto")],
 	["hard-drive", F("settings:libraryIcons.hardDrive")],
 	["database", F("settings:libraryIcons.database")],
@@ -38125,13 +38060,13 @@ var ob = [
 	["star", F("settings:libraryIcons.favorites")],
 	["tags", F("settings:libraryIcons.topics")]
 ];
-function sb(e) {
+function rb(e) {
 	let t = e === "local" ? "" : Fg[e];
 	return t ? [t, F("settings:libraryIcons.auto")] : ["hard-drive", F("settings:libraryIcons.default")];
 }
-var cb = "auto";
-function lb({ value: e, label: t, kind: n = "local", onChange: r }) {
-	let i = (0, I.useRef)(null), [a, o] = (0, I.useState)(!1), [s, c] = (0, I.useState)(e), [l, u] = sb(n);
+var ib = "auto";
+function ab({ value: e, label: t, kind: n = "local", onChange: r }) {
+	let i = (0, I.useRef)(null), [a, o] = (0, I.useState)(!1), [s, c] = (0, I.useState)(e), [l, u] = rb(n);
 	return /* @__PURE__ */ (0, V.jsxs)(V.Fragment, { children: [/* @__PURE__ */ (0, V.jsx)(wr, {
 		ref: i,
 		variant: "secondary",
@@ -38145,7 +38080,7 @@ function lb({ value: e, label: t, kind: n = "local", onChange: r }) {
 		children: /* @__PURE__ */ (0, V.jsxs)("span", {
 			"data-icon-choice": !0,
 			className: "flex items-center gap-2",
-			children: [/* @__PURE__ */ (0, V.jsx)(Jg, { mark: e || l }), ((e) => e && ob.find(([t]) => t === e)?.[1] || u)(e)]
+			children: [/* @__PURE__ */ (0, V.jsx)(Jg, { mark: e || l }), ((e) => e && nb.find(([t]) => t === e)?.[1] || u)(e)]
 		})
 	}), /* @__PURE__ */ (0, V.jsx)(pm, {
 		triggerRef: i,
@@ -38165,15 +38100,15 @@ function lb({ value: e, label: t, kind: n = "local", onChange: r }) {
 				}),
 				/* @__PURE__ */ (0, V.jsx)(Eh, {
 					"aria-label": F("settings:libraryIcons.choices"),
-					value: s || cb,
-					onChange: (e) => c(e === cb ? "" : e),
+					value: s || ib,
+					onChange: (e) => c(e === ib ? "" : e),
 					className: "inline-grid grid-cols-7 gap-1",
-					children: ob.map(([e, t]) => /* @__PURE__ */ (0, V.jsx)(Dh, {
-						value: e || cb,
+					children: nb.map(([e, t]) => /* @__PURE__ */ (0, V.jsx)(Dh, {
+						value: e || ib,
 						"aria-label": e ? t : u,
 						className: "flex h-10 cursor-pointer items-center justify-center rounded-lg text-foreground-icon-secondary outline-none hover:bg-dropdown-item-hover-background focus-visible:ring-2 focus-visible:ring-border-focus-ring data-selected:bg-dropdown-item-hover-background data-selected:text-text-primary",
 						children: /* @__PURE__ */ (0, V.jsx)(Jg, { mark: e || l })
-					}, e || cb))
+					}, e || ib))
 				}),
 				/* @__PURE__ */ (0, V.jsxs)("div", {
 					className: "flex justify-end gap-2 border-t border-separator-border pt-2.5",
@@ -38194,7 +38129,7 @@ function lb({ value: e, label: t, kind: n = "local", onChange: r }) {
 	})] });
 }
 // src/react/components/select.tsx
-function ub({ prefix: e, renderValue: t, size: n, ...r }) {
+function ob({ prefix: e, renderValue: t, size: n, ...r }) {
 	if (e == null) return /* @__PURE__ */ (0, V.jsx)(ev, {
 		...r,
 		size: n,
@@ -38212,7 +38147,7 @@ function ub({ prefix: e, renderValue: t, size: n, ...r }) {
 	});
 }
 F("settings:glowSpot.spot1"), F("settings:glowSpot.spot2"), F("settings:glowSpot.spot3");
-var db = [
+var sb = [
 	[
 		"ash",
 		F("settings:glowPreset.ash"),
@@ -38537,8 +38472,8 @@ var db = [
 		"blue"
 	]
 ];
-[...db.map(([e, t]) => [e, t]), F("settings:shared.custom")];
-var fb = (e) => structuredClone((db.find(([t]) => t === e) || db[0])[2]), pb = [
+[...sb.map(([e, t]) => [e, t]), F("settings:shared.custom")];
+var cb = (e) => structuredClone((sb.find(([t]) => t === e) || sb[0])[2]), lb = [
 	["red", F("settings:glowColor.red")],
 	["orange", F("settings:glowColor.orange")],
 	["amber", F("settings:glowColor.amber")],
@@ -38552,62 +38487,62 @@ var fb = (e) => structuredClone((db.find(([t]) => t === e) || db[0])[2]), pb = [
 	["fuchsia", F("settings:glowColor.fuchsia")],
 	["rose", F("settings:glowColor.rose")]
 ];
-F("settings:shared.all"), F("settings:glowColor.gray"), F("settings:glowColor.red"), F("settings:glowColor.yellow"), F("settings:glowColor.green"), F("settings:glowColor.cyan"), F("settings:glowColor.blue"), F("settings:glowColor.purple"), F("settings:glowColor.brown"), F("settings:glowColor.cloudGray"), F("settings:glowColor.mistGray"), F("settings:glowColor.stoneGray"), F("settings:glowColor.ironGray"), F("settings:glowColor.inkGray"), F("settings:glowColor.charcoal"), F("settings:glowColor.cherryBlossom"), F("settings:glowColor.coral"), F("settings:glowColor.brickRed"), F("settings:glowColor.vermilion"), F("settings:glowColor.wineRed"), F("settings:glowColor.maroon"), F("settings:glowColor.wheat"), F("settings:glowColor.amber"), F("settings:glowColor.tungsten"), F("settings:glowColor.golden"), F("settings:glowColor.turmeric"), F("settings:glowColor.bronze"), F("settings:glowColor.sprout"), F("settings:glowColor.leafGreen"), F("settings:glowColor.grassGreen"), F("settings:glowColor.forestGreen"), F("settings:glowColor.mossGreen"), F("settings:glowColor.deepGreen"), F("settings:glowColor.sky"), F("settings:glowColor.lakeBlue"), F("settings:glowColor.indigo"), F("settings:glowColor.sapphire"), F("settings:glowColor.navy"), F("settings:glowColor.midnightBlue"), F("settings:glowColor.lilac"), F("settings:glowColor.fuchsia"), F("settings:glowColor.lavender"), F("settings:glowColor.grape"), F("settings:glowColor.eggplant"), F("settings:glowColor.deepPurple"), F("settings:glowColor.sand"), F("settings:glowColor.terracotta"), F("settings:glowColor.sienna"), F("settings:glowColor.chestnut"), F("settings:glowColor.umber"), F("settings:glowColor.espresso"), F("settings:glowColor.blush"), F("settings:glowColor.lotusPink"), F("settings:glowColor.flame"), F("settings:glowColor.peachPink"), F("settings:glowColor.sunsetRed"), F("settings:glowColor.sakuraPink"), F("settings:glowColor.rosePink"), F("settings:glowColor.sunshine"), F("settings:glowColor.tangerine"), F("settings:glowColor.celadon"), F("settings:glowColor.emerald"), F("settings:glowColor.deepEmerald"), F("settings:glowColor.pineGreen"), F("settings:glowColor.paleCyan"), F("settings:glowColor.aqua"), F("settings:glowColor.peacock"), F("settings:glowColor.glacier"), F("settings:glowColor.mint"), F("settings:glowColor.turquoise"), F("settings:glowColor.lapis"), F("settings:glowColor.prussianBlue"), F("settings:glowPreset.tide"), F("settings:glowColor.mauve"), F("settings:glowColor.wisteria"), F("settings:glowColor.plum"), F("settings:glowColor.orchidPink"), F("settings:glowPreset.orchid"), F("settings:glowColor.indigoViolet"), F("settings:glowColor.berry"), F("settings:glowColor.inkPurple"), F("settings:glowColor.duskPurple"), F("settings:glowColor.nightPurple"), F("settings:glowColor.paleViolet"), F("settings:glowColor.rosewood"), F("settings:glowColor.apricot"), F("settings:glowColor.lightApricot"), F("settings:glowColor.slateBlue"), { ...fb("ash") };
+F("settings:shared.all"), F("settings:glowColor.gray"), F("settings:glowColor.red"), F("settings:glowColor.yellow"), F("settings:glowColor.green"), F("settings:glowColor.cyan"), F("settings:glowColor.blue"), F("settings:glowColor.purple"), F("settings:glowColor.brown"), F("settings:glowColor.cloudGray"), F("settings:glowColor.mistGray"), F("settings:glowColor.stoneGray"), F("settings:glowColor.ironGray"), F("settings:glowColor.inkGray"), F("settings:glowColor.charcoal"), F("settings:glowColor.cherryBlossom"), F("settings:glowColor.coral"), F("settings:glowColor.brickRed"), F("settings:glowColor.vermilion"), F("settings:glowColor.wineRed"), F("settings:glowColor.maroon"), F("settings:glowColor.wheat"), F("settings:glowColor.amber"), F("settings:glowColor.tungsten"), F("settings:glowColor.golden"), F("settings:glowColor.turmeric"), F("settings:glowColor.bronze"), F("settings:glowColor.sprout"), F("settings:glowColor.leafGreen"), F("settings:glowColor.grassGreen"), F("settings:glowColor.forestGreen"), F("settings:glowColor.mossGreen"), F("settings:glowColor.deepGreen"), F("settings:glowColor.sky"), F("settings:glowColor.lakeBlue"), F("settings:glowColor.indigo"), F("settings:glowColor.sapphire"), F("settings:glowColor.navy"), F("settings:glowColor.midnightBlue"), F("settings:glowColor.lilac"), F("settings:glowColor.fuchsia"), F("settings:glowColor.lavender"), F("settings:glowColor.grape"), F("settings:glowColor.eggplant"), F("settings:glowColor.deepPurple"), F("settings:glowColor.sand"), F("settings:glowColor.terracotta"), F("settings:glowColor.sienna"), F("settings:glowColor.chestnut"), F("settings:glowColor.umber"), F("settings:glowColor.espresso"), F("settings:glowColor.blush"), F("settings:glowColor.lotusPink"), F("settings:glowColor.flame"), F("settings:glowColor.peachPink"), F("settings:glowColor.sunsetRed"), F("settings:glowColor.sakuraPink"), F("settings:glowColor.rosePink"), F("settings:glowColor.sunshine"), F("settings:glowColor.tangerine"), F("settings:glowColor.celadon"), F("settings:glowColor.emerald"), F("settings:glowColor.deepEmerald"), F("settings:glowColor.pineGreen"), F("settings:glowColor.paleCyan"), F("settings:glowColor.aqua"), F("settings:glowColor.peacock"), F("settings:glowColor.glacier"), F("settings:glowColor.mint"), F("settings:glowColor.turquoise"), F("settings:glowColor.lapis"), F("settings:glowColor.prussianBlue"), F("settings:glowPreset.tide"), F("settings:glowColor.mauve"), F("settings:glowColor.wisteria"), F("settings:glowColor.plum"), F("settings:glowColor.orchidPink"), F("settings:glowPreset.orchid"), F("settings:glowColor.indigoViolet"), F("settings:glowColor.berry"), F("settings:glowColor.inkPurple"), F("settings:glowColor.duskPurple"), F("settings:glowColor.nightPurple"), F("settings:glowColor.paleViolet"), F("settings:glowColor.rosewood"), F("settings:glowColor.apricot"), F("settings:glowColor.lightApricot"), F("settings:glowColor.slateBlue"), { ...cb("ash") };
 // src/react/components/library-tint.ts
-var mb = /* @__PURE__ */ new Map(), hb = /* @__PURE__ */ new Set();
-function gb(e) {
+var ub = /* @__PURE__ */ new Map(), db = /* @__PURE__ */ new Set();
+function fb(e) {
 	let t = document.createElement("span");
 	t.setAttribute("data-accent-ball", e), t.hidden = !0, document.body.append(t);
 	let n = getComputedStyle(t).getPropertyValue("--color-accent-500").trim();
 	return t.remove(), n;
 }
-function _b(e) {
-	mb = e;
+function pb(e) {
+	ub = e;
 	let t = document.getElementById("peach-library-tints");
-	t || (t = document.createElement("style"), t.id = "peach-library-tints", document.head.append(t)), t.textContent = [...mb.values()].filter((e) => e.color).map((e) => `[data-library="${CSS.escape(e.id)}"]{--library-color:${gb(e.color)}}`).join("\n");
+	t || (t = document.createElement("style"), t.id = "peach-library-tints", document.head.append(t)), t.textContent = [...ub.values()].filter((e) => e.color).map((e) => `[data-library="${CSS.escape(e.id)}"]{--library-color:${fb(e.color)}}`).join("\n");
 }
-function vb(e) {
-	_b(e), hb.forEach((e) => e());
+function mb(e) {
+	pb(e), db.forEach((e) => e());
 }
-function yb(e, t) {
-	let n = mb.get(e) ?? {
+function hb(e, t) {
+	let n = ub.get(e) ?? {
 		id: e,
 		name: "",
 		icon: "database",
 		location: "",
 		color: ""
 	};
-	vb(new Map([...mb, [e, {
+	mb(new Map([...ub, [e, {
 		...n,
 		color: t
 	}]]));
 }
 // src/react/components/overlay-host.ts
-function bb(e) {
+function gb(e) {
 	let t = e.querySelector(":scope > [data-react-overlays]");
 	if (t) return t;
 	let n = e.ownerDocument.createElement("div");
 	return n.className = "peach-react", n.dataset.reactOverlays = "", e.append(n), n;
 }
-function xb(e) {
+function _b(e) {
 	let t = e?.ownerDocument ?? globalThis.document, n = e?.closest("dialog[open]");
-	return bb(n ?? t.body);
+	return gb(n ?? t.body);
 }
 F("settings:libraryPolicy.summary"), F("settings:libraryPolicy.auto"), F("settings:libraryPolicy.localOnly"), F("settings:shared.custom"), F("settings:libraryPolicy.stepReadLocal"), F("settings:libraryPolicy.stepProbeAndSheet"), F("settings:shared.optional"), F("settings:libraryPolicy.stepMetadata"), F("settings:shared.optional"), F("settings:libraryPolicy.stepCovers"), F("settings:shared.optional"), F("settings:libraryPolicy.stepAvatars"), F("settings:shared.optional"), F("settings:libraryPolicy.coverNote"), F("settings:libraryPolicy.directoryHelp");
 // src/react/settings/library-policy-settings.tsx
-var Sb = [
+var vb = [
 	["probe", F("settings:libraryPolicy.stepProbe")],
 	["metadata", F("settings:libraryPolicy.stepMetadata")],
 	["cover", F("settings:libraryPolicy.stepCovers")],
 	["people", F("settings:libraryPolicy.stepAvatars")],
 	["preview", F("settings:libraryPolicy.stepContactSheet")]
-], Cb = [
+], yb = [
 	"probe",
 	"metadata",
 	"cover",
 	"people",
 	"preview"
-], wb = [
+], bb = [
 	[
 		"auto",
 		F("settings:libraryPolicy.auto"),
@@ -38624,8 +38559,8 @@ var Sb = [
 		F("settings:libraryPolicy.customHint")
 	]
 ];
-function Tb({ name: e, value: t, onChange: n }) {
-	return /* @__PURE__ */ (0, V.jsx)(ub, {
+function xb({ name: e, value: t, onChange: n }) {
+	return /* @__PURE__ */ (0, V.jsx)(ob, {
 		"data-guide-target": "library-policy",
 		className: "w-full",
 		"aria-label": F("settings:libraryPolicy.modeLabel", { name: e }),
@@ -38633,10 +38568,10 @@ function Tb({ name: e, value: t, onChange: n }) {
 		prefix: F("settings:libraryPolicy.mode"),
 		renderValue: /* @__PURE__ */ (0, V.jsx)("span", {
 			className: "truncate",
-			children: wb.find(([e]) => e === t)?.[1]
+			children: bb.find(([e]) => e === t)?.[1]
 		}),
 		onSelectionChange: (e) => n(String(e)),
-		children: wb.map(([e, t, n]) => /* @__PURE__ */ (0, V.jsx)(tv, {
+		children: bb.map(([e, t, n]) => /* @__PURE__ */ (0, V.jsx)(tv, {
 			id: e,
 			textValue: t,
 			children: /* @__PURE__ */ (0, V.jsxs)("span", {
@@ -38649,19 +38584,19 @@ function Tb({ name: e, value: t, onChange: n }) {
 		}, e))
 	});
 }
-function Eb({ name: e, value: t, onChange: n, previewsOff: r = !1 }) {
+function Sb({ name: e, value: t, onChange: n, previewsOff: r = !1 }) {
 	return /* @__PURE__ */ (0, V.jsxs)(Kg, {
 		defaultOpen: !0,
 		summary: F("settings:libraryPolicy.stepsSummary", {
 			name: e,
 			selected: t.length,
-			total: Sb.length
+			total: vb.length
 		}),
 		children: [/* @__PURE__ */ (0, V.jsx)("div", {
 			className: "flex flex-wrap gap-x-6 gap-y-2",
 			role: "group",
 			"aria-label": F("settings:libraryPolicy.stepsLabel", { name: e }),
-			children: Sb.map(([e, i]) => /* @__PURE__ */ (0, V.jsx)(tg, {
+			children: vb.map(([e, i]) => /* @__PURE__ */ (0, V.jsx)(tg, {
 				isSelected: t.includes(e),
 				isDisabled: r && e === "preview",
 				onChange: (r) => n(r ? [...t, e] : t.filter((t) => t !== e)),
@@ -38670,9 +38605,9 @@ function Eb({ name: e, value: t, onChange: n, previewsOff: r = !1 }) {
 		}), r ? /* @__PURE__ */ (0, V.jsx)(Vg, { children: F("settings:libraryPolicy.previewsOff") }) : null]
 	});
 }
-function Db({ id: e, name: t, value: n, onChange: r }) {
-	let i = (0, I.useRef)(null), [a, o] = (0, I.useState)(!1), s = pb.find(([e]) => e === n)?.[1] || F("settings:libraryColor.none"), c = (t) => {
-		r(t), yb(e, t), o(!1);
+function Cb({ id: e, name: t, value: n, onChange: r }) {
+	let i = (0, I.useRef)(null), [a, o] = (0, I.useState)(!1), s = lb.find(([e]) => e === n)?.[1] || F("settings:libraryColor.none"), c = (t) => {
+		r(t), hb(e, t), o(!1);
 	};
 	return /* @__PURE__ */ (0, V.jsxs)(V.Fragment, { children: [/* @__PURE__ */ (0, V.jsxs)("button", {
 		ref: i,
@@ -38706,7 +38641,7 @@ function Db({ id: e, name: t, value: n, onChange: r }) {
 			/* @__PURE__ */ (0, V.jsx)("span", { children: s })
 		]
 	}), /* @__PURE__ */ (0, V.jsx)(nm, {
-		getContainer: () => xb(i.current),
+		getContainer: () => _b(i.current),
 		children: /* @__PURE__ */ (0, V.jsx)(pm, {
 			triggerRef: i,
 			isOpen: a,
@@ -38737,7 +38672,7 @@ function Db({ id: e, name: t, value: n, onChange: r }) {
 							"data-library-none": "",
 							"aria-hidden": "true"
 						})
-					}), pb.map(([e, t]) => /* @__PURE__ */ (0, V.jsx)("button", {
+					}), lb.map(([e, t]) => /* @__PURE__ */ (0, V.jsx)("button", {
 						type: "button",
 						"data-glow-chip": "",
 						"aria-pressed": e === n,
@@ -38756,12 +38691,12 @@ function Db({ id: e, name: t, value: n, onChange: r }) {
 	})] });
 }
 // src/react/settings/peach-proxy-fields.tsx
-var Ob = [
+var wb = [
 	["environment", F("settings:peachProxy.environment")],
 	["direct", F("settings:cloudProxy.direct")],
 	["proxy", F("settings:shared.custom")]
 ];
-function kb({ mode: e, onChange: t, labelledBy: n }) {
+function Tb({ mode: e, onChange: t, labelledBy: n }) {
 	return /* @__PURE__ */ (0, V.jsx)(ev, {
 		"aria-label": n ? void 0 : F("settings:peachProxy.mode"),
 		"aria-labelledby": n,
@@ -38769,13 +38704,13 @@ function kb({ mode: e, onChange: t, labelledBy: n }) {
 		onSelectionChange: (e) => {
 			e !== null && t(String(e));
 		},
-		children: Ob.map(([e, t]) => /* @__PURE__ */ (0, V.jsx)(tv, {
+		children: wb.map(([e, t]) => /* @__PURE__ */ (0, V.jsx)(tv, {
 			id: e,
 			children: t
 		}, e))
 	});
 }
-function Ab({ id: e, value: t, onChange: n, saved: r = !1, error: i }) {
+function Eb({ id: e, value: t, onChange: n, saved: r = !1, error: i }) {
 	return /* @__PURE__ */ (0, V.jsx)(gg, {
 		id: e,
 		type: "password",
@@ -38790,7 +38725,7 @@ function Ab({ id: e, value: t, onChange: n, saved: r = !1, error: i }) {
 		hint: i
 	});
 }
-function jb(e) {
+function Db(e) {
 	try {
 		let t = new URL(e).hostname;
 		return [
@@ -38803,7 +38738,7 @@ function jb(e) {
 	}
 }
 // src/react/boardui/components/base/badges/chip.tsx
-var Mb = xr({
+var Ob = xr({
 	base: "inline-flex items-center justify-center rounded-md px-1.5 whitespace-nowrap transition-[padding,font-size] duration-200 ease",
 	variant: {
 		bold: "py-0.5 text-body-medium",
@@ -38822,31 +38757,31 @@ var Mb = xr({
 		soft: "bg-background-secondary-default text-text-secondary"
 	}
 });
-function Nb({ variant: e = "bold", color: t = "neutral", className: n, ref: r, ...i }) {
+function kb({ variant: e = "bold", color: t = "neutral", className: n, ref: r, ...i }) {
 	return /* @__PURE__ */ (0, V.jsx)("span", {
 		ref: r,
-		className: B(Mb.base, Mb.variant[e], Mb.color[t], n),
+		className: B(Ob.base, Ob.variant[e], Ob.color[t], n),
 		...i
 	});
 }
 // src/react/components/status-label.tsx
-var Pb = {
+var Ab = {
 	success: "lime",
 	progress: "blue",
 	warning: "yellow",
 	error: "rose",
 	neutral: "neutral"
 };
-function Fb({ tone: e = "neutral", ...t }) {
-	return /* @__PURE__ */ (0, V.jsx)(Nb, {
+function jb({ tone: e = "neutral", ...t }) {
+	return /* @__PURE__ */ (0, V.jsx)(kb, {
 		"data-status-tone": e,
 		variant: "caption",
-		color: Pb[e],
+		color: Ab[e],
 		...t
 	});
 }
 // src/react/settings/remote-reporting-settings.tsx
-function Ib({ value: e, onChange: t, busy: n = !1 }) {
+function Mb({ value: e, onChange: t, busy: n = !1 }) {
 	return /* @__PURE__ */ (0, V.jsxs)(V.Fragment, { children: [/* @__PURE__ */ (0, V.jsx)(zg, { children: /* @__PURE__ */ (0, V.jsx)(Ig, {
 		label: F("settings:dataSharing.reportErrors"),
 		description: F("settings:dataSharing.reportErrorsHelp"),
@@ -38864,12 +38799,12 @@ function Ib({ value: e, onChange: t, busy: n = !1 }) {
 		divided: !0,
 		children: /* @__PURE__ */ (0, V.jsx)("span", {
 			className: "self-start",
-			children: /* @__PURE__ */ (0, V.jsx)(Fb, { children: F("settings:librarySharing.unavailable") })
+			children: /* @__PURE__ */ (0, V.jsx)(jb, { children: F("settings:librarySharing.unavailable") })
 		})
 	})] });
 }
 // src/react/pages/setup/setup-processing.tsx
-function Lb(e) {
+function Nb(e) {
 	return e ? {
 		library_id: e.library_id,
 		library: e.library,
@@ -38879,15 +38814,15 @@ function Lb(e) {
 		library_stages: e.library_stages
 	} : {};
 }
-function Rb(e) {
+function Pb(e) {
 	if (e.library_policy === "local") return F("shell:setupProcessing.localOnly");
 	if (e.library_policy !== "custom") return F("shell:setupProcessing.auto");
-	let t = Sb.filter(([t]) => e.library_stages?.split(",").includes(t)).map(([, e]) => e);
+	let t = vb.filter(([t]) => e.library_stages?.split(",").includes(t)).map(([, e]) => e);
 	return t.length ? F("shell:setupProcessing.custom", { stages: wt(t) }) : F("shell:setupProcessing.customLocalOnly");
 }
 // src/react/pages/setup/setup-form.tsx
-var zb = ["port", "mdns_name"];
-function Bb() {
+var Fb = ["port", "mdns_name"];
+function Ib() {
 	try {
 		let e = JSON.parse(localStorage.getItem("peach.settings.v1") || "{}");
 		return e && typeof e == "object" ? e : {};
@@ -38895,15 +38830,15 @@ function Bb() {
 		return {};
 	}
 }
-function Vb(e) {
+function Lb(e) {
 	try {
 		localStorage.setItem(He, JSON.stringify({
-			...Bb(),
+			...Ib(),
 			...e
 		}));
 	} catch {}
 }
-function Hb(e, t) {
+function Rb(e, t) {
 	return Array.isArray(e) ? e.length === t ? {
 		rows: e,
 		table: ""
@@ -38915,11 +38850,11 @@ function Hb(e, t) {
 		table: e ?? ""
 	};
 }
-function Ub(e) {
+function zb(e) {
 	return e.length ? F("shell:setupForm.scanFoldersAfterSetup", { count: e.length }) : F("shell:setupForm.scanAfterSetup");
 }
-var Wb = (e) => Array.isArray(e) ? e.filter(Boolean).join(" ") : e ?? "";
-function Gb({ setup: e, onDone: t, onRestore: n }) {
+var Bb = (e) => Array.isArray(e) ? e.filter(Boolean).join(" ") : e ?? "";
+function Vb({ setup: e, onDone: t, onRestore: n }) {
 	let [r, i] = (0, I.useState)(0), [a, o] = (0, I.useState)(1), s = (0, I.useRef)(null), c = (0, I.useRef)(null), l = (e) => {
 		o(e > r ? 1 : -1), i(e);
 	};
@@ -38938,19 +38873,19 @@ function Gb({ setup: e, onDone: t, onRestore: n }) {
 		root: "",
 		...g.current,
 		cost: e.media_source_default === "local" ? "free" : ""
-	}), v = rb({
+	}), v = $y({
 		initial: () => [_(e.docker ? u?.default ?? "" : "")],
 		blank: () => _(),
 		pickFolder: P_,
 		describe: F_,
 		focusAfterPick: !0
 	});
-	g.current = Lb(v.rows[0]);
+	g.current = Nb(v.rows[0]);
 	let [y, b] = (0, I.useState)(() => Object.fromEntries(f.map((e) => [e.key, e.default]))), [x, S] = (0, I.useState)(!1), [C, w] = (0, I.useState)(""), T = !!e.access_preset, [E, D] = (0, I.useState)(e.access_enabled && !T), [O, k] = (0, I.useState)(""), [ee, A] = (0, I.useState)(""), [j, te] = (0, I.useState)(e.scan_now), [ne, re] = (0, I.useState)(!1), [M, ie] = (0, I.useState)(e.remote_reporting), [ae, oe] = (0, I.useState)(e.peach_proxy?.mode ?? "environment"), [se, ce] = (0, I.useState)(""), [le, ue] = (0, I.useState)(() => {
-		let e = Bb().interfaceLanguage;
+		let e = Ib().interfaceLanguage;
 		return mt(e) ? e : "auto";
 	}), de = (e) => {
-		mt(e) && (ue(e), Vb({ interfaceLanguage: e }), vt() !== bt && location.reload());
+		mt(e) && (ue(e), Lb({ interfaceLanguage: e }), vt() !== bt && location.reload());
 	}, [fe, pe] = (0, I.useState)({}), [me, N] = (0, I.useState)(""), [P, he] = (0, I.useState)(""), [ge, _e] = (0, I.useState)(!1), [ve, ye] = (0, I.useState)(!1), [be, xe] = (0, I.useState)(0), Se = (0, I.useRef)(null), Ce = (0, I.useRef)(null), [we, Te] = (0, I.useState)(0);
 	(0, I.useEffect)(() => {
 		we && [...Se.current?.querySelectorAll("input[aria-invalid=\"true\"]") ?? []].find((e) => !e.closest("[hidden]"))?.focus();
@@ -39001,14 +38936,14 @@ function Gb({ setup: e, onDone: t, onRestore: n }) {
 			t(await M_(a));
 		} catch (e) {
 			if (e instanceof D_ && e.status === 400 && e.errors) {
-				let t = e.errors, { rows: n, table: r } = Hb(t.media_dir, v.rows.length);
-				v.setErrors(n), N(r), pe(t), zb.some((e) => t[e]) && xe((e) => e + 1), t.access_password && D(!0), l(t.interface_language ? 0 : t.media_dir || d && t[d.key] ? 1 : 2), Te((e) => e + 1);
+				let t = e.errors, { rows: n, table: r } = Rb(t.media_dir, v.rows.length);
+				v.setErrors(n), N(r), pe(t), Fb.some((e) => t[e]) && xe((e) => e + 1), t.access_password && D(!0), l(t.interface_language ? 0 : t.media_dir || d && t[d.key] ? 1 : 2), Te((e) => e + 1);
 			} else he(F_(e));
 		} finally {
 			_e(!1);
 		}
 	}, Ae = (e) => {
-		let t = Wb(fe[e.key]), n = e.help.join("");
+		let t = Bb(fe[e.key]), n = e.help.join("");
 		return e.input === "choice" ? /* @__PURE__ */ (0, V.jsxs)(Uy, {
 			id: `setup-${e.key}`,
 			label: e.label,
@@ -39044,7 +38979,7 @@ function Gb({ setup: e, onDone: t, onRestore: n }) {
 				S(!1);
 			}
 		}
-	}, Me = d ? Wb(fe[d.key]) || C : "", Ne = v.rows.map((e) => e.path.trim()).filter(Boolean), Pe = v.rows.some((e) => Qy(e.location)), Fe = [...new Map(v.rows.map((e) => [e.library_id, e])).values()], Ie = (e, t) => v.rows.forEach((n, r) => {
+	}, Me = d ? Bb(fe[d.key]) || C : "", Ne = v.rows.map((e) => e.path.trim()).filter(Boolean), Pe = v.rows.some((e) => Jy(e.location)), Fe = [...new Map(v.rows.map((e) => [e.library_id, e])).values()], Ie = (e, t) => v.rows.forEach((n, r) => {
 		n.library_id === e.library_id && v.edit(r, t);
 	}), Le = y.host === "2", Re = Le && !e.standalone ? `https://${y.mdns_name || "peach"}.local/` : `http://${Le ? `${y.mdns_name || "peach"}.local` : "127.0.0.1"}:${y.port || "8900"}/`;
 	return /* @__PURE__ */ (0, V.jsx)(H_, {
@@ -39122,7 +39057,7 @@ function Gb({ setup: e, onDone: t, onRestore: n }) {
 												children: t
 											}, e))
 										}),
-										fe.interface_language ? /* @__PURE__ */ (0, V.jsx)(Hg, { children: Wb(fe.interface_language) }, we) : null
+										fe.interface_language ? /* @__PURE__ */ (0, V.jsx)(Hg, { children: Bb(fe.interface_language) }, we) : null
 									]
 								}), /* @__PURE__ */ (0, V.jsxs)("ul", {
 									"data-setup-welcome-points": "",
@@ -39188,7 +39123,7 @@ function Gb({ setup: e, onDone: t, onRestore: n }) {
 														/* @__PURE__ */ (0, V.jsxs)("div", {
 															"data-library-head": "",
 															children: [
-																/* @__PURE__ */ (0, V.jsx)(lb, {
+																/* @__PURE__ */ (0, V.jsx)(ab, {
 																	label: F("shell:setupForm.libraryIconNamed", { name: e.library || F("shell:shared.untitledLibrary") }),
 																	value: e.library_icon || "",
 																	kind: e.location,
@@ -39202,7 +39137,7 @@ function Gb({ setup: e, onDone: t, onRestore: n }) {
 																	value: e.library || "",
 																	onChange: (t) => Ie(e, { library: t })
 																}),
-																/* @__PURE__ */ (0, V.jsx)(Db, {
+																/* @__PURE__ */ (0, V.jsx)(Cb, {
 																	id: e.library_id || "",
 																	name: e.library || F("shell:shared.untitledLibrary"),
 																	value: e.library_color || "",
@@ -39210,27 +39145,27 @@ function Gb({ setup: e, onDone: t, onRestore: n }) {
 																}),
 																/* @__PURE__ */ (0, V.jsx)("div", {
 																	"data-setup-library-policy": "",
-																	children: /* @__PURE__ */ (0, V.jsx)(Tb, {
+																	children: /* @__PURE__ */ (0, V.jsx)(xb, {
 																		name: e.library || F("shell:shared.untitledLibrary"),
 																		value: e.library_policy || "auto",
 																		onChange: (t) => Ie(e, {
 																			library_policy: t,
-																			library_stages: t === "custom" ? e.library_stages || Cb.join(",") : ""
+																			library_stages: t === "custom" ? e.library_stages || yb.join(",") : ""
 																		})
 																	})
 																})
 															]
 														}),
-														e.library_policy === "custom" ? /* @__PURE__ */ (0, V.jsx)(Eb, {
+														e.library_policy === "custom" ? /* @__PURE__ */ (0, V.jsx)(Sb, {
 															name: e.library || F("shell:shared.untitledLibrary"),
-															value: e.library_stages?.split(",").filter(Boolean) ?? Cb,
+															value: e.library_stages?.split(",").filter(Boolean) ?? yb,
 															onChange: (t) => Ie(e, { library_stages: t.join(",") })
 														}) : null,
 														/* @__PURE__ */ (0, V.jsxs)("div", {
 															"data-library-folders": "",
 															role: "group",
 															"aria-label": F("shell:setupForm.libraryDirectoriesNamed", { name: e.library || F("shell:shared.untitledLibrary") }),
-															children: [v.rows.map((t, n) => t.library_id === e.library_id ? /* @__PURE__ */ (0, V.jsx)(ib, {
+															children: [v.rows.map((t, n) => t.library_id === e.library_id ? /* @__PURE__ */ (0, V.jsx)(eb, {
 																label: `${u.label} ${n + 1}`,
 																path: t.path,
 																onPath: (e) => v.edit(n, { path: e }),
@@ -39241,8 +39176,8 @@ function Gb({ setup: e, onDone: t, onRestore: n }) {
 																onRemove: v.rows.length > 1 ? () => {
 																	v.remove(n), Ce.current?.focus();
 																} : void 0,
-																children: /* @__PURE__ */ (0, V.jsxs)(eb, { children: [
-																	/* @__PURE__ */ (0, V.jsx)(ab, {
+																children: /* @__PURE__ */ (0, V.jsxs)(Xy, { children: [
+																	/* @__PURE__ */ (0, V.jsx)(tb, {
 																		index: n,
 																		value: t.location,
 																		options: h,
@@ -39251,13 +39186,13 @@ function Gb({ setup: e, onDone: t, onRestore: n }) {
 																			cost: e === "local" ? "free" : ""
 																		})
 																	}),
-																	/* @__PURE__ */ (0, V.jsx)(tb, {
+																	/* @__PURE__ */ (0, V.jsx)(Zy, {
 																		index: n,
 																		cost: t.cost ?? "",
 																		error: ve && !t.cost ? F("shell:setupForm.readPolicyRequired") : void 0,
 																		onChange: (e) => v.edit(n, { cost: e })
 																	}),
-																	Fe.length > 1 ? /* @__PURE__ */ (0, V.jsx)($y, {
+																	Fe.length > 1 ? /* @__PURE__ */ (0, V.jsx)(Yy, {
 																		label: F("shell:setupForm.moveToLibrary"),
 																		className: "w-full @lg:w-60",
 																		children: /* @__PURE__ */ (0, V.jsx)(ev, {
@@ -39266,21 +39201,21 @@ function Gb({ setup: e, onDone: t, onRestore: n }) {
 																			selectedKey: t.library_id,
 																			renderValue: /* @__PURE__ */ (0, V.jsxs)("span", {
 																				className: "flex min-w-0 items-center gap-2",
-																				children: [/* @__PURE__ */ (0, V.jsx)(Jg, { mark: t.library_icon || sb(t.location)[0] }), /* @__PURE__ */ (0, V.jsx)("span", {
+																				children: [/* @__PURE__ */ (0, V.jsx)(Jg, { mark: t.library_icon || rb(t.location)[0] }), /* @__PURE__ */ (0, V.jsx)("span", {
 																					className: "truncate",
 																					children: t.library || F("shell:shared.untitledLibrary")
 																				})]
 																			}),
 																			onSelectionChange: (e) => {
 																				let t = v.rows.find((t) => t.library_id === e);
-																				t && v.edit(n, Lb(t));
+																				t && v.edit(n, Nb(t));
 																			},
 																			children: [...new Map(v.rows.map((e) => [e.library_id, e])).values()].map((e) => /* @__PURE__ */ (0, V.jsx)(tv, {
 																				id: e.library_id,
 																				textValue: e.library || F("shell:shared.untitledLibrary"),
 																				children: /* @__PURE__ */ (0, V.jsxs)("span", {
 																					className: "flex min-w-0 items-center gap-2",
-																					children: [/* @__PURE__ */ (0, V.jsx)(Jg, { mark: e.library_icon || sb(e.location)[0] }), /* @__PURE__ */ (0, V.jsx)("span", {
+																					children: [/* @__PURE__ */ (0, V.jsx)(Jg, { mark: e.library_icon || rb(e.location)[0] }), /* @__PURE__ */ (0, V.jsx)("span", {
 																						className: "truncate",
 																						children: e.library || F("shell:shared.untitledLibrary")
 																					})]
@@ -39297,7 +39232,7 @@ function Gb({ setup: e, onDone: t, onRestore: n }) {
 																	"aria-label": F("shell:setupForm.addDirectoryTo", { name: e.library || F("shell:shared.untitledLibrary") }),
 																	onClick: () => {
 																		v.add(), v.edit(v.rows.length, {
-																			...Lb(e),
+																			...Nb(e),
 																			location: e.location,
 																			cost: e.cost
 																		});
@@ -39327,7 +39262,7 @@ function Gb({ setup: e, onDone: t, onRestore: n }) {
 												children: F("shell:setupForm.addLibrary")
 											}),
 											Pe ? /* @__PURE__ */ (0, V.jsxs)(V.Fragment, { children: [
-												/* @__PURE__ */ (0, V.jsx)(nb, {}),
+												/* @__PURE__ */ (0, V.jsx)(Qy, {}),
 												/* @__PURE__ */ (0, V.jsxs)(Vg, { children: [e.cloud.help, /* @__PURE__ */ (0, V.jsx)(Ug, {
 													href: e.cloud.link.url,
 													children: e.cloud.link.label
@@ -39366,7 +39301,7 @@ function Gb({ setup: e, onDone: t, onRestore: n }) {
 												isInvalid: !!Me,
 												hint: Ee(Me)
 											}), /* @__PURE__ */ (0, V.jsx)(G_, {
-												icon: Yy,
+												icon: Gy,
 												"aria-label": F("shell:setupForm.pickDataDirectory"),
 												onClick: () => void je(),
 												...Cg(x)
@@ -39416,7 +39351,7 @@ function Gb({ setup: e, onDone: t, onRestore: n }) {
 												confirmation: ee,
 												onPassword: k,
 												onConfirmation: A,
-												passwordError: Ee(Wb(fe.access_password)),
+												passwordError: Ee(Bb(fe.access_password)),
 												passwordHint: F("shell:accessSetup.passwordLength"),
 												confirmationInvalid: !!fe.access_password
 											}) : null
@@ -39436,20 +39371,20 @@ function Gb({ setup: e, onDone: t, onRestore: n }) {
 													elementType: "span",
 													id: "setup-proxy-mode-label",
 													children: F("shell:setupForm.connectionMode")
-												}), /* @__PURE__ */ (0, V.jsx)(kb, {
+												}), /* @__PURE__ */ (0, V.jsx)(Tb, {
 													mode: ae,
 													onChange: oe,
 													labelledBy: "setup-proxy-mode-label"
 												})]
 											}),
-											ae === "proxy" ? /* @__PURE__ */ (0, V.jsx)(Ab, {
+											ae === "proxy" ? /* @__PURE__ */ (0, V.jsx)(Eb, {
 												id: "setupProxyAddress",
 												value: se,
 												onChange: ce,
 												saved: e.peach_proxy?.proxy_saved,
-												error: Ee(Wb(fe.peach_proxy))
-											}) : fe.peach_proxy ? /* @__PURE__ */ (0, V.jsx)(Hg, { children: Wb(fe.peach_proxy) }, we) : null,
-											e.docker && ae === "proxy" && jb(se) ? /* @__PURE__ */ (0, V.jsx)(_g, {
+												error: Ee(Bb(fe.peach_proxy))
+											}) : fe.peach_proxy ? /* @__PURE__ */ (0, V.jsx)(Hg, { children: Bb(fe.peach_proxy) }, we) : null,
+											e.docker && ae === "proxy" && Db(se) ? /* @__PURE__ */ (0, V.jsx)(_g, {
 												tone: "warning",
 												title: F("shell:setupForm.loopbackProxyTitle"),
 												children: F("shell:setupForm.loopbackProxyBody")
@@ -39488,14 +39423,14 @@ function Gb({ setup: e, onDone: t, onRestore: n }) {
 											children: [/* @__PURE__ */ (0, V.jsx)(tg, {
 												isSelected: j,
 												onChange: te,
-												children: Ub(Ne)
+												children: zb(Ne)
 											}), /* @__PURE__ */ (0, V.jsx)(Vg, { children: F(j ? "shell:setupForm.scanNowHint" : "shell:setupForm.scanLaterHint") })]
 										}), v.rows.some((e) => e.cost === "metered") ? /* @__PURE__ */ (0, V.jsx)(Vg, { children: F("shell:setupForm.dataSaverHint") }) : null] })]
 									}),
 									P ? /* @__PURE__ */ (0, V.jsx)(Hg, { children: P }) : null,
 									M ? /* @__PURE__ */ (0, V.jsxs)(Dr, { children: [
 										/* @__PURE__ */ (0, V.jsx)(Or, { children: F("shell:setupForm.reportingTitle") }),
-										/* @__PURE__ */ (0, V.jsx)(Ib, {
+										/* @__PURE__ */ (0, V.jsx)(Mb, {
 											value: M,
 											onChange: ie
 										}),
@@ -39540,7 +39475,7 @@ function Gb({ setup: e, onDone: t, onRestore: n }) {
 											}) : null,
 											ne ? null : Fe.map((e) => /* @__PURE__ */ (0, V.jsx)(Gg, {
 												term: e.library || F("shell:shared.untitledLibrary"),
-												children: Rb(e)
+												children: Pb(e)
 											}, e.library_id))
 										] })]
 									})
@@ -39575,7 +39510,7 @@ function Gb({ setup: e, onDone: t, onRestore: n }) {
 	});
 }
 // src/react/pages/setup/setup-restore.tsx
-function Kb({ onDone: e, onBack: t }) {
+function Hb({ onDone: e, onBack: t }) {
 	let [n, r] = (0, I.useState)(""), [i, a] = (0, I.useState)(""), [o, s] = (0, I.useState)(!1), c = (0, I.useRef)(null);
 	return (0, I.useEffect)(() => {
 		c.current?.focus({ preventScroll: !0 });
@@ -39659,7 +39594,7 @@ function Kb({ onDone: e, onBack: t }) {
 	});
 }
 // src/react/pages/setup/setup-page.tsx
-function qb() {
+function Ub() {
 	let [e, t] = (0, I.useState)({ kind: "loading" }), [n, r] = (0, I.useState)(0), [i, a] = (0, I.useState)(!1);
 	return (0, I.useEffect)(() => {
 		document.title = F("server:pages.setup.title");
@@ -39677,14 +39612,14 @@ function qb() {
 				message: F_(n)
 			});
 		}), () => e.abort();
-	}, [n]), e.kind === "done" ? /* @__PURE__ */ (0, V.jsx)(U_, { done: e.done }) : e.kind === "form" && !i ? /* @__PURE__ */ (0, V.jsx)(Gb, {
+	}, [n]), e.kind === "done" ? /* @__PURE__ */ (0, V.jsx)(U_, { done: e.done }) : e.kind === "form" && !i ? /* @__PURE__ */ (0, V.jsx)(Vb, {
 		setup: e.setup,
 		onRestore: e.setup.docker ? void 0 : () => a(!0),
 		onDone: (e) => t({
 			kind: "done",
 			done: e
 		})
-	}) : e.kind === "form" ? /* @__PURE__ */ (0, V.jsx)(Kb, {
+	}) : e.kind === "form" ? /* @__PURE__ */ (0, V.jsx)(Hb, {
 		onBack: () => a(!1),
 		onDone: (e) => t({
 			kind: "done",
@@ -39751,20 +39686,20 @@ function qb() {
 	});
 }
 // src/react/interface-locale.tsx
-function Jb({ children: e }) {
+function Wb({ children: e }) {
 	return /* @__PURE__ */ (0, V.jsx)(po, {
 		locale: bt,
 		children: e
 	});
 }
 // src/react/pages/index.tsx
-var Yb = {
-	setup: qb,
+var Gb = {
+	setup: Ub,
 	login: m_,
 	error: jr
 };
 jt();
-var Xb = document.getElementById("peach-page"), Zb = Xb ? Yb[Xb.dataset.page ?? ""] : void 0;
-Xb && Zb && (0, Bt.createRoot)(Xb).render(/* @__PURE__ */ (0, V.jsx)(Jb, { children: /* @__PURE__ */ (0, V.jsx)(Zb, { data: { ...Xb.dataset } }) }));
+var Kb = document.getElementById("peach-page"), qb = Kb ? Gb[Kb.dataset.page ?? ""] : void 0;
+Kb && qb && (0, Bt.createRoot)(Kb).render(/* @__PURE__ */ (0, V.jsx)(Wb, { children: /* @__PURE__ */ (0, V.jsx)(qb, { data: { ...Kb.dataset } }) }));
 
-//# debugId=6c7cf909-1f35-4f43-bcf1-2b35a3f3f8fe
+//# debugId=61a6f31d-caac-4627-bf77-7fb1c01d0a7e

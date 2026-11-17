@@ -5,7 +5,6 @@ import { useQuery } from '@tanstack/react-query';
 import { RiArrowDownSLine, RiArrowUpSLine } from '@remixicon/react';
 import { spinnerHtml, wireAnchoredMenu } from '@peach/legacy/ui';
 import { Button } from '@/components/base/buttons/button';
-import { HoldActionButton } from './hold-button';
 import { foldName, icon } from '@peach/legacy/core';
 import { apiGet } from '../../api';
 import { pickerSections, recentTags, type DetailTag, type TagCount } from '../item-detail/item-detail';
@@ -50,8 +49,8 @@ export function DetailTags({ tags, candidates, scope = 'local', id, adding, edit
           ? <span data-tag={tag.k} title={label(tag.k)}>{label(tag.k)}</span>
           : <button type="button" data-tag={tag.k} data-follow-tag={scope === 'online' ? tag.k : undefined}
             title={label(tag.k)} onClick={() => onOpen?.(tag.k)}>{label(tag.k)}</button>}
-        {editable ? <HoldActionButton data-remove-tag={tag.k} title={t('shell:detailTags.hideTag')} aria-label={t('shell:detailTags.removeTagNamed', { tag: label(tag.k) })}
-          {...busyAttrs?.(tag.k)} onClick={() => onRemove?.(tag)}><Glyph name="x" /></HoldActionButton> : null}
+        {editable ? <button type="button" data-remove-tag={tag.k} title={t('shell:detailTags.hideTag')} aria-label={t('shell:detailTags.removeTagNamed', { tag: label(tag.k) })}
+          {...busyAttrs?.(tag.k)} onClick={() => onRemove?.(tag)}><Glyph name="x" /></button> : null}
       </span>)}
       {long ? <Button variant="secondary" size="small" data-tags-more="" aria-expanded={open}
         trailingIcon={open ? RiArrowUpSLine : RiArrowDownSLine} onClick={() => setOpen(!open)}>

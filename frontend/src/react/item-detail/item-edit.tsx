@@ -12,7 +12,6 @@ import { formModal } from '@peach/legacy/ui';
 import { foldName, icon } from '@peach/legacy/core';
 import { coverUrl, performerLabel } from '@peach/card-art';
 import { Button } from '@/components/base/buttons/button';
-import { HoldActionButton } from '../components/hold-button';
 import { Input } from '@/components/base/input/input';
 import { Select, SelectItem } from '../components/select';
 import { DetailTags } from '../components/detail-tags';
@@ -342,9 +341,9 @@ export function EntityChips({ kind, values, single = false, labelledBy, onChange
         <span key={`${value.id ?? ''}:${value.name}`} data-entity-chip="" data-user-created={value.user_created ? '' : undefined}>
           <span data-entity-name="" title={value.name}>{value.name}</span>
           {value.user_created ? <span data-user-created-mark="">{t('catalog:itemEdit.userCreated')}</span> : null}
-          <HoldActionButton data-entity-remove="" aria-label={t('catalog:itemEdit.removeNamed', { name: value.name })}
+          <button type="button" data-entity-remove="" aria-label={t('catalog:itemEdit.removeNamed', { name: value.name })}
             title={t('catalog:itemEdit.removeNamed', { name: value.name })}
-            onClick={() => onChange(values.filter(other => !sameChoice(other, value)))}><Glyph name="x" /></HoldActionButton>
+            onClick={() => onChange(values.filter(other => !sameChoice(other, value)))}><Glyph name="x" /></button>
         </span>
       ))}
       {single && values.length ? null : <EntityPicker kind={kind} labelledBy={labelledBy} onPick={pick} {...picker} />}
