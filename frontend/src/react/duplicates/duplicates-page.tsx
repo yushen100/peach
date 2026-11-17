@@ -27,6 +27,8 @@ import { SortKeys } from '../entity-filter/entity-filter-page';
 import { Note } from '../components/note';
 import { enterPageSelection, exitPageSelection, usePageSelection } from '../components/page-selection';
 import { SelectionDock } from '../components/selection-dock';
+import { FilenameComparison } from '../components/filename-comparison';
+import { ComparisonText } from '../review/comparison-text';
 import { SourceLabel } from '../components/source-label';
 import { spriteGlyph } from '../components/sprite-glyph';
 import { TRASH_KEY } from '../data-cleanup/data-cleanup';
@@ -35,8 +37,8 @@ import { queryClient } from '../query';
 import { SourceMark } from '../settings/section';
 import { busyProps } from '../settings/use-action';
 import {
-  batchOperate, bulkCloudPreferences, distinctName, DUPLICATES_KEY, duplicateVictims, fetchDuplicates, fetchKeptDuplicates, groupKey,
-  keepGroup, keepGroups, KEEP_LABELS, KEPT_DUPLICATES_KEY, mixedCloudPreferences, sharedNamePrefix, victimBytes,
+  batchOperate, bulkCloudPreferences, DUPLICATES_KEY, duplicateVictims, fetchDuplicates, fetchKeptDuplicates, groupKey,
+  keepGroup, keepGroups, KEEP_LABELS, KEPT_DUPLICATES_KEY, mixedCloudPreferences, victimBytes,
   type DuplicateFile, type DuplicateGroup, type KeepRule,
 } from './duplicates';
 import { t } from '../../i18n';
@@ -117,9 +119,9 @@ function evidenceFlag(group: DuplicateGroup) {
   </span>;
 }
 
-/** 一份副本。`prefix` 是组内共有的名字开头，显示时用「…」顶替，整名在 title 里。 */
-function FileRow({ file, prefix, openItem, selected, onSelect }: {
-  file: DuplicateFile; prefix: string; openItem(id: number): void;
+/** 一份副本，名称与路径沿用复核页的差异高亮。 */
+function FileRow({ file, reference, openItem, selected, onSelect }: {
+  file: DuplicateFile; reference?: DuplicateFile; openItem(id: number): void;
   selected: boolean; onSelect?: (on: boolean) => void;
 }) {
   const open = () => openItem(file.id);
@@ -138,10 +140,7 @@ function FileRow({ file, prefix, openItem, selected, onSelect }: {
       <span className="flex min-w-0 items-center gap-2 max-duplicate-narrow:col-start-2 max-duplicate-narrow:-col-end-1">
         {onSelect ? <Checkbox slot={null} aria-label={t('cleanup:duplicates.selectFile', { name: file.name })}
           isSelected={selected} onChange={onSelect} /> : null}
-        <button type="button" onClick={open} title={file.name} data-middle-truncate data-middle-truncate-within
-          className="min-w-0 shrink cursor-pointer truncate text-left text-body-regular hover:text-text-secondary">
-          {distinctName(file.name, prefix)}
-        </button>
+        <FilenameComparison value={file.name} reference={reference?.name} onOpen={open} />
         {file.is_largest || file.is_longest || file.is_new
           ? <span className="flex flex-none gap-1">
               {file.is_new ? <i className={`${MARK} not-italic bg-background-primary-hover text-text-primary`}>{t('cleanup:duplicates.newCopy')}</i> : null}
@@ -158,7 +157,7 @@ function FileRow({ file, prefix, openItem, selected, onSelect }: {
       <span className={MONO}>{fmtDur(file.duration)}</span>
       {/* 路径整条折行显示：同一组的几份常只在中段不同，截断会让它们看起来一模一样。 */}
       <span className={`${MONO} col-start-2 -col-end-1 min-w-0 pt-0.5 wrap-anywhere max-duplicate-narrow:col-span-full`}>
-        {file.path ?? ''}
+        <ComparisonText value={file.path ?? ''} reference={reference?.path ?? undefined} />
       </span>
     </div>
   );
@@ -357,7 +356,6 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
       {groups.length
         ? groups.map((group, index) => {
             const one = [group];
-            const prefix = sharedNamePrefix(group.files.map((file) => file.name));
             const key = (rule: string) => `${index}:${rule}`;
             return (
               <section key={groupKey(group)} aria-label={group.code} className={GROUP}
@@ -403,7 +401,8 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
                         </>}
                   </span>
                 </div>
-                <div>{group.files.map((file) => <FileRow key={file.id} file={file} prefix={prefix} openItem={openItem}
+                <div>{group.files.map((file) => <FileRow key={file.id} file={file}
+                  reference={group.files.find(other => other.id !== file.id)} openItem={openItem}
                   selected={pickedFiles.has(file.id)} onSelect={keptView ? undefined : (on) => selectFile(file.id, on)} />)}</div>
               </section>
             );

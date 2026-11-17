@@ -219,6 +219,23 @@ const paint=()=>{
   }
 };
 
+/** 富文本由 React 渲染时复用相同测量，返回中间需要省略的 UTF-16 区间。 */
+export function middleTruncateCut(element: HTMLElement, value: string): { start: number; end: number } | null {
+  const parts = graphemes(value);
+  const fit: Fit = {
+    element, state: { full: value, rendered: value },
+    available: availableWidth(element), parts, kept: 0,
+  };
+  if (fit.available <= 0) return null;
+  fitAll([fit]);
+  if (fit.kept >= parts.length) return null;
+  const head = Math.ceil(fit.kept / 2), tail = Math.floor(fit.kept / 2);
+  return {
+    start: parts.slice(0, head).join('').length,
+    end: value.length - parts.slice(parts.length - tail).join('').length,
+  };
+}
+
 const schedule=(element:Element)=>{
   if(!states.has(element))return;
   scheduled.add(element as HTMLElement);
@@ -227,6 +244,7 @@ const schedule=(element:Element)=>{
 
 const bind=(element:Element)=>{
   if(!(element instanceof HTMLElement))return;
+  if(element.hasAttribute('data-middle-truncate-managed'))return;
   if(!states.has(element))states.set(element,{full:element.textContent||'',rendered:element.textContent||''});
   if(!observed.has(element)){
     observed.add(element);

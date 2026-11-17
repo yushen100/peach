@@ -7,9 +7,9 @@ import * as legacyUi from '@peach/legacy/ui';
 import { advanceImageFallback } from '../../src/card-art/image-fallback';
 
 import { DuplicatesPage } from '../../src/react/duplicates/duplicates-page';
+import { ComparisonText } from '../../src/react/review/comparison-text';
 import {
-  cloudPreferenceLocations, distinctName, DUPLICATES_KEY, duplicateVictims, mixedCloudPreferences, prefetchDuplicates,
-  sharedNamePrefix,
+  cloudPreferenceLocations, DUPLICATES_KEY, duplicateVictims, mixedCloudPreferences, prefetchDuplicates,
   type DuplicateFile, type DuplicateGroup, type DuplicatesData,
 } from '../../src/react/duplicates/duplicates';
 import { cloudLocations, MEDIA_SOURCES_KEY, type MediaSourcesData } from '../../src/react/media-sources';
@@ -265,15 +265,33 @@ it('没有重复组时是一张空态，不画批量条', async () => {
   expect(buttonNamed('全部保留最大', host)).toBeNull();
 });
 
-it('同组副本只在中段不同时，名字去掉共有开头、退到断词处，差别留在显示的那一段里', () => {
-  const names = ['ABC-123 [1080p] 转载站甲.mp4', 'ABC-123 [720p] 转载站甲.mp4', 'ABC-123 [480p] 转载站甲.mp4'];
-  const prefix = sharedNamePrefix(names);
-  expect(prefix).toBe('ABC-123 [');
-  expect(names.map((name) => distinctName(name, prefix)))
-    .toEqual(['…1080p] 转载站甲.mp4', '…720p] 转载站甲.mp4', '…480p] 转载站甲.mp4']);
-  // 共有段太短、只有一份或名字整个都是共有段时，原样显示。
-  expect(sharedNamePrefix(['AB-1.mp4', 'AB-2.mp4'])).toBe('');
-  expect(sharedNamePrefix(['ABC-123 一份.mp4'])).toBe('');
-  expect(sharedNamePrefix(['ABC-123 part.mp4', 'ABC-123 part.mp4'])).toBe('ABC-123 part.');
-  expect(distinctName('ABC-123 part.mp4', 'ABC-123 part.mp4')).toBe('ABC-123 part.mp4');
+it('完整保留相同文件名，并以复核高亮标出名称和路径差异', async () => {
+  const shared = 'ssni-677-C.mp4';
+  const files = [file(1, { name: shared, path: 'R:\\first\\ssni-677-C.mp4' }),
+    file(2, { name: shared, path: 'R:\\second\\ssni-677-C.mp4' })];
+  const { host } = await open({ total: 1, files: 2, reclaimable: GB, groups: [group('SSNI-677', files)] });
+  const names = host.querySelectorAll('button[title="ssni-677-C.mp4"]');
+  expect([...names].map(name => name.textContent)).toEqual([shared, shared]);
+  expect(host.querySelectorAll('.duplicate-row mark[data-review-difference]').length).toBeGreaterThan(0);
+});
+
+it('文件名的不同规格用复核高亮显示，原文完整保留', async () => {
+  const files = [file(1, { name: 'ABC-123 [1080p].mp4' }), file(2, { name: 'ABC-123 [720p].mp4' })];
+  const { host } = await open({ total: 1, files: 2, reclaimable: GB, groups: [group('ABC-123', files)] });
+  for (const item of files) {
+    const name = host.querySelector(`button[title="${item.name}"]`)!;
+    expect(name.textContent).toBe(item.name);
+    expect(name.querySelector('mark[data-review-difference]')).not.toBeNull();
+  }
+});
+
+it('中间截断保留可见差异高亮，恢复完整宽度后原文与高亮一起恢复', async () => {
+  const value = '甲ABC-123 [1080p] 演示文件.mp4';
+  const reference = '乙ABC-123 [720p] 演示文件.mp4';
+  const host = await mount(<ComparisonText value={value} reference={reference} cut={{ start: 3, end: value.length - 4 }} />);
+  expect(host.textContent).toBe('甲AB….mp4');
+  expect(host.querySelector('mark')?.textContent).toBe('甲');
+  const full = await mount(<ComparisonText value={value} reference={reference} />);
+  expect(full.textContent).toBe(value);
+  expect(full.querySelector('mark')?.textContent).toBe('甲');
 });

@@ -8,6 +8,49 @@ describe('重复文件逐份回收', () => {
   before(async () => { browser = await launch(); });
   after(async () => { await browser?.close(); });
 
+  it('相同名称完整显示，名称和路径差异在宽窄视口切换后保留高亮', { timeout: 60_000 }, async () => {
+    const names = ['ABC-123 演示画面 [1080p] 完整文件名.mp4', 'ABC-123 演示画面 [720p] 完整文件名.mp4'];
+    const opened = await visit(browser, '/duplicates', VIEWPORTS[0]!, async page => {
+      await page.route('**/thumb?**', route => route.fulfill({
+        contentType: 'image/png',
+        body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jD1sAAAAASUVORK5CYII=', 'base64'),
+      }));
+      await page.route('**/api/duplicates?**', route => route.fulfill({ json: {
+        total: 2, files: 4, reclaimable: 2000,
+        groups: ['SSNI-677', 'ABC-123'].map((code, index) => ({
+          code, count: 2, identical: false, drives: ['R:'], cross_drive: false, reclaimable: 1000,
+          files: [0, 1].map(part => ({ id: 100 + index * 2 + part,
+            name: index ? names[part] : 'ssni-677-C.mp4',
+            path: `R:\\${part ? 'second' : 'first'}\\${index ? names[part] : 'ssni-677-C.mp4'}`,
+            location: 'local', drive: 'R:', size: 1000, duration: 3600,
+            is_largest: part === 0, is_longest: part === 0,
+          })),
+        })),
+      } }));
+    });
+    try {
+      const { page } = opened;
+      const name = page.getByRole('button', { name: names[0]!, exact: true });
+      await name.waitFor();
+      await settle(page);
+      await page.waitForFunction(expected => document.querySelector(`button[title="${expected}"]`)?.textContent === expected, names[0]);
+      const identical = page.getByRole('region', { name: 'SSNI-677', exact: true });
+      assert.deepEqual(await identical.locator('button[title="ssni-677-C.mp4"]').allTextContents(),
+        ['ssni-677-C.mp4', 'ssni-677-C.mp4']);
+      assert.ok(await identical.locator('mark[data-review-difference]').count() > 0);
+      await page.setViewportSize({ width: 390, height: 844 });
+      await settle(page);
+      await page.waitForFunction(expected => document.querySelector(`button[title="${expected}"]`)?.textContent?.includes('…'), names[0]);
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await settle(page);
+      await page.waitForFunction(expected => document.querySelector(`button[title="${expected}"]`)?.textContent === expected, names[0]);
+      assert.ok(await name.locator('mark[data-review-difference]').count() > 0);
+      const dimensions = await layout(page);
+      assert.ok(dimensions.scrollWidth <= dimensions.viewportWidth);
+      assert.deepEqual(opened.problems, []);
+    } finally { await opened.close(); }
+  });
+
   for (const viewport of VIEWPORTS) {
     it(`勾选、取消确认、长按回收与撤销使用同一份文件（${viewport.name}）`, { timeout: 60_000 }, async () => {
       const batches: { ids: number[]; operation: string; disposal_reason?: string }[] = [];

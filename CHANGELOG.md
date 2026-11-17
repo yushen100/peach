@@ -95,7 +95,7 @@ Entries are written for users to scan: one sentence each, saying where something
 
 - **Desktop**: LAN discovery selects a real interface when a tunnel owns the default route and keeps valid private-network routes (#726). / **桌面**：局域网发现避开占用默认路由的隧道接口，保留有效私网路由（#726）。
 - **Sourcing**: Local NFO files accept unescaped ampersands while preserving UTF-16 text and the original file bytes (#725). / **采集**：本地 NFO 可读取未转义的 &，保留 UTF-16 文本和原始文件字节（#725）。
-- **Review**: Duplicate files show their existing cover first and fall back to a frame thumbnail when unavailable (#739). / **复核**：重复文件优先显示已有封面，取不到时回退抽帧缩略图（#739）。
+- **Review**: Duplicate review shows covers and full filenames when space allows, with highlighted name and path differences (#739). / **复核**：重复文件显示已有封面，空间足够时显示完整文件名，名称和路径差异按复核样式高亮（#739）。
 - **Review**: Software dependency files and ordinary course folders containing “App” stay out of promotional junk candidates (#719). / **复核**：软件依赖文件和名称含普通 App 字样的课程目录不再误判为推广垃圾（#719）。
 - **Library**: Junk review preserves release artwork and FC2 bonus clips alongside the main movie (#752). / **馆藏**：垃圾复核保留作品封面、九宫格和与正片并存的 FC2 特典（#752）。
 - **Interface**: Filter text actions use standard buttons. Single-file trash uses a click, bulk trash confirms with a hold, and number labels remain editable (#752). / **界面**：筛选文字动作统一标准按钮，单文件单击回收，整批确认长按执行，带数字的按钮文案可编辑（#752）。

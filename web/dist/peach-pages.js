@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "ff069be6-9ec7-4922-a091-fc61c29d0ef4", e._sentryDebugIdIdentifier = "sentry-dbid-ff069be6-9ec7-4922-a091-fc61c29d0ef4");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "a92e76d4-ca60-4d5e-84a7-5ec3e7122165", e._sentryDebugIdIdentifier = "sentry-dbid-a92e76d4-ca60-4d5e-84a7-5ec3e7122165");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -2829,7 +2829,10 @@ var He = "peach.settings.v1", Ue = {
 		unkeptGroups_one: "Removed {{count, number}} group from Kept",
 		unkeptGroups_other: "Removed {{count, number}} groups from Kept",
 		unkeptOne: "{{code}} is back in the duplicate list",
-		viewKept: "Kept ({{count, number}})"
+		viewKept: "Kept ({{count, number}})",
+		selectFile: "Select {{name}} for Trash",
+		trashSelectedFiles: "Trash {{count, number}} selected",
+		selectedTrashBody: "Move the {{count, number}} selected files ({{size}}) to Trash and keep the other {{remaining, number}} files."
 	},
 	junk: {
 		backToUndecided: "Back to undecided",
@@ -2862,7 +2865,10 @@ var He = "peach.settings.v1", Ue = {
 		undecided: "Undecided",
 		unknownSize: "Unknown size",
 		untitled: "Unnamed item",
-		viewUndecided: "View undecided"
+		viewUndecided: "View undecided",
+		copies: "{{count, number}} copies with the same name and size · {{size}} total",
+		showCopies: "Show copies",
+		hideCopies: "Hide copies"
 	},
 	links: {
 		allReachable: "All links are reachable.",
@@ -10414,7 +10420,10 @@ var He = "peach.settings.v1", Ue = {
 		unkeepBody: "将取消 {{count, number}} 组的都保留，这些组回到待处理，不改动任何文件。",
 		unkeptGroups: "已取消保留 {{count, number}} 组",
 		unkeptOne: "{{code}} 已回到待处理",
-		viewKept: "已保留 {{count, number}} 组"
+		viewKept: "已保留 {{count, number}} 组",
+		selectFile: "选择回收 {{name}}",
+		trashSelectedFiles: "回收所选 {{count, number}} 项",
+		selectedTrashBody: "将所选 {{count, number}} 个文件移入回收站（共 {{size}}），其余 {{remaining, number}} 个文件保留。"
 	},
 	junk: {
 		backToUndecided: "返回待判断",
@@ -10445,7 +10454,10 @@ var He = "peach.settings.v1", Ue = {
 		undecided: "待判断",
 		unknownSize: "大小未知",
 		untitled: "未命名资源",
-		viewUndecided: "查看待判断"
+		viewUndecided: "查看待判断",
+		copies: "同名同大小 {{count, number}} 份 · 共 {{size}}",
+		showCopies: "展开副本",
+		hideCopies: "收起副本"
 	},
 	links: {
 		allReachable: "全部链接均可访问。",
@@ -39704,4 +39716,4 @@ jt();
 var Kb = document.getElementById("peach-page"), qb = Kb ? Gb[Kb.dataset.page ?? ""] : void 0;
 Kb && qb && (0, Bt.createRoot)(Kb).render(/* @__PURE__ */ (0, V.jsx)(Wb, { children: /* @__PURE__ */ (0, V.jsx)(qb, { data: { ...Kb.dataset } }) }));
 
-//# debugId=ff069be6-9ec7-4922-a091-fc61c29d0ef4
+//# debugId=a92e76d4-ca60-4d5e-84a7-5ec3e7122165
