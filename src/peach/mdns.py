@@ -31,31 +31,38 @@ def _normalized_name(name: str) -> str:
 
 
 def lan_ipv4() -> str:
-    """Ask the routing table for the preferred LAN IPv4 without sending data."""
+    """从本机接口选择可发布地址，优先沿用有效物理接口的路由。"""
+    benchmark = ipaddress.ip_network("198.18.0.0/15")
+    candidates = []
+    for adapter in ifaddr.get_adapters():
+        name = (adapter.name + " " + adapter.nice_name).casefold()
+        if any(marker in name for marker in ("tunnel", "tailscale", "host-only", "host only", "hyper-v virtual ethernet")) \
+                or name.split(" ", 1)[0].startswith(("utun", "tun", "tap", "veth", "docker", "br-")):
+            continue
+        for entry in adapter.ips:
+            if not entry.is_IPv4:
+                continue
+            address = ipaddress.IPv4Address(entry.ip)
+            if (address in benchmark or address.is_loopback or address.is_link_local
+                    or address.is_unspecified or address.is_multicast):
+                continue
+            candidates.append(str(address))
+
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         sock.connect(("192.0.2.1", 80))
         routed = str(sock.getsockname()[0])
+        if routed in candidates:
+            return routed
+    except OSError:
+        pass
     finally:
         sock.close()
-    benchmark = ipaddress.ip_network("198.18.0.0/15")
-    if ipaddress.ip_address(routed) not in benchmark:
-        return routed
-    # Full-tunnel proxies may own the default route. Fall back to host interfaces,
-    # rejecting the benchmarking range used by Mihomo and obvious host-only endpoints.
-    candidates = []
-    for value in socket.gethostbyname_ex(socket.gethostname())[2]:
-        address = ipaddress.ip_address(value)
-        if not isinstance(address, ipaddress.IPv4Address) or address in benchmark:
-            continue
-        if address.is_loopback or address.is_link_local or address.is_unspecified:
-            continue
-        prefix_score = 3 if value.startswith("192.168.") else (2 if value.startswith("10.") else 1)
-        endpoint_score = 0 if int(value.rsplit(".", 1)[1]) in {1, 2} else 1
-        candidates.append((prefix_score, endpoint_score, value))
     if not candidates:
         raise RuntimeError("no publishable LAN IPv4 address; pass --mdns-address")
-    return max(candidates)[2]
+    # 默认路由落到 TUN 时，各私网段同等对待，沿用非网关端点优先的选择。
+    return max(candidates, key=lambda value: (
+        ipaddress.IPv4Address(value).is_private, int(value.rsplit('.', 1)[1]) not in {1, 2}, value))
 
 
 def lan_ipv6(ipv4: str) -> tuple[str, ...]:

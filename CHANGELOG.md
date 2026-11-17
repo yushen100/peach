@@ -90,6 +90,8 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Updates**: Repairs and migrations is grouped by kind, and repairs awaiting your OK can be started all at once or a group at a time (#723). / **更新**：「修复与迁移」按类分组，等确认的修复可一次全部开始或按组开始（#723）。
 
 ### Fixed / 修复
+
+- **Desktop**: LAN discovery selects a real interface when a tunnel owns the default route and keeps valid private-network routes (#726). / **桌面**：局域网发现避开占用默认路由的隧道接口，保留有效私网路由（#726）。
 - **Library**: Junk review preserves release artwork and FC2 bonus clips alongside the main movie (#752). / **馆藏**：垃圾复核保留作品封面、九宫格和与正片并存的 FC2 特典（#752）。
 - **Interface**: Filter text actions use standard buttons. Single-file trash uses a click, bulk trash confirms with a hold, and number labels remain editable (#752). / **界面**：筛选文字动作统一标准按钮，单文件单击回收，整批确认长按执行，带数字的按钮文案可编辑（#752）。
 
