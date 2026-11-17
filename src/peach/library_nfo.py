@@ -9,6 +9,9 @@ from .scan import VIDEO
 from .user_messages import UserValueError
 
 
+NFO_PARSER_VERSION = 1
+
+
 def directory_files(directory: Path) -> dict[str, Path]:
     """目录里的普通文件，按 casefold 文件名索引。
 
@@ -105,9 +108,15 @@ def _nfo_root(raw: bytes):
     try:
         return ET.fromstring(document)
     except ET.ParseError:
-        pattern = r'&(?!(?:amp|lt|gt|apos|quot|#\d+|#x[0-9a-fA-F]+);)'
-        sanitized = (re.sub(pattern, '&amp;', document) if isinstance(document, str)
-                     else re.sub(pattern.encode('ascii'), b'&amp;', raw))
+        pattern = (r'(<!\[CDATA\[.*?(?:\]\]>|\Z)|<!--.*?(?:-->|\Z)'
+                   r'|<\?.*?(?:\?>|\Z))'
+                   r'|&(?!(?:amp|lt|gt|apos|quot|#\d+|#x[0-9a-fA-F]+);)')
+        if isinstance(document, str):
+            sanitized = re.sub(pattern, lambda match: match.group(1) or '&amp;',
+                               document, flags=re.DOTALL)
+        else:
+            sanitized = re.sub(pattern.encode('ascii'), lambda match: match.group(1) or b'&amp;',
+                               document, flags=re.DOTALL)
         return ET.fromstring(sanitized)
 
 
