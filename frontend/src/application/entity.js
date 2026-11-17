@@ -8,7 +8,7 @@ import { waitEntityShapes } from './loading.js';
 import { catalogGridLayout, catalogSkeletonHtml, catalogState, comboItems, commitContextFilter, toggleTag } from './catalog.js';
 import { nextSortState, sortDirWord } from './../sort-preferences';
 import { barsContext, notifyShell, selectMode, selected, state, writeShell } from './../shell/index';
-import { $, ENTITY_ROUTES, api, esc, icon } from '../core';
+import { $, ENTITY_ROUTES, api, esc, icon, isCatalogPath } from '../core';
 import { managedEntry, releaseManagedRoute, updateManagedRoute } from './../history/managed';
 import { javActive, scheduleStickySurfaces, setJavLayout, sortOptions, syncHeaderActions } from './layout.js';
 import { navigationState, openRoutedPage } from './navigation.js';
@@ -42,6 +42,8 @@ export function pushEntityPage(patch){if(entityState.entityPageCurrent())updateM
 
 export function currentBarsContext(){
   if(barsContext.type==='item')return barsContext;
+  // 地址已切回馆藏时，资料页的宿主可能还在等待路由卸载，筛选先按馆藏范围读取。
+  if(isCatalogPath(location.pathname)||location.pathname==='/trash')return {type:'home',filters:state};
   const entry=entityPageEntry();
   if(entry){const {kind,name,filters}=entry.props;return {type:'entity',kind,name,filters:{...filters}}}
   return barsContext;

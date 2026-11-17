@@ -51,7 +51,7 @@ it('全选覆盖未加载项，取消一项后续页仍按排除项选择', asyn
   expect(load).not.toHaveBeenCalled();
   await click(host.querySelector('[data-table-column-filter]'));
   await settle();
-  expect(document.querySelector<HTMLInputElement>('input[aria-label="Person 0"]')?.checked).toBe(true);
+  await vi.waitFor(() => expect(document.querySelector<HTMLInputElement>('input[aria-label="Person 0"]')?.checked).toBe(true));
   await click(document.querySelector('input[aria-label="Person 0"]'));
   expect(changed).toHaveBeenLastCalledWith({ exclude: ['0'] });
   await click(buttonNamed('载入更多'));
