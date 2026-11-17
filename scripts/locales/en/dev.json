@@ -1847,6 +1847,7 @@
     "description": "Fetch the YuNet and SFace face models and their licenses, verify each SHA-256, and place them in the release package's model directory.\n\nWindows builds put them in `tools/face-models` under the program directory, macOS in\n`Peach.app/Contents/Resources/tools/face-models`, and at runtime `peach.face_detect.bundled_model` picks up this copy;\nthe Docker image fetches them in the Dockerfile from the same URLs and hashes. Downloads land in a cache directory\nfirst; files in the cache whose hashes match are not downloaded again.\n"
   },
   "adopt_dependency_bump": {
+    "ocrRuntime": "isolated OCR Python dependencies",
     "stepPreflight": "After committing, preflight (worktree root, PowerShell 7): {{command}}",
     "stepTest": "Test: {{command}}",
     "stepDeliver": "Deliver: push the worker branch, open a delivery PR and check CI for the current commit; after ready, the coordinator runs integrate",

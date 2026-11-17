@@ -329,7 +329,8 @@ class _TableReads:
     外层也必须跟着变。
     """
 
-    IGNORED = frozenset({"ledger_revision", "sqlite_master", "sqlite_temp_master", "sqlite_schema"})
+    # json_each 只展开查询绑定的 JSON 参数，缓存失效由参数及其来源负责。
+    IGNORED = frozenset({"ledger_revision", "sqlite_master", "sqlite_temp_master", "sqlite_schema", "json_each"})
 
     def __init__(self, virtual: set[str]):
         self.virtual = virtual
@@ -524,6 +525,14 @@ class DeclaredTablesTests(unittest.TestCase):
     def _get(self, path, **args):
         self._fresh()
         return dispatch_api_get(self.contract, path, args)
+
+    def test_json_parameter_expansion_tracks_the_queried_ledger_table(self):
+        with self.contract.database.read_connection() as connection:
+            rows = self.reads.measure('selected-assets', ('asset',), lambda: connection.execute(
+                'SELECT id FROM asset WHERE id IN (SELECT value FROM json_each(?)) ORDER BY id',
+                ('[1,3]',)).fetchall())
+        self.assertEqual([row[0] for row in rows], [1, 3])
+        self.assertEqual(self.reads.frames[-1][2], {'asset'})
 
     def test_cached_computations_read_only_their_declared_tables(self):
         for state in ("", "fresh", "played", "flagged", "later"):

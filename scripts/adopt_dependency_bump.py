@@ -94,7 +94,7 @@ RECIPES = {
         "checks": (("uv", "lock", "--check"),),
     },
     "ocr": {
-        "label": "OCR 独立 Python 依赖",
+        "label": t("adopt_dependency_bump.ocrRuntime"),
         "manifests": ("resources/ocr/environment/pyproject.toml", "resources/ocr/environment/uv.lock"),
         "derived": (),
         "commands": (),
