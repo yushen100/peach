@@ -22,11 +22,13 @@ describe(`全屏画面比例：${stylesheet}`, () => {
         page.on('pageerror', error => console.info('fullscreen page error', error.message));
         console.info('fullscreen browser', browser.version(), viewport);
         const css = readFileSync(new URL(stylesheet, import.meta.url), 'utf8');
-        await page.setContent(`<style>${css}</style><div data-stage-media>
+        const html = `<style>${css}</style><div data-stage-media>
           <div class="video-js"><video-player><media-container>
             <video class="vjs-tech" width="1920" height="1080"></video>
             <button style="position:relative;z-index:1">全屏</button>
-          </media-container></video-player></div></div>`);
+          </media-container></video-player></div></div>`;
+        await page.route('http://localhost/**', route => route.fulfill({ contentType: 'text/html', body: html }));
+        await page.goto('http://localhost/fullscreen-fixture');
         await page.locator('button').evaluate(button => {
           button.addEventListener('click', () => button.parentElement!.requestFullscreen());
         });
