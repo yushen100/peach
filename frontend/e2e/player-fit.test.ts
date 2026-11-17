@@ -19,6 +19,8 @@ describe(`全屏画面比例：${stylesheet}`, () => {
     it(`${viewport.width}×${viewport.height}：全屏与退出全屏均完整显示`, { timeout: 30_000 }, async () => {
       const page = await browser.newPage({ viewport });
       try {
+        page.on('pageerror', error => console.info('fullscreen page error', error.message));
+        console.info('fullscreen browser', browser.version(), viewport);
         const css = readFileSync(new URL(stylesheet, import.meta.url), 'utf8');
         await page.setContent(`<style>${css}</style><div data-stage-media>
           <div class="video-js"><video-player><media-container>
@@ -29,9 +31,15 @@ describe(`全屏画面比例：${stylesheet}`, () => {
           button.addEventListener('click', () => button.parentElement!.requestFullscreen());
         });
         const video = page.locator('video');
+        console.info('fullscreen before click', await page.evaluate(() => ({
+          origin: location.origin, secure: isSecureContext, enabled: document.fullscreenEnabled,
+          button: document.querySelector('button')?.getBoundingClientRect().toJSON(),
+        })));
         assert.equal(await video.evaluate(node => getComputedStyle(node).objectFit), 'contain');
         await page.locator('button').click();
+        console.info('fullscreen clicked');
         await page.waitForFunction(() => !!document.fullscreenElement);
+        console.info('fullscreen entered');
         const frame = await video.evaluate(node => {
           const rect = node.getBoundingClientRect();
           return { fit: getComputedStyle(node).objectFit,
@@ -48,6 +56,7 @@ describe(`全屏画面比例：${stylesheet}`, () => {
           assert.equal(await video.evaluate(node => getComputedStyle(node).objectFit), 'contain', '横屏后继续显示完整画面');
         }
         await page.evaluate(() => document.exitFullscreen());
+        console.info('fullscreen exited');
         for (const state of ['class', 'attribute', 'full-window']) {
           await page.locator('.video-js').evaluate((root, state) => {
             root.classList.toggle('vjs-fullscreen', state === 'class');
