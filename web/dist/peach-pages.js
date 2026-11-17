@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "aa22c08e-f899-4f0a-8ebb-8deb827314c1", e._sentryDebugIdIdentifier = "sentry-dbid-aa22c08e-f899-4f0a-8ebb-8deb827314c1");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "ff069be6-9ec7-4922-a091-fc61c29d0ef4", e._sentryDebugIdIdentifier = "sentry-dbid-ff069be6-9ec7-4922-a091-fc61c29d0ef4");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -4565,6 +4565,7 @@ var He = "peach.settings.v1", Ue = {
 		waited: " · waited {{elapsed}}"
 	},
 	scrapingSources: {
+		contents: "On this page",
 		loadFailed: "Couldn't load fetch sources.",
 		loadFailedTitle: "Couldn't load fetch sources",
 		loading: "Loading fetch sources",
@@ -11931,6 +11932,7 @@ var He = "peach.settings.v1", Ue = {
 		waited: " · 已等待 {{elapsed}}"
 	},
 	scrapingSources: {
+		contents: "本页目录",
 		loadFailed: "读取采集来源失败",
 		loadFailedTitle: "采集来源读取失败",
 		loading: "正在读取采集来源",
@@ -39702,4 +39704,4 @@ jt();
 var Kb = document.getElementById("peach-page"), qb = Kb ? Gb[Kb.dataset.page ?? ""] : void 0;
 Kb && qb && (0, Bt.createRoot)(Kb).render(/* @__PURE__ */ (0, V.jsx)(Wb, { children: /* @__PURE__ */ (0, V.jsx)(qb, { data: { ...Kb.dataset } }) }));
 
-//# debugId=aa22c08e-f899-4f0a-8ebb-8deb827314c1
+//# debugId=ff069be6-9ec7-4922-a091-fc61c29d0ef4
