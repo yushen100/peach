@@ -12,9 +12,10 @@ import { columnValueSelected, toggleColumnValue, type ColumnSelection } from '..
 import { IndexSearch } from '../index/index-search';
 import { MenuDialog } from './menu-dialog';
 import { Note } from './note';
+import { ActivityStatus } from './activity-motion';
 import { t } from '../../i18n';
 
-export interface ColumnFilterOption { id: string; label: string; count?: number; leading?: ReactNode; searchTerms?: readonly string[] }
+export interface ColumnFilterOption { id: string; label: string; count?: number; leading?: ReactNode; searchTerms?: readonly string[]; disabled?: boolean; title?: string }
 export interface ColumnFilterPage { items: ColumnFilterOption[]; nextOffset?: number }
 interface ColumnFilterProps {
   id: string; label: string; values?: ColumnSelection; options?: readonly ColumnFilterOption[];
@@ -68,7 +69,6 @@ function ColumnFilterMenu({ id, label, values, options = [], queryKey, load, onC
     {load && result.isError ? <Note tone="error" action={<Button size="xs" variant="ghost"
       onClick={() => void (result.isFetchNextPageError ? result.fetchNextPage() : result.refetch())}>{t('shell:shared.retry')}</Button>}>
       {errorMessage(result.error)}</Note> : null}
-    {pending ? <span role="status" className="px-3 text-caption-1-regular text-text-secondary">{t('shell:spinner.loading')}</span> : null}
     <div ref={scroll} role="group" aria-label={label} data-column-filter-options=""
       className={cx(MENU_ITEMS_CONTAINER, 'max-h-72 overflow-y-auto px-3 pb-3')}
       onScroll={event => {
@@ -80,20 +80,24 @@ function ColumnFilterMenu({ id, label, values, options = [], queryKey, load, onC
         <Checkbox slot={null} size="sm" isSelected={all} isIndeterminate={partial} isDisabled={pending}
           onChange={on => onChange(on ? undefined : [])} className="w-full">{t('shell:shared.all')}</Checkbox>
       </div>
-      {rows.map(row => <div key={row.id} className={cx(MENU_ITEM, MENU_ITEM_INTERACTIVE,
-        columnValueSelected(values, row.id) && MENU_ITEM_ACTIVE, 'focus-within:bg-dropdown-item-hover-background')}>
+      {rows.map(row => <div key={row.id} title={row.title} data-column-filter-offline={row.disabled || undefined}
+        className={cx(MENU_ITEM, !row.disabled && MENU_ITEM_INTERACTIVE,
+          columnValueSelected(values, row.id) && MENU_ITEM_ACTIVE, !row.disabled && 'focus-within:bg-dropdown-item-hover-background')}>
         <Checkbox slot={null} size="sm" aria-label={row.label} isSelected={columnValueSelected(values, row.id)}
+          isDisabled={row.disabled}
           className="w-full min-w-0 [&>span:last-child]:min-w-0 [&>span:last-child]:flex-1"
           onChange={on => onChange(toggleColumnValue(values, row.id, on))}>
-          <span className="flex min-w-0 flex-1 items-center gap-2">
+          <span className={cx('flex min-w-0 flex-1 items-center gap-2', row.disabled && 'text-text-tertiary')}>
             {row.leading}<span className="min-w-0 flex-1 truncate">{row.label}</span>
             {row.count == null ? null : <span className="shrink-0 text-text-tertiary tabular-nums">{row.count.toLocaleString()}</span>}
           </span>
         </Checkbox>
       </div>)}
-      {load && result.hasNextPage ? <Button variant="secondary" size="small" disabled={result.isFetchingNextPage}
+      {load && (pending || result.isFetchingNextPage)
+        ? <ActivityStatus kind="linear-dots" label={t(pending ? 'shell:spinner.loading' : 'shell:spinner.loadingMore')} />
+        : load && result.hasNextPage ? <Button variant="secondary" size="small"
         onClick={() => void result.fetchNextPage({ cancelRefetch: false })}>
-        {t(result.isFetchingNextPage ? 'shell:spinner.loadingMore' : 'catalog:shared.loadMore')}</Button> : null}
+        {t('catalog:shared.loadMore')}</Button> : null}
     </div>
     {!pending && !(load && result.isError) && !rows.length
       ? <span role="status" className="px-3 pb-3 text-caption-1-regular text-text-secondary">{t('catalog:columnFilter.noOptions')}</span> : null}

@@ -92,6 +92,7 @@ Entries are written for users to scan: one sentence each, saying where something
 ### Fixed / 修复
 - **Settings**: When the data folder can't be written to, diagnostics no longer resend the same error every time it happens (#331). / **配置**：数据目录写不进去时，错误诊断不再在每次发生时重复上传同一个错误（#331）。
 
+- **Interface**: Table filters gray out offline libraries and show standard loading feedback at the bottom while fetching options (#751). / **界面**：表格筛选中的离线媒体库置灰，下拉读取与续页时在列表底部显示标准加载态（#751）。
 - **Interface**: Multi-select action bars stay above the sidebar and page content (#690). / **界面**：多选操作浮条置于侧栏和页面内容上方（#690）。
 - **Interface**: The userscript's floating panel keeps its position and appearance on pages with sidebar styles (peach-mitao/peach-userscript#41). / **界面**：网页的侧栏样式不再挤压用户脚本的悬浮面板（peach-mitao/peach-userscript#41）。
 

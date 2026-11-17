@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "92fd335e-5948-42c5-8d7a-a8c0afd72fd5", e._sentryDebugIdIdentifier = "sentry-dbid-92fd335e-5948-42c5-8d7a-a8c0afd72fd5");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "63f16b02-6bf6-49e5-961d-385d70b78d5b", e._sentryDebugIdIdentifier = "sentry-dbid-63f16b02-6bf6-49e5-961d-385d70b78d5b");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, n) => {
@@ -63284,7 +63284,8 @@ var MV = (e) => new Map(e.map((e) => [e.id, {
 	name: e.name,
 	icon: nu[e.icon || ""] || e.icon || "database",
 	location: e.roots?.[0]?.location || "",
-	color: e.color || ""
+	color: e.color || "",
+	roots: e.roots
 }])), NV = !1;
 function Pxe() {
 	if (NV) return;
@@ -83117,9 +83118,15 @@ function fQ(e) {
 		hour12: !1
 	});
 }
-// src/react/index/index-search.tsx
-var tMe = _V("search");
-function pQ({ label: e, value: t, onQuery: n, placeholder: r }) {
+// src/react/media-sources.ts
+async function pQ(e) {
+	await G.fetchQuery({
+		queryKey: Qa,
+		queryFn: () => $a(e)
+	});
+}
+var tMe = (e) => (e?.sources ?? []).filter((e) => si.includes(e.location) && (e.roots === void 0 || e.roots.length > 0)).map((e) => e.location), nMe = _V("search");
+function mQ({ label: e, value: t, onQuery: n, placeholder: r }) {
 	let [i, a] = (0, R.useState)(t), o = (0, R.useRef)(!1), s = (0, R.useRef)(void 0);
 	(0, R.useEffect)(() => {
 		clearTimeout(s.current), a(t);
@@ -83144,7 +83151,7 @@ function pQ({ label: e, value: t, onQuery: n, placeholder: r }) {
 			},
 			children: /* @__PURE__ */ (0, z.jsx)(WU, {
 				type: "search",
-				leadingIcon: tMe,
+				leadingIcon: nMe,
 				spellCheck: !1,
 				autoComplete: "off",
 				enterKeyHint: "search",
@@ -83157,7 +83164,7 @@ function pQ({ label: e, value: t, onQuery: n, placeholder: r }) {
 	});
 }
 // src/react/components/table-column-filter.tsx
-function mQ(e) {
+function hQ(e) {
 	let t = (0, R.useRef)(null), [n, r] = (0, R.useState)(!1);
 	return /* @__PURE__ */ (0, z.jsxs)(z.Fragment, { children: [/* @__PURE__ */ (0, z.jsx)(wH, {
 		ref: t,
@@ -83182,10 +83189,10 @@ function mQ(e) {
 		placement: "bottom start",
 		offset: 4,
 		className: J(VB, "peach-react w-80 overflow-hidden p-0"),
-		children: /* @__PURE__ */ (0, z.jsx)(nMe, { ...e })
+		children: /* @__PURE__ */ (0, z.jsx)(rMe, { ...e })
 	})] });
 }
-function nMe({ id: e, label: t, values: n, options: r = [], queryKey: i, load: a, onChange: o }) {
+function rMe({ id: e, label: t, values: n, options: r = [], queryKey: i, load: a, onChange: o }) {
 	let [s, c] = (0, R.useState)(""), l = (0, R.useRef)(null), u = Sr({
 		queryKey: [...i || ["table-column-filter", e], s],
 		enabled: !!a,
@@ -83201,7 +83208,7 @@ function nMe({ id: e, label: t, values: n, options: r = [], queryKey: i, load: a
 		children: [
 			/* @__PURE__ */ (0, z.jsx)("div", {
 				className: "px-3 pt-3",
-				children: /* @__PURE__ */ (0, z.jsx)(pQ, {
+				children: /* @__PURE__ */ (0, z.jsx)(mQ, {
 					label: L("catalog:columnFilter.search", { column: t }),
 					placeholder: L("catalog:columnFilter.search", { column: t }),
 					value: s,
@@ -83219,11 +83226,6 @@ function nMe({ id: e, label: t, values: n, options: r = [], queryKey: i, load: a
 					children: L("shell:shared.retry")
 				}),
 				children: ja(u.error)
-			}) : null,
-			g ? /* @__PURE__ */ (0, z.jsx)("span", {
-				role: "status",
-				className: "px-3 text-caption-1-regular text-text-secondary",
-				children: L("shell:spinner.loading")
 			}) : null,
 			/* @__PURE__ */ (0, z.jsxs)("div", {
 				ref: l,
@@ -83250,16 +83252,19 @@ function nMe({ id: e, label: t, values: n, options: r = [], queryKey: i, load: a
 						})
 					}),
 					f.map((e) => /* @__PURE__ */ (0, z.jsx)("div", {
-						className: J(UB, WB, Fq(n, e.id) && "bg-dropdown-item-hover-background", "focus-within:bg-dropdown-item-hover-background"),
+						title: e.title,
+						"data-column-filter-offline": e.disabled || void 0,
+						className: J(UB, !e.disabled && "hover:bg-dropdown-item-hover-background focus-visible:bg-dropdown-item-hover-background", Fq(n, e.id) && "bg-dropdown-item-hover-background", !e.disabled && "focus-within:bg-dropdown-item-hover-background"),
 						children: /* @__PURE__ */ (0, z.jsx)(_W, {
 							slot: null,
 							size: "sm",
 							"aria-label": e.label,
 							isSelected: Fq(n, e.id),
+							isDisabled: e.disabled,
 							className: "w-full min-w-0 [&>span:last-child]:min-w-0 [&>span:last-child]:flex-1",
 							onChange: (t) => o(Iq(n, e.id, t)),
 							children: /* @__PURE__ */ (0, z.jsxs)("span", {
-								className: "flex min-w-0 flex-1 items-center gap-2",
+								className: J("flex min-w-0 flex-1 items-center gap-2", e.disabled && "text-text-tertiary"),
 								children: [
 									e.leading,
 									/* @__PURE__ */ (0, z.jsx)("span", {
@@ -83274,12 +83279,14 @@ function nMe({ id: e, label: t, values: n, options: r = [], queryKey: i, load: a
 							})
 						})
 					}, e.id)),
-					a && u.hasNextPage ? /* @__PURE__ */ (0, z.jsx)(Y, {
+					a && (g || u.isFetchingNextPage) ? /* @__PURE__ */ (0, z.jsx)(JW, {
+						kind: "linear-dots",
+						label: L(g ? "shell:spinner.loading" : "shell:spinner.loadingMore")
+					}) : a && u.hasNextPage ? /* @__PURE__ */ (0, z.jsx)(Y, {
 						variant: "secondary",
 						size: "small",
-						disabled: u.isFetchingNextPage,
 						onClick: () => void u.fetchNextPage({ cancelRefetch: !1 }),
-						children: L(u.isFetchingNextPage ? "shell:spinner.loadingMore" : "catalog:shared.loadMore")
+						children: L("catalog:shared.loadMore")
 					}) : null
 				]
 			}),
@@ -83292,8 +83299,8 @@ function nMe({ id: e, label: t, values: n, options: r = [], queryKey: i, load: a
 	});
 }
 // src/react/components/source-picture.tsx
-var hQ = (e, t, n = 0) => `/jav-image?code=${encodeURIComponent(e)}&image=${encodeURIComponent(t)}${n ? `&attempt=${n}` : ""}`;
-function gQ({ title: e, detail: t, busy: n, onRetry: r }) {
+var gQ = (e, t, n = 0) => `/jav-image?code=${encodeURIComponent(e)}&image=${encodeURIComponent(t)}${n ? `&attempt=${n}` : ""}`;
+function _Q({ title: e, detail: t, busy: n, onRetry: r }) {
 	return /* @__PURE__ */ (0, z.jsxs)("div", {
 		"data-jav-picture-wait": "",
 		"data-jav-picture-gap": "",
@@ -83315,16 +83322,16 @@ function gQ({ title: e, detail: t, busy: n, onRetry: r }) {
 		]
 	});
 }
-var _Q = ({ label: e }) => /* @__PURE__ */ (0, z.jsx)("span", {
+var vQ = ({ label: e }) => /* @__PURE__ */ (0, z.jsx)("span", {
 	"data-thumbnail-gap": "",
 	role: "img",
 	"aria-label": e,
 	title: e,
 	children: /* @__PURE__ */ (0, z.jsx)(nH, { "aria-hidden": !0 })
 });
-function rMe({ code: e, known: t }) {
+function iMe({ code: e, known: t }) {
 	let n = YU(), [r, i] = (0, R.useState)(t);
-	return /* @__PURE__ */ (0, z.jsx)(gQ, {
+	return /* @__PURE__ */ (0, z.jsx)(_Q, {
 		title: L("shell:artworkGap.coverNotFound"),
 		detail: n.error || r,
 		busy: !!n.busy,
@@ -83339,12 +83346,12 @@ function rMe({ code: e, known: t }) {
 		}
 	});
 }
-var iMe = 400, vQ = (e) => e.toggleAttribute("data-native-size", e.naturalWidth < iMe);
-function yQ({ item: e, image: t, thumbnail: n = !1 }) {
+var aMe = 400, yQ = (e) => e.toggleAttribute("data-native-size", e.naturalWidth < aMe);
+function bQ({ item: e, image: t, thumbnail: n = !1 }) {
 	let [r, i] = (0, R.useState)(0), [a, o] = (0, R.useState)(null), [s, c] = (0, R.useState)(""), l = (0, R.useRef)(null), u = t === "cover" && e.has_cover, d = !u && (t !== "cover" || e.source_image), f = n ? "" : t === "cover" ? L("shell:sourcePicture.coverAlt", { code: e.code }) : L("shell:sourcePicture.previewAlt", {
 		code: e.code,
 		index: Number(t) + 1
-	}), p = d ? hQ(e.code, t, r) : u ? Jc(e, !0) : e.cover_url || "";
+	}), p = d ? gQ(e.code, t, r) : u ? Jc(e, !0) : e.cover_url || "";
 	if ((0, R.useLayoutEffect)(() => {
 		let e = l.current;
 		e?.complete && e.naturalWidth > 0 && o({
@@ -83358,16 +83365,16 @@ function yQ({ item: e, image: t, thumbnail: n = !1 }) {
 		alt: f,
 		referrerPolicy: "no-referrer",
 		onLoad: (e) => {
-			n || vQ(e.currentTarget), o({
+			n || yQ(e.currentTarget), o({
 				src: p,
 				alt: f
 			});
 		}
-	}) : n ? /* @__PURE__ */ (0, z.jsx)(_Q, { label: L("shell:artworkGap.coverNotFound") }) : /* @__PURE__ */ (0, z.jsx)(rMe, {
+	}) : n ? /* @__PURE__ */ (0, z.jsx)(vQ, { label: L("shell:artworkGap.coverNotFound") }) : /* @__PURE__ */ (0, z.jsx)(iMe, {
 		code: e.code,
 		known: Ei(e, "cover_message")
 	});
-	if (s === p) return n ? /* @__PURE__ */ (0, z.jsx)(_Q, { label: L("shell:artworkGap.previewNotFound") }) : /* @__PURE__ */ (0, z.jsx)(gQ, {
+	if (s === p) return n ? /* @__PURE__ */ (0, z.jsx)(vQ, { label: L("shell:artworkGap.previewNotFound") }) : /* @__PURE__ */ (0, z.jsx)(_Q, {
 		title: L("shell:sourcePicture.imageNotFound"),
 		onRetry: () => i((e) => e + 1)
 	});
@@ -83377,7 +83384,7 @@ function yQ({ item: e, image: t, thumbnail: n = !1 }) {
 		} catch {
 			return;
 		}
-		n || vQ(e), l.current === e && e.getAttribute("src") === p && o({
+		n || yQ(e), l.current === e && e.getAttribute("src") === p && o({
 			src: p,
 			alt: f
 		});
@@ -83416,7 +83423,7 @@ function yQ({ item: e, image: t, thumbnail: n = !1 }) {
 	] });
 }
 // src/react/components/source-avatar.tsx
-function bQ({ code: e, person: t, detail: n = !1 }) {
+function xQ({ code: e, person: t, detail: n = !1 }) {
 	DU();
 	let r = (0, R.useRef)(null), [i, a] = (0, R.useState)(n || typeof IntersectionObserver > "u");
 	(0, R.useEffect)(() => {
@@ -83431,7 +83438,7 @@ function bQ({ code: e, person: t, detail: n = !1 }) {
 		"data-source-initial": "",
 		children: Ca(qr("performer", t.name))
 	}), i && t.source_actor_id ? /* @__PURE__ */ (0, z.jsx)("img", {
-		src: hQ(e, `actor:${t.source_actor_id}`),
+		src: gQ(e, `actor:${t.source_actor_id}`),
 		alt: "",
 		"data-drop": "self"
 	}) : null] });
@@ -83441,11 +83448,11 @@ function bQ({ code: e, person: t, detail: n = !1 }) {
 	}) : o;
 }
 // src/react/components/column-filter-avatar.tsx
-function xQ({ person: e, kind: t = "performer" }) {
+function SQ({ person: e, kind: t = "performer" }) {
 	return e.source_avatar && e.source_actor_id && e.avatar_code && !e.has_image ? /* @__PURE__ */ (0, z.jsx)("span", {
 		"data-column-filter-avatar": "",
 		"aria-hidden": "true",
-		children: /* @__PURE__ */ (0, z.jsx)(bQ, {
+		children: /* @__PURE__ */ (0, z.jsx)(xQ, {
 			code: e.avatar_code,
 			person: e
 		})
@@ -83456,17 +83463,21 @@ function xQ({ person: e, kind: t = "performer" }) {
 	});
 }
 // src/react/catalog-grid/catalog-column-filter.tsx
-function aMe({ column: e, label: t, filters: n, scope: r, revision: i, tagLabel: a, onChange: o }) {
+function oMe({ column: e, label: t, filters: n, scope: r, revision: i, tagLabel: a, onChange: o }) {
 	DU();
-	let s = PV({ names: e === "library" }), c = Rq(n.column_filters), l = {
+	let s = PV({ names: e === "library" }), c = br({
+		queryKey: Qa,
+		queryFn: ({ signal: e }) => $a(e),
+		enabled: e === "library"
+	}), l = Rq(n.column_filters), u = {
 		...n,
-		column_filters: zq(c, e, void 0)
-	}, u = new URLSearchParams(Object.entries({
+		column_filters: zq(l, e, void 0)
+	}, d = new URLSearchParams(Object.entries({
 		...r,
-		...l,
+		...u,
 		column: e
-	}).filter(([, e]) => e)), d = async (t, n, r) => {
-		let i = new URLSearchParams(u);
+	}).filter(([, e]) => e)), f = async (t, n, r) => {
+		let i = new URLSearchParams(d);
 		i.set("column_q", n), i.set("column_offset", String(r)), i.set("column_limit", "24");
 		let o = await U(`/api/facets?${i}`, t), s = o.items.map((e) => ({
 			id: `${e.kind}:${e.k}`,
@@ -83477,7 +83488,7 @@ function aMe({ column: e, label: t, filters: n, scope: r, revision: i, tagLabel:
 				...e.aliases || [],
 				...[Ur(e.kind, e.k, e.id)?.ja, Ur(e.kind, e.k, e.id)?.zh_cn].filter((e) => !!e)
 			],
-			leading: e.kind === "tag" ? void 0 : /* @__PURE__ */ (0, z.jsx)(xQ, {
+			leading: e.kind === "tag" ? void 0 : /* @__PURE__ */ (0, z.jsx)(SQ, {
 				person: {
 					...e,
 					name: e.k
@@ -83487,7 +83498,7 @@ function aMe({ column: e, label: t, filters: n, scope: r, revision: i, tagLabel:
 		})), c = L("catalog:shared.uncredited"), l = e === "people" && r === 0 && c.toLocaleLowerCase().includes(n.toLocaleLowerCase()) ? [{
 			id: "owner:none",
 			label: c,
-			leading: /* @__PURE__ */ (0, z.jsx)(xQ, { person: { name: c } })
+			leading: /* @__PURE__ */ (0, z.jsx)(SQ, { person: { name: c } })
 		}] : [];
 		return {
 			items: e === "people" ? [...l, ...s] : s.map((e) => ({
@@ -83497,29 +83508,37 @@ function aMe({ column: e, label: t, filters: n, scope: r, revision: i, tagLabel:
 			nextOffset: o.next_offset ?? void 0
 		};
 	};
-	return /* @__PURE__ */ (0, z.jsx)(mQ, {
+	return /* @__PURE__ */ (0, z.jsx)(hQ, {
 		id: e,
 		label: t,
-		values: c[e],
-		options: [...s.values()].filter((e) => e.name).map((e) => ({
-			id: e.id,
-			label: e.name,
-			leading: /* @__PURE__ */ (0, z.jsx)(AH, { mark: e.icon })
-		})),
-		load: e === "library" ? void 0 : d,
+		values: l[e],
+		options: [...s.values()].filter((e) => e.name).map((e) => {
+			let t = !!e.roots?.length && e.roots.every((e) => {
+				let t = c.data?.sources.find((t) => t.location === e.location);
+				return (e.root_id ? t?.roots?.find((t) => t.root_id === e.root_id) : t)?.online === !1;
+			});
+			return {
+				id: e.id,
+				label: e.name,
+				disabled: t,
+				title: t ? L("shell:sourceTools.libraryOffline") : void 0,
+				leading: /* @__PURE__ */ (0, z.jsx)(AH, { mark: e.icon })
+			};
+		}),
+		load: e === "library" ? void 0 : f,
 		queryKey: [
 			"table-column-filter",
-			String(u),
+			String(d),
 			i
 		],
 		onChange: (t) => {
-			let r = zq(c, e, t), i = { ...n };
+			let r = zq(l, e, t), i = { ...n };
 			r ? i.column_filters = r : delete i.column_filters, o(i);
 		}
 	});
 }
 // src/react/components/selection-actions.tsx
-function SQ({ actions: e, layout: t = "inline", prefix: n, onNavigate: r }) {
+function CQ({ actions: e, layout: t = "inline", prefix: n, onNavigate: r }) {
 	return /* @__PURE__ */ (0, z.jsxs)("div", {
 		"data-selection-actions": "",
 		"data-action-layout": t,
@@ -83543,8 +83562,8 @@ function SQ({ actions: e, layout: t = "inline", prefix: n, onNavigate: r }) {
 	});
 }
 // src/react/components/selection-popover.tsx
-function CQ({ label: e, triggerLabel: t, leadingIcon: n, items: r, onChange: i, actions: a, actionLayout: o = "inline", empty: s = L("shell:selectionPopover.empty") }) {
-	let c = (0, R.useRef)(null), [l, u] = (0, R.useState)(!1), d = /* @__PURE__ */ (0, z.jsx)(SQ, {
+function wQ({ label: e, triggerLabel: t, leadingIcon: n, items: r, onChange: i, actions: a, actionLayout: o = "inline", empty: s = L("shell:selectionPopover.empty") }) {
+	let c = (0, R.useRef)(null), [l, u] = (0, R.useState)(!1), d = /* @__PURE__ */ (0, z.jsx)(CQ, {
 		actions: a,
 		layout: o,
 		onNavigate: () => u(!1)
@@ -83587,13 +83606,13 @@ function CQ({ label: e, triggerLabel: t, leadingIcon: n, items: r, onChange: i, 
 	})] });
 }
 // src/react/components/table-column-controls.tsx
-function wQ({ preferences: e, label: t = L("shell:tableColumns.defaultLabel") }) {
+function TQ({ preferences: e, label: t = L("shell:tableColumns.defaultLabel") }) {
 	let n = e.columns.filter((e) => !e.required);
 	return /* @__PURE__ */ (0, z.jsxs)("div", {
 		role: "group",
 		"aria-label": L("shell:tableColumns.settings", { table: t }),
 		className: "flex flex-none gap-2",
-		children: [/* @__PURE__ */ (0, z.jsx)(CQ, {
+		children: [/* @__PURE__ */ (0, z.jsx)(wQ, {
 			label: L("shell:tableColumns.visibleColumns", { table: t }),
 			triggerLabel: L("shell:tableColumns.columns"),
 			actionLayout: "fullWidth",
@@ -83621,20 +83640,20 @@ function wQ({ preferences: e, label: t = L("shell:tableColumns.defaultLabel") })
 		})]
 	});
 }
-function TQ({ preferences: e, id: t }) {
+function EQ({ preferences: e, id: t }) {
 	let n = e.columns.find((e) => e.id === t);
 	return e.canResize(t) ? /* @__PURE__ */ (0, z.jsx)(bbe, { "aria-label": L("shell:tableColumns.resize", { column: n.label }) }) : null;
 }
 // src/react/components/table-selection-header.tsx
-function EQ(e, t) {
+function DQ(e, t) {
 	let n = (t ? e.getPaginatedRowModel() : e.getFilteredRowModel()).flatRows.filter((e) => e.getCanSelect()), r = n.filter((e) => e.getIsSelected()).length;
 	return {
 		all: n.length > 0 && r === n.length,
 		some: r > 0 && r < n.length
 	};
 }
-function DQ({ table: e, label: t, page: n = !1, disabled: r = !1 }) {
-	let { all: i, some: a } = EQ(e, n);
+function OQ({ table: e, label: t, page: n = !1, disabled: r = !1 }) {
+	let { all: i, some: a } = DQ(e, n);
 	return /* @__PURE__ */ (0, z.jsx)(_W, {
 		slot: null,
 		"aria-label": t,
@@ -83642,18 +83661,18 @@ function DQ({ table: e, label: t, page: n = !1, disabled: r = !1 }) {
 		isSelected: i,
 		isIndeterminate: a,
 		onChange: () => {
-			let t = !EQ(e, n).all;
+			let t = !DQ(e, n).all;
 			n ? e.toggleAllPageRowsSelected(t) : e.toggleAllRowsSelected(t);
 		}
 	});
 }
 // src/react/catalog-grid/catalog-list-page.tsx
-var oMe = aZ({
+var sMe = aZ({
 	rowSortingFeature: rQ,
 	rowSelectionFeature: WZ,
 	rowPaginationFeature: CZ,
 	columnVisibilityFeature: pZ
-}), OQ = wK.map((e) => e.id), sMe = [
+}), kQ = wK.map((e) => e.id), cMe = [
 	{
 		id: "name",
 		label: L("catalog:catalogList.sortName")
@@ -83690,12 +83709,12 @@ var oMe = aZ({
 		id: "played",
 		label: L("catalog:catalogList.lastWatched")
 	}
-], kQ = /* @__PURE__ */ new Map();
-function cMe(e) {
+], AQ = /* @__PURE__ */ new Map();
+function lMe(e) {
 	let t = $je(), n = PV(), r = jF(e.filters || {}, !1), [i] = (0, R.useState)(() => {
 		let t = new URLSearchParams(r);
 		return new URLSearchParams(location.search).has("seed") || t.delete("seed"), `${e.mode}:${e.listScope || e.entityKey || ""}:${t}`;
-	}), [a, o] = (0, R.useState)(() => kQ.get(i) || {
+	}), [a, o] = (0, R.useState)(() => AQ.get(i) || {
 		sorting: [],
 		pagination: {
 			pageIndex: 0,
@@ -83707,7 +83726,7 @@ function cMe(e) {
 		...e.facetScope
 	};
 	(0, R.useEffect)(() => {
-		kQ.set(i, a);
+		AQ.set(i, a);
 	}, [i, a]);
 	let d = c.pageIndex * c.pageSize, f = s[0], p = br({
 		queryKey: [
@@ -83776,13 +83795,13 @@ function cMe(e) {
 		c.pageIndex
 	]);
 	let y = e.selectMode ? Object.fromEntries([...e.selected].map((e) => [String(e), !0])) : {}, b = iQ({
-		features: oMe,
+		features: sMe,
 		columns: (0, R.useMemo)(() => {
 			let t = iZ();
 			return t.columns([
 				t.display({
 					id: "select",
-					header: ({ table: e }) => /* @__PURE__ */ (0, z.jsx)(DQ, {
+					header: ({ table: e }) => /* @__PURE__ */ (0, z.jsx)(OQ, {
 						table: e,
 						label: L("catalog:catalogList.selectAllOnPage"),
 						disabled: p.isPlaceholderData
@@ -83799,7 +83818,7 @@ function cMe(e) {
 					id: "name",
 					header: L("catalog:shared.video"),
 					enableSorting: !0,
-					cell: ({ row: t }) => /* @__PURE__ */ (0, z.jsx)(lMe, {
+					cell: ({ row: t }) => /* @__PURE__ */ (0, z.jsx)(uMe, {
 						item: t.original,
 						props: e,
 						disabled: p.isPlaceholderData
@@ -83808,12 +83827,12 @@ function cMe(e) {
 				t.display({
 					id: "library",
 					header: L("catalog:shared.library"),
-					cell: ({ row: e }) => /* @__PURE__ */ (0, z.jsx)(AQ, { item: e.original })
+					cell: ({ row: e }) => /* @__PURE__ */ (0, z.jsx)(jQ, { item: e.original })
 				}),
 				t.display({
 					id: "people",
 					header: L("catalog:shared.performers"),
-					cell: ({ row: t }) => /* @__PURE__ */ (0, z.jsx)(uMe, {
+					cell: ({ row: t }) => /* @__PURE__ */ (0, z.jsx)(dMe, {
 						item: t.original,
 						props: e
 					})
@@ -83904,7 +83923,7 @@ function cMe(e) {
 					enableSorting: !0,
 					cell: ({ row: e }) => e.original.release_date || "—"
 				})
-			]).sort((e, t) => OQ.indexOf(e.id) - OQ.indexOf(t.id));
+			]).sort((e, t) => kQ.indexOf(e.id) - kQ.indexOf(t.id));
 		}, [
 			e.helpers,
 			e.actions,
@@ -83968,9 +83987,9 @@ function cMe(e) {
 				"aria-label": L("catalog:catalogList.toolbar"),
 				children: /* @__PURE__ */ (0, z.jsxs)("div", {
 					"data-toolbar-actions": "",
-					children: [/* @__PURE__ */ (0, z.jsx)(wQ, { preferences: t }), /* @__PURE__ */ (0, z.jsx)(hq, {
+					children: [/* @__PURE__ */ (0, z.jsx)(TQ, { preferences: t }), /* @__PURE__ */ (0, z.jsx)(hq, {
 						label: L("catalog:catalogList.listLabel"),
-						options: sMe,
+						options: cMe,
 						sorting: s,
 						onChange: (e) => b.setSorting(e)
 					})]
@@ -84017,7 +84036,7 @@ function cMe(e) {
 								"people",
 								"library",
 								"tags"
-							].includes(n.id) ? /* @__PURE__ */ (0, z.jsx)(aMe, {
+							].includes(n.id) ? /* @__PURE__ */ (0, z.jsx)(oMe, {
 								column: n.id,
 								label: String(n.column.columnDef.header),
 								filters: l,
@@ -84037,7 +84056,7 @@ function cMe(e) {
 								"data-direction": r || void 0,
 								children: /* @__PURE__ */ (0, z.jsx)(KB, {})
 							}) : null]
-						}), /* @__PURE__ */ (0, z.jsx)(TQ, {
+						}), /* @__PURE__ */ (0, z.jsx)(EQ, {
 							preferences: t,
 							id: n.id
 						})] })
@@ -84077,7 +84096,7 @@ function cMe(e) {
 		]
 	});
 }
-function lMe({ item: e, props: t, disabled: n }) {
+function uMe({ item: e, props: t, disabled: n }) {
 	let r = ul(e, "small", !1, t.layout.javImage), i = Number(e.part_group?.count) > 1 && e.part_group || null, a = Number(e.edition_group?.count) > 1 && e.edition_group || null, o = (i ? Ei(i, "title") : "") || e.name || "", s = t.helpers.displayName(e, o).trim() || L("catalog:catalogList.untitled"), c = t.helpers.titleHtml(e, o).trim() || L("catalog:catalogList.untitled");
 	DU();
 	let l = !i && Number(e.play_seconds) > 0 && Number(e.duration) > 0 ? Math.min(Number(e.play_seconds) / Number(e.duration), 1) : 0, u = [Number(e.liked) > 0 ? L("catalog:catalogList.flagLiked") : "", Number(e.o_count) > 0 ? L("catalog:catalogList.flagClimax") : ""].filter(Boolean), d = (e) => /* @__PURE__ */ (0, z.jsx)("svg", {
@@ -84151,7 +84170,7 @@ function lMe({ item: e, props: t, disabled: n }) {
 		})]
 	});
 }
-function AQ({ item: e }) {
+function jQ({ item: e }) {
 	let t = PV({ names: !0 }), n = typeof e.library_id == "string" && e.library_id ? t.get(e.library_id) : void 0;
 	return n?.name ? /* @__PURE__ */ (0, z.jsxs)("span", {
 		"data-list-library": "",
@@ -84159,7 +84178,7 @@ function AQ({ item: e }) {
 		children: [/* @__PURE__ */ (0, z.jsx)(AH, { mark: n.icon }), /* @__PURE__ */ (0, z.jsx)("span", { children: n.name })]
 	}) : "—";
 }
-function uMe({ item: e, props: t }) {
+function dMe({ item: e, props: t }) {
 	DU();
 	let { avatar: n, who: r } = zY(e);
 	return /* @__PURE__ */ (0, z.jsxs)("div", {
@@ -84173,22 +84192,22 @@ function uMe({ item: e, props: t }) {
 	});
 }
 // src/react/catalog-grid/catalog-grid-page.tsx
-function jQ(e) {
+function MQ(e) {
 	let t = gK();
-	if (e.mode === "items") return /* @__PURE__ */ (0, z.jsx)(fMe, { ...e });
+	if (e.mode === "items") return /* @__PURE__ */ (0, z.jsx)(pMe, { ...e });
 	let n = e.mode === "entity" ? `entity:${e.entityKey || ""}:${e.revision}` : `catalog:${jF(e.filters || {}, !!e.excludeVertical)}:${e.batchSize || 60}:${e.revision}`;
-	if (t === "list" && !e.wall) return /* @__PURE__ */ (0, z.jsx)(cMe, { ...e }, n);
+	if (t === "list" && !e.wall) return /* @__PURE__ */ (0, z.jsx)(lMe, { ...e }, n);
 	let r = e.mode === "entity" ? "entity" : `catalog:${!!e.wall}`;
-	return /* @__PURE__ */ (0, z.jsx)(_Me, { ...e }, r);
+	return /* @__PURE__ */ (0, z.jsx)(vMe, { ...e }, r);
 }
-function dMe({ name: e }) {
+function fMe({ name: e }) {
 	return /* @__PURE__ */ (0, z.jsx)("svg", {
 		viewBox: "0 0 24 24",
 		"aria-hidden": "true",
 		children: /* @__PURE__ */ (0, z.jsx)("use", { href: `#i-${e}` })
 	});
 }
-function MQ({ children: e, selectMode: t }) {
+function NQ({ children: e, selectMode: t }) {
 	let n = (0, R.useRef)(null), [r, i] = (0, R.useState)(!1);
 	return (0, R.useLayoutEffect)(() => {
 		let e = n.current;
@@ -84204,7 +84223,7 @@ function MQ({ children: e, selectMode: t }) {
 		children: e
 	});
 }
-function fMe(e) {
+function pMe(e) {
 	let { actions: t } = e, n = (0, R.useCallback)((e, n) => t.open(e, n), [t]), r = e.variant === "next" ? "next" : "grid", i = (e.items || []).map((i) => /* @__PURE__ */ (0, z.jsx)(VY, {
 		item: i,
 		variant: r,
@@ -84219,14 +84238,14 @@ function fMe(e) {
 	return r === "next" ? /* @__PURE__ */ (0, z.jsx)("div", {
 		"data-media-next-row": "",
 		children: i
-	}) : /* @__PURE__ */ (0, z.jsx)(MQ, {
+	}) : /* @__PURE__ */ (0, z.jsx)(NQ, {
 		selectMode: e.selectMode,
 		children: i
 	});
 }
-var pMe = () => Wh(jg.navigation.location.pathname), mMe = (e) => jg.listen(e);
-function hMe(e) {
-	let t = (0, R.useSyncExternalStore)(mMe, pMe), n = (0, R.useRef)(t);
+var mMe = () => Wh(jg.navigation.location.pathname), hMe = (e) => jg.listen(e);
+function gMe(e) {
+	let t = (0, R.useSyncExternalStore)(hMe, mMe), n = (0, R.useRef)(t);
 	return (0, R.useEffect)(() => {
 		let r = n.current && !t;
 		n.current = t, r && G.getQueryState(e)?.isInvalidated && G.refetchQueries({
@@ -84235,7 +84254,7 @@ function hMe(e) {
 		});
 	}, [t, e]), t;
 }
-function gMe() {
+function _Me() {
 	(0, R.useEffect)(() => {
 		let e = (e) => {
 			let { id: t, ...n } = e.detail;
@@ -84246,7 +84265,7 @@ function gMe() {
 		};
 	}, []);
 }
-function _Me(e) {
+function vMe(e) {
 	let { helpers: t, actions: n, layout: r } = e, i = e.mode === "entity", a = !i && e.filters?.state === "trash", o = i ? Qge(e) : MF(e), [s] = (0, R.useState)(() => e.wall ? NF(o.queryKey) : void 0), c = JSON.stringify(o.queryKey), l = (0, R.useMemo)(() => e.restoreNavigation ? NF(o.queryKey) : void 0, [c, e.restoreNavigation]) || s || (i && e.initial ? {
 		pages: [{
 			...e.initial,
@@ -84254,7 +84273,7 @@ function _Me(e) {
 			offset: 0
 		}],
 		pageParams: [0]
-	} : void 0), u = hMe(o.queryKey), d = Sr({
+	} : void 0), u = gMe(o.queryKey), d = Sr({
 		queryKey: o.queryKey,
 		queryFn: ({ pageParam: e, signal: t }) => o.queryFn({
 			pageParam: e,
@@ -84267,7 +84286,7 @@ function _Me(e) {
 		refetchOnMount: i && s ? "always" : !1,
 		subscribed: !u
 	});
-	gMe();
+	_Me();
 	let f = !i && !a && !e.wall, p = jF(e.filters || {}, !!e.excludeVertical), m = br({
 		queryKey: [
 			"catalog-summary",
@@ -84294,7 +84313,7 @@ function _Me(e) {
 		e.mix,
 		a,
 		r.javImage
-	]), v = g.reduce((e, t) => e + +(t.kind === "card"), 0), y = Number(d.data?.pages[0]?.total ?? m.data?.total ?? v), b = i || MDe(e.filters), x = !a && !e.selectMode && !!n.wallPlayer && !!n.wallDetails, S = g.flatMap((e) => e.kind === "card" && DDe(e.item) ? [e.item] : []), C = (0, R.useRef)(null), w = vMe(e, d.isPlaceholderData ? void 0 : d.data, g, _, C), T = g.flatMap((e) => e.kind === "card" ? [e.item] : []), E = w.flatMap((e) => e.items), D = !!r.portrait, O = (...e) => [...new Set(e.flat())], k = a ? [] : O(cX(T, r.javImage, D), cX(E, r.javImage, !0)), A = a ? [] : O(lX(T, r.javImage, D), lX(E, r.javImage, !0));
+	]), v = g.reduce((e, t) => e + +(t.kind === "card"), 0), y = Number(d.data?.pages[0]?.total ?? m.data?.total ?? v), b = i || MDe(e.filters), x = !a && !e.selectMode && !!n.wallPlayer && !!n.wallDetails, S = g.flatMap((e) => e.kind === "card" && DDe(e.item) ? [e.item] : []), C = (0, R.useRef)(null), w = yMe(e, d.isPlaceholderData ? void 0 : d.data, g, _, C), T = g.flatMap((e) => e.kind === "card" ? [e.item] : []), E = w.flatMap((e) => e.items), D = !!r.portrait, O = (...e) => [...new Set(e.flat())], k = a ? [] : O(cX(T, r.javImage, D), cX(E, r.javImage, !0)), A = a ? [] : O(lX(T, r.javImage, D), lX(E, r.javImage, !0));
 	(0, R.useLayoutEffect)(() => {
 		if (!d.data || d.isPlaceholderData || f && !m.data) return;
 		let t = !0;
@@ -84326,7 +84345,7 @@ function _Me(e) {
 	let M = (0, R.useCallback)((e, t) => n.open(e, t), [n]), N = (0, R.useCallback)((e, t) => n.openResource(e, t), [n]), P = (0, R.useCallback)((e) => n.openShort(e), [n]), F = (0, R.useCallback)(async () => {
 		let e = await d.fetchNextPage();
 		if (e.isFetchNextPageError) throw e.error;
-	}, [d.fetchNextPage]), I = (i) => i.kind === "mix" ? /* @__PURE__ */ (0, z.jsx)(bMe, {
+	}, [d.fetchNextPage]), I = (i) => i.kind === "mix" ? /* @__PURE__ */ (0, z.jsx)(xMe, {
 		seed: i.seed,
 		layout: r,
 		helpers: t,
@@ -84384,12 +84403,12 @@ function _Me(e) {
 		return /* @__PURE__ */ (0, z.jsxs)(z.Fragment, { children: [/* @__PURE__ */ (0, z.jsx)("div", {
 			"data-media-sections": "",
 			"data-select-mode": e.selectMode ? "" : void 0,
-			children: r_e(g, w).map((t) => /* @__PURE__ */ (0, z.jsxs)(R.Fragment, { children: [/* @__PURE__ */ (0, z.jsx)(MQ, { children: t.tiles.map(I) }), t.strip ? /* @__PURE__ */ (0, z.jsx)(yMe, {
+			children: r_e(g, w).map((t) => /* @__PURE__ */ (0, z.jsxs)(R.Fragment, { children: [/* @__PURE__ */ (0, z.jsx)(NQ, { children: t.tiles.map(I) }), t.strip ? /* @__PURE__ */ (0, z.jsx)(bMe, {
 				cut: t.strip,
 				props: e,
 				onOpen: P
 			}) : null] }, t.start))
-		}), d.hasNextPage ? /* @__PURE__ */ (0, z.jsx)(NQ, {
+		}), d.hasNextPage ? /* @__PURE__ */ (0, z.jsx)(PQ, {
 			entity: i,
 			load: F,
 			enabled: () => !d.isPlaceholderData && e.canLoadMore?.() !== !1
@@ -84409,7 +84428,7 @@ function _Me(e) {
 		})]
 	});
 }
-function NQ({ entity: e, load: t, enabled: n, children: r }) {
+function PQ({ entity: e, load: t, enabled: n, children: r }) {
 	let i = (0, R.useRef)(null), a = (0, R.useRef)(null), o = (0, R.useRef)(!1), s = (0, R.useRef)(!1), [c, l] = (0, R.useState)({
 		busy: !1,
 		error: ""
@@ -84479,7 +84498,7 @@ function NQ({ entity: e, load: t, enabled: n, children: r }) {
 		onRetry: () => void d(!0)
 	}) : null] });
 }
-function vMe(e, t, n, r, i) {
+function yMe(e, t, n, r, i) {
 	let a = e.shortsLimit || 18, o = [
 		"catalog-short-layout",
 		jF(e.filters || {}, !!e.excludeVertical),
@@ -84548,7 +84567,7 @@ function vMe(e, t, n, r, i) {
 		});
 	}, [f]), h;
 }
-function yMe({ cut: e, props: t, onOpen: n }) {
+function bMe({ cut: e, props: t, onOpen: n }) {
 	let r = (0, R.useRef)(null), { wireDrag: i } = t;
 	return (0, R.useEffect)(() => {
 		r.current && i(r.current);
@@ -84565,7 +84584,7 @@ function yMe({ cut: e, props: t, onOpen: n }) {
 				type: "button",
 				"data-shorts-enter": "",
 				onClick: () => t.actions.openShorts(),
-				children: [/* @__PURE__ */ (0, z.jsx)(dMe, { name: "gallery-vertical-end" }), /* @__PURE__ */ (0, z.jsx)("span", { children: L("catalog:shortsStrip.enterImmersive") })]
+				children: [/* @__PURE__ */ (0, z.jsx)(fMe, { name: "gallery-vertical-end" }), /* @__PURE__ */ (0, z.jsx)("span", { children: L("catalog:shortsStrip.enterImmersive") })]
 			})
 		] }), /* @__PURE__ */ (0, z.jsx)("div", {
 			ref: r,
@@ -84585,16 +84604,16 @@ function yMe({ cut: e, props: t, onOpen: n }) {
 		})]
 	});
 }
-function PQ(e, t, n) {
+function FQ(e, t, n) {
 	return dl(e, t.active && e.is_jav ? t.size : "small", n, t.javImage);
 }
-function bMe({ seed: e, layout: t, helpers: n, actions: r }) {
+function xMe({ seed: e, layout: t, helpers: n, actions: r }) {
 	let i = (0, R.useRef)(/* @__PURE__ */ new Map()), a = (0, R.useRef)(t);
 	a.current = t;
 	let o = _l(e, n.tagLabel), s = (0, R.useCallback)(async () => {
 		let t = a.current, n = [e, ...await r.mixRelated(e.id)].filter((e) => FF(e, t.javImage)).slice(0, 9);
-		return i.current = new Map(n.map((e) => [String(e.id), PQ(e, t, !0).html])), n.map((e) => String(e.id));
-	}, [e, r]), c = t.active && e.is_jav ? t.size : "small", l = PQ(e, t, !1);
+		return i.current = new Map(n.map((e) => [String(e.id), FQ(e, t, !0).html])), n.map((e) => String(e.id));
+	}, [e, r]), c = t.active && e.is_jav ? t.size : "small", l = FQ(e, t, !1);
 	return /* @__PURE__ */ (0, z.jsx)(GY, {
 		"data-mix-seed": String(e.id),
 		name: `Mix · ${o}`,
@@ -84605,7 +84624,7 @@ function bMe({ seed: e, layout: t, helpers: n, actions: r }) {
 		wholeCard: !0,
 		poster: null,
 		artwork: l,
-		artworkIdentity: c === "small" ? l.html : PQ(e, {
+		artworkIdentity: c === "small" ? l.html : FQ(e, {
 			...t,
 			size: "small"
 		}, !1).html,
@@ -84620,14 +84639,8 @@ function bMe({ seed: e, layout: t, helpers: n, actions: r }) {
 		openLabel: L("catalog:homeMix.open", { label: o })
 	});
 }
-// src/react/media-sources.ts
-async function FQ(e) {
-	await G.fetchQuery({
-		queryKey: Qa,
-		queryFn: () => $a(e)
-	});
-}
-var xMe = (e) => (e?.sources ?? []).filter((e) => si.includes(e.location) && (e.roots === void 0 || e.roots.length > 0)).map((e) => e.location), SMe = "/api/duplicates?limit=120", IQ = ["duplicates"], LQ = "/api/batch", CMe = (e, t) => W(LQ, {
+// src/react/duplicates/duplicates.ts
+var SMe = "/api/duplicates?limit=120", IQ = ["duplicates"], LQ = "/api/batch", CMe = (e, t) => W(LQ, {
 	ids: e,
 	operation: t ? "keep-duplicates" : "reconsider-duplicates"
 });
@@ -84656,7 +84669,7 @@ function AMe(e) {
 }
 var jMe = (e, t) => t && e.startsWith(t) && e.length > t.length ? `…${e.slice(t.length)}` : e;
 async function MMe(e) {
-	FQ(e).catch(() => {}), await G.fetchQuery({
+	pQ(e).catch(() => {}), await G.fetchQuery({
 		queryKey: IQ,
 		queryFn: () => RQ(e)
 	});
@@ -85432,7 +85445,7 @@ async function xPe(e, t) {
 			await BMe(t);
 			break;
 		case "resource-sync":
-			await FQ(t), await iPe(t);
+			await pQ(t), await iPe(t);
 			break;
 		case "orphan-records":
 			await G.prefetchQuery({
@@ -87009,7 +87022,7 @@ function vFe({ roster: e, props: t }) {
 			total: s.length,
 			visible: t.selectMode
 		}),
-		a < e.people.length ? /* @__PURE__ */ (0, z.jsx)(NQ, {
+		a < e.people.length ? /* @__PURE__ */ (0, z.jsx)(PQ, {
 			entity: !0,
 			load: c,
 			enabled: () => !0
@@ -87022,7 +87035,7 @@ function yFe(e) {
 		children: /* @__PURE__ */ (0, z.jsx)(yY, {
 			pending: !e.items,
 			skeletonHtml: e.skeletonHtml,
-			children: e.items ? /* @__PURE__ */ (0, z.jsx)(jQ, {
+			children: e.items ? /* @__PURE__ */ (0, z.jsx)(MQ, {
 				mode: "entity",
 				entityKey: e.listScope || `${e.kind}:${e.name}`,
 				revision: e.revision,
@@ -87118,7 +87131,7 @@ function SFe({ photos: e, props: t }) {
 			"data-local-wall": "",
 			children: e.items.map((e, t) => s.has(v + t) ? null : m(e, v + t))
 		}),
-		e.hasMore ? /* @__PURE__ */ (0, z.jsx)(NQ, {
+		e.hasMore ? /* @__PURE__ */ (0, z.jsx)(PQ, {
 			entity: !0,
 			load: i.loadMorePhotos,
 			enabled: () => a?.() !== !1
@@ -87808,7 +87821,7 @@ function RFe(e) {
 					"data-follow-pagination": "",
 					children: [s.has_more ? /* @__PURE__ */ (0, z.jsx)("span", {
 						"data-follow-page-action": "",
-						children: s.groups.length < 500 ? /* @__PURE__ */ (0, z.jsxs)(NQ, {
+						children: s.groups.length < 500 ? /* @__PURE__ */ (0, z.jsxs)(PQ, {
 							entity: !0,
 							enabled: () => !m.busyRef.current,
 							load: async () => {
@@ -88381,7 +88394,7 @@ function XFe(e) {
 			children: [a || !n ? null : /* @__PURE__ */ (0, z.jsx)(ZFe, {
 				...e,
 				data: n
-			}), !a && n?.has_more ? /* @__PURE__ */ (0, z.jsx)(NQ, {
+			}), !a && n?.has_more ? /* @__PURE__ */ (0, z.jsx)(PQ, {
 				entity: !0,
 				enabled: () => e.canLoadMore?.() !== !1,
 				load: async () => {
@@ -89380,7 +89393,7 @@ function i2({ feedNew: e, host: t, wire: n, act: r, settled: i, error: a, retry:
 			},
 			dangerouslySetInnerHTML: { __html: d }
 		}),
-		l.map((e, t) => (0, Cr.createPortal)(/* @__PURE__ */ (0, z.jsx)(bQ, {
+		l.map((e, t) => (0, Cr.createPortal)(/* @__PURE__ */ (0, z.jsx)(xQ, {
 			code: e.dataset.code,
 			person: {
 				name: e.dataset.name,
@@ -92506,7 +92519,7 @@ function YLe({ search: e, category: t = "all", view: n = "cloud", onCategory: r,
 		children: [
 			e === void 0 ? /* @__PURE__ */ (0, z.jsx)("div", {
 				className: "mb-4 flex",
-				children: /* @__PURE__ */ (0, z.jsx)(pQ, {
+				children: /* @__PURE__ */ (0, z.jsx)(mQ, {
 					label: L("catalog:tagManager.filterTags"),
 					value: u,
 					onQuery: d
@@ -92970,7 +92983,7 @@ function tRe(e) {
 							e.exitSelectMode(), h(/* @__PURE__ */ new Set()), o("active"), n(!t);
 						}
 					}) : null,
-					/* @__PURE__ */ (0, z.jsx)(pQ, {
+					/* @__PURE__ */ (0, z.jsx)(mQ, {
 						label: L("catalog:peopleIndex.filterTitle", { title: T }),
 						value: b,
 						onQuery: (e) => {
@@ -93344,7 +93357,7 @@ function uRe({ item: e, view: t, selected: n, selectMode: r, helpers: i, actions
 									"data-media-who": "",
 									children: [/* @__PURE__ */ (0, z.jsx)(wY, { name: d }), /* @__PURE__ */ (0, z.jsx)("span", { children: u })]
 								}),
-								typeof e.library_id == "string" && e.library_id ? /* @__PURE__ */ (0, z.jsx)(AQ, { item: { library_id: e.library_id } }) : null,
+								typeof e.library_id == "string" && e.library_id ? /* @__PURE__ */ (0, z.jsx)(jQ, { item: { library_id: e.library_id } }) : null,
 								/* @__PURE__ */ (0, z.jsx)("span", {
 									"data-media-facts": "",
 									children: /* @__PURE__ */ (0, z.jsxs)("span", {
@@ -93404,7 +93417,7 @@ function _4({ table: e, label: t, items: n, cells: r, selected: i, selecting: a,
 			"aria-label": t,
 			children: /* @__PURE__ */ (0, z.jsxs)("div", {
 				"data-toolbar-actions": "",
-				children: [/* @__PURE__ */ (0, z.jsx)(wQ, {
+				children: [/* @__PURE__ */ (0, z.jsx)(TQ, {
 					preferences: f,
 					label: t
 				}), /* @__PURE__ */ (0, z.jsx)(hq, {
@@ -93455,7 +93468,7 @@ function _4({ table: e, label: t, items: n, cells: r, selected: i, selecting: a,
 								"data-direction": t || void 0,
 								children: /* @__PURE__ */ (0, z.jsx)(KB, {})
 							}) : null]
-						}), /* @__PURE__ */ (0, z.jsx)(TQ, {
+						}), /* @__PURE__ */ (0, z.jsx)(EQ, {
 							preferences: f,
 							id: e.id
 						})] })
@@ -93575,7 +93588,7 @@ function mRe({ items: e, view: t, selected: n, selecting: r, actions: i, order: 
 				view: t,
 				actions: i
 			}),
-			library: (e) => /* @__PURE__ */ (0, z.jsx)(AQ, { item: { library_id: e.library_id } }),
+			library: (e) => /* @__PURE__ */ (0, z.jsx)(jQ, { item: { library_id: e.library_id } }),
 			kind: (e) => u4(e)[0],
 			why: (e) => {
 				let t = h4(e);
@@ -99886,7 +99899,7 @@ function LUe(e) {
 // src/react/item-detail/catalog-picture.tsx
 function RUe({ item: e, image: t, source: n = !1, thumbnail: r = !1 }) {
 	let [i, a] = (0, R.useState)(""), [o, s] = (0, R.useState)(0);
-	if (n && t > 0 && e.code) return /* @__PURE__ */ (0, z.jsx)(yQ, {
+	if (n && t > 0 && e.code) return /* @__PURE__ */ (0, z.jsx)(bQ, {
 		item: {
 			code: e.code,
 			has_cover: !1,
@@ -101266,7 +101279,7 @@ function bWe(e) {
 		onRetry: () => {
 			a.refetch();
 		},
-		children: a.data ? /* @__PURE__ */ (0, z.jsx)(jQ, {
+		children: a.data ? /* @__PURE__ */ (0, z.jsx)(MQ, {
 			mode: "items",
 			variant: "next",
 			items: a.data,
@@ -101891,7 +101904,7 @@ function UWe({ code: e, item: t, actions: n, readOnly: r, retry: i, retrying: a 
 					onClick: i,
 					children: [/* @__PURE__ */ (0, z.jsx)(a8, { name: "play" }), L("catalog:javDetail.sampleVideoFailed")]
 				}) : null,
-				o === -2 && t.preview_video_url ? /* @__PURE__ */ (0, z.jsx)(qWe, { src: t.preview_video_url }, t.preview_video_url) : /* @__PURE__ */ (0, z.jsx)(yQ, {
+				o === -2 && t.preview_video_url ? /* @__PURE__ */ (0, z.jsx)(qWe, { src: t.preview_video_url }, t.preview_video_url) : /* @__PURE__ */ (0, z.jsx)(bQ, {
 					item: t,
 					image: o === -1 ? "cover" : String(o)
 				}, t.code),
@@ -101900,7 +101913,7 @@ function UWe({ code: e, item: t, actions: n, readOnly: r, retry: i, retrying: a 
 					position: Math.max(0, c.findIndex((e) => e.index === o)),
 					onSelect: s,
 					below: !0,
-					renderThumbnail: (e) => /* @__PURE__ */ (0, z.jsx)(yQ, {
+					renderThumbnail: (e) => /* @__PURE__ */ (0, z.jsx)(bQ, {
 						item: t,
 						image: e.index < 0 ? "cover" : String(e.index),
 						thumbnail: !0
@@ -102117,7 +102130,7 @@ function KWe({ item: e, navigate: t }) {
 					id: r.id ?? null
 				},
 				onOpen: n,
-				face: t === "performer" && !r.has_image && !r.has_avatar && r.source_avatar && r.source_actor_id ? /* @__PURE__ */ (0, z.jsx)(bQ, {
+				face: t === "performer" && !r.has_image && !r.has_avatar && r.source_avatar && r.source_actor_id ? /* @__PURE__ */ (0, z.jsx)(xQ, {
 					code: e.code,
 					person: r,
 					detail: !0
@@ -104468,7 +104481,7 @@ var l5 = (e) => ({
 	"/": {
 		element: /* @__PURE__ */ (0, z.jsx)(OJ, {}),
 		prefetch: (e, t) => Zge(e, hK(), t),
-		page: (e) => /* @__PURE__ */ (0, z.jsx)(jQ, { ...e })
+		page: (e) => /* @__PURE__ */ (0, z.jsx)(MQ, { ...e })
 	},
 	"/junk-files": {
 		element: /* @__PURE__ */ (0, z.jsx)(OJ, {}),
@@ -109715,6 +109728,6 @@ Mt();
 var L$e = document.getElementById("appRoot");
 if (!L$e) throw Error(L("shell:errorReport.hostMissing"));
 I$e(L$e);
-export { oR as $2ec61d1d4f780267$export$a8a3e93435678ff9, mR as $3a442827418ebe87$export$eb2fcfdbd7ba97d4, Nz as $542a13ca2fa5b484$export$5b6b19405a83ff9d, tk as $72abaeab4d80592f$export$78efe591171d7d45, DB as $76d00c5a4edb230a$export$76ccd210b9029917, wB as $76d00c5a4edb230a$export$816b5d811295e6bc, AB as $76d00c5a4edb230a$export$b59bdbef9ce70de2, MB as $76d00c5a4edb230a$export$f6f0c3fe4ec306ea, CB as $76d00c5a4edb230a$export$f850895b287ef28e, Ibe as $b4f18e3395fe64d7$export$3d96ec278d3efce4, Fbe as $b4f18e3395fe64d7$export$3e41faf802a29e71, Mbe as $b4f18e3395fe64d7$export$b2539bed5023c21c, IB as $b4f18e3395fe64d7$export$e51a686c67fdaa2d, zbe as $bd263d78e9bf3c56$export$f5c9f3c2c4054eec, NO as $ea3928288112382f$export$439d29a4e110a164, Kz as $f2ff30fde7b014be$export$3ddf2d174ce01153, tB as $fe21c36db05242bb$export$a98f0dcb43a68a25, nB as $fe21c36db05242bb$export$d7b12c4107be0d61, lSe as $l, GM as ACCENTS, rze as AMANE_BRIDGE_CHECK_URL, a3 as AMANE_BRIDGE_KEY, ize as AMANE_BRIDGE_REBUILD_URL, qW as ActivityMotion, JW as ActivityStatus, Aa as ApiError, _q as ArtSlot, YHe as BATCH_DELETE_TEXT, Y as Button, eM as ButtonLink, uH as Bx, i3 as CHECK_ALL_KEY, D4 as CLEANUP_ENTRY, E4 as CLEANUP_ENTRY_GRID, eg as CLEANUP_HASH_REDIRECTS, ng as CLEANUP_TOOLS, si as CLOUD_LOCATIONS, dVe as CLOUD_PROXY_HELP, Eo as COLUMN_SORT, Cze as CONFIGURATION_KEY, Dh as CONFIGURATION_SECTIONS, g$ as CONFIGURATION_URL, aze as COOKIE_TEXT_LIMIT, r3 as COVER_JOB_KEY, Sf as COVER_STATE_TITLE, Ps as CREDENTIAL_STATE, Q4 as CUSTOM_SOURCES_KEY, Z4 as CUSTOM_SOURCES_URL, DY as CardTags, BJ as CatalogViewToggle, _W as Checkbox, gW as CheckboxGlyph, KB as ChevronSortDown, sK as Chip, Oq as CloudDownloadDialog, eG as CollapseChevron, $W as CollapseRegion, xQ as ColumnFilterAvatar, GSe as CommandSteps, r2 as CoverQueue, ZMe as DEFAULT_CATEGORY, Fa as DEFAULT_SORT, I2 as DIAGNOSTICS_KEY, UNe as DIRECTORY_TEMPLATE_ERROR, uDe as DISCOVERY_METADATA_KEY, MK as DISCOVERY_SORTS, yq as DOWNLOADS_KEY, vq as DOWNLOADS_URL, IQ as DUPLICATES_KEY, gq as DataTableFooter, oQ as DataTableFrame, hq as DataTableSort, kH as Disclosure, BEe as DownloadsPanel, $xe as E3, QMe as ENTITY_REVIEW_KINDS, lVe as ENTRY_LINKS_HELP, G3 as ENTRY_LINKS_HINT, nH as Ea, fwe as EmptyFocusButton, ZU as EmptyState, EH as ErrorText, OSe as Eu, OH as ExternalLink, So as FEEDS_KEY, w4 as FIELDSET_FOOT, dqe as FLOW_LABEL_X, uqe as FLOW_VIEWBOX, bo as FOLLOW_CHECK_KEY, $H as FOLLOW_CHECK_TASK, yo as FOLLOW_CREDENTIALS_KEY, rYe as FOLLOW_INITIAL_RANGE_OPTIONS, vo as FOLLOW_MANAGE_KEY, C0 as FOLLOW_MANAGE_NAV, xo as FOLLOW_RESOLVE_KEY, JSe as Fact, qSe as FactList, DH as FieldLabel, V4 as Fieldset, B4 as FieldsetTitle, MU as FilterGlassRows, jU as FilterIconButton, NU as FilterPill, USe as Footer, sH as Gg, PU as GlassPill, mH as HN, TH as Help, BU as HintText, zMe as IDLE_REPAIR, wY as Icon, AU as IconButton, pQ as IndexSearch, GU as Input, WU as InputBase, U4 as IssueRow, $Se as ItemLibrary, hN as JAV_LAYOUTS, HK as JAV_RECOMMENDATION_GRID, eYe as JAV_SELECTION_EVENT, U$ as JUNK_KEY, tJ as JavHeader, NMe as KEEP_LABELS, EMe as KEPT_DUPLICATES_KEY, Bxe as L1, wo as LAYOUTS, cVe as LIBRARY_FOLDER_HELP, bW as LIBRARY_PROCESSING_KEY, l$ as LINKS_KEY, u$ as LINK_CHECK_KEY, CNe as LINK_KINDS, d$ as LINK_PRUNE_KEY, Ta as LOC, zU as Label, IH as LibraryLabel, q4 as LibraryProcessingCard, uW as LibraryShortcuts, wH as LinkButton, AQ as ListLibrary, dSe as Lo, tSe as M6, hve as MEDIA_PROCESSING_KEY, kL as MEDIA_PROCESSING_URL, VQ as MEDIA_REPAIR_KEY, BQ as MEDIA_REPAIR_URL, Qa as MEDIA_SOURCES_KEY, nu as MEDIA_SOURCE_ICONS, ai as MEDIA_SOURCE_OPTIONS, UB as MENU_ITEM, WB as MENU_ITEM_INTERACTIVE, VB as MENU_POPOVER_SURFACE, pSe as Ma, r8 as MarkImage, hV as MenuDialog, GY as MixCard, KU as ModalFrame, zC as MotionConfigContext, vH as NR, H4 as NameLink, JU as Note, yH as OA, C$ as ORGANIZE_KEY, KHe as ORGANIZE_PARAMETER_HINT, GHe as ORGANIZE_SCOPE_HINT, WHe as ORGANIZE_TEXT, E$ as ORPHAN_RECORDS_KEY, JHe as ORPHAN_RECORDS_TEXT, aH as OV, XU as ObjectOrderDialog, HV as P7, B$ as PERFORMER_DELETE_KEY, XEe as PHASES, _$ as PICK_FOLDER_URL, k4 as PLAIN_STAT_STRIP, Y4 as PLAYLISTS_KEY, aVe as POLICY_COLUMNS, sVe as POLICY_COVER_NOTE, oVe as POLICY_MATRIX, iVe as POLICY_SUMMARY, W4 as PathLine, gH as Pf, ORe as PlainStat, VW as ProcessingMode, XW as Progress, KQ as QUALITY_GOALS_KEY, v4 as QueueIdentity, y4 as QueuePicture, _4 as QueueTable, hH as RB, zK as RELEASE_COLUMN_VISIBILITY_KEY, RK as RELEASE_COLUMN_WIDTHS_KEY, lK as RELEASE_NOTICE_EVENT, qq as RELEASE_PAGE_SIZES, NK as RELEASE_SORTS, hEe as RELEASE_SORT_COLUMNS, N2 as REPAIRS_KEY, j4 as REPAIR_CARD_TEXT, Mh as REPAIR_CENTER_PATH, HQ as REPAIR_LIBRARIES_KEY, j$ as RESOURCE_APPLY_KEY, A$ as RESOURCE_SCAN_KEY, qHe as RESOURCE_SYNC_TEXT, R4 as RESULT_PANEL, z4 as RESULT_SECTION, XMe as REVIEW_CATEGORIES, H$ as REVIEW_COUNTS_KEY, eNe as REVIEW_DECISION_LABELS, YQ as REVIEW_KEY, XQ as REVIEW_LABELS, QQ as REVIEW_QUEUES, $Me as REVIEW_QUEUE_LABELS, sU as RUNNING_POLL_MS, vY as RetryNote, NSe as Rf, bH as Rk, BSe as Rows, ML as SCHEDULES, e3 as SCRAPING_CHECK_ALL_URL, tze as SCRAPING_CHECK_URL, t3 as SCRAPING_COVER_URL, n3 as SCRAPING_KEY, eze as SCRAPING_SETTINGS_URL, yG as SEGMENT, vG as SEGMENTED_TRACK, TL as SETTINGS_KEY, xL as SETTINGS_URL, Ia as SORT_DEFAULT_DIR, Pa as SORT_OPTIONS, ci as SOURCE_LABELS, GGe as STATS_KEY, ERe as STAT_STRIP, DRe as STAT_STRIP_SIX, NH as ScrapeSourceLabel, zSe as Section, MRe as SectionHeading, HSe as SectionSkeleton, _G as SegmentedRadioGroup, sTe as SegmentedTabList, uY as Segments, fq as Select, JB as Select$1, FU as SelectAllPill, x3 as SelectField, YB as SelectItem, SQ as SelectionActions, cM as SelectionDock, CQ as SelectionPopover, xH as SettingsCard, RSe as SettingsRow, SH as SettingsSectionLabel, dY as Shuffle, QSe as SiteLabel, jWe as SiteMark, mq as SortDirectionIcon, VJ as SortKeys, HH as SortableBoardTabs, bQ as SourceAvatar, FH as SourceLabel, AH as SourceMark, VSe as Stack, kRe as StatCard, cK as StatusLabel, kSe as Su, QUe as Switch, oU as TASKS_KEY, HKe as TASTE_REFRESH_KEY, eqe as TASTE_REFRESH_TASK, UKe as TASTE_WINDOWS, OL as THUMBNAIL_JOBS_KEY, G$ as TRASH_KEY, uU as TRIGGER_LABELS, aQ as Table, wQ as TableColumnControls, mQ as TableColumnFilter, TQ as TableColumnResizer, DQ as TableSelectionHeader, KSe as TaskCenterLink, ZW as TaskProgress, HU as TextField, VU as TextFieldContext, rH as Un, PSe as Uz, Aq as WANTS_KEY, FWe as WantMagnets, hy as WithPromise, JV as Wt, tH as Xc, _H as Xf, XV as Xl, YV as Xt, WV as _8, o as __commonJSMin, s as __exportAll, l as __toESM, pH as _p, jSe as aB, KW as activityKind, os as addAlias, as as addSource, Mq as addWant, kw as animate, U as apiGet, W as apiSend, lN as appSettingsStore, cPe as applyConfirmText, z$ as applyLeftovers, sPe as applyPlanText, uPe as applyText, pN as applyTheme, Ix as asNumber, XNe as attachOrphan, Ho as authorAvatar, Wo as authorGroups, Vo as authorInitial, Bo as authorName, qX as autoResetPageIndex, nl as avatarInner, lKe as bandRows, WNe as baseName, RMe as batchOperate, zge as beginPlayerGuidePreview, Ai as bodyFieldErrors, hM as boundedPreference, FMe as bulkCloudPreferences, tM as busyProps, ASe as cB, kWe as cachedMagnetStates, ly as calcGeneratorVelocity, sNe as canApprove, Lv as cancelFrame, tPe as candidateText, dq as cardClass, ON as cardRatio, kK as catalogListSkeletonCellHtml, zTe as checkClientUpdates, As as checkEvidenceGap, ks as checkFailures, ys as checkFeeds, ONe as checkLine, Ds as checkReceipt, Os as checkSummary, sze as checkText, DLe as checkText$1, js as checkedText, kY as clickedBlank, M7 as closeDrawerAfterNav, xMe as cloudLocations, DVe as cloudProxySkeleton, uE as clsx, gSe as cn, Ei as codedText, Ene as collectMotionValues, Fq as columnValueSelected, pZ as columnVisibilityFeature, eQ as column_getCanSort, XZ as column_getSortFn, aNe as commonReviewSources, Tq as composingKey, Ph as configurationSection, qKe as configureTasteBrowser, $d as confirmModal, pDe as controlDiscoveryMetadata, _De as controlReleaseMetadata, PCe as controlTask, kX as copyInstancePropertiesWithoutMemos, lDe as coverArrived, sDe as coverFetching, wf as coverFetchingHtml, xf as coverReason, Cf as coverStateAction, Jc as coverUrl, iZ as createColumnHelper, KRe as createPlaylist, Fs as credentialDone, CVe as credentialsSkeleton, gNe as currentReviewRow, J as cx, nSe as d6, lH as dZ, pNe as decisionPayload, mNe as decisionReceipt, fNe as defaultChoice, fPe as deletePerformerVideos, JRe as deletePlaylist, BVe as devicesSkeleton, x as diagnosticHeaders, rVe as diagnosticsSkeleton, vDe as discoveryArtwork, Gq as discoveryKey, oEe as discoveryScore, y9 as disposeStage, jMe as distinctName, Ts as dropSources, DSe as du, IMe as duplicateVictims, bU as elapsedText, a4 as enterPageSelection, qr as entityDisplayName, tl as entityFaceImg, ra as entityPath, Ur as entityWriting, Fo as errorHeadline, ja as errorMessage, H as esc, o4 as exitPageSelection, KX as expandRowModel, FV as f1, al as facePos, Po as feedIntervalText, l3 as fetchAmaneBridge, c3 as fetchCheckAllJob, Qo as fetchCheckJob, Eze as fetchConfiguration, s3 as fetchCoverJob, Wq as fetchCoverNow, Zo as fetchCredentials, $4 as fetchCustomSources, V$ as fetchDeletePerformers, dPe as fetchDeletePlan, L2 as fetchDiagnostics, Kq as fetchDiscoveries, fDe as fetchDiscoveryMetadata, RQ as fetchDuplicates, gs as fetchFeeds, Xo as fetchFollow, q$ as fetchJunkSummary, DMe as fetchKeptDuplicates, OW as fetchLibraryProcessing, m$ as fetchLinkCheck, h$ as fetchLinkPrune, p$ as fetchLinkStats, gve as fetchMediaProcessing, UQ as fetchMediaRepair, $a as fetchMediaSources, w$ as fetchOrganize, INe as fetchOrganizeExample, D$ as fetchOrphanRecords, YRe as fetchPlaylist, X4 as fetchPlaylists, qQ as fetchQualityGoals, gDe as fetchReleaseColumn, eJ as fetchReleases, WQ as fetchRepairLibraries, F2 as fetchRepairs, $o as fetchResolveJob, N$ as fetchResourceApply, M$ as fetchResourceScan, o$ as fetchReview, K$ as fetchReviewCounts, AL as fetchSettings, o3 as fetchSources, KGe as fetchStats, es as fetchSuggestions, lU as fetchTasks, JKe as fetchTaste, YKe as fetchTasteJob, yve as fetchThumbnailJobs, J$ as fetchTrashSummary, jq as fetchWants, rNe as filterReviewRows, Ca as firstGrapheme, dX as flexRender, hqe as flowGraph, gqe as flowLabel, JGe as fmtCount, _a as fmtDur, ya as fmtSize, ACe as foldByKind, KCe as foldRoutine, xs as followFeedByName, Ss as followFeedEntity, Co as followSuggestKey, XCe as followupDetail, kCe as followupTally, Iv as frame, BV as g4, gZ as getDefaultPaginationState, DN as gridLayout, Uo as groupByAuthor, GCe as groupFollowups, OMe as groupKey, t$ as groupReviewRows, aPe as hasChanges, P$ as hasResourceRoots, fU as hasResultProblems, nqe as historySpan, IV as i2, $Ke as importTasteExport, wVe as indexersSkeleton, bt as interfaceLanguage, ay as interpolate, Pq as invalidateWants, mU as isActive, No as isBroken, Do as isLayout, zb as isMotionValue, ZQ as isReviewCategory, qCe as isRoutine, TVe as javBrowserSkeleton, WK as javContentSkeleton, bN as javLayout, UK as javTagSkeleton, Di as jobText, wt as joinList, vPe as junkBreakdown, CMe as keepGroup, wMe as keepGroups, ZRe as keepPlaylist, mn as keepPreviousData, qo as keepSelected, H8 as known, zxe as l1, Jxe as l7, aDe as lastSearchNote, WCe as latestOfKind, Sa as leadingGraphemes, VVe as ledgerBackupsSkeleton, uKe as lengthRows, qi as linkLabel, no as localTime, P2 as localizeRepairs, Sze as localizedFact, Qc as logoUrl, bs as lookupFeedActor, VV as m7, cH as mM, Xi as mapLimit, ms as markAllPending, U8 as max, sKe as mediumRows, dDe as metadataInterval, pKe as min, xNe as mirrorText, HMe as missingToolText, zQ as mixedCloudPreferences, wU as momentText, Aw as motion, Mb as motionValue, On as notifyManager, GV as oe, KNe as organizeOutcome, R1 as overlayHost, Oo as pageSizeOf, Ko as pageWindow, xi as partsLabel, ws as patchSource, jg as peachHistory, jg as peachHistory$1, dNe as pendingGenres, XGe as percentText, zNe as pickOrganizeFolder, b$ as pickServerFolder, O4 as plainStatClass, GNe as planSummary, ZGe as playedFor, tKe as playedItemUrl, jCe as pollInterval, Xa as pollUntil, Iu as popCount, GRe as posterUrl, Ixe as previewLibraryColor, RNe as previewOrganize, GMe as previewUrl, HCe as problemDestination, CW as processingActive, vU as progressLabel, xU as progressText, MH as providerIcon, DNe as pruneText, I$ as purgeCount, ZNe as purgeOrphan, dH as pv, ESe as qE, G as queryClient, Tt as quoted, LV as r2, lqe as radarRows, iKe as radialArc, aKe as radialBarSize, rKe as radialCeiling, nKe as radialSlices, eF as randomId, oqe as rankDetail, sqe as rankShares, $Ge as reachedShare, SU as readableErrorHeadline, sEe as recommendationScore, _Ne as recordGenre, $Ne as recordsText, QRe as recreatePlaylist, URe as refreshPlaylists, vf as relayoutCovers, Xq as releaseColumnSelection, mDe as releaseColumnValues, BK as releaseColumns, Jq as releaseFilters, Zq as releaseKey, Es as reloadFollowManage, bNe as reloadReview, mVe as rememberShape, VNe as rememberTemplates, ss as removeAlias, vs as removeFeed, is as removeSource, QKe as removeTasteSource, Nq as removeWants, cs as renameAliasGroup, qRe as renamePlaylist, XRe as reorderPlaylist, $Ve as repairCenterPanelSkeleton, sn as replaceEqualDeep, fKe as replayRows, Vt as require_jsx_runtime, Pt as require_react, Lt as require_react_dom, TX as require_with_selector, tDe as resetWants, Ra as resolveFollowSort, fy as resolveStartTime, Eq as resourceSourceKey, jwe as restartEffectText, nDe as restoreWants, WRe as resumeAssetId, nNe as reviewGroupingOptions, e$ as reviewQueueData, $Q as reviewQueueOf, _Pe as reviewSummary, iNe as reviewWindow, lNe as rowEvidence, a$ as rowFieldName, CZ as rowPaginationFeature, WZ as rowSelectionFeature, rQ as rowSortingFeature, n$ as rowSubject, uNe as rowTags, cNe as rowTitle, iM as runBulkAction, yU as runError, ls as saveCredential, oPe as scanLine, wve as schedulePollInterval, iDe as searchNote, jh as sectionTitle, JQ as selectRange, oNe as selectReviewRange, Jo as selectionState, KMe as selectionSummary, yi as serverLabel, Ti as serverLabelList, ji as serverText, _s as setFeedEnabled, hDe as setReleaseColumn, rs as setSourceEnabled, FCe as setTaskSpeed, Rh as settingsPath, yNe as settleReviewRows, AMe as sharedNamePrefix, Mg as shellNavigate, IJe as showToast, pV as showToast$1, la as siteMarkUrl, LX as skipFirstRun, Qj as sortCx, Ao as sortLabel, li as sourceDefaultCost, Ns as sourceIconUrl, lPe as sourceMeta, bu as spinnerHtml, ry as spring, _V as spriteGlyph, bi as stageText, ts as startCheck, wNe as startLinkCheck, TNe as startLinkPrune, BNe as startOrganize, ns as startResolve, rPe as startResourceApply, nPe as startResourceScan, ZKe as startTasteRefresh, TRe as statCardClass, RCe as statusLabel, VMe as statusLine, Mo as statusText, kN as storeJavLayout, hNe as submitDecision, EU as summaryItems, AY as suppressShiftTextSelection, L as t, aZ as tableFeatures, RX as tableMemo, Go as tableRows, VCe as taskIssues, hU as taskName, UCe as taskSubject, tqe as tasteDate, iqe as tasteDimensions, rqe as tasteHours, VKe as tasteKey, GKe as tasteRefetchInterval, KKe as tasteTime, KH as textLang, LK as tierPlaceholdersHtml, K_ as time, sSe as tl, Iq as toggleColumnValue, Yo as toggleGroup, cqe as topScores, WSe as translateWithNodes, _Se as um, hs as unmarkItems, fSe as uo, YU as useAction, v0 as useBackgroundJob, gK as useCatalogView, iK as useClientUpdates, v_ as useConstant, jY as useDense, DU as useEntityNames, y_ as useIsomorphicLayoutEffect, PV as useLibraryTints, xr as useMutation, LH as useNavigationOrder, G4 as useOrderedLibraries, vW as useOverlayScrollbar, s4 as usePageSelection, br as useQuery, Ut as useQueryClient, b4 as useQueueSort, _w as useReducedMotion, Cve as useRunSchedule, xve as useSaveSchedule, jL as useSaveSettings, Tve as useSaveThumbnailMode, iQ as useTable, lQ as useTablePreferences, RU as useViewGlide, LMe as victimBytes, cSe as vl, rDe as wantName, ZEe as wantsInterval, eKe as watchNote, QGe as watchedShare, rSe as we, _d as wireHorizontalScroller, qa as withBackoff, HNe as withOrganizeJob, oDe as writeJavQuery, eSe as z3 };
+export { oR as $2ec61d1d4f780267$export$a8a3e93435678ff9, mR as $3a442827418ebe87$export$eb2fcfdbd7ba97d4, Nz as $542a13ca2fa5b484$export$5b6b19405a83ff9d, tk as $72abaeab4d80592f$export$78efe591171d7d45, DB as $76d00c5a4edb230a$export$76ccd210b9029917, wB as $76d00c5a4edb230a$export$816b5d811295e6bc, AB as $76d00c5a4edb230a$export$b59bdbef9ce70de2, MB as $76d00c5a4edb230a$export$f6f0c3fe4ec306ea, CB as $76d00c5a4edb230a$export$f850895b287ef28e, Ibe as $b4f18e3395fe64d7$export$3d96ec278d3efce4, Fbe as $b4f18e3395fe64d7$export$3e41faf802a29e71, Mbe as $b4f18e3395fe64d7$export$b2539bed5023c21c, IB as $b4f18e3395fe64d7$export$e51a686c67fdaa2d, zbe as $bd263d78e9bf3c56$export$f5c9f3c2c4054eec, NO as $ea3928288112382f$export$439d29a4e110a164, Kz as $f2ff30fde7b014be$export$3ddf2d174ce01153, tB as $fe21c36db05242bb$export$a98f0dcb43a68a25, nB as $fe21c36db05242bb$export$d7b12c4107be0d61, lSe as $l, GM as ACCENTS, rze as AMANE_BRIDGE_CHECK_URL, a3 as AMANE_BRIDGE_KEY, ize as AMANE_BRIDGE_REBUILD_URL, qW as ActivityMotion, JW as ActivityStatus, Aa as ApiError, _q as ArtSlot, YHe as BATCH_DELETE_TEXT, Y as Button, eM as ButtonLink, uH as Bx, i3 as CHECK_ALL_KEY, D4 as CLEANUP_ENTRY, E4 as CLEANUP_ENTRY_GRID, eg as CLEANUP_HASH_REDIRECTS, ng as CLEANUP_TOOLS, si as CLOUD_LOCATIONS, dVe as CLOUD_PROXY_HELP, Eo as COLUMN_SORT, Cze as CONFIGURATION_KEY, Dh as CONFIGURATION_SECTIONS, g$ as CONFIGURATION_URL, aze as COOKIE_TEXT_LIMIT, r3 as COVER_JOB_KEY, Sf as COVER_STATE_TITLE, Ps as CREDENTIAL_STATE, Q4 as CUSTOM_SOURCES_KEY, Z4 as CUSTOM_SOURCES_URL, DY as CardTags, BJ as CatalogViewToggle, _W as Checkbox, gW as CheckboxGlyph, KB as ChevronSortDown, sK as Chip, Oq as CloudDownloadDialog, eG as CollapseChevron, $W as CollapseRegion, SQ as ColumnFilterAvatar, GSe as CommandSteps, r2 as CoverQueue, ZMe as DEFAULT_CATEGORY, Fa as DEFAULT_SORT, I2 as DIAGNOSTICS_KEY, UNe as DIRECTORY_TEMPLATE_ERROR, uDe as DISCOVERY_METADATA_KEY, MK as DISCOVERY_SORTS, yq as DOWNLOADS_KEY, vq as DOWNLOADS_URL, IQ as DUPLICATES_KEY, gq as DataTableFooter, oQ as DataTableFrame, hq as DataTableSort, kH as Disclosure, BEe as DownloadsPanel, $xe as E3, QMe as ENTITY_REVIEW_KINDS, lVe as ENTRY_LINKS_HELP, G3 as ENTRY_LINKS_HINT, nH as Ea, fwe as EmptyFocusButton, ZU as EmptyState, EH as ErrorText, OSe as Eu, OH as ExternalLink, So as FEEDS_KEY, w4 as FIELDSET_FOOT, dqe as FLOW_LABEL_X, uqe as FLOW_VIEWBOX, bo as FOLLOW_CHECK_KEY, $H as FOLLOW_CHECK_TASK, yo as FOLLOW_CREDENTIALS_KEY, rYe as FOLLOW_INITIAL_RANGE_OPTIONS, vo as FOLLOW_MANAGE_KEY, C0 as FOLLOW_MANAGE_NAV, xo as FOLLOW_RESOLVE_KEY, JSe as Fact, qSe as FactList, DH as FieldLabel, V4 as Fieldset, B4 as FieldsetTitle, MU as FilterGlassRows, jU as FilterIconButton, NU as FilterPill, USe as Footer, sH as Gg, PU as GlassPill, mH as HN, TH as Help, BU as HintText, zMe as IDLE_REPAIR, wY as Icon, AU as IconButton, mQ as IndexSearch, GU as Input, WU as InputBase, U4 as IssueRow, $Se as ItemLibrary, hN as JAV_LAYOUTS, HK as JAV_RECOMMENDATION_GRID, eYe as JAV_SELECTION_EVENT, U$ as JUNK_KEY, tJ as JavHeader, NMe as KEEP_LABELS, EMe as KEPT_DUPLICATES_KEY, Bxe as L1, wo as LAYOUTS, cVe as LIBRARY_FOLDER_HELP, bW as LIBRARY_PROCESSING_KEY, l$ as LINKS_KEY, u$ as LINK_CHECK_KEY, CNe as LINK_KINDS, d$ as LINK_PRUNE_KEY, Ta as LOC, zU as Label, IH as LibraryLabel, q4 as LibraryProcessingCard, uW as LibraryShortcuts, wH as LinkButton, jQ as ListLibrary, dSe as Lo, tSe as M6, hve as MEDIA_PROCESSING_KEY, kL as MEDIA_PROCESSING_URL, VQ as MEDIA_REPAIR_KEY, BQ as MEDIA_REPAIR_URL, Qa as MEDIA_SOURCES_KEY, nu as MEDIA_SOURCE_ICONS, ai as MEDIA_SOURCE_OPTIONS, UB as MENU_ITEM, WB as MENU_ITEM_INTERACTIVE, VB as MENU_POPOVER_SURFACE, pSe as Ma, r8 as MarkImage, hV as MenuDialog, GY as MixCard, KU as ModalFrame, zC as MotionConfigContext, vH as NR, H4 as NameLink, JU as Note, yH as OA, C$ as ORGANIZE_KEY, KHe as ORGANIZE_PARAMETER_HINT, GHe as ORGANIZE_SCOPE_HINT, WHe as ORGANIZE_TEXT, E$ as ORPHAN_RECORDS_KEY, JHe as ORPHAN_RECORDS_TEXT, aH as OV, XU as ObjectOrderDialog, HV as P7, B$ as PERFORMER_DELETE_KEY, XEe as PHASES, _$ as PICK_FOLDER_URL, k4 as PLAIN_STAT_STRIP, Y4 as PLAYLISTS_KEY, aVe as POLICY_COLUMNS, sVe as POLICY_COVER_NOTE, oVe as POLICY_MATRIX, iVe as POLICY_SUMMARY, W4 as PathLine, gH as Pf, ORe as PlainStat, VW as ProcessingMode, XW as Progress, KQ as QUALITY_GOALS_KEY, v4 as QueueIdentity, y4 as QueuePicture, _4 as QueueTable, hH as RB, zK as RELEASE_COLUMN_VISIBILITY_KEY, RK as RELEASE_COLUMN_WIDTHS_KEY, lK as RELEASE_NOTICE_EVENT, qq as RELEASE_PAGE_SIZES, NK as RELEASE_SORTS, hEe as RELEASE_SORT_COLUMNS, N2 as REPAIRS_KEY, j4 as REPAIR_CARD_TEXT, Mh as REPAIR_CENTER_PATH, HQ as REPAIR_LIBRARIES_KEY, j$ as RESOURCE_APPLY_KEY, A$ as RESOURCE_SCAN_KEY, qHe as RESOURCE_SYNC_TEXT, R4 as RESULT_PANEL, z4 as RESULT_SECTION, XMe as REVIEW_CATEGORIES, H$ as REVIEW_COUNTS_KEY, eNe as REVIEW_DECISION_LABELS, YQ as REVIEW_KEY, XQ as REVIEW_LABELS, QQ as REVIEW_QUEUES, $Me as REVIEW_QUEUE_LABELS, sU as RUNNING_POLL_MS, vY as RetryNote, NSe as Rf, bH as Rk, BSe as Rows, ML as SCHEDULES, e3 as SCRAPING_CHECK_ALL_URL, tze as SCRAPING_CHECK_URL, t3 as SCRAPING_COVER_URL, n3 as SCRAPING_KEY, eze as SCRAPING_SETTINGS_URL, yG as SEGMENT, vG as SEGMENTED_TRACK, TL as SETTINGS_KEY, xL as SETTINGS_URL, Ia as SORT_DEFAULT_DIR, Pa as SORT_OPTIONS, ci as SOURCE_LABELS, GGe as STATS_KEY, ERe as STAT_STRIP, DRe as STAT_STRIP_SIX, NH as ScrapeSourceLabel, zSe as Section, MRe as SectionHeading, HSe as SectionSkeleton, _G as SegmentedRadioGroup, sTe as SegmentedTabList, uY as Segments, fq as Select, JB as Select$1, FU as SelectAllPill, x3 as SelectField, YB as SelectItem, CQ as SelectionActions, cM as SelectionDock, wQ as SelectionPopover, xH as SettingsCard, RSe as SettingsRow, SH as SettingsSectionLabel, dY as Shuffle, QSe as SiteLabel, jWe as SiteMark, mq as SortDirectionIcon, VJ as SortKeys, HH as SortableBoardTabs, xQ as SourceAvatar, FH as SourceLabel, AH as SourceMark, VSe as Stack, kRe as StatCard, cK as StatusLabel, kSe as Su, QUe as Switch, oU as TASKS_KEY, HKe as TASTE_REFRESH_KEY, eqe as TASTE_REFRESH_TASK, UKe as TASTE_WINDOWS, OL as THUMBNAIL_JOBS_KEY, G$ as TRASH_KEY, uU as TRIGGER_LABELS, aQ as Table, TQ as TableColumnControls, hQ as TableColumnFilter, EQ as TableColumnResizer, OQ as TableSelectionHeader, KSe as TaskCenterLink, ZW as TaskProgress, HU as TextField, VU as TextFieldContext, rH as Un, PSe as Uz, Aq as WANTS_KEY, FWe as WantMagnets, hy as WithPromise, JV as Wt, tH as Xc, _H as Xf, XV as Xl, YV as Xt, WV as _8, o as __commonJSMin, s as __exportAll, l as __toESM, pH as _p, jSe as aB, KW as activityKind, os as addAlias, as as addSource, Mq as addWant, kw as animate, U as apiGet, W as apiSend, lN as appSettingsStore, cPe as applyConfirmText, z$ as applyLeftovers, sPe as applyPlanText, uPe as applyText, pN as applyTheme, Ix as asNumber, XNe as attachOrphan, Ho as authorAvatar, Wo as authorGroups, Vo as authorInitial, Bo as authorName, qX as autoResetPageIndex, nl as avatarInner, lKe as bandRows, WNe as baseName, RMe as batchOperate, zge as beginPlayerGuidePreview, Ai as bodyFieldErrors, hM as boundedPreference, FMe as bulkCloudPreferences, tM as busyProps, ASe as cB, kWe as cachedMagnetStates, ly as calcGeneratorVelocity, sNe as canApprove, Lv as cancelFrame, tPe as candidateText, dq as cardClass, ON as cardRatio, kK as catalogListSkeletonCellHtml, zTe as checkClientUpdates, As as checkEvidenceGap, ks as checkFailures, ys as checkFeeds, ONe as checkLine, Ds as checkReceipt, Os as checkSummary, sze as checkText, DLe as checkText$1, js as checkedText, kY as clickedBlank, M7 as closeDrawerAfterNav, tMe as cloudLocations, DVe as cloudProxySkeleton, uE as clsx, gSe as cn, Ei as codedText, Ene as collectMotionValues, Fq as columnValueSelected, pZ as columnVisibilityFeature, eQ as column_getCanSort, XZ as column_getSortFn, aNe as commonReviewSources, Tq as composingKey, Ph as configurationSection, qKe as configureTasteBrowser, $d as confirmModal, pDe as controlDiscoveryMetadata, _De as controlReleaseMetadata, PCe as controlTask, kX as copyInstancePropertiesWithoutMemos, lDe as coverArrived, sDe as coverFetching, wf as coverFetchingHtml, xf as coverReason, Cf as coverStateAction, Jc as coverUrl, iZ as createColumnHelper, KRe as createPlaylist, Fs as credentialDone, CVe as credentialsSkeleton, gNe as currentReviewRow, J as cx, nSe as d6, lH as dZ, pNe as decisionPayload, mNe as decisionReceipt, fNe as defaultChoice, fPe as deletePerformerVideos, JRe as deletePlaylist, BVe as devicesSkeleton, x as diagnosticHeaders, rVe as diagnosticsSkeleton, vDe as discoveryArtwork, Gq as discoveryKey, oEe as discoveryScore, y9 as disposeStage, jMe as distinctName, Ts as dropSources, DSe as du, IMe as duplicateVictims, bU as elapsedText, a4 as enterPageSelection, qr as entityDisplayName, tl as entityFaceImg, ra as entityPath, Ur as entityWriting, Fo as errorHeadline, ja as errorMessage, H as esc, o4 as exitPageSelection, KX as expandRowModel, FV as f1, al as facePos, Po as feedIntervalText, l3 as fetchAmaneBridge, c3 as fetchCheckAllJob, Qo as fetchCheckJob, Eze as fetchConfiguration, s3 as fetchCoverJob, Wq as fetchCoverNow, Zo as fetchCredentials, $4 as fetchCustomSources, V$ as fetchDeletePerformers, dPe as fetchDeletePlan, L2 as fetchDiagnostics, Kq as fetchDiscoveries, fDe as fetchDiscoveryMetadata, RQ as fetchDuplicates, gs as fetchFeeds, Xo as fetchFollow, q$ as fetchJunkSummary, DMe as fetchKeptDuplicates, OW as fetchLibraryProcessing, m$ as fetchLinkCheck, h$ as fetchLinkPrune, p$ as fetchLinkStats, gve as fetchMediaProcessing, UQ as fetchMediaRepair, $a as fetchMediaSources, w$ as fetchOrganize, INe as fetchOrganizeExample, D$ as fetchOrphanRecords, YRe as fetchPlaylist, X4 as fetchPlaylists, qQ as fetchQualityGoals, gDe as fetchReleaseColumn, eJ as fetchReleases, WQ as fetchRepairLibraries, F2 as fetchRepairs, $o as fetchResolveJob, N$ as fetchResourceApply, M$ as fetchResourceScan, o$ as fetchReview, K$ as fetchReviewCounts, AL as fetchSettings, o3 as fetchSources, KGe as fetchStats, es as fetchSuggestions, lU as fetchTasks, JKe as fetchTaste, YKe as fetchTasteJob, yve as fetchThumbnailJobs, J$ as fetchTrashSummary, jq as fetchWants, rNe as filterReviewRows, Ca as firstGrapheme, dX as flexRender, hqe as flowGraph, gqe as flowLabel, JGe as fmtCount, _a as fmtDur, ya as fmtSize, ACe as foldByKind, KCe as foldRoutine, xs as followFeedByName, Ss as followFeedEntity, Co as followSuggestKey, XCe as followupDetail, kCe as followupTally, Iv as frame, BV as g4, gZ as getDefaultPaginationState, DN as gridLayout, Uo as groupByAuthor, GCe as groupFollowups, OMe as groupKey, t$ as groupReviewRows, aPe as hasChanges, P$ as hasResourceRoots, fU as hasResultProblems, nqe as historySpan, IV as i2, $Ke as importTasteExport, wVe as indexersSkeleton, bt as interfaceLanguage, ay as interpolate, Pq as invalidateWants, mU as isActive, No as isBroken, Do as isLayout, zb as isMotionValue, ZQ as isReviewCategory, qCe as isRoutine, TVe as javBrowserSkeleton, WK as javContentSkeleton, bN as javLayout, UK as javTagSkeleton, Di as jobText, wt as joinList, vPe as junkBreakdown, CMe as keepGroup, wMe as keepGroups, ZRe as keepPlaylist, mn as keepPreviousData, qo as keepSelected, H8 as known, zxe as l1, Jxe as l7, aDe as lastSearchNote, WCe as latestOfKind, Sa as leadingGraphemes, VVe as ledgerBackupsSkeleton, uKe as lengthRows, qi as linkLabel, no as localTime, P2 as localizeRepairs, Sze as localizedFact, Qc as logoUrl, bs as lookupFeedActor, VV as m7, cH as mM, Xi as mapLimit, ms as markAllPending, U8 as max, sKe as mediumRows, dDe as metadataInterval, pKe as min, xNe as mirrorText, HMe as missingToolText, zQ as mixedCloudPreferences, wU as momentText, Aw as motion, Mb as motionValue, On as notifyManager, GV as oe, KNe as organizeOutcome, R1 as overlayHost, Oo as pageSizeOf, Ko as pageWindow, xi as partsLabel, ws as patchSource, jg as peachHistory, jg as peachHistory$1, dNe as pendingGenres, XGe as percentText, zNe as pickOrganizeFolder, b$ as pickServerFolder, O4 as plainStatClass, GNe as planSummary, ZGe as playedFor, tKe as playedItemUrl, jCe as pollInterval, Xa as pollUntil, Iu as popCount, GRe as posterUrl, Ixe as previewLibraryColor, RNe as previewOrganize, GMe as previewUrl, HCe as problemDestination, CW as processingActive, vU as progressLabel, xU as progressText, MH as providerIcon, DNe as pruneText, I$ as purgeCount, ZNe as purgeOrphan, dH as pv, ESe as qE, G as queryClient, Tt as quoted, LV as r2, lqe as radarRows, iKe as radialArc, aKe as radialBarSize, rKe as radialCeiling, nKe as radialSlices, eF as randomId, oqe as rankDetail, sqe as rankShares, $Ge as reachedShare, SU as readableErrorHeadline, sEe as recommendationScore, _Ne as recordGenre, $Ne as recordsText, QRe as recreatePlaylist, URe as refreshPlaylists, vf as relayoutCovers, Xq as releaseColumnSelection, mDe as releaseColumnValues, BK as releaseColumns, Jq as releaseFilters, Zq as releaseKey, Es as reloadFollowManage, bNe as reloadReview, mVe as rememberShape, VNe as rememberTemplates, ss as removeAlias, vs as removeFeed, is as removeSource, QKe as removeTasteSource, Nq as removeWants, cs as renameAliasGroup, qRe as renamePlaylist, XRe as reorderPlaylist, $Ve as repairCenterPanelSkeleton, sn as replaceEqualDeep, fKe as replayRows, Vt as require_jsx_runtime, Pt as require_react, Lt as require_react_dom, TX as require_with_selector, tDe as resetWants, Ra as resolveFollowSort, fy as resolveStartTime, Eq as resourceSourceKey, jwe as restartEffectText, nDe as restoreWants, WRe as resumeAssetId, nNe as reviewGroupingOptions, e$ as reviewQueueData, $Q as reviewQueueOf, _Pe as reviewSummary, iNe as reviewWindow, lNe as rowEvidence, a$ as rowFieldName, CZ as rowPaginationFeature, WZ as rowSelectionFeature, rQ as rowSortingFeature, n$ as rowSubject, uNe as rowTags, cNe as rowTitle, iM as runBulkAction, yU as runError, ls as saveCredential, oPe as scanLine, wve as schedulePollInterval, iDe as searchNote, jh as sectionTitle, JQ as selectRange, oNe as selectReviewRange, Jo as selectionState, KMe as selectionSummary, yi as serverLabel, Ti as serverLabelList, ji as serverText, _s as setFeedEnabled, hDe as setReleaseColumn, rs as setSourceEnabled, FCe as setTaskSpeed, Rh as settingsPath, yNe as settleReviewRows, AMe as sharedNamePrefix, Mg as shellNavigate, IJe as showToast, pV as showToast$1, la as siteMarkUrl, LX as skipFirstRun, Qj as sortCx, Ao as sortLabel, li as sourceDefaultCost, Ns as sourceIconUrl, lPe as sourceMeta, bu as spinnerHtml, ry as spring, _V as spriteGlyph, bi as stageText, ts as startCheck, wNe as startLinkCheck, TNe as startLinkPrune, BNe as startOrganize, ns as startResolve, rPe as startResourceApply, nPe as startResourceScan, ZKe as startTasteRefresh, TRe as statCardClass, RCe as statusLabel, VMe as statusLine, Mo as statusText, kN as storeJavLayout, hNe as submitDecision, EU as summaryItems, AY as suppressShiftTextSelection, L as t, aZ as tableFeatures, RX as tableMemo, Go as tableRows, VCe as taskIssues, hU as taskName, UCe as taskSubject, tqe as tasteDate, iqe as tasteDimensions, rqe as tasteHours, VKe as tasteKey, GKe as tasteRefetchInterval, KKe as tasteTime, KH as textLang, LK as tierPlaceholdersHtml, K_ as time, sSe as tl, Iq as toggleColumnValue, Yo as toggleGroup, cqe as topScores, WSe as translateWithNodes, _Se as um, hs as unmarkItems, fSe as uo, YU as useAction, v0 as useBackgroundJob, gK as useCatalogView, iK as useClientUpdates, v_ as useConstant, jY as useDense, DU as useEntityNames, y_ as useIsomorphicLayoutEffect, PV as useLibraryTints, xr as useMutation, LH as useNavigationOrder, G4 as useOrderedLibraries, vW as useOverlayScrollbar, s4 as usePageSelection, br as useQuery, Ut as useQueryClient, b4 as useQueueSort, _w as useReducedMotion, Cve as useRunSchedule, xve as useSaveSchedule, jL as useSaveSettings, Tve as useSaveThumbnailMode, iQ as useTable, lQ as useTablePreferences, RU as useViewGlide, LMe as victimBytes, cSe as vl, rDe as wantName, ZEe as wantsInterval, eKe as watchNote, QGe as watchedShare, rSe as we, _d as wireHorizontalScroller, qa as withBackoff, HNe as withOrganizeJob, oDe as writeJavQuery, eSe as z3 };
 
-//# debugId=92fd335e-5948-42c5-8d7a-a8c0afd72fd5
+//# debugId=63f16b02-6bf6-49e5-961d-385d70b78d5b

@@ -10,7 +10,7 @@ import { MEDIA_SOURCE_ICONS } from '@peach/legacy/ui';
 import { apiGet } from '../../api';
 import { cachedLibraryColors, onLibraries, publishLibraries, publishedLibraries, type LibraryRow } from '../../library-catalog';
 
-export interface LibraryTint { id: string; name: string; icon: string; location: string; color: string }
+export interface LibraryTint { id: string; name: string; icon: string; location: string; color: string; roots?: LibraryRow['roots'] }
 
 let tints: ReadonlyMap<string, LibraryTint> = new Map();
 let requested = false;
@@ -46,7 +46,7 @@ function publish(next: ReadonlyMap<string, LibraryTint>) {
 // 图标名换成图形与侧栏媒体库切换器同一张表：来源名取来源标志，其余是雪碧图字形。
 const fromRows = (rows: readonly LibraryRow[]) => new Map(rows.map(row => [row.id, {
   id: row.id, name: row.name, icon: MEDIA_SOURCE_ICONS[row.icon || ''] || row.icon || 'database',
-  location: row.roots?.[0]?.location || '', color: row.color || '',
+  location: row.roots?.[0]?.location || '', color: row.color || '', roots: row.roots,
 }]));
 
 let seeded = false;
