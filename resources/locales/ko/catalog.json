@@ -25,6 +25,25 @@
     "indexFailed": "갤러리 인덱스를 불러올 수 없습니다: {{error}}",
     "contentImage": "미리보기 {{number}}",
     "indexUpdating": "갤러리 색인을 업데이트 중입니다. 후보 이미지가 자동으로 나타납니다.",
-    "cropFrame": "{{label}}(에)서 따온 사진"
+    "cropFrame": "{{label}}(에)서 발췌됨",
+    "noChoices": "{{name}}: 아직 사진이 없습니다. 품번, URL, 혹은 기기에서 선택해주세요.",
+    "requestFailed": "요청 실패 ({{status}})",
+    "sourceCodeCover": "품번에 따른 작품 표지",
+    "sourceGallery": "갤러리",
+    "sourceSocial": "소셜미디어 사진",
+    "sourceUpload": "이 기기",
+    "sourceUrl": "URL",
+    "sourceVideoStill": "작품 스틸컷",
+    "useArea": "이 부분을 사용",
+    "useUrl": "이 URL을 사용",
+    "useWhole": "전체 이미지 사용",
+    "videoCover": "작품 표지",
+    "sourceHistory": "최근 사용됨"
+  },
+  "catalogFilter": {
+    "filterAndSort": "필터 및 정렬",
+    "readout": "{{count, number}}개 일치 · {{shown, number}}개 표시됨",
+    "showAll": "모두 보기",
+    "views": ""
   }
 }
