@@ -8,7 +8,8 @@
 三档，上游原样的 reason 留在 `detail` 里给冷却与快照回溯用。链上 `LibraryMetadataProvider` 拿到的
 形状因此与自写站一致。
 
-站点字段、失败分档与总时限复核见 `docs/reference-snapshots/upstream-review.md`。
+已复核 v0.28.0 的 freejavbt 身份校验与 makers 海报推导，字段、失败分档与总时限契约相同。
+完整复核见 `docs/reference-snapshots/upstream-review.md`。
 
 聚合不在这里：一站一份 payload 交给 `metadata_policy` / ADR-0038 的结算，不复制 amane 的
 `aggregate`。升级也不在这里：钉的 sha 只在 `pyproject.toml` 一处，本模块读它，不另存一份。
