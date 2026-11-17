@@ -195,26 +195,54 @@ class MdnsPublisherTests(unittest.TestCase):
     def test_tunnel_route_falls_back_to_real_host_interface(self):
         fake_socket = MagicMock()
         fake_socket.getsockname.return_value = ("198.18.0.1", 50000)
-        with patch("peach.mdns.socket.socket", return_value=fake_socket), patch(
-            "peach.mdns.socket.gethostname", return_value="host",
-        ), patch(
-            # 前两个是虚拟网卡那种网关端点（末段 1 或 2），`lan_ipv4` 按端点评分把它们
-            # 排在真实接口后面，所以第三个胜出。
-            "peach.mdns.socket.gethostbyname_ex",
-            return_value=("host", [], ["192.0.2.2", "203.0.113.1", "198.51.100.162"]),
-        ):
+        adapters = [
+            SimpleNamespace(name="tun0", nice_name="Meta Tunnel", ips=[SimpleNamespace(is_IPv4=True, ip="203.0.113.1")]),
+            SimpleNamespace(name="eth0", nice_name="Ethernet", ips=[SimpleNamespace(is_IPv4=True, ip="198.51.100.162")]),
+        ]
+        with patch("peach.mdns.socket.socket", return_value=fake_socket), \
+                patch("peach.mdns.ifaddr.get_adapters", return_value=adapters):
             self.assertEqual(lan_ipv4(), "198.51.100.162")
+
 
     def test_gateway_endpoint_route_falls_back_to_real_host_interface(self):
         fake_socket = MagicMock()
         fake_socket.getsockname.return_value = ("203.0.113.1", 50000)
-        with patch("peach.mdns.socket.socket", return_value=fake_socket), patch(
-            "peach.mdns.socket.gethostname", return_value="host",
-        ), patch(
-            "peach.mdns.socket.gethostbyname_ex",
-            return_value=("host", [], ["203.0.113.1", "198.51.100.162"]),
-        ):
+        adapters = [
+            SimpleNamespace(name="tun0", nice_name="Meta Tunnel", ips=[SimpleNamespace(is_IPv4=True, ip="203.0.113.1")]),
+            SimpleNamespace(name="eth0", nice_name="Ethernet", ips=[SimpleNamespace(is_IPv4=True, ip="198.51.100.162")]),
+        ]
+        with patch("peach.mdns.socket.socket", return_value=fake_socket), \
+                patch("peach.mdns.ifaddr.get_adapters", return_value=adapters):
             self.assertEqual(lan_ipv4(), "198.51.100.162")
+
+
+    def test_valid_routed_private_networks_are_equal_and_gateway_addresses_can_be_real_hosts(self):
+        for routed in ('10.20.30.1', '172.20.0.2', '192.168.50.162'):
+            with self.subTest(routed=routed):
+                fake_socket = MagicMock()
+                fake_socket.getsockname.return_value = (routed, 50000)
+                adapters = [SimpleNamespace(name='eth0', nice_name='Ethernet', ips=[
+                    SimpleNamespace(is_IPv4=True, ip=routed),
+                    SimpleNamespace(is_IPv4=True, ip='192.168.99.100')])]
+                with patch('peach.mdns.socket.socket', return_value=fake_socket), \
+                        patch('peach.mdns.ifaddr.get_adapters', return_value=adapters):
+                    self.assertEqual(lan_ipv4(), routed)
+
+    def test_unavailable_route_uses_interfaces_and_closes_the_socket(self):
+        fake_socket = MagicMock()
+        fake_socket.connect.side_effect = OSError('no route')
+        adapter = SimpleNamespace(name='en0', nice_name='Wi-Fi', ips=[
+            SimpleNamespace(is_IPv4=True, ip='10.2.3.4')])
+        with patch('peach.mdns.socket.socket', return_value=fake_socket), \
+                patch('peach.mdns.ifaddr.get_adapters', return_value=[adapter]):
+            self.assertEqual(lan_ipv4(), '10.2.3.4')
+        fake_socket.close.assert_called_once()
+
+    def test_no_publishable_interfaces_reports_an_error(self):
+        with patch('peach.mdns.ifaddr.get_adapters', return_value=[]), \
+                patch('peach.mdns.socket.socket'):
+            with self.assertRaisesRegex(RuntimeError, 'no publishable LAN'):
+                lan_ipv4()
 
 
 class ReachabilityTests(unittest.TestCase):
