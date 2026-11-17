@@ -60,9 +60,10 @@ async function openHome(browser: Browser, path = '/', viewport = DESKTOP): Promi
     return route.fulfill({ json: { performers, studios: page ? [] : STUDIOS } });
   });
   await page.route((url) => url.pathname === '/api/facets', async (route) => {
-    counts.facets.push(new URL(route.request().url()));
+    const url = new URL(route.request().url());
+    counts.facets.push(url);
     const response = await route.fetch();
-    await route.fulfill({ json: { ...await response.json(), tags: TAGS } });
+    await route.fulfill({ json: { ...await response.json(), tags: url.searchParams.has('scope_kind') ? TAGS.slice(0, 1) : TAGS } });
   });
   /* 加一条标签筛选，列表就只剩一半：读数跟着换，才看得出这一趟真按新口径取了。 */
   await page.route((url) => url.pathname === '/api/items', (route) => {
@@ -90,6 +91,55 @@ describe('首页筛选条', () => {
   let browser: Browser;
   before(async () => { browser = await launch(); });
   after(async () => { await browser?.close(); });
+
+  const entityReturns = [
+    { kind: 'creator', segment: 'creators', viewport: DESKTOP },
+    { kind: 'creator', segment: 'creators', viewport: PHONE },
+    { kind: 'performer', segment: 'performers', viewport: DESKTOP },
+    { kind: 'studio', segment: 'studios', viewport: DESKTOP },
+    { kind: 'series', segment: 'series', viewport: DESKTOP },
+    { kind: 'agency', segment: 'agencies', viewport: DESKTOP },
+    { kind: 'tag', segment: 'tags', viewport: DESKTOP },
+  ];
+  for (const { kind, segment, viewport } of entityReturns) {
+    it(`${viewport.name} 从 ${kind} 资料深链返回首页恢复馆藏标签，重复往返沿用首页范围`, { timeout: 60_000 }, async () => {
+      const opened = await openHome(browser, '/', viewport);
+      const { page, counts } = opened;
+      try {
+        await page.route((url) => url.pathname === '/api/entity', route => route.fulfill({ json: {
+          id: 90_102, kind, canonical_name: '演示实体', aliases: [], display_aliases: [], user_aliases: [],
+          asset_count: CATALOG.length, tags: TAGS.slice(0, 1), related_performers: [], links: [], metadata: {},
+          has_image: false, has_avatar: false, avatar_focus: null, representative_asset_id: null, entry_links: [], feed: null,
+        } }));
+        await page.route((url) => url.pathname === '/api/photos', route => route.fulfill({ json: {
+          total: 0, sample_total: 0, sets: [], items: [], has_more: false, seed: '',
+        } }));
+        await page.goto(new URL(`/${segment}/${encodeURIComponent('演示实体')}`, page.url()).href, { waitUntil: 'load' });
+        await pathIs(page, `/${segment}/90102`);
+        for (let pass = 0; pass < 2; pass += 1) {
+          await withPageDiagnostics(page, () => `${kind} 资料页就绪 ${JSON.stringify(opened.problems)}`, () =>
+            page.locator('[data-entity-filter-glass] [data-entity-readout]').waitFor({ timeout: 10_000 }));
+          await settle(page);
+          const before = counts.facets.length;
+          if (viewport.mobile) await page.getByRole('button', { name: '展开侧栏', exact: true }).click();
+          await page.locator('[data-nav=""]:visible').first().click();
+          await pathIs(page, '/');
+          await page.waitForFunction(filter => document.querySelectorAll(`${filter} [data-catalog-tag]`).length > 1, FILTER);
+          await settle(page);
+          const queries = counts.facets.slice(before);
+          assert.ok(queries.every(url => !url.searchParams.has('scope_kind') && !url.searchParams.has('scope_name')),
+            '首页聚合仍带有资料页范围');
+          assert.ok(await page.locator(`${FILTER} [data-catalog-tag]`).count() > 1, '首页只留下资料页的标签');
+          if (pass === 0) {
+            assert.ok(queries.length > 0, '深链首次返回首页应读取馆藏聚合');
+            await page.goBack();
+            await pathIs(page, `/${segment}/90102`);
+          }
+        }
+        assert.deepEqual(withoutPlayer(opened.problems), []);
+      } finally { await opened.close(); }
+    });
+  }
 
   it('JAV 读数尚未返回时保持两行骨架，内容就绪后再决定合行', { timeout: 60_000 }, async () => {
     const opened = await openHome(browser, '/?jav=1');
