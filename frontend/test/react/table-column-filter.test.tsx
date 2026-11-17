@@ -6,9 +6,12 @@ import { Table, TableBody, TableCell, TableColumn, TableHeader, TableRow } from 
 import { CatalogColumnFilter } from '../../src/react/catalog-grid/catalog-column-filter';
 import { TableColumnFilter } from '../../src/react/components/table-column-filter';
 import { queryClient } from '../../src/react/query';
-import { buttonNamed, click, mount, settle, type } from './render';
+import { publishLibraries } from '../../src/library-catalog';
+import { MEDIA_SOURCES_KEY } from '../../src/query/media-sources';
+import { t } from '../../src/i18n';
+import { buttonNamed, click, mount, pending, settle, type } from './render';
 
-afterEach(() => queryClient.clear());
+afterEach(() => { queryClient.clear(); publishLibraries([]) });
 
 it('列头下拉支持搜索、多选与清除，搜索不丢失已选项', async () => {
   const changed = vi.fn();
@@ -89,4 +92,63 @@ it('艺人选项按完整范围延迟读取，切换时保留其它列条件', a
   await vi.waitFor(() => expect(document.querySelector('input[aria-label="Another Person"]')).not.toBeNull());
   await click(document.querySelector('input[aria-label="Another Person"]'));
   expect(JSON.parse(changed.mock.calls.at(-1)![0].column_filters)).toEqual({ tags: ['Tag'], people: ['creator:Creator', 'performer:Another Person'] });
+});
+
+it('媒体库按各自根目录显示离线状态，混合在线与未检测目录保持可选', async () => {
+  const offlineRoot = { root_id: 'unplugged', location: 'local' };
+  const onlineRoot = { root_id: 'connected', location: 'local' };
+  publishLibraries([
+    { id: 'media', name: 'media', roots: [offlineRoot] },
+    { id: 'backup', name: 'backup', roots: [onlineRoot] },
+    { id: 'mixed', name: 'mixed', roots: [offlineRoot, onlineRoot] },
+    { id: 'unknown', name: 'unknown', roots: [{ root_id: 'checking', location: 'local' }] },
+  ]);
+  const status = (offline: boolean | null, online: boolean | null) => ({ sources: [{ location: 'local', online: true,
+    roots: [{ root_id: 'unplugged', online: offline }, { root_id: 'connected', online }, { root_id: 'checking', online: null }] }] });
+  queryClient.setQueryData(MEDIA_SOURCES_KEY, status(false, true));
+  const changed = vi.fn();
+  const host = await mount(<QueryClientProvider client={queryClient}>
+    <CatalogColumnFilter column="library" label="媒体库" filters={{}} scope={{}} revision={1} tagLabel={value => value} onChange={changed} />
+  </QueryClientProvider>);
+  await click(host.querySelector('[data-table-column-filter]'));
+  const choice = (name: string) => document.querySelector<HTMLInputElement>(`input[aria-label="${name}"]`)!;
+  expect(choice('media').disabled).toBe(true);
+  expect(choice('media').checked).toBe(true);
+  expect(choice('media').closest('[data-column-filter-offline]')?.getAttribute('title')).toBe(t('shell:sourceTools.libraryOffline'));
+  expect(choice('backup').disabled).toBe(false);
+  expect(choice('mixed').disabled).toBe(false);
+  expect(choice('unknown').disabled).toBe(false);
+  await click(choice('media'));
+  expect(changed).not.toHaveBeenCalled();
+  await act(async () => { queryClient.setQueryData(MEDIA_SOURCES_KEY, status(true, false)) });
+  await vi.waitFor(() => expect(choice('media').disabled).toBe(false));
+  expect(choice('backup').disabled).toBe(true);
+  expect(choice('mixed').disabled).toBe(false);
+});
+
+it('下拉加载态位于选项末尾，滚动续页期间保留已有选项', async () => {
+  const first = pending<{ items: { id: string; label: string }[]; nextOffset?: number }>();
+  const next = pending<{ items: { id: string; label: string }[]; nextOffset?: number }>();
+  const load = vi.fn((_signal: AbortSignal, _search: string, offset: number) => offset ? next.answer : first.answer);
+  const host = await mount(<QueryClientProvider client={queryClient}>
+    <TableColumnFilter id="people" label="艺人" load={load} onChange={() => {}} />
+  </QueryClientProvider>);
+  await click(host.querySelector('[data-table-column-filter]'));
+  const loading = () => document.querySelector('[role="dialog"] [role="status"]');
+  const scroll = document.querySelector('[data-column-filter-options]')!;
+  expect(loading()?.textContent).toBe(t('shell:spinner.loading'));
+  expect(scroll.lastElementChild).toBe(loading());
+  expect(loading()?.querySelector('[data-activity]')?.getAttribute('data-activity')).toBe('linear-dots');
+  await first.release({ items: [{ id: 'one', label: 'First person' }], nextOffset: 24 });
+  await vi.waitFor(() => expect(document.querySelector('input[aria-label="First person"]')).not.toBeNull());
+  expect(load).toHaveBeenCalledTimes(1);
+  await act(async () => { scroll.dispatchEvent(new Event('scroll', { bubbles: true })) });
+  await vi.waitFor(() => expect(loading()?.textContent).toBe(t('shell:spinner.loadingMore')));
+  expect(scroll.lastElementChild).toBe(loading());
+  expect(loading()?.querySelector('[data-activity]')?.getAttribute('data-activity')).toBe('linear-dots');
+  expect(document.querySelector<HTMLInputElement>('input[aria-label="First person"]')?.checked).toBe(true);
+  expect(load.mock.calls.map(call => call[2])).toEqual([0, 24]);
+  await next.release({ items: [{ id: 'two', label: 'Second person' }] });
+  await vi.waitFor(() => expect(document.querySelector('input[aria-label="Second person"]')).not.toBeNull());
+  expect(loading()).toBeNull();
 });

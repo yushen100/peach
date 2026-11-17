@@ -2,3 +2,5 @@
 .peach-react [data-column-filter-avatar] > span { grid-area: 1 / 1; }
 .peach-react [data-column-filter-avatar] img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .peach-react [data-column-filter-options] { overflow-anchor: none; }
+.peach-react [data-column-filter-offline] { cursor: not-allowed; }
+.peach-react [data-column-filter-offline] img { filter: grayscale(1); }

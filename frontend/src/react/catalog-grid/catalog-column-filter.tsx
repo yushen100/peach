@@ -1,4 +1,6 @@
 import { apiGet } from '../../api';
+import { useQuery } from '@tanstack/react-query';
+import { fetchMediaSources, MEDIA_SOURCES_KEY } from '../media-sources';
 import { useLibraryTints } from '../components/library-tint';
 import { TableColumnFilter, type ColumnFilterOption, type ColumnFilterPage } from '../components/table-column-filter';
 import { ColumnFilterAvatar } from '../components/column-filter-avatar';
@@ -17,6 +19,8 @@ export function CatalogColumnFilter({ column, label, filters, scope, revision, t
 }) {
   useEntityNames();
   const libraries = useLibraryTints({ names: column === 'library' });
+  const sources = useQuery({ queryKey: MEDIA_SOURCES_KEY, queryFn: ({ signal }) => fetchMediaSources(signal),
+    enabled: column === 'library' });
   const selected = readColumnFilters(filters.column_filters);
   const remaining = { ...filters, column_filters: writeColumnFilters(selected, column, undefined) };
   const params = new URLSearchParams(Object.entries({ ...scope, ...remaining, column }).filter(([, value]) => value));
@@ -36,8 +40,16 @@ export function CatalogColumnFilter({ column, label, filters, scope, revision, t
       nextOffset: data.next_offset ?? undefined };
   };
   return <TableColumnFilter id={column} label={label} values={selected[column]}
-    options={[...libraries.values()].filter(library => library.name).map(library => ({ id: library.id, label: library.name,
-      leading: <SourceMark mark={library.icon} /> }))}
+    options={[...libraries.values()].filter(library => library.name).map(library => {
+      const offline = !!library.roots?.length && library.roots.every(root => {
+        const source = sources.data?.sources.find(source => source.location === root.location);
+        const status = root.root_id ? source?.roots?.find(status => status.root_id === root.root_id) : source;
+        return status?.online === false;
+      });
+      return { id: library.id, label: library.name, disabled: offline,
+        title: offline ? t('shell:sourceTools.libraryOffline') : undefined,
+        leading: <SourceMark mark={library.icon} /> };
+    })}
     load={column === 'library' ? undefined : load} queryKey={['table-column-filter', String(params), revision]}
     onChange={next => {
       const encoded = writeColumnFilters(selected, column, next);
