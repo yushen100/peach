@@ -228,6 +228,15 @@ class MdnsPublisherTests(unittest.TestCase):
                         patch('peach.mdns.ifaddr.get_adapters', return_value=adapters):
                     self.assertEqual(lan_ipv4(), routed)
 
+    def test_a_guest_network_adapter_can_own_the_real_lan_route(self):
+        fake_socket = MagicMock()
+        fake_socket.getsockname.return_value = ('10.2.3.4', 50000)
+        adapter = SimpleNamespace(name='eth0', nice_name='VMware VMXNET3 Ethernet Adapter', ips=[
+            SimpleNamespace(is_IPv4=True, ip='10.2.3.4')])
+        with patch('peach.mdns.socket.socket', return_value=fake_socket), \
+                patch('peach.mdns.ifaddr.get_adapters', return_value=[adapter]):
+            self.assertEqual(lan_ipv4(), '10.2.3.4')
+
     def test_unavailable_route_uses_interfaces_and_closes_the_socket(self):
         fake_socket = MagicMock()
         fake_socket.connect.side_effect = OSError('no route')

@@ -36,7 +36,7 @@ def lan_ipv4() -> str:
     candidates = []
     for adapter in ifaddr.get_adapters():
         name = (adapter.name + " " + adapter.nice_name).casefold()
-        if any(marker in name for marker in ("tunnel", "tailscale", "hyper-v", "virtualbox", "vmware")) \
+        if any(marker in name for marker in ("tunnel", "tailscale", "host-only", "host only", "hyper-v virtual ethernet")) \
                 or name.split(" ", 1)[0].startswith(("utun", "tun", "tap", "veth", "docker", "br-")):
             continue
         for entry in adapter.ips:
