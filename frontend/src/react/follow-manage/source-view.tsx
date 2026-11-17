@@ -10,9 +10,10 @@ import { Chip } from '@/components/base/badges/chip';
 import { Button } from '@/components/base/buttons/button';
 
 import { MarkImage } from '../components/site-mark';
+import { ColumnFilterAvatar } from '../components/column-filter-avatar';
 
 import {
-  authorAvatar, authorInitial, errorHeadline, isBroken, sourceIconUrl, statusText,
+  authorAvatar, authorInitial, authorPortrait, errorHeadline, isBroken, sourceIconUrl, statusText,
   type FollowSource,
 } from './follow-manage';
 import { t } from '../../i18n';
@@ -22,26 +23,28 @@ export function SourceIcon({ provider }: { provider: string }) {
   return <MarkImage src={sourceIconUrl(provider)} />;
 }
 
-/** 创作者圆标：官方来源的头像优先，归档来源回退，都取不到就用首字母。
+/** 创作者圆标共用实体图、作品头像、来源缓存与首字母的取图顺序。
  *
  * 首字母取自创作者名而不是某条来源的标签——那会切出「初」「一」这类和创作者无关的字。 */
-export function AuthorAvatar({ group, name }: { group: FollowSource[]; name: string }) {
+export function AuthorAvatar({ group, name, small = false }: { group: FollowSource[]; name: string; small?: boolean }) {
   const { src, fallback } = authorAvatar(group);
   const [at, setAt] = useState(0);
+  const entity = authorPortrait(group);
+  if (entity) return <ColumnFilterAvatar person={entity} kind="creator" size={small ? 'small' : 'medium'} />;
   const chain = [src, fallback].filter(Boolean);
   const current = chain[at];
   if (!current) {
     return (
       <span title={t('follow:sourceView.noAvatar')}
-        className="inline-grid size-8 shrink-0 place-items-center rounded-full bg-media-placeholder text-caption-1-semibold text-text-secondary">
+        className={`inline-grid ${small ? 'size-6' : 'size-8'} shrink-0 place-items-center rounded-full bg-media-placeholder text-caption-1-semibold text-text-secondary`}>
         {authorInitial(name)}
       </span>
     );
   }
   return (
-    <img src={current} alt="" width={32} height={32} loading="lazy" referrerPolicy="no-referrer"
+    <img src={current} alt="" width={small ? 24 : 32} height={small ? 24 : 32} loading="lazy" referrerPolicy="no-referrer"
       onError={() => setAt(at + 1)}
-      className="size-8 shrink-0 rounded-full bg-media-placeholder object-cover" />
+      className={`${small ? 'size-6' : 'size-8'} shrink-0 rounded-full bg-media-placeholder object-cover`} />
   );
 }
 

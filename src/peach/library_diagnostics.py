@@ -61,13 +61,21 @@ def _local_access(row):
     return row.get("message") in {_text(code) for code in LOCAL_ACCESS_CODES}
 
 
-def group(key, rows=None):
+def group(key, rows=None, *, config=None, filters=None):
     label = {"label": _text(GROUP_CODES[key]), "label_code": GROUP_CODES[key]}
     if rows is None:
         return {**label, "status": "unknown", "count": None, "items": [], "truncated": False}
     ordered = sorted(rows, key=lambda row: row["id"])
+    facets = {}
+    if config is not None:
+        from .media_identity import ownership
+        from .table_filters import filter_rows
+        for item in ordered:
+            if "library_id" not in item:
+                item["library_id"] = ownership(config, item["path"]).get("library_id", "")
+        ordered, facets = filter_rows(ordered, filters, {"location": lambda row: [row["library_id"] or "none"]})
     return {**label, "status": "ok", "count": len(ordered), "items": ordered[:LIMIT],
-            "truncated": len(ordered) > LIMIT}
+            "truncated": len(ordered) > LIMIT, "column_facets": facets}
 
 
 def failures(config):
@@ -118,7 +126,7 @@ def _library_item(row):
             "path": str(path or ""), "duration": duration, "size": size}
 
 
-def library(settings, config):
+def library(settings, config, filters=None):
     groups = {key: group(key) for key in GROUP_CODES}
     try:
         with closing(sqlite3.connect(settings.db_path.resolve().as_uri() + "?mode=ro", uri=True, timeout=1)) as connection:
@@ -129,26 +137,20 @@ def library(settings, config):
     except (sqlite3.Error, OSError):
         return {"groups": groups, "issue_at": None}
     assets = {row[0]: _library_item(row) for row in rows}
-    groups["duration"] = group("duration", [assets[row[0]] for row in rows if not row[2] or row[2] <= 0])
+    def grouped(key, items):
+        return group(key, items, config=config, filters=(filters or {}).get(key))
+    groups["duration"] = grouped("duration", [assets[row[0]] for row in rows if not row[2] or row[2] <= 0])
     covers, posters = inventory(settings.cover_root), inventory(settings.poster_root)
     if covers is not None and posters is not None:
         missing = [assets[row[0]] for row in rows
                    if (normalise_code_key(row[1]).casefold() not in covers if row[1]
                        else f"{row[0]}_4" not in posters)]
-        groups["cover"] = group("cover", missing)
+        groups["cover"] = grouped("cover", missing)
     failed, issue_at = failures(config)
     if failed is not None:
         for key in ("identification", "metadata"):
-            groups[key] = group(key, [assets[value] for value in failed[key] if value in assets])
-    _attach_libraries(config, groups)
+            groups[key] = grouped(key, [assets[value] for value in failed[key] if value in assets])
     return {"groups": groups, "issue_at": issue_at}
-
-
-def _attach_libraries(config, groups):
-    """媒体库列与作品列表同一个归属：只给下发的条目按路径补 `library_id`，不扫全库。"""
-    from .media_identity import ownership
-    for item in {item["id"]: item for value in groups.values() for item in value["items"]}.values():
-        item["library_id"] = ownership(config, item["path"]).get("library_id", "")
 
 
 #: 来源检查失败原因的显示文字（ADR-0159），值是 `labels.libraryDiagnostics.source` 下的 code。

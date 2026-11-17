@@ -6,10 +6,11 @@ import { Button } from '@/components/base/buttons/button';
 import { cx } from '@/utils/cx';
 
 import { errorMessage } from '../../api';
-import { BATCH_DELETE_TEXT } from '../../cleanup-tool-skeletons';
+import { BATCH_DELETE_TEXT, cleanupToolSkeletonHtml } from '../../cleanup-tool-skeletons';
 import { entityDisplayName } from '../../core/entity-names';
 import type { BulkAction } from '../components/bulk-action';
 import { DataTable, type DataColumn } from '../components/data-table';
+import { ColumnFilterAvatar } from '../components/column-filter-avatar';
 import { Fieldset, FieldsetTitle } from '../components/fieldset';
 import { LEGACY_AVATAR_IMG } from '../components/legacy-avatar';
 import { Note } from '../components/note';
@@ -61,6 +62,9 @@ export function PerformerDeleteCard({ toast }: { toast(message: string): void })
 
   const columns = useMemo<DataColumn<DeletePerformer>[]>(() => [
     { id: 'name', label: t('cleanup:shared.actress'), width: 280, min: 160, value: person => person.k,
+      filter: { values: person => person.k, option: (name, person) => ({
+        label: entityDisplayName('performer', name, person?.entity_id), searchTerms: person?.aliases,
+        leading: person && <ColumnFilterAvatar person={{ ...person, id: person.entity_id, name }} /> }) },
       render: person => <PerformerName person={person} /> },
     { id: 'works', label: t('cleanup:shared.videos'), width: 104, min: 80, value: person => person.n,
       render: person => t('cleanup:performerDelete.videoCount', { count: person.n }) },
@@ -109,11 +113,12 @@ export function PerformerDeleteCard({ toast }: { toast(message: string): void })
     ...result.cache_blocked.map(item => ({ path: item.name, reason: item.reason })),
   ] : [];
   return <section id="batch-delete" className="flex min-w-0 scroll-mt-20 flex-col gap-3" aria-label={t('cleanup:tools.bulkDelete')}>
-    {query.isPending || query.isError ? <Fieldset layout="stack" labelledBy="batch-delete-title">
+    {query.isPending ? <div dangerouslySetInnerHTML={{ __html: cleanupToolSkeletonHtml('batch-delete') }} />
+      : query.isError ? <Fieldset layout="stack" labelledBy="batch-delete-title">
       <FieldsetTitle id="batch-delete-title">{t('cleanup:tools.bulkDelete')}</FieldsetTitle>
-      {query.isError ? <Note tone="error" title={t('cleanup:performerDelete.loadFailed')}
+      <Note tone="error" title={t('cleanup:performerDelete.loadFailed')}
         action={<Button variant="secondary" size="small" onClick={() => void query.refetch()}>{t('cleanup:shared.retry')}</Button>}>
-        {errorMessage(query.error)}</Note> : <p role="status" className="text-body-regular text-text-secondary">{t('cleanup:performerDelete.loading')}</p>}
+        {errorMessage(query.error)}</Note>
     </Fieldset> : <DataTable label={t('cleanup:performerDelete.tableLabel')} title={t('cleanup:tools.bulkDelete')} titleId="batch-delete-title" unit={t('cleanup:performerDelete.unit')}
       description={BATCH_DELETE_TEXT} items={items} columns={columns}
       rowId={person => String(person.entity_id)} rowLabel={person => entityDisplayName('performer', person.k, person.entity_id)}

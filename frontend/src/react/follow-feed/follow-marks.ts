@@ -7,9 +7,11 @@
  * 站点图标、版本字样与另见徽章按 `data-follow-*` 认，样式在 `follow-feed.css`。创作者圆框仍挂
  * `favatar`：图坏了时回落脚本按 `data-drop-class` 换上一枚只带类名的首字母，接不住属性。 */
 import { api, esc, registerEntityLink } from '@peach/legacy/core';
+import { avatarInner } from '../../card-art/markup';
+import { LEGACY_AVATAR_IMG } from '../components/legacy-avatar';
 
 import {
-  authorAvatar, authorInitial, authorName, sourceIconUrl, type AliasGroup,
+  authorAvatar, authorInitial, authorName, authorPortrait, sourceIconUrl, type AliasGroup,
 } from '../follow-manage/follow-manage';
 import { localTime } from '../time';
 import type { FollowContext, FollowGroup, FollowIdentity, FollowItem, FollowSource } from './follow-feed';
@@ -57,8 +59,10 @@ export function followAuthorEntity(sources: readonly FollowSource[]): string {
   return name;
 }
 
-/** 创作者圆框里那段：官方头像优先，归档站回退，都取不到时换成首字母。 */
+/** 创作者圆框读取本地实体与作品头像，再使用来源头像和首字母。 */
 export function authorAvatarHtml(sources: readonly FollowSource[], name: string): string {
+  const entity = authorPortrait(sources);
+  if (entity) return `<span class="favatar relative inline-grid place-items-center overflow-hidden ${LEGACY_AVATAR_IMG}">${avatarInner(name, entity, null, 'creator')}</span>`;
   const { src, fallback } = authorAvatar(sources);
   const initial = authorInitial(name);
   if (!src) return `<span class="favatar none" title="${esc(t('follow:feedMarks.noAvatar'))}">${esc(initial)}</span>`;

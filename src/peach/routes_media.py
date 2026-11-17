@@ -25,11 +25,13 @@ from typing import Iterable
 from urllib.parse import quote, urlsplit
 
 import httpx
+from filelock import FileLock
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import (
     FileResponse, JSONResponse, PlainTextResponse, RedirectResponse, Response,
 )
 from starlette.staticfiles import StaticFiles
+from starlette.background import BackgroundTask, BackgroundTasks
 from starlette.requests import ClientDisconnect
 
 from . import (
@@ -41,6 +43,7 @@ from . import (
 )
 from .config import GENERATED_DIR, PROJECT_ROOT
 from .entities import resolve_entity_id
+from .fsutil import atomic_path
 from .follow import FollowSourceError
 from .follow_avatar import profile_avatar_tiers, profile_identities, resolve_official_avatar
 from .follow_covers import (
@@ -78,6 +81,18 @@ AVATAR_CACHE_SECONDS = AVATAR_REFRESH_SECONDS
 
 def _asset_root(state) -> Path:
     return Path(state.settings.candidate_root) / follow_assets.ROOT_NAME
+
+
+def _cached_follow_asset(state, kind, key, ttl, fetch):
+    """已有元数据图片立即返回，过期刷新在响应发送后复用原缓存入口。"""
+    root = _asset_root(state)
+    path = follow_assets.cache_path(root, kind, key)
+    if path.is_file():
+        refresh = (not follow_assets.is_fresh(path, ttl)
+                   and not follow_assets.is_fresh(path.with_suffix('.failed'), follow_assets.RETRY_SECONDS))
+        background = BackgroundTask(follow_assets.cached_image, root, kind, key, ttl, fetch) if refresh else None
+        return path, background
+    return follow_assets.cached_image(root, kind, key, ttl, fetch), None
 
 
 def _asset_response(request: Request, path: Path | None, *, placeholder: bool = True):
@@ -895,7 +910,6 @@ def follow_avatar(request: Request, service: str = "", id: str = "",
         target = follow_assets.mirror_avatar_url(provider, ref)
         if target is None:
             return _asset_response(request, None, placeholder=False)
-        key = f"mirror:{provider}:{ref}"
 
         def fetch():
             return follow_assets.fetch_image(client, target)
@@ -904,7 +918,6 @@ def follow_avatar(request: Request, service: str = "", id: str = "",
         identities = profile_identities(id)
         if not identities:
             return _asset_response(request, None, placeholder=False)
-        key = f"official:profile:{id}"
 
         def fetch():
             tier_lists = []
@@ -924,7 +937,6 @@ def follow_avatar(request: Request, service: str = "", id: str = "",
         # `resolve_official_avatar` 把关，这里只挡住明显不是身份的串。
         if service != "fanbox" or not _FANBOX_IDENTITY_RE.fullmatch(id):
             return _asset_response(request, None, placeholder=False)
-        key = f"official:{service}:{id}"
 
         def fetch():
             try:
@@ -932,13 +944,15 @@ def follow_avatar(request: Request, service: str = "", id: str = "",
             except (OSError, FollowSourceError):
                 return None
             return follow_assets.fetch_image(client, resolved)
-    path = follow_assets.cached_image(_asset_root(state), "avatars", key,
-                                      AVATAR_REFRESH_SECONDS, fetch)
+    key = follow_assets.avatar_cache_key(provider=provider, ref=ref, service=service, id=id)
+    path, background = _cached_follow_asset(state, "avatars", key, AVATAR_REFRESH_SECONDS, fetch)
     if path is None and service == "profile":
         body = _avatar_failure(failures)
         return JSONResponse(body, status_code=404,
                             headers={"cache-control": "no-store"})
-    return _asset_response(request, path, placeholder=False)
+    response = _asset_response(request, path, placeholder=False)
+    response.background = background
+    return response
 
 
 def _avatar_failure(failures: list[UserFacingError]) -> dict:
@@ -965,13 +979,15 @@ def source_icon(request: Request, provider: str = "", args: dict[str, str] = Dep
         path = None
     else:
         client = state.http_transport.client
-        path = follow_assets.cached_image(
-            _asset_root(state), "icons", provider, FAVICON_REFRESH_SECONDS,
+        path, background = _cached_follow_asset(
+            state, "icons", provider, FAVICON_REFRESH_SECONDS,
             lambda: follow_assets.legible_icon(follow_assets.fetch_image(client, target)))
     if path is None:
         return Response((PROJECT_ROOT / 'resources' / 'site-marks' / 'globe.svg').read_bytes(),
                         status_code=404, media_type='image/svg+xml', headers={'cache-control': 'no-store'})
-    return _asset_response(request, path)
+    response = _asset_response(request, path)
+    response.background = background
+    return response
 
 
 #: 人脸探针，题材头像与换头像按番号取的封面共用。YuNet 的模型是个 232 KB 的 ONNX，
@@ -1139,7 +1155,7 @@ def _report_follow_media_failure(item, error: Exception, *, operation: str, phas
 def _follow_media_size(state, item, target: ResolvedFollowMedia) -> int | None:
     """正片的字节数，取不到就是 None。
 
-    只能问上游：来源列表里没有这一项，账本里也只有落盘资源才有 size。一次 HEAD 就够，
+    完整本地缓存未提供大小时问上游。一次 HEAD 就够，
     正文一个字节都不取，而且走的是播放同一条 `open_upstream`——逐跳白名单和非 2xx 拒收
     都在那里，这里不另开一条出网路径。
 
@@ -1172,27 +1188,28 @@ def follow_qualities(request: Request, id: int, args: dict[str, str] = Depends(r
     播放器据此只显示「原画」。取不到不是错误——签名 URL 会过期、来源也可能改版，
     那时照常播默认档就行。
 
-    `size` 跟着一起回：渐进下载在浏览器里量不到字节速率（media 请求的
-    `encodedBodySize` 是 0），只有拿文件大小和时长换出平均码率，才能把缓冲前沿推进的
-    秒数折成 MB/s。这里已经解析完媒体地址，多一次 HEAD 就能拿到，比让浏览器再发一趟便宜。
+    `size` 优先读取默认档的完整本地缓存；缺少缓存时用一次 HEAD 取得。
+    文件大小和时长提供平均码率，供播放器把缓冲秒数换成 MB/s。
     """
     state = request.app.state
     with state.database.read_connection() as connection:
         item = FollowStore(lambda: connection).item(id)
     if item is None:
         return JSONResponse({"error": "no such follow item"}, status_code=404)
+    cached = cache_for(state.web_contract).stored(f'follow:{item.id}:media:None:quality:None')
+    size = cached[1]['size'] if cached is not None and cached[1]['status'] == 200 else None
     try:
         resolved = state.follow_media_resolver.resolve(item)
     except FollowMediaUnavailable as error:
         _report_follow_media_failure(item, error, operation="qualities", phase="resolve")
-        return {"qualities": [], "size": None}
+        return {"qualities": [], "size": size}
     # 档位数量不写死：正则匹配 video_url 与任意编号的 video_alt_urlN，
     # 站点给几档就是几档（实测同一作者下有 4 档也有 5 档的条目）。
     # 2160 按站点自己的写法叫 4K，不叫 2160p。
     return {"qualities": [
         {"height": height, "label": "4K" if height >= 2160 else f"{height}p"}
         for height, _ in resolved.qualities if height
-    ], "size": _follow_media_size(state, item, resolved)}
+    ], "size": size if size is not None else _follow_media_size(state, item, resolved)}
 
 
 @router.api_route("/follow-stream", methods=["GET", "HEAD"])
@@ -1312,14 +1329,16 @@ _JAV_IMAGE_TYPES = frozenset({"image/jpeg", "image/png", "image/gif", "image/web
 def jav_image(request: Request, code: str, image: str = "cover", args: dict[str, str] = Depends(require_auth)):
     """库外作品的来源图片（样张、来源封面、来源头像），以图片本身回给 `<img>`。
 
-    字节来自远程媒体缓存，取过一次不再出网；带内容摘要的 ETag 与 `private, max-age`，
-    再开同一部作品由浏览器缓存直接给。取不到回 404 且不缓存，页面换成「未取得」并可重试。
+    字节来自远程媒体缓存，过期来源头像先返回已有图并在响应后刷新。
+    内容摘要 ETag 与 `private, max-age` 供浏览器复用；取不到回 404 且不缓存。
     """
     import hashlib
     from .follow_assets import sniff
     from .web_jav_detail import jav_image as source_image
+    background = BackgroundTasks()
+    options = {'defer': background.add_task} if image.startswith('actor:') else {}
     try:
-        body, max_age = source_image(request.app.state.web_contract, {"code": code, "image": image})
+        body, max_age = source_image(request.app.state.web_contract, {"code": code, "image": image}, **options)
     except (ValueError, OSError):
         return Response(status_code=404, headers={"cache-control": "no-store"})
     media_type = sniff(body)
@@ -1328,9 +1347,9 @@ def jav_image(request: Request, code: str, image: str = "cover", args: dict[str,
     headers = {"etag": f'"{hashlib.sha256(body).hexdigest()[:32]}"',
                "cache-control": f"private, max-age={max_age}"}
     if headers["etag"] in request.headers.get("if-none-match", ""):
-        return Response(status_code=304, headers=headers)
+        return Response(status_code=304, headers=headers, background=background)
     return Response(b"" if request.method == "HEAD" else body, media_type=media_type,
-                    headers={**headers, "content-length": str(len(body))})
+                    headers={**headers, "content-length": str(len(body))}, background=background)
 
 
 def _jav_preview_target(url: str) -> ResolvedFollowMedia:
@@ -1423,8 +1442,10 @@ def logo(request: Request, studio: str = "", variant: str = "",
     return response
 
 
-def _site_mark_response(state, url: str, root: Path):
+def _site_mark_response(state, url: str, root: Path, *, allow_fetch: bool = True):
     """站点圆标的取图、挑图、合成与缓存；调用方负责先把地址查出来。
+
+    已有圆标先返回，过期刷新在响应发送后执行。
 
     地址一律由服务端自己从某张表或账本解析，函数本身不判断来路——但它是唯一会
     真的去连对方站点的地方，所以每个调用方都得先说清自己的地址从哪来。
@@ -1442,9 +1463,28 @@ def _site_mark_response(state, url: str, root: Path):
     cached = link_marks.cached_path(root, page)
     if cached is None:
         return JSONResponse({"error": "unavailable"}, status_code=404)
+    for folder in (root, GENERATED_DIR / 'link-marks', GENERATED_DIR / 'site-marks'):
+        local = link_marks.cached_path(folder, page)
+        if local is not None and local.is_file():
+            cached = local
+            break
     marker = cached.with_suffix(".failed")
-    if (not link_marks.is_fresh(cached, ttl=FAVICON_REFRESH_SECONDS)
-            and not follow_assets.is_fresh(marker, follow_assets.RETRY_SECONDS)):
+
+    def refresh():
+        cached.parent.mkdir(parents=True, exist_ok=True)
+        with FileLock(cached.with_suffix('.lock')):
+            if (link_marks.is_fresh(cached, ttl=FAVICON_REFRESH_SECONDS)
+                    or follow_assets.is_fresh(marker, follow_assets.RETRY_SECONDS)):
+                return
+            made = make_mark()
+            if made:
+                with atomic_path(cached) as partial:
+                    partial.write_bytes(made)
+                marker.unlink(missing_ok=True)
+            else:
+                marker.write_bytes(b"")
+
+    def make_mark():
         def fetch(target: str):
             try:
                 upstream = public_http.get(locate(target), client_options=peach_proxy.client_options())
@@ -1465,16 +1505,19 @@ def _site_mark_response(state, url: str, root: Path):
         if made is None and archived:
             made = site_icons.best_mark(url, fetch, link_marks.render_mark,
                                         fallback=link_marks.plain_mark)
-        root.mkdir(parents=True, exist_ok=True)
-        if made:
-            cached.write_bytes(made)
-            marker.unlink(missing_ok=True)
-        else:
-            marker.write_bytes(b"")
+        return made
+
+    background = None
+    if cached.is_file():
+        if (allow_fetch and not link_marks.is_fresh(cached, ttl=FAVICON_REFRESH_SECONDS)
+                and not follow_assets.is_fresh(marker, follow_assets.RETRY_SECONDS)):
+            background = BackgroundTask(refresh)
+    elif allow_fetch:
+        refresh()
     if not cached.exists():
         # 取不到就让前端露出下面的地球图标，不要留一个空白圆。
         return JSONResponse({"error": "unavailable"}, status_code=404)
-    result = FileResponse(cached, media_type="image/png")
+    result = FileResponse(cached, media_type="image/png", background=background)
     result.headers["Cache-Control"] = "public, no-cache"
     return result
 
@@ -1487,16 +1530,16 @@ def link_mark(request: Request, id: int = 0, args: dict[str, str] = Depends(requ
     同一条规矩，否则这就是一个任意地址抓取的口子。取哪一份交给 `site_icons`：
     先读首页声明的 apple-touch-icon / SVG / manifest，都没有才落到 favicon.ico。
 
-    标记为失效的链接不取：那个域名多半已被停放，首页是一段跳转脚本，抓它只会让
-    杀毒软件把 Peach 报成在访问跳转页。
+    失效链接只读已有圆标：停放域名的首页可能已经换成跳转脚本。
     """
     state = request.app.state
     with state.database.read_connection() as connection:
         row = connection.execute(
             "SELECT url, metadata_json FROM entity_link WHERE id=?", (id,)).fetchone()
-    if row is None or link_status.gone_mark(row["metadata_json"]) is not None:
+    if row is None:
         return JSONResponse({"error": "no such link"}, status_code=404)
-    return _site_mark_response(state, row["url"], GENERATED_DIR / "link-marks")
+    return _site_mark_response(state, row["url"], GENERATED_DIR / "link-marks",
+                               allow_fetch=link_status.gone_mark(row["metadata_json"]) is None)
 
 
 @router.api_route("/site-mark", methods=["GET", "HEAD"])

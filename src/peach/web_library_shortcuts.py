@@ -81,14 +81,14 @@ def _favorite_art(contract, row, representative):
         row['image_url'] = '/logo?' + urlencode({'studio': row['name'], 'variant': 'icon', 'v': contract.logo_version(row['name'])})
     elif ref['has_image']:
         row['image_url'] = '/entity-image?' + urlencode({'kind': row['kind'], 'id': row['entity_id'], 'thumb': 1, 'v': ref.get('image_version', '')})
-    elif ref.get('source_avatar_url'):
-        row['image_url'] = ref['source_avatar_url']
-        row['image_fallbacks'] = ref.get('source_avatar_fallbacks', [])
     elif row['kind'] not in {'studio', 'agency'} and representative and contract.has_avatar(*representative):
         row['image_url'] = f'/avatar?id={representative[0]}'
         params = {'name': row['name']}
         row['image_label'] = interface_text.text('server:labels.webLibraryShortcuts.representativeImage', params)
         row['image_label_code'], row['image_label_params'] = 'labels.webLibraryShortcuts.representativeImage', params
+    elif ref.get('source_avatar_url'):
+        row['image_url'] = ref['source_avatar_url']
+        row['image_fallbacks'] = ref.get('source_avatar_fallbacks', [])
 
 
 def favorite_ids(connection):

@@ -10,13 +10,13 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import random
 import re
 import sqlite3
 import time
 from collections.abc import Callable
 from functools import lru_cache
+from pathlib import Path
 
 from . import entities, interface_text, media_libraries, sample_images, settings_file
 
@@ -48,6 +48,7 @@ from .web_activity import DEFAULT_PROFILE_ID
 from .web_state import WebContract
 from .western_artwork import artwork_key
 from .user_messages import UserValueError
+from .table_filters import column_filters
 
 
 GROUP_TABLES = ('asset_catalog', 'asset_entity', 'entity')
@@ -315,31 +316,10 @@ def column_search(query):
     return re.sub(r':\w+', '?', SUGGEST_ENTITY_MATCH), parameters
 
 
-def column_filters(raw, allowed):
-    """解析列头多选，缺少分组表示全选，空数组表示不选，exclude 保存排除项。"""
-    if raw is None or raw == '':
-        return {}
-    try:
-        value = json.loads(raw)
-    except (ValueError, TypeError):
-        raise UserValueError('api.catalog.invalidColumnFilters') from None
-    if not isinstance(value, dict) or set(value) - set(allowed):
-        raise UserValueError('api.catalog.invalidColumnFilters')
-    selected = {}
-    for column, selection in value.items():
-        exclude = isinstance(selection, dict)
-        if exclude and set(selection) != {'exclude'}:
-            raise UserValueError('api.catalog.invalidColumnFilters')
-        values = selection['exclude'] if exclude else selection
-        if not isinstance(values, list) or any(not isinstance(item, str) or not item.strip() for item in values):
-            raise UserValueError('api.catalog.invalidColumnFilters')
-        if column == 'people' and any(
-                ':' not in item or item.split(':', 1)[0] not in {'performer', 'creator', 'owner'}
-                or not item.split(':', 1)[1] or (item.startswith('owner:') and item != 'owner:none') for item in values):
-            raise UserValueError('api.catalog.invalidColumnFilters')
-        unique = list(dict.fromkeys(values))
-        selected[column] = {'exclude': unique} if exclude else unique
-    return selected
+SCALAR_COLUMN_EXPRESSIONS = {
+    "rating": "CAST(CAST(round(min(max(COALESCE(a.rating,0),0),100)/20.0) AS INTEGER) AS TEXT)",
+    "resolution": "CASE WHEN a.width>0 AND a.height>0 THEN CAST(a.width AS TEXT)||'x'||CAST(a.height AS TEXT) ELSE 'none' END",
+}
 
 
 def _column_filter_predicate(contract, selected):
@@ -352,6 +332,8 @@ def _column_filter_predicate(contract, selected):
             for value in values:
                 if column == 'library':
                     clause, params = media_libraries.predicate(settings_file.active(), value)
+                elif column in SCALAR_COLUMN_EXPRESSIONS:
+                    clause, params = SCALAR_COLUMN_EXPRESSIONS[column] + '=?', [value]
                 elif column == 'people' and value == 'owner:none':
                     clause, params = UNOWNED_ASSET_CLAUSE, []
                 else:
@@ -390,7 +372,7 @@ def catalog_filter(contract: WebContract, args):
     # 普通馆藏仍是视频表面；回收站必须展示所有文件类型，否则从垃圾复核移入的
     # 图片、网址快捷方式等会变成不可见、不可恢复，只能被「清空回收站」直接删掉。
     where, par = ([] if trash else [VISIBLE_CATALOG_ASSET]), []
-    columns = column_filters(args.get('column_filters'), {'people', 'library', 'tags'})
+    columns = column_filters(args.get('column_filters'), {'people', 'library', 'tags', *SCALAR_COLUMN_EXPRESSIONS})
     if columns:
         conditions, parameters = _column_filter_predicate(contract, columns)
         where.extend(conditions)
@@ -715,8 +697,10 @@ def entity_ref(contract: WebContract, kind: str, entity_id, name: str) -> dict:
         ref["image_version"] = contract.entity_image_version(kind, entity_id)
         ref["avatar_focus"] = contract.avatar_focus(kind, entity_id)
     if kind == 'creator':
+        from .follow_assets import ROOT_NAME, prioritize_avatar_urls
         from .follow_identity import creator_avatar_refs
-        urls = creator_avatar_refs(contract).get(entity_id, [])
+        urls = prioritize_avatar_urls(Path(contract.candidate_root) / ROOT_NAME,
+                                      creator_avatar_refs(contract).get(entity_id, []))
         if urls:
             ref['source_avatar_url'] = urls[0]
             ref['source_avatar_fallbacks'] = urls[1:]
@@ -1692,6 +1676,15 @@ def _release_year_facets(contract, connection, scope, values, state, filters, as
 
 def _column_facets(contract, connection, scope, scope_params, column, column_query, column_offset, column_limit):
     """当前范围的分页列选项，按列保留计数、别名和身份展示字段。"""
+    if column in SCALAR_COLUMN_EXPRESSIONS:
+        expression = SCALAR_COLUMN_EXPRESSIONS[column]
+        rows = list(connection.execute(
+            f"SELECT {expression} AS k,count(*) AS n FROM asset a WHERE a.medium='video' " + scope
+            + f" AND {expression} LIKE ? GROUP BY k ORDER BY n DESC,k LIMIT ? OFFSET ?",
+            [*scope_params, '%' + column_query + '%', column_limit + 1, column_offset]))
+        items = [dict(row) for row in rows[:column_limit]]
+        return {"column": column, "items": items, "has_more": len(rows) > column_limit,
+                "next_offset": column_offset + len(items) if len(rows) > column_limit else None}
     kinds = "'creator','performer'" if column == "people" else "'tag'"
     visible = ("AND " + tag_not_hidden('ae.asset_id', 'e.normalized_name') +
                " AND " + tag_is_not_a_performer_name('e.normalized_name')) if column == "tags" else ""
@@ -1756,7 +1749,7 @@ def q_facets(
     筛选项必须来自和作品列表相同的规范关系，不能让前端拿全库 facets 猜当前页面。
     回收站里的作品照旧算进筛选项；标「已消失」的不算，它们不在任何列表里（ADR-0087）。
     """
-    if column not in {"", "people", "tags"}:
+    if column not in {"", "people", "tags", *SCALAR_COLUMN_EXPRESSIONS}:
         raise ValueError("invalid facet column")
     with contract.read_connection() as c:
         scope, scope_params = _facet_scope(contract, c, jav, state, filters, asset_id, scope_kind, scope_name)

@@ -1,12 +1,12 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "4eca16f2-aede-4cc4-92b8-5aeb4c182b60", e._sentryDebugIdIdentifier = "sentry-dbid-4eca16f2-aede-4cc4-92b8-5aeb4c182b60");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "cb6cd164-a5de-4de8-9149-8e9519b4bd90", e._sentryDebugIdIdentifier = "sentry-dbid-cb6cd164-a5de-4de8-9149-8e9519b4bd90");
 	} catch {}
 })();
 import { $76d00c5a4edb230a$export$76ccd210b9029917 as e, $76d00c5a4edb230a$export$816b5d811295e6bc as t, $76d00c5a4edb230a$export$b59bdbef9ce70de2 as n, $76d00c5a4edb230a$export$f6f0c3fe4ec306ea as r, $76d00c5a4edb230a$export$f850895b287ef28e as i, $fe21c36db05242bb$export$d7b12c4107be0d61 as a, ActivityMotion as o, ArtSlot as s, Button as c, ButtonLink as l, Bx as u, COVER_STATE_TITLE as d, CatalogViewToggle as f, Checkbox as p, ChevronSortDown as m, Chip as h, CloudDownloadDialog as g, ColumnFilterAvatar as _, CoverQueue as v, DISCOVERY_METADATA_KEY as y, DISCOVERY_SORTS as b, DOWNLOADS_KEY as x, DOWNLOADS_URL as S, DataTableFooter as C, DataTableFrame as w, E3 as T, EmptyFocusButton as E, EmptyState as D, FilterActionButton as O, FilterGlassRows as ee, FilterIconButton as k, FilterPill as te, IndexSearch as A, Input as ne, JAV_LAYOUTS as re, JAV_RECOMMENDATION_GRID as j, JAV_SELECTION_EVENT as M, JavHeader as N, LibraryShortcuts as P, M6 as F, Note as I, PHASES as ie, RELEASE_COLUMN_VISIBILITY_KEY as L, RELEASE_COLUMN_WIDTHS_KEY as R, RELEASE_PAGE_SIZES as ae, RELEASE_SORTS as oe, RELEASE_SORT_COLUMNS as z, SEGMENT as B, SEGMENTED_TRACK as V, ScrapeSourceLabel as H, SegmentedRadioGroup as U, Segments as se, SelectionDock as W, Shuffle as ce, SortKeys as le, SourceAvatar as G, Table as ue, TableColumnControls as de, TableColumnFilter as fe, TableColumnResizer as K, TaskProgress as pe, WANTS_KEY as me, WantMagnets as he, Wt as ge, __toESM as _e, activityKind as ve, addWant as ye, apiGet as be, appSettingsStore as xe, avatarInner as Se, busyProps as q, cachedMagnetStates as Ce, cardClass as we, cardRatio as Te, catalogListSkeletonCellHtml as Ee, columnValueSelected as De, composingKey as Oe, controlDiscoveryMetadata as ke, controlReleaseMetadata as Ae, coverArrived as je, coverFetching as Me, coverFetchingHtml as Ne, coverReason as Pe, coverStateAction as Fe, coverUrl as Ie, discoveryArtwork as Le, discoveryKey as Re, discoveryScore as ze, entityDisplayName as Be, entityFaceImg as Ve, entityPath as He, entityWriting as Ue, errorMessage as We, esc as Ge, facePos as Ke, fetchCoverNow as qe, fetchDiscoveries as Je, fetchDiscoveryMetadata as Ye, fetchReleaseColumn as Xe, fetchReleases as Ze, fetchWants as Qe, firstGrapheme as $e, fmtDur as et, gridLayout as tt, invalidateWants as J, javContentSkeleton as nt, javLayout as rt, javTagSkeleton as it, jobText as at, joinList as ot, keepPreviousData as st, lastSearchNote as ct, leadingGraphemes as lt, logoUrl as ut, metadataInterval as dt, pageWindow as ft, pv as pt, qE as mt, queryClient as ht, recommendationScore as gt, relayoutCovers as _t, releaseColumnSelection as vt, releaseColumnValues as yt, releaseColumns as bt, releaseFilters as xt, releaseKey as St, removeWants as Ct, require_jsx_runtime as wt, require_react as Tt, resetWants as Et, resourceSourceKey as Dt, restoreWants as Ot, searchNote as kt, selectRange as At, selectionSummary as jt, serverLabelList as Mt, setReleaseColumn as Nt, spriteGlyph as Pt, storeJavLayout as Ft, suppressShiftTextSelection as It, t as Y, textLang as Lt, tierPlaceholdersHtml as Rt, toggleColumnValue as zt, useAction as Bt, useCatalogView as Vt, useDense as Ht, useEntityNames as Ut, useQuery as X, useTablePreferences as Wt, wantName as Gt, wantsInterval as Kt, wireHorizontalScroller as qt, writeJavQuery as Z } from "./peach-app.js";
 import { JavBatchResources as Jt } from "./peach-app.jav-batch-resources-B1BkGgyg.js";
-import { ErrorLine as Yt } from "./peach-app.source-view-Dyh_AG3b.js";
+import { ErrorLine as Yt } from "./peach-app.source-view-CDbKpFus.js";
 // src/react/jav/jav-selection.tsx
 var Q = /* @__PURE__ */ _e(Tt(), 1), $ = wt(), Xt = (0, Q.createContext)(null), Zt = () => (0, Q.useContext)(Xt);
 function Qt(e) {
@@ -614,7 +614,7 @@ function sn({ readOnly: e, toast: t, query: n = "", clearQuery: r }) {
 function cn({ item: e }) {
 	Ut();
 	let t = e.performer_refs?.length ? e.performer_refs : [...new Set(e.performers.split(/[,，、;/]/).filter(Boolean))].map((e) => ({ name: e })), n = t.slice(0, 5).map((t, n) => {
-		let r = { "--media-avatar-index": n }, i = t.source_avatar && t.source_actor_id && !t.has_image ? { children: /* @__PURE__ */ (0, $.jsx)(G, {
+		let r = { "--media-avatar-index": n }, i = t.source_avatar && t.source_actor_id && !t.has_image && !t.has_avatar ? { children: /* @__PURE__ */ (0, $.jsx)(G, {
 			code: e.code,
 			person: t
 		}) } : { dangerouslySetInnerHTML: { __html: Se(t.name, t, null) } };
@@ -1872,4 +1872,4 @@ function Dn({ readOnly: e, receipt: t, resource: n, query: r, navigate: i, clear
 }
 export { En as JavPage };
 
-//# debugId=4eca16f2-aede-4cc4-92b8-5aeb4c182b60
+//# debugId=cb6cd164-a5de-4de8-9149-8e9519b4bd90

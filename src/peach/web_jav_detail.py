@@ -323,10 +323,11 @@ JAV_IMAGE_MAX_AGE = 30 * 86400
 JAV_ACTOR_IMAGE_MAX_AGE = 86400
 
 
-def jav_image(contract, args) -> tuple[bytes, int]:
+def jav_image(contract, args, *, defer=None) -> tuple[bytes, int]:
     """来源图片（样张、来源封面、来源头像）的字节，以及浏览器可以缓存的秒数。
 
-    取过一次就落进远程媒体缓存，再取不出网。取不到抛 `PublicSourceUnavailable` 或
+    图片落进远程媒体缓存；传入 defer 时，过期头像先返回缓存并登记后续刷新。
+    取不到抛 `PublicSourceUnavailable` 或
     `RemoteMediaUnavailable`；番号或图号不合法抛 `ValueError`，都在联网之前。
     """
     code = detail_code(args)
@@ -337,15 +338,22 @@ def jav_image(contract, args) -> tuple[bytes, int]:
     actor = index.startswith("actor:")
     with (public_cache_scope(contract.cover_root.parent / 'jav-public'), _jav_pages(contract) as pages,
           PUBLIC_API.page_reader(pages)):
+        cache = cache_for(contract)
         movie = None
         if not actor:
             stored, _ = discovery_metadata(contract).peek(code)
             PUBLIC_API.remember_movie_identity(code, stored or {})
+            identity = PUBLIC_API.peek_movie_identity(code)
+            if identity is not None:
+                cached = cache.stored_bytes(f'jav:{code}:{identity}:image:{index}')
+                if cached is not None:
+                    return cached, JAV_IMAGE_MAX_AGE
             movie = PUBLIC_API.movie(code)
         key = f"jav:actor:{index.removeprefix('actor:')}" if actor else f"jav:{code}:{movie['id']}:image:{index}"
-        body = cache_for(contract).bytes(key,
+        body = cache.bytes(key,
             lambda: base64.b64decode(_fetch_image(contract, code, index, movie=movie).partition(',')[2], validate=True),
-            ttl=AVATAR_REFRESH_SECONDS if actor else None)
+            ttl=AVATAR_REFRESH_SECONDS if actor else None,
+            on_stale=(lambda: defer(lambda: jav_image(contract, args))) if actor and defer else None)
     return body, JAV_ACTOR_IMAGE_MAX_AGE if actor else JAV_IMAGE_MAX_AGE
 
 

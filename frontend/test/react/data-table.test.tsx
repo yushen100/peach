@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '../../src/react/query';
 import { DataTable, type DataColumn } from '../../src/react/components/data-table';
 import { buttonNamed, choose, click, mountRoot } from './render';
 
@@ -8,14 +10,42 @@ const columns: DataColumn<Item>[] = [{ id: 'name', label: '名字', value: (item
 const items = Array.from({ length: 23 }, (_, index) => ({ id: index + 1, name: `作品 ${23 - index}` }));
 const checkbox = (host: ParentNode, name: string) => host.querySelector<HTMLInputElement>(`input[aria-label="${name}"]`);
 
-function Fixture({ data = items, run, label = '测试作品' }: { data?: Item[]; run(ids: number[]): void; label?: string }) {
+function Fixture({ data = items, run, label = '测试作品', tableColumns = columns }: {
+  data?: Item[]; run(ids: number[]): void; label?: string; tableColumns?: DataColumn<Item>[];
+}) {
   const [selected, setSelected] = useState<string[]>([]);
-  return <DataTable label={label} items={data} columns={columns} rowId={(item) => String(item.id)}
+  return <DataTable label={label} items={data} columns={tableColumns} rowId={(item) => String(item.id)}
     rowLabel={(item) => item.name} selected={selected} onSelected={setSelected}
     actions={() => []} controls={(chosen) => <button onClick={() => run(chosen.map((item) => item.id))}>处理所选</button>} />;
 }
 
 describe('共用数据表', () => {
+  it('列筛选先于分页，全选只影响匹配行并保留隐藏行的选择', async () => {
+    const run = vi.fn();
+    const option = vi.fn((label: string, item?: Item) => ({ label, searchTerms: item ? [item.name] : [] }));
+    const tableColumns: DataColumn<Item>[] = [...columns, {
+      id: 'kind', label: '类型', value: item => item.id % 2 ? '奇数' : '偶数',
+      filter: { values: item => [item.id % 2 ? '奇数' : '偶数', '共有'], option }, render: item => item.id % 2 ? '奇数' : '偶数',
+    }];
+    const { host } = await mountRoot(<QueryClientProvider client={queryClient}><Fixture run={run} tableColumns={tableColumns} /></QueryClientProvider>);
+    expect(option).not.toHaveBeenCalled();
+    await click(checkbox(host, '选择 作品 23'));
+    await click(buttonNamed('下一页', host));
+    await click(host.querySelector('[data-table-column-filter="kind"]'));
+    expect(option).toHaveBeenCalledWith('偶数', items[1]);
+    await click(document.querySelector('[data-column-filter-options] label'));
+    await click(document.querySelector('input[aria-label="偶数"]'));
+    expect(host.querySelectorAll('tbody tr')).toHaveLength(11);
+    expect(host.textContent).toContain('1–11 / 11 条记录');
+    expect(host.textContent).toContain('已选 1 条记录');
+    await click(document.querySelector('[data-column-filter-options] label'));
+    await click(document.querySelector('input[aria-label="奇数"]'));
+    expect(host.querySelectorAll('tbody tr')).toHaveLength(11);
+    await click(checkbox(host, '全选测试作品'));
+    await click(buttonNamed('处理所选', host));
+    expect(run).toHaveBeenLastCalledWith(items.filter(item => item.id === 1 || item.id % 2 === 0).map(item => item.id));
+  });
+
   it('工具栏排序、方向和每页条数同步表头与全部行', async () => {
     const { host } = await mountRoot(<Fixture run={vi.fn()} />);
     const rows = () => [...host.querySelectorAll('tbody tr')];

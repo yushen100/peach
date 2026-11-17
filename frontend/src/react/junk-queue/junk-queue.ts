@@ -6,6 +6,7 @@
 import { apiGet } from '../../api';
 import type { JunkKind, JunkRoute, JunkView } from '../../junk-queue';
 import { t } from '../../i18n';
+import type { TableFilters, TableFacets } from '../components/use-table-filters';
 
 export type { JunkKind, JunkRoute, JunkView };
 
@@ -47,6 +48,7 @@ export function groupJunkCopies(items: readonly JunkItem[]): JunkItem[][] {
 /** `/api/ads` 的回话：`total` 是这一视图、这一类的条数，`all_total` 是这一视图各类合计，
  *  `counts` 按类计数，`dismissed_total` 给分类条末尾那一项的徽标。 */
 export interface JunkPage {
+  column_facets?: TableFacets;
   items: JunkItem[];
   total?: number;
   all_total?: number;
@@ -84,8 +86,10 @@ export function junkQueryString({ kind, view }: JunkRoute): string {
   return params.toString();
 }
 
-export async function fetchJunkPage(route: JunkRoute, signal: AbortSignal): Promise<JunkPage> {
-  const page = await apiGet<JunkPage>(`/api/ads?${junkQueryString(route)}`, signal);
+export async function fetchJunkPage(route: JunkRoute, signal: AbortSignal, filters?: TableFilters): Promise<JunkPage> {
+  const params = new URLSearchParams(junkQueryString(route));
+  if (filters) params.set('column_filters', JSON.stringify(filters));
+  const page = await apiGet<JunkPage>(`/api/ads?${params}`, signal);
   return { ...page, items: page.items || [] };
 }
 
@@ -110,7 +114,7 @@ export interface JunkQueueActions {
   operate(item: JunkItem, operation: JunkOperation): Promise<void>;
   /** 浮层上的「全部移入回收站」：待判断里这一类的全部 `count` 条，不止取回的这一批。壳弹确认框，
    *  写明件数与可撤销；件数在这期间变了就整批不动、重读后请人再确认。 */
-  disposeAll(kind: JunkKind, count: number): void;
+  disposeAll(kind: JunkKind, count: number, filters?: string): void;
 }
 
 export interface JunkQueueProps extends JunkRoute {

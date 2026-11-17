@@ -17,7 +17,6 @@ import {
   type RowSelectionState, type SortingState,
 } from '@tanstack/react-table';
 import { RiDeleteBinLine, RiExternalLinkLine, RiRefreshLine, RiRssLine } from '@remixicon/react';
-import { VisuallyHidden } from 'react-aria-components';
 
 import { avatarInner } from '@peach/card-art';
 import { mapLimit } from '@peach/legacy/core';
@@ -33,6 +32,7 @@ import {
 import { ChevronSortDown } from '@/components/foundations/icons/chevrons';
 
 import { errorMessage } from '../../api';
+import { skeletonHtml } from '../../ui-kit/skeleton';
 import { DataTableFrame } from '../components/data-table-frame';
 import { useTablePreferences } from '../components/table-column-preferences';
 import { TableColumnControls, TableColumnResizer } from '../components/table-column-controls';
@@ -41,13 +41,14 @@ import { DataTableFooter, DataTableSort } from '../components/table-controls';
 import { cardClass } from '../components/card';
 import { EmptyState } from '../components/empty-state';
 import { LEGACY_AVATAR_IMG } from '../components/legacy-avatar';
-import { SiteLabel } from '../components/source-label';
+import { SiteIcon, SiteLabel } from '../components/source-label';
+import { ColumnFilterAvatar } from '../components/column-filter-avatar';
 import { Note } from '../components/note';
 import type { BulkAction, Receipt } from '../components/bulk-action';
 import { exitPageSelection } from '../components/page-selection';
 import { SelectionDock } from '../components/selection-dock';
 import { queryClient } from '../query';
-import { ErrorText, Help } from '../settings/section';
+import { ErrorText } from '../settings/section';
 import { busyProps, useAction } from '../settings/use-action';
 import { localTime } from '../time';
 import {
@@ -56,6 +57,7 @@ import {
 } from './follow-manage';
 import { codedText } from '../../core/server-text';
 import { t } from '../../i18n';
+import { useTableFilters } from '../components/use-table-filters';
 
 const feedTableFeatures = tableFeatures({
   rowPaginationFeature,
@@ -78,8 +80,6 @@ const COLUMN_LABELS: Record<string, string> = {
   actions: t('follow:shared.actions'),
 };
 
-/** 表头里不占字的列：勾选那一格自己会说「选择 谁」，行尾三个控件也各带自己的名字。 */
-const SILENT_COLUMNS = new Set(['actions']);
 const preferenceColumns = Object.entries(COLUMN_LABELS).map(([id, label]) => ({ id, label,
   /* 来源那一格要放下站标、`video.dmm.co.jp` 与外链图标，160 会把站名压到图标底下。 */
   width: id === 'select' ? 48 : id === 'name' ? 300 : id === 'actions' ? 208 : id === 'fetched' ? 200
@@ -92,6 +92,8 @@ const preferenceColumns = Object.entries(COLUMN_LABELS).map(([id, label]) => ({ 
 const reload = () => queryClient.invalidateQueries({ queryKey: FEEDS_KEY, exact: true });
 
 const feedName = (source: FeedSource) => source.name || source.url;
+const feedSite = (source: FeedSource) => source.kind.startsWith('javdb') ? 'javdb'
+  : source.kind.startsWith('dmm') ? 'dmm' : originHost(source.url);
 
 
 /** 来源那一格只摆站名：地址整条写出来会把这张表撑到一屏之外，点开就是原页面。 */
@@ -189,7 +191,19 @@ export function FeedSources({ readOnly, toast, onAdd, selection }: {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
   const [sorting, setSorting] = useState<SortingState>([]);
-  const win = pageWindow(sources.length, pageSize, page);
+  const filtered = useTableFilters(sources, {
+    name: { values: feedName, option: (name, source) => ({ leading: source && <ColumnFilterAvatar
+      person={{ ...source, id: source.entity_id, name }} /> }) },
+    kind: { values: source => codedText(source, 'kind_label'), option: (_, source) => ({
+      leading: source && <SiteIcon site={feedSite(source)} /> }) },
+    origin: { values: source => originHost(source.url), option: (domain, source) => ({
+      leading: <SiteIcon site={source ? feedSite(source) : domain} /> }) },
+    status: { values: source => !source.enabled ? t('follow:shared.paused')
+      : source.last_error ? t('follow:feedSources.fetchFailed')
+      : !source.last_fetched_at ? t('follow:feedSources.notChecked') : t('follow:shared.ok') },
+    interval: { values: source => feedIntervalText(source.interval_minutes) },
+  }, () => setPage(1));
+  const win = pageWindow(filtered.items.length, pageSize, page);
   useEffect(() => { setPage((current) => Math.min(current, win.pages)) }, [win.pages]);
 
   /* 删掉的源不该还占着计数：清单换一份就把已经不在里面的 ID 丢掉。 */
@@ -313,8 +327,7 @@ export function FeedSources({ readOnly, toast, onAdd, selection }: {
         cell: (context) => (
           <a href={context.getValue()} target="_blank" rel="noopener noreferrer" title={t('follow:followDetail.viewOnSite')}
             className="max-w-full text-text-primary underline-offset-2 hover:underline">
-            <SiteLabel site={context.row.original.kind.startsWith('javdb') ? 'javdb'
-              : context.row.original.kind.startsWith('dmm') ? 'dmm' : originHost(context.getValue())}
+            <SiteLabel site={feedSite(context.row.original)}
               label={originHost(context.getValue())} />
             <RiExternalLinkLine aria-hidden className="size-(--icon-inline) shrink-0" />
           </a>
@@ -369,7 +382,7 @@ export function FeedSources({ readOnly, toast, onAdd, selection }: {
     () => Object.fromEntries([...selected].map((id) => [String(id), true])), [selected]);
   const table = useTable({
     features: feedTableFeatures,
-    data: sources,
+    data: filtered.items,
     columns,
     getRowId: (row) => String(row.id),
     state: { rowSelection, sorting, pagination: { pageIndex: win.page - 1, pageSize }, columnVisibility: preferences.visibility },
@@ -386,7 +399,7 @@ export function FeedSources({ readOnly, toast, onAdd, selection }: {
   if (!data) {
     return feeds.error
       ? <Note tone="error" title={t('follow:feedSources.loadFailed')}>{errorMessage(feeds.error)}</Note>
-      : <Help>{t('follow:feedSources.loading')}</Help>;
+      : <div dangerouslySetInnerHTML={{ __html: skeletonHtml(t('follow:feedSources.loading'), { fill: false }) }} />;
   }
 
   const check = () => void action.run('check', (signal) => checkFeeds(signal), () => void reload());
@@ -454,16 +467,15 @@ export function FeedSources({ readOnly, toast, onAdd, selection }: {
                 const text = flexRender(header.column.columnDef.header, header.getContext());
                 return (
                   <TableColumn key={header.id} id={header.id} isRowHeader={header.column.id === 'name'} allowsSorting={header.column.getCanSort()} {...preferences.columnProps(header.id)}>
-                    {({ sortDirection }) => <>{SILENT_COLUMNS.has(header.column.id) ? <VisuallyHidden>{text}</VisuallyHidden>
-                      : <span className="flex items-center gap-0.5">{text}
+                    {({ sortDirection }) => <><span className="flex items-center gap-0.5">{filtered.header(header.id, COLUMN_LABELS[header.id] || header.id) ?? text}
                         {header.column.getCanSort() ? <span data-sort-indicator data-direction={sortDirection || undefined}><ChevronSortDown /></span> : null}
-                      </span>}<TableColumnResizer preferences={preferences} id={header.id} /></>}
+                      </span><TableColumnResizer preferences={preferences} id={header.id} /></>}
                   </TableColumn>
                 );
               })}
               <TableColumn id="remaining-space" aria-label={t('follow:shared.rowSpacer')} data-table-space="" width={preferences.spaceWidth} minWidth={0} />
             </TableHeader>
-            <TableBody>
+            <TableBody renderEmptyState={() => t('shell:dataTable.empty')}>
               {table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id} id={row.id} data-follow-selected={row.getIsSelected() || undefined}>
                   {row.getVisibleCells().map((cell) => (

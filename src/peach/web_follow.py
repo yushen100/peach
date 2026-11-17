@@ -1297,6 +1297,27 @@ def _source_payload(row, aliases: dict[str, str] | None = None) -> dict:
     }
 
 
+def _author_portraits(contract, identities: dict[int, str]) -> dict:
+    """关注来源与在线索引共用本地身份图、代表作及取景引用。"""
+    from .web_catalog import attach_creator_reference_details, entity_ref
+    portraits = {entity_id: entity_ref(contract, 'creator', entity_id, name)
+                 for entity_id, name in identities.items()}
+    attach_creator_reference_details(contract, portraits.values())
+    return portraits
+
+
+def _attach_source_portraits(contract, sources: list[dict]) -> None:
+    """批量装配来源的人物图片与已缓存头像引用。"""
+    identities = {source['entity_id']: source['entity_name'] for source in sources
+                  if source['entity_id']}
+    portraits = _author_portraits(contract, identities)
+    root = Path(contract.candidate_root) / follow_assets.ROOT_NAME
+    for source in sources:
+        source['author_entity'] = portraits.get(source['entity_id'])
+        cached = follow_assets.cached_avatar_urls(root, [source['official_avatar_url'], source['avatar_url']])
+        source['cached_avatar_url'] = cached[0] if cached else ''
+
+
 def _legacy_history_end(row) -> bool:
     """把旧版记成 error 的「往回翻到尽头」认回来。
 
@@ -1531,8 +1552,16 @@ def q_follow_authors(contract, args) -> dict:
     rows = [row for row in contract.cached_until_changed(
         "follow-authors", lambda: _follow_author_rows(contract), tables=FOLLOW_GROUP_TABLES)
             if not query or query in row["k"].casefold()]
+    page = [dict(row) for row in rows[offset:offset + limit]]
+    portraits = _author_portraits(contract, {row['entity_id']: row['k'] for row in page if row['entity_id']})
+    for row in page:
+        row['author_entity'] = portraits.get(row['entity_id'])
+        urls = follow_assets.prioritize_avatar_urls(
+            Path(contract.candidate_root) / follow_assets.ROOT_NAME, [row['avatar'], row['avatar_fallback']])
+        row['avatar'] = urls[0] if urls else ''
+        row['avatar_fallback'] = urls[1] if len(urls) > 1 else ''
     return {"kind": "performers", "scope": "online",
-            "items": rows[offset:offset + limit],
+            "items": page,
             "total": len(rows),
             "has_more": offset + limit < len(rows)}
 
@@ -2018,6 +2047,7 @@ def q_follow(contract, args) -> dict:
         source_rows, alias_map, author_aliases, tag_policy = (
             inputs.sources, inputs.alias_map, inputs.author_aliases, inputs.tag_policy)
         sources = [_source_payload(row, alias_map) for row in source_rows]
+        _attach_source_portraits(contract, sources)
         alias_suggestions = _follow_alias_suggestions(source_rows, alias_map)
         # 作者、来源和标签都不是库里的列：author_key 要经实体绑定、来源 metadata 和
         # 别名映射推导，tags 要从条目 metadata JSON 解析再去噪。在 SQL 里重写这两套
@@ -2702,13 +2732,15 @@ def entity_follow(contract, connection, entity_id: int) -> dict | None:
     by_id = {int(row["id"]): row for row in sources}
     official = next((url for row in bound if (url := official_avatar_url(row))), "")
     archive = next((url for row in bound if (url := _avatar_url(row["provider"], row["ref"]))), "")
+    urls = follow_assets.prioritize_avatar_urls(
+        Path(contract.candidate_root) / follow_assets.ROOT_NAME, [official, archive])
     return {
         "key": f"entity:{int(entity_id)}" if bound else "",
         "n": _author_updates(store, bound),
         "providers": list(dict.fromkeys(
             PROVIDER_LABELS.get(row["provider"], row["provider"]) for row in bound)),
-        "avatar": official or archive,
-        "avatar_fallback": archive if official else "",
+        "avatar": urls[0] if urls else '',
+        "avatar_fallback": urls[1] if len(urls) > 1 else '',
         "held": [{
             "key": landing.key, "name": landing.name,
             "providers": [PROVIDER_LABELS.get(provider, provider)

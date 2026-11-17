@@ -240,13 +240,21 @@ class RemoteMediaCache:
             except OSError:
                 pass
 
-    def bytes(self, key: str, fetch, *, ttl: int | None = None) -> bytes:
-        """图片与清单复用原子文件及跨进程锁；刷新失败保留可用副本。"""
+    def stored_bytes(self, key: str) -> bytes | None:
+        """读取已完整安装的图片字节，未命中时由调用方决定来源读取。"""
+        path = self._slot(key).with_suffix('.data')
+        return path.read_bytes() if path.is_file() and path.stat().st_size > 0 else None
+
+    def bytes(self, key: str, fetch, *, ttl: int | None = None, on_stale=None) -> bytes:
+        """图片与清单复用原子文件及跨进程锁；on_stale 登记过期副本的后续刷新。"""
         path = self._slot(key).with_suffix(".data")
         failed = path.with_suffix(".failed")
         def fresh():
             return path.is_file() and path.stat().st_size > 0 and (ttl is None or time.time() - path.stat().st_mtime < ttl)
         if fresh():
+            return path.read_bytes()
+        if on_stale is not None and path.is_file() and path.stat().st_size > 0:
+            on_stale()
             return path.read_bytes()
         path.parent.mkdir(parents=True, exist_ok=True)
         with FileLock(path.with_suffix(".lock")):

@@ -20,6 +20,7 @@ import {
   type FollowSource, type ResolveJob, type SuggestData,
 } from '../../src/react/follow-manage/follow-manage';
 import { FollowManagePage } from '../../src/react/follow-manage/follow-manage-page';
+import { AuthorAvatar } from '../../src/react/follow-manage/source-view';
 import { Credentials } from '../../src/react/follow-manage/credentials';
 
 import { actionOrder, buttonNamed, choose, click, linkNamed, mountRoot, pending, settle, type } from './render';
@@ -593,11 +594,13 @@ it('首字母取创作者名里的第一个拉丁字母或数字，没有才取�
   expect(authorInitial('初音')).toBe('初');
 });
 
-it('头像先用官方的，取不下来退到镜像的，再取不下来画首字母', async () => {
+it('没有实体图时头像先用官方的，取不下来退到镜像的，再取不下来画首字母', async () => {
   const official = source({ id: 1, official_avatar_url: '/official.png' });
   const mirror = source({ id: 2, avatar_url: '/mirror.png' });
   expect(authorAvatar([mirror, official])).toEqual({ src: '/official.png', fallback: '/mirror.png' });
   expect(authorAvatar([mirror])).toEqual({ src: '/mirror.png', fallback: '' });
+  expect(authorAvatar([{ ...mirror, cached_avatar_url: '/mirror.png' }, official]))
+    .toEqual({ src: '/mirror.png', fallback: '/official.png' });
 
   const kou = { author_key: 'name:kou', author_name: 'kou' };
   const { host } = await open({ data: follow({ sources: [
@@ -610,6 +613,18 @@ it('头像先用官方的，取不下来退到镜像的，再取不下来画首�
   await act(async () => { avatar().dispatchEvent(new Event('error')) });
   expect(avatar().tagName).toBe('SPAN');
   expect(avatar().textContent).toBe('K');
+});
+
+it('创作者圆标复用已安装实体头像的版本与取景', async () => {
+  const { host } = await mountRoot(<AuthorAvatar name="Author" small group={[source({
+    id: 1, official_avatar_url: '/official.png', author_entity: {
+      id: 77, name: 'Author', has_image: true, image_version: 'saved-photo',
+      avatar_focus: { axis: 'y', pct: 20 },
+    },
+  })]} />);
+  expect(host.querySelector('img')?.getAttribute('src')).toBe('/entity-image?kind=creator&id=77&thumb=1&v=saved-photo');
+  expect(host.querySelector('img')?.getAttribute('style')).toContain('20%');
+  expect(host.querySelector('img[src="/official.png"]')).toBeNull();
 });
 
 it('按状态正序先列要处理的：失败、暂停、未检查、正常', () => {

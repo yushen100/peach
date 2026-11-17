@@ -110,6 +110,16 @@ class LibraryDiagnosticsTests(unittest.TestCase):
         self.assertEqual(len(result['items']), 500)
         self.assertTrue(result['truncated'])
 
+    def test_library_filter_matches_rows_beyond_the_report_limit(self):
+        rows = [{'id': i, 'path': f'R:/private/{i}'} for i in range(1, 602)]
+        with patch('peach.media_identity.ownership', side_effect=lambda config, path: {
+                'library_id': 'tail' if path.endswith('/601') else 'first'}):
+            result = diagnostics.group('duration', rows, config=self.config, filters='{"location":["tail"]}')
+        self.assertEqual(result['count'], 1)
+        self.assertEqual([row['id'] for row in result['items']], [601])
+        self.assertFalse(result['truncated'])
+        self.assertEqual(result['column_facets']['location'], [{'id': 'first', 'count': 600}, {'id': 'tail', 'count': 1}])
+
     def test_sources_require_parsed_profile_provenance_and_show_cooldown(self):
         with closing(sqlite3.connect(self.db)) as connection, connection:
             connection.execute("INSERT INTO performer_profile(entity_id,source,source_url,fetched_at) "

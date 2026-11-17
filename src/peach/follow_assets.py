@@ -18,6 +18,7 @@ import hashlib
 import math
 import os
 import time
+from urllib.parse import parse_qs, urlsplit
 from pathlib import Path
 from typing import Callable
 
@@ -111,6 +112,26 @@ def mirror_avatar_url(provider: str, ref: str) -> str | None:
 def cache_path(root: Path, kind: str, key: str) -> Path:
     digest = hashlib.sha256(f"{kind}:{key}".encode("utf-8")).hexdigest()[:32]
     return root / kind / f"{digest}.img"
+
+
+def avatar_cache_key(*, provider='', ref='', service='', id='') -> str:
+    return f'mirror:{provider}:{ref}' if provider else f'official:{service}:{id}'
+
+
+def cached_avatar_urls(root: Path, urls) -> list[str]:
+    """固定本机头像代理地址中，已经有缓存的候选保持原顺序。"""
+    cached = []
+    for url in dict.fromkeys(filter(None, urls)):
+        params = {key: values[0] for key, values in parse_qs(urlsplit(url).query).items()}
+        if cache_path(root, 'avatars', avatar_cache_key(**params)).is_file():
+            cached.append(url)
+    return cached
+
+
+def prioritize_avatar_urls(root: Path, urls) -> list[str]:
+    urls = list(dict.fromkeys(filter(None, urls)))
+    cached = cached_avatar_urls(root, urls)
+    return cached + [url for url in urls if url not in cached]
 
 
 def is_fresh(path: Path, ttl: int | None, now: float | None = None) -> bool:

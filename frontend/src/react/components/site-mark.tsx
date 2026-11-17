@@ -13,8 +13,11 @@ export function MarkImage({ src }: { src: string }) {
 }
 
 /** 采集来源的站标由本站缓存或随应用提供的静态资源承载。 */
-export function SiteMark({ source, linkId }: { source: string; linkId?: never } | { linkId: number | undefined; source?: never }) {
+export function SiteMark({ source, linkId, domain }: { source: string; linkId?: never; domain?: never }
+  | { linkId: number | undefined; source?: never; domain?: never }
+  | { domain: string; source?: never; linkId?: never }) {
   if (source === 'makers') return <RiBuildingLine aria-hidden className={MARK} />;
+  if (domain) return <MarkImage src={siteMarkUrl({ domain })} />;
   if (linkId === undefined && !source) return <MarkImage src="" />;
   const bundled = source && ['javten', 'fc2ppvdb', 'avwikidb', 'minnano-av', 'github'].includes(source);
   return <MarkImage src={linkId !== undefined ? `/link-mark?id=${linkId}` : bundled ? `/site-icon/${source}.png` : siteMarkUrl({ source: source! })} />;

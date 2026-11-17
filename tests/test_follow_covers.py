@@ -195,7 +195,8 @@ class FollowCoverServiceTests(unittest.TestCase):
 
         with mock.patch("peach.follow_covers.subprocess.run", side_effect=run):
             first = self.service.cover(self._item())
-            second = self.service.cover(self._item())
+            with mock.patch.object(self.service.resolver, 'ffmpeg', return_value=None):
+                second = self.service.cover(self._item())
         self.assertEqual(first, second)
         self.assertEqual(first.read_bytes(), b"jpeg")
         self.assertEqual(len(commands), 1)

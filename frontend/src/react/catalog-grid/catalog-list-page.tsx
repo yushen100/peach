@@ -204,8 +204,8 @@ export function CatalogListPage(props: CatalogGridProps) {
             {...preferences.columnProps(header.id)}>
             {({ sortDirection }) => <>
             <span className="flex items-center gap-0.5">
-              {['people', 'library', 'tags'].includes(header.id)
-                ? <CatalogColumnFilter column={header.id as 'people' | 'library' | 'tags'} label={String(header.column.columnDef.header)}
+              {['people', 'library', 'tags', 'rating', 'resolution'].includes(header.id)
+                ? <CatalogColumnFilter column={header.id as 'people' | 'library' | 'tags' | 'rating' | 'resolution'} label={String(header.column.columnDef.header)}
                     filters={filters} scope={filterScope} revision={props.revision} tagLabel={props.helpers.tagLabel}
                     onChange={next => setState(now => ({ ...now, filters: next, pagination: { ...now.pagination, pageIndex: 0 } }))} />
                 : flexRender(header.column.columnDef.header, header.getContext())}

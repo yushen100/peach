@@ -5,7 +5,7 @@
  * 862 KB，面板于是显示「— · 0 请求」。HLS 是另一回事，每个分片都是一次独立完成的请求，VHS
  * 自己也报 bandwidth，resource timing 那套口径只对它成立。
  * 渐进源改看缓冲前沿的推进：每秒新推进的秒数 × 平均码率就是字节速率。码率要有文件大小才算得
- * 出来，关注条目的大小由 `/follow-qualities` 回源 HEAD 带回；连上游都不给 content-length 时没有
+ * 出来，关注条目的大小由 `/follow-qualities` 优先读取完整本地缓存，缺少时回源 HEAD；两者都未取得时没有
  * 任何办法把秒换成字节，角标改报还能往前放多久。缓冲吃满后浏览器停拉，增量归零，此时保留上一次
  * 读数而不是跳回 0——那不是速度掉了，是没有在下载。 */
 import { esc, icon, realDuration } from '@peach/legacy/core';

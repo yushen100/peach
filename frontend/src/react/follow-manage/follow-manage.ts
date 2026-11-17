@@ -14,6 +14,7 @@
  * 分组、排序、分页都是纯函数：两种视图（创作者卡片与表格）必须给出同一套顺序，比较器
  * 写在两处的话，同一份数据在两种视图里的先后就会不一样。 */
 import { apiGet, apiSend } from '../../api';
+import type { FaceRef } from '../../card-art/markup';
 import {
   DEFAULT_SORT, isSortKey, SORT_DEFAULT_DIR, SORT_OPTIONS, type SortDir, type SortKey,
 } from '../../follow-sort';
@@ -54,7 +55,7 @@ export const FEEDS_KEY = ['follow-manage', 'feeds'] as const;
 export const followSuggestKey = (term: string) => ['follow-manage', 'suggest', term] as const;
 
 /** 一条关注来源。字段以 `_source_payload`（`src/peach/web_follow.py`）为准。 */
-export interface FollowSource {
+export interface FollowSource extends AuthorSource {
   id: number;
   provider: string;
   provider_label: string;
@@ -320,6 +321,15 @@ export interface AuthorSource {
   entity_name?: string | undefined;
   official_avatar_url?: string | undefined;
   avatar_url?: string | undefined;
+  cached_avatar_url?: string;
+  author_entity?: (FaceRef & { name: string }) | null;
+}
+
+export function authorPortrait(group: readonly AuthorSource[]) {
+  const portraits = group.map(source => source.author_entity);
+  return portraits.find(person => person?.has_image)
+    || portraits.find(person => person?.has_avatar && person.rep)
+    || portraits.find(person => person?.source_avatar_url);
 }
 
 /** 分组标题用创作者本人的名字，不是某一条来源的标签。哪一段是人名由服务端一处判定
@@ -331,7 +341,7 @@ export function authorName(group: readonly AuthorSource[], aliases: readonly Ali
   if (entity) return entity.entity_name!;
   const aliasGroup = aliases.find((item) => `name:${item.canonical_key}` === group[0]?.author_key);
   if (aliasGroup) return clean(aliasGroup.canonical_name);
-  /* 官方主页来源不只优先提供头像，也优先提供创作者写法；否则 F95 的线程标题
+  /* 官方主页来源优先提供创作者写法；否则 F95 的线程标题
      `Lazy Procrastinator Collection` 会因为大写字母更多而抢成分组标题。 */
   const official = group.find((source) => source.official_avatar_url);
   if (official && authored(official)) return authored(official);
@@ -347,13 +357,13 @@ export function authorInitial(name: string): string {
   return (ascii ? ascii[0] : Array.from(name.trim())[0] || '?').toUpperCase();
 }
 
-/** 同一位创作者的官方来源优先提供头像，归档来源只回退。都取不到时用首字母。 */
+/** 来源头像先读已有缓存，缺少缓存时按官方与归档来源回退。 */
 export function authorAvatar(group: readonly AuthorSource[]): { src: string; fallback: string } {
   const official = group.find((source) => source.official_avatar_url);
   const mirror = group.find((source) => source.avatar_url);
-  const src = official?.official_avatar_url || mirror?.avatar_url || '';
-  const fallback = official && mirror && mirror.avatar_url !== src ? mirror.avatar_url || '' : '';
-  return { src, fallback };
+  const cached = group.find(source => source.cached_avatar_url)?.cached_avatar_url;
+  const urls = [...new Set([cached, official?.official_avatar_url, mirror?.avatar_url].filter(Boolean))];
+  return { src: urls[0] || '', fallback: urls[1] || '' };
 }
 
 /** 这位创作者的身份。同一个人在不同站点上是多条来源、一个人，归组用后端给的

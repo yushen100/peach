@@ -94,7 +94,7 @@ export function DiagnosticsPage(props: DiagnosticsProps) {
     </Section> : null}
     <Section guide="health" title={t('manage:diagnostics.collectionHealth')}><Stack>
       {data.library.issue_at ? <p className="text-body-2-regular text-text-secondary">{t('manage:diagnostics.healthRecordedAtTime', { time: moment(data.library.issue_at) })}</p> : null}
-      {Object.entries(data.library.groups).map(([key, group]) => <HealthList key={key} group={group} {...props} />)}
+      {Object.entries(data.library.groups).map(([key, group]) => <HealthList key={key} groupKey={key} group={group} {...props} />)}
     </Stack></Section>
     {other.length ? <section aria-label={t('manage:diagnostics.systemChecks')}>
       <Disclosure summary={t('manage:diagnostics.otherChecks', { count: other.length })} contentClassName="gap-5">

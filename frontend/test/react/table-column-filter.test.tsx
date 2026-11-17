@@ -5,6 +5,8 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { Table, TableBody, TableCell, TableColumn, TableHeader, TableRow } from '@/components/base/table/table';
 import { CatalogColumnFilter } from '../../src/react/catalog-grid/catalog-column-filter';
 import { TableColumnFilter } from '../../src/react/components/table-column-filter';
+import { ColumnFilterAvatar } from '../../src/react/components/column-filter-avatar';
+import { SiteMark } from '../../src/react/components/site-mark';
 import { queryClient } from '../../src/react/query';
 import { publishLibraries } from '../../src/library-catalog';
 import { MEDIA_SOURCES_KEY } from '../../src/query/media-sources';
@@ -13,8 +15,15 @@ import { buttonNamed, click, mount, pending, settle, type } from './render';
 
 afterEach(() => { queryClient.clear(); publishLibraries([]) });
 
+it('人物菜单优先使用本地作品头像', async () => {
+  const host = await mount(<ColumnFilterAvatar person={{ name: 'Author', has_avatar: true, rep: 41,
+    source_avatar: true, source_actor_id: 'actor-1', avatar_code: 'CODE-1' }} />);
+  expect(host.querySelector('img')?.getAttribute('src')).toBe('/avatar?id=41');
+});
+
 it('列头下拉支持搜索、多选与清除，搜索不丢失已选项', async () => {
   const changed = vi.fn();
+  const sorted = vi.fn();
   const options = [{ id: 'studio:one', label: 'One', searchTerms: ['别名'] }, { id: 'studio:two', label: 'Two' }];
   function Choices() {
     const [values, setValues] = useState<ColumnSelection | undefined>(['studio:two']);
@@ -22,11 +31,12 @@ it('列头下拉支持搜索、多选与清除，搜索不丢失已选项', asyn
       onChange={next => { changed(next); setValues(next) }} />;
   }
   const host = await mount(<QueryClientProvider client={queryClient}>
-    <Table aria-label="作品"><TableHeader><TableColumn id="studio" textValue="厂牌">
+    <Table aria-label="作品" onSortChange={sorted}><TableHeader><TableColumn id="studio" textValue="厂牌" allowsSorting>
       <Choices />
     </TableColumn></TableHeader><TableBody><TableRow id="one"><TableCell>One</TableCell></TableRow></TableBody></Table>
   </QueryClientProvider>);
   await click(host.querySelector('[data-table-column-filter]'));
+  expect(sorted).not.toHaveBeenCalled();
   await type(document.querySelector('input[aria-label="搜索厂牌"]'), '别名');
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 320)) });
   expect([...document.querySelectorAll('[data-column-filter-options] label')].map(node => node.textContent)).toEqual(['全部', 'One']);
@@ -38,6 +48,29 @@ it('列头下拉支持搜索、多选与清除，搜索不丢失已选项', asyn
   expect(changed).toHaveBeenLastCalledWith(undefined);
   await click(document.querySelector('[data-column-filter-options] label'));
   expect(changed).toHaveBeenLastCalledWith([]);
+});
+
+it('本地长选项分批展示，搜索可命中尚未展示的选项', async () => {
+  const options = vi.fn(() => Array.from({ length: 60 }, (_, index) => ({ id: String(index), label: `Local ${index}`,
+    leading: <><ColumnFilterAvatar person={{ id: index + 1, name: `Local ${index}`, has_image: true, image_version: 'photo-v1' }} />
+      <SiteMark source="dmm" /></> })));
+  const host = await mount(<QueryClientProvider client={queryClient}>
+    <TableColumnFilter id="local" label="本地名称" options={options}
+      onChange={vi.fn()} />
+  </QueryClientProvider>);
+  expect(options).not.toHaveBeenCalled();
+  await click(host.querySelector('[data-table-column-filter]'));
+  expect(options).toHaveBeenCalledTimes(1);
+  expect(document.querySelectorAll('[data-column-filter-options] label')).toHaveLength(25);
+  expect(document.querySelectorAll('[data-column-filter-avatar] img')).toHaveLength(24);
+  expect(document.querySelector('[data-column-filter-avatar] img')?.getAttribute('src')).toContain('&v=photo-v1');
+  expect(document.querySelectorAll('[data-column-filter-options] img[src="/site-mark?source=dmm"]')).toHaveLength(24);
+  await click(buttonNamed('载入更多'));
+  expect(document.querySelectorAll('[data-column-filter-options] label')).toHaveLength(49);
+  await type(document.querySelector('input[aria-label="搜索本地名称"]'), 'Local 59');
+  await vi.waitFor(() => expect(document.querySelector('input[aria-label="Local 59"]')).not.toBeNull());
+  expect(document.querySelectorAll('[data-column-filter-options] label')).toHaveLength(2);
+  expect(options).toHaveBeenCalledTimes(1);
 });
 
 it('全选覆盖未加载项，取消一项后续页仍按排除项选择', async () => {

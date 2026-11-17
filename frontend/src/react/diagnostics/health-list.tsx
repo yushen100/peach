@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { RiFileListLine } from '@remixicon/react';
 import { Button } from '@/components/base/buttons/button';
 import { LinkButton } from '@/components/base/buttons/link-button';
@@ -13,6 +14,9 @@ import { busyProps, useAction } from '../settings/use-action';
 import type { LibraryGroup, LibraryItem } from './diagnostics';
 import { codedText } from '../../core/server-text';
 import { t } from '../../i18n';
+import { apiGet } from '../../api';
+import type { TableFilters } from '../components/use-table-filters';
+import { useLibraryFilterOptions } from '../components/library-filter-options';
 
 const identity = (item: LibraryItem) => item.title || item.name || item.code || t('manage:healthList.videoFallback', { id: item.id });
 const listText = (items: LibraryItem[], libraryName: (item: LibraryItem) => string) => [
@@ -21,9 +25,16 @@ const listText = (items: LibraryItem[], libraryName: (item: LibraryItem) => stri
     item.path, item.duration ?? '', item.size ?? '']),
 ].map(row => row.map(value => String(value ?? '').replace(/[\t\r\n]+/g, ' ')).join('\t')).join('\n');
 
-export function HealthList({ group, openItem, receipt }: {
-  group: LibraryGroup; openItem(id: number): void; receipt(message: string): void;
+export function HealthList({ group: original, groupKey, openItem, receipt }: {
+  group: LibraryGroup; groupKey: string; openItem(id: number): void; receipt(message: string): void;
 }) {
+  const [filters, setFilters] = useState<TableFilters>({});
+  const encoded = JSON.stringify(filters);
+  const query = useQuery({ queryKey: ['diagnostics-library', groupKey, encoded, original], enabled: encoded !== '{}',
+    queryFn: ({ signal }) => apiGet<LibraryGroup>(`/api/diagnostics/library?${new URLSearchParams({ group: groupKey, column_filters: encoded })}`, signal),
+    placeholderData: previous => previous });
+  const group = encoded === '{}' ? original : query.data ?? original;
+  const libraryOptions = useLibraryFilterOptions();
   const action = useAction();
   const label = codedText(group, 'label');
   const [selected, setSelected] = useState<string[]>([]);
@@ -43,6 +54,7 @@ export function HealthList({ group, openItem, receipt }: {
     { id: 'code', label: t('manage:shared.code'), width: 144, value: item => item.code || '',
       render: item => <span className="whitespace-nowrap">{item.code || t('manage:shared.unrecognized')}</span> },
     { id: 'location', label: t('manage:shared.library'), width: 160, value: libraryName,
+      filter: { values: item => item.library_id || 'none', option: id => libraryOptions.get(id) ?? { label: id === 'none' ? t('cleanup:shared.none') : id } },
       render: item => <ItemLibrary libraryId={item.library_id} location={item.location} fallback={t('manage:shared.notFound')} /> },
     { id: 'path', label: t('manage:healthList.filePath'), width: 320, min: 180, value: item => item.path,
       render: item => <span data-middle-truncate title={item.path}
@@ -53,7 +65,7 @@ export function HealthList({ group, openItem, receipt }: {
       render: item => item.size !== null ? fmtSize(item.size) : t('manage:shared.notFound') },
   ];
   return <Disclosure summary={group.count === null ? `${label} · ${t('manage:shared.notFound')}` : t('manage:healthList.groupSummary', { label, count: group.count })}>
-    {group.count === null ? <Note tone="neutral">{t('manage:healthList.listNotFound')}</Note> : !group.items.length
+    {group.count === null ? <Note tone="neutral">{t('manage:healthList.listNotFound')}</Note> : !original.items.length
       ? <EmptyState icon={RiFileListLine} title={t('manage:healthList.emptyTitle')} size="compact">{t('manage:healthList.emptyBody')}</EmptyState>
       : <Stack>
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -64,7 +76,10 @@ export function HealthList({ group, openItem, receipt }: {
             onClick={() => copy(group.items)}>{t('manage:healthList.copyList')}</Button>
         </div>
         {action.error ? <Note tone="error">{action.error}</Note> : null}
+        {query.isError ? <Note tone="error">{String(query.error)}</Note> : null}
         <DataTable label={label} title={t('manage:healthList.tableTitle')} unit={t('manage:healthList.tableUnit')} panel={false}
+          busy={query.isFetching}
+          filters={{ values: filters, facets: group.column_facets ?? {}, onChange: setFilters }}
           items={group.items} columns={columns} rowId={item => String(item.id)} rowLabel={identity}
           selected={selected} onSelected={setSelected}
           actions={() => []} controls={items => <Button size="small" variant="secondary" {...busyProps(action.busy === 'copy')}

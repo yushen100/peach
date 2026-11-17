@@ -8,6 +8,7 @@ import { coverUrl } from '@peach/card-art';
 
 import { apiGet } from '../../api';
 import { queryClient } from '../query';
+import type { TableFilters, TableFacets } from '../components/use-table-filters';
 
 /** 上限沿用服务端的 200：`limit` 也钉在 200，再大只会被截。 */
 export const QUALITY_GOALS_URL = '/api/quality-goals?limit=200';
@@ -32,14 +33,15 @@ export interface QualityGoal {
 }
 
 export interface QualityGoalsData {
+  column_facets?: TableFacets;
   total: number;
   items: QualityGoal[];
   offset: number;
   has_more: boolean;
 }
 
-export const fetchQualityGoals = (signal?: AbortSignal) =>
-  apiGet<QualityGoalsData>(QUALITY_GOALS_URL, signal);
+export const fetchQualityGoals = (signal?: AbortSignal, filters?: TableFilters) =>
+  apiGet<QualityGoalsData>(filters ? `${QUALITY_GOALS_URL}&column_filters=${encodeURIComponent(JSON.stringify(filters))}` : QUALITY_GOALS_URL, signal);
 
 /** 首屏：取完数才画。
  *

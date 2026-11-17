@@ -3,13 +3,15 @@
 import { Button } from '@/components/base/buttons/button';
 import { fmtSize } from '@peach/legacy/core';
 
-import { CardTags } from '../components/card-meta';
+import { CardTags, Icon } from '../components/card-meta';
 import { QueueIdentity, QueuePicture, QueueTable } from '../components/queue-table';
 import { ListLibrary } from '../catalog-grid/catalog-list-page';
 import type { useQueueSort } from '../components/queue-sort';
 import { JunkActions, junkOpenable, junkPreview, junkReasons, useJunkActions } from './junk-card';
 import { junkKindMeta, type JunkItem, type JunkQueueActions, type JunkView } from './junk-queue';
 import { t } from '../../i18n';
+import type { RemoteTableFilters } from '../components/use-table-filters';
+import { partsLabel } from '../../core/server-text';
 
 type Copies = { count: number; bytes: number; expanded: boolean; toggle(): void };
 
@@ -38,13 +40,22 @@ function JunkRowActions({ item, view, actions }: { item: JunkItem; view: JunkVie
   return <JunkActions state={useJunkActions(item, view, actions)} compact />;
 }
 
-export function JunkList({ items, view, selected, selecting, actions, order, copies }: {
+export function JunkList({ items, view, selected, selecting, actions, order, copies, filters, busy }: {
   items: readonly JunkItem[]; view: JunkView; selected: ReadonlySet<number>; selecting: boolean; actions: JunkQueueActions;
   order: ReturnType<typeof useQueueSort<JunkItem>>;
   copies?: (item: JunkItem) => Copies | undefined;
+  filters: RemoteTableFilters;
+  busy: boolean;
 }) {
   return (
     <QueueTable table="junk-files" label={t('cleanup:junk.categories')} items={items} selected={selected} selecting={selecting}
+      filters={filters} busy={busy} filterColumns={{
+        kind: { values: item => item.junk_kind || 'other', option: kind => {
+          const [label, glyph] = junkKindMeta({ id: 0, junk_kind: kind });
+          return { label, leading: <Icon name={glyph} /> };
+        } },
+        why: { values: junkReasons, option: value => ({ label: value === 'none' ? t('cleanup:shared.none') : partsLabel([JSON.parse(value)], value) }) },
+      }}
       sort={{ options: order.sorts.map(({ key, label }) => ({ id: key, label })), sorting: order.sorting, onChange: order.setSorting }}
       rowLabel={(item) => t('cleanup:junk.selectFile', { name: item.name || t('cleanup:junk.untitled') })}
       onPick={(item) => actions.toggleSelection(item.id, false)}

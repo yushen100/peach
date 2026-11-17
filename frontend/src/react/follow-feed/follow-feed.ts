@@ -16,7 +16,7 @@ import { keepPreviousData, type InfiniteData, type QueryKey } from '@tanstack/re
 import { seededRank } from '@peach/legacy/core';
 
 import { apiGet } from '../../api';
-import { FOLLOW_CREDENTIALS_URL, type CheckResult } from '../follow-manage/follow-manage';
+import { FOLLOW_CREDENTIALS_URL, type AuthorSource, type CheckResult } from '../follow-manage/follow-manage';
 import { queryClient } from '../query';
 import type { FollowJobView } from '../../jobs';
 import { t } from '../../i18n';
@@ -135,7 +135,7 @@ export interface FollowGroup {
 }
 
 /** 一个关注来源。 */
-export interface FollowSource {
+export interface FollowSource extends AuthorSource {
   id: number;
   provider: string;
   provider_label?: string;

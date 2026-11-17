@@ -36,6 +36,9 @@ it('创作者名片官方头像使用本机代理和归档回退，实体图优�
   expect(image.dataset.drop).toBe('self');
   expect(parse(avatarInner('创作者', { ...ref, has_image: true }, null, 'creator'))?.getAttribute('src'))
     .toBe('/entity-image?kind=creator&id=7&thumb=1');
+  expect(parse(avatarInner('创作者', { ...ref, has_avatar: true, rep: 41 }, null, 'creator'))?.getAttribute('src'))
+    .toBe('/avatar?id=41');
+  expect(parse(avatarInner('创作者', ref, 42, 'creator'))?.getAttribute('src')).toBe('/avatar?id=42');
 });
 
 describe('entityFaceImg：实体图优先，取不到退代表作头像', () => {

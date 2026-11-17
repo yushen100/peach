@@ -1,6 +1,7 @@
 import { apiGet } from '../../api';
 import { codedText, partsLabel } from '../../core/server-text';
 import { queryClient } from '../query';
+import type { TableFacets } from '../components/use-table-filters';
 
 /** 一项诊断。`label`、`reason`、`action` 是服务端按中文渲染的原文，旁边的 code 按界面语言取译文；
  *  几条原因并列时 `reason_parts` 是按段存的一句。 */
@@ -19,6 +20,7 @@ export interface LibraryItem {
 export interface LibraryGroup {
   label: string; label_code?: string; status: string; count: number | null; items: LibraryItem[];
   truncated: boolean;
+  column_facets?: TableFacets;
 }
 export interface DiagnosticReport {
   version: string; status: string; checks: Record<string, DiagnosticCheck>;

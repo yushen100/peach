@@ -107,7 +107,7 @@ def _covering_keep(members: frozenset[int], kept: list[frozenset[int]]) -> froze
     return best
 
 
-def q_ads(contract: WebContract, limit=200, offset=0, kind="", status="pending"):
+def q_ads(contract: WebContract, limit=200, offset=0, kind="", status="pending", column_filters=None):
     """疑似垃圾复核队列 —— **不自动删**，只排队让人看证据确认。
 
     没有可靠的单一判据（试过「同番号短版」会误伤 CD2/part1 分卷，
@@ -142,10 +142,9 @@ def q_ads(contract: WebContract, limit=200, offset=0, kind="", status="pending")
     counts = {junk_kind: 0 for junk_kind in JUNK_KINDS}
     for item in pool:
         counts[item["junk_kind"]] += 1
-    filtered = [item for item in pool if not kind or item["junk_kind"] == kind]
+    filtered, facets = _junk_table_rows(pool, kind, column_filters)
     # 缓存里那份是共享的，这一页的条目复制出来再挂演员与媒体库，不改到下一次请求。
     items = [dict(item) for item in filtered[offset:offset + limit]]
-    _attach_library(items)
     attach_card_performers(
         contract, [item for item in items if item.get("medium") == "video"])
     return {
@@ -157,7 +156,21 @@ def q_ads(contract: WebContract, limit=200, offset=0, kind="", status="pending")
         "kind": kind,
         "status": status,
         "items": items,
+        "column_facets": facets,
     }
+
+
+def _junk_table_rows(pool, kind, raw):
+    from .table_filters import filter_rows
+    # 评分缓存只读，媒体库归属与筛选字段属于这次请求。
+    rows = [dict(item) for item in pool if not kind or item["junk_kind"] == kind]
+    _attach_library(rows)
+    return filter_rows(rows, raw, {
+        "library": lambda row: [row.get("library_id") or "none"],
+        "kind": lambda row: [row["junk_kind"]],
+        "why": lambda row: [json.dumps(part, ensure_ascii=False, sort_keys=True)
+                            for part in row.get("why_parts", []) if part.get("text") != " · "],
+    })
 
 
 def _junk_scope(kind, status) -> tuple[str, str]:
@@ -194,7 +207,8 @@ def w_ads_dispose_all(contract: WebContract, body) -> dict:
     if not isinstance(expected, int) or isinstance(expected, bool) or expected < 1:
         raise ValueError("expected must be the confirmed item count")
     pending, _dismissed = _junk_queues(contract)
-    ids = [item["id"] for item in pending if not kind or item["junk_kind"] == kind]
+    rows, _facets = _junk_table_rows(pending, kind, body.get("column_filters"))
+    ids = [item["id"] for item in rows]
     if len(ids) != expected:
         raise ValueError("the junk queue changed since it was shown; reload and confirm again")
     result = w_batch(contract, {"ids": ids, "operation": "dispose", "disposal_reason": "junk"}, limit=None)
