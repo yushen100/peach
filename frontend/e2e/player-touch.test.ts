@@ -33,10 +33,13 @@ it(`${viewport.width}×${viewport.height} 触摸：控制条、横滑预览、�
     const touch = (type: string, x = middle, y = 300) => session.send('Input.dispatchTouchEvent',
       { type, touchPoints: type === 'touchEnd' || type === 'touchCancel' ? [] : [{ x, y, id: 1 }] });
     const tap = async (x: number) => { await touch('touchStart', x); await touch('touchEnd') };
-    await tap(middle); await page.waitForTimeout(350);
-    assert.equal(await page.locator('.video-js').evaluate(root => root.classList.contains('vjs-user-inactive')), true);
-    await tap(middle); await page.waitForTimeout(350);
-    assert.equal(await page.locator('.video-js').evaluate(root => root.classList.contains('vjs-user-active')), true);
+    // 单击经过 300ms 双击窗口，等待状态切换，并在三秒自动隐藏之前失败。
+    await tap(middle);
+    await page.waitForFunction(() => document.querySelector('.video-js')?.classList.contains('vjs-user-inactive'),
+      null, { timeout: 1_000 });
+    await tap(middle);
+    await page.waitForFunction(() => document.querySelector('.video-js')?.classList.contains('vjs-user-active'),
+      null, { timeout: 1_000 });
     assert.equal(await page.evaluate('fixture.pauses()'), 0);
     await touch('touchStart', viewport.width * .1); await touch('touchMove', viewport.width * .6);
     assert.equal(await page.evaluate('fixture.video.currentTime'), 1200);
