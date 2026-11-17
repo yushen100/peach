@@ -8,7 +8,7 @@ from .web_state import path_version
 #: 否则服务端已经换了新结果，页面却不来取。对照由 `tests/test_ledger_revision.py` 的
 #: `ResultVersionTablesTests` 核对。
 RESULT_TABLES = {
-    'catalog': ('asset', 'asset_entity', 'asset_tag', 'asset_subtitle', 'asset_preference',
+    'catalog': ('asset', 'asset_catalog', 'asset_entity', 'asset_tag', 'asset_subtitle', 'asset_preference',
                 'asset_tag_preference', 'entity', 'entity_alias', 'entity_redirect',
                 'entity_classification', 'entity_identity_link', 'entity_link', 'entity_external_ref',
                 'entity_membership', 'label_maker', 'performer_profile', 'asset_quality_goal',

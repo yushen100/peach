@@ -536,6 +536,28 @@ class WebDataTests(unittest.TestCase):
         self.assertEqual(next(row["n"] for row in index["items"] if row["k"] == "Canonical Alice"), 2)
         self.assertEqual([(row["k"], row["n"]) for row in facets["tagperformers"]], [("Canonical Alice", 2)])
 
+    def test_starting_playback_keeps_inventory_and_storage_aggregates_and_refreshes_watched_state(self):
+        from peach import web_activity, web_folders
+        with mock.patch.object(web_stats, '_storage_volumes', return_value=[]), \
+                mock.patch.object(web_stats, '_ledger_stats', wraps=web_stats._ledger_stats) as inventory, \
+                mock.patch.object(web_stats, '_storage_stats', wraps=web_stats._storage_stats) as storage, \
+                mock.patch('peach.media_folders.directory_index', return_value={}) as folders, \
+                mock.patch.object(web_batch, '_scored_junk', return_value=([], frozenset())) as junk:
+            def load():
+                web_folders.q_folders(self.contract, {})
+                web_batch.q_ads(self.contract)
+                return web_stats.q_stats(self.contract)
+            before = load()
+            unseen = q_items(self.contract, {'state': 'fresh'})
+            with self.contract.read_connection() as connection:
+                target = connection.execute("SELECT id FROM asset WHERE medium='video' AND COALESCE(play_count,0)=0 "
+                                            "AND feedback IS NULL AND disposal IS NULL LIMIT 1").fetchone()[0]
+            web_activity.w_play(self.contract, {'id': target})
+            after = load()
+            self.assertEqual(after['consumption']['library_played'], before['consumption']['library_played'] + 1)
+            self.assertEqual(q_items(self.contract, {'state': 'fresh'})['total'], unseen['total'] - 1)
+            self.assertEqual([inventory.call_count, storage.call_count, folders.call_count, junk.call_count], [1, 1, 1, 1])
+
     def test_creator_card_and_detail_share_available_entity_image(self):
         (self.avatars / f"{entity_image_key('creator', 12)}.img").write_bytes(b"image")
         row = rm_web.q_items(self.contract, {"limit": "10"})["items"][0]

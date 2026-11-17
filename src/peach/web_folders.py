@@ -10,7 +10,7 @@ def _index(contract, args):
     def read():
         with contract.read_connection() as connection:
             return media_folders.directory_index(connection, config, locations=scope[0], library=scope[1])
-    return contract.cached_until_changed('folders:' + repr(scope), read, tables=('asset',))
+    return contract.cached_until_changed('folders:' + repr(scope), read, tables=('asset_catalog',))
 
 
 def folder_filter(contract, args):

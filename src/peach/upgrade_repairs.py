@@ -2146,8 +2146,13 @@ class UpgradeRepairs:
                 planned.extend(planner.stock(*args, limit=min(16, remaining), skip=seen))
             if not media or receipt.get('media_paused'):
                 return planned[:MAX_FOLLOWUPS]
-            rows = connection.execute("SELECT id,code,name,path,location,size,mtime,snapshot_path FROM asset WHERE medium='video' "
-                                      "AND disposal IS NULL ORDER BY id").fetchall()
+            from .media_folders import path_predicate
+            scopes = [path_predicate(location, root) for location, roots in config.locations.items() for root in roots]
+            clause = " OR ".join(term for term, _values in scopes) or "0"
+            parameters = [value for _term, values in scopes for value in values]
+            rows = connection.execute("SELECT id,code,name,path,location,size,mtime,snapshot_path FROM asset a "
+                                      "WHERE medium='video' AND disposal IS NULL AND (" + clause + ") ORDER BY id",
+                                      parameters).fetchall()
             items = _media_items(connection)
         inherited, inherited_display = self._inherited_media(receipt, items)
         return self._plan_media(receipt, config, rows, planned, seen, inherited, inherited_display, media_limit, items)

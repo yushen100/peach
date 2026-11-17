@@ -50,7 +50,7 @@ from .western_artwork import artwork_key
 from .user_messages import UserValueError
 
 
-GROUP_TABLES = ('asset', 'asset_entity', 'entity')
+GROUP_TABLES = ('asset_catalog', 'asset_entity', 'entity')
 
 
 def _download_source_names(contract: WebContract) -> tuple[tuple[int, tuple[str, ...]], ...]:
@@ -543,7 +543,8 @@ def _catalog_totals(contract: WebContract, where, parameters, args):
     return contract.cached_until_changed(
         repr(('catalog-totals', tuple(where), tuple(parameters))), read,
         tuple(contract.database.media_roots), *group_inputs(contract),
-        tables=CATALOG_TOTAL_TABLES, allow_stale=False)
+        tables=CATALOG_TOTAL_TABLES + (('asset',) if args.get('state') in {'fresh', 'played'} else ()),
+        allow_stale=False)
 
 
 def _catalog_order(args):
@@ -1578,7 +1579,7 @@ def state_clause(state: str) -> str:
 TOPS_POOL_FACTOR = 4
 
 #: 顶部两排候选池读到的账本表：作品与实体三张、「已标记」读的偏好、「稍后看」读的队列。
-TOPS_TABLES = GROUP_TABLES + ("asset_preference", "watch_queue")
+TOPS_TABLES = GROUP_TABLES + ("asset", "asset_preference", "watch_queue")
 
 
 def q_tops(contract: WebContract, n=28, jav=False, seed="", state="", page=0, filters=None):
@@ -1667,7 +1668,7 @@ def q_tops(contract: WebContract, n=28, jav=False, seed="", state="", page=0, fi
 #: 筛选项读到的账本表（不含实体范围与搜索词那几条分支，它们不走按版本的缓存）：
 #: 作品与实体、标签隐藏偏好与标签实体的别名（`tag_not_hidden`）、「已标记」「稍后看」两种
 #: 状态，以及在线卡片的关注标签。
-FACETS_TABLES = GROUP_TABLES + ("entity_alias", "asset_tag_preference", "asset_preference",
+FACETS_TABLES = GROUP_TABLES + ("asset", "entity_alias", "asset_tag_preference", "asset_preference",
                                 "watch_queue", "follow_item", "follow_source")
 
 

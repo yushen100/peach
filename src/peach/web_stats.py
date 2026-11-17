@@ -532,26 +532,23 @@ def _replays(c, has_follow: bool) -> list[dict[str, int]]:
     return [{"k": plays, "n": n} for plays, n in sorted(counts.items())]
 
 
-#: 统计页账本那一段读到的表。`tag_not_hidden` 读标签偏好与标签实体的别名，
-#: `tag_is_not_a_performer_name` 读实体，在线播放读关注三张表。
-STATS_TABLES = ("asset", "asset_entity", "entity", "entity_alias", "asset_tag", "asset_tag_preference",
-                "asset_preference", "follow_playback", "follow_item", "follow_source")
+#: 库存聚合只依赖编目内容，起播更新的消费统计单独核验完整 asset 版本。
+STATS_TABLES = ("asset_catalog", "asset_entity", "entity", "entity_alias", "asset_tag", "asset_tag_preference")
+PLAY_STATS_TABLES = ("asset", "asset_preference", "follow_playback", "follow_item", "follow_source")
 
 
 def q_stats(contract: WebContract):
-    """统计页：库存 / 归属 / 标签 / 本地与在线播放 / 各存储卷。
-
-    账本那一段三十多条聚合 SQL 合计一秒多，按 `STATS_TABLES` 的版本缓存；媒体库划分取自设置，
-    热力图按本机时区分桶，两样作为输入进版本。存储卷读的是磁盘余量，与账本无关，按时间过期。
-    """
+    """库存、消费与存储卷分别按各自依赖缓存。"""
     config = settings_file.active()
     libraries = [(library, media_libraries.predicate(config, library["id"]))
                  for library in media_libraries.libraries(config)]
     out = dict(contract.cached_until_changed(
         "stats-ledger", lambda: _ledger_stats(contract, libraries),
-        repr(libraries), _utc_offset(datetime.now().astimezone()), tables=STATS_TABLES))
-    # 判定在线要读一次各挂载根的首条目录项，网盘挂载上不便宜，沿用 TTL 缓存。
-    out.update(contract.cached("stats-storage", _storage_stats))
+        repr(libraries), tables=STATS_TABLES))
+    out.update(contract.cached_until_changed(
+        "stats-playback", lambda: _playback_stats(contract),
+        _utc_offset(datetime.now().astimezone()), tables=PLAY_STATS_TABLES))
+    out.update(contract.cached_for("stats-storage", _storage_stats, ttl=CACHE_TTL))
     return out
 
 
@@ -606,6 +603,15 @@ def _ledger_stats(contract: WebContract, libraries) -> dict:
         out["tag_cov"] = one("SELECT count(DISTINCT t.asset_id) " + content_tags)
         out["top_tags"] = [dict(r, cat=tag_cat(r["k"])) for r in c.execute(
             "SELECT t.tag k, count(*) n " + content_tags + "GROUP BY t.tag ORDER BY n DESC LIMIT 30")]
+    return out
+
+
+def _playback_stats(contract: WebContract) -> dict:
+    with contract.read_connection() as c:
+        out = {}
+        def one(sql, *args):
+            row = c.execute(sql, args).fetchone()
+            return row[0] if row else 0
         tables = {row[0] for row in c.execute(
             "SELECT name FROM sqlite_schema WHERE type='table'"
         )}
