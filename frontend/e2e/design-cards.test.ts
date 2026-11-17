@@ -1226,7 +1226,7 @@ describe('设计决定：作品卡、管理页与复核', () => {
     }
   });
 
-  it('垃圾卡复用探索卡，键行同高居中，移入回收站使用长按删除的红字与浅色底', { timeout: 90_000 }, async () => {
+  it('垃圾卡复用探索卡，键行同高居中，单击回收使用标准危险按钮', { timeout: 90_000 }, async () => {
     const opened = await openJunkWith(browser, [junkItem(9201, 'archive', '推广.zip'), junkItem(9202, 'url', '官网.url')]);
     try {
       const page = opened.page;
@@ -1288,11 +1288,9 @@ describe('设计决定：作品卡、管理页与复核', () => {
       const dispose = wide.keys.find((key) => key.action === 'dispose')!;
       assert.match(wide.raw, /^linear-gradient/, `--board-red 没解析成渐变：${wide.raw}`);
       assert.ok(wide.red[0]!.length >= 2, `--board-red 的色标没读出来：${JSON.stringify(wide.red)}`);
-      assert.equal(dispose.hold, true);
-      assert.deepEqual(dispose.paint[0], []);
-      assert.equal(dispose.before, 'none');
-      assert.equal(dispose.background, await tokenColor(page, '#grid [data-junk-card]', '--color-background-primary-default'));
-      assert.equal(dispose.ink, await tokenColor(page, '#grid [data-junk-card]', '--color-text-error-primary'));
+      assert.equal(dispose.hold, false);
+      assert.deepEqual(dispose.paint, wide.red);
+      assert.equal(dispose.ink, await tokenColor(page, '#grid [data-junk-card]', '--color-text-white'));
       for (const key of wide.keys.filter((one) => one.action !== 'dispose')) {
         assert.notDeepEqual(key.paint, wide.red, `${key.action} 也画成了红键`);
       }
