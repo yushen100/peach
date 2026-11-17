@@ -4,6 +4,7 @@
  * 选一个文件接过去，记录搬到那个文件上、旧行删掉，整批可按批次号撤回；彻底删除连记录一起
  * 删，过危险档确认弹层。没有已消失的作品时整块不出现。 */
 import { useState } from 'react';
+import { RiDeleteBinLine, RiFolderTransferLine } from '@remixicon/react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { confirmModal } from '@peach/legacy/ui';
 import { LOC } from '@peach/legacy/core';
@@ -26,6 +27,7 @@ import {
   RECORD_LABELS, type OrphanRecord,
 } from './orphan-records';
 import { t } from '../../i18n';
+import type { WorkContextOperation } from '../components/work-context-menu';
 
 const PLAY = spriteGlyph('play');
 const recordLabels: Record<string, string> = Object.fromEntries([...RECORD_LABELS,
@@ -34,6 +36,26 @@ const recordLabels: Record<string, string> = Object.fromEntries([...RECORD_LABEL
 ]);
 
 const refresh = () => queryClient.invalidateQueries({ queryKey: ORPHAN_RECORDS_KEY, exact: true });
+
+function confirmOrphanRemoval(item: OrphanRecord, onConfirm: () => Promise<unknown>) {
+  return confirmModal({
+    title: t('cleanup:orphans.deleteRecord'),
+    holdToConfirm: true,
+    body: recordsText(item.records)
+      ? t('cleanup:orphans.deleteBodyWithActivity', { name: item.name, records: recordsText(item.records) })
+      : t('cleanup:orphans.deleteBody', { name: item.name }),
+    confirmLabel: t('cleanup:orphans.deleteRecord'),
+    danger: true, onConfirm,
+  });
+}
+
+async function removeOrphan(item: OrphanRecord, toast: (message: string) => void) {
+  const data = await purgeOrphan(item.id);
+  toast(data.blocked.length
+    ? t('cleanup:orphans.fileRestored', { name: item.name })
+    : t('cleanup:orphans.recordDeleted', { name: item.name }));
+  void refresh();
+}
 
 function OrphanActions({ item, toast }: { item: OrphanRecord; toast(message: string): void }) {
   const [target, setTarget] = useState<number | null>(item.candidates[0]?.id ?? null);
@@ -46,33 +68,14 @@ function OrphanActions({ item, toast }: { item: OrphanRecord; toast(message: str
     },
     onError: (error) => toast(errorMessage(error)),
   });
-  const purge = useMutation({
-    mutationFn: () => purgeOrphan(item.id),
-    onSuccess: (data) => {
-      toast(data.blocked.length
-        ? t('cleanup:orphans.fileRestored', { name: item.name })
-        : t('cleanup:orphans.recordDeleted', { name: item.name }));
-      void refresh();
-    },
-  });
-  const remove = () => {
-    void confirmModal({
-      title: t('cleanup:orphans.deleteRecord'),
-      holdToConfirm: true,
-      body: recordsText(item.records)
-        ? t('cleanup:orphans.deleteBodyWithActivity', { name: item.name, records: recordsText(item.records) })
-        : t('cleanup:orphans.deleteBody', { name: item.name }),
-      confirmLabel: t('cleanup:orphans.deleteRecord'),
-      danger: true,
-      onConfirm: () => purge.mutateAsync(),
-    });
-  };
+  const purge = useMutation({ mutationFn: () => removeOrphan(item, toast) });
+  const remove = () => { void confirmOrphanRemoval(item, () => purge.mutateAsync()) };
   const busy = attach.isPending || purge.isPending;
   return (
     <span className="flex min-w-0 flex-wrap items-center gap-2">
         <Button variant="danger" size="small" {...busyProps(busy)} onClick={remove}>{t('cleanup:orphans.deleteRecord')}</Button>
         {item.candidates.length
-          ? <Select aria-label={t('cleanup:orphans.targetLabel', { name: item.name })} prefix={t('cleanup:orphans.targetPrefix')} className="w-52" selectedKey={target}
+          ? <Select data-orphan-target="" aria-label={t('cleanup:orphans.targetLabel', { name: item.name })} prefix={t('cleanup:orphans.targetPrefix')} className="w-52" selectedKey={target}
               onSelectionChange={(key) => { if (key !== null) setTarget(Number(key)) }}>
               {item.candidates.map((candidate) => (
                 <SelectItem key={candidate.id} id={candidate.id} textValue={candidateText(candidate)}>
@@ -119,6 +122,15 @@ export function OrphanRecordsCard({ toast }: { toast(message: string): void }) {
   const query = useQuery({ queryKey: ORPHAN_RECORDS_KEY, queryFn: ({ signal }) => fetchOrphanRecords(signal) });
   const items = query.data?.items ?? [];
   const host = { receipt: toast };
+  const contextOperations = (item: OrphanRecord) => {
+    const operations: WorkContextOperation[] = [
+      { id: 'delete', label: t('cleanup:orphans.deleteRecord'), icon: RiDeleteBinLine, danger: true,
+        run: () => { void confirmOrphanRemoval(item, () => removeOrphan(item, toast)) } },
+    ];
+    if (item.candidates.length) operations.unshift({ id: 'target', label: t('cleanup:orphans.targetLabel', { name: item.name }), icon: RiFolderTransferLine,
+      run: row => { row.querySelector<HTMLButtonElement>('[data-orphan-target] button')?.click() } });
+    return operations;
+  };
   /* 永久删除撤不回：弹窗写明，回执只报删了几条、几条没删成。 */
   const purgeSelected = (count: number): BulkAction<OrphanRecord> => {
     let outcome: Awaited<ReturnType<typeof purgeOrphan>> | null = null;
@@ -148,6 +160,7 @@ export function OrphanRecordsCard({ toast }: { toast(message: string): void }) {
               <Note tone="error" title={t('cleanup:orphans.loadFailed')}>{errorMessage(query.error)}</Note>
             </Fieldset>
           : <DataTable label={t('cleanup:orphans.tableLabel')} items={items} columns={columns}
+              contextOperations={contextOperations}
               title={t('cleanup:tools.orphanRecords')} titleId="orphan-records-title" unit={t('cleanup:orphans.unit')}
               description={ORPHAN_RECORDS_TEXT}
               rowId={(item) => String(item.id)} rowLabel={(item) => item.name}

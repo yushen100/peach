@@ -21,10 +21,11 @@ import { t } from '../../i18n';
 import { useTableFilters, type TableFilter, type RemoteTableFilters } from './use-table-filters';
 import { useLibraryFilterOptions } from './library-filter-options';
 import { ActivityStatus } from './activity-motion';
+import { useRowWorkContext, type WorkContextOperation } from './work-context-menu';
 import '../catalog-grid/catalog-list.css';
 
 export function QueueTable<T extends { id: number; library_id?: unknown }>({
-  table, label, items, cells, selected, selecting, sort, rowLabel, onPick, onPickAll, filters, filterColumns = {}, busy = false,
+  table, label, items, cells, selected, selecting, sort, rowLabel, onPick, onPickAll, filters, filterColumns = {}, busy = false, contextOperations,
 }: {
   table: QueueTablePage;
   /** 每一列的单元格，键是 `QUEUE_COLUMNS` 里那一列的 id。 */
@@ -35,6 +36,7 @@ export function QueueTable<T extends { id: number; library_id?: unknown }>({
   filters?: RemoteTableFilters;
   filterColumns?: Record<string, TableFilter<T>>;
   busy?: boolean;
+  contextOperations?(item: T): WorkContextOperation[];
 }) {
   const libraryOptions = useLibraryFilterOptions();
   const filtered = useTableFilters(items, { ...filterColumns, library: {
@@ -59,8 +61,11 @@ export function QueueTable<T extends { id: number; library_id?: unknown }>({
     return id && tints.get(id)?.color ? id : undefined;
   };
   const byId = (key: string) => items.find((item) => String(item.id) === key);
+  const context = useRowWorkContext(byId, busy ? undefined : contextOperations);
   return (
-    <div data-catalog-view-mode="list" data-catalog-table="" data-queue-table="" aria-busy={busy || undefined} className="flex min-w-0 flex-col gap-4">
+    <div data-catalog-view-mode="list" data-catalog-table="" data-queue-table="" aria-busy={busy || undefined} className="flex min-w-0 flex-col gap-4"
+      onKeyDown={context.onKeyDown}>
+      {context.menu}
       <div className="flex flex-wrap justify-end gap-2" role="toolbar" aria-label={label}>
         <div data-toolbar-actions="">
           <TableColumnControls preferences={preferences} label={label} />
@@ -94,7 +99,8 @@ export function QueueTable<T extends { id: number; library_id?: unknown }>({
           <TableBody renderEmptyState={() => busy ? null : t('shell:dataTable.empty')}>
             {(busy ? [] : filtered.items).map((item) => (
               <TableRow key={item.id} id={String(item.id)} data-id={item.id} data-catalog-row="" data-library={library(item)}
-                data-board-selected={selected.has(item.id) || undefined}>
+                data-board-selected={selected.has(item.id) || undefined} data-work-context-row={contextOperations ? item.id : undefined}
+                onContextMenu={context.onContextMenu ? event => context.onContextMenu?.(event, item, String(item.id)) : undefined}>
                 {selecting ? <TableCell><Checkbox slot={null} aria-label={rowLabel(item)} isSelected={selected.has(item.id)}
                   onChange={(on) => onPick(item, on)} /></TableCell> : null}
                 {shown.map((column) => <TableCell key={column.id}>{cells[column.id]?.(item)}</TableCell>)}

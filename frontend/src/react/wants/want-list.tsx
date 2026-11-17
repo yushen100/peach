@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Radio } from 'react-aria-components';
 import type { KeyboardEvent, ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { RiStarLine, RiExternalLinkLine, RiDeleteBinLine, RiSearchLine } from '@remixicon/react';
+import { RiStarLine, RiExternalLinkLine, RiDeleteBinLine, RiSearchLine, RiRestartLine, RiCheckboxLine } from '@remixicon/react';
 
 import { Button, ButtonLink } from '@/components/base/buttons/button';
 import { Checkbox } from '@/components/base/checkbox/checkbox';
@@ -34,6 +34,7 @@ import { cachedMagnetStates } from './resource-cache';
 import { SEGMENT, SEGMENTED_TRACK, SegmentedRadioGroup } from '../components/segmented';
 import { busyProps, useAction } from '../settings/use-action';
 import { composingKey } from '../components/ime';
+import { useWorkContextMenu, type WorkContextOperation } from '../components/work-context-menu';
 import {
   addWant, fetchWants, invalidateWants, lastSearchNote, PHASES, removeWants, resetWants, restoreWants, searchNote, wantName,
   WANTS_KEY, wantsInterval, type Want,
@@ -68,6 +69,7 @@ function WantRow({ want, readOnly, busy, onReset, onRemove, onCloudDownload, dow
   /** 多选模式下这一条的勾选；不在多选模式时为空，不画勾选框。 */
   picked?: { on: boolean; toggle(on: boolean): void };
 }) {
+  const menu = useWorkContextMenu();
   const [resourcePages, setResourcePages] = useState<ResourceSourcePage[]>([]);
   const original = want.link || (!resourcePages.length && want.code ? `https://javdb.com/search?q=${encodeURIComponent(want.code)}&f=all` : '');
   const host = original && URL.canParse(original) ? new URL(original).hostname.replace(/^www\./, '') : '';
@@ -77,9 +79,22 @@ function WantRow({ want, readOnly, busy, onReset, onRemove, onCloudDownload, dow
     ? [{ source: originalKey, label: originalLabel, url: original }, ...resourcePages] : resourcePages;
   // 有番号还在找的，资源区自己说明查到了什么，这里只给上次定时查找的结果。
   const note = want.code && want.phase === 'searching' ? lastSearchNote(want) : searchNote(want);
+  const operations: WorkContextOperation[] = pages.map(page => ({ id: `source:${page.source}`, label: page.label, icon: RiExternalLinkLine,
+    run: () => { window.open(page.url, '_blank', 'noopener,noreferrer') } }));
+  if (want.phase === 'searching' || want.phase === 'given_up') operations.push({ id: 'resource', label: t('catalog:shared.searchTorrents'),
+    icon: RiSearchLine, run: onCloudDownload });
+  if (want.phase === 'given_up') operations.push({ id: 'reset', label: t('catalog:wants.searchAgain'), icon: RiRestartLine,
+    disabled: readOnly || !!busy, run: onReset });
+  if (picked) operations.push({ id: 'select', label: t(picked.on ? 'catalog:mediaActions.deselect' : 'catalog:mediaActions.select'),
+    icon: RiCheckboxLine, run: () => picked.toggle(!picked.on) });
+  operations.push({ id: 'remove', label: t('catalog:shared.remove'), icon: RiDeleteBinLine, danger: true,
+    disabled: readOnly || !!busy, run: onRemove });
+  const menuContext = { key: want.id, operations };
   return (
     <li data-want-id={want.id}
+      onContextMenu={event => menu.onContextMenu(event, menuContext)} onKeyDown={event => menu.onKeyDown(event, menuContext)}
       className={cardClass({ className: 'flex flex-col gap-4 max-sm:p-4' })}>
+      {menu.menu}
       <div className="flex min-w-0 items-start gap-4 max-sm:gap-3">
       {picked ? <Checkbox slot={null} className="mt-1 shrink-0 self-start" aria-label={t('catalog:wants.selectRow', { name: wantName(want) })}
         isSelected={picked.on} onChange={picked.toggle} /> : null}

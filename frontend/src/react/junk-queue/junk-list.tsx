@@ -7,7 +7,7 @@ import { CardTags, Icon } from '../components/card-meta';
 import { QueueIdentity, QueuePicture, QueueTable } from '../components/queue-table';
 import { ListLibrary } from '../catalog-grid/catalog-list-page';
 import type { useQueueSort } from '../components/queue-sort';
-import { JunkActions, junkOpenable, junkPreview, junkReasons, useJunkActions } from './junk-card';
+import { JunkActions, junkContextOperations, junkOpenable, junkPreview, junkReasons, useJunkActions } from './junk-card';
 import { junkKindMeta, type JunkItem, type JunkQueueActions, type JunkView } from './junk-queue';
 import { t } from '../../i18n';
 import type { RemoteTableFilters } from '../components/use-table-filters';
@@ -49,6 +49,7 @@ export function JunkList({ items, view, selected, selecting, actions, order, cop
 }) {
   return (
     <QueueTable table="junk-files" label={t('cleanup:junk.categories')} items={items} selected={selected} selecting={selecting}
+      contextOperations={item => junkContextOperations(item, view, selected.has(item.id), actions)}
       filters={filters} busy={busy} filterColumns={{
         kind: { values: item => item.junk_kind || 'other', option: kind => {
           const [label, glyph] = junkKindMeta({ id: 0, junk_kind: kind });

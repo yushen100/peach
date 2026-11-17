@@ -6,6 +6,7 @@ export const CATALOG_COLUMN_VISIBILITY_KEY = 'peach.catalog-column-visibility.v1
 
 export const columnSizes: Record<string, { width: number; min: number; max: number }> = {
   select: { width: 48, min: 48, max: 48 },
+  actions: { width: 128, min: 128, max: 128 },
   name: { width: 300, min: 240, max: 2000 },
   people: { width: 220, min: 160, max: 400 },
   library: { width: 112, min: 96, max: 320 },
@@ -28,9 +29,9 @@ export const columnSizes: Record<string, { width: number; min: number; max: numb
 export const defaultColumnVisibility: Record<string, boolean> = { release: false, played: false, o: false, resolution: false, size: false, code: false };
 const labels: Record<string, string> = { select: t('catalog:catalogList.selectColumn'), name: t('catalog:shared.video'), dur: t('catalog:catalogList.duration'), size: t('catalog:catalogList.size'), resolution: t('catalog:catalogList.resolution'),
   rating: t('catalog:shared.rating'), o: t('catalog:catalogList.climaxCount'), plays: t('catalog:catalogList.plays'), new: t('catalog:catalogList.dateAdded'), played: t('catalog:catalogList.lastWatched'), release: t('catalog:catalogList.releaseDate'), code: t('catalog:shared.code'), tags: t('catalog:shared.tags'),
-  library: t('catalog:shared.library'), people: t('catalog:shared.performers') };
-export const catalogColumns = ['select', 'name', 'people', 'library', 'tags', 'dur', 'rating', 'plays', 'new', 'release', 'played', 'o', 'resolution', 'size', 'code']
-  .map(id => ({ id, label: labels[id]!, ...columnSizes[id]!, flex: id === 'name', required: id === 'select' || id === 'name', visible: defaultColumnVisibility[id] !== false }));
+  library: t('catalog:shared.library'), people: t('catalog:shared.performers'), actions: t('catalog:mediaActions.label') };
+export const catalogColumns = ['select', 'name', 'actions', 'people', 'library', 'tags', 'dur', 'rating', 'plays', 'new', 'release', 'played', 'o', 'resolution', 'size', 'code']
+  .map(id => ({ id, label: labels[id]!, ...columnSizes[id]!, flex: id === 'name', required: id === 'select' || id === 'name' || id === 'actions', visible: defaultColumnVisibility[id] !== false }));
 
 function stored(key: string): Record<string, unknown> {
   try {

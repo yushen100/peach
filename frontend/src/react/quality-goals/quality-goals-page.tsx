@@ -14,7 +14,7 @@
  * JAV 探索卡（`../jav/discovery-card.tsx`）：封面、头像那一格放勾选框、两行标题、来源与体积，
  * 判定原因落在标签行，底部一排动作键。 */
 import { useState, type CSSProperties } from 'react';
-import { RiSparklingLine } from '@remixicon/react';
+import { RiCheckboxLine, RiPlayLine, RiSearchLine, RiSparklingLine } from '@remixicon/react';
 import { useQuery } from '@tanstack/react-query';
 
 import { LOC, fmtDur, fmtSize } from '@peach/legacy/core';
@@ -48,28 +48,50 @@ import {
 } from './quality-goals';
 import { t } from '../../i18n';
 import type { TableFilters } from '../components/use-table-filters';
+import { useWorkContextMenu, type WorkContextOperation } from '../components/work-context-menu';
 
 /** 判定原因按「高清 / 无水印 / 完整版」那样的分隔拆成几枚只读标签。 */
 const reasonTags = (reason: string | null) => (reason || '').split(/\s*\/\s*/).map((part) => part.trim()).filter(Boolean);
+
+function goalPrefill(item: QualityGoal, title: string): DownloadPrefill {
+  return { code: item.code!, title, origin: `asset:${item.id}`, searchReason: item.reason || '',
+    duration: item.duration, cover: previewUrl(item) };
+}
+
+function goalOperations(item: QualityGoal, picked: boolean, open: () => void, search: () => void, pick: () => void) {
+  const operations: WorkContextOperation[] = [
+    { id: 'open', label: t('manage:hdUpgrades.viewEditions'), icon: RiPlayLine, run: open },
+    { id: 'select', label: t(picked ? 'catalog:mediaActions.deselect' : 'catalog:mediaActions.select'), icon: RiCheckboxLine, run: pick },
+  ];
+  if (item.code) operations.splice(1, 0, { id: 'search', label: t('manage:resourceSearch.searchTorrents'), icon: RiSearchLine, run: search });
+  return operations;
+}
 
 /** 一部待升级的作品一张卡。 */
 function GoalCard({ item, openItem, searchResources, javTitleHtml, javDisplayName, srcBadge, picked, onPick, selecting }: { item: QualityGoal }
   & Omit<QualityGoalsProps, 'toast'> & { searchResources(prefill: DownloadPrefill): void; picked: boolean; onPick(on: boolean): void;
     selecting: boolean }) {
+  const menu = useWorkContextMenu();
   const dense = useDense();
   const [broken, setBroken] = useState(false);
   const open = () => openItem(item.id);
   const title = javDisplayName(item);
+  const search = () => searchResources(goalPrefill(item, title));
+  const context = { key: item.id, operations: goalOperations(item, picked, open, search, () => onPick(!picked)) };
   const tints = useLibraryTints();
   const library = item.library_id && tints.get(item.library_id)?.color ? item.library_id : undefined;
   return (
     /* 多选模式与修饰键优先：点在卡上任何地方都是切换选中，同探索卡；平时点封面与标题打开。 */
     <article data-media-card="" data-jav-card="" data-queue-card="" data-goal-id={item.id} data-library={library}
       data-selected={picked ? '' : undefined}
+      onContextMenu={event => menu.onContextMenu(event, context)}
+      onKeyDown={event => menu.onKeyDown(event, context)}
       onClickCapture={(event) => {
+        if ((event.target as Element).closest('[data-work-context-menu]')) return;
         if (!selecting && !event.shiftKey && !event.ctrlKey && !event.metaKey) return;
         event.preventDefault(); event.stopPropagation(); onPick(!picked);
       }}>
+      {menu.menu}
       <button type="button" data-media-pic="" onClick={open} aria-label={t('manage:hdUpgrades.openVideo', { title })}
         style={{ '--card-ratio': String(16 / 9) } as CSSProperties}>
         {/* 图片取不到时露出来的就是这句。 */}
@@ -95,10 +117,7 @@ function GoalCard({ item, openItem, searchResources, javTitleHtml, javDisplayNam
         </div>
       </div>
       <div data-jav-actions="" className="flex flex-wrap gap-2">
-        {item.code ? <Button variant="secondary" size={dense ? 'small' : 'medium'} onClick={() => searchResources({
-          code: item.code!, title, origin: `asset:${item.id}`, searchReason: item.reason || '',
-          duration: item.duration, cover: previewUrl(item),
-        })}>{t('manage:resourceSearch.searchTorrents')}</Button> : null}
+        {item.code ? <Button variant="secondary" size={dense ? 'small' : 'medium'} onClick={search}>{t('manage:resourceSearch.searchTorrents')}</Button> : null}
         <Button variant="secondary" size={dense ? 'small' : 'medium'} onClick={open}>{t('manage:hdUpgrades.viewEditions')}</Button>
       </div>
     </article>
@@ -167,6 +186,8 @@ export function QualityGoalsPage({ toast, ...props }: QualityGoalsProps) {
         <span data-entity-sorts=""><CatalogViewToggle /><SortKeys sorts={order.sorts} onSort={order.onSort} /></span></>} />
       {view === 'list'
         ? <QueueTable table="quality-goals" label={t('manage:hdUpgrades.summaryLabel')} items={items} selected={new Set(picked.keys())} selecting={selecting}
+            contextOperations={item => goalOperations(item, picked.has(item.id), () => props.openItem(item.id),
+              () => setDownload(goalPrefill(item, props.javDisplayName(item))), () => pick(item.id, !picked.has(item.id)))}
             busy={goals.isFetching}
             filters={{ values: activeFilters, facets: data.column_facets ?? {}, onChange: setFilters }}
             filterColumns={{
@@ -191,8 +212,7 @@ export function QualityGoalsPage({ toast, ...props }: QualityGoalsProps) {
               size: (item) => Number(item.size) > 0 ? fmtSize(Number(item.size)) : '—',
               reason: (item) => item.reason || '—',
               actions: (item) => <span className="flex gap-2">
-                {item.code ? <Button variant="secondary" size="small" onClick={() => setDownload({ code: item.code!, title: props.javDisplayName(item),
-                  origin: `asset:${item.id}`, searchReason: item.reason || '', duration: item.duration, cover: previewUrl(item) })}>
+                {item.code ? <Button variant="secondary" size="small" onClick={() => setDownload(goalPrefill(item, props.javDisplayName(item)))}>
                   {t('manage:resourceSearch.searchTorrents')}</Button> : null}
                 <Button variant="secondary" size="small" onClick={() => props.openItem(item.id)}>{t('manage:hdUpgrades.viewEditions')}</Button>
               </span>,

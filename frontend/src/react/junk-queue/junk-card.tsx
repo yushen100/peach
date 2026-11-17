@@ -10,7 +10,7 @@
  * 标题照遗留层写成转义后的 HTML：`data-middle-truncate` 由中段截断（`src/ui-kit/middle-truncate.ts`）按宽度
  * 从中间截断，它直接改写这一格的文字，交给 React 管的话下一次重画会和它互相覆盖。 */
 import { memo, useRef, useState, type CSSProperties, type MouseEvent } from 'react';
-import { RiFolderOpenLine } from '@remixicon/react';
+import { RiCheckboxLine, RiDeleteBinLine, RiFolderOpenLine, RiPlayLine, RiRestartLine } from '@remixicon/react';
 import { esc, fmtSize } from '@peach/legacy/core';
 import { Button } from '@/components/base/buttons/button';
 
@@ -26,6 +26,7 @@ import { ListLibrary } from '../catalog-grid/catalog-list-page';
 import { busyProps } from '../settings/busy-props';
 import { t } from '../../i18n';
 import { partsLabel } from '../../core/server-text';
+import { useWorkContextMenu, type WorkContextOperation } from '../components/work-context-menu';
 
 export interface JunkCardProps {
   item: JunkItem;
@@ -86,6 +87,26 @@ export function JunkActions({ state, compact }: { state: ReturnType<typeof useJu
 
 /** 浏览器里看得了的两类：视频进详情，图片开原图。 */
 export const junkOpenable = (item: JunkItem) => item.junk_kind === 'video' || item.junk_kind === 'image';
+
+export function junkContextOperations(item: JunkItem, view: JunkView, selected: boolean, actions: JunkQueueActions, busy = false) {
+  const decision = junkDecision(view);
+  const operations: WorkContextOperation[] = [
+    { id: 'reveal', label: t('cleanup:junk.reveal'), icon: RiFolderOpenLine, disabled: busy,
+      run: async () => {
+        const failure = await actions.reveal(item);
+        if (failure) throw new Error(failure);
+      } },
+    { id: 'select', label: t(selected ? 'catalog:mediaActions.deselect' : 'catalog:mediaActions.select'), icon: RiCheckboxLine,
+      run: () => actions.toggleSelection(item.id, false) },
+    { id: decision.operation, label: decision.label, icon: RiRestartLine, disabled: busy,
+      run: () => actions.operate(item, decision.operation) },
+    { id: 'trash', label: t('cleanup:duplicates.moveToTrash'), icon: RiDeleteBinLine, danger: true, disabled: busy,
+      run: () => actions.operate(item, 'dispose') },
+  ];
+  if (junkOpenable(item)) operations.unshift({ id: 'open', label: t('catalog:mediaActions.open'), icon: RiPlayLine,
+    run: anchor => actions.open(item, anchor) });
+  return operations;
+}
 /** 判定理由按段拆成几枚只读标签。 */
 export const junkReasons = (item: JunkItem) => (item.why ? partsLabel(item.why_parts, item.why).split(' · ').filter(Boolean) : []);
 /** 预览图地址：视频取第 4 帧，图片取缩略图，别的没有。 */
@@ -93,9 +114,11 @@ export const junkPreview = (item: JunkItem) =>
   item.junk_kind === 'video' ? `/thumb?id=${item.id}&c=4` : item.junk_kind === 'image' ? `/photo-thumb?id=${item.id}` : '';
 
 function JunkCardView({ item, view, selected, selectMode, helpers, actions, copies }: JunkCardProps) {
+  const menu = useWorkContextMenu();
   const card = useRef<HTMLElement | null>(null);
   const dense = useDense();
   const state = useJunkActions(item, view, actions);
+  const context = { key: item.id, operations: junkContextOperations(item, view, selected, actions, !!state.busy) };
   const kind = item.junk_kind || 'other';
   const [label, glyph] = junkKindMeta(item);
   const name = String(item.name || '');
@@ -122,7 +145,9 @@ function JunkCardView({ item, view, selected, selectMode, helpers, actions, copi
     <article ref={card} data-media-card="" data-jav-card="" data-queue-card="" data-junk-card="" data-id={item.id} data-junk-kind={kind}
       data-library={library}
       data-selected={selected ? '' : undefined}
-      onClick={clickCard} onMouseDown={suppressShiftTextSelection}>
+      onClick={clickCard} onMouseDown={suppressShiftTextSelection}
+      onContextMenu={event => menu.onContextMenu(event, context)} onKeyDown={event => menu.onKeyDown(event, context)}>
+      {menu.menu}
       <div data-media-pic="" style={{ '--card-ratio': String(16 / 9) } as CSSProperties}>
         <span data-media-glyph=""><Icon name={glyph} /><b>{label}</b></span>
         {preview

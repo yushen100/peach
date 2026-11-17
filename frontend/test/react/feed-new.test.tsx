@@ -57,6 +57,20 @@ it('新作来源共演头像直接按来源图片地址加载并在忽略后可�
   expect(mounted.host.querySelector('[data-feed-id]')).toBeNull();
 });
 
+it('新作右键识别想要开关和已读状态，打开菜单不执行写入', async () => {
+  const host = document.createElement('section');
+  document.body.append(host);
+  const write = vi.fn().mockResolvedValue(undefined);
+  const html = '<div class="feednewrow"><article data-feed-id="1" class="isread"><button data-feed-action="unwant">取消想要</button><button data-feed-action="read">已看过</button><button data-feed-action="ignore">忽略</button></article></div>';
+  const mounted = await mountRoot(<FeedNewRow host={host} feedNew={{items:[{id:1}],html}} wire={() => {}} act={write} />);
+  await act(async () => { mounted.host.querySelector('[data-feed-id]')!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })) });
+  const menu = document.querySelector('[role="menu"]')!;
+  expect(menu.textContent).toContain('取消想要');
+  expect(write).not.toHaveBeenCalled();
+  const read = [...menu.querySelectorAll('[role="menuitem"]')].find(node => node.textContent === '标为已看过');
+  expect(read?.getAttribute('aria-disabled')).toBe('true');
+});
+
 it('新作加入与取消想要均单击执行，取消后可重新加入', async () => {
   const host = document.createElement('section');
   document.body.append(host);

@@ -19,6 +19,16 @@
     "delivery": "Candidates are saved locally. Enable public metadata contributions to send them for review with the weekly snapshot.",
     "saved": "Chinese name candidate saved. Check public metadata contributions for sharing and adoption details."
   },
+  "mediaActions": {
+    "label": "Work actions",
+    "open": "Open details",
+    "select": "Select work",
+    "deselect": "Deselect work",
+    "removeLater": "Remove from watch later",
+    "delete": "Delete",
+    "restore": "Restore work",
+    "failed": "Work action failed"
+  },
   "avatarPicker": {
     "backToChoices": "Back to options",
     "baseImage": "Base image",

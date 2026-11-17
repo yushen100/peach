@@ -1,14 +1,14 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "d0681971-11b1-48a3-8bb3-5c483fe7d47f", e._sentryDebugIdIdentifier = "sentry-dbid-d0681971-11b1-48a3-8bb3-5c483fe7d47f");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "18097b3d-5ac7-495a-9b48-c2219503e718", e._sentryDebugIdIdentifier = "sentry-dbid-18097b3d-5ac7-495a-9b48-c2219503e718");
 	} catch {}
 })();
-import { ApiError as e, Button as t, ButtonLink as n, Chip as r, DIAGNOSTICS_KEY as i, Disclosure as a, EmptyState as o, Fact as s, FactList as c, Fieldset as l, FieldsetTitle as u, Input as d, ItemLibrary as f, LOC as p, LinkButton as m, Note as h, Section as g, SettingsCard as _, SettingsSectionLabel as v, SiteMark as y, Stack as b, TaskProgress as x, __toESM as S, activityKind as C, apiGet as w, apiSend as T, busyProps as E, checkText$1 as D, codedText as O, configurationSection as ee, cx as k, diagnosticHeaders as te, diagnosticsSkeleton as ne, errorMessage as A, fetchDiagnostics as j, fmtDur as M, fmtSize as N, interfaceLanguage as re, queryClient as ie, require_jsx_runtime as ae, require_react as oe, settingsPath as se, stageText as P, t as F, tl as ce, useAction as I, useLibraryFilterOptions as L, useLibraryTints as R, useQuery as z, withBackoff as B } from "./peach-app.js";
-import { ErrorExcerpt as V } from "./peach-app.error-excerpt-Ugft6I5o.js";
-import { DataTable as H } from "./peach-app.data-table-PbQqv_VV.js";
+import { ApiError as e, BC as t, Button as n, ButtonLink as r, Chip as i, DIAGNOSTICS_KEY as a, Disclosure as o, EmptyState as s, Fact as c, FactList as l, Fieldset as u, FieldsetTitle as d, Gg as f, Input as p, ItemLibrary as m, LOC as ee, LinkButton as h, Note as g, Section as _, SettingsCard as v, SettingsSectionLabel as y, SiteMark as b, Stack as x, TaskProgress as S, __toESM as C, activityKind as w, apiGet as T, apiSend as E, busyProps as D, checkText$1 as O, codedText as k, configurationSection as A, cx as j, diagnosticHeaders as te, diagnosticsSkeleton as ne, errorMessage as M, fetchDiagnostics as re, fmtDur as ie, fmtSize as N, interfaceLanguage as ae, queryClient as oe, require_jsx_runtime as se, require_react as ce, settingsPath as le, stageText as P, t as F, tl as I, useAction as L, useLibraryFilterOptions as R, useLibraryTints as z, useQuery as B, withBackoff as V } from "./peach-app.js";
+import { ErrorExcerpt as H } from "./peach-app.error-excerpt-Ugft6I5o.js";
+import { DataTable as U } from "./peach-app.data-table-CYTfz3fV.js";
 // src/react/diagnostics/health-list.tsx
-var U = /* @__PURE__ */ S(oe(), 1), W = ae(), G = (e) => e.title || e.name || e.code || F("manage:healthList.videoFallback", { id: e.id }), le = (e, t) => [[
+var W = /* @__PURE__ */ C(ce(), 1), G = se(), K = (e) => e.title || e.name || e.code || F("manage:healthList.videoFallback", { id: e.id }), ue = (e, t) => [[
 	F("manage:shared.video"),
 	F("manage:shared.code"),
 	F("manage:shared.fileName"),
@@ -17,7 +17,7 @@ var U = /* @__PURE__ */ S(oe(), 1), W = ae(), G = (e) => e.title || e.name || e.
 	F("manage:healthList.durationSeconds"),
 	F("manage:healthList.sizeBytes")
 ], ...e.map((e) => [
-	G(e),
+	K(e),
 	e.code ?? "",
 	e.name,
 	t(e),
@@ -25,38 +25,38 @@ var U = /* @__PURE__ */ S(oe(), 1), W = ae(), G = (e) => e.title || e.name || e.
 	e.duration ?? "",
 	e.size ?? ""
 ])].map((e) => e.map((e) => String(e ?? "").replace(/[\t\r\n]+/g, " ")).join("	")).join("\n");
-function ue({ group: e, groupKey: n, openItem: r, receipt: i }) {
-	let [s, c] = (0, U.useState)({}), l = JSON.stringify(s), u = z({
+function de({ group: e, groupKey: r, openItem: i, receipt: a }) {
+	let [c, l] = (0, W.useState)({}), u = JSON.stringify(c), d = B({
 		queryKey: [
 			"diagnostics-library",
-			n,
-			l,
+			r,
+			u,
 			e
 		],
-		enabled: l !== "{}",
-		queryFn: ({ signal: e }) => w(`/api/diagnostics/library?${new URLSearchParams({
-			group: n,
-			column_filters: l
+		enabled: u !== "{}",
+		queryFn: ({ signal: e }) => T(`/api/diagnostics/library?${new URLSearchParams({
+			group: r,
+			column_filters: u
 		})}`, e),
 		placeholderData: (e) => e
-	}), d = l === "{}" ? e : u.data ?? e, g = L(), _ = I(), v = O(d, "label"), [y, x] = (0, U.useState)([]), S = R({ names: !0 }), C = (e) => S.get(e.library_id || "")?.name || p[e.location] || e.location, T = (e) => void _.run("copy", () => navigator.clipboard.writeText(le(e, C)), () => i(F("manage:healthList.copied"))), D = [
+	}), p = u === "{}" ? e : d.data ?? e, _ = R(), v = L(), y = k(p, "label"), [b, S] = (0, W.useState)([]), C = z({ names: !0 }), w = (e) => C.get(e.library_id || "")?.name || ee[e.location] || e.location, E = (e) => void v.run("copy", () => navigator.clipboard.writeText(ue(e, w)), () => a(F("manage:healthList.copied"))), O = [
 		{
 			id: "title",
 			label: F("manage:shared.video"),
-			value: G,
-			render: (e) => /* @__PURE__ */ (0, W.jsxs)("span", {
+			value: K,
+			render: (e) => /* @__PURE__ */ (0, G.jsxs)("span", {
 				className: "flex min-w-0 flex-col gap-1",
-				children: [/* @__PURE__ */ (0, W.jsx)(m, {
+				children: [/* @__PURE__ */ (0, G.jsx)(h, {
 					variant: "primary",
-					title: G(e),
+					title: K(e),
 					"data-health-title": "",
 					className: "max-w-full justify-start whitespace-normal text-left",
-					onClick: () => r(e.id),
-					children: /* @__PURE__ */ (0, W.jsx)("span", {
+					onClick: () => i(e.id),
+					children: /* @__PURE__ */ (0, G.jsx)("span", {
 						className: "line-clamp-2 wrap-anywhere",
-						children: G(e)
+						children: K(e)
 					})
-				}), e.name && e.name !== G(e) ? /* @__PURE__ */ (0, W.jsx)("span", {
+				}), e.name && e.name !== K(e) ? /* @__PURE__ */ (0, G.jsx)("span", {
 					"data-middle-truncate": !0,
 					title: e.name,
 					className: "block min-w-0 text-caption-1-regular text-text-secondary",
@@ -69,7 +69,7 @@ function ue({ group: e, groupKey: n, openItem: r, receipt: i }) {
 			label: F("manage:shared.code"),
 			width: 144,
 			value: (e) => e.code || "",
-			render: (e) => /* @__PURE__ */ (0, W.jsx)("span", {
+			render: (e) => /* @__PURE__ */ (0, G.jsx)("span", {
 				className: "whitespace-nowrap",
 				children: e.code || F("manage:shared.unrecognized")
 			})
@@ -78,12 +78,12 @@ function ue({ group: e, groupKey: n, openItem: r, receipt: i }) {
 			id: "location",
 			label: F("manage:shared.library"),
 			width: 160,
-			value: C,
+			value: w,
 			filter: {
 				values: (e) => e.library_id || "none",
-				option: (e) => g.get(e) ?? { label: e === "none" ? F("cleanup:shared.none") : e }
+				option: (e) => _.get(e) ?? { label: e === "none" ? F("cleanup:shared.none") : e }
 			},
-			render: (e) => /* @__PURE__ */ (0, W.jsx)(f, {
+			render: (e) => /* @__PURE__ */ (0, G.jsx)(m, {
 				libraryId: e.library_id,
 				location: e.location,
 				fallback: F("manage:shared.notFound")
@@ -95,7 +95,7 @@ function ue({ group: e, groupKey: n, openItem: r, receipt: i }) {
 			width: 320,
 			min: 180,
 			value: (e) => e.path,
-			render: (e) => /* @__PURE__ */ (0, W.jsx)("span", {
+			render: (e) => /* @__PURE__ */ (0, G.jsx)("span", {
 				"data-middle-truncate": !0,
 				title: e.path,
 				className: "block min-w-0 w-full text-body-2-regular text-text-secondary",
@@ -107,7 +107,7 @@ function ue({ group: e, groupKey: n, openItem: r, receipt: i }) {
 			label: F("manage:shared.duration"),
 			width: 112,
 			value: (e) => e.duration ?? 0,
-			render: (e) => e.duration && e.duration > 0 ? M(e.duration) : F("manage:shared.notFound")
+			render: (e) => e.duration && e.duration > 0 ? ie(e.duration) : F("manage:shared.notFound")
 		},
 		{
 			id: "size",
@@ -117,67 +117,79 @@ function ue({ group: e, groupKey: n, openItem: r, receipt: i }) {
 			render: (e) => e.size === null ? F("manage:shared.notFound") : N(e.size)
 		}
 	];
-	return /* @__PURE__ */ (0, W.jsx)(a, {
-		summary: d.count === null ? `${v} · ${F("manage:shared.notFound")}` : F("manage:healthList.groupSummary", {
-			label: v,
-			count: d.count
+	return /* @__PURE__ */ (0, G.jsx)(o, {
+		summary: p.count === null ? `${y} · ${F("manage:shared.notFound")}` : F("manage:healthList.groupSummary", {
+			label: y,
+			count: p.count
 		}),
-		children: d.count === null ? /* @__PURE__ */ (0, W.jsx)(h, {
+		children: p.count === null ? /* @__PURE__ */ (0, G.jsx)(g, {
 			tone: "neutral",
 			children: F("manage:healthList.listNotFound")
-		}) : e.items.length ? /* @__PURE__ */ (0, W.jsxs)(b, { children: [
-			/* @__PURE__ */ (0, W.jsxs)("div", {
+		}) : e.items.length ? /* @__PURE__ */ (0, G.jsxs)(x, { children: [
+			/* @__PURE__ */ (0, G.jsxs)("div", {
 				className: "flex flex-wrap items-center justify-between gap-2",
-				children: [d.truncated ? /* @__PURE__ */ (0, W.jsx)("span", {
+				children: [p.truncated ? /* @__PURE__ */ (0, G.jsx)("span", {
 					className: "text-body-2-regular text-text-secondary",
 					children: F("manage:healthList.loadedCount", {
-						loaded: d.items.length,
-						count: d.count
+						loaded: p.items.length,
+						count: p.count
 					})
-				}) : null, /* @__PURE__ */ (0, W.jsx)(t, {
+				}) : null, /* @__PURE__ */ (0, G.jsx)(n, {
 					size: "small",
 					variant: "secondary",
-					...E(_.busy === "copy"),
-					onClick: () => T(d.items),
+					...D(v.busy === "copy"),
+					onClick: () => E(p.items),
 					children: F("manage:healthList.copyList")
 				})]
 			}),
-			_.error ? /* @__PURE__ */ (0, W.jsx)(h, {
+			v.error ? /* @__PURE__ */ (0, G.jsx)(g, {
 				tone: "error",
-				children: _.error
+				children: v.error
 			}) : null,
-			u.isError ? /* @__PURE__ */ (0, W.jsx)(h, {
+			d.isError ? /* @__PURE__ */ (0, G.jsx)(g, {
 				tone: "error",
-				children: String(u.error)
+				children: String(d.error)
 			}) : null,
-			/* @__PURE__ */ (0, W.jsx)(H, {
-				label: v,
+			/* @__PURE__ */ (0, G.jsx)(U, {
+				label: y,
 				title: F("manage:healthList.tableTitle"),
 				unit: F("manage:healthList.tableUnit"),
 				panel: !1,
-				busy: u.isFetching,
+				busy: d.isFetching,
 				filters: {
-					values: s,
-					facets: d.column_facets ?? {},
-					onChange: c
+					values: c,
+					facets: p.column_facets ?? {},
+					onChange: l
 				},
-				items: d.items,
-				columns: D,
+				items: p.items,
+				columns: O,
 				rowId: (e) => String(e.id),
-				rowLabel: G,
-				selected: y,
-				onSelected: x,
+				rowLabel: K,
+				selected: b,
+				onSelected: S,
+				contextOperations: (e) => [{
+					id: "open",
+					label: F("catalog:mediaActions.open"),
+					icon: f,
+					run: () => i(e.id)
+				}, {
+					id: "copy",
+					label: F("manage:healthList.copyRow"),
+					icon: t,
+					disabled: v.busy === "copy",
+					run: () => E([e])
+				}],
 				actions: () => [],
-				controls: (e) => /* @__PURE__ */ (0, W.jsx)(t, {
+				controls: (e) => /* @__PURE__ */ (0, G.jsx)(n, {
 					size: "small",
 					variant: "secondary",
-					...E(_.busy === "copy"),
-					onClick: () => T(e),
+					...D(v.busy === "copy"),
+					onClick: () => E(e),
 					children: F("manage:healthList.copySelected")
 				})
 			})
-		] }) : /* @__PURE__ */ (0, W.jsx)(o, {
-			icon: ce,
+		] }) : /* @__PURE__ */ (0, G.jsx)(s, {
+			icon: I,
 			title: F("manage:healthList.emptyTitle"),
 			size: "compact",
 			children: F("manage:healthList.emptyBody")
@@ -185,55 +197,55 @@ function ue({ group: e, groupKey: n, openItem: r, receipt: i }) {
 	});
 }
 // src/react/diagnostics/scraping-export.tsx
-var K = "/api/diagnostics/exports", q = ["diagnostic-export"], de = B((e) => ["running", "cancelling"].includes(e?.status || "") ? 1e3 : !1);
-function J({ kind: r, codes: i = "", children: a }) {
-	let o = I(), s = z({
-		queryKey: q,
-		queryFn: ({ signal: e }) => w(K, e),
-		refetchInterval: de
-	}), c = s.data, l = c?.kind === r, u = c?.status === "running" || c?.status === "cancelling", d = F(r === "support" ? "manage:diagnosticsExport.downloadReport" : "manage:diagnosticsExport.exportFetchLog"), f = (e) => {
-		ie.setQueryData(q, e);
-	}, p = () => void o.run("start", async (t) => {
-		let n = await fetch(K, {
+var q = "/api/diagnostics/exports", J = ["diagnostic-export"], fe = V((e) => ["running", "cancelling"].includes(e?.status || "") ? 1e3 : !1);
+function Y({ kind: t, codes: i = "", children: a }) {
+	let o = L(), s = B({
+		queryKey: J,
+		queryFn: ({ signal: e }) => T(q, e),
+		refetchInterval: fe
+	}), c = s.data, l = c?.kind === t, u = c?.status === "running" || c?.status === "cancelling", d = F(t === "support" ? "manage:diagnosticsExport.downloadReport" : "manage:diagnosticsExport.exportFetchLog"), f = (e) => {
+		oe.setQueryData(J, e);
+	}, p = () => void o.run("start", async (n) => {
+		let r = await fetch(q, {
 			method: "POST",
-			signal: t,
+			signal: n,
 			credentials: "same-origin",
 			headers: {
 				...await te(),
 				"Content-Type": "application/json"
 			},
 			body: JSON.stringify({
-				kind: r,
+				kind: t,
 				codes: i
 			})
-		}), a = await n.json().catch(() => null);
-		if (!n.ok) throw new e(a?.detail || a?.error || F("manage:diagnosticsExport.startFailed"), n.status, a);
+		}), a = await r.json().catch(() => null);
+		if (!r.ok) throw new e(a?.detail || a?.error || F("manage:diagnosticsExport.startFailed"), r.status, a);
 		if (!a || !a.job_id) throw Error(F("manage:diagnosticsExport.statusNotFound"));
 		return a;
-	}, f), m = () => void o.run("cancel", (e) => T(`${K}/${c.job_id}/cancel`, {}, "POST", e), f);
-	return /* @__PURE__ */ (0, W.jsxs)("div", {
+	}, f), m = () => void o.run("cancel", (e) => E(`${q}/${c.job_id}/cancel`, {}, "POST", e), f);
+	return /* @__PURE__ */ (0, G.jsxs)("div", {
 		className: "flex min-w-0 flex-col gap-3",
 		children: [
-			/* @__PURE__ */ (0, W.jsxs)("div", {
-				className: r === "support" ? "flex flex-wrap justify-end gap-2" : "flex flex-wrap gap-2",
+			/* @__PURE__ */ (0, G.jsxs)("div", {
+				className: t === "support" ? "flex flex-wrap justify-end gap-2" : "flex flex-wrap gap-2",
 				children: [
-					/* @__PURE__ */ (0, W.jsx)(t, {
+					/* @__PURE__ */ (0, G.jsx)(n, {
 						type: "button",
 						variant: "secondary",
 						disabled: u,
-						...E(o.busy === "start"),
+						...D(o.busy === "start"),
 						onClick: p,
 						children: d
 					}),
-					l && u ? /* @__PURE__ */ (0, W.jsx)(t, {
+					l && u ? /* @__PURE__ */ (0, G.jsx)(n, {
 						type: "button",
 						variant: "secondary",
 						disabled: c.status === "cancelling",
-						...E(o.busy === "cancel"),
+						...D(o.busy === "cancel"),
 						onClick: m,
 						children: F("manage:diagnosticsExport.cancelExport")
 					}) : null,
-					l && c.status === "complete" && c.download_url ? /* @__PURE__ */ (0, W.jsx)(n, {
+					l && c.status === "complete" && c.download_url ? /* @__PURE__ */ (0, G.jsx)(r, {
 						variant: "secondary",
 						href: c.download_url,
 						children: F("manage:diagnosticsExport.downloadFile")
@@ -241,9 +253,9 @@ function J({ kind: r, codes: i = "", children: a }) {
 					a
 				]
 			}),
-			l && u ? /* @__PURE__ */ (0, W.jsx)(x, {
-				embedded: r === "scraping",
-				kind: C("diagnostic-export", c.stage_code),
+			l && u ? /* @__PURE__ */ (0, G.jsx)(S, {
+				embedded: t === "scraping",
+				kind: w("diagnostic-export", c.stage_code),
 				value: c.done || 0,
 				total: c.total,
 				label: c.total ? F("manage:diagnosticsExport.progress", {
@@ -256,21 +268,21 @@ function J({ kind: r, codes: i = "", children: a }) {
 					c.files ? F("manage:diagnosticsExport.fileCount", { count: c.files }) : ""
 				].filter(Boolean).join(" · ")
 			}) : null,
-			l && c.status === "complete" ? /* @__PURE__ */ (0, W.jsx)("p", {
+			l && c.status === "complete" ? /* @__PURE__ */ (0, G.jsx)("p", {
 				role: "status",
 				className: "text-body-2-regular text-text-secondary",
 				children: F("manage:diagnosticsExport.completedSize", { size: ((c.bytes || 0) / 1024 / 1024).toFixed(2) })
 			}) : null,
-			l && c.status === "cancelled" ? /* @__PURE__ */ (0, W.jsx)(h, {
+			l && c.status === "cancelled" ? /* @__PURE__ */ (0, G.jsx)(g, {
 				tone: "neutral",
 				children: F("manage:diagnosticsExport.canceled")
 			}) : null,
-			s.isError ? /* @__PURE__ */ (0, W.jsx)(h, {
+			s.isError ? /* @__PURE__ */ (0, G.jsx)(g, {
 				tone: "error",
-				action: /* @__PURE__ */ (0, W.jsx)(t, {
+				action: /* @__PURE__ */ (0, G.jsx)(n, {
 					type: "button",
 					variant: "secondary",
-					...E(s.isFetching),
+					...D(s.isFetching),
 					onClick: () => {
 						s.refetch();
 					},
@@ -278,35 +290,35 @@ function J({ kind: r, codes: i = "", children: a }) {
 				}),
 				children: F("manage:diagnosticsExport.progressNotFound")
 			}) : null,
-			o.error || l && c.status === "failed" ? /* @__PURE__ */ (0, W.jsx)(h, {
+			o.error || l && c.status === "failed" ? /* @__PURE__ */ (0, G.jsx)(g, {
 				tone: "error",
 				children: o.error || c?.error
 			}) : null
 		]
 	});
 }
-function Y() {
-	let [e, t] = (0, U.useState)("");
-	return /* @__PURE__ */ (0, W.jsx)(l, {
+function X() {
+	let [e, t] = (0, W.useState)("");
+	return /* @__PURE__ */ (0, G.jsx)(u, {
 		layout: "stack",
 		labelledBy: "scraping-export-title",
-		footer: /* @__PURE__ */ (0, W.jsx)(J, {
+		footer: /* @__PURE__ */ (0, G.jsx)(Y, {
 			kind: "scraping",
 			codes: e
 		}),
-		children: /* @__PURE__ */ (0, W.jsxs)("div", {
+		children: /* @__PURE__ */ (0, G.jsxs)("div", {
 			className: "flex min-w-0 flex-col gap-4",
 			"aria-label": F("manage:diagnosticsExport.exportFetchLog"),
 			children: [
-				/* @__PURE__ */ (0, W.jsx)(u, {
+				/* @__PURE__ */ (0, G.jsx)(d, {
 					id: "scraping-export-title",
 					children: F("manage:diagnosticsExport.fetchLogTitle")
 				}),
-				/* @__PURE__ */ (0, W.jsx)("p", {
+				/* @__PURE__ */ (0, G.jsx)("p", {
 					className: "text-body-2-regular text-text-secondary",
 					children: F("manage:diagnosticsExport.fetchLogHint")
 				}),
-				/* @__PURE__ */ (0, W.jsx)(d, {
+				/* @__PURE__ */ (0, G.jsx)(p, {
 					label: F("manage:diagnosticsExport.codesLabel"),
 					name: "scraping-codes",
 					value: e,
@@ -322,7 +334,7 @@ function Y() {
 	});
 }
 // src/react/diagnostics/diagnostics-page.tsx
-var fe = {
+var pe = {
 	ok: F("manage:diagnostics.statusOk"),
 	warning: F("manage:diagnostics.statusWarning"),
 	failed: F("manage:diagnostics.statusFailed"),
@@ -330,7 +342,7 @@ var fe = {
 	disabled: F("manage:diagnostics.statusDisabled"),
 	stale: F("manage:diagnostics.statusStale"),
 	unchecked: F("manage:diagnostics.statusUnchecked")
-}, X = { "/tasks": F("manage:diagnostics.viewTasks") }, pe = [
+}, me = { "/tasks": F("manage:diagnostics.viewTasks") }, he = [
 	[F("manage:diagnostics.groupLibraries"), ["media_mounts", "data_root"]],
 	[F("manage:diagnostics.groupDatabase"), ["database", "schema"]],
 	[F("manage:diagnostics.groupTools"), ["ffmpeg"]],
@@ -341,85 +353,85 @@ var fe = {
 		"version"
 	]],
 	[F("manage:diagnostics.groupTasks"), ["tasks"]]
-], Z = (e) => new Date(e).toLocaleString(re);
+], Z = (e) => new Date(e).toLocaleString(ae);
 function Q({ status: e }) {
-	return /* @__PURE__ */ (0, W.jsx)(r, {
+	return /* @__PURE__ */ (0, G.jsx)(i, {
 		variant: "caption",
 		"data-diagnostic-status": e,
 		color: e === "failed" ? "rose" : e === "ok" ? "lime" : e === "warning" || e === "stale" ? "yellow" : "neutral",
-		children: fe[e] ?? F("manage:shared.notFound")
+		children: pe[e] ?? F("manage:shared.notFound")
 	});
 }
-function me() {
-	return /* @__PURE__ */ (0, W.jsx)(J, { kind: "support" });
+function ge() {
+	return /* @__PURE__ */ (0, G.jsx)(Y, { kind: "support" });
 }
-function $({ name: e, check: t, compact: r = !1 }) {
-	let i = t.target === "/settings/library" && (e === "security" || e === "port") ? se("network") : t.target, a = r ? "h4" : "h3", o = D(t);
-	return /* @__PURE__ */ (0, W.jsxs)("div", {
+function $({ name: e, check: t, compact: n = !1 }) {
+	let i = t.target === "/settings/library" && (e === "security" || e === "port") ? le("network") : t.target, a = n ? "h4" : "h3", o = O(t);
+	return /* @__PURE__ */ (0, G.jsxs)("div", {
 		"data-diagnostic-check": e,
-		className: k("flex flex-col gap-4 border-b border-separator-border pr-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between", r ? "py-3" : "py-5"),
-		children: [/* @__PURE__ */ (0, W.jsxs)("div", {
-			className: k("flex min-w-0 flex-1 flex-col", r ? "gap-1" : "gap-2"),
+		className: j("flex flex-col gap-4 border-b border-separator-border pr-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between", n ? "py-3" : "py-5"),
+		children: [/* @__PURE__ */ (0, G.jsxs)("div", {
+			className: j("flex min-w-0 flex-1 flex-col", n ? "gap-1" : "gap-2"),
 			children: [
-				/* @__PURE__ */ (0, W.jsxs)("div", {
+				/* @__PURE__ */ (0, G.jsxs)("div", {
 					className: "flex flex-wrap items-center gap-3",
-					children: [/* @__PURE__ */ (0, W.jsx)(a, {
-						className: k("text-text-primary", r ? "text-body-2-medium" : "text-body-medium"),
+					children: [/* @__PURE__ */ (0, G.jsx)(a, {
+						className: j("text-text-primary", n ? "text-body-2-medium" : "text-body-medium"),
 						children: o.label
-					}), /* @__PURE__ */ (0, W.jsx)(Q, { status: t.status })]
+					}), /* @__PURE__ */ (0, G.jsx)(Q, { status: t.status })]
 				}),
-				/* @__PURE__ */ (0, W.jsx)("p", {
+				/* @__PURE__ */ (0, G.jsx)("p", {
 					"data-check-reason": !0,
-					className: k("text-body-2-regular break-words", r ? "text-text-secondary" : "text-text-primary"),
+					className: j("text-body-2-regular break-words", n ? "text-text-secondary" : "text-text-primary"),
 					children: o.reason
 				}),
-				o.action ? /* @__PURE__ */ (0, W.jsx)("p", {
+				o.action ? /* @__PURE__ */ (0, G.jsx)("p", {
 					className: "text-body-2-regular text-text-secondary",
 					children: F("manage:diagnostics.suggestedFixText", { action: o.action })
 				}) : null
 			]
-		}), i ? /* @__PURE__ */ (0, W.jsx)("div", {
+		}), i ? /* @__PURE__ */ (0, G.jsx)("div", {
 			className: "shrink-0 self-end sm:self-auto",
-			children: /* @__PURE__ */ (0, W.jsx)(n, {
+			children: /* @__PURE__ */ (0, G.jsx)(r, {
 				size: "small",
 				variant: "secondary",
 				href: i,
-				children: i.startsWith("/settings/") ? F("manage:diagnostics.openSection", { section: ee(i) }) : X[i] ?? F("manage:diagnostics.openRelated")
+				children: i.startsWith("/settings/") ? F("manage:diagnostics.openSection", { section: A(i) }) : me[i] ?? F("manage:diagnostics.openRelated")
 			})
 		}) : null]
 	});
 }
-function he(e) {
-	let r = z({
-		queryKey: i,
-		queryFn: ({ signal: e }) => j(e),
+function _e(e) {
+	let t = B({
+		queryKey: a,
+		queryFn: ({ signal: e }) => re(e),
 		staleTime: 1e4
-	}), o = I(), [l, u] = (0, U.useState)(""), d = () => void o.run("refresh", async () => {
-		let e = await r.refetch();
+	}), i = L(), [s, u] = (0, W.useState)(""), d = () => void i.run("refresh", async () => {
+		let e = await t.refetch();
 		if (e.error) throw e.error;
 		return e.data;
-	}, () => u(""), (e) => u(A(e))), f = r.data;
-	if (!f && r.isPending) return /* @__PURE__ */ (0, W.jsx)("div", {
+	}, () => u(""), (e) => u(M(e))), f = t.data;
+	if (!f && t.isPending) return /* @__PURE__ */ (0, G.jsx)("div", {
 		role: "status",
 		"aria-label": F("manage:diagnostics.loading"),
 		dangerouslySetInnerHTML: { __html: ne() }
 	});
-	if (!f) return /* @__PURE__ */ (0, W.jsxs)("div", {
+	if (!f) return /* @__PURE__ */ (0, G.jsxs)("div", {
 		className: "ui-configpage",
 		children: [
-			/* @__PURE__ */ (0, W.jsx)(me, {}),
-			/* @__PURE__ */ (0, W.jsx)(h, {
+			/* @__PURE__ */ (0, G.jsx)(ge, {}),
+			/* @__PURE__ */ (0, G.jsx)(g, {
 				tone: "error",
 				title: F("manage:diagnostics.loadFailed"),
-				action: /* @__PURE__ */ (0, W.jsx)(t, {
+				action: /* @__PURE__ */ (0, G.jsx)(n, {
 					variant: "secondary",
 					onClick: d,
-					...E(o.busy === "refresh"),
+					...D(i.busy === "refresh"),
 					children: F("manage:diagnostics.checkAgain")
 				}),
-				children: r.error ? A(r.error) : F("manage:diagnostics.reportNotFound")
+				children: t.error ? M(t.error) : F("manage:diagnostics.reportNotFound")
 			}),
-			/* @__PURE__ */ (0, W.jsx)(Y, {})
+			/* @__PURE__ */ (0, G.jsx)(X, {})
 		]
 	});
 	let p = Object.entries(f.checks).filter(([, e]) => [
@@ -431,63 +443,63 @@ function he(e) {
 		"failed",
 		"unknown"
 	].includes(e.status));
-	return /* @__PURE__ */ (0, W.jsxs)("div", {
+	return /* @__PURE__ */ (0, G.jsxs)("div", {
 		className: "flex min-w-0 flex-col gap-6",
 		children: [
-			/* @__PURE__ */ (0, W.jsx)("div", {
+			/* @__PURE__ */ (0, G.jsx)("div", {
 				"data-guide-target": "report",
-				children: /* @__PURE__ */ (0, W.jsx)(J, {
+				children: /* @__PURE__ */ (0, G.jsx)(Y, {
 					kind: "support",
-					children: /* @__PURE__ */ (0, W.jsx)(t, {
+					children: /* @__PURE__ */ (0, G.jsx)(n, {
 						variant: "secondary",
 						onClick: d,
-						...E(o.busy === "refresh"),
+						...D(i.busy === "refresh"),
 						children: F("manage:diagnostics.checkAgain")
 					})
 				})
 			}),
-			l ? /* @__PURE__ */ (0, W.jsx)(h, {
+			s ? /* @__PURE__ */ (0, G.jsx)(g, {
 				tone: "error",
-				children: l
+				children: s
 			}) : null,
-			p.length ? /* @__PURE__ */ (0, W.jsx)(g, {
+			p.length ? /* @__PURE__ */ (0, G.jsx)(_, {
 				guide: "attention",
 				title: F("manage:diagnostics.attentionTitle", { count: p.length }),
-				children: p.map(([e, t]) => /* @__PURE__ */ (0, W.jsx)($, {
+				children: p.map(([e, t]) => /* @__PURE__ */ (0, G.jsx)($, {
 					name: e,
 					check: t
 				}, e))
 			}) : null,
-			/* @__PURE__ */ (0, W.jsx)(g, {
+			/* @__PURE__ */ (0, G.jsx)(_, {
 				guide: "health",
 				title: F("manage:diagnostics.collectionHealth"),
-				children: /* @__PURE__ */ (0, W.jsxs)(b, { children: [f.library.issue_at ? /* @__PURE__ */ (0, W.jsx)("p", {
+				children: /* @__PURE__ */ (0, G.jsxs)(x, { children: [f.library.issue_at ? /* @__PURE__ */ (0, G.jsx)("p", {
 					className: "text-body-2-regular text-text-secondary",
 					children: F("manage:diagnostics.healthRecordedAtTime", { time: Z(f.library.issue_at) })
-				}) : null, Object.entries(f.library.groups).map(([t, n]) => /* @__PURE__ */ (0, W.jsx)(ue, {
+				}) : null, Object.entries(f.library.groups).map(([t, n]) => /* @__PURE__ */ (0, G.jsx)(de, {
 					groupKey: t,
 					group: n,
 					...e
 				}, t))] })
 			}),
-			m.length ? /* @__PURE__ */ (0, W.jsx)("section", {
+			m.length ? /* @__PURE__ */ (0, G.jsx)("section", {
 				"aria-label": F("manage:diagnostics.systemChecks"),
-				children: /* @__PURE__ */ (0, W.jsx)(a, {
+				children: /* @__PURE__ */ (0, G.jsx)(o, {
 					summary: F("manage:diagnostics.otherChecks", { count: m.length }),
 					contentClassName: "gap-5",
-					children: pe.map(([e, t]) => {
+					children: he.map(([e, t]) => {
 						let n = m.filter(([e]) => t.some((t) => t === e));
-						return n.length ? /* @__PURE__ */ (0, W.jsxs)("section", {
+						return n.length ? /* @__PURE__ */ (0, G.jsxs)("section", {
 							"aria-label": e,
 							"data-diagnostic-group": "",
 							className: "flex min-w-0 flex-col gap-2",
-							children: [/* @__PURE__ */ (0, W.jsxs)("h3", {
+							children: [/* @__PURE__ */ (0, G.jsxs)("h3", {
 								className: "flex items-center gap-2 px-3 text-body-medium text-text-primary",
-								children: [e, /* @__PURE__ */ (0, W.jsx)("span", {
+								children: [e, /* @__PURE__ */ (0, G.jsx)("span", {
 									className: "text-caption-1-regular text-text-secondary",
 									children: F("manage:diagnostics.groupCount", { count: n.length })
 								})]
-							}), /* @__PURE__ */ (0, W.jsx)(_, { children: n.map(([e, t]) => /* @__PURE__ */ (0, W.jsx)($, {
+							}), /* @__PURE__ */ (0, G.jsx)(v, { children: n.map(([e, t]) => /* @__PURE__ */ (0, G.jsx)($, {
 								name: e,
 								check: t,
 								compact: !0
@@ -496,44 +508,44 @@ function he(e) {
 					})
 				})
 			}) : null,
-			/* @__PURE__ */ (0, W.jsx)(Y, {}),
-			/* @__PURE__ */ (0, W.jsxs)("section", {
+			/* @__PURE__ */ (0, G.jsx)(X, {}),
+			/* @__PURE__ */ (0, G.jsxs)("section", {
 				"data-guide-target": "sessions",
 				"aria-label": F("manage:diagnostics.sourceSessions"),
 				className: "flex min-w-0 flex-col gap-3",
 				children: [
-					/* @__PURE__ */ (0, W.jsx)(v, { children: F("manage:diagnostics.sourceSessions") }),
-					f.sources.map((e) => /* @__PURE__ */ (0, W.jsx)("article", {
+					/* @__PURE__ */ (0, G.jsx)(y, { children: F("manage:diagnostics.sourceSessions") }),
+					f.sources.map((e) => /* @__PURE__ */ (0, G.jsx)("article", {
 						"data-diagnostic-source": e.source,
-						children: /* @__PURE__ */ (0, W.jsx)(_, { children: /* @__PURE__ */ (0, W.jsxs)(b, { children: [
-							/* @__PURE__ */ (0, W.jsxs)("div", {
+						children: /* @__PURE__ */ (0, G.jsx)(v, { children: /* @__PURE__ */ (0, G.jsxs)(x, { children: [
+							/* @__PURE__ */ (0, G.jsxs)("div", {
 								className: "flex flex-wrap items-center justify-between gap-2",
-								children: [/* @__PURE__ */ (0, W.jsxs)("h3", {
+								children: [/* @__PURE__ */ (0, G.jsxs)("h3", {
 									className: "flex min-w-0 items-center gap-2 text-body-medium text-text-primary",
-									children: [/* @__PURE__ */ (0, W.jsx)(y, { source: e.source }), e.label]
-								}), /* @__PURE__ */ (0, W.jsx)(Q, { status: e.status })]
+									children: [/* @__PURE__ */ (0, G.jsx)(b, { source: e.source }), e.label]
+								}), /* @__PURE__ */ (0, G.jsx)(Q, { status: e.status })]
 							}),
-							/* @__PURE__ */ (0, W.jsx)(V, {
-								text: O(e, "reason"),
+							/* @__PURE__ */ (0, G.jsx)(H, {
+								text: k(e, "reason"),
 								className: "text-body-regular text-text-primary"
 							}),
-							/* @__PURE__ */ (0, W.jsxs)(c, { children: [
-								/* @__PURE__ */ (0, W.jsx)(s, {
+							/* @__PURE__ */ (0, G.jsxs)(l, { children: [
+								/* @__PURE__ */ (0, G.jsx)(c, {
 									term: F("manage:diagnostics.lastSuccess"),
 									children: e.last_success_at ? Z(e.last_success_at) : F("manage:diagnostics.noSuccessYet")
 								}),
-								e.last_check_at ? /* @__PURE__ */ (0, W.jsxs)(s, {
+								e.last_check_at ? /* @__PURE__ */ (0, G.jsxs)(c, {
 									term: F("manage:diagnostics.lastChecked"),
 									children: [Z(e.last_check_at), e.elapsed_s !== void 0 && e.elapsed_s !== null ? F("manage:diagnostics.checkDuration", { seconds: e.elapsed_s.toFixed(2) }) : ""]
 								}) : null,
-								/* @__PURE__ */ (0, W.jsx)(s, {
+								/* @__PURE__ */ (0, G.jsx)(c, {
 									term: F("manage:diagnostics.pausedUntil"),
 									children: e.cooldown_until ? Z(e.cooldown_until) : F("manage:diagnostics.notPaused")
 								})
 							] })
 						] }) })
 					}, e.source)),
-					/* @__PURE__ */ (0, W.jsx)("div", { children: /* @__PURE__ */ (0, W.jsx)(n, {
+					/* @__PURE__ */ (0, G.jsx)("div", { children: /* @__PURE__ */ (0, G.jsx)(r, {
 						size: "small",
 						variant: "secondary",
 						href: "/sources",
@@ -544,6 +556,6 @@ function he(e) {
 		]
 	});
 }
-export { he as DiagnosticsPage };
+export { _e as DiagnosticsPage };
 
-//# debugId=d0681971-11b1-48a3-8bb3-5c483fe7d47f
+//# debugId=18097b3d-5ac7-495a-9b48-c2219503e718

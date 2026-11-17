@@ -2,7 +2,7 @@
  *
  * 待合并是带依据的候选，合并永远由人点：服务端不自行升级，页面也不替他勾。 */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { RiCloseLine, RiUserLine } from '@remixicon/react';
+import { RiCloseLine, RiDeleteBinLine, RiEditLine, RiMergeCellsHorizontal, RiUserLine } from '@remixicon/react';
 import { useMutation } from '@tanstack/react-query';
 import {
   createColumnHelper, createPaginatedRowModel, createSortedRowModel, flexRender,
@@ -27,6 +27,7 @@ import { DataTableFooter, DataTableSort } from '../components/table-controls';
 import { runBulkAction, type BulkAction, type Receipt } from '../components/bulk-action';
 import { enterPageSelection, exitPageSelection, usePageSelection } from '../components/page-selection';
 import { SelectionDock } from '../components/selection-dock';
+import { rowSelectionOperation, useRowWorkContext } from '../components/work-context-menu';
 import { useTableSelection } from '../components/use-table-selection';
 import { ChevronSortDown } from '@/components/foundations/icons/chevrons';
 import { EmptyState, EmptyFocusButton } from '../components/empty-state';
@@ -318,6 +319,26 @@ export function AliasManager({ groups, suggestions, sources = [], readOnly, toas
   const chosen = suggestions.filter(item => rowSelection[suggestionKey(item)]);
   const savedPicked = groups.filter(group => savedSelection[group.canonical_key]).flatMap(group => group.aliases.map(item => ({
     name: item.name, canonical: group.canonical_name })));
+  const suggestionContext = useRowWorkContext(key => suggestions.find(item => suggestionKey(item) === key), item => {
+    const row = suggestionTable.getRow(suggestionKey(item));
+    return [
+      rowSelectionOperation(row.getIsSelected(), () => row.toggleSelected()),
+      { id: 'merge', label: t('follow:shared.merge'), icon: RiMergeCellsHorizontal,
+        disabled: readOnly || merge.isPending, run: () => mergeSome([item], false) },
+    ];
+  });
+  const savedContext = useRowWorkContext(key => groups.find(group => group.canonical_key === key), group => {
+    const row = savedTable.getRow(group.canonical_key);
+    const aliases = group.aliases.map(item => ({ name: item.name, canonical: group.canonical_name }));
+    return [
+      { id: 'rename', label: t('follow:creatorAliases.rename'), icon: RiEditLine,
+        disabled: readOnly, run: () => setRenaming(group) },
+      rowSelectionOperation(row.getIsSelected(), () => row.toggleSelected()),
+      { id: 'remove', label: t('follow:creatorAliases.removeRowAliases', { count: aliases.length }), icon: RiDeleteBinLine,
+        danger: true, disabled: readOnly || drop.isPending || !aliases.length,
+        run: async () => { await runBulkAction(dropSaved, aliases, host) } },
+    ];
+  });
   const busy = busyProps(merge.isPending);
 
   return (
@@ -342,7 +363,8 @@ export function AliasManager({ groups, suggestions, sources = [], readOnly, toas
       {problem ? <ErrorText>{problem}</ErrorText> : null}
 
       {suggestions.length ? (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2" onKeyDown={suggestionContext.onKeyDown}>
+          {suggestionContext.menu}
           <div data-responsive-toolbar="">
             <div data-toolbar-heading="">
             <FieldLabel>{t('follow:creatorAliases.pending')}</FieldLabel>
@@ -380,7 +402,8 @@ export function AliasManager({ groups, suggestions, sources = [], readOnly, toas
             </TableHeader>
             <TableBody renderEmptyState={() => t('shell:dataTable.empty')}>
               {suggestionTable.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} id={row.id} data-board-selected={row.getIsSelected() || undefined}>
+                <TableRow key={row.id} id={row.id} data-board-selected={row.getIsSelected() || undefined} data-work-context-row={row.id}
+                  onContextMenu={event => suggestionContext.onContextMenu?.(event, row.original, row.id)}>
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                   ))}
@@ -394,7 +417,8 @@ export function AliasManager({ groups, suggestions, sources = [], readOnly, toas
         </div>
       ) : null}
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2" onKeyDown={savedContext.onKeyDown}>
+        {savedContext.menu}
         <div data-responsive-toolbar="">
           <div data-toolbar-heading="">
           <FieldLabel>{t('follow:creatorAliases.savedAliases')}</FieldLabel>
@@ -431,7 +455,8 @@ export function AliasManager({ groups, suggestions, sources = [], readOnly, toas
             </TableHeader>
             <TableBody renderEmptyState={() => t('shell:dataTable.empty')}>
               {savedTable.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} id={row.id} data-board-selected={row.getIsSelected() || undefined}>
+                <TableRow key={row.id} id={row.id} data-board-selected={row.getIsSelected() || undefined} data-work-context-row={row.id}
+                  onContextMenu={event => savedContext.onContextMenu?.(event, row.original, row.id)}>
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
                   ))}

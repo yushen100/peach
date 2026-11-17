@@ -25,6 +25,8 @@ import type { ColumnSelection } from '../../column-filters';
 import { entityWriting } from '../../core/entity-names';
 import { RELEASE_COLUMN_VISIBILITY_KEY, RELEASE_COLUMN_WIDTHS_KEY, RELEASE_SORT_COLUMNS, releaseColumns } from './release-table-columns';
 import { t } from '../../i18n';
+import { useWorkContextMenu } from '../components/work-context-menu';
+import { discoveryContext } from './discovery-context';
 import '../catalog-grid/catalog-list.css';
 
 const KEYS = { widths: RELEASE_COLUMN_WIDTHS_KEY, visibility: RELEASE_COLUMN_VISIBILITY_KEY };
@@ -66,6 +68,9 @@ export function ReleaseTable({ items, waiting, filters, studios, facets, javImag
   wanting(item: Discovery): boolean; onWant(item: Discovery): void; onResource(item: Discovery): void;
 }) {
   const selection = useJavSelection();
+  const context = useWorkContextMenu();
+  const menuContext = (item: Discovery) => discoveryContext(item, { selection, readOnly, wanting: wanting(item), navigate,
+    onWant: () => onWant(item), onResource: () => onResource(item) });
   const preferences = useTablePreferences('jav-releases', releaseColumns, KEYS);
   const shown = releaseColumns.filter(column => column.required || preferences.visibility[column.id] !== false);
   const active = Object.entries(RELEASE_SORT_COLUMNS).find(([, key]) => key === filters.sort)?.[0];
@@ -119,7 +124,12 @@ export function ReleaseTable({ items, waiting, filters, studios, facets, javImag
         </div>;
     }
   };
-  return <div data-catalog-table="" data-release-table="" className="flex min-w-0 flex-col gap-4">
+  return <div data-catalog-table="" data-release-table="" className="flex min-w-0 flex-col gap-4" onKeyDown={event => {
+    const row = (event.target as HTMLElement).closest<HTMLElement>('[data-release-row]');
+    const item = row && items.find(item => String(item.id) === row.dataset.releaseId);
+    if (item && !waiting) context.onKeyDown(event, menuContext(item), row);
+  }}>
+    {context.menu}
     <div className="flex flex-wrap justify-end gap-2" role="toolbar" aria-label={t('catalog:javReleases.toolbar')}>
       <div data-toolbar-actions=""><TableColumnControls preferences={preferences} label={t('catalog:javReleases.list')} /></div>
     </div>
@@ -149,7 +159,8 @@ export function ReleaseTable({ items, waiting, filters, studios, facets, javImag
             {selection?.mode ? <TableCell /> : null}
             {shown.map(column => <TableCell key={column.id}><span dangerouslySetInnerHTML={{ __html: catalogListSkeletonCellHtml(column.id) }} /></TableCell>)}
             <TableCell data-table-space="" />
-          </TableRow>) : items.map(item => <TableRow key={item.id} id={String(item.id)} data-catalog-row="" data-release-row="">
+          </TableRow>) : items.map(item => <TableRow key={item.id} id={String(item.id)} data-catalog-row="" data-release-row="" data-release-id={item.id}
+            onContextMenu={event => context.onContextMenu(event, menuContext(item))}>
             {selection?.mode ? <TableCell><Checkbox slot={null} aria-label={t('catalog:javDiscovery.select', { code: item.code })}
               isSelected={selection.selected.has(item.code)} onChange={() => selection.toggle(item)} /></TableCell> : null}
             {shown.map(column => <TableCell key={column.id}>{cell(column.id, item)}</TableCell>)}

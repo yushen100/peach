@@ -195,6 +195,7 @@
   "dataTable": {
     "bulkActions": "{{label}} bulk actions",
     "clearSelection": "Clear selection",
+    "contextActions": "Context actions",
     "empty": "No records",
     "recordUnit": "records",
     "selectAll": "Select all {{label}}",

@@ -13,8 +13,9 @@ import { cx } from '@/utils/cx';
 import { cardClass } from '../components/card';
 import { FIELDSET_FOOT } from '../components/fieldset-layout';
 import { EmptyState } from '../components/empty-state';
+import { rowSelectionOperation, useWorkContextMenu, type WorkContextOperation } from '../components/work-context-menu';
 import { useOverlayScrollbar } from '../components/overlay-scrollbar';
-import { RiImageLine } from '@remixicon/react';
+import { RiArrowGoBackLine, RiCheckLine, RiEyeOffLine, RiImageLine, RiPlayLine, RiTimeLine, RiUserLine } from '@remixicon/react';
 import { busyProps } from '../settings/use-action';
 import { CandidateChoices, PendingGenres } from './candidate-form';
 import { ComparisonText } from './comparison-text';
@@ -153,9 +154,43 @@ export function ReviewCard(props: ReviewCardProps) {
           <span title={title} className="min-w-0 truncate text-body-medium text-text-primary">{title}</span>
         </h4>;
 
+  const menu = useWorkContextMenu();
+  const operations: WorkContextOperation[] = [];
+  if (comparison.length <= 1) {
+    if (asEntity) {
+      operations.push({ id: 'entity', label: subjectName, icon: RiUserLine,
+        run: () => handlers.openEntity(subjectKind, subjectName) });
+    } else if (row.asset_id) {
+      const assetId = row.asset_id;
+      operations.push({ id: 'open', label: t('catalog:mediaActions.open'), icon: RiPlayLine,
+        run: () => handlers.openItem(assetId) });
+    }
+  }
+  if (!locked) {
+    operations.push(rowSelectionOperation(selected, () => onSelect(false, !selected)));
+    if (queueView !== 'ignored') {
+      operations.push({ id: 'approve', label: t('manage:reviewDecision.approve'), icon: RiCheckLine,
+        disabled: busy || !approvable, run: () => onDecide('approved') });
+    }
+    operations.push(queueView === 'pending'
+      ? { id: 'later', label: t('manage:reviewDecision.later'), icon: RiTimeLine, disabled: busy, run: () => onDecide('skipped') }
+      : { id: 'restore', label: t('manage:reviewDecision.moveToPending'), icon: RiArrowGoBackLine, disabled: busy, run: () => onDecide('restore') });
+    if (queueView !== 'ignored') {
+      operations.push({ id: 'ignore', label: t('manage:shared.ignore'), icon: RiEyeOffLine,
+        disabled: busy, run: () => onDecide('rejected') });
+    }
+  }
+  const context = { key: row.item_key, operations };
   return (
     <section aria-label={title} data-review-key={row.item_key}
-      className={cx(CARD, CARD_HEIGHT(category))}>
+      className={cx(CARD, CARD_HEIGHT(category))}
+      onContextMenu={event => {
+        if (!(event.target as Element).closest('input, textarea, select, [contenteditable]')) menu.onContextMenu(event, context);
+      }}
+      onKeyDown={event => {
+        if (!(event.target as Element).closest('input, textarea, select, [contenteditable]')) menu.onKeyDown(event, context);
+      }}>
+      {menu.menu}
       <header className="flex min-w-0 shrink-0 items-center gap-2 border-b border-separator-border px-5 py-4">
         {locked ? null : (
           /* 勾选框只有 16px，标题那行 24px。两个都按 24px 各自居中，中线才落在一条上——

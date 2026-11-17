@@ -40,6 +40,7 @@ import { useDense } from './use-dense';
 import { busyProps } from '../settings/busy-props';
 import { joinList, t } from '../../i18n';
 import { codedText, partsLabel, serverLabelList } from '../../core/server-text';
+import { useMediaContextMenu } from './media-actions';
 
 /** 竖屏一律同一个比例，不按每条视频的实际宽高：竖屏条与竖屏网格才高低一致。 */
 const PORTRAIT_RATIO = 9 / 16;
@@ -205,9 +206,11 @@ function seekPreview(card: HTMLElement | null, delta: number) {
 }
 
 function VideoCard({ item, variant, layout, selected, selectMode, seekSeconds, helpers, actions, onOpen, grouped = true }: MediaCardProps) {
+  const context = useMediaContextMenu();
   useEntityNames();
   const card = useRef<HTMLElement | null>(null);
   const [written, setWritten] = useState<{ id: number; on: boolean } | null>(null);
+  const contextProps = { item, actions, selected, onOpen, onLaterChange: (on: boolean) => setWritten({ id: item.id, on }) };
   const later = written?.id === item.id ? written.on : !!item.watch_later;
   const tints = useLibraryTints();
   const library = item.library_id && tints.get(item.library_id)?.color ? item.library_id : undefined;
@@ -347,7 +350,9 @@ function VideoCard({ item, variant, layout, selected, selectMode, seekSeconds, h
       data-jav-item={item.is_jav ? '' : undefined}
       data-part-seed={parts ? parts.seed_id : undefined} data-stacked={stacked ? '' : undefined}
       data-pending-delete={trash ? '' : undefined} data-jav-card={trash ? '' : undefined} data-selected={selected ? '' : undefined}
-      onClick={click} onMouseDown={suppressShiftTextSelection}>
+      onClick={click} onMouseDown={suppressShiftTextSelection}
+      onContextMenu={event => context.onContextMenu(event, contextProps)} onKeyDown={event => context.onKeyDown(event, contextProps)}>
+      {context.menu}
       <button type="button" data-media-open="" data-open=""
         aria-label={t(editions ? 'shell:mediaCard.openEditionsNamed' : parts ? 'shell:mediaCard.openPartsNamed' : 'shell:mediaCard.openDetailsNamed', { name: shownName })} />
       {stacked ? <div data-media-stack="">{pic}</div> : pic}
@@ -380,6 +385,8 @@ function VideoCard({ item, variant, layout, selected, selectMode, seekSeconds, h
 /** 回收站里不是视频的那些：图片、音频、压缩包和网址快捷方式。封面格放类型字形或缩略图，
  *  卡底同视频卡一颗「还原」，点了就写 ledger，做完给一颗撤销键。 */
 function ResourceCard({ item, selected, selectMode, helpers, actions, onOpen }: MediaCardProps) {
+  const context = useMediaContextMenu();
+  const contextProps = { item, actions, selected, onOpen };
   const trash = item.disposal === 'trash';
   const card = useRef<HTMLElement | null>(null);
   const image = item.medium === 'image' && item.location !== 'online';
@@ -399,7 +406,9 @@ function ResourceCard({ item, selected, selectMode, helpers, actions, onOpen }: 
   return (
     <article ref={card} data-media-card="" data-id={item.id} data-variant="resource" data-medium={item.medium || 'other'}
       data-pending-delete={trash ? '' : undefined} data-jav-card={trash ? '' : undefined} data-selected={selected ? '' : undefined}
-      onClick={click} onMouseDown={suppressShiftTextSelection}>
+      onClick={click} onMouseDown={suppressShiftTextSelection}
+      onContextMenu={event => context.onContextMenu(event, contextProps)} onKeyDown={event => context.onKeyDown(event, contextProps)}>
+      {context.menu}
       <div data-media-pic="" style={{ '--card-ratio': String(16 / 9) } as CSSProperties}>
         <span data-media-glyph=""><Icon name={glyph} /><b>{label}</b></span>
         {image

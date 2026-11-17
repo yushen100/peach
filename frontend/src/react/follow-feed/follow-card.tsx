@@ -28,6 +28,8 @@ import {
   learnFollowDims, sourceMark,
 } from './follow-marks';
 import { t } from '../../i18n';
+import { RiBookmarkLine, RiCheckboxLine, RiEyeLine, RiEyeOffLine, RiPlayLine, RiRestartLine } from '@remixicon/react';
+import { useWorkContextMenu, type WorkContextOperation } from '../components/work-context-menu';
 
 /** 时长只在是真时长时写：来源没给、给了 0 或给了一个明显是占位的数，都不出这一格。 */
 const realDuration = (value: unknown) => Number(value) > 0;
@@ -97,6 +99,7 @@ function Thumb({ src, fallback, width, height, provider, onLearn, retryKey }: {
 }
 
 function FollowCardView(props: FollowCardProps) {
+  const menu = useWorkContextMenu();
   const { group, authorSources, media, context, selected, selectMode, busy, failure, actions } = props;
   const item = itemForMedia(group, media);
   const imageView = media === 'images';
@@ -145,6 +148,23 @@ function FollowCardView(props: FollowCardProps) {
   const issue = followMediaIssue(item, context);
   const badges = followBadges(group, item);
   const saved = item.status === 'saved';
+  const operations: WorkContextOperation[] = [
+    { id: 'open', label: t('catalog:mediaActions.open'), icon: RiPlayLine, run: () => actions.openDetail(item.id) },
+  ];
+  if (props.onSave) operations.push({ id: 'save', label: t(saved ? 'follow:shared.saved' : 'follow:followDetail.saveToDatabase'),
+    icon: RiBookmarkLine, disabled: saved || !!busy, run: () => props.onSave?.(item.id) });
+  if (props.onStatus) {
+    operations.push(
+      { id: 'seen', label: t('follow:followDetail.markSeen'), icon: RiEyeLine, disabled: item.status === 'seen' || !!busy,
+        run: () => props.onStatus?.(item.id, 'seen') },
+      { id: 'ignored', label: t('follow:shared.ignore'), icon: RiEyeOffLine, disabled: item.status === 'ignored' || !!busy,
+        run: () => props.onStatus?.(item.id, 'ignored') });
+    if (item.status === 'seen' || item.status === 'ignored') operations.push({ id: 'new', label: t('follow:followDetail.markUnseen'),
+      icon: RiRestartLine, disabled: !!busy, run: () => props.onStatus?.(item.id, 'new') });
+  }
+  if (actions.toggleSelection) operations.push({ id: 'select', label: t(selected ? 'catalog:mediaActions.deselect' : 'catalog:mediaActions.select'),
+    icon: RiCheckboxLine, run: () => actions.toggleSelection?.(item.id, false) });
+  const menuContext = { key: item.id, operations };
 
   const click = (event: MouseEvent<HTMLElement>) => {
     const target = event.target as HTMLElement;
@@ -163,7 +183,9 @@ function FollowCardView(props: FollowCardProps) {
     <article ref={attach} data-media-card="" data-variant={props.variant || 'grid'} data-follow-item={item.id} data-status={item.status}
       data-follow-image={imageView ? '' : undefined} data-collection={stack.isMix ? '' : undefined}
       data-selected={selected ? '' : undefined} onClick={click} onMouseDown={suppressShiftTextSelection}
+      onContextMenu={event => menu.onContextMenu(event, menuContext)} onKeyDown={event => menu.onKeyDown(event, menuContext)}
       onMouseEnter={flip.onPointerEnter} onMouseLeave={flip.onPointerLeave}>
+      {menu.menu}
       <div data-follow-visual="" data-mix-stack={stack.isMix ? '' : undefined}>
         <button type="button" data-follow-open="" aria-label={t('follow:followCard.openDetails', { title })} />
         <div data-media-pic="">

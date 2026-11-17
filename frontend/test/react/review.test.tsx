@@ -15,7 +15,7 @@ import {
   reviewWindow, type ReviewCandidate, type ReviewData, type ReviewRow,
   type DecisionResult,
 } from '../../src/react/review/review';
-import { AUTO_LANDINGS_URL, type AutoLandingWrite } from '../../src/react/review/auto-landings';
+import { AUTO_LANDING_REVERT_URL, AUTO_LANDINGS_URL, type AutoLandingWrite } from '../../src/react/review/auto-landings';
 import { ReviewPage } from '../../src/react/review/review-page';
 
 import { actionOrder, choose, click, mountRoot, settle } from './render';
@@ -82,6 +82,9 @@ function serve(plan: Plan = {}) {
     const url = String(input);
     if (url === REVIEW_DECISION_URL) {
       return ok(decisions.length > 1 ? decisions.shift()! : decisions[0]!);
+    }
+    if (url.startsWith(AUTO_LANDINGS_URL + '?items=')) {
+      return ok({ items: [], token: 'preview-token', decisions: 1, restores: [], changed: [], tags: [] });
     }
     if (url.startsWith(AUTO_LANDINGS_URL)) return ok({ items: plan.autoLandings ?? [] });
     if (url.startsWith(REVIEW_URL)) return ok(plan.data ?? review());
@@ -531,6 +534,29 @@ it('元数据字段下逐条列出自动写入：作品、写了什么、原来�
   const text = section.textContent ?? '';
   for (const expected of ['自动写入的资料', 'DASS-468', '某部作品的标题', '发行日期：2024-09-10', '原为 「2024-09-06」',
     'ROYD-083', '标签：痴女、姐弟', '原有标签保留']) expect(text).toContain(expected);
+});
+
+it('自动写入表右键撤回只预览点中的记录', async () => {
+  const confirm = vi.spyOn(legacyUi, 'confirmModal').mockResolvedValue({ confirmed: false });
+  const { host, fetcher } = await open({ autoLandings: WRITES });
+  const section = host.querySelector('[aria-labelledby="auto-landings-title"]')!;
+  const tableRows = () => [...section.querySelectorAll('[role="row"][data-work-context-row]')];
+  const openMenu = (index: number) => act(async () => {
+    tableRows()[index]!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 50 + index }));
+  });
+  const menuItem = (label: string) => [...document.querySelectorAll('[role="menuitem"]')].find(item => item.textContent === label);
+  await openMenu(1);
+  await click(menuItem('选择'));
+  expect(tableRows()[1]?.hasAttribute('data-board-selected')).toBe(true);
+  await openMenu(0);
+  await click(menuItem('撤回'));
+  await settle();
+
+  expect(fetcher.mock.calls.map(([url]) => url)).toContain(
+    AUTO_LANDINGS_URL + '?items=' + encodeURIComponent(WRITES[0]!.item_key));
+  expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ title: '撤回自动写入', holdToConfirm: false }));
+  expect(fetcher.mock.calls.some(([url]) => url === AUTO_LANDING_REVERT_URL)).toBe(false);
+  expect(tableRows()[1]?.hasAttribute('data-board-selected')).toBe(true);
 });
 
 it('没有自动写入时不出现那一块', async () => {

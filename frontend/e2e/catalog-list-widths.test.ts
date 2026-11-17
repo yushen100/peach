@@ -41,13 +41,13 @@ describe('馆藏表格列宽与占位图', () => {
       assert.ok(geometry.titleWidth < 320 && geometry.clamp === '2' && geometry.fullHeight > geometry.titleHeight
         && geometry.titleHeight <= geometry.lineHeight * 2 + 1, JSON.stringify(geometry));
       assert.equal(await row.locator('[data-list-name]').getAttribute('title'), name);
-      const defaultLabels = ['作品', '艺人', '媒体库', '标签', '时长', '评分', '观看次数', '入库时间'];
+      const defaultLabels = ['作品', '作品操作', '艺人', '媒体库', '标签', '时长', '评分', '观看次数', '入库时间'];
       const visibleLabels = () => page.locator('[data-catalog-table] th:not([data-table-space]) > span').allTextContents();
       assert.deepEqual(await visibleLabels(), defaultLabels);
       await page.getByRole('button', { name: '显示列', exact: true }).click();
       await page.getByRole('button', { name: '显示全部列', exact: true }).click();
       await page.keyboard.press('Escape');
-      assert.deepEqual(await visibleLabels(), ['作品', '艺人', '媒体库', '标签', '时长', '评分', '观看次数', '入库时间', '发行时间', '观看时间', '高潮计数', '分辨率', '体积', '番号']);
+      assert.deepEqual(await visibleLabels(), [...defaultLabels, '发行时间', '观看时间', '高潮计数', '分辨率', '体积', '番号']);
       for (const label of ['分辨率', '评分', '高潮计数', '观看次数', '时长', '体积', '入库时间', '观看时间', '发行时间', '番号']) {
         await page.getByRole('columnheader', { name: label, exact: false }).waitFor();
       }
@@ -56,7 +56,7 @@ describe('馆藏表格列宽与占位图', () => {
       assert.equal(await row.locator('[data-rating-stars] [data-rate]').count(), 5);
       assert.equal(await row.locator('[data-rating-stars] [data-rate][data-on="true"]').count(), 4);
       assert.ok((await row.textContent())?.includes('2026-01-03'));
-      const header = page.getByRole('columnheader', { name: /^作品/ });
+      const header = page.locator('[data-catalog-table] th[data-key="name"]');
       const initialWidth = (await header.boundingBox())!.width;
       if (!viewport.mobile) {
         const sort = await header.getAttribute('aria-sort');

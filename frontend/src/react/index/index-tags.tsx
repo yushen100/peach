@@ -6,6 +6,7 @@
  * 去筛目录必然一条不中。 */
 import { Radio, RadioGroup } from 'react-aria-components';
 import type { ReactNode } from 'react';
+import { RiPencilLine, RiSearchLine, RiStarLine } from '@remixicon/react';
 
 import { Button } from '@/components/base/buttons/button';
 import { Checkbox } from '@/components/base/checkbox/checkbox';
@@ -22,6 +23,7 @@ import { EntityActionButton, FavoriteButton } from '../library-shortcuts/shortcu
 import type { Favorite } from '../library-shortcuts/library-shortcuts';
 import { tagColorKey, type IndexTag, type TagView } from './index-data';
 import { t } from '../../i18n';
+import { useWorkContextMenu, type WorkContextOperation } from '../components/work-context-menu';
 
 export interface TagEntry extends IndexTag {
   label: string;
@@ -41,12 +43,35 @@ const Pencil = spriteGlyph('pencil');
 const tagFavorite = (tag: TagEntry, online: boolean): Favorite => ({ kind: 'tag', name: tag.k, favorite: tag.favorite,
   ...(online ? { scope: 'online', tag_id: tag.id || tag.k } : { entity_id: tag.entity_id }) });
 
+function useTagContext() {
+  const menu = useWorkContextMenu();
+  const context = (anchor: HTMLElement, tag: TagEntry, actions: TagActions) => {
+    const operations: WorkContextOperation[] = [
+      { id: 'open', label: t('catalog:tagFilters.showResults'), icon: RiSearchLine, run: () => actions.press(tag.k) },
+    ];
+    const favorite = anchor.querySelector<HTMLButtonElement>('[data-favorite]');
+    if (favorite?.title) operations.push({ id: 'favorite', label: favorite.title, icon: RiStarLine,
+      disabled: favorite.getAttribute('aria-busy') === 'true', run: () => favorite.click() });
+    if (actions.edit) operations.push({ id: 'edit', label: t('catalog:tagFilters.editTag', { name: tag.label }),
+      icon: RiPencilLine, run: () => actions.edit?.(tag.k) });
+    return { key: tag.k, operations };
+  };
+  return { menu: menu.menu, events: (tag: TagEntry, actions: TagActions) => ({
+    onContextMenu: (event: React.MouseEvent<HTMLElement>) => menu.onContextMenu(event, context(event.currentTarget, tag, actions)),
+    onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => {
+      if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) menu.onKeyDown(event, context(event.currentTarget, tag, actions));
+    },
+  }) };
+}
+
 /* 一行一枚标签：36px 高、8px 圆角，取的是 Board 排名行那一档身量。nowrap 是省略号的前提，
    少了它长标签改成折行，同一行里的其它标签跟着被拉高，几列各行高度也对不齐。 */
 function AlphaTag({ tag, actions }: { tag: TagEntry; actions: TagActions }) {
+  const context = useTagContext();
   const pressed = actions.picked.has(tag.k);
   return (
-    <div className="flex min-w-0 items-center gap-1">
+    <div className="flex min-w-0 items-center gap-1" {...context.events(tag, actions)}>
+    {context.menu}
     <button type="button" data-alpha-tag="" data-k={tag.k} data-tag-cat={tagColorKey(actions.online, tag.cat)}
       aria-pressed={pressed} title={tag.label} onClick={() => actions.press(tag.k)}
       className="flex h-9 min-w-0 flex-1 cursor-pointer items-center gap-2.25 rounded-lg px-2.5 text-left text-body-regular text-text-secondary outline-none hover:text-text-primary focus-visible:ring-2 focus-visible:ring-border-focus-ring">
@@ -86,10 +111,12 @@ const NBSP = String.fromCharCode(0xa0);
  *  不断行空格，宽度是名字那一档字号下的一个空格（13px 时约 3.7px）；flex 会吞掉普通空格，
  *  所以用不断行的那一个。 */
 export function TagCloud({ tags, actions }: { tags: TagEntry[]; actions: TagActions }) {
+  const context = useTagContext();
   return (
     <div data-tag-cloud="" className="flex flex-wrap gap-1.75">
+      {context.menu}
       {tags.map((tag) => (
-        <span key={tag.k} data-tag-token="" data-tag-cat={tagColorKey(actions.online, tag.cat)}
+        <span key={tag.k} data-tag-token="" data-tag-cat={tagColorKey(actions.online, tag.cat)} {...context.events(tag, actions)}
           className="inline-flex max-w-full min-w-0 items-center gap-1 rounded-lg border p-1">
         <button type="button" data-tag-chip="" data-k={tag.k}
           data-tag-cat={tagColorKey(actions.online, tag.cat)} aria-pressed={actions.picked.has(tag.k)}

@@ -8,7 +8,7 @@
  * 链接本身好好的。混成一张会让人顺手把好链接一起删掉，所以「地址已失效」和「本次未
  * 访问成功」各占一张，只有前一张接得上删除。 */
 import { useEffect, useState, type ReactNode } from 'react';
-import { RiExternalLinkLine } from '@remixicon/react';
+import { RiDeleteBinLine, RiExternalLinkLine, RiFileCopyLine, RiRefreshLine } from '@remixicon/react';
 import { useQuery } from '@tanstack/react-query';
 import { entityPath, esc, firstGrapheme } from '@peach/legacy/core';
 import { entityFaceImg } from '@peach/card-art';
@@ -68,11 +68,12 @@ function Stat({ label, value, note }: { label: string; value: string; note?: str
 }
 
 function LinkTable(
-  { title, items, hint, picked, onPick, actions, controls, footer, confirmed = false }:
+  { title, items, hint, picked, onPick, actions, controls, retry, retrying, footer, confirmed = false }:
   {
     title: string; items: LinkRow[]; hint: string;
     picked: readonly number[]; onPick(next: number[]): void; footer?: ReactNode; confirmed?: boolean;
     actions?(chosen: LinkRow[]): readonly DockAction[]; controls?: ReactNode;
+    retry?(id: number): void; retrying?: boolean;
   },
 ) {
   if (!items.length) return null;
@@ -126,6 +127,11 @@ function LinkTable(
         description={hint} unit={t('cleanup:links.unit')} panel={false} footerActions={footer}
         rowLabel={(item) => t('cleanup:links.rowLabel', { entity: item.entity, link: linkLabel(item.label) || item.url })}
         selected={picked.map(String)} onSelected={(ids) => onPick(ids.map(Number))}
+        contextOperations={(item) => [
+          { id: 'copy', label: t('cleanup:links.copyLink'), icon: RiFileCopyLine, run: () => navigator.clipboard.writeText(item.url) },
+          ...(retry ? [{ id: 'retry', label: t('manage:shared.retryNow'), icon: RiRefreshLine,
+            disabled: retrying, run: () => retry(item.id) }] : []),
+        ]}
         actions={(chosen) => actions?.(chosen) ?? []} controls={() => controls} />
     </div>
   );
@@ -164,7 +170,6 @@ export function LinkManager() {
   const gone = state?.gone ?? [];
   const unclear = state?.unclear ?? [];
   const retryable = done ? unclear : [];
-  const selectedGone = gone.filter((item) => gonePicked.includes(item.id)).map((item) => item.id);
   const selectedRetryable = retryable.filter((item) => picked.includes(item.id)).map((item) => item.id);
   const info = stats.data;
   const hosts = (info?.top_hosts ?? []).slice(0, 3);
@@ -223,10 +228,11 @@ export function LinkManager() {
               {t('cleanup:links.deleteDeadCount', { count: gone.length })}
             </Button>
           </> : null}
-          actions={(chosen) => [{ action: removeGone(t('cleanup:links.deleteSelected', { count: selectedGone.length })),
-            items: chosen, host, disabled: !done || removing }]} />
+          actions={(chosen) => [{ action: removeGone(t('cleanup:links.deleteSelected', { count: chosen.length })),
+            items: chosen, host, disabled: !done || removing,
+            rowAction: { label: t('cleanup:links.deleteDead'), icon: RiDeleteBinLine } }]} />
         <LinkTable title={t('cleanup:links.unreached')} items={unclear} hint={UNCLEAR_HINT}
-          picked={picked} onPick={setPicked} footer={retryable.length
+          picked={picked} onPick={setPicked} retry={done ? id => run([id]) : undefined} retrying={running} footer={retryable.length
             ? <Button variant="primary" leadingIcon={RETRY} {...busyProps(running)}
                 onClick={() => run(retryable.map((item) => item.id))}>{t('cleanup:links.retryAll', { count: retryable.length })}</Button>
             : null}
