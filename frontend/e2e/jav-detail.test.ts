@@ -488,8 +488,7 @@ describe('库外 JAV 作品详情', () => {
         await resourcesToggle.click();
         await page.locator('[data-jav-resources] [data-resource-protocol]').first().waitFor({ state: 'visible' });
         await page.getByRole('button', { name: '想要', exact: true }).click();
-        await page.getByRole('button', { name: '按住取消想要', exact: true }).waitFor({ state: 'visible' });
-        await page.getByRole('button', { name: '按住取消想要', exact: true }).press('Enter', { delay: 2100 });
+        await page.getByRole('button', { name: '取消想要', exact: true }).click();
         await page.getByRole('button', { name: '想要', exact: true }).waitFor({ state: 'visible' });
         await settle(page, '#stage[open]');
         const geometry = await layout(page);
