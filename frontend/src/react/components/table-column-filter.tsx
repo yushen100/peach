@@ -85,10 +85,9 @@ function ColumnFilterMenu({ id, label, values, options = [], queryKey, load, onC
           columnValueSelected(values, row.id) && MENU_ITEM_ACTIVE, !row.disabled && 'focus-within:bg-dropdown-item-hover-background')}>
         <Checkbox slot={null} size="sm" aria-label={row.label} isSelected={columnValueSelected(values, row.id)}
           isDisabled={row.disabled}
-          className={cx('w-full min-w-0 [&>span:last-child]:min-w-0 [&>span:last-child]:flex-1',
-            row.disabled && '[&>span:last-child]:text-text-tertiary')}
+          className="w-full min-w-0 [&>span:last-child]:min-w-0 [&>span:last-child]:flex-1"
           onChange={on => onChange(toggleColumnValue(values, row.id, on))}>
-          <span className="flex min-w-0 flex-1 items-center gap-2">
+          <span className={cx('flex min-w-0 flex-1 items-center gap-2', row.disabled && 'text-text-tertiary')}>
             {row.leading}<span className="min-w-0 flex-1 truncate">{row.label}</span>
             {row.count == null ? null : <span className="shrink-0 text-text-tertiary tabular-nums">{row.count.toLocaleString()}</span>}
           </span>
