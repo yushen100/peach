@@ -88,7 +88,7 @@ function Sidebar({ host: at, props: view, epoch }: { host: SidebarHost; props: S
   return (
     <>
       <div data-sidebar-head="" />
-      {at.scroll.parentElement ? <SidebarWidth drawer={at.scroll.parentElement} /> : null}
+      {at.scroll.parentElement ? <SidebarWidth drawer={at.scroll.parentElement} openDrawer={at.openDrawer} /> : null}
       <Navigation host={at} epoch={epoch} version={version} />
       {view.content ? <Groups host={at} content={view.content} filters={view.filters} latest={view.latest} /> : null}
     </>

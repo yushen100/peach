@@ -244,6 +244,79 @@ describe('侧栏岛', () => {
     }
   });
 
+  it('桌面侧栏越过最窄宽度后折叠，折叠后向右拖可重新展开', { timeout: 60_000 }, async () => {
+    const opened = await openHome(browser);
+    const { page } = opened;
+    try {
+      await page.emulateMedia({ reducedMotion: 'no-preference' });
+      const handle = page.locator('[data-sidebar-resize]');
+      const toggle = page.locator('#filterBtn');
+      const widths = await page.locator('#drawer').evaluateHandle(drawer => {
+        const samples: number[] = [];
+        drawer.addEventListener('transitionrun', event => {
+          if (event instanceof TransitionEvent && event.target === drawer && event.propertyName === 'width') {
+            samples.push(drawer.getBoundingClientRect().width);
+          }
+        });
+        return samples;
+      });
+      const beginDrag = async () => {
+        await handle.waitFor();
+        const box = await handle.boundingBox();
+        assert.ok(box);
+        const x = box.x + box.width / 2, y = box.y + box.height / 2;
+        await page.mouse.move(x, y);
+        await page.mouse.down();
+        return { x, y };
+      };
+      const open = await beginDrag();
+      await page.mouse.move(open.x - 40, open.y);
+      assert.equal(await handle.getAttribute('aria-valuenow'), '220');
+      assert.equal(await toggle.getAttribute('aria-expanded'), 'true');
+      await page.mouse.move(open.x - 64, open.y);
+      assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
+      await page.waitForFunction(samples => samples.some(width => width > 60), widths);
+      await page.mouse.move(open.x - 40, open.y);
+      assert.equal(await toggle.getAttribute('aria-expanded'), 'true');
+      await page.mouse.move(open.x - 64, open.y);
+      await page.mouse.up();
+      await page.reload({ waitUntil: 'load' });
+      await page.waitForFunction(() => document.querySelector('#drawer')?.getBoundingClientRect().width === 60);
+      assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
+
+      const closed = await beginDrag();
+      await page.mouse.move(closed.x + 24, closed.y);
+      assert.equal(await page.locator('#drawer').evaluate(node => node.getBoundingClientRect().width), 84);
+      const pulled = await handle.boundingBox();
+      assert.ok(pulled);
+      assert.equal(pulled.x + pulled.width / 2, closed.x + 24);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+      await page.waitForFunction(() => document.querySelector('#drawer')?.getBoundingClientRect().width === 60);
+      assert.equal(await toggle.getAttribute('aria-expanded'), 'false');
+
+      const retry = await beginDrag();
+      await page.mouse.move(retry.x + 41, retry.y);
+      await page.mouse.up();
+      assert.equal(await toggle.getAttribute('aria-expanded'), 'true');
+      await page.waitForFunction(() => document.querySelector('#drawer')?.getBoundingClientRect().width === 220);
+      assert.equal(await page.evaluate(() => localStorage.getItem('peach.sidebar.width')), '220');
+
+      await toggle.click();
+      await page.waitForFunction(() => document.querySelector('#drawer')?.getBoundingClientRect().width === 60);
+      const longPull = await beginDrag();
+      await page.mouse.move(longPull.x + 120, longPull.y);
+      assert.equal(await page.locator('#drawer').evaluate(node => node.getBoundingClientRect().width), 180);
+      await page.mouse.move(longPull.x + 180, longPull.y);
+      assert.equal(await page.locator('#drawer').evaluate(node => node.getBoundingClientRect().width), 240);
+      assert.equal(await toggle.getAttribute('aria-expanded'), 'true');
+      await page.mouse.up();
+      assert.deepEqual(withoutPlayer(opened.problems), []);
+    } finally {
+      await opened.close();
+    }
+  });
+
   it('侧栏宽度拖动吸附后保存，取消拖动保持展开，双击重置并支持键盘边界', { timeout: 60_000 }, async () => {
     const opened = await openHome(browser);
     const { page } = opened;
@@ -258,9 +331,12 @@ describe('侧栏岛', () => {
       await page.mouse.move(x, y);
       await page.mouse.down();
       await page.mouse.move(x + 64, y);
-      assert.equal(await page.locator('#drawer').evaluate(node => node.getBoundingClientRect().width), 324);
+      assert.equal(await page.locator('#drawer').evaluate(node => node.getBoundingClientRect().width), 320);
       assert.equal(await page.locator('#drawer').evaluate(node => (node as HTMLElement).style.getPropertyValue('--glass-optic')), 'blur(14px)',
         '拖宽时须使用覆盖整个侧栏的模糊面');
+      await page.mouse.move(x + 83, y);
+      assert.equal(await page.locator('#drawer').evaluate(node => node.getBoundingClientRect().width), 343);
+      await page.mouse.move(x + 71, y);
       await page.mouse.up();
       await page.waitForFunction(() => document.querySelector('#drawer')!.getBoundingClientRect().width === 320);
       await page.waitForFunction(() => {

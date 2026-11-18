@@ -130,7 +130,7 @@ export function closeSettingsRoute(){
 export function sidebarHost(){
   return {
     scroll:$('#drawerScroll'),store:preferencesState.settingsStore,navCatalog:layoutState.NAV_CATALOG,
-    navOn,navTo,navToTop:()=>{closeDrawerAfterNav();requestPageTop()},
+    navOn,navTo,navToTop:()=>{closeDrawerAfterNav();requestPageTop()},openDrawer,
     toggleChip:(key,value,multi)=>commitContextFilter(filters=>{
       if(multi){const cur=String(filters[key]||'').split(',').filter(Boolean);
         const i=cur.indexOf(value);if(i>=0)cur.splice(i,1);else cur.push(value);filters[key]=cur.join(',')}
