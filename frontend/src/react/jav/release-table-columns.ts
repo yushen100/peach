@@ -11,9 +11,9 @@ const sizes: Record<string, { width: number; min: number; max: number }> = {
   people: { width: 220, min: 160, max: 400 },
   studio: { width: 128, min: 112, max: 320 },
   tags: { width: 156, min: 144, max: 560 },
-  release: { width: 112, min: 104, max: 240 },
-  dur: { width: 88, min: 80, max: 200 },
-  score: { width: 96, min: 96, max: 200 },
+  release: { width: 128, min: 128, max: 240 },
+  dur: { width: 104, min: 104, max: 200 },
+  score: { width: 128, min: 128, max: 200 },
   actions: { width: 184, min: 184, max: 320 },
   code: { width: 128, min: 112, max: 320 },
 };

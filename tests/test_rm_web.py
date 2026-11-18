@@ -44,6 +44,31 @@ class WebDataTests(unittest.TestCase):
         options = rm_web.dispatch_api_get(self.contract, '/api/facets', {'column': 'rating'})
         self.assertEqual({row['k']: row['n'] for row in options['items']}, {'0': 1, '4': 1})
 
+    def test_catalog_ranges_intersect_choices_and_include_the_displayed_day(self):
+        with self.contract.write_transaction() as connection:
+            connection.execute("UPDATE asset SET size=128, first_seen='2026-11-18T23:59:59.900Z', rating=80 WHERE id=1")
+            connection.execute("UPDATE asset SET size=128, first_seen='2026-11-19T00:00:00Z', rating=80 WHERE id=2")
+        day = int(datetime.fromisoformat('2026-11-18T00:00:00+00:00').timestamp())
+        filters = {'size': {'range': {'min': 128, 'max': 128}},
+                   'new': {'range': {'min': day, 'max': day + 86400}}, 'rating': ['4']}
+        result = q_items(self.contract, {'column_filters': json.dumps(filters), 'limit': '1'})
+        self.assertEqual(result['total'], 1)
+        self.assertEqual([row['id'] for row in result['items']], [1])
+        for bounds in ({'min': 129, 'max': 128}, {'max': True}, {}):
+            with self.subTest(bounds=bounds), self.assertRaises(ValueError):
+                q_items(self.contract, {'column_filters': json.dumps({'size': {'range': bounds}})})
+
+    def test_date_facet_returns_only_years_with_matching_catalog_dates(self):
+        with self.contract.write_transaction() as connection:
+            connection.execute("UPDATE asset SET release_date='2012-02-29',rating=80 WHERE id=1")
+            connection.execute("UPDATE asset SET release_date='2026-11-18',rating=NULL WHERE id=2")
+        query = {'column': 'release', 'column_limit': '1'}
+        result = rm_web.dispatch_api_get(self.contract, '/api/facets', query)
+        self.assertEqual(set(result['date_values']), {'2012-02-29', '2026-11-18'})
+        result = rm_web.dispatch_api_get(self.contract, '/api/facets', {
+            **query, 'column_filters': '{"rating":["4"]}'})
+        self.assertEqual(set(result['date_values']), {'2012-02-29'})
+
     def test_queue_facets_intersect_columns_and_count_each_row_once(self):
         from peach.table_filters import filter_rows
         rows = [{'id': 1, 'library': ['a'], 'why': ['x', 'x', 'y']},
@@ -53,6 +78,11 @@ class WebDataTests(unittest.TestCase):
         self.assertEqual([row['id'] for row in filtered], [3])
         self.assertEqual(facets['why'], [{'id': 'none', 'count': 1}, {'id': 'x', 'count': 1}, {'id': 'y', 'count': 1}])
         self.assertEqual(facets['library'], [{'id': 'a', 'count': 1}, {'id': 'b', 'count': 1}])
+        filtered, facets = filter_rows(rows, '{"size":{"range":{"min":2}}}',
+                                      {'library': lambda row: row['library']},
+                                      ranges={'size': lambda row: row['id'] if row['id'] != 3 else None})
+        self.assertEqual([row['id'] for row in filtered], [2])
+        self.assertEqual(facets['library'], [{'id': 'b', 'count': 1}])
         with self.assertRaises(ValueError):
             filter_rows(rows, '{"unknown":[]}', {'library': lambda row: row['library']})
 

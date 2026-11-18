@@ -161,7 +161,7 @@ def q_ads(contract: WebContract, limit=200, offset=0, kind="", status="pending",
 
 
 def _junk_table_rows(pool, kind, raw):
-    from .table_filters import filter_rows
+    from .table_filters import MEDIA_RANGE_READERS, filter_rows
     # 评分缓存只读，媒体库归属与筛选字段属于这次请求。
     rows = [dict(item) for item in pool if not kind or item["junk_kind"] == kind]
     _attach_library(rows)
@@ -170,7 +170,7 @@ def _junk_table_rows(pool, kind, raw):
         "kind": lambda row: [row["junk_kind"]],
         "why": lambda row: [json.dumps(part, ensure_ascii=False, sort_keys=True)
                             for part in row.get("why_parts", []) if part.get("text") != " · "],
-    })
+    }, ranges={"size": MEDIA_RANGE_READERS["size"]})
 
 
 def _junk_scope(kind, status) -> tuple[str, str]:

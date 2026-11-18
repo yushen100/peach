@@ -12,6 +12,7 @@ import { ChevronSortDown } from '@/components/foundations/icons/chevrons';
 
 import { Icon } from './card-meta';
 import { DataTableFrame } from './data-table-frame';
+import { ColumnFilterChips } from './column-filter-chips';
 import { DataTableSort } from './table-controls';
 import { TableColumnControls, TableColumnResizer } from './table-column-controls';
 import { useTablePreferences, type TableColumnSpec } from './table-column-preferences';
@@ -23,6 +24,22 @@ import { useLibraryFilterOptions } from './library-filter-options';
 import { ActivityStatus } from './activity-motion';
 import { useRowWorkContext, type WorkContextOperation } from './work-context-menu';
 import '../catalog-grid/catalog-list.css';
+
+export function QueueFilterChips({ table, filters, onChange, valueLabel }: {
+  table: QueueTablePage;
+  filters: RemoteTableFilters['values'];
+  onChange: RemoteTableFilters['onChange'];
+  valueLabel(column: string, value: string): string;
+}) {
+  const libraries = useLibraryFilterOptions(filters.library !== undefined);
+  const columns = QUEUE_COLUMNS[table]().map(({ id, header }) => ({ id, label: header }));
+  return <ColumnFilterChips filters={filters} columns={columns}
+    valueLabel={(column, value) => {
+      if (value === 'none' || !value) return t('cleanup:shared.none');
+      return column === 'library' ? libraries.get(value)?.label ?? value : valueLabel(column, value);
+    }}
+    onRemove={column => onChange({ ...filters, [column]: undefined })} />;
+}
 
 export function QueueTable<T extends { id: number; library_id?: unknown }>({
   table, label, items, cells, selected, selecting, sort, rowLabel, onPick, onPickAll, filters, filterColumns = {}, busy = false, contextOperations,

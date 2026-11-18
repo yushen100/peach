@@ -50,7 +50,7 @@ import { SelectionDock } from '../components/selection-dock';
 import { queryClient } from '../query';
 import { ErrorText } from '../settings/section';
 import { busyProps, useAction } from '../settings/use-action';
-import { localTime } from '../time';
+import { localTime, utcDate } from '../time';
 import {
   checkFeeds, errorHeadline, FEEDS_KEY, feedIntervalText, fetchFeeds, removeFeed, setFeedEnabled,
   pageWindow, type FeedSource,
@@ -203,6 +203,8 @@ export function FeedSources({ readOnly, toast, onAdd, selection }: {
       : source.last_error ? t('follow:feedSources.fetchFailed')
       : !source.last_fetched_at ? t('follow:feedSources.notChecked') : t('follow:shared.ok') },
     interval: { values: source => feedIntervalText(source.interval_minutes) },
+    fetched: { range: 'timestamp', value: source => source.last_fetched_at ? utcDate(source.last_fetched_at).getTime() / 1000 : null },
+    fresh: { range: 'count', value: source => source.last_new_count },
   }, () => setPage(1));
   const win = pageWindow(filtered.items.length, pageSize, page);
   useEffect(() => { setPage((current) => Math.min(current, win.pages)) }, [win.pages]);

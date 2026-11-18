@@ -646,6 +646,10 @@ html:has([data-selection-dock]) { scroll-padding-bottom: var(--selection-dock-sp
   background-color: var(--color-background-secondary-default);
 }
 
+.peach-react [data-follow-table] th > span:has(> [data-table-column-filter]):has(> [data-sort-indicator]) {
+  gap: 6px;
+}
+
 .peach-react [data-follow-table] [data-sort-indicator] {
   display: inline-flex;
   flex: none;

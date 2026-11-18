@@ -238,8 +238,10 @@ export async function fetchItems(kind: string, name: string, filters: EntityFilt
   offset: number, signal?: AbortSignal, options?: MediaPageOptions): Promise<MediaPage> {
   const params = itemsParams(kind, name, filters, opts, offset);
   if (options) {
-    params.set('limit', String(options.limit));
-    params.delete('count');
+    if (options.limit !== undefined) {
+      params.set('limit', String(options.limit));
+      params.delete('count');
+    }
     if (options.sort) params.set('sort', options.sort);
     if (options.dir) params.set('dir', options.dir);
     if (options.filters && Object.keys(options.filters).length) {

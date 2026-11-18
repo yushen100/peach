@@ -44,6 +44,13 @@ describe('馆藏表格列宽与占位图', () => {
       const defaultLabels = ['作品', '作品操作', '艺人', '媒体库', '标签', '时长', '评分', '观看次数', '入库时间'];
       const visibleLabels = () => page.locator('[data-catalog-table] th:not([data-table-space]) > span').allTextContents();
       assert.deepEqual(await visibleLabels(), defaultLabels);
+      const countHeader = await page.locator('[data-catalog-table] th[data-key="plays"]').evaluate(header => {
+        const label = header.querySelector<HTMLElement>('button .truncate')!;
+        const filter = header.querySelector('button svg')!.getBoundingClientRect();
+        const sort = header.querySelector('[data-sort-indicator]')!.getBoundingClientRect();
+        return { cropped: label.scrollWidth > label.clientWidth, gap: sort.left - filter.right };
+      });
+      assert.ok(!countHeader.cropped && countHeader.gap >= 4, JSON.stringify(countHeader));
       await page.getByRole('button', { name: '显示列', exact: true }).click();
       await page.getByRole('button', { name: '显示全部列', exact: true }).click();
       await page.keyboard.press('Escape');

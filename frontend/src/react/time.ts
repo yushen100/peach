@@ -3,10 +3,13 @@
  * 差出八小时。 */
 
 /** 本机时间。没有时区标记的按 UTC 解释——存进去的时候就是 UTC。 */
+export function utcDate(iso: string): Date {
+  return new Date(/[Zz]|[+-]\d\d:?\d\d$/.test(iso) ? iso : `${iso}Z`);
+}
+
 export function localTime(iso: string | null | undefined): string {
   if (!iso) return '';
-  const text = /[Zz]|[+-]\d\d:?\d\d$/.test(iso) ? iso : `${iso}Z`;
-  const when = new Date(text);
+  const when = utcDate(iso);
   if (Number.isNaN(when.getTime())) return String(iso).replace('T', ' ').slice(0, 16);
   const pad = (value: number) => String(value).padStart(2, '0');
   return `${when.getFullYear()}-${pad(when.getMonth() + 1)}-${pad(when.getDate())} `

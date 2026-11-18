@@ -28,7 +28,7 @@ import type { QualityGoalsProps } from '../bundle';
 import { CardTags, Icon } from '../components/card-meta';
 import { EmptyState } from '../components/empty-state';
 import { FilterGlassRows, SelectAllButton } from '../components/filter-glass';
-import { QueueIdentity, QueuePicture, QueueTable } from '../components/queue-table';
+import { QueueFilterChips, QueueIdentity, QueuePicture, QueueTable } from '../components/queue-table';
 import { useQueueSort } from '../components/queue-sort';
 import { useCatalogView } from '../catalog-grid/catalog-view';
 import { CatalogViewToggle } from '../catalog-grid/catalog-view-toggle';
@@ -131,10 +131,10 @@ export function QualityGoalsPage({ toast, ...props }: QualityGoalsProps) {
   const [resources, setResources] = useState<Discovery[] | null>(null);
   const view = useCatalogView();
   const [filters, setFilters] = useState<TableFilters>({});
-  const activeFilters = view === 'list' ? filters : {};
-  const encoded = JSON.stringify(activeFilters);
-  const goals = useQuery({ queryKey: encoded === '{}' ? QUALITY_GOALS_KEY : [...QUALITY_GOALS_KEY, encoded],
-    queryFn: ({ signal }) => fetchQualityGoals(signal, encoded === '{}' ? undefined : activeFilters), placeholderData: previous => previous });
+  const encoded = JSON.stringify(filters);
+  const filtered = encoded !== '{}';
+  const goals = useQuery({ queryKey: filtered ? [...QUALITY_GOALS_KEY, encoded] : QUALITY_GOALS_KEY,
+    queryFn: ({ signal }) => fetchQualityGoals(signal, filtered ? filters : undefined), placeholderData: previous => previous });
   const order = useQueueSort<QualityGoal>('quality-goals', {
     size: (item) => Number(item.size || 0), dur: (item) => Number(item.duration || 0), new: (item) => item.id,
   });
@@ -150,7 +150,7 @@ export function QualityGoalsPage({ toast, ...props }: QualityGoalsProps) {
     );
   }
   const items = order.sort(data.items || []);
-  if (!items.length && view !== 'list') {
+  if (!items.length && view !== 'list' && !filtered) {
     return (
       <Page>
         <EmptyState icon={RiSparklingLine} title={t('manage:hdUpgrades.emptyTitle')}>
@@ -184,13 +184,19 @@ export function QualityGoalsPage({ toast, ...props }: QualityGoalsProps) {
           <SelectAllButton label={t('manage:hdUpgrades.selectAll')} picked={items.filter(item => picked.has(item.id)).length} total={items.length} onChange={pickAll} />
         </span>
         <span data-entity-sorts=""><CatalogViewToggle /><SortKeys sorts={order.sorts} onSort={order.onSort} /></span></>} />
+      {view === 'cards' && filtered ? <div className="mb-4">
+        <QueueFilterChips table="quality-goals" filters={filters} onChange={setFilters}
+          valueLabel={(column, value) => column === 'source' ? LOC[value] ?? value : value} />
+      </div> : null}
       {view === 'list'
         ? <QueueTable table="quality-goals" label={t('manage:hdUpgrades.summaryLabel')} items={items} selected={new Set(picked.keys())} selecting={selecting}
             contextOperations={item => goalOperations(item, picked.has(item.id), () => props.openItem(item.id),
               () => setDownload(goalPrefill(item, props.javDisplayName(item))), () => pick(item.id, !picked.has(item.id)))}
             busy={goals.isFetching}
-            filters={{ values: activeFilters, facets: data.column_facets ?? {}, onChange: setFilters }}
+            filters={{ values: filters, facets: data.column_facets ?? {}, onChange: setFilters }}
             filterColumns={{
+              size: { range: 'size', value: item => item.size },
+              dur: { range: 'duration', value: item => item.duration || null },
               source: { values: item => item.location, option: id => {
                 const ProviderIcon = providerIcon(id);
                 return { label: LOC[id] || id, leading: <ProviderIcon /> };
@@ -217,6 +223,7 @@ export function QualityGoalsPage({ toast, ...props }: QualityGoalsProps) {
                 <Button variant="secondary" size="small" onClick={() => props.openItem(item.id)}>{t('manage:hdUpgrades.viewEditions')}</Button>
               </span>,
             }} />
+        : !items.length ? <EmptyState icon={RiSparklingLine} title={t('shell:dataTable.empty')}>{null}</EmptyState>
         : <div data-media-grid="" data-select-mode={selecting ? '' : undefined}>
             {items.map((item) => <GoalCard key={item.id} item={item} {...props} searchResources={setDownload}
               picked={picked.has(item.id)} onPick={(on) => pick(item.id, on)} selecting={selecting} />)}

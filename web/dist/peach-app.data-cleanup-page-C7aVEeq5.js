@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "42ff4cb4-2a6c-49b2-8c7d-799d8fb738d0", e._sentryDebugIdIdentifier = "sentry-dbid-42ff4cb4-2a6c-49b2-8c7d-799d8fb738d0");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "cf858ebd-e797-4996-98a4-cf194e1faa49", e._sentryDebugIdIdentifier = "sentry-dbid-cf858ebd-e797-4996-98a4-cf194e1faa49");
 	} catch {}
 })();
 import { BATCH_DELETE_TEXT as e, BC as t, Button as n, CLEANUP_ENTRY as r, CLEANUP_ENTRY_GRID as i, CLEANUP_HASH_REDIRECTS as a, CLEANUP_TOOLS as o, Chip as s, ColumnFilterAvatar as c, DIRECTORY_TEMPLATE_ERROR as l, DUPLICATES_KEY as u, Fieldset as d, FieldsetTitle as f, IDLE_REPAIR as p, IconButton as m, IndexSearch as h, Input as g, JUNK_KEY as _, LEGACY_AVATAR_IMG as v, LINKS_KEY as ee, LINK_CHECK_KEY as y, LINK_KINDS as b, LINK_PRUNE_KEY as te, LOC as x, LibraryLabel as S, LibraryProcessingCard as C, M6 as w, MEDIA_REPAIR_KEY as T, MEDIA_REPAIR_URL as E, MEDIA_SOURCES_KEY as D, MEDIA_SOURCE_ICONS as ne, Note as O, ORGANIZE_KEY as re, ORGANIZE_PARAMETER_HINT as k, ORGANIZE_SCOPE_HINT as ie, ORGANIZE_TEXT as ae, ORPHAN_RECORDS_KEY as A, ORPHAN_RECORDS_TEXT as oe, PERFORMER_DELETE_KEY as j, PLAIN_STAT_STRIP as se, PlainStat as M, Progress as N, QUALITY_GOALS_KEY as P, RECORD_LABELS as F, REPAIR_CARD_TEXT as ce, REPAIR_LIBRARIES_KEY as le, RESOURCE_APPLY_KEY as I, RESOURCE_SCAN_KEY as ue, RESOURCE_SYNC_TEXT as de, RESULT_PANEL as fe, RESULT_SECTION as pe, REVIEW_COUNTS_KEY as me, SOURCE_LABELS as he, SectionHeading as ge, Select as _e, SelectItem as ve, SiteMark as L, SourceLabel as ye, SourceMark as be, StatusLabel as R, TRASH_KEY as z, TaskProgress as B, Wt as xe, __toESM as Se, activityKind as V, apiSend as Ce, applyConfirmText as we, applyLeftovers as Te, applyPlanText as Ee, applyText as De, attachOrphan as Oe, baseName as ke, busyProps as H, candidateText as Ae, checkLine as je, cleanupToolSkeletonHtml as Me, codedText as Ne, confirmModal as Pe, cx as Fe, dZ as Ie, deletePerformerVideos as Le, entityDisplayName as Re, entityFaceImg as ze, entityPath as Be, errorMessage as U, esc as Ve, fetchDeletePerformers as He, fetchDeletePlan as Ue, fetchDuplicates as We, fetchJunkSummary as Ge, fetchLinkCheck as Ke, fetchLinkPrune as qe, fetchLinkStats as Je, fetchMediaRepair as Ye, fetchMediaSources as Xe, fetchOrganize as Ze, fetchOrganizeExample as Qe, fetchOrphanRecords as $e, fetchQualityGoals as et, fetchRepairLibraries as tt, fetchResourceApply as nt, fetchResourceScan as rt, fetchReviewCounts as it, fetchTrashSummary as at, firstGrapheme as ot, fmtSize as W, hasChanges as st, hasResourceRoots as ct, jobText as G, junkBreakdown as lt, ks as ut, linkLabel as dt, missingToolText as ft, organizeOutcome as pt, peachHistory$1 as mt, pickOrganizeFolder as ht, plainStatClass as K, planSummary as gt, previewOrganize as _t, pruneText as vt, purgeCount as yt, purgeOrphan as bt, queryClient as q, recordsText as xt, rememberTemplates as St, require_jsx_runtime as Ct, require_react as wt, reviewSummary as Tt, runBulkAction as Et, scanLine as Dt, serverLabel as Ot, sourceMeta as kt, spriteGlyph as J, stageText as At, startLinkCheck as jt, startLinkPrune as Mt, startOrganize as Nt, startResourceApply as Pt, startResourceScan as Ft, statusLine as It, t as Y, useAction as Lt, useBackgroundJob as X, useEntityNames as Rt, useMutation as zt, useOrderedLibraries as Bt, useQuery as Z, withOrganizeJob as Vt } from "./peach-app.js";
@@ -1328,6 +1328,10 @@ function wn({ toast: t }) {
 			width: 104,
 			min: 80,
 			value: (e) => e.n,
+			filter: {
+				range: "count",
+				value: (e) => e.n
+			},
 			render: (e) => Y("cleanup:performerDelete.videoCount", { count: e.n })
 		},
 		{
@@ -1336,6 +1340,10 @@ function wn({ toast: t }) {
 			width: 104,
 			min: 80,
 			value: (e) => e.file_count,
+			filter: {
+				range: "count",
+				value: (e) => e.file_count
+			},
 			render: (e) => Y("cleanup:performerDelete.fileCount", { count: e.file_count })
 		},
 		{
@@ -1344,6 +1352,10 @@ function wn({ toast: t }) {
 			width: 136,
 			min: 104,
 			value: (e) => e.bytes,
+			filter: {
+				range: "size",
+				value: (e) => e.bytes
+			},
 			render: (e) => W(e.bytes)
 		}
 	], []), v = o.toLocaleLowerCase(), ee = (r.data?.items || []).filter((e) => !v || [
@@ -1925,4 +1937,4 @@ function Wn({ toast: e, open: t, navigate: n }) {
 }
 export { Wn as DataCleanupPage, Pn as DataCleanupToolPage };
 
-//# debugId=42ff4cb4-2a6c-49b2-8c7d-799d8fb738d0
+//# debugId=cf858ebd-e797-4996-98a4-cf194e1faa49
