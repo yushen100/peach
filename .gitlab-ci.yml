@@ -258,7 +258,7 @@ build-windows:
     # 本机 Windows runner 就是开发机：构建、冒烟与镜像作业和本机测试排同一把整机重负载锁
     # （scripts/machine_lock.py）。runner 的系统 Python 没有 filelock，用 uv 起一个只带它的临时环境，
     # 不碰作业里会被 uv sync 改写的 .venv。验证作业经测试入口，入口自己拿这把锁。
-    - if (-not (Get-Content build/ci-artifacts/windows-release-resume.json -Raw | ConvertFrom-Json).restored) { uv run --no-project --with filelock==4.2.10 --python 3.14 python -X utf8 scripts/machine_lock.py -- pwsh -NoProfile -File ./scripts/ci_windows.ps1 build }
+    - if (-not (Get-Content build/ci-artifacts/windows-release-resume.json -Raw | ConvertFrom-Json).restored) { uv run --no-project --with filelock==4.2.11 --python 3.14 python -X utf8 scripts/machine_lock.py -- pwsh -NoProfile -File ./scripts/ci_windows.ps1 build }
     - if ($LASTEXITCODE -ne 0) { throw 'Windows 构建失败' }
     - if (-not (Get-Content build/ci-artifacts/windows-release-resume.json -Raw | ConvertFrom-Json).uploaded) { python scripts/ci_r2_artifacts.py push windows-release }
     - if ($LASTEXITCODE -ne 0) { throw 'Windows 产物暂存失败' }
@@ -314,7 +314,7 @@ smoke-windows:
     - python scripts/ci_r2_artifacts.py pull windows-release
     - if ($LASTEXITCODE -ne 0) { throw 'Windows 产物下载校验失败' }
   script:
-    - uv run --no-project --with filelock==4.2.10 --python 3.14 python -X utf8 scripts/machine_lock.py -- pwsh -NoProfile -File ./release/ci_windows.ps1 smoke
+    - uv run --no-project --with filelock==4.2.11 --python 3.14 python -X utf8 scripts/machine_lock.py -- pwsh -NoProfile -File ./release/ci_windows.ps1 smoke
     - if ($LASTEXITCODE -ne 0) { throw 'Windows 独立制品验收失败' }
 
 # 镜像先构建、冒烟，留在这台 runner 上；推送放在 publish-release 成功之后（publish-docker），
@@ -333,7 +333,7 @@ docker-build:
     - python scripts/ci_r2_artifacts.py restore docker-release
     - if ($LASTEXITCODE -ne 0) { throw '镜像回执恢复检查失败' }
   script:
-    - uv run --no-project --with filelock==4.2.10 --python 3.14 python -X utf8 scripts/machine_lock.py -- pwsh -NoProfile -File ./scripts/ci_windows.ps1 docker-build
+    - uv run --no-project --with filelock==4.2.11 --python 3.14 python -X utf8 scripts/machine_lock.py -- pwsh -NoProfile -File ./scripts/ci_windows.ps1 docker-build
     - if ($LASTEXITCODE -ne 0) { throw 'Docker 镜像构建或验收失败' }
     - if (-not (Get-Content build/ci-artifacts/docker-release-resume.json -Raw | ConvertFrom-Json).uploaded) { python scripts/ci_r2_artifacts.py push docker-release }
     - if ($LASTEXITCODE -ne 0) { throw '镜像验收回执上传失败' }

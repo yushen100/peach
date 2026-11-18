@@ -13,7 +13,8 @@ from pathlib import Path
 from apscheduler.schedulers.background import BackgroundScheduler
 from filelock import FileLock, Timeout
 
-from . import artifact_rules, composite_alias_repair, metadata_text_repair, r18_legacy_repair, upgrade_rules
+from . import (amane_cache_repair, artifact_rules, composite_alias_repair, metadata_text_repair,
+               r18_legacy_repair, upgrade_rules)
 from .field_owners import SCAN_FILENAME, is_protected, owner_of, write_owned_fields
 from .followups import FollowupType, Attempts, attempts_root, register
 from .fsutil import atomic_path, atomic_write_text
@@ -1204,6 +1205,7 @@ class UpgradeRepairs:
                 self._convert_interface_text()
                 self._isolate_system_files()
                 self._settle_legacy()
+                self._repair_amane_cache()
                 return
             self._restore_receipt(None)
             sources = Path(contract.follow_sources_root)
@@ -1241,6 +1243,8 @@ class UpgradeRepairs:
                            'queued': dict(previous.get('queued', {})),
                            'deferred': list(previous.get('deferred', [])),
                            'code_media_ids': list(previous.get('code_media_ids', [])),
+                           'amane_media_ids': list(previous.get('amane_media_ids', [])),
+                           amane_cache_repair.RULE: previous.get(amane_cache_repair.RULE),
                            'media_paused': previous.get('media_paused', {}),
                            'dispatch_complete': bool(previous.get('dispatch_complete')) and not plan['text']['asset_ids'],
                            'text_only': prior is not None,
@@ -1259,6 +1263,39 @@ class UpgradeRepairs:
             self._convert_interface_text()
             self._isolate_system_files()
             self._settle_legacy()
+            self._repair_amane_cache()
+
+    def _repair_amane_cache(self) -> None:
+        """既有升级回执也单独执行来源缓存补修，先记计划再改派生文件。"""
+        from .library_processing import FIELDS, misses_path
+        from .settings_file import load_config
+        try:
+            receipt = _read(self.receipt)
+            saved = receipt.get(amane_cache_repair.RULE)
+            if saved and saved.get('state') == 'done':
+                return
+            config = self.config or getattr(self.contract, 'upgrade_config', None) or load_config()
+            misses = misses_path(config)
+            candidates = Path(self.contract.candidate_root) / CANDIDATE_FILE
+            if saved is None:
+                with self.contract.database.read_connection() as connection:
+                    plan = amane_cache_repair.collect(
+                        connection, Path(self.contract.follow_sources_root) / 'library-metadata',
+                        misses, candidates)
+                saved = {'state': 'prepared', 'plan': plan}
+                receipt[amane_cache_repair.RULE] = saved
+                self._save_receipt(receipt)
+            with self.contract.database.read_connection() as connection:
+                amane_cache_repair.apply(connection, saved['plan'], misses, candidates, FIELDS)
+            saved['state'] = 'done'
+            affected = saved['plan']['asset_ids']
+            receipt['amane_media_ids'] = sorted(set(receipt.get('amane_media_ids', [])) | set(affected))
+            receipt['media_ids'] = sorted(set(receipt.get('media_ids', [])) | set(affected))
+            if affected:
+                receipt['dispatch_complete'] = False
+            self._save_receipt(receipt)
+        except Exception:
+            LOGGER.exception('amane source cache repair failed')
 
     def _settle_legacy(self) -> None:
         """旧版本写下、按现行判据能确定改对的存量各补一次（`legacy_repairs.RULES`）。
@@ -2212,6 +2249,8 @@ class UpgradeRepairs:
                 rule += f':text-{upgrade_rules.PROVIDER_TEXT}'
             if row['id'] in receipt.get('code_media_ids', []):
                 rule += f':{CODE_EVIDENCE_RULE}'
+            if row['id'] in receipt.get('amane_media_ids', []):
+                rule += f':{amane_cache_repair.RULE}'
             key = f'{MEDIA_TASK}:{rule}:{row["id"]}'
             # 结算过的键已移出回执队列，防重复派发靠状态表里那一行。
             if key in seen or settled(items.get((f'media:{rule}', row['id'])), None, now):

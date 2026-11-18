@@ -4,6 +4,16 @@
 
 ## amane 桥
 
+### 采用稳定版 v0.28.0
+
+2026-11-18 复核官方 [v0.28.0](https://github.com/sqzw-x/amane/releases/tag/v0.28.0)，固定到标签提交 `391af4fdc9fec4c7eb279ce8de53fbf693f09d5a`。[相对现有 v0.27.1 的差集](https://github.com/sqzw-x/amane/compare/ffaedbcdfa170c158bf457128f534f5b59365ec7...391af4fdc9fec4c7eb279ce8de53fbf693f09d5a)共 9 个提交。
+
+桥的来源链消费两处修复。freejavbt 从 canonical 或 og:url 提取页面番号并与请求核对，拦住素人日期号重定向到另一来源作品的错配。makers（上游 official）增加 `_2.jpg` 横版封面到 `_1.jpg` 竖版海报的推导，继续支持 `-pl.jpg` 到 `-ps.jpg`，哈希文件名与其他序号不推导。Peach 继续把海报写入候选 extra，不更改身份核对、字段优先级与复核规则。
+
+avbase、javdb 与 gfriends 的变更由 Peach 自有来源或演员层负责，桥只在自检中载入前两站。演员推送、图片裁切、桌面与 Docker 构建变化没有桥调用方。上游清单仅改版本并移除 only-managed 解释器偏好，字段模型、失败枚举及依赖约束相同。桥继续排除语义模型依赖，watchdog 受上游 `<7` 约束。
+
+存量缓存没有绑定 amane 版本：正向快照只记 `PROVIDER_EVIDENCE`，无结果按站记在格式 3 的文件中。旧 freejavbt 从请求 URL 回报番号，日期号跨来源重定向后仍能通过客户端身份检查。升级补修 `amane-source-cache-1` 单独失效 freejavbt 下划线日期号快照、makers 缺少 `_2.jpg` 对应海报的快照及相应来源和封面缺失记忆，其他缓存保留；正文保留，未批准的旧 freejavbt 候选撤下并原样记入回执，人工候选和批准结果保留。已有升级回执也执行该规则，以独立任务键重新派发受影响作品，强制重采产生候选，真相字段继续按现有复核规则处理。回执先保存计划，文件处理失败后继续同一计划，随后取得的新快照与人工批准保留。平台制品和完整回归仍待安全审计通过后验证。
+
 ### 采用稳定版 v0.27.1
 
 2026-11-14 固定到官方 [v0.27.1](https://github.com/sqzw-x/amane/releases/tag/v0.27.1)，提交 `ffaedbcdfa170c158bf457128f534f5b59365ec7`。[相对 v0.22.1 的差集](https://github.com/sqzw-x/amane/compare/fd9294fbe5b4aa88ce1df84d534f6816ad9460d5...ffaedbcdfa170c158bf457128f534f5b59365ec7)含 96 个提交。按桥开放给来源链的九站逐站读 diff：
