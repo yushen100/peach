@@ -173,11 +173,21 @@ describe('沉浸模式', () => {
   it('手机 390 宽：竖划换条，横划拖进度（拖动中进度条变粗），同一半区双击快进且不切播放', async () => {
     const opened = await visit(browser, '/', MOBILE);
     const { page } = opened;
+    const refill = Promise.withResolvers<void>();
+    let holdRefill = false;
+    let refillRequested = false;
     try {
       const { wide, tall } = await pickClips(page);
-      await pinQueue(page, [tall, wide]);
+      await page.route(/\/api\/items\?.*sort=rand/, async (route) => {
+        if (holdRefill) {
+          refillRequested = true;
+          await refill.promise;
+        }
+        await route.fulfill({ json: { items: [tall, wide] } });
+      });
       await muteVideos(page);
       await openImmerse(page, tall.id);
+      await page.locator(currentVideo).evaluate((video: HTMLVideoElement) => video.pause());
       const cdp = await page.context().newCDPSession(page);
       const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', x = 0, y = 0) =>
         cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y }] });
@@ -193,9 +203,12 @@ describe('沉浸模式', () => {
         return { time: video.currentTime, duration: video.duration, paused: video.paused };
       }, currentVideo);
 
+      holdRefill = true;
       await drag([195, 640], [195, 300]);
-      await page.waitForFunction((want) => location.search === `?id=${want}`, wide.id);
+      await page.waitForFunction((want) => location.search === `?id=${want}`, wide.id, { timeout: 10_000 });
       await settledClip(page);
+      assert.ok(refillRequested, '补队列已发起时，队列里已有的下一条仍可出画');
+      refill.resolve();
 
       await page.evaluate((selector) => {
         const video = document.querySelector<HTMLVideoElement>(selector)!;
@@ -220,6 +233,7 @@ describe('沉浸模式', () => {
       assert.equal(seeked.paused, true, '双击与随后合成的 click 都不该切播放');
       assert.deepEqual(opened.problems, [], JSON.stringify(opened.problems));
     } finally {
+      refill.resolve();
       await opened.close();
     }
   });

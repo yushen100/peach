@@ -98,7 +98,7 @@ let query = '';
 let list: ImmerseItem[] = [];
 let index = 0;
 let switching = false;
-let extending = false;
+let extension: Promise<void> | null = null;
 let current: Slide | null = null;
 const slides = new Set<Slide>();
 let loadingLabel = '';
@@ -365,25 +365,34 @@ async function show(direction = 0): Promise<void> {
   }
 }
 
+function extendQueue(mine: number): Promise<void> {
+  if (extension) return extension;
+  draw += 1;
+  extension = fetchDraw().then(more => {
+    if (mine === generation) list = extendList(list, more);
+  }).catch(() => {
+    // 续取失败就在已有的那一批里绕回。
+  }).finally(() => {
+    if (mine === generation) extension = null;
+  });
+  return extension;
+}
+
 async function step(direction: number): Promise<void> {
   if (switching || !view.open) return;
   const mine = generation;
   index += direction;
   setLoading(t('catalog:immerse.switching'), list[index] ?? null);
-  // 滚到尾部就续取下一批：无限流。每次都是新的随机抽样，按 id 去重接在后面。
-  if (index >= list.length - 3 && !extending) {
-    extending = true;
-    try {
-      draw += 1;
-      const more = await fetchDraw();
-      if (mine === generation) list = extendList(list, more);
-    } catch {
-      // 续取失败就在已有的那一批里绕回。
-    } finally {
-      extending = false;
+  // 队列尾部在后台续取，只有目标条目尚未在队列里时才等待。
+  if (index >= list.length - 3) {
+    const pending = extendQueue(mine);
+    if (!list[index]) {
+      switching = true;
+      await pending;
+      if (mine !== generation) return;
+      switching = false;
     }
   }
-  if (mine !== generation) return;
   if (index >= list.length) index = 0;
   if (index < 0) index = list.length - 1;
   await show(direction);
@@ -437,6 +446,7 @@ function teardown(): void {
   endPress();
   [...slides].forEach(disposeSlide);
   switching = false;
+  extension = null;
 }
 
 /** 关掉沉浸。`fromRoute` 是返回键已经把地址带回原页面：就地收起，不再让宿主导航。 */
