@@ -300,7 +300,8 @@ class FrontendManifestTests(unittest.TestCase):
                               and item["package"] == name and item["version"] == entry["version"]
                               and f"file:{item['artifact']}" == version]
                 self.assertEqual(len(registered), 1, f"{name} 的回移包须有唯一登记")
-                self.assertIn(node, npm_backports.verified_nodes(FRONTEND, packages, registered[0]))
+                verified = npm_backports.verified_nodes(FRONTEND, packages, registered[0])
+                self.assertTrue(verified, f"{name} 的锁和压缩包须通过完整性核对")
             else:
                 self.assertEqual(entry["version"], version, name)
 
