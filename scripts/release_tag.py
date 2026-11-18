@@ -327,6 +327,8 @@ def prepare(repo: str, part: str, *, apply: bool,
     version = str(planned["version"])
     tag = f"v{version}"
     _require_free_tag(repo, tag)
+    if planned["range"] != "HEAD":
+        require_readme_links(str(planned["current"]))
     require_release_notice(ROOT, version, str(planned["bump"]))
     result = {**planned, "tag": tag, "repo": repo, "applied": apply}
     if not apply:
@@ -411,7 +413,8 @@ def ship(repo: str, *, apply: bool, timeout: float = TEST_TIMEOUT) -> dict:
     command("git", "push", remote_url(repo), f"refs/tags/{tag}")
     readme = point_readme(repo, apply=True, timeout=timeout)
     return {**result, "sha": sha, "test": checked["html_url"],
-            "release": release_url(repo, tag), "readme": readme["readme"]}
+            "release": release_url(repo, tag), "readme": readme["readme"],
+            "readme_sha": readme["readme_sha"]}
 
 
 def release_assets(repo: str, tag: str) -> set[str]:
@@ -424,6 +427,13 @@ def release_assets(repo: str, tag: str) -> set[str]:
         return set()
     return {asset["name"] for asset in release.get("assets") or ()
             if asset.get("state") == "uploaded"}
+
+
+def require_readme_links(version: str, *, revision: str | None = None) -> None:
+    problems = version_bump.readme_link_problems(ROOT, version=version, revision=revision)
+    if problems:
+        detail = t("common.clauseSeparator").join(problems)
+        raise ValueError(f"{detail}\n{t('release_tag.nextPointReadme')}")
 
 
 def point_readme(repo: str, *, apply: bool, timeout: float = TEST_TIMEOUT, poll: float = TEST_POLL,
@@ -457,10 +467,15 @@ def point_readme(repo: str, *, apply: bool, timeout: float = TEST_TIMEOUT, poll:
         command("git", "add", *version_bump.README_FILES)
         command("git", "-c", f"{MASTER_WRITER}=release", "commit", "-m", subject)
     head = command("git", "rev-parse", "HEAD")
+    remote = master_sha(repo)
     # HEAD 是这次的 README 提交才推送；中断后 master 上又落了别的提交，就交给集成方推送。
-    if command("git", "log", "-1", "--format=%s", head) == subject and master_sha(repo) != head:
+    if command("git", "log", "-1", "--format=%s", head) == subject and remote != head:
         command("git", "push", remote_url(repo), "refs/heads/master")
-    return {**result, "readme": changed}
+        remote = master_sha(repo)
+    if remote != head:
+        command("git", "fetch", "--no-tags", "--no-write-fetch-head", remote_url(repo), remote)
+    require_readme_links(version, revision=remote)
+    return {**result, "readme": changed, "readme_sha": remote}
 
 
 def plan(repo: str) -> dict:

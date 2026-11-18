@@ -30,6 +30,8 @@ class ReadmeContractsTests(unittest.TestCase):
                     (root / name).write_text(f'[Installer]({link.format(version)})\n', encoding='utf-8')
                 with self.subTest(version=version):
                     self.assertEqual(len(readme_link_problems(root)), problems)
+                    self.assertEqual(len(readme_link_problems(root, version="0.8.0")),
+                                     0 if version == "0.8.0" else len(README_FILES))
             (root / 'README.md').write_text(f'[A]({link.format("0.8.0")}) [B]({link.format("0.7.9")})\n',
                                             encoding='utf-8')
             (root / 'README.zh-CN.md').write_text('没有直链\n', encoding='utf-8')

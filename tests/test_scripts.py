@@ -6008,6 +6008,9 @@ class ReleaseTagTests(unittest.TestCase):
         notice = mock.patch.object(self.release, "require_release_notice")
         notice.start()
         self.addCleanup(notice.stop)
+        readme = mock.patch.object(self.release.version_bump, "readme_link_problems", return_value=[])
+        self.readme_checks = readme.start()
+        self.addCleanup(readme.stop)
 
     def test_dependency_audit_covers_both_npm_projects_and_names_the_failing_one(self):
         """标签流水线第一步就是这两份 npm 审计；有一份不干净就不能定版或打标签。"""
@@ -6145,6 +6148,25 @@ class ReleaseTagTests(unittest.TestCase):
             self.release.prepare("owner/repo", "auto", apply=True)
         write.assert_not_called()
         promote.assert_not_called()
+
+    def test_stale_readme_keeps_version_files_untouched(self):
+        self.readme_checks.return_value = ["README.zh-CN.md: 下载直链仍指向 0.7.13"]
+        with self._shell(), mock.patch.object(self.release, "api", return_value=[]), \
+                mock.patch.object(self.release.version_bump, "plan_bump", return_value=self._planned_bump()), \
+                mock.patch.object(self.release.version_bump, "write_version") as write, \
+                mock.patch.object(self.release.changelog, "release") as promote, \
+                self.assertRaisesRegex(ValueError, r"README\.zh-CN\.md"):
+            self.release.prepare("owner/repo", "auto", apply=True)
+        self.readme_checks.assert_called_once_with(self.release.ROOT, version="0.7.14", revision=None)
+        write.assert_not_called()
+        promote.assert_not_called()
+
+    def test_first_release_has_no_existing_readme_version_to_check(self):
+        planned = {**self._planned_bump(), "range": "HEAD"}
+        with self._shell(), mock.patch.object(self.release, "api", return_value=[]), \
+                mock.patch.object(self.release.version_bump, "plan_bump", return_value=planned):
+            self.release.prepare("owner/repo", "auto", apply=False)
+        self.readme_checks.assert_not_called()
 
     def test_a_bump_stops_when_the_target_tag_already_exists(self):
         with self._shell(), \
@@ -6288,7 +6310,8 @@ class ShipTests(unittest.TestCase):
         audit = mock.patch.object(self.release, "require_clean_dependencies")
         self.audit = audit.start()
         self.addCleanup(audit.stop)
-        readme = mock.patch.object(self.release, "point_readme", return_value={"readme": ["README.md"]})
+        readme = mock.patch.object(self.release, "point_readme",
+                                   return_value={"readme": ["README.md"], "readme_sha": "def"})
         self.point_readme = readme.start()
         self.addCleanup(readme.stop)
 
@@ -6484,6 +6507,17 @@ class PointReadmeTests(unittest.TestCase):
         root.start()
         self.addCleanup(root.stop)
 
+        def committed_readme(_root, verb, target):
+            self.assertEqual(verb, "show")
+            revision, name = target.split(":", 1)
+            if revision == "def":
+                return (self.root / name).read_text(encoding="utf-8")
+            return self.OLD
+
+        history = mock.patch.object(self.release.version_bump, "git", side_effect=committed_readme)
+        self.readme_history = history.start()
+        self.addCleanup(history.stop)
+
     def _shell(self, *, status="", subject=SUBJECT):
         answers = {("git", "branch", "--show-current"): "master",
                    ("git", "status", "--porcelain"): status,
@@ -6492,14 +6526,15 @@ class PointReadmeTests(unittest.TestCase):
         return mock.patch.object(self.release, "command",
                                  side_effect=lambda *args, **_: answers.get(args, ""))
 
-    def _api(self, uploads, remote="abc"):
+    def _api(self, uploads, remote="abc", after_push="def"):
         """`uploads` 依次是每次查询时已上传完的制品；用完后停在最后一份。"""
         seen = iter(uploads)
         last = [()]
+        master = iter((remote, after_push))
 
         def answer(_repo, endpoint):
             if endpoint == "git/ref/heads/master":
-                return {"object": {"sha": remote}}
+                return {"object": {"sha": next(master, after_push)}}
             if endpoint == "releases/tags/v0.8.0":
                 last[0] = next(seen, last[0])
                 return {"draft": False, "assets": [{"name": name, "state": "uploaded"}
@@ -6520,6 +6555,9 @@ class PointReadmeTests(unittest.TestCase):
         new = self.OLD.replace("v0.7.9/Peach-0.7.9-", "v0.8.0/Peach-0.8.0-")
         self.assertEqual(self._readmes(), dict.fromkeys(self.release.version_bump.README_FILES, new))
         self.assertEqual(result["readme"], list(self.release.version_bump.README_FILES))
+        self.assertEqual(result["readme_sha"], "def")
+        self.assertEqual([call.args[2] for call in self.readme_history.call_args_list],
+                         ["def:README.md", "def:README.zh-CN.md"])
         self.assertEqual(ShipTests._writes(command), [
             ("git", "add", *self.release.version_bump.README_FILES),
             ("git", "-c", "peach.masterWriter=release", "commit", "-m", self.SUBJECT),
@@ -6547,9 +6585,12 @@ class PointReadmeTests(unittest.TestCase):
     def test_someone_elses_commit_on_top_is_not_pushed_on_their_behalf(self):
         for name in self.release.version_bump.README_FILES:
             (self.root / name).write_text(self.OLD.replace("0.7.9", "0.8.0"), encoding="utf-8")
-        with self._shell(subject="Merge branch 'agent/x'") as command, self._api([self.ASSETS]):
+        with self._shell(subject="Merge branch 'agent/x'") as command, self._api([self.ASSETS]), \
+                self.assertRaisesRegex(ValueError, r"README\.zh-CN\.md"):
             self.release.point_readme("owner/repo", apply=True, sleep=lambda _: None)
         self.assertEqual(ShipTests._writes(command), [])
+        command.assert_any_call("git", "fetch", "--no-tags", "--no-write-fetch-head",
+                                "https://github.com/owner/repo.git", "abc")
 
     def test_unrelated_changes_block_the_readme_commit(self):
         with self._shell(status=" M README.md\n M src/peach/api.py") as command, \

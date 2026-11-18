@@ -62,6 +62,7 @@ Dependabot 的 PR 一律在本地接管，不在网页上合：
 3. 完成定向回归和适用预览确认后，在重型验证前复核依赖及安全更新，记录提交、清单、锁与固定来源，冻结本批输入。检查未完成或仍有待处理安全更新时，先处理输入，不启动全量回归或制品构建；不能把冻结检查推迟到集成、打包或生产重启后。
 4. 对冻结输入完成 Windows、macOS 正式全量与适用制品验证，再走 ready / integrate 和运行核验。同环境的有效测试按正式入口复用，只补受变更影响的检查；制品按其实际源码、锁、构建入口和目标平台判断能否复用。文档或维护 CLI 改动不触发运行内容未变的桥和 Docker 验证制品重建。版本提交的 CI 演练和标签发布仍遵守既有门槛。
 5. 在干净 master 上运行 `release_tag.py --bump auto --apply`，保留定版及标签前的安全复查，再确认发行说明并继续 `--ship --apply`。冻结后出现的普通更新登记到后续批次；发现必须处理的安全更新时返回独立补充，重新冻结并验证实际影响，不整批无差别重跑。
+6. 已有发布版本时，定版前核对中英文 README 的下载直链均指向当前已发布版本。制品上传齐全后，发布脚本自动换链，并核对远端 master 的两份 README 均指向新版本。换链中断时，在对应版本的 master 上运行 `release_tag.py --point-readme --apply` 补做。
 
 `release_tag.py --bump auto --apply` 在写版本前调用 `release_review.py`，检查两份 Python 锁、两份 npm 清单的可用更新、Dependabot 待处理 PR、SHA 固定的运行依赖及其最新稳定发布，以及登记表中全部非 manual 参考来源。独立检查入口为 `scripts/release_review.py`；报告存于 `build/release-review.json`，含提交、时间、差异与逐项错误。Docker 与 GitHub Actions 的更新以 Dependabot PR 为线索，不据空 PR 列表断言全部最新。
 
