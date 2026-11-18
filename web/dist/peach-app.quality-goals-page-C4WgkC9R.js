@@ -1,14 +1,14 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "fd3bcaa4-37e1-4acd-9a38-fb1e8a47ccd9", e._sentryDebugIdIdentifier = "sentry-dbid-fd3bcaa4-37e1-4acd-9a38-fb1e8a47ccd9");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "476569ab-0498-4437-a92d-ea3a82193423", e._sentryDebugIdIdentifier = "sentry-dbid-476569ab-0498-4437-a92d-ea3a82193423");
 	} catch {}
 })();
-import { Button as e, CardTags as t, CatalogViewToggle as n, CloudDownloadDialog as r, EmptyState as i, FilterGlassRows as a, Gg as o, H7 as s, Icon as c, LOC as l, ListLibrary as u, Note as d, OA as f, QUALITY_GOALS_KEY as p, QueueIdentity as m, QueuePicture as h, QueueTable as g, SelectAllButton as _, SelectionDock as v, SortKeys as y, __toESM as b, enterPageSelection as x, errorMessage as S, exitPageSelection as C, fetchQualityGoals as ee, fmtDur as w, fmtSize as T, previewUrl as E, providerIcon as D, pv as O, queueContentSkeletonHtml as te, require_jsx_runtime as k, require_react as A, t as j, useCatalogView as ne, useDense as M, useLibraryTints as N, usePageSelection as re, useQuery as ie, useQueueSort as P, useWorkContextMenu as F } from "./peach-app.js";
+import { Button as e, CardTags as t, CatalogViewToggle as n, CloudDownloadDialog as r, EmptyState as i, FilterGlassRows as a, Gg as o, H7 as s, Icon as c, LOC as l, ListLibrary as u, Note as d, OA as f, QUALITY_GOALS_KEY as p, QueueFilterChips as m, QueueIdentity as h, QueuePicture as g, QueueTable as _, SelectAllButton as v, SelectionDock as y, SortKeys as b, __toESM as x, enterPageSelection as S, errorMessage as C, exitPageSelection as ee, fetchQualityGoals as te, fmtDur as w, fmtSize as T, previewUrl as E, providerIcon as D, pv as O, queueContentSkeletonHtml as ne, require_jsx_runtime as k, require_react as A, t as j, useCatalogView as M, useDense as N, useLibraryTints as P, usePageSelection as re, useQuery as ie, useQueueSort as ae, useWorkContextMenu as F } from "./peach-app.js";
 import { Page as I } from "./peach-app.page-QAncjzM1.js";
 import { JavBatchResources as L } from "./peach-app.jav-batch-resources-B1BkGgyg.js";
 // src/react/quality-goals/quality-goals-page.tsx
-var R = /* @__PURE__ */ b(A(), 1), z = k(), B = (e) => (e || "").split(/\s*\/\s*/).map((e) => e.trim()).filter(Boolean);
+var R = /* @__PURE__ */ x(A(), 1), z = k(), B = (e) => (e || "").split(/\s*\/\s*/).map((e) => e.trim()).filter(Boolean);
 function V(e, t) {
 	return {
 		code: e.code,
@@ -38,11 +38,11 @@ function H(e, t, n, r, i) {
 		run: r
 	}), a;
 }
-function ae({ item: n, openItem: r, searchResources: i, javTitleHtml: a, javDisplayName: o, srcBadge: s, picked: d, onPick: f, selecting: p }) {
-	let m = F(), h = M(), [g, _] = (0, R.useState)(!1), v = () => r(n.id), y = o(n), b = () => i(V(n, y)), x = {
+function oe({ item: n, openItem: r, searchResources: i, javTitleHtml: a, javDisplayName: o, srcBadge: s, picked: d, onPick: f, selecting: p }) {
+	let m = F(), h = N(), [g, _] = (0, R.useState)(!1), v = () => r(n.id), y = o(n), b = () => i(V(n, y)), x = {
 		key: n.id,
 		operations: H(n, d, v, b, () => f(!d))
-	}, S = N(), C = n.library_id && S.get(n.library_id)?.color ? n.library_id : void 0;
+	}, S = P(), C = n.library_id && S.get(n.library_id)?.color ? n.library_id : void 0;
 	return /* @__PURE__ */ (0, z.jsxs)("article", {
 		"data-media-card": "",
 		"data-jav-card": "",
@@ -145,35 +145,35 @@ function ae({ item: n, openItem: r, searchResources: i, javTitleHtml: a, javDisp
 	});
 }
 function U({ toast: t, ...o }) {
-	let [s, c] = (0, R.useState)(null), [b, O] = (0, R.useState)(/* @__PURE__ */ new Map()), k = re(() => O(/* @__PURE__ */ new Map())), [A, M] = (0, R.useState)(null), N = ne(), [F, U] = (0, R.useState)({}), W = N === "list" ? F : {}, G = JSON.stringify(W), K = ie({
-		queryKey: G === "{}" ? p : [...p, G],
-		queryFn: ({ signal: e }) => ee(e, G === "{}" ? void 0 : W),
+	let [s, c] = (0, R.useState)(null), [x, O] = (0, R.useState)(/* @__PURE__ */ new Map()), k = re(() => O(/* @__PURE__ */ new Map())), [A, N] = (0, R.useState)(null), P = M(), [F, U] = (0, R.useState)({}), W = JSON.stringify(F), G = W !== "{}", K = ie({
+		queryKey: G ? [...p, W] : p,
+		queryFn: ({ signal: e }) => te(e, G ? F : void 0),
 		placeholderData: (e) => e
-	}), q = P("quality-goals", {
+	}), q = ae("quality-goals", {
 		size: (e) => Number(e.size || 0),
 		dur: (e) => Number(e.duration || 0),
 		new: (e) => e.id
 	}), J = K.data;
-	if (K.isPending) return /* @__PURE__ */ (0, z.jsx)(I, { children: /* @__PURE__ */ (0, z.jsx)("div", { dangerouslySetInnerHTML: { __html: te("quality-goals", j("shell:spinner.loading"), ["w-20", "w-24"]) } }) });
+	if (K.isPending) return /* @__PURE__ */ (0, z.jsx)(I, { children: /* @__PURE__ */ (0, z.jsx)("div", { dangerouslySetInnerHTML: { __html: ne("quality-goals", j("shell:spinner.loading"), ["w-20", "w-24"]) } }) });
 	if (!J) return /* @__PURE__ */ (0, z.jsx)(I, { children: /* @__PURE__ */ (0, z.jsx)(d, {
 		tone: "error",
 		title: j("manage:hdUpgrades.loadFailed"),
-		children: K.error ? S(K.error) : j("manage:hdUpgrades.notFound")
+		children: K.error ? C(K.error) : j("manage:hdUpgrades.notFound")
 	}) });
 	let Y = q.sort(J.items || []);
-	if (!Y.length && N !== "list") return /* @__PURE__ */ (0, z.jsx)(I, { children: /* @__PURE__ */ (0, z.jsx)(i, {
+	if (!Y.length && P !== "list" && !G) return /* @__PURE__ */ (0, z.jsx)(I, { children: /* @__PURE__ */ (0, z.jsx)(i, {
 		icon: f,
 		title: j("manage:hdUpgrades.emptyTitle"),
 		children: j("manage:hdUpgrades.emptyBody")
 	}) });
-	let X = [...b.values()], Z = X.filter((e) => e.code), Q = (e) => {
-		K.isFetching || K.isError || (e && x(), O((t) => {
+	let X = [...x.values()], Z = X.filter((e) => e.code), Q = (e) => {
+		K.isFetching || K.isError || (e && S(), O((t) => {
 			let n = new Map(t);
 			for (let t of Y) e ? n.set(t.id, t) : n.delete(t.id);
 			return n;
 		}));
 	}, $ = (e, t) => {
-		t && x(), O((n) => {
+		t && S(), O((n) => {
 			let r = new Map(n), i = Y.find((t) => t.id === e);
 			return t && i ? r.set(e, i) : r.delete(e), r;
 		});
@@ -201,34 +201,51 @@ function U({ toast: t, ...o }) {
 							" · ",
 							j("manage:hdUpgrades.videoCount", { count: Number(J.total || 0) })
 						]
-					}), /* @__PURE__ */ (0, z.jsx)(_, {
+					}), /* @__PURE__ */ (0, z.jsx)(v, {
 						label: j("manage:hdUpgrades.selectAll"),
-						picked: Y.filter((e) => b.has(e.id)).length,
+						picked: Y.filter((e) => x.has(e.id)).length,
 						total: Y.length,
 						onChange: Q
 					})]
 				}), /* @__PURE__ */ (0, z.jsxs)("span", {
 					"data-entity-sorts": "",
-					children: [/* @__PURE__ */ (0, z.jsx)(n, {}), /* @__PURE__ */ (0, z.jsx)(y, {
+					children: [/* @__PURE__ */ (0, z.jsx)(n, {}), /* @__PURE__ */ (0, z.jsx)(b, {
 						sorts: q.sorts,
 						onSort: q.onSort
 					})]
 				})] })
 			}),
-			N === "list" ? /* @__PURE__ */ (0, z.jsx)(g, {
+			P === "cards" && G ? /* @__PURE__ */ (0, z.jsx)("div", {
+				className: "mb-4",
+				children: /* @__PURE__ */ (0, z.jsx)(m, {
+					table: "quality-goals",
+					filters: F,
+					onChange: U,
+					valueLabel: (e, t) => e === "source" ? l[t] ?? t : t
+				})
+			}) : null,
+			P === "list" ? /* @__PURE__ */ (0, z.jsx)(_, {
 				table: "quality-goals",
 				label: j("manage:hdUpgrades.summaryLabel"),
 				items: Y,
-				selected: new Set(b.keys()),
+				selected: new Set(x.keys()),
 				selecting: k,
-				contextOperations: (e) => H(e, b.has(e.id), () => o.openItem(e.id), () => c(V(e, o.javDisplayName(e))), () => $(e.id, !b.has(e.id))),
+				contextOperations: (e) => H(e, x.has(e.id), () => o.openItem(e.id), () => c(V(e, o.javDisplayName(e))), () => $(e.id, !x.has(e.id))),
 				busy: K.isFetching,
 				filters: {
-					values: W,
+					values: F,
 					facets: J.column_facets ?? {},
 					onChange: U
 				},
 				filterColumns: {
+					size: {
+						range: "size",
+						value: (e) => e.size
+					},
+					dur: {
+						range: "duration",
+						value: (e) => e.duration || null
+					},
 					source: {
 						values: (e) => e.location,
 						option: (e) => {
@@ -256,10 +273,10 @@ function U({ toast: t, ...o }) {
 				onPick: (e, t) => $(e.id, t),
 				onPickAll: Q,
 				cells: {
-					name: (e) => /* @__PURE__ */ (0, z.jsx)(m, {
+					name: (e) => /* @__PURE__ */ (0, z.jsx)(h, {
 						name: o.javDisplayName(e),
 						onOpen: () => o.openItem(e.id),
-						picture: /* @__PURE__ */ (0, z.jsx)(h, {
+						picture: /* @__PURE__ */ (0, z.jsx)(g, {
 							src: E(e),
 							glyph: "film"
 						})
@@ -290,19 +307,23 @@ function U({ toast: t, ...o }) {
 						})]
 					})
 				}
-			}) : /* @__PURE__ */ (0, z.jsx)("div", {
+			}) : Y.length ? /* @__PURE__ */ (0, z.jsx)("div", {
 				"data-media-grid": "",
 				"data-select-mode": k ? "" : void 0,
-				children: Y.map((e) => /* @__PURE__ */ (0, z.jsx)(ae, {
+				children: Y.map((e) => /* @__PURE__ */ (0, z.jsx)(oe, {
 					item: e,
 					...o,
 					searchResources: c,
-					picked: b.has(e.id),
+					picked: x.has(e.id),
 					onPick: (t) => $(e.id, t),
 					selecting: k
 				}, e.id))
+			}) : /* @__PURE__ */ (0, z.jsx)(i, {
+				icon: f,
+				title: j("shell:dataTable.empty"),
+				children: null
 			}),
-			/* @__PURE__ */ (0, z.jsxs)(v, {
+			/* @__PURE__ */ (0, z.jsxs)(y, {
 				visible: X.length > 0,
 				label: j("manage:hdUpgrades.dockLabel"),
 				count: j("manage:hdUpgrades.selectedCount", { count: X.length }),
@@ -311,7 +332,7 @@ function U({ toast: t, ...o }) {
 					size: "small",
 					variant: "secondary",
 					disabled: !Z.length,
-					onClick: () => M(Z.map((e) => ({
+					onClick: () => N(Z.map((e) => ({
 						id: e.id,
 						code: e.code,
 						title: o.javDisplayName(e),
@@ -321,19 +342,19 @@ function U({ toast: t, ...o }) {
 				}), /* @__PURE__ */ (0, z.jsx)(e, {
 					size: "small",
 					variant: "ghost",
-					onClick: C,
+					onClick: ee,
 					children: j("manage:hdUpgrades.clearSelection")
 				})]
 			}),
 			/* @__PURE__ */ (0, z.jsx)(L, {
 				items: A,
-				close: () => M(null),
+				close: () => N(null),
 				readOnly: !1,
 				receipt: t
 			}),
 			K.isError ? /* @__PURE__ */ (0, z.jsx)(d, {
 				tone: "error",
-				children: S(K.error)
+				children: C(K.error)
 			}) : null,
 			Number(J.total || 0) > Y.length ? /* @__PURE__ */ (0, z.jsx)("p", {
 				className: "mt-6 text-center text-caption-1-regular text-text-secondary",
@@ -352,4 +373,4 @@ function U({ toast: t, ...o }) {
 }
 export { U as QualityGoalsPage };
 
-//# debugId=fd3bcaa4-37e1-4acd-9a38-fb1e8a47ccd9
+//# debugId=476569ab-0498-4437-a92d-ea3a82193423

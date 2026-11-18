@@ -60,8 +60,10 @@ export function HealthList({ group: original, groupKey, openItem, receipt }: {
       render: item => <span data-middle-truncate title={item.path}
         className="block min-w-0 w-full text-body-2-regular text-text-secondary">{item.path || t('manage:shared.notFound')}</span> },
     { id: 'duration', label: t('manage:shared.duration'), width: 112, value: item => item.duration ?? 0,
+      filter: { range: 'duration', value: item => item.duration || null },
       render: item => item.duration && item.duration > 0 ? fmtDur(item.duration) : t('manage:shared.notFound') },
     { id: 'size', label: t('manage:shared.size'), width: 112, value: item => item.size ?? 0,
+      filter: { range: 'size', value: item => item.size },
       render: item => item.size !== null ? fmtSize(item.size) : t('manage:shared.notFound') },
   ];
   return <Disclosure summary={group.count === null ? `${label} · ${t('manage:shared.notFound')}` : t('manage:healthList.groupSummary', { label, count: group.count })}>

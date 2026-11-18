@@ -183,6 +183,20 @@ function releaseParams(filters: ReleaseFilters) {
 export function fetchReleases(filters: ReleaseFilters, signal: AbortSignal) {
   return apiGet<ReleaseResult>(`/api/jav/releases?${releaseParams(filters)}`, signal);
 }
+
+export function releaseDateQuery(filters: ReleaseFilters) {
+  const columnFilters = writeColumnFilters(readColumnFilters(filters.column_filters), 'release', undefined);
+  const params = new URLSearchParams({ column: 'release' });
+  for (const key of ['performer', 'studio', 'tag', 'q'] as const) {
+    if (filters[key]) params.set(key, filters[key]);
+  }
+  if (columnFilters) params.set('column_filters', columnFilters);
+  return {
+    key: ['jav-release-date-values', String(params)],
+    load: async (signal: AbortSignal) =>
+      (await apiGet<{ date_values: string[] }>(`/api/jav/releases?${params}`, signal)).date_values,
+  };
+}
 export function fetchReleaseColumn(filters: ReleaseFilters, column: 'people' | 'studio' | 'tags', search: string, offset: number, signal: AbortSignal) {
   const params = releaseParams(filters);
   params.set('column', column); params.set('column_q', search);

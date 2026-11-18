@@ -8,7 +8,7 @@
  * 骨架淡出、卡片从模糊里清晰起来（同目录网格）。在 `prefetch` 里等的话，请求挂着的这段时间
  * 屏上只有壳的静态骨架，分类点不动。
  *
- * 换分类、换视图是换查询键，网格按新键重挂、重铺骨架。壳处置完推进 `revision` 时查询也换键，
+ * 换分类或筛选条件是换查询键。壳处置完推进 `revision` 时查询也换键，
  * 但旧的一份留在屏上直到新的一份到货（`placeholderData`），被处置的那张卡原地消失，
  * 已经往下露出来的那几段也不收回去。 */
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
@@ -22,7 +22,7 @@ import { EmptyState } from '../components/empty-state';
 import { LOAD_MORE_MARGIN, RetryNote, useSkeletonReveal } from '../components/grid-reveal';
 import { spriteGlyph } from '../components/sprite-glyph';
 import { JunkCard } from './junk-card';
-import { JunkList } from './junk-list';
+import { JunkFilterChips, JunkList } from './junk-list';
 import { useCatalogView } from '../catalog-grid/catalog-view';
 import { useQueueSort } from '../components/queue-sort';
 import { JunkCount } from './junk-count';
@@ -37,12 +37,10 @@ const sameRoute = (key: readonly unknown[], route: JunkRoute) => key[1] === rout
 export function JunkQueuePage(props: JunkQueueProps) {
   const route: JunkRoute = { kind: props.kind, view: props.view };
   const [filters, setFilters] = useState<TableFilters>({});
-  const view = useCatalogView();
-  const activeFilters = view === 'list' ? filters : {};
-  const encoded = JSON.stringify(activeFilters);
+  const encoded = JSON.stringify(filters);
   const query = useQuery<JunkPage, Error>({
     queryKey: encoded === '{}' ? junkQueryKey(route, props.revision) : [...junkQueryKey(route, props.revision), encoded],
-    queryFn: ({ signal }) => fetchJunkPage(route, signal, encoded === '{}' ? undefined : activeFilters),
+    queryFn: ({ signal }) => fetchJunkPage(route, signal, encoded === '{}' ? undefined : filters),
     placeholderData: (previous, previousQuery) =>
       (previousQuery && sameRoute(previousQuery.queryKey, route) ? previous : undefined),
   });
@@ -82,7 +80,7 @@ export function JunkQueuePage(props: JunkQueueProps) {
     <>
       {count}
       <JunkBody key={`${route.view}:${route.kind}`} props={props} data={query.data} pending={waiting}
-        filters={{ values: activeFilters, facets: query.data?.column_facets ?? {}, onChange: setFilters }}
+        filters={{ values: filters, facets: query.data?.column_facets ?? {}, onChange: setFilters }}
         error={query.error} busy={query.isFetching || query.isError} retry={() => void query.refetch()} order={order} />
     </>
   );
@@ -110,6 +108,7 @@ function JunkBody({ props, data, pending, error, retry, order, filters, busy }: 
   busy: boolean;
 }) {
   const view = useCatalogView();
+  const filtered = Object.values(filters.values).some(value => value !== undefined);
   const reveal = useSkeletonReveal(pending, props.skeletonHtml);
   const batch = Math.max(1, props.batchSize || 60);
   const [segments, setSegments] = useState(1);
@@ -139,6 +138,7 @@ function JunkBody({ props, data, pending, error, retry, order, filters, busy }: 
     if (pending) return null;
     if (!data) return <RetryNote message={requestErrorMessage(error)} onRetry={retry} />;
     if (!items.length && view !== 'list') {
+      if (filtered) return <EmptyState icon={CheckGlyph} title={t('shell:dataTable.empty')}>{null}</EmptyState>;
       const dismissed = props.view === 'dismissed';
       return (
         <EmptyState icon={CheckGlyph} title={dismissed ? t('cleanup:junk.emptyExcluded') : t('cleanup:junk.emptyUndecided')}
@@ -173,6 +173,9 @@ function JunkBody({ props, data, pending, error, retry, order, filters, busy }: 
   };
   return (
     <div data-junk-body="" data-grid-reveal={reveal.fading ? '' : undefined}>
+      {view === 'cards' && filtered ? <div className="mb-4">
+        <JunkFilterChips values={filters.values} onChange={filters.onChange} />
+      </div> : null}
       {reveal.layer}
       {data && error ? <RetryNote message={requestErrorMessage(error)} onRetry={retry} /> : null}
       {content()}

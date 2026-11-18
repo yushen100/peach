@@ -5,6 +5,7 @@ import { ratingStars } from '../components/rating-values';
 import { Note } from '../components/note';
 import { useAction } from '../settings/use-action';
 import { queryClient } from '../query';
+import { utcDate } from '../time';
 import { replaceCatalogItem } from './catalog-grid';
 import type { MediaCardActions, MediaItem } from './types';
 import { interfaceLanguage, t } from '../../i18n';
@@ -35,7 +36,7 @@ export function catalogTableDate(value: string | number | null | undefined): str
   if (value == null || value === '') return '—';
   const text = String(value);
   if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
-  const date = new Date(/^\d+(?:\.\d+)?$/.test(text) ? Number(value) * 1000 : text);
+  const date = /^\d+(?:\.\d+)?$/.test(text) ? new Date(Number(text) * 1000) : utcDate(text);
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString(interfaceLanguage, {
     year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
   });

@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "5ab8ce5a-87ff-400d-80b8-0912ee9080fb", e._sentryDebugIdIdentifier = "sentry-dbid-5ab8ce5a-87ff-400d-80b8-0912ee9080fb");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "8a471a16-1d20-4ea0-bedf-89f620906285", e._sentryDebugIdIdentifier = "sentry-dbid-8a471a16-1d20-4ea0-bedf-89f620906285");
 	} catch {}
 })();
 import { $ea3928288112382f$export$439d29a4e110a164 as e, $fe21c36db05242bb$export$a98f0dcb43a68a25 as t, $fe21c36db05242bb$export$d7b12c4107be0d61 as n, Button as r, ButtonLink as i, Checkbox as a, CheckboxGlyph as o, Chip as s, CollapseChevron as c, CollapseRegion as l, DEFAULT_CATEGORY as u, DataTableFooter as d, ENTITY_REVIEW_KINDS as ee, Ea as te, EmptyState as f, ExternalLink as ne, FIELDSET_FOOT as re, FilterGlassRows as p, Gg as ie, InputBase as m, LEGACY_AVATAR_IMG as h, LinkButton as ae, Note as g, REVIEW_CATEGORIES as _, REVIEW_DECISION_LABELS as oe, REVIEW_KEY as se, REVIEW_LABELS as v, REVIEW_QUEUES as y, REVIEW_QUEUE_LABELS as b, Select as x, SelectItem as S, SelectionActions as C, SelectionDock as ce, SortableBoardTabs as w, TextField as T, Wt as E, Xf as le, Yt as D, __toESM as O, apiGet as k, apiSend as A, avatarInner as ue, b1 as j, busyProps as M, canApprove as de, cardClass as N, codedText as P, commonReviewSources as fe, composingKey as F, currentReviewRow as I, cx as L, decisionPayload as pe, decisionReceipt as me, defaultChoice as he, enterPageSelection as ge, errorMessage as R, exitPageSelection as _e, fetchReview as ve, filterReviewRows as ye, gB as be, groupReviewRows as xe, isReviewCategory as Se, joinList as z, l7 as Ce, localTime as we, m7 as Te, mirrorText as Ee, pendingGenres as De, queryClient as Oe, quoted as B, recordGenre as V, reloadReview as H, require_jsx_runtime as ke, require_react as Ae, reviewGroupingOptions as je, reviewQueueData as Me, reviewQueueOf as Ne, reviewWindow as Pe, rowEvidence as U, rowFieldName as Fe, rowSelectionOperation as W, rowSubject as Ie, rowTags as Le, rowTitle as G, s7 as Re, selectReviewRange as ze, serverLabel as Be, serverLabelList as Ve, settleReviewRows as He, submitDecision as Ue, t as K, useMutation as We, useNavigationOrder as Ge, useOverlayScrollbar as Ke, usePageSelection as qe, useQuery as Je, useViewGlide as q, useWorkContextMenu as Ye } from "./peach-app.js";
@@ -154,21 +154,31 @@ function mt({ locked: e, openItem: t, toast: n }) {
 		},
 		{
 			id: "rule",
-			label: K("manage:autoLandings.columnRuleTime"),
-			width: 176,
-			min: 144,
-			value: (e) => e.at ?? 0,
+			label: K("manage:autoLandings.columnRule"),
+			width: 142,
+			min: 100,
+			value: Z,
 			filter: { values: Z },
-			render: (e) => /* @__PURE__ */ (0, $.jsxs)("span", {
+			render: (e) => /* @__PURE__ */ (0, $.jsx)("span", {
+				title: Z(e),
+				className: "block truncate text-body-2-regular text-text-secondary",
+				children: Z(e)
+			})
+		},
+		{
+			id: "at",
+			label: K("manage:autoLandings.columnTime"),
+			width: 152,
+			min: 132,
+			value: (e) => e.at ?? 0,
+			filter: {
+				range: "timestamp",
+				value: (e) => e.at
+			},
+			render: (e) => /* @__PURE__ */ (0, $.jsx)("span", {
 				title: e.batch,
-				className: "flex min-w-0 flex-col gap-0.5 text-text-secondary",
-				children: [/* @__PURE__ */ (0, $.jsx)("span", {
-					className: "truncate text-body-2-regular",
-					children: Z(e)
-				}), /* @__PURE__ */ (0, $.jsx)("small", {
-					className: "tabular-nums text-caption-1-regular",
-					children: it(e) || K("manage:autoLandings.timeUnknown")
-				})]
+				className: "whitespace-nowrap tabular-nums text-caption-1-regular text-text-secondary",
+				children: it(e) || K("manage:autoLandings.timeUnknown")
 			})
 		}
 	];
@@ -1580,4 +1590,4 @@ function Ut(e) {
 }
 export { Ut as ReviewPage };
 
-//# debugId=5ab8ce5a-87ff-400d-80b8-0912ee9080fb
+//# debugId=8a471a16-1d20-4ea0-bedf-89f620906285

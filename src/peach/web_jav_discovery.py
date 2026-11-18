@@ -11,6 +11,7 @@ from .taste_preferences import preference_profile, preference_score
 from .genre_decisions import load_genre_decisions
 from .jav_discovery_metadata import discovery_metadata, source_number
 from .user_messages import UserValueError, message_fields
+from .table_filters import column_filters, in_range
 from .web_state import path_version
 from .web_jav_detail import _source_fields, discovery_cover_url, visible_actors, source_performer_refs
 
@@ -310,6 +311,8 @@ def q_jav_discoveries(contract, args):
 RELEASE_PAGE_SIZE = 24
 #: 新作的三个筛选维度：每部的女优（解析后的规范名）、厂牌（规范名）与标签。
 RELEASE_FACETS = ("performer", "studio", "tag")
+RELEASE_RANGE_COLUMNS = {"release": ("date", "release_date"), "dur": ("number", "duration"),
+                         "score": ("number", "source_score")}
 
 
 #: 新作的排序：发行时间（默认）、来源评分、时长、番号、口味，`random` 是「换一批」。
@@ -359,6 +362,10 @@ def q_jav_releases(contract, args):
         size, page = RELEASE_PAGE_SIZE, 1
     with contract.read_connection() as connection, entities.memoized_resolution():
         rows, shown, matches, sort, descending = _release_listing(contract, connection, args)
+        if args.get('column') == 'release':
+            dates = {row["release_date"] for row in shown
+                     if in_range(row.get("release_date"), {}, "date")}
+            return {"column": "release", "date_values": sorted(dates)}
         if args.get('column'):
             facet = {'people': 'performer', 'studio': 'studio', 'tags': 'tag'}.get(args['column'])
             if facet is None:
@@ -389,7 +396,8 @@ def _release_listing(contract, connection, args):
     descending = args.get("direction") != "asc"
     matches = _release_matcher({facet: str(args.get(facet) or "").strip() for facet in RELEASE_FACETS},
                                str(args.get("q") or "").strip().casefold(),
-                               web_catalog.column_filters(args.get('column_filters'), {'people', 'studio', 'tags'}))
+                               column_filters(args.get('column_filters'), {'people', 'studio', 'tags'},
+                                              {key: kind for key, (kind, _) in RELEASE_RANGE_COLUMNS.items()}))
     rows = _release_rows(contract, connection, taste=sort == "taste" and not args.get('column'))
     if not args.get('column'):
         rows = _release_order(rows, sort, descending, str(args.get("seed") or ""))
@@ -456,6 +464,11 @@ def _release_matcher(chosen, query, columns=None):
         if not all(not value or facet == skip or value in _release_values(row, facet) for facet, value in chosen.items()):
             return False
         for column, selection in (columns or {}).items():
+            if column in RELEASE_RANGE_COLUMNS:
+                kind, field = RELEASE_RANGE_COLUMNS[column]
+                if not in_range(row.get(field), selection["range"], kind):
+                    return False
+                continue
             exclude = isinstance(selection, dict)
             values = selection['exclude'] if exclude else selection
             facet = {'people': 'performer', 'studio': 'studio', 'tags': 'tag'}[column]

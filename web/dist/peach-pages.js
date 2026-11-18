@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "a79709ad-b124-4d01-b286-ee451242590e", e._sentryDebugIdIdentifier = "sentry-dbid-a79709ad-b124-4d01-b286-ee451242590e");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "bf41f4c4-7bf8-42de-ac32-57c5346a5a49", e._sentryDebugIdIdentifier = "sentry-dbid-bf41f4c4-7bf8-42de-ac32-57c5346a5a49");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -1583,6 +1583,10 @@ var We = "peach.settings.v1", Ge = {
 		viewConflicts: "View credit conflicts"
 	},
 	columnFilter: {
+		applied: "Active column filters",
+		emptySelection: "None",
+		excludedValues: "Exclude {{values}}",
+		removeApplied: "Clear filter {{filter}}",
 		label: "Filter {{column}}",
 		search: "Search {{column}}",
 		noOptions: "No matching filter options"
@@ -2328,6 +2332,32 @@ var We = "peach.settings.v1", Ge = {
 		saveName: "Save name",
 		savedFromMix: "Saved from Mix",
 		untitled: "Untitled playlist"
+	},
+	rangeFilter: {
+		apply: "Apply range",
+		atLeast: "At least {{value}}",
+		atMost: "At most {{value}}",
+		chooseDate: "Select",
+		clear: "Clear range",
+		clearDate: "Clear {{label}}",
+		date: "Date",
+		end: "End date",
+		invalid: "Enter a valid range in ascending order.",
+		lastDays: "Last {{count, number}} days",
+		max: "Maximum",
+		maxWithUnit: "Maximum ({{unit}})",
+		min: "Minimum",
+		minWithUnit: "Minimum ({{unit}})",
+		minutes: "{{count, number}} min",
+		minutesUnit: "min",
+		minuteSpan: "{{min, number}}–{{max, number}} min",
+		noLimit: "No limit",
+		presets: "Quick ranges",
+		sizeUnit: "Size unit",
+		start: "Start date",
+		thisYear: "This year",
+		year: "Year",
+		yearOption: "{{year}}"
 	},
 	ratingControl: {
 		rated: "Rated {{score}} of 5",
@@ -3860,7 +3890,8 @@ var We = "peach.settings.v1", Ge = {
 	},
 	autoLandings: {
 		backupDone: "The database was backed up to {{path}} before reverting.",
-		columnRuleTime: "Rule and time",
+		columnRule: "Rule",
+		columnTime: "Written at",
 		columnWritten: "Written",
 		deletedAsset: "#{{id}} (deleted)",
 		description: "Titles, release dates, and tags written automatically by definitive rules. Reverting restores the previous values; videos edited since keep their current values.",
@@ -9365,6 +9396,10 @@ var We = "peach.settings.v1", Ge = {
 		viewConflicts: "查看归属冲突"
 	},
 	columnFilter: {
+		applied: "已启用的列筛选",
+		emptySelection: "无",
+		excludedValues: "排除 {{values}}",
+		removeApplied: "清除筛选 {{filter}}",
 		label: "筛选{{column}}",
 		search: "搜索{{column}}",
 		noOptions: "没有匹配的筛选项"
@@ -10067,6 +10102,32 @@ var We = "peach.settings.v1", Ge = {
 		saveName: "保存名称",
 		savedFromMix: "由 Mix 保存",
 		untitled: "未命名播放列表"
+	},
+	rangeFilter: {
+		apply: "应用范围",
+		atLeast: "至少 {{value}}",
+		atMost: "最多 {{value}}",
+		chooseDate: "选定",
+		clear: "清除范围",
+		clearDate: "清除{{label}}",
+		date: "日期",
+		end: "结束日期",
+		invalid: "请输入有效范围，起点不得大于终点。",
+		lastDays: "最近 {{count, number}} 天",
+		max: "最大值",
+		maxWithUnit: "最大值（{{unit}}）",
+		min: "最小值",
+		minWithUnit: "最小值（{{unit}}）",
+		minutes: "{{count, number}} 分钟",
+		minutesUnit: "分钟",
+		minuteSpan: "{{min, number}}–{{max, number}} 分钟",
+		noLimit: "不限",
+		presets: "快捷范围",
+		sizeUnit: "体积单位",
+		start: "开始日期",
+		thisYear: "今年",
+		year: "年",
+		yearOption: "{{year}}年"
 	},
 	ratingControl: {
 		rated: "评分 {{score}} / 5",
@@ -11405,7 +11466,8 @@ var We = "peach.settings.v1", Ge = {
 	},
 	autoLandings: {
 		backupDone: "撤回前的账本已备份为 {{path}}。",
-		columnRuleTime: "规则与时间",
+		columnRule: "规则",
+		columnTime: "写入时间",
 		columnWritten: "写入",
 		deletedAsset: "#{{id}}（已删除）",
 		description: "按确定判据自动写入的标题、发行日期与标签。撤回会改回写入前的值，之后被修改过的作品保留现值。",
@@ -39903,4 +39965,4 @@ Nt();
 var Jb = document.getElementById("peach-page"), Yb = Jb ? qb[Jb.dataset.page ?? ""] : void 0;
 Jb && Yb && (0, Ht.createRoot)(Jb).render(/* @__PURE__ */ (0, V.jsx)(Kb, { children: /* @__PURE__ */ (0, V.jsx)(Yb, { data: { ...Jb.dataset } }) }));
 
-//# debugId=a79709ad-b124-4d01-b286-ee451242590e
+//# debugId=bf41f4c4-7bf8-42de-ac32-57c5346a5a49

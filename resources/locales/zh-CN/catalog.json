@@ -109,6 +109,10 @@
     "viewConflicts": "查看归属冲突"
   },
   "columnFilter": {
+    "applied": "已启用的列筛选",
+    "emptySelection": "无",
+    "excludedValues": "排除 {{values}}",
+    "removeApplied": "清除筛选 {{filter}}",
     "label": "筛选{{column}}",
     "search": "搜索{{column}}",
     "noOptions": "没有匹配的筛选项"
@@ -815,6 +819,32 @@
     "saveName": "保存名称",
     "savedFromMix": "由 Mix 保存",
     "untitled": "未命名播放列表"
+  },
+  "rangeFilter": {
+    "apply": "应用范围",
+    "atLeast": "至少 {{value}}",
+    "atMost": "最多 {{value}}",
+    "chooseDate": "选定",
+    "clear": "清除范围",
+    "clearDate": "清除{{label}}",
+    "date": "日期",
+    "end": "结束日期",
+    "invalid": "请输入有效范围，起点不得大于终点。",
+    "lastDays": "最近 {{count, number}} 天",
+    "max": "最大值",
+    "maxWithUnit": "最大值（{{unit}}）",
+    "min": "最小值",
+    "minWithUnit": "最小值（{{unit}}）",
+    "minutes": "{{count, number}} 分钟",
+    "minutesUnit": "分钟",
+    "minuteSpan": "{{min, number}}–{{max, number}} 分钟",
+    "noLimit": "不限",
+    "presets": "快捷范围",
+    "sizeUnit": "体积单位",
+    "start": "开始日期",
+    "thisYear": "今年",
+    "year": "年",
+    "yearOption": "{{year}}年"
   },
   "ratingControl": {
     "rated": "评分 {{score}} / 5",

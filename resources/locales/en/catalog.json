@@ -115,6 +115,10 @@
     "viewConflicts": "View credit conflicts"
   },
   "columnFilter": {
+    "applied": "Active column filters",
+    "emptySelection": "None",
+    "excludedValues": "Exclude {{values}}",
+    "removeApplied": "Clear filter {{filter}}",
     "label": "Filter {{column}}",
     "search": "Search {{column}}",
     "noOptions": "No matching filter options"
@@ -864,6 +868,32 @@
     "saveName": "Save name",
     "savedFromMix": "Saved from Mix",
     "untitled": "Untitled playlist"
+  },
+  "rangeFilter": {
+    "apply": "Apply range",
+    "atLeast": "At least {{value}}",
+    "atMost": "At most {{value}}",
+    "chooseDate": "Select",
+    "clear": "Clear range",
+    "clearDate": "Clear {{label}}",
+    "date": "Date",
+    "end": "End date",
+    "invalid": "Enter a valid range in ascending order.",
+    "lastDays": "Last {{count, number}} days",
+    "max": "Maximum",
+    "maxWithUnit": "Maximum ({{unit}})",
+    "min": "Minimum",
+    "minWithUnit": "Minimum ({{unit}})",
+    "minutes": "{{count, number}} min",
+    "minutesUnit": "min",
+    "minuteSpan": "{{min, number}}–{{max, number}} min",
+    "noLimit": "No limit",
+    "presets": "Quick ranges",
+    "sizeUnit": "Size unit",
+    "start": "Start date",
+    "thisYear": "This year",
+    "year": "Year",
+    "yearOption": "{{year}}"
   },
   "ratingControl": {
     "rated": "Rated {{score}} of 5",

@@ -20,7 +20,8 @@
   },
   "autoLandings": {
     "backupDone": "The database was backed up to {{path}} before reverting.",
-    "columnRuleTime": "Rule and time",
+    "columnRule": "Rule",
+    "columnTime": "Written at",
     "columnWritten": "Written",
     "deletedAsset": "#{{id}} (deleted)",
     "description": "Titles, release dates, and tags written automatically by definitive rules. Reverting restores the previous values; videos edited since keep their current values.",

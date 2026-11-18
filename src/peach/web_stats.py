@@ -710,12 +710,12 @@ def q_quality_goals(contract: WebContract, args):
     for row in rows:
         # 媒体库归属同作品列表（`web_catalog.attach_artwork_fields`）：按路径算，路径不下发。
         row["library_id"] = ownership(config, row.get('path') or '').get("library_id", "")
-    from .table_filters import filter_rows
+    from .table_filters import MEDIA_RANGE_READERS, filter_rows
     rows, facets = filter_rows(rows, args.get("column_filters"), {
         "library": lambda row: [row["library_id"] or "none"],
         "source": lambda row: [row["location"] or "none"],
         "reason": lambda row: [part.strip() for part in (row["reason"] or "").split("/") if part.strip()],
-    })
+    }, ranges=MEDIA_RANGE_READERS)
     total = len(rows)
     rows = rows[offset:offset + limit]
     for row in rows:

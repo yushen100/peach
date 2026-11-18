@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "18097b3d-5ac7-495a-9b48-c2219503e718", e._sentryDebugIdIdentifier = "sentry-dbid-18097b3d-5ac7-495a-9b48-c2219503e718");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "a9c7afbb-439b-4fa3-bcc5-54ceec099419", e._sentryDebugIdIdentifier = "sentry-dbid-a9c7afbb-439b-4fa3-bcc5-54ceec099419");
 	} catch {}
 })();
 import { ApiError as e, BC as t, Button as n, ButtonLink as r, Chip as i, DIAGNOSTICS_KEY as a, Disclosure as o, EmptyState as s, Fact as c, FactList as l, Fieldset as u, FieldsetTitle as d, Gg as f, Input as p, ItemLibrary as m, LOC as ee, LinkButton as h, Note as g, Section as _, SettingsCard as v, SettingsSectionLabel as y, SiteMark as b, Stack as x, TaskProgress as S, __toESM as C, activityKind as w, apiGet as T, apiSend as E, busyProps as D, checkText$1 as O, codedText as k, configurationSection as A, cx as j, diagnosticHeaders as te, diagnosticsSkeleton as ne, errorMessage as M, fetchDiagnostics as re, fmtDur as ie, fmtSize as N, interfaceLanguage as ae, queryClient as oe, require_jsx_runtime as se, require_react as ce, settingsPath as le, stageText as P, t as F, tl as I, useAction as L, useLibraryFilterOptions as R, useLibraryTints as z, useQuery as B, withBackoff as V } from "./peach-app.js";
@@ -107,6 +107,10 @@ function de({ group: e, groupKey: r, openItem: i, receipt: a }) {
 			label: F("manage:shared.duration"),
 			width: 112,
 			value: (e) => e.duration ?? 0,
+			filter: {
+				range: "duration",
+				value: (e) => e.duration || null
+			},
 			render: (e) => e.duration && e.duration > 0 ? ie(e.duration) : F("manage:shared.notFound")
 		},
 		{
@@ -114,6 +118,10 @@ function de({ group: e, groupKey: r, openItem: i, receipt: a }) {
 			label: F("manage:shared.size"),
 			width: 112,
 			value: (e) => e.size ?? 0,
+			filter: {
+				range: "size",
+				value: (e) => e.size
+			},
 			render: (e) => e.size === null ? F("manage:shared.notFound") : N(e.size)
 		}
 	];
@@ -558,4 +566,4 @@ function _e(e) {
 }
 export { _e as DiagnosticsPage };
 
-//# debugId=18097b3d-5ac7-495a-9b48-c2219503e718
+//# debugId=a9c7afbb-439b-4fa3-bcc5-54ceec099419

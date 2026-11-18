@@ -27,6 +27,34 @@ describe('所有数据表共用列设置', () => {
   let browser: Browser;
   before(async () => { browser = await launch(); mkdirSync('../build/agent-verification/all-tables', { recursive: true }) });
   after(async () => { await browser.close() });
+  it('关注列表按匹配来源渲染创作者卡片，切回表格保留筛选', { timeout: 60_000 }, async () => {
+    const opened = await openFollowManage(browser, VIEWPORTS[0]!);
+    const { page } = opened;
+    try {
+      const tableView = page.getByRole('button', { name: '表格视图', exact: true });
+      const cardView = page.getByRole('button', { name: '默认视图', exact: true });
+      await tableView.click();
+      const table = page.getByRole('grid', { name: '关注来源', exact: true });
+      await table.getByRole('button', { name: '筛选站点', exact: true }).click();
+      const dialog = page.getByRole('dialog', { name: '筛选站点' });
+      await dialog.getByRole('checkbox', { name: '全部', exact: true }).press('Space');
+      const pawchive = dialog.getByRole('checkbox', { name: 'Pawchive', exact: true });
+      await pawchive.press('Space');
+      await pawchive.press('Escape');
+      assert.deepEqual(await table.locator('tbody [data-work-context-row]').evaluateAll(rows =>
+        rows.map(row => row.getAttribute('data-work-context-row'))), ['2']);
+      await cardView.click();
+      const rows = page.locator('[data-follow-source-row]');
+      await rows.first().waitFor();
+      assert.equal(await rows.count(), 1);
+      await rows.getByText('kou · Pawchive', { exact: true }).waitFor();
+      await tableView.click();
+      await table.locator('[data-table-column-filter="provider"][data-filter-active]').waitFor();
+      await cardView.click();
+      await page.getByRole('button', { name: /清除.*站点/ }).click();
+      await rows.nth(2).waitFor();
+    } finally { await opened.close() }
+  });
   for (const viewport of VIEWPORTS) {
     it(`${viewport.name}：关注来源可全选、调整列和拖动，名称右侧留给行选择`, { timeout: 60000 }, async () => {
       const opened = await openFollowManage(browser, viewport);

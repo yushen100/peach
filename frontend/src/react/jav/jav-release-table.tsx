@@ -16,12 +16,13 @@ import { DataTableFrame } from '../components/data-table-frame';
 import { useTablePreferences } from '../components/table-column-preferences';
 import { TableColumnControls, TableColumnResizer } from '../components/table-column-controls';
 import { TableColumnFilter, type ColumnFilterPage } from '../components/table-column-filter';
+import { TableColumnRange } from '../components/table-column-range';
 import { ColumnFilterAvatar } from '../components/column-filter-avatar';
 import { busyProps } from '../settings/use-action';
 import { DiscoveryFaces } from './discovery-faces';
 import type { DiscoveryDirection, ReleaseSort } from './discovery-sorts';
-import { discoveryArtwork, fetchReleaseColumn, setReleaseColumn, releaseColumnValues, releaseColumnSelection, type Discovery, type ReleaseFacetPerformer, type ReleaseFacetStudio, type ReleaseFilters, type ReleaseResult } from './jav';
-import type { ColumnSelection } from '../../column-filters';
+import { discoveryArtwork, fetchReleaseColumn, releaseDateQuery, setReleaseColumn, releaseColumnValues, releaseColumnSelection, type Discovery, type ReleaseFacetPerformer, type ReleaseFacetStudio, type ReleaseFilters, type ReleaseResult } from './jav';
+import { columnRangeKinds, readColumnFilters, type ColumnRange, type ColumnSelection } from '../../column-filters';
 import { entityWriting } from '../../core/entity-names';
 import { RELEASE_COLUMN_VISIBILITY_KEY, RELEASE_COLUMN_WIDTHS_KEY, RELEASE_SORT_COLUMNS, releaseColumns } from './release-table-columns';
 import { t } from '../../i18n';
@@ -61,9 +62,12 @@ function ReleaseColumnFilter({ column, label, filters, onChange }: {
     onChange={next => onChange(facet, next)} />;
 }
 
-export function ReleaseTable({ items, waiting, filters, studios, facets, javImage, readOnly, navigate, onTag, onFilter, onSort, wanting, onWant, onResource }: {
+export type ReleaseRangeKey = 'release' | 'dur' | 'score';
+
+export function ReleaseTable({ items, waiting, filters, studios, facets, javImage, readOnly, navigate, onTag, onFilter, onRange, onSort, wanting, onWant, onResource }: {
   items: Discovery[]; waiting: boolean; filters: ReleaseFilters; studios: ReleaseFacetStudio[]; javImage: unknown; readOnly: boolean;
   facets?: ReleaseResult['facets']; onFilter?(facet: 'performer' | 'studio' | 'tag', values: ColumnSelection | undefined): void;
+  onRange?(column: ReleaseRangeKey, value: ColumnRange | undefined): void;
   navigate(path: string): void; onTag(tag: string): void; onSort(key: ReleaseSort, dir: DiscoveryDirection): void;
   wanting(item: Discovery): boolean; onWant(item: Discovery): void; onResource(item: Discovery): void;
 }) {
@@ -74,6 +78,7 @@ export function ReleaseTable({ items, waiting, filters, studios, facets, javImag
   const preferences = useTablePreferences('jav-releases', releaseColumns, KEYS);
   const shown = releaseColumns.filter(column => column.required || preferences.visibility[column.id] !== false);
   const active = Object.entries(RELEASE_SORT_COLUMNS).find(([, key]) => key === filters.sort)?.[0];
+  const columnFilters = readColumnFilters(filters.column_filters);
   const logos = new Map(studios.map(studio => [studio.name, studio]));
   const open = (item: Discovery) => (event: MouseEvent) => {
     event.preventDefault();
@@ -143,7 +148,11 @@ export function ReleaseTable({ items, waiting, filters, studios, facets, javImag
         </TableColumn> : null}{shown.map(column => <TableColumn key={column.id} id={column.id} isRowHeader={column.id === 'name'}
           allowsSorting={column.id in RELEASE_SORT_COLUMNS} {...preferences.columnProps(column.id)}>
           {({ sortDirection }) => <>
-            <span className="flex items-center gap-0.5">{facets && onFilter && ['people', 'studio', 'tags'].includes(column.id)
+            <span className="flex items-center gap-0.5">{onRange && (column.id === 'release' || column.id === 'dur' || column.id === 'score')
+              ? <TableColumnRange id={column.id} label={column.label} kind={columnRangeKinds[column.id]} value={columnFilters[column.id]}
+                  rangeQuery={column.id === 'release' ? releaseDateQuery(filters) : undefined}
+                  onChange={value => onRange(column.id as ReleaseRangeKey, value)} />
+              : facets && onFilter && ['people', 'studio', 'tags'].includes(column.id)
               ? <ReleaseColumnFilter column={column.id as 'people' | 'studio' | 'tags'} label={column.label}
                   filters={filters} onChange={onFilter} />
               : column.label}

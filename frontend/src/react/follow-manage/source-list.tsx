@@ -36,6 +36,7 @@ import { errorMessage } from '../../api';
 import { DataTableFooter } from '../components/table-controls';
 import { useBackgroundJob } from '../background-job';
 import { cardClass } from '../components/card';
+import { ColumnFilterChips } from '../components/column-filter-chips';
 import { DataTableFrame } from '../components/data-table-frame';
 import { useTablePreferences } from '../components/table-column-preferences';
 import { TableColumnControls, TableColumnResizer } from '../components/table-column-controls';
@@ -64,7 +65,9 @@ import { AuthorAvatar, ErrorLine, SourceIcon, SourceLink, StatusBadge } from './
 import { codedText, jobText } from '../../core/server-text';
 import { FOLLOW_CHECK_TASK } from '../../running-tasks';
 import { joinList, t } from '../../i18n';
+import type { RangeKind } from '../../column-filters';
 import { useTableFilters } from '../components/use-table-filters';
+import { utcDate } from '../time';
 import { statusText } from './follow-manage';
 import { useRowWorkContext, useWorkContextMenu, type WorkContextOperation } from '../components/work-context-menu';
 
@@ -113,6 +116,10 @@ const preferenceColumns = Object.entries(COLUMN_LABELS).map(([id, label]) => ({ 
   min: id === 'select' ? 48 : id === 'actions' ? 200 : id === 'source' ? 320 : 112, max: id === 'select' ? 48 : id === 'source' ? 2000 : 800,
   flex: id === 'source',
   required: id === 'select' || id === 'source',
+}));
+const checkedRange: RangeKind = 'timestamp';
+const filterChipColumns = Object.entries(COLUMN_LABELS).map(([id, label]) => ({
+  id, label, range: id === 'checked' ? checkedRange : undefined,
 }));
 
 /** 行上那两个动作由调用方给，但列定义不该跟着每一次渲染重建；两者之间放一个当前值的盒子。 */
@@ -304,7 +311,16 @@ export function SourceList(props: SourceListProps) {
     provider: { values: row => row.source.provider_label, option: (_, row) => ({
       leading: row && <SourceIcon provider={row.source.provider} /> }) },
     status: { values: row => statusText(row.source) },
+    checked: { range: checkedRange, value: row => row.source.last_checked_at
+      ? utcDate(row.source.last_checked_at).getTime() / 1000 : null },
   }, () => onPage(1));
+  const cardGroups = useMemo(() => {
+    const matched = new Set(filtered.items.map(row => row.source.id));
+    return groups.flatMap(group => {
+      const visible = group.filter(source => matched.has(source.id));
+      return visible.length ? [{ key: String(group[0]!.author_key || group[0]!.id), name: authorName(group, aliases), sources: visible }] : [];
+    });
+  }, [aliases, filtered.items, groups]);
 
   const { job, running, outcome, start: check } = useBackgroundJob<CheckJob, number[]>({
     queryKey: FOLLOW_CHECK_KEY,
@@ -538,7 +554,7 @@ export function SourceList(props: SourceListProps) {
   const asTable = layout === 'table';
   const preferences = useTablePreferences('follow-sources', preferenceColumns);
   // 越界的页码落到末页：地址栏里挂着的可能是上一次、来源更多时的页码。
-  const win = pageWindow(asTable ? filtered.items.length : groups.length, pageSize, page);
+  const win = pageWindow(asTable ? filtered.items.length : cardGroups.length, pageSize, page);
 
   const table = useTable({
     features: sourceTableFeatures,
@@ -575,14 +591,14 @@ export function SourceList(props: SourceListProps) {
   const pageRows = table.getRowModel().rows;
   const pageIds = asTable
     ? pageRows.map((row) => row.original.source.id)
-    : groups.slice(win.start, win.end).flatMap((group) => group.map((source) => source.id));
+    : cardGroups.slice(win.start, win.end).flatMap(({ sources }) => sources.map((source) => source.id));
   const pageState = selectionState(selected, pageIds);
   const chosen = [...selected];
   const failures = checkFailures(outcome);
   const failedSourceIds = sources.filter((source) => source.enabled
     && (source.last_status === 'error' || source.last_status === 'unauthorized')).map((source) => source.id);
   const evidence = checkEvidenceGap(outcome);
-  const allCollapsed = groups.length > 0 && collapsed.size >= groups.length;
+  const allCollapsed = cardGroups.length > 0 && cardGroups.every(({ key }) => collapsed.has(key));
 
   if (!sources.length) {
     return (
@@ -645,7 +661,7 @@ export function SourceList(props: SourceListProps) {
               aria-label={allCollapsed ? t('follow:shared.expandAll') : t('follow:shared.collapseAll')}
               onClick={() => setCollapsed(allCollapsed
                 ? new Set<string>()
-                : new Set(groups.map((group) => String(group[0]!.author_key || group[0]!.id))))}>
+                : new Set(cardGroups.map(({ key }) => key)))}>
               {allCollapsed ? t('follow:shared.expandAll') : t('follow:shared.collapseAll')}
             </Button>
           )}
@@ -732,13 +748,15 @@ export function SourceList(props: SourceListProps) {
         </DataTableFrame>
       ) : (
         <>
-          <Checkbox isSelected={pageState.all} isIndeterminate={pageState.some}
-            onChange={(on) => toggleMany(pageIds, on)} aria-label={t('follow:sourceList.selectPage')}>{t('follow:sourceList.selectPageShort')}</Checkbox>
+          <ColumnFilterChips filters={filtered.values} columns={filterChipColumns} onRemove={filtered.clear}
+            valueLabel={(_, value) => value || t('cleanup:shared.none')} />
+          {pageIds.length ? <Checkbox isSelected={pageState.all} isIndeterminate={pageState.some}
+            onChange={(on) => toggleMany(pageIds, on)} aria-label={t('follow:sourceList.selectPage')}>{t('follow:sourceList.selectPageShort')}</Checkbox> : null}
+          {!cardGroups.length ? <EmptyState icon={RiRssLine} title={t('follow:sourceList.pageEmpty')}>{null}</EmptyState> : null}
           <div className="flex flex-col gap-3">
-            {groups.slice(win.start, win.end).map((group) => {
-              const key = String(group[0]!.author_key || group[0]!.id);
+            {cardGroups.slice(win.start, win.end).map(({ key, name, sources: group }) => {
               return (
-                <AuthorCard key={key} group={group} name={authorName(group, aliases)}
+                <AuthorCard key={key} group={group} name={name}
                   handlers={rowHandlers} selected={selected} open={!collapsed.has(key)}
                   onOpen={(open) => {
                     const next = new Set(collapsed);

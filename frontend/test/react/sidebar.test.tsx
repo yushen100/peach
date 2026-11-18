@@ -116,7 +116,8 @@ function sidebarHost(order = ['', 'unseen', 'follow'], current = '', attached: (
   const host: SidebarHost = {
     scroll, store, navCatalog: CATALOG,
     navOn: (key) => key === pressed,
-    navTo: vi.fn(), navToTop: vi.fn(), toggleChip: vi.fn(), setDuration: vi.fn(), openFollowTag: vi.fn(), selectFollowTag: vi.fn(),
+    navTo: vi.fn(), navToTop: vi.fn(), openDrawer: vi.fn(), toggleChip: vi.fn(), setDuration: vi.fn(),
+    openFollowTag: vi.fn(), selectFollowTag: vi.fn(),
     selectFollowProvider: vi.fn(), setFollowDuration: vi.fn(),
     attached: vi.fn(attached),
   };

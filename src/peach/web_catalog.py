@@ -48,7 +48,7 @@ from .web_activity import DEFAULT_PROFILE_ID
 from .web_state import WebContract
 from .western_artwork import artwork_key
 from .user_messages import UserValueError
-from .table_filters import column_filters
+from .table_filters import column_filters, range_limits
 
 
 GROUP_TABLES = ('asset_catalog', 'asset_entity', 'entity')
@@ -321,11 +321,29 @@ SCALAR_COLUMN_EXPRESSIONS = {
     "resolution": "CASE WHEN a.width>0 AND a.height>0 THEN CAST(a.width AS TEXT)||'x'||CAST(a.height AS TEXT) ELSE 'none' END",
 }
 
+CATALOG_RANGE_COLUMNS = {
+    "size": ("number", "a.size"),
+    "dur": ("number", "CASE WHEN a.duration>0 THEN a.duration END"),
+    "plays": ("number", "COALESCE(a.play_count,0)"),
+    "o": ("number", "COALESCE(a.o_count,0)"),
+    "new": ("timestamp", "unixepoch(a.first_seen)"),
+    "played": ("timestamp", "NULLIF(CAST(a.last_played AS REAL),0)"),
+    "release": ("date", "date(a.release_date)"),
+}
+CATALOG_RANGE_KINDS = {key: kind for key, (kind, _) in CATALOG_RANGE_COLUMNS.items()}
+CATALOG_DATE_COLUMNS = {key for key, kind in CATALOG_RANGE_KINDS.items() if kind != "number"}
+
 
 def _column_filter_predicate(contract, selected):
     conditions, parameters = [], []
     with contract.read_connection() as connection:
         for column, selection in selected.items():
+            if column in CATALOG_RANGE_COLUMNS:
+                kind, expression = CATALOG_RANGE_COLUMNS[column]
+                for operator, bound in range_limits(selection["range"], kind):
+                    conditions.append(f"{expression} {operator} ?")
+                    parameters.append(bound)
+                continue
             exclude = isinstance(selection, dict)
             values = selection['exclude'] if exclude else selection
             choices = []
@@ -372,7 +390,8 @@ def catalog_filter(contract: WebContract, args):
     # 普通馆藏仍是视频表面；回收站必须展示所有文件类型，否则从垃圾复核移入的
     # 图片、网址快捷方式等会变成不可见、不可恢复，只能被「清空回收站」直接删掉。
     where, par = ([] if trash else [VISIBLE_CATALOG_ASSET]), []
-    columns = column_filters(args.get('column_filters'), {'people', 'library', 'tags', *SCALAR_COLUMN_EXPRESSIONS})
+    columns = column_filters(args.get('column_filters'), {'people', 'library', 'tags', *SCALAR_COLUMN_EXPRESSIONS},
+                             CATALOG_RANGE_KINDS)
     if columns:
         conditions, parameters = _column_filter_predicate(contract, columns)
         where.extend(conditions)
@@ -1676,6 +1695,14 @@ def _release_year_facets(contract, connection, scope, values, state, filters, as
 
 def _column_facets(contract, connection, scope, scope_params, column, column_query, column_offset, column_limit):
     """当前范围的分页列选项，按列保留计数、别名和身份展示字段。"""
+    if column in CATALOG_DATE_COLUMNS:
+        kind, date_expr = CATALOG_RANGE_COLUMNS[column]
+        # 按 UTC 年取实际边界，浏览器用界面时区解释跨年时刻。
+        year_expr = f"strftime('%Y',{date_expr},'unixepoch')" if kind == "timestamp" else f"strftime('%Y',{date_expr})"
+        rows = connection.execute(
+            f"SELECT min({date_expr}), max({date_expr}) FROM asset a WHERE a.medium='video' "
+            + scope + f" AND {year_expr} IS NOT NULL GROUP BY {year_expr}", scope_params)
+        return {"column": column, "date_values": [value for row in rows for value in row]}
     if column in SCALAR_COLUMN_EXPRESSIONS:
         expression = SCALAR_COLUMN_EXPRESSIONS[column]
         rows = list(connection.execute(
@@ -1749,7 +1776,7 @@ def q_facets(
     筛选项必须来自和作品列表相同的规范关系，不能让前端拿全库 facets 猜当前页面。
     回收站里的作品照旧算进筛选项；标「已消失」的不算，它们不在任何列表里（ADR-0087）。
     """
-    if column not in {"", "people", "tags", *SCALAR_COLUMN_EXPRESSIONS}:
+    if column not in {"", "people", "tags", *SCALAR_COLUMN_EXPRESSIONS, *CATALOG_DATE_COLUMNS}:
         raise ValueError("invalid facet column")
     with contract.read_connection() as c:
         scope, scope_params = _facet_scope(contract, c, jav, state, filters, asset_id, scope_kind, scope_name)

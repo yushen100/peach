@@ -70,6 +70,7 @@ export interface SidebarHost {
   navTo(key: string): void;
   /** 双击导航时平滑回顶，保留该栏目内容和筛选。 */
   navToTop(): void;
+  openDrawer(open: boolean): void;
   /** 一枚目录筛选键：`multi` 的组按逗号列表增减，其余组单选、再点一次取消。 */
   toggleChip(key: string, value: string, multi: boolean): void;
   /** 时长两端（分钟）：下限 0、上限 null 表示该端不限。 */

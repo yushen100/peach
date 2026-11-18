@@ -94,13 +94,18 @@ export function AutoLandingsCard(
     { id: 'written', label: t('manage:autoLandings.columnWritten'), width: 320, min: 220, value: (item) => `${fieldName(item)}${writtenText(item)}`,
       filter: { values: fieldName },
       render: (item) => <Written item={item} /> },
-    // 规则与时间是次要信息，叠成一列，桌面宽度下整张表不必横向滚动。
-    { id: 'rule', label: t('manage:autoLandings.columnRuleTime'), width: 176, min: 144, value: (item) => item.at ?? 0,
+    { id: 'rule', label: t('manage:autoLandings.columnRule'), width: 142, min: 100, value: ruleName,
       filter: { values: ruleName },
       render: (item) => (
-        <span title={item.batch} className="flex min-w-0 flex-col gap-0.5 text-text-secondary">
-          <span className="truncate text-body-2-regular">{ruleName(item)}</span>
-          <small className="tabular-nums text-caption-1-regular">{writeTime(item) || t('manage:autoLandings.timeUnknown')}</small>
+        <span title={ruleName(item)} className="block truncate text-body-2-regular text-text-secondary">
+          {ruleName(item)}
+        </span>
+      ) },
+    { id: 'at', label: t('manage:autoLandings.columnTime'), width: 152, min: 132, value: (item) => item.at ?? 0,
+      filter: { range: 'timestamp', value: (item) => item.at },
+      render: (item) => (
+        <span title={item.batch} className="whitespace-nowrap tabular-nums text-caption-1-regular text-text-secondary">
+          {writeTime(item) || t('manage:autoLandings.timeUnknown')}
         </span>
       ) },
   ];

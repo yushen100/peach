@@ -19,7 +19,8 @@
   },
   "autoLandings": {
     "backupDone": "撤回前的账本已备份为 {{path}}。",
-    "columnRuleTime": "规则与时间",
+    "columnRule": "规则",
+    "columnTime": "写入时间",
     "columnWritten": "写入",
     "deletedAsset": "#{{id}}（已删除）",
     "description": "按确定判据自动写入的标题、发行日期与标签。撤回会改回写入前的值，之后被修改过的作品保留现值。",

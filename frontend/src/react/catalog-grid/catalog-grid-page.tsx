@@ -21,10 +21,11 @@ import { apiGet } from '../../api';
 import { PLAYBACK_PROGRESS_EVENT, type PlaybackProgress } from '../../player/telemetry';
 import { LOAD_MORE_MARGIN, RetryNote } from '../components/grid-reveal';
 import { SkeletonContent } from '../components/skeleton-content';
+import { CatalogColumnFilterChips } from '../components/column-filter-chips';
 import { cardRatio, MediaCard, type MediaCardVariant } from '../components/media-card';
 import { MIX_FLIP_FACES, MixCard } from '../components/mix-card';
 import {
-  SHORTS_BATCH, arrangeTiles, catalogParams, catalogQuery, catalogSummary, collapseGroups, entityQuery, latestCatalogPages, mixHasPicture,
+  SHORTS_BATCH, arrangeTiles, catalogCardProps, catalogListScope, catalogParams, catalogQuery, catalogSummary, collapseGroups, entityQuery, latestCatalogPages, mixHasPicture,
   replaceCatalogItem, shortsBoundaries, shortsParams, splitSections, type GridPage, type ShortsCut, type Tile,
 } from './catalog-grid';
 import type { CatalogGridProps, MediaCardLayout, MediaCardHelpers, MediaItem, MediaPage } from './types';
@@ -35,17 +36,26 @@ import { LibraryCompletionPrompt, meteredPreviewIds, missingPreviewIds } from '.
 import { useCatalogView } from './catalog-view';
 import { queryClient } from '../query';
 import { CatalogListPage } from './catalog-list-page';
+import { useCatalogListPosition } from './catalog-list-position';
+import { catalogColumns } from './catalog-table-columns';
 import { t } from '../../i18n';
 
 export function CatalogGridPage(props: CatalogGridProps) {
   const view = useCatalogView();
+  const [position, setPosition] = useCatalogListPosition(catalogListScope(props));
   if (props.mode === 'items') return <ItemsGrid {...props} />;
   const key = props.mode === 'entity'
     ? `entity:${props.entityKey || ''}:${props.revision}`
     : `catalog:${catalogParams(props.filters || {}, !!props.excludeVertical)}:${props.batchSize || 60}:${props.revision}`;
-  if (view === 'list' && !props.wall) return <CatalogListPage key={key} {...props} />;
+  if (view === 'list' && !props.wall) return <CatalogListPage key={key} {...props} position={position} setPosition={setPosition} />;
   const scope = props.mode === 'entity' ? 'entity' : `catalog:${!!props.wall}`;
-  return <GridBody key={scope} {...props} />;
+  const encoded = position.filters.column_filters;
+  return <GridBody key={scope} {...catalogCardProps(props, encoded)}
+    filterBar={!props.wall && encoded ? <CatalogColumnFilterChips encoded={encoded} columns={catalogColumns} tagLabel={props.helpers.tagLabel}
+      onChange={next => {
+        const filters: Record<string, string> = next ? { column_filters: next } : {};
+        setPosition(current => ({ ...current, filters, pagination: { ...current.pagination, pageIndex: 0 } }));
+      }} /> : undefined} />;
 }
 
 function Icon({ name }: { name: string }) {
@@ -113,7 +123,7 @@ function usePlaybackProgress(): void {
 }
 
 /** 一次查询的整个生命周期：骨架、首屏、续页、竖屏带与读数。 */
-function GridBody(props: CatalogGridProps) {
+function GridBody(props: CatalogGridProps & { filterBar?: ReactNode }) {
   const { helpers, actions, layout } = props;
   const entity = props.mode === 'entity';
   const trash = !entity && props.filters?.state === 'trash';
@@ -257,6 +267,7 @@ function GridBody(props: CatalogGridProps) {
 
   return (
     <div ref={body} data-media-body="" aria-busy={result.isFetching && !result.isFetchingNextPage}>
+      {props.filterBar ? <div className="mb-3">{props.filterBar}</div> : null}
       <LibraryCompletionPrompt assetIds={missing} meteredIds={metered} />
       {props.wall ? content() : <SkeletonContent pending={result.isPending} skeletonHtml={props.skeletonHtml}>
         {content()}

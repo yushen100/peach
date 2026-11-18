@@ -69,11 +69,12 @@ def group(key, rows=None, *, config=None, filters=None):
     facets = {}
     if config is not None:
         from .media_identity import ownership
-        from .table_filters import filter_rows
+        from .table_filters import MEDIA_RANGE_READERS, filter_rows
         for item in ordered:
             if "library_id" not in item:
                 item["library_id"] = ownership(config, item["path"]).get("library_id", "")
-        ordered, facets = filter_rows(ordered, filters, {"location": lambda row: [row["library_id"] or "none"]})
+        ordered, facets = filter_rows(ordered, filters, {"location": lambda row: [row["library_id"] or "none"]},
+                                      ranges={"size": MEDIA_RANGE_READERS["size"], "duration": MEDIA_RANGE_READERS["dur"]})
     return {**label, "status": "ok", "count": len(ordered), "items": ordered[:LIMIT],
             "truncated": len(ordered) > LIMIT, "column_facets": facets}
 

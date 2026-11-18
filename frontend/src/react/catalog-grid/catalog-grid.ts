@@ -15,6 +15,7 @@ import { javImageKind } from '../../jav-artwork';
 import type { CatalogGridProps, MediaItem, MediaPage } from './types';
 import { queryClient } from '../query';
 import { PORTRAIT } from '../../core/stored-values';
+import { getCatalogListPosition } from './catalog-list-position';
 
 /** 竖屏带一条默认放几张；设置里可改（`shortsLimit`），默认值同 `appearance/settings.ts`。 */
 export const SHORTS_BATCH = 18;
@@ -35,6 +36,19 @@ export function catalogParams(filters: Readonly<Record<string, string>>, exclude
   const params = new URLSearchParams(Object.entries(filters).filter(([, value]) => value));
   if (excludeVertical) params.set('exclude_vertical', '1');
   return params.toString();
+}
+
+export function catalogListScope(props: CatalogGridProps): string {
+  const params = new URLSearchParams(catalogParams(props.filters || {}, false));
+  if (!new URLSearchParams(globalThis.location?.search).has('seed')) params.delete('seed');
+  return `${props.mode}:${props.listScope || props.entityKey || ''}:${params}`;
+}
+
+/** 启用列筛选的卡片统一取主网格，竖屏作品同样按这一批条件取数。 */
+export function catalogCardProps(props: CatalogGridProps, columnFilters: string | undefined): CatalogGridProps {
+  if (!columnFilters || props.wall) return props;
+  return { ...props, filters: { ...props.filters, column_filters: columnFilters },
+    initial: null, excludeVertical: false, mix: false, shorts: false };
 }
 
 export const catalogKey = (params: string, revision: number): QueryKey => ['catalog-grid', 'catalog', params, revision];
@@ -111,7 +125,8 @@ export function catalogQuery(props: CatalogGridProps) {
  *  与 `GridBody` 的初值一致。列表视图与资料页各有自己的取数。 */
 export async function prefetchCatalogGrid(props: CatalogGridProps, view: string, signal: AbortSignal): Promise<void> {
   if (props.mode === 'items' || props.mode === 'entity' || (view === 'list' && !props.wall)) return;
-  const query = catalogQuery(props);
+  const scope = catalogListScope(props);
+  const query = catalogQuery(catalogCardProps(props, getCatalogListPosition(scope).filters.column_filters));
   if (queryClient.getQueryData(query.queryKey) !== undefined) return;
   if ((props.restoreNavigation || props.wall) && latestCatalogPages(query.queryKey)) return;
   await queryClient.fetchInfiniteQuery({
@@ -123,11 +138,14 @@ export async function prefetchCatalogGrid(props: CatalogGridProps, view: string,
 }
 
 export function entityQuery(props: CatalogGridProps) {
+  const columnFilters = props.filters?.column_filters;
+  const key = props.entityKey || '';
+  const revision = props.revision || 0;
   return {
-    queryKey: entityKey(props.entityKey || '', props.revision || 0),
+    queryKey: entityKey(columnFilters ? `${key}:${columnFilters}` : key, revision),
     queryFn: async ({ pageParam, signal }: { pageParam: number; signal: AbortSignal }) => {
       if (!props.fetchPage) return { items: [], total: 0, offset: pageParam } as GridPage;
-      const page = await props.fetchPage(pageParam, signal);
+      const page = await props.fetchPage(pageParam, signal, columnFilters ? { filters: { column_filters: columnFilters } } : undefined);
       return { ...page, items: page.items || [], offset: pageParam } as GridPage;
     },
     initialPageParam: 0,

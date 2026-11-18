@@ -4,7 +4,7 @@ import { Button } from '@/components/base/buttons/button';
 import { fmtSize } from '@peach/legacy/core';
 
 import { CardTags, Icon } from '../components/card-meta';
-import { QueueIdentity, QueuePicture, QueueTable } from '../components/queue-table';
+import { QueueFilterChips, QueueIdentity, QueuePicture, QueueTable } from '../components/queue-table';
 import { ListLibrary } from '../catalog-grid/catalog-list-page';
 import type { useQueueSort } from '../components/queue-sort';
 import { JunkActions, junkContextOperations, junkOpenable, junkPreview, junkReasons, useJunkActions } from './junk-card';
@@ -40,6 +40,15 @@ function JunkRowActions({ item, view, actions }: { item: JunkItem; view: JunkVie
   return <JunkActions state={useJunkActions(item, view, actions)} compact />;
 }
 
+const junkReasonLabel = (value: string) => value === 'none' ? t('cleanup:shared.none') : partsLabel([JSON.parse(value)], value);
+
+export function JunkFilterChips({ values, onChange }: Pick<RemoteTableFilters, 'values' | 'onChange'>) {
+  return <QueueFilterChips table="junk-files" filters={values} onChange={onChange} valueLabel={(column, value) => {
+    if (column === 'kind') return junkKindMeta({ id: 0, junk_kind: value })[0];
+    return column === 'why' ? junkReasonLabel(value) : value;
+  }} />;
+}
+
 export function JunkList({ items, view, selected, selecting, actions, order, copies, filters, busy }: {
   items: readonly JunkItem[]; view: JunkView; selected: ReadonlySet<number>; selecting: boolean; actions: JunkQueueActions;
   order: ReturnType<typeof useQueueSort<JunkItem>>;
@@ -51,11 +60,12 @@ export function JunkList({ items, view, selected, selecting, actions, order, cop
     <QueueTable table="junk-files" label={t('cleanup:junk.categories')} items={items} selected={selected} selecting={selecting}
       contextOperations={item => junkContextOperations(item, view, selected.has(item.id), actions)}
       filters={filters} busy={busy} filterColumns={{
+        size: { range: 'size', value: item => item.size },
         kind: { values: item => item.junk_kind || 'other', option: kind => {
           const [label, glyph] = junkKindMeta({ id: 0, junk_kind: kind });
           return { label, leading: <Icon name={glyph} /> };
         } },
-        why: { values: junkReasons, option: value => ({ label: value === 'none' ? t('cleanup:shared.none') : partsLabel([JSON.parse(value)], value) }) },
+        why: { values: junkReasons, option: value => ({ label: junkReasonLabel(value) }) },
       }}
       sort={{ options: order.sorts.map(({ key, label }) => ({ id: key, label })), sorting: order.sorting, onChange: order.setSorting }}
       rowLabel={(item) => t('cleanup:junk.selectFile', { name: item.name || t('cleanup:junk.untitled') })}

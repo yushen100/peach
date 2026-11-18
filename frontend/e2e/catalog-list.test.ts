@@ -9,6 +9,51 @@ describe('馆藏卡片与列表', () => {
   let browser: Browser;
   before(async () => { browser = await launch() });
   after(async () => { await browser?.close() });
+  it('列筛选随视图切换，卡片可单独清除一项', { timeout: 60_000 }, async () => {
+    const opened = await visit(browser, '/', VIEWPORTS[0]!);
+    const { page } = opened;
+    try {
+      const videos = [1, 8].map((plays, index) => ({
+        id: 99100 + index, name: `Sample ${index + 1}.mp4`, medium: 'video', duration: 60, play_count: plays,
+      }));
+      await page.route('**/api/items?*', route => {
+        const params = new URL(route.request().url()).searchParams;
+        const filters = JSON.parse(params.get('column_filters') || '{}');
+        const maxPlays = filters.plays?.range?.max;
+        const maxDuration = filters.dur?.range?.max;
+        const items = videos.filter(video => (maxPlays == null || video.play_count <= maxPlays)
+          && (maxDuration == null || video.duration <= maxDuration));
+        return route.fulfill({ json: { items, total: items.length, has_more: false } });
+      });
+      const chooseView = (name: string) => page.getByRole('radiogroup', { name: '馆藏显示方式' })
+        .locator('label').filter({ has: page.getByRole('radio', { name, exact: true }) }).click();
+      const limit = async (name: string, value: string) => {
+        await page.getByRole('button', { name, exact: true }).click();
+        const dialog = page.getByRole('dialog', { name, exact: true });
+        await dialog.getByRole('textbox', { name: /^最大值/ }).fill(value);
+        await dialog.getByRole('button', { name: '应用范围', exact: true }).click();
+      };
+      await chooseView('列表');
+      await limit('筛选观看次数', '3');
+      await limit('筛选时长', '2');
+      const rows = page.locator('#grid [data-catalog-row]');
+      await page.waitForFunction(() => document.querySelectorAll('#grid [data-catalog-row]').length === 1);
+      assert.equal(await rows.first().getAttribute('data-id'), '99100');
+      await chooseView('卡片');
+      const chips = page.getByRole('group', { name: '已启用的列筛选' });
+      const removePlays = chips.getByRole('button', { name: /观看次数/ });
+      const cards = page.locator('#grid [data-media-card]');
+      await cards.first().waitFor();
+      assert.deepEqual(await cards.evaluateAll(nodes => nodes.map(node => node.getAttribute('data-id'))), ['99100']);
+      await chooseView('列表');
+      await page.locator('[data-table-column-filter="plays"][data-filter-active]').waitFor();
+      await chooseView('卡片');
+      await removePlays.click();
+      await page.waitForFunction(() => document.querySelectorAll('#grid [data-media-card]').length === 2);
+      assert.equal(await removePlays.count(), 0);
+      assert.equal(await chips.getByRole('button', { name: /时长/ }).count(), 1);
+    } finally { await opened.close() }
+  });
   for (const viewport of VIEWPORTS) it(`${viewport.name}：多选隐藏卡片悬浮操作，退出后恢复`, { timeout: 60000 }, async () => {
     const opened = await visit(browser, '/', viewport);
     const { page } = opened;

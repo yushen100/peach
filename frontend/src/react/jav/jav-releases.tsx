@@ -20,6 +20,7 @@ import { TaskProgress } from '../components/task-progress';
 import { activityKind } from '../../activity-kinds';
 import { EmptyState } from '../components/empty-state';
 import { DataTableFooter } from '../components/table-controls';
+import { CatalogColumnFilterChips } from '../components/column-filter-chips';
 import { FilterGlassRows, FilterPill, FilterActionButton } from '../components/filter-glass';
 import { Segments, Shuffle, SortKeys } from '../entity-filter/entity-filter-page';
 import { Chip } from '@/components/base/badges/chip';
@@ -33,12 +34,13 @@ import { controlReleaseMetadata, coverArrived, DISCOVERY_METADATA_KEY, fetchCove
   type Discovery, type DiscoveryMetadataStatus, type ReleaseFacetPerformer, type ReleaseFacetStudio, type ReleaseFilters,
   writeJavQuery } from './jav';
 import { queryClient } from '../query';
-import { ReleaseTable } from './jav-release-table';
+import { ReleaseTable, type ReleaseRangeKey } from './jav-release-table';
+import { releaseColumns } from './release-table-columns';
 import { CatalogViewToggle } from '../catalog-grid/catalog-view-toggle';
 import { useCatalogView } from '../catalog-grid/catalog-view';
 import { useVisibleJavWorks } from './jav-selection';
 import { t } from '../../i18n';
-import { columnValueSelected, toggleColumnValue, type ColumnSelection } from '../../column-filters';
+import { columnValueSelected, readColumnFilters, toggleColumnValue, writeColumnFilters, type ColumnRange, type ColumnSelection } from '../../column-filters';
 
 type Facet = 'performer' | 'studio' | 'tag';
 /** 等数据时两排头像的占位，与路由骨架（`releasesFilterSkeleton`）同一份。 */
@@ -90,6 +92,12 @@ export function Releases({ readOnly, receipt, resource, query, navigate, clearTe
     const values = releaseColumnSelection(filters, facet);
     chooseValues(facet, values === undefined ? [value] : toggleColumnValue(values, value, !columnValueSelected(values, value)));
   };
+  const changeColumns = (column_filters: string) => {
+    setFilters(current => ({ ...current, column_filters, page: 1 }));
+    writeJavQuery({ column_filters, page: '' });
+  };
+  const chooseRange = (column: ReleaseRangeKey, value: ColumnRange | undefined) =>
+    changeColumns(writeColumnFilters(readColumnFilters(filters.column_filters), column, value));
   const section = useRef<HTMLElement>(null);
   const changePage = ({ pageIndex, pageSize }: { pageIndex: number; pageSize: number }) => {
     const page = pageIndex + 1;
@@ -214,6 +222,8 @@ export function Releases({ readOnly, receipt, resource, query, navigate, clearTe
             onSort={key => sortBy(key as ReleaseSort)} />
         </span>
       </>} />
+    {view === 'cards' && filters.column_filters ? <CatalogColumnFilterChips encoded={filters.column_filters}
+      columns={releaseColumns} onChange={changeColumns} /> : null}
     {waiting && view === 'cards' ? <div role="status" aria-label={t('catalog:javReleases.loading')} dangerouslySetInnerHTML={{ __html: javContentSkeleton('discover', layout) }} /> : null}
     {releases.error ? <Note tone="error" title={t('catalog:javReleases.failed')}>{errorMessage(releases.error)}</Note> : null}
     {reading && metadata ? <div data-jav-metadata="" className="min-w-0"><TaskProgress kind={activityKind('jav-discovery-metadata')}
@@ -232,7 +242,7 @@ export function Releases({ readOnly, receipt, resource, query, navigate, clearTe
     {action.error ? <Note tone="error">{action.error}</Note> : null}
     {view === 'list' ? waiting || data?.items.length || filtered ? <ReleaseTable items={data?.items || []} waiting={waiting} filters={filters}
       studios={data?.facets.studios || []} javImage={settings.value.javImage} readOnly={readOnly} navigate={navigate}
-      facets={data?.facets} onFilter={chooseValues}
+      facets={data?.facets} onFilter={chooseValues} onRange={chooseRange}
       onTag={value => choose('tag', value)} onSort={setSort} wanting={item => action.busy === String(item.id)}
       onWant={want} onResource={item => resource(resourcePrefill(item))} /> : null
     : <div data-media-grid="" className={JAV_RECOMMENDATION_GRID} style={{ '--card-ratio': ratio } as CSSProperties}>
