@@ -211,18 +211,13 @@ def readme_assets(root: Path, version: str) -> list[str]:
     return sorted(names)
 
 
-def readme_link_problems(root: Path) -> list[str]:
-    """README 直链须指向当前版本或变更日志里紧挨着的上一版；更旧就是发布后漏换了。
-
-    `--ship` 等 Release 制品齐了才换，所以定版之后、换链之前指向上一版是正常状态。
-    """
-    current = read_version(root)
-    released = re.findall(r"^## \[(\d+\.\d+\.\d+)\]",
-                          (root / "CHANGELOG.md").read_bytes().decode("utf-8"), re.M)
-    allowed = released[released.index(current):][:2] if current in released else [current]
+def readme_link_problems(root: Path, *, version: str | None = None, revision: str | None = None) -> list[str]:
+    """发布核对指定版本。常规测试允许定版后、制品上传前暂时指向上一版。"""
+    allowed = [version] if version is not None else _readme_transition_versions(root)
     problems = []
     for name in README_FILES:
-        links = DOWNLOAD_LINK.findall((root / name).read_bytes().decode("utf-8"))
+        text = git(root, "show", f"{revision}:{name}") if revision else (root / name).read_text(encoding="utf-8")
+        links = DOWNLOAD_LINK.findall(text)
         versions = {version for tag, asset, _ in links for version in (tag, asset)}
         if not links:
             problems.append(t("version_bump.readmeNoLinks", name=name))
@@ -231,6 +226,12 @@ def readme_link_problems(root: Path) -> list[str]:
                               versions=sorted(versions),
                               allowed=t("version_bump.or").join(allowed)))
     return problems
+
+
+def _readme_transition_versions(root: Path) -> list[str]:
+    current = read_version(root)
+    released = re.findall(r"^## \[(\d+\.\d+\.\d+)\]", (root / "CHANGELOG.md").read_text(encoding="utf-8"), re.M)
+    return released[released.index(current):][:2] if current in released else [current]
 
 
 def point_readmes(root: Path, version: str) -> list[str]:
