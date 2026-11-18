@@ -19,6 +19,7 @@ concurrency:
 env:
   PEACH_SENTRY_DSN: ${{ vars.PEACH_SENTRY_DSN }}
   PEACH_LIBRARY_SENTRY_DSN: ${{ vars.PEACH_LIBRARY_SENTRY_DSN }}
+  PEACH_SOURCE_CACHE_BASE: https://downloads.peach.video/_sources
   PYTHONUTF8: "1"
   PYTHONIOENCODING: "utf-8"
 
