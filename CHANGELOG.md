@@ -14,8 +14,6 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ## [Unreleased]
 
-## [0.59.0] - 2026-11-18
-
 ### Added / 新增
 
 - **Sourcing**: Opt in to sharing public metadata and submit Chinese performer names for review before they enter the public seed pack (#768). / **采集**：可预览并自愿贡献公开元信息，也可提交女优中文名，经复核后随种子分发（#768）。
@@ -1256,8 +1254,7 @@ First Windows standalone test package. Earlier development (from 2026-08-14, inc
 - **Desktop**: The standalone package writes startup logs in UTF-8. / **桌面**：独立包使用 UTF-8 启动日志。
 - **Settings**: The redirect after first-time setup uses a freshly read mDNS name. / **配置**：首次设置后的跳转目标取新鲜读到的 mDNS 名。
 
-[Unreleased]: https://github.com/peach-mitao/peach/compare/v0.59.0...HEAD
-[0.59.0]: https://github.com/peach-mitao/peach/compare/v0.58.0...v0.59.0
+[Unreleased]: https://github.com/peach-mitao/peach/compare/v0.58.0...HEAD
 [0.58.0]: https://github.com/peach-mitao/peach/compare/v0.57.0...v0.58.0
 [0.57.0]: https://github.com/peach-mitao/peach/compare/v0.56.0...v0.57.0
 [0.56.0]: https://github.com/peach-mitao/peach/compare/v0.55.1...v0.56.0
