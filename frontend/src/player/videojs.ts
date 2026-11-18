@@ -2,7 +2,7 @@
 import type { VideojsFactory } from './types';
 import { createV10Player } from './v10-player';
 
-const VIDEOJS = '/vendor/videojs/10.4.0/';
+const VIDEOJS = '/vendor/videojs/10.5.0/';
 const MODULES = [
   'video-player.js', 'media/hlsjs-video.js', 'media/dash-video.js', 'ui/container.js', 'ui/play-button.js',
   'ui/mute-button.js', 'ui/fullscreen-button.js', 'ui/pip-button.js', 'ui/time-slider.js',
