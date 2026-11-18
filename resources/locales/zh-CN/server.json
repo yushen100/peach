@@ -279,6 +279,27 @@
           "title": "完整英文界面"
         }
       }
+    },
+    "v0-59-0": {
+      "headline": "筛选馆藏、编辑作品资料",
+      "items": {
+        "contribute-performer-names": {
+          "body": "可提交女优中文名供复核，也可在自愿分享公开元信息前预览内容",
+          "title": "贡献女优中文名"
+        },
+        "edit-work-details": {
+          "body": "在作品标题旁编辑资料，封面可上传图片、取播放器当前画面或选样张",
+          "title": "编辑作品资料与封面"
+        },
+        "library-filters": {
+          "body": "在列表列头搜索和多选筛选值，也可按评分与分辨率筛选馆藏",
+          "title": "馆藏筛选"
+        },
+        "select-duplicates": {
+          "body": "勾选要回收的副本，确认前查看会保留几份，移入回收站后可撤销",
+          "title": "逐份处理重复文件"
+        }
+      }
     }
   },
   "repairCenter": {

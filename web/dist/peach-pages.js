@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "b94e7ef8-6d56-4e66-8af4-18786e7cd5a5", e._sentryDebugIdIdentifier = "sentry-dbid-b94e7ef8-6d56-4e66-8af4-18786e7cd5a5");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "2f228dde-0ff2-42a9-bf8f-6e55bc43b9e9", e._sentryDebugIdIdentifier = "sentry-dbid-2f228dde-0ff2-42a9-bf8f-6e55bc43b9e9");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -7581,6 +7581,27 @@ var We = "peach.settings.v1", Ge = {
 					title: "Full English interface"
 				}
 			}
+		},
+		"v0-59-0": {
+			headline: "Filter your library and edit work details",
+			items: {
+				"contribute-performer-names": {
+					body: "Submit Chinese performer names for review or preview the public metadata you can choose to share",
+					title: "Contribute performer names"
+				},
+				"edit-work-details": {
+					body: "Edit metadata beside the title and choose an upload, a video frame or a sample image for the cover",
+					title: "Edit work details and covers"
+				},
+				"library-filters": {
+					body: "Search and select filter values in table headers, including ratings and resolutions in Library",
+					title: "Library filters"
+				},
+				"select-duplicates": {
+					body: "Select individual copies, see how many will remain, and undo the move to Trash",
+					title: "Choose which duplicates to trash"
+				}
+			}
 		}
 	},
 	repairCenter: {
@@ -14929,6 +14950,27 @@ var We = "peach.settings.v1", Ge = {
 				"english-interface": {
 					body: "页面、提示和任务进度都能显示英文",
 					title: "完整英文界面"
+				}
+			}
+		},
+		"v0-59-0": {
+			headline: "筛选馆藏、编辑作品资料",
+			items: {
+				"contribute-performer-names": {
+					body: "可提交女优中文名供复核，也可在自愿分享公开元信息前预览内容",
+					title: "贡献女优中文名"
+				},
+				"edit-work-details": {
+					body: "在作品标题旁编辑资料，封面可上传图片、取播放器当前画面或选样张",
+					title: "编辑作品资料与封面"
+				},
+				"library-filters": {
+					body: "在列表列头搜索和多选筛选值，也可按评分与分辨率筛选馆藏",
+					title: "馆藏筛选"
+				},
+				"select-duplicates": {
+					body: "勾选要回收的副本，确认前查看会保留几份，移入回收站后可撤销",
+					title: "逐份处理重复文件"
 				}
 			}
 		}
@@ -39830,4 +39872,4 @@ Nt();
 var Jb = document.getElementById("peach-page"), Yb = Jb ? qb[Jb.dataset.page ?? ""] : void 0;
 Jb && Yb && (0, Ht.createRoot)(Jb).render(/* @__PURE__ */ (0, V.jsx)(Kb, { children: /* @__PURE__ */ (0, V.jsx)(Yb, { data: { ...Jb.dataset } }) }));
 
-//# debugId=b94e7ef8-6d56-4e66-8af4-18786e7cd5a5
+//# debugId=2f228dde-0ff2-42a9-bf8f-6e55bc43b9e9

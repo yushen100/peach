@@ -279,6 +279,27 @@
           "title": "Full English interface"
         }
       }
+    },
+    "v0-59-0": {
+      "headline": "Filter your library and edit work details",
+      "items": {
+        "contribute-performer-names": {
+          "body": "Submit Chinese performer names for review or preview the public metadata you can choose to share",
+          "title": "Contribute performer names"
+        },
+        "edit-work-details": {
+          "body": "Edit metadata beside the title and choose an upload, a video frame or a sample image for the cover",
+          "title": "Edit work details and covers"
+        },
+        "library-filters": {
+          "body": "Search and select filter values in table headers, including ratings and resolutions in Library",
+          "title": "Library filters"
+        },
+        "select-duplicates": {
+          "body": "Select individual copies, see how many will remain, and undo the move to Trash",
+          "title": "Choose which duplicates to trash"
+        }
+      }
     }
   },
   "repairCenter": {
