@@ -10,7 +10,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   RiCheckDoubleLine,
-  RiDeleteBinLine, RiLayoutGridLine, RiRefreshLine, RiRssLine, RiTableLine,
+  RiDeleteBinLine, RiExternalLinkLine, RiLayoutGridLine, RiPauseLine, RiPlayLine, RiRefreshLine, RiRssLine, RiTableLine,
 } from '@remixicon/react';
 import { useMutation } from '@tanstack/react-query';
 import {
@@ -66,6 +66,7 @@ import { FOLLOW_CHECK_TASK } from '../../running-tasks';
 import { joinList, t } from '../../i18n';
 import { useTableFilters } from '../components/use-table-filters';
 import { statusText } from './follow-manage';
+import { useRowWorkContext, useWorkContextMenu, type WorkContextOperation } from '../components/work-context-menu';
 
 const sourceTableFeatures = tableFeatures({
   rowPaginationFeature,
@@ -124,6 +125,23 @@ interface RowHandlers {
   readOnly: boolean;
 }
 
+function sourceOperations(source: FollowSource, selected: boolean, onToggle: (on: boolean) => void, handlers: RowHandlers) {
+  const operations: WorkContextOperation[] = [
+    { id: 'select', label: t(selected ? 'follow:shared.clearSelection' : 'follow:shared.selectNamed', { name: source.label }),
+      icon: RiCheckDoubleLine, run: () => onToggle(!selected) },
+  ];
+  if (source.url) operations.unshift({ id: 'open', label: t('follow:sourceView.openSource'), icon: RiExternalLinkLine,
+    run: () => { window.open(source.url, '_blank', 'noopener,noreferrer') } });
+  if (!handlers.readOnly) operations.push(
+    { id: 'check', label: t('follow:sourceList.checkNamed', { name: source.label }), icon: RiRefreshLine,
+      disabled: !source.enabled || handlers.busy, run: () => handlers.check([source.id]) },
+    { id: 'enabled', label: t(source.enabled ? 'follow:shared.pause' : 'follow:shared.enable'),
+      icon: source.enabled ? RiPauseLine : RiPlayLine, run: () => handlers.toggle(source, !source.enabled) },
+    { id: 'remove', label: t('follow:sourceList.unfollow'), icon: RiDeleteBinLine, danger: true, run: () => handlers.remove(source) },
+  );
+  return operations;
+}
+
 export interface SourceListProps {
   data: FollowData;
   sort: SortKey;
@@ -148,13 +166,18 @@ function SourceRow(
   { source, selected, onToggle, handlers }:
   { source: FollowSource; selected: boolean; onToggle(on: boolean): void; handlers: RowHandlers },
 ) {
+  const menu = useWorkContextMenu();
+  const context = () => ({ key: source.id, operations: sourceOperations(source, selected, onToggle, handlers) });
   /* 点这一行的空白处就是勾上或取消：勾选框只有 16px，一行里其余的地方点了没反应的话，选几条要瞄几次。
      第一行是勾选、站标与名字、状态，宽屏时上次检查、开关与动作键也在这一行；报错单独占一整行，
      左边让出勾选框与站标的宽度，和名字对齐。窄屏依次是第一行、报错、操作行。 */
   return (
     <div data-selected={selected || undefined} data-follow-source-row=""
       className="flex min-h-16 flex-wrap items-center gap-3 px-2 py-3 last:rounded-b-lg max-sm:gap-x-2"
+      onContextMenu={event => menu.onContextMenu(event, context())}
+      onKeyDown={event => { if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) menu.onKeyDown(event, context()) }}
       onClick={(event) => { if (clickedBlank(event, event.currentTarget)) onToggle(!selected) }}>
+      {menu.menu}
       <Checkbox isSelected={selected} onChange={onToggle} aria-label={t('follow:shared.selectNamed', { name: source.label })} />
       {/* 名字从零宽起长：长名字在列内折行，不把状态和操作键挤到下一行。站标贴在名字前。 */}
       <span className="flex min-w-0 grow basis-0 items-center gap-1.5">
@@ -424,6 +447,8 @@ export function SourceList(props: SourceListProps) {
     readOnly,
   };
   const rowHandlers = handlers.current;
+  const tableMenu = useRowWorkContext((key) => sources.find(source => String(source.id) === key),
+    source => sourceOperations(source, selected.has(source.id), on => toggleOne(source.id, on), rowHandlers));
 
   /* ── 表格视图：列定义、排序、行选择与分页都交给 TanStack Table ── */
   const columns = useMemo(() => {
@@ -573,7 +598,8 @@ export function SourceList(props: SourceListProps) {
     <div className={cardClass({
       padding: 'none',
       className: 'flex flex-col gap-4 px-6 py-5 max-sm:px-4',
-    })}>
+    })} onKeyDown={tableMenu.onKeyDown}>
+      {tableMenu.menu}
       {/* 操作区作为一组换行；独占一行仍放不下时，组内控件继续按顺序换行。 */}
       <div ref={toolbar} data-follow-toolbar="" data-responsive-toolbar="">
         <span data-follow-toolbar-heading="" data-toolbar-heading="">
@@ -691,7 +717,8 @@ export function SourceList(props: SourceListProps) {
             <TableBody renderEmptyState={() => t('follow:sourceList.pageEmpty')}>
               {pageRows.map((row) => (
                 <TableRow key={row.id} id={row.id}
-                  data-follow-selected={row.getIsSelected() || undefined}>
+                  data-follow-selected={row.getIsSelected() || undefined} data-work-context-row={row.original.source.id}
+                  onContextMenu={event => tableMenu.onContextMenu?.(event, row.original.source, String(row.original.source.id))}>
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}

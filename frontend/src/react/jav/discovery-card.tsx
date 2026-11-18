@@ -14,6 +14,8 @@ import { ActivityMotion } from '../components/activity-motion';
 import type { DownloadPrefill } from '../activity/cloud-download-dialog';
 import { coverArrived, coverFetching, discoveryArtwork, fetchCoverNow, type Discovery } from './jav';
 import { joinList, t } from '../../i18n';
+import { useWorkContextMenu } from '../components/work-context-menu';
+import { discoveryContext } from './discovery-context';
 
 /** 「查找资源」弹窗的预填：本机有封面用本机那张，否则用来源地址。 */
 export const resourcePrefill = (item: Discovery): DownloadPrefill =>
@@ -54,19 +56,24 @@ export function DiscoveryCard({ item, layout, javImage, readOnly, navigate, tag,
   tag: string | readonly string[]; onTag(tag: string): void; wanting: boolean; onWant(): void; onResource(): void; badge?: ReactNode;
 }) {
   const selection = useJavSelection();
+  const context = useWorkContextMenu();
+  const menuContext = discoveryContext(item, { selection, readOnly, wanting, navigate, onWant, onResource });
   const selected = selection?.selected.has(item.code);
   const compact = Boolean(selection?.dense);
   const performers = item.performer_refs?.length ? joinList(item.performer_refs.map(person => person.name)) : item.performers;
   const artwork = discoveryArtwork(item, layout, javImage);
   const href = item.asset_id ? `/assets/${item.asset_id}` : `/works/${encodeURIComponent(item.code)}`;
   return <article data-media-card="" data-jav-card="" data-selected={selected ? '' : undefined} onMouseDown={suppressShiftTextSelection}
+    onContextMenu={event => context.onContextMenu(event, menuContext)} onKeyDown={event => context.onKeyDown(event, menuContext)}
     onClickCapture={event => {
+      if ((event.target as Element).closest('[data-work-context-menu]')) return;
       if (selection && (selection.mode || event.shiftKey || event.ctrlKey || event.metaKey)) {
         event.preventDefault(); event.stopPropagation(); selection.toggle(item, event.shiftKey);
       }
     }} onClick={event => {
     if (!(event.target as HTMLElement).closest('a,button,input')) navigate(href);
   }}>
+    {context.menu}
     {artwork ? <a href={href} aria-label={t('catalog:javDiscovery.viewDetails', { code: item.code })}
       onClick={event => { if (!event.ctrlKey && !event.metaKey && !event.shiftKey && event.button === 0) { event.preventDefault(); navigate(href) } }}
       data-media-pic="" data-jav-cover-box="" className={COVER_BOX}>

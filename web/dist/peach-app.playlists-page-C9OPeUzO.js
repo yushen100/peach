@@ -1,7 +1,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "1384cb34-1190-4d75-afdc-c317e99dba8f", e._sentryDebugIdIdentifier = "sentry-dbid-1384cb34-1190-4d75-afdc-c317e99dba8f");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "64841e21-1412-4e77-a1d5-d2d762beb7b9", e._sentryDebugIdIdentifier = "sentry-dbid-64841e21-1412-4e77-a1d5-d2d762beb7b9");
 	} catch {}
 })();
 import { $2ec61d1d4f780267$export$a8a3e93435678ff9 as e, $542a13ca2fa5b484$export$5b6b19405a83ff9d as t, Button as n, EmptyFocusButton as r, EmptyState as i, Input as a, MENU_ITEM as o, MENU_ITEM_INTERACTIVE as s, MENU_POPOVER_SURFACE as c, MenuDialog as l, MixCard as u, ModalFrame as d, ObjectOrderDialog as f, PLAYLISTS_KEY as p, RetryNote as m, __toESM as h, busyProps as g, confirmModal as _, createPlaylist as v, cx as y, deletePlaylist as b, errorMessage as x, fetchPlaylist as S, fetchPlaylists as C, keepPlaylist as w, posterUrl as T, recreatePlaylist as E, refreshPlaylists as D, renamePlaylist as O, reorderPlaylist as k, require_jsx_runtime as A, require_react as j, resumeAssetId as M, spriteGlyph as N, t as P, useMutation as F, useQuery as I } from "./peach-app.js";
@@ -217,8 +217,33 @@ function Y({ openPlaylist: e, openEntity: t, canFlip: n, toast: a, revision: o }
 					"data-playlist-grid": "",
 					className: "card-grid-cover gap-4.5",
 					children: v.map((r) => {
-						let i = M(r), a = r.name.trim() || P("catalog:playlistsPage.untitled");
-						return /* @__PURE__ */ (0, R.jsx)(u, {
+						let i = M(r), a = r.name.trim() || P("catalog:playlistsPage.untitled"), o = () => l(r), s = () => f(r), c = () => y(r), d = [
+							{
+								id: "rename",
+								label: P("catalog:playlistsPage.editName"),
+								icon: B,
+								run: o
+							},
+							{
+								id: "sort",
+								label: P("catalog:playlistOrder.reorder"),
+								icon: H,
+								run: s
+							},
+							{
+								id: "delete",
+								label: P("catalog:playlistsPage.delete"),
+								icon: V,
+								danger: !0,
+								run: c
+							}
+						];
+						return i && d.unshift({
+							id: "open",
+							label: P("catalog:mediaActions.open"),
+							icon: N("play"),
+							run: () => e(r.id, i)
+						}), /* @__PURE__ */ (0, R.jsx)(u, {
 							"data-playlist-card": String(r.id),
 							name: a,
 							caption: r.source_kind === "mix" ? P("catalog:playlistsPage.savedFromMix") : P("catalog:playlistsPage.manual"),
@@ -230,11 +255,12 @@ function Y({ openPlaylist: e, openEntity: t, canFlip: n, toast: a, revision: o }
 							onOpenEntity: t,
 							...i ? { onOpen: () => e(r.id, i) } : {},
 							openLabel: P("catalog:playlistsPage.open", { name: a }),
+							contextOperations: d,
 							menu: /* @__PURE__ */ (0, R.jsx)(J, {
 								name: a,
-								onRename: () => l(r),
-								onDelete: () => y(r),
-								onSort: () => f(r)
+								onRename: o,
+								onDelete: c,
+								onSort: s
 							})
 						}, r.id);
 					})
@@ -307,4 +333,4 @@ function X({ row: e, close: t, toast: r }) {
 }
 export { Y as PlaylistsPage };
 
-//# debugId=1384cb34-1190-4d75-afdc-c317e99dba8f
+//# debugId=64841e21-1412-4e77-a1d5-d2d762beb7b9

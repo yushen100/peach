@@ -6,6 +6,7 @@
 import { useCallback, useLayoutEffect, useRef, type ButtonHTMLAttributes, type ReactNode, type Ref } from 'react';
 import { icon } from '@peach/legacy/core';
 import { t } from '../../i18n';
+import { useWorkContextMenu, type WorkContextOperation } from './work-context-menu';
 
 export function MixQueue({ kind, title, summary, onClose, actions, listRef, children, ...data }: {
   kind: string;
@@ -54,17 +55,23 @@ export function MixQueue({ kind, title, summary, onClose, actions, listRef, chil
 /** 队列里的一行：左边缩略图（时长角标由调用方放进 `pic`），右边两行字。作品队列的字前面还有
  *  一枚署名头像（`lead`，和卡片的署名层同一套）；播放列表的行尾多一组抓手与移出（`after`），
  *  拖动排序认的是行上的 `row` 属性。 */
-export function MixQueueRow({ current, pic, lead, after, row, children, ...button }: {
+export function MixQueueRow({ current, pic, lead, after, row, children, contextOperations, ...button }: {
   current: boolean;
   pic: ReactNode;
   lead?: ReactNode;
   after?: ReactNode;
   row?: Record<`data-${string}`, string | number>;
   children: ReactNode;
+  contextOperations?: WorkContextOperation[];
 } & ButtonHTMLAttributes<HTMLButtonElement> & Record<`data-${string}`, string | number>) {
+  const menu = useWorkContextMenu();
+  const context = contextOperations ? { key: String(row?.['data-queue-row'] ?? ''), operations: contextOperations } : undefined;
   const text = <span data-mix-item-text="">{children}</span>;
   return (
-    <div data-mix-row="" {...row}>
+    <div data-mix-row="" {...row}
+      onContextMenu={context ? event => menu.onContextMenu(event, context) : undefined}
+      onKeyDown={context ? event => menu.onKeyDown(event, context) : undefined}>
+      {menu.menu}
       <button type="button" data-mix-item="" aria-current={current ? 'true' : 'false'} {...button}>
         <span data-mix-item-pic="">{pic}</span>
         {lead === undefined ? text : <span data-mix-item-meta="">{lead}{text}</span>}

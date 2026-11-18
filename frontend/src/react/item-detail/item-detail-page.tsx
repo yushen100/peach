@@ -20,7 +20,8 @@ import { apiGet, apiSend } from '../../api';
 import { codedText } from '../../core/server-text';
 import { EDITION_TONE } from '../../core/jav-title';
 import { Button } from '@/components/base/buttons/button';
-import { RiArrowDownSLine } from '@remixicon/react';
+import { RiArrowDownSLine, RiPlayLine, RiSubtractLine } from '@remixicon/react';
+import type { WorkContextOperation } from '../components/work-context-menu';
 import { CatalogGridPage } from '../catalog-grid/catalog-grid-page';
 import { patchCatalogItems, replaceCatalogItem } from '../catalog-grid/catalog-grid';
 import type { MediaItem } from '../catalog-grid/types';
@@ -308,18 +309,24 @@ function Queue({ queue, itemId, helpers, actions }: {
           ? <i className={`javedition ${EDITION_TONE[row.edition ?? ''] || 'censored'}`} data-queue-edition="">{editionLabel(row)}</i> : null;
         // 已消失的条目照旧列在播放列表里、能移出，但文件不在盘上，这一行不能点开去播放。
         const gone = queue.kind === 'playlist' && isVanished(row);
+        const open = () => actions.openQueueItem(ref, row.id);
+        const remove = () => reorder.remove(row.id);
+        const operations: WorkContextOperation[] = [];
+        if (!gone) operations.push({ id: 'open', label: t('catalog:mediaActions.open'), icon: RiPlayLine, run: open });
+        if (queue.kind === 'playlist') operations.push({ id: 'remove', label: t('catalog:detailQueue.removeFromPlaylist'),
+          icon: RiSubtractLine, run: remove });
         return (
           <MixQueueRow key={row.id} current={row.id === itemId} data-queue-item={row.id} row={{ 'data-queue-row': row.id }}
             disabled={gone} title={gone ? t('catalog:detailQueue.fileGone') : undefined}
             {...(gone ? { 'data-queue-vanished': '' } : {})}
-            onClick={() => { if (!gone) actions.openQueueItem(ref, row.id) }}
+            onClick={gone ? undefined : open} contextOperations={operations}
             pic={<><Html html={queueThumbHtml(row, helpers.javImage())} /><i className="mono" data-mix-item-duration="">{fmtDur(row.duration)}</i></>}
             lead={<Html html={queueAvatarHtml(row)} />}
             after={queue.kind === 'playlist' ? (
               <span data-queue-edit="">
                 <i data-queue-grip="" aria-hidden="true"><Glyph name="grip-vertical" /></i>
                 <button type="button" data-queue-remove={row.id} title={t('catalog:detailQueue.removeFromPlaylist')} aria-label={t('catalog:detailQueue.removeFromPlaylist')}
-                  onClick={() => reorder.remove(row.id)}><Glyph name="x" /></button>
+                  onClick={remove}><Glyph name="x" /></button>
               </span>
             ) : null}>
             <span data-queue-head="">{edition}<b data-middle-truncate="">{helpers.displayName(row)}</b></span>
@@ -408,7 +415,11 @@ function Side({ item, queue, write, helpers, actions }: {
   return (
     <div data-stage-side="" data-item-side="">
       <div data-stage-side-content="">
-        <DetailTitle item={item} queue={queue} helpers={helpers} actions={actions} onStatus={write.setSourceState} />
+        <DetailTitle item={item} queue={queue} helpers={helpers} actions={actions} onStatus={write.setSourceState}
+          deleteAction={<button type="button" data-item-delete="" data-kind="dispose" data-fb="dispose"
+            aria-label={t(item.disposal === 'trash' ? 'catalog:mediaActions.restore' : 'catalog:shared.moveToTrash')}
+            title={t(item.disposal === 'trash' ? 'catalog:mediaActions.restore' : 'catalog:shared.moveToTrash')}
+            {...busy('dispose')} onClick={() => write.feedback('dispose')}><Glyph name={item.disposal === 'trash' ? 'rotate-ccw' : 'trash'} /></button>} />
         {online ? null : <span data-title-state="" aria-live="polite">{write.sourceState}</span>}
         <PendingWork work={item.pending_work} />
         <Rating item={item} write={write} />
@@ -450,8 +461,6 @@ function Side({ item, queue, write, helpers, actions }: {
           <button type="button" id="betterVersion" data-fb="quality" aria-label={t('catalog:detailFeedback.betterVersion')}
             title={item.better_version ? (item.better_version_reason || t('catalog:detailFeedback.betterVersionMarked')) : t('catalog:detailFeedback.betterVersionTip')}
             aria-pressed={!!item.better_version} {...busy('quality')} onClick={write.quality}><Glyph name="sparkles" /></button>
-          <button type="button" data-kind="dispose" data-fb="dispose" aria-label={t('catalog:shared.moveToTrash')} title={t('catalog:detailFeedback.trashTip')}
-            aria-pressed={item.disposal === 'trash'} {...busy('dispose')} onClick={() => write.feedback('dispose')}><Glyph name="trash" /></button>
         </div>
         <Preference item={item} open={reasonOpen} write={write} />
         <button type="button" data-kind="o" {...busy('o')} onClick={() => write.feedback('o')}>
@@ -466,9 +475,10 @@ function Side({ item, queue, write, helpers, actions }: {
    展开与收起换字形——往下多看一截是 chevron-down，收回去是 chevron-up。展开键排在那排键最前面，
    紧挨着它管的标题。标题文字本身也接这一下：人想看全文时手本来就落在字上。选中文字那一下不算，
    那是在复制标题。溢出不只在打开那一刻判：影院模式和普通视图之间切换时标题栏宽度差一大截。 */
-function DetailTitle({ item, queue, helpers, actions, onStatus }: {
+function DetailTitle({ item, queue, helpers, actions, onStatus, deleteAction }: {
   item: DetailItem; queue: DetailQueue | null; helpers: ItemDetailHelpers; actions: ItemDetailActions;
   onStatus(text: string): void;
+  deleteAction: ReactNode;
 }) {
   const { text, expanded, foldable, toggle } = useFoldedTitle(String(item.title || item.name || ''));
   const html = helpers.badgeHtml(item.location || '', item.cost || '', 'srcbig') + helpers.titleHtml(item) + partLabelHtml(item, queue);
@@ -500,6 +510,7 @@ function DetailTitle({ item, queue, helpers, actions, onStatus }: {
             applySavedItem(saved);
             actions.toast(t('catalog:itemEdit.saved'));
           }} />
+          {deleteAction}
         </span>
       </div>
     </div>

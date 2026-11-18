@@ -33,6 +33,7 @@ import { TableColumnControls, TableColumnResizer } from '../components/table-col
 import { TableSelectionHeader } from '../components/table-selection-header';
 import { joinList, t } from '../../i18n';
 import { codedText } from '../../core/server-text';
+import { MediaRowActions, useMediaContextMenu } from '../components/media-actions';
 import './catalog-list.css';
 
 const features = tableFeatures({ rowSortingFeature, rowSelectionFeature, rowPaginationFeature, columnVisibilityFeature });
@@ -49,6 +50,9 @@ const positions = new Map<string, ListState>();
 
 /** 服务端对完整筛选结果排序、分页；选择集及批量栏归现有馆藏控制器。 */
 export function CatalogListPage(props: CatalogGridProps) {
+  const context = useMediaContextMenu();
+  const contextProps = (item: MediaItem) => ({ item, actions: props.actions, selected: props.selected.has(item.id),
+    onOpen: props.filters?.state === 'trash' ? props.actions.openResource : props.actions.open });
   const preferences = useCatalogTablePreferences();
   const tints = useLibraryTints();
   const params = catalogParams(props.filters || {}, false);
@@ -118,6 +122,8 @@ export function CatalogListPage(props: CatalogGridProps) {
       helper.accessor(item => item.name || '', { id: 'name', header: t('catalog:shared.video'), enableSorting: true,
         cell: ({ row }) => <ListIdentity item={row.original} props={props} disabled={result.isPlaceholderData} /> }),
       helper.display({ id: 'library', header: t('catalog:shared.library'), cell: ({ row }) => <ListLibrary item={row.original} /> }),
+      helper.display({ id: 'actions', header: t('catalog:mediaActions.label'), cell: ({ row }) =>
+        <MediaRowActions {...contextProps(row.original)} disabled={result.isPlaceholderData} /> }),
       helper.display({ id: 'people', header: t('catalog:shared.performers'), cell: ({ row }) => <ListPeople item={row.original} props={props} /> }),
       /* 标签与卡片同一套：关注条目的标签不可点，其余点一下按这个标签筛选。 */
       helper.display({ id: 'tags', header: t('catalog:shared.tags'), cell: ({ row }) => {
@@ -155,7 +161,7 @@ export function CatalogListPage(props: CatalogGridProps) {
       helper.accessor(item => item.release_date, { id: 'release', header: t('catalog:catalogList.releaseDate'), enableSorting: true,
         cell: ({ row }) => row.original.release_date || '—' }),
     ]).sort((a, b) => COLUMN_ORDER.indexOf(a.id!) - COLUMN_ORDER.indexOf(b.id!));
-  }, [props.helpers, props.actions, props.layout, props.selectMode, result.isPlaceholderData]);
+  }, [props.helpers, props.actions, props.layout, props.selectMode, props.filters?.state, props.selected, result.isPlaceholderData]);
   const table = useTable({
     features, columns, data: items, getRowId: item => String(item.id),
     manualSorting: true, manualPagination: true, rowCount: total,
@@ -183,7 +189,13 @@ export function CatalogListPage(props: CatalogGridProps) {
       libraryEmpty: !!(result.data as { libraryEmpty?: boolean }).libraryEmpty }) || '';
     return <div data-catalog-view-mode="list" data-media-empty="" dangerouslySetInnerHTML={{ __html: html }} />;
   }
-  return <div data-catalog-view-mode="list" data-catalog-table="" aria-busy={result.isFetching || undefined} className="flex min-w-0 flex-col gap-4">
+  return <div data-catalog-view-mode="list" data-catalog-table="" aria-busy={result.isFetching || undefined} className="flex min-w-0 flex-col gap-4"
+    onKeyDown={event => {
+      const row = (event.target as HTMLElement).closest<HTMLElement>('[data-catalog-row]');
+      const item = row && items.find(item => item.id === Number(row.dataset.id));
+      if (item && !result.isPlaceholderData) context.onKeyDown(event, contextProps(item), row);
+    }}>
+    {context.menu}
     <div className="flex flex-wrap justify-end gap-2" role="toolbar" aria-label={t('catalog:catalogList.toolbar')}>
       <div data-toolbar-actions="">
       <TableColumnControls preferences={preferences} />
@@ -227,7 +239,8 @@ export function CatalogListPage(props: CatalogGridProps) {
           </TableRow>) : table.getRowModel().rows.map(row => <TableRow key={row.id} id={row.id} data-catalog-row="" data-id={row.original.id}
             data-guide-video={(!row.original.medium || row.original.medium === 'video') && row.original.location !== 'online' && !String(row.original.name || '').toLowerCase().endsWith('.iso') ? '' : undefined}
             data-library={tints.get(row.original.library_id || '')?.color ? row.original.library_id : undefined}
-            data-board-selected={row.getIsSelected() || undefined}>
+            data-board-selected={row.getIsSelected() || undefined}
+            onContextMenu={event => { if (!result.isPlaceholderData) context.onContextMenu(event, contextProps(row.original)) }}>
             {row.getVisibleCells().map(cell => <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>)}
             <TableCell data-table-space="" />
           </TableRow>)}

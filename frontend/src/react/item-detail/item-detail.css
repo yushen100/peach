@@ -141,9 +141,8 @@
 .peach-react [data-item-detail] [data-detail-title] [class~="ui-javidentity"] { display: inline; white-space: normal; }
 .peach-react [data-item-detail] [data-detail-title] [class~="javedition"] { margin-left: 5px; }
 .peach-react [data-item-detail] [data-detail-title][data-foldable] { cursor: pointer; }
-/* 展开、取景与两枚文件键：行内档的纯图标方键。图标必须显式写 stroke/fill，Lucide 是描边路径，
-   缺了就被按默认 fill:black 画成黑块。在线条目没有那两枚文件键，标题又没溢出时这一排里一枚
-   可见的键都没有，整行连边距一起收掉。 */
+/* 标题的展开、取景、文件、编辑与回收操作共用行内档的图标方键。Lucide 使用描边路径，
+   显式设置 stroke/fill，保持图标轮廓。 */
 .peach-react [data-item-detail] [data-title-tools] { display: flex; align-items: center; gap: 6px; margin: 6px 0 0; flex-wrap: nowrap; }
 .peach-react [data-item-detail] [data-title-tools]:not(:has(button:not([hidden]))) { display: none; }
 .peach-react [data-item-detail] [data-title-tools] button {
@@ -396,8 +395,7 @@
   color: #FF669D;
   background: color-mix(in srgb, #FF669D 12%, transparent);
 }
-.peach-react [data-item-detail] [data-fb="dispose"] { margin-left: auto; }
-.peach-react [data-item-detail] [data-fb="dispose"]:is(:hover, [aria-pressed="true"]) {
+.peach-react [data-item-detail] button[data-fb="dispose"]:is(:hover, [aria-pressed="true"]) {
   color: var(--meter);
   background: color-mix(in srgb, var(--meter) 12%, transparent);
 }

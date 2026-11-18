@@ -16,7 +16,7 @@ import {
   rowSelectionFeature, rowSortingFeature, columnVisibilityFeature, tableFeatures, useTable,
   type RowSelectionState, type SortingState,
 } from '@tanstack/react-table';
-import { RiDeleteBinLine, RiExternalLinkLine, RiRefreshLine, RiRssLine } from '@remixicon/react';
+import { RiCheckboxLine, RiDeleteBinLine, RiExternalLinkLine, RiPauseLine, RiPlayLine, RiRefreshLine, RiRssLine } from '@remixicon/react';
 
 import { avatarInner } from '@peach/card-art';
 import { mapLimit } from '@peach/legacy/core';
@@ -58,6 +58,7 @@ import {
 import { codedText } from '../../core/server-text';
 import { t } from '../../i18n';
 import { useTableFilters } from '../components/use-table-filters';
+import { useRowWorkContext, type WorkContextOperation } from '../components/work-context-menu';
 
 const feedTableFeatures = tableFeatures({
   rowPaginationFeature,
@@ -396,12 +397,6 @@ export function FeedSources({ readOnly, toast, onAdd, selection }: {
     },
   });
 
-  if (!data) {
-    return feeds.error
-      ? <Note tone="error" title={t('follow:feedSources.loadFailed')}>{errorMessage(feeds.error)}</Note>
-      : <div dangerouslySetInnerHTML={{ __html: skeletonHtml(t('follow:feedSources.loading'), { fill: false }) }} />;
-  }
-
   const check = () => void action.run('check', (signal) => checkFeeds(signal), () => void reload());
   const toggleRow = (id: number) => {
     selection?.onActivate();
@@ -413,11 +408,34 @@ export function FeedSources({ readOnly, toast, onAdd, selection }: {
   };
   const chosen = sources.filter((source) => selected.has(source.id));
   const failing = sources.filter((source) => source.last_error);
+  const menu = useRowWorkContext((key) => sources.find(source => String(source.id) === key), (source) => {
+    const operations: WorkContextOperation[] = [
+      { id: 'select', label: t(selected.has(source.id) ? 'follow:shared.clearSelection' : 'follow:shared.selectNamed', { name: feedName(source) }),
+        icon: RiCheckboxLine, run: () => toggleRow(source.id) },
+    ];
+    if (source.url) operations.unshift({ id: 'open', label: t('follow:sourceView.openSource'), icon: RiExternalLinkLine,
+      run: () => { window.open(source.url, '_blank', 'noopener,noreferrer') } });
+    if (!readOnly) operations.push(
+      { id: 'fetch', label: t('follow:feedSources.fetchNamed', { name: feedName(source) }), icon: RiRefreshLine,
+        disabled: !!action.busy, run: () => handlers.current.fetch(source) },
+      { id: 'enabled', label: t(source.enabled ? 'follow:shared.pause' : 'follow:shared.enable'),
+        icon: source.enabled ? RiPauseLine : RiPlayLine, disabled: !!action.busy, run: () => handlers.current.toggle(source, !source.enabled) },
+      { id: 'remove', label: t('follow:shared.removeNamed', { name: feedName(source) }), icon: RiDeleteBinLine,
+        danger: true, run: () => handlers.current.remove(source) },
+    );
+    return operations;
+  });
+  if (!data) {
+    return feeds.error
+      ? <Note tone="error" title={t('follow:feedSources.loadFailed')}>{errorMessage(feeds.error)}</Note>
+      : <div dangerouslySetInnerHTML={{ __html: skeletonHtml(t('follow:feedSources.loading'), { fill: false }) }} />;
+  }
 
   return (
     <div className="flex flex-col gap-3">
       <section aria-label={t('follow:feedSources.listLabel')}
-        className={cardClass({ padding: 'none', className: 'flex flex-col gap-4 px-6 py-5 max-sm:px-4' })}>
+        className={cardClass({ padding: 'none', className: 'flex flex-col gap-4 px-6 py-5 max-sm:px-4' })} onKeyDown={menu.onKeyDown}>
+      {menu.menu}
       <div data-responsive-toolbar="">
         <div data-toolbar-heading="">
         <h3 className="text-title-2-medium text-text-primary">{t('follow:feedSources.title')}</h3>
@@ -477,7 +495,8 @@ export function FeedSources({ readOnly, toast, onAdd, selection }: {
             </TableHeader>
             <TableBody renderEmptyState={() => t('shell:dataTable.empty')}>
               {table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id} id={row.id} data-follow-selected={row.getIsSelected() || undefined}>
+                <TableRow key={row.id} id={row.id} data-follow-selected={row.getIsSelected() || undefined} data-work-context-row={row.id}
+                  onContextMenu={event => menu.onContextMenu?.(event, row.original, row.id)}>
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}

@@ -165,6 +165,7 @@
   "dataTable": {
     "bulkActions": "{{label}}批量操作",
     "clearSelection": "取消选择",
+    "contextActions": "快捷操作",
     "empty": "没有记录",
     "recordUnit": "条记录",
     "selectAll": "全选{{label}}",

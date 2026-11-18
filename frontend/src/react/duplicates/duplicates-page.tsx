@@ -42,6 +42,8 @@ import {
   type DuplicateFile, type DuplicateGroup, type KeepRule,
 } from './duplicates';
 import { t } from '../../i18n';
+import { RiCheckboxLine, RiDeleteBinLine, RiPlayLine, RiRestartLine, RiSaveLine } from '@remixicon/react';
+import { useWorkContextMenu, type WorkContextOperation } from '../components/work-context-menu';
 
 const PLAY = spriteGlyph('play');
 const STACK = spriteGlyph('file-stack');
@@ -120,15 +122,25 @@ function evidenceFlag(group: DuplicateGroup) {
 }
 
 /** 一份副本，名称与路径沿用复核页的差异高亮。 */
-function FileRow({ file, reference, openItem, selected, onSelect }: {
+function FileRow({ file, reference, openItem, selected, onSelect, onTrash, busy }: {
   file: DuplicateFile; reference?: DuplicateFile; openItem(id: number): void;
   selected: boolean; onSelect?: (on: boolean) => void;
+  onTrash?: () => void; busy: boolean;
 }) {
+  const menu = useWorkContextMenu();
   const open = () => openItem(file.id);
+  const operations: WorkContextOperation[] = [{ id: 'open', label: t('catalog:mediaActions.open'), icon: RiPlayLine, run: open }];
+  if (onSelect) operations.push({ id: 'select', label: t(selected ? 'catalog:mediaActions.deselect' : 'catalog:mediaActions.select'),
+    icon: RiCheckboxLine, run: () => onSelect(!selected) });
+  if (onTrash) operations.push({ id: 'trash', label: t('cleanup:duplicates.moveToTrash'), icon: RiDeleteBinLine,
+    danger: true, disabled: busy, run: onTrash });
+  const context = { key: file.id, operations };
   const location = LOC[file.location] || file.location || file.drive;
   const thumbnail = `/thumb?id=${file.id}&c=4`;
   return (
-    <div className="duplicate-row items-center gap-3 border-t border-separator-border px-5 py-4 max-compact:p-4">
+    <div data-duplicate-file={file.id} className="duplicate-row items-center gap-3 border-t border-separator-border px-5 py-4 max-compact:p-4"
+      onContextMenu={event => menu.onContextMenu(event, context)} onKeyDown={event => menu.onKeyDown(event, context)}>
+      {menu.menu}
       {/* 封面格居中用 `inline-grid`：`grid` 与旧样式表同名，不生成这个工具类。 */}
       <button type="button" onClick={open} aria-label={t('cleanup:duplicates.previewFile', { name: file.name })}
         className="relative row-span-2 inline-grid aspect-16/10 w-full cursor-pointer place-items-center overflow-hidden rounded-2lg bg-media-placeholder text-text-secondary">
@@ -164,6 +176,7 @@ function FileRow({ file, reference, openItem, selected, onSelect }: {
 }
 
 export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
+  const menu = useWorkContextMenu();
   const [view, setView] = useState<'pending' | 'kept'>('pending');
   const duplicates = useQuery({ queryKey: DUPLICATES_KEY, queryFn: ({ signal }) => fetchDuplicates(signal) });
   const kept = useQuery({ queryKey: KEPT_DUPLICATES_KEY, queryFn: ({ signal }) => fetchKeptDuplicates(signal), enabled: view === 'kept' });
@@ -267,9 +280,9 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
       return next;
     });
   };
-  const runFiles = (group: DuplicateGroup, key: string) => {
+  const runFiles = (group: DuplicateGroup, key: string, files: ReadonlySet<number> = pickedFiles) => {
     if (pending) return;
-    const ids = group.files.filter((file) => pickedFiles.has(file.id)).map((file) => file.id);
+    const ids = group.files.filter((file) => files.has(file.id)).map((file) => file.id);
     if (!ids.length) return;
     void confirmModal({
       title: t('cleanup:duplicates.moveToTrash'),
@@ -301,6 +314,7 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
 
   return (
     <div className="mx-auto w-full max-w-board pb-10.5">
+      {menu.menu}
       {/* 首页那副两排玻璃浮层：上排批量动作与换视图，下排读数加「全选本页」。 */}
       <FilterGlassRows label={keptView ? t('cleanup:duplicates.keptLabel') : t('cleanup:duplicates.bulkKeep')}
         topLabel={keptView ? t('cleanup:duplicates.keptLabel') : t('cleanup:duplicates.bulkKeep')}
@@ -357,10 +371,33 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
         ? groups.map((group, index) => {
             const one = [group];
             const key = (rule: string) => `${index}:${rule}`;
+            const groupSelected = picked.has(groupKey(group));
+            const context = () => {
+              const operations: WorkContextOperation[] = [
+                { id: 'select', label: groupSelected ? t('catalog:mediaActions.deselect') : t('cleanup:duplicates.selectGroup', { code: group.code }),
+                  icon: RiCheckboxLine, run: () => toggle(group, !groupSelected) },
+                { id: 'keep', label: t(keptView ? 'cleanup:duplicates.unkeep' : 'cleanup:duplicates.keepAll'),
+                  icon: keptView ? RiRestartLine : RiSaveLine, disabled: !!pending, run: () => keepOne(group, key('keep'), !keptView) },
+              ];
+              if (!keptView) {
+                const rules = [
+                  ['largest', t('cleanup:duplicates.keepLargest')], ['longest', t('cleanup:duplicates.keepLongest')],
+                  ...mixedCloudPreferences(group.files, configured).map(location =>
+                    [location, t('cleanup:duplicates.keepStorage', { storage: LOC[location] || location })]),
+                  ['all', t('cleanup:duplicates.trashGroup')],
+                ] as [KeepRule, string][];
+                for (const [rule, label] of rules) operations.push({ id: rule, label,
+                  icon: rule === 'all' ? RiDeleteBinLine : RiSaveLine, danger: rule === 'all', disabled: !!pending,
+                  run: () => run({ groups: one, keep: rule, key: key(rule) }) });
+              }
+              return { key: groupKey(group), operations };
+            };
             return (
               <section key={groupKey(group)} aria-label={group.code} className={GROUP}
                 data-board-selected={picked.has(groupKey(group)) || undefined}>
-                <div className="flex flex-wrap items-center gap-3 bg-background-tertiary-default p-5 max-compact:p-4 dark:bg-background-secondary-default">
+                <div data-duplicate-group-tools="" className="flex flex-wrap items-center gap-3 bg-background-tertiary-default p-5 max-compact:p-4 dark:bg-background-secondary-default"
+                  onContextMenu={event => menu.onContextMenu(event, context())}
+                  onKeyDown={event => { if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) menu.onKeyDown(event, context()) }}>
                   <Checkbox slot={null} aria-label={t('cleanup:duplicates.selectGroup', { code: group.code })}
                     isSelected={picked.has(groupKey(group))} onChange={(on) => toggle(group, on)} />
                   <b className="text-title-2-medium text-text-primary">{group.code}</b>
@@ -403,7 +440,8 @@ export function DuplicatesPage({ openItem, toast, failure }: DuplicatesProps) {
                 </div>
                 <div>{group.files.map((file) => <FileRow key={file.id} file={file}
                   reference={group.files.find(other => other.id !== file.id)} openItem={openItem}
-                  selected={pickedFiles.has(file.id)} onSelect={keptView ? undefined : (on) => selectFile(file.id, on)} />)}</div>
+                  selected={pickedFiles.has(file.id)} onSelect={keptView ? undefined : (on) => selectFile(file.id, on)}
+                  busy={!!pending} onTrash={keptView ? undefined : () => runFiles(group, key('files'), new Set([file.id]))} />)}</div>
               </section>
             );
           })

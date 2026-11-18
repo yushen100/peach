@@ -121,6 +121,8 @@
     "removeSelectedBody_one": "{{count, number}} alias will be removed, and its sources will become a separate creator again.",
     "removeSelectedBody_other": "These {{count, number}} aliases will be removed, and their sources will become separate creators again.",
     "removeSelectedConfirm": "Remove selected aliases",
+    "removeRowAliases_one": "Remove alias in this group ({{count, number}})",
+    "removeRowAliases_other": "Remove aliases in this group ({{count, number}})",
     "removeSelectedCount_one": "Remove selected aliases ({{count, number}})",
     "removeSelectedCount_other": "Remove selected aliases ({{count, number}})",
     "removeSelectedTitle": "Remove selected creator aliases",

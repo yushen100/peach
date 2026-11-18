@@ -7,6 +7,7 @@ import { COMPLETION_ROW_SKELETON_HTML, completionRowRemembered } from './react/l
 /** 列表骨架一格的内容，壳与列表岛共用：名称格是缩略图和两行标题，艺人格是圆头像加一条，媒体库、厂牌格是
  *  小标识加一条，其余列一条短条。 */
 export function catalogListSkeletonCellHtml(column: string): string {
+  if (column === 'actions') return '<span class="flex gap-1"><i class="skeleton-sheen size-8 rounded-2lg"></i><i class="skeleton-sheen size-8 rounded-2lg"></i><i class="skeleton-sheen size-8 rounded-2lg"></i></span>';
   if (column === 'name') return '<span data-list-skeleton-name><i class="skeleton-sheen"></i><span><i class="skeleton-sheen"></i><i class="skeleton-sheen"></i></span></span>';
   if (column === 'people' || column === 'library' || column === 'studio') return `<span data-list-skeleton-mark="${column}"><b class="skeleton-sheen"></b><i class="skeleton-sheen"></i></span>`;
   return '<i data-list-skeleton-bar class="skeleton-sheen"></i>';

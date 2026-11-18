@@ -19,6 +19,16 @@
     "delivery": "候选先保存在本机。开启「公共资料贡献」后才会随每周快照发送复核。",
     "saved": "中文名候选已保存，分享与采纳状态请在公共资料贡献中查看"
   },
+  "mediaActions": {
+    "label": "作品操作",
+    "open": "打开详情",
+    "select": "选择作品",
+    "deselect": "取消选择",
+    "removeLater": "移出稍后看",
+    "delete": "删除",
+    "restore": "还原作品",
+    "failed": "作品操作未完成"
+  },
   "avatarPicker": {
     "backToChoices": "返回备选图片",
     "baseImage": "底图",

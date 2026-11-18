@@ -5,7 +5,8 @@
  * 小图按原尺寸摆再糊一圈底），页面不重画一遍；原尺寸取图与补底规则在
  * `web/css/01-base.css` 的 `[data-person-ring]`，量图的是 `installCardArt` 挂在文档上的 `load` 监听。
  * 格底、头像框、首字与读数的配色在同目录的 `index-people.css`。 */
-import { useLayoutEffect, useRef, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { RiArchiveLine, RiCheckboxLine, RiDeleteBinLine, RiEyeLine, RiEyeOffLine, RiFolderOpenLine, RiRssLine } from '@remixicon/react';
 import { Chip } from '@/components/base/badges/chip';
 import { entityDisplayName } from '../../core/entity-names';
 import { useEntityNames } from '../use-entity-names';
@@ -15,6 +16,10 @@ import { spriteGlyph } from '../components/sprite-glyph';
 import type { OnlineAuthor } from '../follow/online-vocab';
 import { ENTITY_KINDS, isCompany, personReadout, type IndexKind, type IndexPerson, type IndexProps, type PeopleLayout } from './index-data';
 import type { RosterPicks } from './roster-selection';
+import { rosterActions } from './roster-actions';
+import { toastHost } from './tag-operations';
+import { runBulkAction } from '../components/bulk-action';
+import { useWorkContextMenu, type WorkContextOperation } from '../components/work-context-menu';
 import { serverLabels } from '../../core/server-text';
 import { t } from '../../i18n';
 
@@ -43,7 +48,7 @@ const Rss = spriteGlyph('rss');
 function Cell(
   { name, readout, big, children, following, selected, onPress, ...data }:
   { name: string; readout: string; big: boolean; children: ReactNode; following?: boolean; selected?: boolean; onPress(): void }
-    & Record<`data-${string}`, string>,
+    & Record<`data-${string}`, string> & Pick<ButtonHTMLAttributes<HTMLButtonElement>, 'onContextMenu' | 'onKeyDown'>,
 ) {
   return (
     <button type="button" {...data} data-index-cell="" onClick={onPress}
@@ -65,23 +70,47 @@ function Cell(
 
 /** 本地名册。资料页的名册（事务所旗下艺人、片商旗下厂牌）摆的也是这一格，只借取图与去处两样。 */
 export function PeopleGrid(
-  { kind, items, layout, props, picks }:
+  { kind, items, layout, props, picks, hiddenView = false }:
   {
     kind: Exclude<IndexKind, 'tags'>; items: IndexPerson[]; layout: PeopleLayout;
     props: Pick<IndexProps, 'personAvatar' | 'openEntity'>;
     /** 多选模式下才有：点一格切换选中，不进资料页。 */
     picks?: RosterPicks;
+    hiddenView?: boolean;
   },
 ) {
   const company = isCompany(kind) || kind === 'series';
+  const menu = useWorkContextMenu();
   useEntityNames();
   const big = layout === 'big';
   return (
     <div data-index-grid="" data-layout={layout} data-cells={company ? 'company' : 'people'}
       data-select-mode={picks ? '' : undefined}
       className={`${company ? 'index-grid-company' : 'index-grid-person'} gap-3`}>
+      {menu.menu}
       {items.map((item) => {
         const entityKind = item.entity_kind || ENTITY_KINDS[kind];
+        const id = item.entity_id ?? item.id;
+        const open = () => props.openEntity(entityKind, item.k);
+        const context = () => {
+          const operations: WorkContextOperation[] = [{ id: 'open', label: t('catalog:mediaActions.open'), icon: RiFolderOpenLine, run: open }];
+          if (id && picks) operations.push({ id: 'select',
+            label: t(picks.picked.has(id) ? 'catalog:mediaActions.deselect' : 'catalog:mediaActions.select'),
+            icon: RiCheckboxLine, run: () => picks.toggle(id) });
+          if (id) {
+            const icons: Record<string, WorkContextOperation['icon']> = {
+              follow: RiRssLine, unfollow: RiRssLine, hide: RiEyeOffLine, unhide: RiEyeLine, trash: RiArchiveLine, delete: RiDeleteBinLine,
+            };
+            for (const action of rosterActions(kind, hiddenView)) {
+              if ((action.key === 'follow' && item.following) || (action.key === 'unfollow' && !item.following)) continue;
+              const label = action.key === 'trash' ? t('catalog:rosterActions.deleteChoice.trash')
+                : action.key === 'delete' ? t('catalog:rosterActions.deleteMenu') : action.label;
+              operations.push({ id: action.key, label, icon: icons[action.key]!, danger: action.danger,
+                run: async () => { await runBulkAction(action, [item], toastHost) } });
+            }
+          }
+          return { key: id ?? item.k, operations };
+        };
         const avatar = props.personAvatar(item, entityKind, big);
         /* 读数一行：作品数、身份分类，编辑资料里新建的档案（ADR-0165）再接一个「自建」。 */
         const readout = [
@@ -93,7 +122,9 @@ export function PeopleGrid(
           <Cell key={`${entityKind}:${item.entity_id || item.k}`} data-k={item.k} data-kind={entityKind} name={entityDisplayName(entityKind, item.k, item.entity_id)} readout={readout}
             {...(item.user_created ? { 'data-user-created': '' } : {})}
             big={big} following={item.following} selected={picks ? picks.picked.has(item.entity_id ?? item.id ?? 0) : undefined}
-            onPress={() => picks ? picks.toggle(item.entity_id ?? item.id ?? 0) : props.openEntity(entityKind, item.k)}>
+            onPress={() => picks ? picks.toggle(id ?? 0) : open()}
+            onContextMenu={event => menu.onContextMenu(event, context())}
+            onKeyDown={event => { if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) menu.onKeyDown(event, context()) }}>
 
             <Ring html={avatar.html} face={avatar.face} company={company} big={big} />
           </Cell>

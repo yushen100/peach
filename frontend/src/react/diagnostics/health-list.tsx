@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { RiFileListLine } from '@remixicon/react';
+import { RiFileCopyLine, RiFileListLine, RiPlayLine } from '@remixicon/react';
 import { Button } from '@/components/base/buttons/button';
 import { LinkButton } from '@/components/base/buttons/link-button';
 import { fmtDur, fmtSize, LOC } from '@peach/legacy/core';
@@ -82,6 +82,11 @@ export function HealthList({ group: original, groupKey, openItem, receipt }: {
           filters={{ values: filters, facets: group.column_facets ?? {}, onChange: setFilters }}
           items={group.items} columns={columns} rowId={item => String(item.id)} rowLabel={identity}
           selected={selected} onSelected={setSelected}
+          contextOperations={item => [
+            { id: 'open', label: t('catalog:mediaActions.open'), icon: RiPlayLine, run: () => openItem(item.id) },
+            { id: 'copy', label: t('manage:healthList.copyRow'), icon: RiFileCopyLine,
+              disabled: action.busy === 'copy', run: () => copy([item]) },
+          ]}
           actions={() => []} controls={items => <Button size="small" variant="secondary" {...busyProps(action.busy === 'copy')}
             onClick={() => copy(items)}>{t('manage:healthList.copySelected')}</Button>} />
       </Stack>}

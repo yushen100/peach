@@ -2,7 +2,8 @@
  * 那一份模板（`feedNewCardHtml`）。忽略的那条当场消失，已看过的留在原位只是变淡，想要那颗键
  * 按下去换成填实的星；三样都直接改这一行的节点，不重画整行——重画会把横滚的位置和自动滚动
  * 一起打回起点。一条都没有就整块不出。 */
-import { useContext, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from 'react';
+import { useContext, useEffect, useLayoutEffect, useRef, useState, type MouseEvent, type KeyboardEvent } from 'react';
+import { RiEyeLine, RiEyeOffLine, RiPlayLine, RiStarLine } from '@remixicon/react';
 import { createPortal } from 'react-dom';
 import { ShellActionsContext } from '../router/router';
 import { SourceAvatar } from '../components/source-avatar';
@@ -15,6 +16,7 @@ import { fetchCoverNow, type CoverNow } from '../jav/jav';
 
 import type { FeedNew } from './feed-new';
 import { t } from '../../i18n';
+import { useWorkContextMenu, type WorkContextOperation } from '../components/work-context-menu';
 
 /** 封面格的「优先处理」「立即重试」：不进后台那条队，当场取这一部的封面，等的时候是不定进度圆环。
  *  取完只换这一格，不重画整行；没取到就落成「无封面」，原因换成这一次的。回这一部取没取到。 */
@@ -45,6 +47,7 @@ export function FeedNewRow({ feedNew, host, wire, act, settled, error, retry }: 
   settled?(hasItems: boolean): void;
 }) {
   const actions = useContext(ShellActionsContext);
+  const menu = useWorkContextMenu();
   const box = useRef<HTMLDivElement>(null);
   const [sourceFaces, setSourceFaces] = useState<HTMLElement[]>([]);
   const html = feedNew?.items.length ? feedNew.html : '';
@@ -107,12 +110,32 @@ export function FeedNewRow({ feedNew, host, wire, act, settled, error, retry }: 
       settled?.(false);
     }
   };
+  const context = (event: MouseEvent<HTMLDivElement> | KeyboardEvent<HTMLDivElement>) => {
+    const card = (event.target as Element).closest<HTMLElement>('[data-feed-id]');
+    if (!card) return;
+    const link = card.querySelector<HTMLAnchorElement>('a.feednewopen');
+    const operations: WorkContextOperation[] = [];
+    if (link && actions) operations.push({ id: 'open', label: t('catalog:mediaActions.open'), icon: RiPlayLine,
+      run: () => actions.navigate(link.getAttribute('href')!) });
+    const want = card.querySelector<HTMLButtonElement>('[data-feed-action="want"],[data-feed-action="unwant"]');
+    if (want) operations.push({ id: 'want', label: t(want.dataset.feedAction === 'unwant' ? 'follow:wantToggle.remove' : 'follow:wantToggle.want'),
+      icon: RiStarLine, disabled: want.disabled, run: () => want.click() });
+    const seen = card.querySelector<HTMLButtonElement>('[data-feed-action="read"]');
+    if (seen) operations.push({ id: 'read', label: t('shell:feedNew.markRead'), icon: RiEyeLine,
+      disabled: card.classList.contains('isread') || seen.disabled, run: () => seen.click() });
+    const ignore = card.querySelector<HTMLButtonElement>('[data-feed-action="ignore"]');
+    if (ignore) operations.push({ id: 'ignore', label: t('shell:feedNew.ignore'), icon: RiEyeOffLine,
+      disabled: ignore.disabled, run: () => ignore.click() });
+    const target = { key: card.dataset.feedId!, operations };
+    if (event.type === 'contextmenu') menu.onContextMenu(event as MouseEvent<HTMLDivElement>, target, card);
+    else menu.onKeyDown(event as KeyboardEvent<HTMLDivElement>, target, card);
+  };
   // 这一行显示着、封面还在排队的那几部一键插队：首页与女优页各是一行，各管自己的。宿主在 Tailwind 作用域外，
   // 提示条与进度条套一层 `peach-react` 进去（与骨架同一个写法）。
   if (error) return <RetryNote message={error} onRetry={() => retry?.()} />;
   if (!feedNew && reserve) return <div dangerouslySetInnerHTML={{ __html: feedNewSkeletonHtml() }} />;
   return html ? <><div className="peach-react" data-feed-cover-queue><CoverQueue scope={t('follow:newReleasesRow.coverQueueScope')} codes={queued} fetchOne={cover} /></div>
-    <div ref={box} className="contents" onClick={(event) => { void click(event) }}
+    {menu.menu}<div ref={box} className="contents" onClick={(event) => { void click(event) }} onContextMenu={context} onKeyDown={context}
     dangerouslySetInnerHTML={{ __html: html }} />{sourceFaces.map((face, index) => createPortal(
       <SourceAvatar code={face.dataset.code!} person={{ name: face.dataset.name!, source_actor_id: face.dataset.actor! }} />,
       face, `${html.length}:${index}`))}</> : null;

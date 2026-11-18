@@ -19,6 +19,8 @@ import { TableColumnControls, TableColumnResizer } from './table-column-controls
 import { TableSelectionHeader } from './table-selection-header';
 import { useTableFilters, type TableFilter, type RemoteTableFilters } from './use-table-filters';
 import { ActivityStatus } from './activity-motion';
+import { runBulkAction } from './bulk-action';
+import { rowSelectionOperation, useRowWorkContext, type WorkContextOperation } from './work-context-menu';
 import { t } from '../../i18n';
 
 const features = tableFeatures({
@@ -59,11 +61,13 @@ interface DataTableProps<T> {
   unit?: string;
   filters?: RemoteTableFilters;
   busy?: boolean;
+  contextOperations?(item: T): WorkContextOperation[];
 }
 
 /** 数据表共用排序、跨页选择与分页；业务动作只接收仍在清单里的所选行。 */
 export function DataTable<T extends RowData>({ label, items, columns, rowId, rowLabel, selected, onSelected, actions, controls,
-  title = label, titleId, description, footerActions, toolbarActions, panel = true, unit = t('shell:dataTable.recordUnit'), filters, busy }: DataTableProps<T>) {
+  title = label, titleId, description, footerActions, toolbarActions, panel = true, unit = t('shell:dataTable.recordUnit'), filters, busy,
+  contextOperations }: DataTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const preferenceColumns = useMemo(() => [
     { id: 'select', label: t('shell:dataTable.selectColumn'), width: 48, min: 48, max: 48, required: true },
@@ -115,6 +119,20 @@ export function DataTable<T extends RowData>({ label, items, columns, rowId, row
       onSelected([...available.values()].filter((item) => next[rowId(item)]).map(rowId));
     },
   });
+  const context = useRowWorkContext((key) => available.get(key), busy ? undefined : (item) => {
+    const id = rowId(item);
+    const clearRow = () => table.setRowSelection(({ [id]: _removed, ...rest }) => rest);
+    const rowActions = actions([item], clearRow).flatMap(({ rowAction, action, host, items: targets, disabled, done }) =>
+      rowAction && targets.length ? [{
+        ...rowAction, id: action.key, danger: action.danger, disabled,
+        run: async () => { if (await runBulkAction(action, targets, host)) done?.() },
+      }] : []);
+    return [
+      ...(contextOperations?.(item) ?? []),
+      rowSelectionOperation(Boolean(rowSelection[id]), () => table.getRow(id)?.toggleSelected()),
+      ...rowActions,
+    ];
+  });
   const chosen = selected.flatMap(id => { const item = available.get(id); return item ? [item] : [] });
   useEffect(() => {
     if (retained.length !== chosen.length || retained.some((item, index) => item !== chosen[index])) setRetained(chosen);
@@ -122,7 +140,8 @@ export function DataTable<T extends RowData>({ label, items, columns, rowId, row
   return (
     <div data-data-table-panel={panel || undefined} aria-busy={busy || undefined} className={panel
       ? cardClass({ padding: 'none', className: 'flex flex-col gap-4 px-6 py-5 max-sm:px-4' })
-      : 'flex min-w-0 flex-col gap-4'}>
+      : 'flex min-w-0 flex-col gap-4'} onKeyDown={context.onKeyDown}>
+      {context.menu}
       <div data-responsive-toolbar="" role="toolbar" aria-label={t('shell:dataTable.toolbar', { label })}>
         <div data-toolbar-heading="">
         <h3 id={titleId} className="text-title-2-medium text-text-primary">{title}</h3>
@@ -160,7 +179,9 @@ export function DataTable<T extends RowData>({ label, items, columns, rowId, row
           </TableHeader>
           <TableBody renderEmptyState={() => busy ? null : t('shell:dataTable.empty')}>
             {(busy ? [] : table.getRowModel().rows).map((row) => (
-              <TableRow key={row.id} id={row.id} data-board-selected={row.getIsSelected() || undefined}>
+              <TableRow key={row.id} id={row.id} data-board-selected={row.getIsSelected() || undefined}
+                data-work-context-row={row.id}
+                onContextMenu={context.onContextMenu ? event => context.onContextMenu?.(event, row.original, row.id) : undefined}>
                 {row.getVisibleCells().map((cell) => <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>)}
                 <TableCell data-table-space="" />
               </TableRow>

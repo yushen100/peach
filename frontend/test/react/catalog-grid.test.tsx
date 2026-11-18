@@ -5,6 +5,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MediaCard, cardRatio, type MediaCardVariant } from '../../src/react/components/media-card';
+import { MediaRowActions } from '../../src/react/components/media-actions';
 import { CatalogGridPage, LoadMore } from '../../src/react/catalog-grid/catalog-grid-page';
 import type { CatalogGridProps } from '../../src/react/catalog-grid/types';
 import {
@@ -683,6 +684,44 @@ describe('作品卡', () => {
     expect(actions.watchLater).toHaveBeenCalledWith(expect.objectContaining({ id: 16 }), expect.any(Function));
     expect(onOpen).not.toHaveBeenCalled();
     expect(host.querySelector('[data-later]')?.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('作品右键菜单操作当前卡片，聚焦滚动保留菜单，页面滚轮关闭菜单', async () => {
+    const { card, onOpen } = await render(item(160));
+    const event = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 50 });
+    await act(async () => { card.dispatchEvent(event) });
+    expect(event.defaultPrevented).toBe(true);
+    expect(document.querySelector('[role="menu"]')?.textContent).toContain('选择作品');
+    expect(onOpen).not.toHaveBeenCalled();
+    await act(async () => { document.dispatchEvent(new Event('scroll')) });
+    expect(document.querySelector('[role="menu"]')).not.toBeNull();
+    const copySource = document.createElement('select');
+    copySource.dataset.copyEditor = '';
+    document.body.append(copySource);
+    await act(async () => { copySource.focus() });
+    expect(document.querySelector('[role="menu"]')).not.toBeNull();
+    await act(async () => { document.body.dispatchEvent(new WheelEvent('wheel', { bubbles: true })) });
+    expect(document.querySelector('[role="menu"]')).toBeNull();
+  });
+
+  it('列表删除失败显示原因并允许重试，回收站只提供还原', async () => {
+    const target = item(161);
+    const actions = actionsFor();
+    vi.mocked(actions.resourceOperation).mockRejectedValueOnce(new Error('写入失败'));
+    const host = await mount(<MediaRowActions item={target} actions={actions} selected={false} onOpen={vi.fn()} />);
+    const remove = host.querySelector<HTMLButtonElement>('[aria-label="删除"]')!;
+    await click(remove);
+    expect(host.querySelector('[role="alert"]')?.textContent).toBe('写入失败');
+    expect(remove.disabled).toBe(false);
+    await click(remove);
+    expect(actions.resourceOperation).toHaveBeenLastCalledWith(target, 'dispose');
+    expect(host.querySelector('[role="alert"]')).toBeNull();
+
+    const trash = item(162, { disposal: 'trash' });
+    const restored = await mount(<MediaRowActions item={trash} actions={actions} selected={false} onOpen={vi.fn()} />);
+    expect(restored.querySelector('[aria-label="稍后看"]')).toBeNull();
+    await click(restored.querySelector('[aria-label="还原作品"]'));
+    expect(actions.resourceOperation).toHaveBeenLastCalledWith(trash, 'restore');
   });
 
   it('回收站里的资源按类型起名，卡底那颗「还原」还原这一条、不打开它，归入原因排在标签行最前', async () => {

@@ -5,6 +5,7 @@
  * 标签和之后被人改过、不动的作品，确认后才写账本。撤回的回执留在表上方，被跳过的作品可以
  * 点开核对。没有自动写入也没有回执时整块不出现。 */
 import { useState } from 'react';
+import { RiArrowGoBackLine, RiPlayLine } from '@remixicon/react';
 import { useQuery } from '@tanstack/react-query';
 import { VisuallyHidden } from 'react-aria-components';
 
@@ -130,8 +131,10 @@ export function AutoLandingsCard(
           description={DESCRIPTION}
           rowId={(item) => item.item_key} rowLabel={(item) => `${workLabel(item)} ${fieldName(item)}`}
           selected={selected} onSelected={setSelected}
-          actions={(chosen) => [{ action: revert(chosen.length), items: chosen, host, disabled: locked,
-            done: () => setSelected([]) }]} />
+          contextOperations={({ asset_id, gone }) => asset_id && !gone
+            ? [{ id: 'open', label: t('catalog:mediaActions.open'), icon: RiPlayLine, run: () => openItem(asset_id) }] : []}
+          actions={(chosen, clear) => [{ action: revert(chosen.length), items: chosen, host, disabled: locked, done: clear,
+            rowAction: { label: t('manage:shared.revert'), icon: RiArrowGoBackLine } }]} />
       ) : null}
     </section>
   );

@@ -299,6 +299,7 @@
   "healthList": {
     "copied": "已复制清单",
     "copyList": "复制当前清单",
+    "copyRow": "复制这条记录",
     "copySelected": "复制所选",
     "durationSeconds": "时长（秒）",
     "emptyBody": "没有需要处理的作品。",

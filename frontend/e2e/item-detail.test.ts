@@ -59,6 +59,24 @@ describe('作品详情岛', () => {
     await browser.close();
   });
 
+  it('删除与编辑属于同一排工具按钮，桌面和手机保持相同尺寸与间距', { timeout: 60_000 }, async () => {
+    for (const viewport of [DESKTOP, MOBILE]) {
+      const opened = await openItemPage(browser, `/assets/${ITEM.plain}`, viewport);
+      try {
+        const geometry = await opened.page.locator('[data-title-tools]').evaluate(node => {
+          const edit = node.querySelector('[aria-label="编辑资料"]')!.getBoundingClientRect();
+          const remove = node.querySelector('[data-item-delete]')!.getBoundingClientRect();
+          return { edit: { y: edit.y, width: edit.width, height: edit.height },
+            remove: { y: remove.y, width: remove.width, height: remove.height }, gap: remove.left - edit.right };
+        });
+        assert.ok(Math.abs(geometry.edit.y - geometry.remove.y) <= 1, JSON.stringify(geometry));
+        assert.equal(geometry.edit.width, geometry.remove.width);
+        assert.equal(geometry.edit.height, geometry.remove.height);
+        assert.ok(geometry.gap >= 0 && geometry.gap <= 12, JSON.stringify(geometry));
+      } finally { await opened.close() }
+    }
+  });
+
   it('推荐加载保持详情高度稳定，理由与悬停圆角适配默认视口', { timeout: 60_000 }, async () => {
     const opened = await openItemPage(browser, `/assets/${ITEM.plain}`, DESKTOP);
     let release = () => {};
@@ -602,7 +620,7 @@ describe('作品详情岛', () => {
         const rects = await actions.evaluateAll(nodes => nodes.map(node => {
           const r = node.getBoundingClientRect(); return { top: r.top, width: r.width };
         }));
-        assert.equal(rects.length, 8);
+        assert.equal(rects.length, 7);
         assert.equal(await page.locator('#stage [data-fb="cloud-download"]').count(), 0);
         assert.ok(Math.max(...rects.map(r => r.top)) - Math.min(...rects.map(r => r.top)) <= 1);
         assert.ok(rects.every(r => r.width >= 30));

@@ -93,6 +93,7 @@
     "removePartialError": "{{error}}（已移除 {{removed}} 个别名，还有 {{count, number}} 个未移除）",
     "removeSelectedBody": "将移除以下 {{count, number}} 个别名，对应来源恢复为独立创作者组。",
     "removeSelectedConfirm": "移除所选别名",
+    "removeRowAliases": "移除这组别名（{{count, number}}）",
     "removeSelectedCount": "移除所选别名（{{count, number}}）",
     "removeSelectedTitle": "移除所选创作者别名",
     "removeTitle": "移除创作者别名",

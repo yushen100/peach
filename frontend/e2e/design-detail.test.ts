@@ -319,7 +319,7 @@ describe('设计决定：关注详情、作品详情、播放器与侧栏', () =
     }
   });
 
-  it('作品详情标签与反馈键：标签复用卡片，单击回收反馈键悬停换色', { timeout: 60_000 }, async () => {
+  it('作品详情的标签复用卡片样式，标题下的回收按钮悬停换色', { timeout: 60_000 }, async () => {
     const opened = await openItemPage(browser, `/assets/${ITEM.plain}`, DESKTOP);
     try {
       const page = opened.page;
@@ -356,7 +356,7 @@ describe('设计决定：关注详情、作品详情、播放器与侧栏', () =
         if (await color() === rest) unchanged.push(selector);
       }
       assert.deepEqual(unchanged, [], '漏写配色的那一枚全程停在 --muted，看着像不能点');
-      const dispose = page.locator('#stage [data-stage-actions] [data-fb="dispose"]');
+      const dispose = page.locator('#stage [data-title-tools] [data-item-delete]');
       await page.mouse.move(0, 0);
       const read = () => dispose.evaluate(node => ({ color: getComputedStyle(node).color,
         background: getComputedStyle(node).backgroundColor, hold: node.hasAttribute('data-hold-confirm') }));

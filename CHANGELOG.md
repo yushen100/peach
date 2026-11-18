@@ -14,6 +14,10 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ## [Unreleased]
 
+### Added / 新增
+
+- **Interface**: Right-click cards and table rows for item actions, use the Library action column, or delete from the icon group under a work's title (#773). / **界面**：卡片与表格行可右键操作，馆藏列表新增操作栏，作品详情的删除入口放在标题下方的按钮组（#773）。
+
 ## [0.59.0] - 2026-11-18
 
 ### Added / 新增

@@ -25,6 +25,7 @@ import type { PlaylistsProps } from '../bundle';
 import { EmptyState, EmptyFocusButton } from '../components/empty-state';
 import { RetryNote } from '../components/grid-reveal';
 import { MixCard } from '../components/mix-card';
+import type { WorkContextOperation } from '../components/work-context-menu';
 import { ModalFrame } from '../components/modal-frame';
 import { ObjectOrderDialog } from '../components/object-order-dialog';
 import { spriteGlyph } from '../components/sprite-glyph';
@@ -218,6 +219,16 @@ export function PlaylistsPage({ openPlaylist, openEntity, canFlip, toast, revisi
             {items.map((row) => {
               const resume = resumeAssetId(row);
               const name = row.name.trim() || t('catalog:playlistsPage.untitled');
+              const onRename = () => setRenaming(row);
+              const onSort = () => setSorting(row);
+              const onDelete = () => remove(row);
+              const contextOperations: WorkContextOperation[] = [
+                { id: 'rename', label: t('catalog:playlistsPage.editName'), icon: PENCIL, run: onRename },
+                { id: 'sort', label: t('catalog:playlistOrder.reorder'), icon: PLAYLIST, run: onSort },
+                { id: 'delete', label: t('catalog:playlistsPage.delete'), icon: TRASH, danger: true, run: onDelete },
+              ];
+              if (resume) contextOperations.unshift({ id: 'open', label: t('catalog:mediaActions.open'),
+                icon: spriteGlyph('play'), run: () => openPlaylist(row.id, resume) });
               return (
                 <MixCard key={row.id} data-playlist-card={String(row.id)} name={name}
                   caption={row.source_kind === 'mix' ? t('catalog:playlistsPage.savedFromMix') : t('catalog:playlistsPage.manual')}
@@ -227,7 +238,8 @@ export function PlaylistsPage({ openPlaylist, openEntity, canFlip, toast, revisi
                   canFlip={canFlip} faces={row.faces || []} onOpenEntity={openEntity}
                   {...(resume ? { onOpen: () => openPlaylist(row.id, resume) } : {})}
                   openLabel={t('catalog:playlistsPage.open', { name })}
-                  menu={<PlaylistMenu name={name} onRename={() => setRenaming(row)} onDelete={() => remove(row)} onSort={() => setSorting(row)} />} />
+                  contextOperations={contextOperations}
+                  menu={<PlaylistMenu name={name} onRename={onRename} onDelete={onDelete} onSort={onSort} />} />
               );
             })}
           </div>
