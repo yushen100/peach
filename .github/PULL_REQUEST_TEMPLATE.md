@@ -18,6 +18,8 @@ Refs #
 
 ## 检查项
 
+<!-- 维护者及智能体创建 PR 时按实际 diff 添加仓库现有标签，创建后回读。 / Maintainers and agents add repository labels based on the diff and verify them after creation. -->
+
 - [ ] 大改动已先开 issue 讨论（小修不需要）
 - [ ] 跑过测试，写明测试域：`& .\scripts\test.ps1 -Scope <域>` 或 `./scripts/test.sh <域>`，
       结果贴在下面

@@ -5,8 +5,8 @@ description: Peach 收集或汇总用户反馈、代码交付、issue 与 PR、�
 
 # 反馈、Issue 交付与验证
 
-最后复核：2026-11-12
-证据来源：用户确认的维护者 PR 流程、相关修复合为一个 PR 的要求、反馈来源与优先级约定（2026-11-03 用户确认 GitGud 不收反馈；2026-11-09 汇总漏掉 [peach-roadmap#36](https://github.com/peach-mitao/peach-roadmap/issues/36)）、部分采用改 cherry-pick（11-12 确认）、issue 报告者与 issue 内补丁的署名口径（2026-11-05 用户确认）、[issue #95](https://github.com/peach-mitao/peach/issues/95)、[PR #96](https://github.com/peach-mitao/peach/pull/96)、[项目看板状态判据](../../../scripts/project_board.py)。
+最后复核：2026-11-18
+证据来源：用户确认的反馈覆盖、合批、部分采纳、署名与开单标签要求，[peach-roadmap#36](https://github.com/peach-mitao/peach-roadmap/issues/36) 漏收记录和 [项目看板状态判据](../../../scripts/project_board.py)。
 
 ## 反馈收集与汇总
 
@@ -35,7 +35,7 @@ description: Peach 收集或汇总用户反馈、代码交付、issue 与 PR、�
 - 默认不自动发表 issue 或 Discussions 评论，也不回复报告者；只有用户明确要求代发时才发送。保留人工已有回复。
 - 起草回复时，缺口若源于早期只按维护者自用环境与偏好设计，如实说明这个起点和现在的补齐方向。只写有代码、提交或维护者过往回复为据的经历，推断的内容标出来交维护者确认。
 - 重复或交叉的 issue、PR 要指定一条继续跟踪，其余在回复里引用它；互相包含或改同一批文件的 PR 先定评审与合入顺序。
-- 在用户授权的 issue 维护范围内，优先用现有标签表达平台、影响域与验证状态。先读取标签和原生 Issue Type，避免重复分类。
+- Claude 与 Codex 创建 issue 或 PR（含 Draft）时，按 [Issue 字段](../../../CONTRIBUTING.md#右侧字段) 与 [PR 标签](../../../CONTRIBUTING.md#创建-pr-时添加标签) 设置现有标签，回读并补齐。存量标签按授权维护。
 
 ## 合并责任
 
