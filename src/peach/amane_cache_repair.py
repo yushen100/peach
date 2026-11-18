@@ -54,27 +54,22 @@ def collect(connection, sources: Path, misses: Path, candidates: Path) -> dict:
     entries = remembered.get('misses', {})
     free = entries.get('freejavbt', {})
     affected['freejavbt'].update(code for code in free if _DATE_CODE.fullmatch(code))
-    rows = read_rows(candidates, missing_ok=True)
-    for row in rows:
-        if (_DATE_CODE.fullmatch(row.get('code', ''))
-                and any(entry.get('source') == 'freejavbt'
-                        for entry in json.loads(row.get('candidates_json') or '[]'))):
+    stale_candidates = []
+    for row in read_rows(candidates, missing_ok=True):
+        if not _DATE_CODE.fullmatch(row.get('code', '')):
+            continue
+        choices = json.loads(row.get('candidates_json') or '[]')
+        stale = [entry for entry in choices if entry.get('source') == 'freejavbt']
+        if stale:
             affected['freejavbt'].add(row['code'])
+            stale_candidates.append({'row': row, 'candidates': stale})
     codes = affected['freejavbt'] | affected['makers']
     removed_misses = {source: {code: stamp for code, stamp in entries.get(source, {}).items()
                                if code in affected.get(source, codes)}
                       for source in ('freejavbt', 'makers', 'cover')}
     approved = {row[0] for row in connection.execute(
         "SELECT item_key FROM review_decision WHERE category='metadata_fields' AND status='approved'")}
-    withdrawn = []
-    for row in rows:
-        if row.get('item_key') in approved or row.get('code') not in codes:
-            continue
-        choices = json.loads(row.get('candidates_json') or '[]')
-        stale = [entry for entry in choices if entry.get('source') == 'freejavbt'
-                 and _DATE_CODE.fullmatch(row.get('code', ''))]
-        if stale:
-            withdrawn.append({'row': row, 'candidates': stale})
+    withdrawn = [item for item in stale_candidates if item['row'].get('item_key') not in approved]
     assets = [row[0] for row in connection.execute(
         "SELECT id,code FROM asset WHERE medium='video' AND disposal IS NULL") if row[1] in codes]
     return {'snapshots': snapshots, 'misses': removed_misses, 'withdrawn': withdrawn,
