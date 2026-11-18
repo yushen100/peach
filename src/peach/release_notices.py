@@ -41,6 +41,8 @@ ICON_MEANINGS = {
     "resize": "video dimensions and orientation",
     "server": "server, NAS and system files",
     "person": "performers and people",
+    "filter": "filtering lists and tables",
+    "edit": "editing work details and covers",
     "shield": "access, sign-in and security",
     "stack": "Docker images and packaging",
     "switch": "switching between sources or hosts",
@@ -55,6 +57,16 @@ ICON_MEANINGS = {
 GENERIC_ICONS = frozenset({"sparkle"})
 
 NOTICES: dict[str, dict] = {
+    "0.59.0": {
+        "level": "notice",
+        "features": [
+            {"id": "library-filters", "refs": ["#754", "#744"], "icon": "filter", "route": "/"},
+            {"id": "edit-work-details", "refs": ["#187"], "icon": "edit"},
+            {"id": "select-duplicates", "refs": ["#739"], "icon": "select", "route": "/duplicates"},
+            {"id": "contribute-performer-names", "refs": ["#768"], "icon": "person",
+             "route": "/settings/maintenance#seedSharing"},
+        ],
+    },
     "0.58.0": {
         "level": "notice",
         "features": [
