@@ -28,7 +28,7 @@ classifiers = [
 dependencies = [
   "ebmlite==3.4.1",
   "itsdangerous==2.2.0",
-  "filelock==4.2.10",
+  "filelock==4.2.11",
   "tldextract==5.4.0",
   "APScheduler==3.11.3",
   "beautifulsoup4==4.15.0",
@@ -36,7 +36,7 @@ dependencies = [
   "browserexport==0.4.4",
   "pyahocorasick==2.3.1",
   "curl_cffi==0.17.0",
-  "fastapi==0.162.7",
+  "fastapi==0.163.2",
   # grpcio 与 protobuf 给云下载调 CloudDrive2 的 gRPC 接口（`downloads_clouddrive.py`）。
   # 消息代码由 grpcio-tools 1.84.0 生成后提交，它自带的 protoc 对应 protobuf 7.35.1，
   # 运行时 protobuf 必须同一大版本且不低于它。
@@ -77,8 +77,8 @@ peach-tray = "peach.error_reporting:tray_main"
 
 [project.optional-dependencies]
 dev = [
-    "filelock==4.2.10",
-    "httpx2==2.16.0",
+    "filelock==4.2.11",
+    "httpx2==2.16.2",
     "ruff==0.17.5",
     "seiso==0.4.0",
 ]
@@ -90,10 +90,10 @@ macos = ["pyobjc-framework-Cocoa==12.2.2; sys_platform == 'darwin'"]
 # numpy 本来就是 opencv 的传递依赖，这里显式钉住：`face_detect.decode` 直接 import 它
 # 把字节喂给 `cv2.imdecode`，被 import 的外部模块必须有声明的归属。
 vision = [
-    "opencv-python-headless==5.0.0.93", "numpy==2.5.4",
+    "opencv-python-headless==5.0.0.93", "numpy==2.5.5",
     "pyobjc-framework-Vision==12.2.2; sys_platform == 'darwin'",
 ]
-maintenance-115 = ["p115client==0.0.9.7.2"]
+maintenance-115 = ["p115client==0.0.9.7.6"]
 # 字形复核与英文媒体文件名分词工具。
 naming = [
     "opencc==1.4.2",
