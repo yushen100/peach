@@ -330,7 +330,8 @@ CATALOG_RANGE_COLUMNS = {
     "played": ("timestamp", "NULLIF(CAST(a.last_played AS REAL),0)"),
     "release": ("date", "date(a.release_date)"),
 }
-CATALOG_DATE_COLUMNS = {key for key, (kind, _) in CATALOG_RANGE_COLUMNS.items() if kind != "number"}
+CATALOG_RANGE_KINDS = {key: kind for key, (kind, _) in CATALOG_RANGE_COLUMNS.items()}
+CATALOG_DATE_COLUMNS = {key for key, kind in CATALOG_RANGE_KINDS.items() if kind != "number"}
 
 
 def _column_filter_predicate(contract, selected):
@@ -390,7 +391,7 @@ def catalog_filter(contract: WebContract, args):
     # 图片、网址快捷方式等会变成不可见、不可恢复，只能被「清空回收站」直接删掉。
     where, par = ([] if trash else [VISIBLE_CATALOG_ASSET]), []
     columns = column_filters(args.get('column_filters'), {'people', 'library', 'tags', *SCALAR_COLUMN_EXPRESSIONS},
-                             {key: kind for key, (kind, _) in CATALOG_RANGE_COLUMNS.items()})
+                             CATALOG_RANGE_KINDS)
     if columns:
         conditions, parameters = _column_filter_predicate(contract, columns)
         where.extend(conditions)
