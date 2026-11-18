@@ -16,7 +16,7 @@
 
 ## 截图
 
-[![影片馆藏：搜索、筛选与海报墙](https://peach.video/assets/screenshots/home-wide-20261025-2-1280.webp)](https://peach.video/assets/screenshots/home-wide-20261025-2.png)
+[![影片馆藏：搜索、筛选与海报墙](https://peach.video/assets/screenshots/home-wide-20261118-2-1280.webp)](https://peach.video/assets/screenshots/home-wide-20261118-2.png)
 
 电影演示资料，来源与许可见[素材说明](https://peach.video/credits/)。
 
@@ -25,19 +25,19 @@
 
 **人物与作品**
 
-[![查理·卓别林的资料与作品](https://peach.video/assets/screenshots/profile-wide-20261025-2-1280.webp)](https://peach.video/assets/screenshots/profile-wide-20261025-2.png)
+[![查理·卓别林的资料与作品](https://peach.video/assets/screenshots/profile-wide-20261118-2-1280.webp)](https://peach.video/assets/screenshots/profile-wide-20261118-2.png)
 
 **创作者关注**
 
-[![创作者关注与作品更新](https://peach.video/assets/screenshots/follow-wide-20261025-2-1280.webp)](https://peach.video/assets/screenshots/follow-wide-20261025-2.png)
+[![创作者关注与作品更新](https://peach.video/assets/screenshots/follow-wide-20261118-2-1280.webp)](https://peach.video/assets/screenshots/follow-wide-20261118-2.png)
 
 **馆藏统计**
 
-[![馆藏、存储与观看统计](https://peach.video/assets/screenshots/stats-wide-20261025-3-1280.webp)](https://peach.video/assets/screenshots/stats-wide-20261025-3.png)
+[![馆藏、存储与观看统计](https://peach.video/assets/screenshots/stats-wide-20261118-2-1280.webp)](https://peach.video/assets/screenshots/stats-wide-20261118-2.png)
 
 **播放器**
 
-[![Big Buck Bunny 播放器](https://peach.video/assets/screenshots/play-wide-20261025-2-1280.webp)](https://peach.video/assets/screenshots/play-wide-20261025-2.png)
+[![Big Buck Bunny 播放器](https://peach.video/assets/screenshots/play-wide-20261118-2-1280.webp)](https://peach.video/assets/screenshots/play-wide-20261118-2.png)
 
 </details>
 
