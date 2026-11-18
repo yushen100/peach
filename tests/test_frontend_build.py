@@ -26,7 +26,7 @@ import tempfile
 import unittest
 
 from peach.diagnostic_browser import BUNDLE_CHUNK_NAME
-from scripts import test_history
+from scripts import npm_backports, test_history
 from test_frontend_preflight import frontend_npm
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -284,15 +284,26 @@ class FrontendManifestTests(unittest.TestCase):
         declared = {**self.manifest.get("dependencies", {}),
                     **self.manifest.get("devDependencies", {})}
         self.assertTrue(declared)
-        for name, version in declared.items():
-            self.assertRegex(version, r"^\d+\.\d+\.\d+$",
-                             f"{name} 没有钉死版本，两台机器会装出不同的产物")
         lock = json.loads((FRONTEND / "package-lock.json").read_text(encoding="utf-8"))
         self.assertEqual(lock["name"], self.manifest["name"])
+        registry = ROOT / npm_backports.REGISTRY
+        backports = json.loads(registry.read_text(encoding="utf-8")) if registry.is_file() else []
+        packages = lock["packages"]
         for name, version in declared.items():
-            entry = lock["packages"].get(f"node_modules/{name}")
+            node = f"node_modules/{name}"
+            entry = packages.get(node)
             self.assertIsNotNone(entry, f"{name} 不在 lockfile 里")
-            self.assertEqual(entry["version"], version, name)
+            self.assertRegex(entry["version"], r"^\d+\.\d+\.\d+$", name)
+            if version.startswith("file:"):
+                # 本地回移包的身份同时由 npm 版本、锁、登记和内容摘要固定。
+                registered = [item for item in backports if item["project"] == "frontend"
+                              and item["package"] == name and item["version"] == entry["version"]
+                              and f"file:{item['artifact']}" == version]
+                self.assertEqual(len(registered), 1, f"{name} 的回移包须有唯一登记")
+                verified = npm_backports.verified_nodes(FRONTEND, packages, registered[0])
+                self.assertTrue(verified, f"{name} 的锁和压缩包须通过完整性核对")
+            else:
+                self.assertEqual(entry["version"], version, name)
 
     def test_the_root_manifest_stays_limited_to_the_vendored_packages(self):
         """根清单只登记手工 vendor 的那几个包，构建依赖不许混进去。"""

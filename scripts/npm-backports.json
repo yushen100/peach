@@ -1,0 +1,12 @@
+[
+  {
+    "project": "frontend",
+    "package": "picomatch",
+    "version": "4.0.7",
+    "advisories": ["https://github.com/advisories/GHSA-fc5q-39xc-vjpf"],
+    "artifact": "vendor/picomatch-4.0.7-peach-pr237.tgz",
+    "integrity": "sha512-juJZWEa1MX41m2rWMWmaEp/WnSEC0hsqlLwAffBWXiI4B3abG+xqLhXK+9fhjy2psW59kXtLZ3CnRAdJbcpshw==",
+    "source": "https://github.com/micromatch/picomatch/commit/1bf0d04563cb9ce568cf36efc5f6b7187d9911d5",
+    "expires": "2026-11-25T00:00:00+08:00"
+  }
+]

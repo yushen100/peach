@@ -9,7 +9,7 @@ import { advanceImageFallback } from '../../src/card-art/image-fallback';
 import { DuplicatesPage } from '../../src/react/duplicates/duplicates-page';
 import { ComparisonText } from '../../src/react/review/comparison-text';
 import {
-  cloudPreferenceLocations, DUPLICATES_KEY, duplicateVictims, mixedCloudPreferences, prefetchDuplicates,
+  batchOperate, cloudPreferenceLocations, DUPLICATES_KEY, duplicateVictims, mixedCloudPreferences, prefetchDuplicates,
   type DuplicateFile, type DuplicateGroup, type DuplicatesData,
 } from '../../src/react/duplicates/duplicates';
 import { cloudLocations, MEDIA_SOURCES_KEY, type MediaSourcesData } from '../../src/react/media-sources';
@@ -204,16 +204,14 @@ it('逐文件回收失败保留选择并显示错误', async () => {
   expect(toast).not.toHaveBeenCalled();
 });
 
-it('一次最多 200 条，超过的分批发', async () => {
-  confirmEverything();
+it('回收请求每批最多 200 条，剩余项按原顺序发送', async () => {
   const fetcher = fetchMock(200, { ok: true });
   vi.stubGlobal('fetch', fetcher);
-  const many = Array.from({ length: 251 }, (_, index) => file(index + 1, { is_largest: index === 0 }));
-  const { host } = await open({ total: 1, files: 251, reclaimable: 250 * GB, groups: [group('BIG-001', many)] });
-  await click(buttonNamed('留最大', card(host, 'BIG-001')));
-  await settle();
-  const batches = fetcher.mock.calls.flatMap((call, index) => (call[0] === '/api/batch' ? [sentBody(fetcher, index)] : []));
-  expect(batches.map((body: { ids: number[] }) => body.ids.length)).toEqual([200, 50]);
+  const ids = Array.from({ length: 201 }, (_, index) => index + 1);
+  await batchOperate(ids, 'dispose');
+  expect(fetcher.mock.calls.map((call) => call[0])).toEqual(['/api/batch', '/api/batch']);
+  expect(sentBody(fetcher, 0)).toEqual({ ids: ids.slice(0, 200), operation: 'dispose', disposal_reason: 'duplicate' });
+  expect(sentBody(fetcher, 1)).toEqual({ ids: [201], operation: 'dispose', disposal_reason: 'duplicate' });
 });
 
 it('取消确认就什么都不发', async () => {
