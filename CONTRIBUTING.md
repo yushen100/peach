@@ -14,7 +14,7 @@ Peach 是单人自托管应用，由一个人维护。欢迎提 Issue 和 PR。�
 Issue 按 [`.github/ISSUE_TEMPLATE/`](.github/ISSUE_TEMPLATE/) 的模板写：缺陷用 `bug_report.md`，建议用 `feature_request.md`。保留模板的章节标题和顺序，逐节填写；可选章节没有内容可以删掉，原因分析等额外信息放在模板章节之后。从网页「New issue」选模板最省事。用 AI 工具或命令行提交时，复制模板文件，去掉开头的 `---` 信息块和 `<!-- -->` 注释，填好后提交：
 
 ```text
-gh issue create --repo peach-mitao/peach --title "<标题>" --type Bug --body-file <填好的模板>
+gh issue create --repo peach-mitao/peach --title "<标题>" --type Bug --label area:web --body-file <填好的模板>
 ```
 
 建议把 `Bug` 换成 `Feature`；没有设置类型的权限时省略 `--type`，按模板章节写的 issue 会自动补上类型。正文写给维护者和其他用户看，用通用技术说法；`AGENTS.md` 与技能里的术语和交付格式只用于改代码，不用于 issue。外部新 issue 无论通过网页、命令行还是 API 提交，缺少模板章节都会自动关闭；已有类型不豁免检查，按模板补齐章节后自动重开。
@@ -59,6 +59,10 @@ Use demo data without sexually explicit imagery in public screenshots, recording
 
 `bug`、`enhancement` 保留给 PR 和未设置 Type 的 issue；使用 Type 的新 issue 不重复添加同义标签。`dependencies`、`javascript`、`github_actions`、`python:uv`、`docker` 用于对应依赖更新，`documentation`、`accessibility` 等按实际内容使用。标签名称保持稳定，颜色和双语说明以清单为准；修改清单时同步 GitHub 并回读核对，不批量删除或重命名已有标签。
 
+维护者和协助维护的智能体在创建 issue 时选好 Type 和目标仓库中适用的标签。示例中的 `area:web` 适用于网页界面，其他问题按已确认的模块和平台选择。创建后读取 GitHub 右侧字段，确认 Type、标签与预期一致。若创建入口只能设置部分字段，创建成功后补齐剩余字段并回读。
+
+Maintainers and their agents select an issue type and applicable labels from the target repository when opening issues. Use `area:web` for web interface work and choose platform labels only for confirmed impact. Verify the saved type and labels. If the creation tool cannot set all fields, update them after creating the issue and verify again.
+
 ### 关闭、重开与关联
 
 - 修复已发布且有相应验证依据后，回复解决版本和验证结果，再以 Completed 关闭。原用户环境仍待确认时保持 Open，并使用 `status:needs-verification`；仅合并 PR 不作为已解决的依据。
@@ -76,6 +80,12 @@ GitHub 的字段与模板机制见 [Issue types](https://docs.github.com/en/issu
 1. 不用 `git add .`、`git add -A`、目录路径或通配符，只暂存这次改动的文件。
 2. 实现和它的测试放在同一个提交里。
 3. 一个 PR 对应可独立验收的目标。同一目标的实现、测试及必要的 CI、升级补修放在同一个 PR，按逻辑分提交并共享验证；无关需求独立评审，确需拆分时说明独立交付或隔离的理由。在「影响面」表里说明数据层、API、页面、契约、测试和文档的实际影响，不适用的写明原因。
+
+### 创建 PR 时添加标签
+
+维护者和协助维护的智能体按实际 diff 选择目标仓库已有的标签。缺陷修复用 `bug`，功能变化用 `enhancement`，纯文档用 `documentation`，依赖更新用 `dependencies` 及相应生态标签。补充已确认的 `area:*` 和 `platform:*`。用 `gh pr create` 时传入 `--label`，Draft 也一样。创建后回读 GitHub 标签。入口无法设置时立即用 `gh pr edit --add-label` 补齐，再回读。
+
+Maintainers and their agents label pull requests, including drafts, according to the actual diff. Use labels available in the target repository, set them with `gh pr create --label`, and verify the saved labels. If creation cannot set labels, add them immediately after opening the PR.
 
 ### 变更性质与行为边界
 
