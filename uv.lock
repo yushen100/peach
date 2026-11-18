@@ -1995,7 +1995,7 @@ wheels = [
 
 [[package]]
 name = "python-httpfile"
-version = "0.0.6.2"
+version = "0.0.6.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "errno2" },
@@ -2007,9 +2007,9 @@ dependencies = [
     { name = "urllib3-future-request" },
     { name = "yarl" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e2/05/3958aa3e4f519a904d40e20d981fcb8952088709e3380330c678d5ca64fa/python_httpfile-0.0.6.2.tar.gz", hash = "sha256:729f0ee32cb031d619cb00c872b11e92b04404c6c962fa70fea635f13c952e25", size = 9002, upload-time = "2026-11-17T18:02:50.883Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/bc/83/1cba6d68e5c8191144fe176132d9c6aef6299ccbb1a978596fb6de83ffa9/python_httpfile-0.0.6.3.tar.gz", hash = "sha256:9d61bde9c84d3ff07ef60c9edad2bf17fd0206de0f0d2cd247e4cbd0cfd019fc", size = 9009, upload-time = "2026-11-17T19:17:38.087Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f2/90/78d1a058676b953532d19e4b3f7026d808565536701f9be1c9ae99d33f03/python_httpfile-0.0.6.2-py3-none-any.whl", hash = "sha256:8839dd7eff89fe4f09010712bd9be1056b733e41025361f420e8bceee678fcfb", size = 9833, upload-time = "2026-11-17T18:02:52.076Z" },
+    { url = "https://files.pythonhosted.org/packages/23/ef/a3e709b0bf40d492e72a1c9786214137062ebc3430b311023f233e8d6570/python_httpfile-0.0.6.3-py3-none-any.whl", hash = "sha256:82c89bfcf15e9fd2f8fab7239a209548879193cf16eee254a0639baa67e31ba7", size = 9843, upload-time = "2026-11-17T19:17:39.029Z" },
 ]
 
 [[package]]
