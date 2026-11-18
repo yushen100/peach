@@ -1,6 +1,7 @@
 import { act } from 'react';
 import { beforeEach, expect, it, vi } from 'vitest';
 import { defaultColumnVisibility, useCatalogTablePreferences } from '../../src/react/catalog-grid/catalog-column-widths';
+import { columnSizes } from '../../src/react/catalog-grid/catalog-table-columns';
 import { mountRoot } from './render';
 
 const key = 'peach.catalog-column-widths.v1';
@@ -16,8 +17,8 @@ it('损坏或超限偏好不会破坏列宽，选择列保持固定', async () =
     const root = await mountRoot(<Probe />);
     expect(sizing.widths.name).toBe(name);
     expect(sizing.widths.select).toBe(48);
-    expect(sizing.widths.dur).toBeGreaterThanOrEqual(80);
-    expect(sizing.widths.size).toBe(96);
+    expect(sizing.widths.dur).toBeGreaterThanOrEqual(columnSizes.dur!.min);
+    expect(sizing.widths.size).toBe(columnSizes.size!.width);
     await root.unmount();
   }
 });
