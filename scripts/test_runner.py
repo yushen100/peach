@@ -943,14 +943,14 @@ def report_flaky(selectors: list[str]) -> None:
 
 
 def local_batches(names, jobs):
-    """快速检查、普通分片和内部并行的容器分别执行，文件只分配一次。"""
+    """先跑快速检查与前端容器，再跑普通分片。每个文件只分配一次。"""
     gate = sorted(name for name in names if name.removesuffix('.py') in GATE_TESTS)
     heavy = sorted(name for name in names if name.removesuffix('.py') in HEAVY_FILES and name not in gate)
     light = sorted(set(names) - set(gate) - set(heavy))
     batches = [('快速门槛', [gate], 1)] if gate else []
+    batches.extend((name.removesuffix('.py'), [[name]], 1) for name in heavy)
     if light:
         batches.append(('普通测试', shard_plan(light, min(len(light), 4 * jobs), load_file_seconds()), jobs))
-    batches.extend((name.removesuffix('.py'), [[name]], 1) for name in heavy)
     return batches
 
 
