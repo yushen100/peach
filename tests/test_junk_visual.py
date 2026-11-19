@@ -198,6 +198,36 @@ class VisualEvidenceTests(TestCase):
         checked.assert_not_called()
         self.assertTrue(issue.call_args.kwargs['retryable'])
 
+    def test_qr_failure_preserves_preview_and_retries_incomplete_evidence(self):
+        import cv2
+
+        detector = Mock()
+        detector.detectAndDecode.side_effect = [
+            cv2.error('empty image'), *[('', None, None)] * 8,
+        ]
+        config = PeachConfig(self.root, self.root / 'config.toml', present=True)
+        checked, issue = Mock(), Mock()
+        with (
+            patch.object(cv2, 'QRCodeDetector', return_value=detector),
+            patch.object(library_processing, '_library_stages', return_value=lambda _: {'preview'}),
+            patch.object(library_processing, 'metadata_only', return_value=False),
+            patch.object(library_processing, '_generate_preview', return_value=True),
+            patch.object(ImageReader, 'read', return_value=[PROMO] * 9),
+        ):
+            made = library_processing._generate_previews(config, [self.row()], self.database,
+                update=Mock(), issue=issue, guard=Mock(), checkpoint=checked)
+        self.assertEqual(made, 1)
+        checked.assert_called_once()
+        issue.assert_not_called()
+        result = junk_visual.read(self.database, 1)[1]
+        self.assertEqual(result['verdict'], 'incomplete')
+        self.assertEqual([frame['index'] for frame in result['frames']], list(range(1, 9)))
+        self.assertTrue(all(call.args[0].size > 0 for call in detector.detectAndDecode.call_args_list))
+
+        entry, reader = self.analyse([PROMO] * 9)
+        reader.read.assert_called_once()
+        self.assertEqual(entry['verdict'], 'candidate')
+
     def test_invalid_saved_evidence_is_reported_as_unavailable(self):
         self.analyse([PROMO] * 9)
         with closing(sqlite3.connect(junk_visual.cache_path(self.database))) as connection:

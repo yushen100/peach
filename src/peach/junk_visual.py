@@ -168,13 +168,22 @@ def preserves_intro(database, row) -> bool:
     return current(row, entry) and entry['verdict'] == 'intro_only'
 
 
+def _detect_qr(detector, tile, cv2, numpy):
+    try:
+        value, points, _ = detector.detectAndDecode(numpy.asarray(tile.convert('L')))
+    except cv2.error:
+        return None
+    return int(points is not None), [value] if value else []
+
+
 def analyse(database, row, reader: ImageReader, *, checkpoint=lambda: None) -> dict:
     """只读取已缓存的九宫格；完整结果绑定媒体与图像代际后保存。"""
     existing = read(database, row['id']).get(row['id'])
-    if current(row, existing):
+    if current(row, existing) and existing['verdict'] != 'incomplete':
         return existing
     try:
         import cv2
+        import numpy
     except ImportError as error:
         raise OcrUnavailable(error) from error
     source = _source(row)
@@ -196,14 +205,14 @@ def analyse(database, row, reader: ImageReader, *, checkpoint=lambda: None) -> d
                     path = Path(temporary) / f'{index}.png'
                     tile.save(path)
                     paths.append(path)
-                    pixels = cv2.imread(str(path))
-                    value, points, _ = detector.detectAndDecode(pixels)
-                    qr.append((int(points is not None), [value] if value else []))
+                    qr.append(_detect_qr(detector, tile, cv2, numpy))
                 checkpoint()
                 texts = reader.read(paths)
                 if len(texts) != FRAME_COUNT:
                     raise OcrUnavailable('OCR result has incomplete frame coverage')
-                frames = [frame_evidence(index, text, *qr[index]) for index, text in enumerate(texts)]
+                frames = [frame_evidence(index, text, *result)
+                          for index, (text, result) in enumerate(zip(texts, qr, strict=True))
+                          if result is not None]
     except cv2.error as error:
         raise OcrUnavailable(error) from error
     checkpoint()
