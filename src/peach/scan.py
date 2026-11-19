@@ -151,7 +151,7 @@ def _cannot_open(error: sqlite3.OperationalError) -> bool:
     return "unable to open database file" in str(error)
 
 
-def _upsert_records(connection, batch, registered, conflicts):
+def _upsert_records(connection, batch, registered, conflicts, *, registered_added=None):
     rows = []
     inserted = {}
     for location, path, *values in batch:
@@ -163,6 +163,8 @@ def _upsert_records(connection, batch, registered, conflicts):
             continue
         if key not in registered:
             inserted.setdefault(location, []).append(path)
+            if registered_added is not None:
+                registered_added.append(key)
         stored = registered.setdefault(key, path)
         rows.append((location, stored, *values))
     connection.executemany(_UPSERT, rows)
@@ -748,8 +750,8 @@ def _scan_file_stat(connection, identities, registered, observations, location, 
     return stat
 
 
-def _commit_scan_records(connection, db, batch, registered, conflicts, identities, observations):
-    inserted = _upsert_records(connection, batch, registered, conflicts)
+def _commit_scan_records(connection, db, batch, registered, conflicts, identities, observations, registered_added):
+    inserted = _upsert_records(connection, batch, registered, conflicts, registered_added=registered_added)
     if identities is not None:
         for location, path, native, stat in observations:
             identities.observe(connection, location, registered.get(path.casefold(), path), native, stat)
@@ -772,10 +774,10 @@ def _commit_reopening(connection, db_path, batch, registered, conflicts, identit
     """
     for delay in (*REOPEN_DELAYS, None):
         pending = connection.in_transaction
-        known = dict(registered)
+        registered_added = []
         try:
             return connection, _commit_scan_records(connection, db_path, batch, registered, conflicts,
-                                                    identities, observations)
+                                                    identities, observations, registered_added)
         except sqlite3.OperationalError as error:
             if delay is None or pending or not _cannot_open(error):
                 # 重开过的连接调用方拿不到，在这里关掉；原连接关两次无妨。
@@ -783,8 +785,8 @@ def _commit_reopening(connection, db_path, batch, registered, conflicts, identit
                 raise
             LOGGER.warning("Scan write could not open the ledger journal (%s); reopening and retrying "
                            "%d rows in %.1fs", error, len(batch), delay)
-            registered.clear()
-            registered.update(known)
+            for key in registered_added:
+                del registered[key]
             connection.close()
             time.sleep(delay)
             connection = _open_ledger(db_path)

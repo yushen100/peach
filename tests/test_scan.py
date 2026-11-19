@@ -692,11 +692,12 @@ class LedgerReopenTests(_ScanCase):
         real = scan._upsert_records
         calls = []
 
-        def flaky(connection, *args):
+        def flaky(connection, *args, **kwargs):
             calls.append(connection)
+            inserted = real(connection, *args, **kwargs)
             if len(calls) == 1:
                 raise sqlite3.OperationalError("unable to open database file")
-            return real(connection, *args)
+            return inserted
 
         with patch.object(scan, '_upsert_records', flaky), patch.object(scan.time, 'sleep') as slept, \
                 self.assertLogs('peach.scan', level='WARNING') as logs:
