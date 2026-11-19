@@ -4451,8 +4451,10 @@ class UnconfiguredMachineTests(unittest.IsolatedAsyncioTestCase):
                            page_path=ROOT / "web/index.html", secrets_root=database.parent / "secrets",
                            tunnel_state_root=database.parent / "tunnel-state",
                            tunnel_log_root=database.parent / "logs")
+        # 生命周期用例验证启动与退出。实际种子导入由后继测试使用临时种子包验证。
         with patch("peach.settings_file.load_config", return_value=config), \
                 patch("peach.routes_configuration.managed_configuration", return_value=False), \
+                patch("peach.seed_followup.plan", return_value=[]), \
                 self.assertNoLogs("peach", level="ERROR"):
             app = create_app(settings)
             async with app.router.lifespan_context(app), httpx.AsyncClient(
@@ -4555,8 +4557,7 @@ class UnconfiguredMachineTests(unittest.IsolatedAsyncioTestCase):
             invoked.set()
             return {'status': 'complete'}
         with patch('peach.settings_file.active', return_value=config), patch(
-                'peach.web_library_processing.process_library', side_effect=process), patch(
-                'peach.seed_followup.plan', return_value=[]):
+                'peach.web_library_processing.process_library', side_effect=process):
             async with self.ledger_client(database) as (app, _client):
                 self.assertTrue(await asyncio.to_thread(invoked.wait, 5))
                 thread = app.state.web_contract.library_processing_job.thread
