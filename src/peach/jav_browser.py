@@ -22,7 +22,7 @@ from .config import PROJECT_ROOT
 from .coded_text import Said
 from .content_words import BONUS_EDITION, LEGACY_REMOTE_MISSING, TRAILER_NAME
 from .downloads import (
-    CLOUDDRIVE_CREDENTIAL, INGESTED, POSTPROCESS_FAILED, POSTPROCESS_PENDING, POSTPROCESS_QUEUED,
+    CLOUDDRIVE_CREDENTIAL, INGESTED, POSTPROCESS_RETRYABLE, POSTPROCESS_PENDING, POSTPROCESS_QUEUED,
     POSTPROCESS_RUNNING, REMOTE_RUNNING, RESUBMITTABLE_STATES, TRACKED_STATES, iso, state_label,
     CHANNEL_FAILURES, never_seen, submit_offline_download, parse_magnet,
     parse_iso, storage_full, DownloadError,
@@ -559,7 +559,7 @@ class JavBrowser:
                 "SELECT id,state,postprocess_state FROM download_task WHERE normalise_code_key(code)=? "
                 "ORDER BY id DESC", (code,)).fetchall()
         if tasks and tasks[0]['state'] == INGESTED and tasks[0]['postprocess_state'] in {
-                POSTPROCESS_PENDING, POSTPROCESS_QUEUED, POSTPROCESS_RUNNING, POSTPROCESS_FAILED}:
+                POSTPROCESS_PENDING, POSTPROCESS_QUEUED, POSTPROCESS_RUNNING, *POSTPROCESS_RETRYABLE}:
             return {'state': 'ingested', 'task_id': tasks[0]['id']}
         if row:
             return {"state": "owned", "asset_id": row[0]}

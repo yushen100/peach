@@ -41,7 +41,8 @@ def _task_id(key: str) -> int:
 
 def enqueue(contract, task) -> int | None:
     """由下载对账线程声明一个父任务，再按 ADR-0040 派发持久后继。"""
-    fresh = DownloadStore(contract.database).get(task.id)
+    store = DownloadStore(contract.database)
+    fresh = store.get(task.id)
     if fresh is None or fresh.state != INGESTED or fresh.postprocess_state != POSTPROCESS_PENDING:
         return None
     from .downloads import parse_iso
@@ -53,13 +54,18 @@ def enqueue(contract, task) -> int | None:
     if parent is None:
         return None
     result = contract.task_runs.enqueue_followups(parent.id, [Followup.item(
-        followup_key(task.id), TASK_KEY, str(task.code or task.display_name or task.id)).as_row()])
-    active = contract.task_runs.blocking(followup_key(task.id))
-    run_id = result["queued"][0] if result["queued"] else (active.id if active else None)
+        followup_key(task.id), TASK_KEY, str(task.code or task.display_name or task.id)).as_row()],
+        on_queued=lambda connection, run_id: store.link_postprocess(connection, task.id, run_id))
+    if result["queued"]:
+        run_id = result["queued"][0]
+    else:
+        active = contract.task_runs.blocking(followup_key(task.id))
+        run_id = active.id if active else None
+        if active is not None:
+            with contract.database.write_transaction(notify=False) as connection:
+                store.link_postprocess(connection, task.id, active.id)
     contract.task_runs.finish(parent.id, "succeeded", summary={"followups": len(result["queued"])})
     if run_id is not None:
-        DownloadStore(contract.database).postprocess(
-            task.id, POSTPROCESS_QUEUED, detail=Said("labels.downloadPostprocess.waiting"), run_id=run_id)
         contract.followups.wake()
     return run_id
 
@@ -245,7 +251,8 @@ def run(contract, key: str, handle) -> dict:
         raise UserValueError("errors.downloadPostprocess.notIngested")
     if task.postprocess_state == POSTPROCESS_COMPLETE:
         return {"task_id": task_id, "already_complete": True}
-    store.postprocess(task_id, POSTPROCESS_RUNNING, detail=Said("labels.downloadPostprocess.recognizing"))
+    store.postprocess(task_id, POSTPROCESS_RUNNING, detail=Said("labels.downloadPostprocess.recognizing"),
+                      run_id=getattr(handle, "run_id", None))
     try:
         main, _path, folder_ids = _bind_main(contract, task)
         handle.progress(**stage_label("download.isolateExtras"), throttle=0)

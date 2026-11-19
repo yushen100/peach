@@ -240,6 +240,67 @@ class RouteTests(_App):
         self.assertEqual(second, first)
         self.assertEqual(self.service.store.get(result.task.id).postprocess_run_id, first)
 
+    def test_postprocess_cancelled_before_enqueue_returns_stays_cancelled_and_can_be_retried(self):
+        task = self.service.store.save(dl.DownloadTask(
+            id=0, info_hash=HASH, provider="115", source_uri="", display_name="ABC-123",
+            target="/115/云下载", state=dl.INGESTED, postprocess_state=dl.POSTPROCESS_PENDING))
+        contract = self.app.state.web_contract
+        enqueue = contract.task_runs.enqueue_followups
+
+        def cancel_after_enqueue(*args, **kwargs):
+            result = enqueue(*args, **kwargs)
+            run_id = result["queued"][0]
+            response = self.client.post(f"/api/tasks/{run_id}/control", json={"action": "cancel"})
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertEqual(contract.task_runs.get(run_id).status, "cancelled")
+            return result
+
+        with mock.patch.object(contract.followups, "wake"), \
+                mock.patch.object(contract.task_runs, "enqueue_followups", side_effect=cancel_after_enqueue):
+            run_id = download_postprocess.enqueue(contract, task)
+        payload = self.client.get("/api/downloads").json()["tasks"][0]
+        self.assertEqual((payload["postprocess_state"], payload["postprocess_run_id"]),
+                         (dl.POSTPROCESS_CANCELLED, run_id))
+        self.assertEqual(payload["postprocess_label_code"], "download.state.cancelled")
+        self.assertFalse(payload["postprocess_active"])
+        self.assertTrue(payload["postprocess_retryable"])
+        self.assertIsNone(payload["postprocess_retry_at"])
+        self.assertEqual(self.service.poll_once(), 0)
+        self.assertIsNone(download_postprocess.enqueue(contract, task))
+
+        queued = []
+        self.service.after_ingest = lambda item: queued.append(item.id)
+        response = self.client.post("/api/downloads/postprocess", json={"id": task.id})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()["task"]["postprocess_state"], dl.POSTPROCESS_PENDING)
+        self.assertEqual(queued, [task.id])
+        self.assertEqual(self.provider.submitted, [])
+
+    def test_start_recovers_older_download_postprocess_with_a_cancelled_run(self):
+        task = self.service.store.save(dl.DownloadTask(
+            id=0, info_hash=HASH, provider="115", source_uri="", display_name="ABC-123",
+            target="/115/云下载", state=dl.INGESTED, postprocess_state=dl.POSTPROCESS_PENDING))
+        contract = self.app.state.web_contract
+        with mock.patch.object(contract.followups, "wake"):
+            run_id = download_postprocess.enqueue(contract, task)
+        with contract.database.write_transaction() as connection:
+            # 模拟旧版只结算任务中心、下载卡片仍显示排队。
+            connection.execute("UPDATE task_run SET status='cancelled',finished_at=? WHERE id=?",
+                               ("2026-11-17T10:00:00Z", run_id))
+        other = self.service.store.save(dl.DownloadTask(
+            id=0, info_hash="2" * 40, provider="115", source_uri="", display_name="DEF-456",
+            target="/115/云下载", state=dl.INGESTED, postprocess_state=dl.POSTPROCESS_QUEUED,
+            postprocess_run_id=run_id))
+        self.service.after_ingest = mock.Mock()
+        self.addCleanup(self.service.stop)
+        with mock.patch.object(self.service, "_loop"):
+            self.service.start()
+        repaired = self.service.store.get(task.id)
+        self.assertEqual((repaired.postprocess_state, repaired.postprocessed_at),
+                         (dl.POSTPROCESS_CANCELLED, "2026-11-17T10:00:00Z"))
+        self.assertEqual(self.service.store.get(other.id).postprocess_state, dl.POSTPROCESS_QUEUED)
+        self.service.after_ingest.assert_not_called()
+
 
 class SettingsBlockTests(_App):
     """CloudDrive2 那一侧换成 `self.answer`；没有令牌时走真的 `check`，它在连网之前就停。"""

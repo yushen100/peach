@@ -69,8 +69,10 @@ POSTPROCESS_QUEUED = "queued"
 POSTPROCESS_RUNNING = "running"
 POSTPROCESS_COMPLETE = "complete"
 POSTPROCESS_FAILED = "failed"
+POSTPROCESS_CANCELLED = "cancelled"
 POSTPROCESS_STATES = (POSTPROCESS_NOT_REQUESTED, POSTPROCESS_PENDING, POSTPROCESS_QUEUED, POSTPROCESS_RUNNING,
-                      POSTPROCESS_COMPLETE, POSTPROCESS_FAILED)
+                      POSTPROCESS_COMPLETE, POSTPROCESS_FAILED, POSTPROCESS_CANCELLED)
+POSTPROCESS_RETRYABLE = (POSTPROCESS_FAILED, POSTPROCESS_CANCELLED)
 STATES = (CANDIDATE, SELECTED, SUBMITTED, REMOTE_RUNNING, REMOTE_DONE, LANDED, INGESTED, FAILED, CANCELLED, STALLED,
           SUBMIT_PENDING)
 
@@ -80,8 +82,10 @@ def state_label(state: str) -> str:
     return interface_text.label(f"server:download.state.{state}", state)
 
 
-def postprocess_label(state: str) -> str:
-    return interface_text.label(f"server:download.postprocess.{state}", state)
+def postprocess_label_key(state: str) -> str:
+    if state == POSTPROCESS_CANCELLED:
+        return "download.state.cancelled"
+    return f"download.postprocess.{state}"
 #: 轮询要看的状态。远端完成与已落地还在等账本里出现那个文件；等待重新提交的还要再交一次。
 TRACKED_STATES = frozenset({SUBMIT_PENDING, SUBMITTED, REMOTE_RUNNING, REMOTE_DONE, LANDED})
 #: 可以再提交一次的状态。已入库的不必，在跑的接管就行。
@@ -418,7 +422,7 @@ class DownloadTask:
         if self.postprocess_state == POSTPROCESS_PENDING and self.next_check_at:
             return "labels.downloads.postprocessRetrying", {
                 "retries": self.postprocess_retries, "limit": len(RETRY_DELAYS)}
-        return f"download.postprocess.{self.postprocess_state}", {}
+        return postprocess_label_key(self.postprocess_state), {}
 
     @property
     def postprocess_label(self) -> str:
@@ -480,7 +484,7 @@ class DownloadTask:
             "postprocess_retry_at": self.next_check_at if self.postprocess_state == POSTPROCESS_PENDING else None,
             "postprocess_active": self.postprocess_state in {
                 POSTPROCESS_PENDING, POSTPROCESS_QUEUED, POSTPROCESS_RUNNING},
-            "postprocess_retryable": self.state == INGESTED and self.postprocess_state == POSTPROCESS_FAILED,
+            "postprocess_retryable": self.state == INGESTED and self.postprocess_state in POSTPROCESS_RETRYABLE,
             "cancellable": self.state in TRACKED_STATES,
             "resubmittable": self.state in RESUBMITTABLE_STATES and not self.blocked_at,
         }
@@ -678,6 +682,44 @@ class DownloadStore:
                 "AND (next_check_at IS NULL OR next_check_at<=?) ORDER BY id",
                 (INGESTED, POSTPROCESS_PENDING, iso(time.time() if now is None else now))).fetchall()
         return [DownloadTask.from_row(row) for row in rows]
+
+    @staticmethod
+    def link_postprocess(connection, task_id: int, run_id: int) -> None:
+        """在后继可领取前关联本轮；接管旧队列时也只接仍在排的那一轮。"""
+        detail = Said("labels.downloadPostprocess.waiting")
+        connection.execute(
+            "UPDATE download_task SET postprocess_state=?,postprocess_run_id=?,postprocess_detail=?,"
+            "postprocess_detail_code=?,postprocess_detail_params=?,next_check_at=NULL "
+            "WHERE id=? AND state=? AND postprocess_state=? "
+            "AND EXISTS (SELECT 1 FROM task_run WHERE id=? AND status='pending')",
+            (POSTPROCESS_QUEUED, run_id, detail, *columns(detail),
+             task_id, INGESTED, POSTPROCESS_PENDING, run_id))
+
+    @staticmethod
+    def settle_cancelled_postprocess(connection, run_id: int | None = None) -> None:
+        """只结算已确认取消的活跃后处理。启动时也补齐留下运行证据的旧记录。"""
+        predicate = "AND postprocess_run_id=?" if run_id is not None else ""
+        params = (run_id,) if run_id is not None else ()
+        connection.execute(
+            "UPDATE download_task SET postprocess_state=?,postprocess_detail=NULL,"
+            "postprocess_detail_code=NULL,postprocess_detail_params=NULL,next_check_at=NULL,"
+            "postprocessed_at=run.finished_at FROM task_run AS run "
+            f"WHERE state=? AND postprocess_state IN (?,?) {predicate} "
+            "AND run.id=download_task.postprocess_run_id AND run.status='cancelled' "
+            "AND run.task_key='download-postprocess' AND run.followup_key='download-postprocess:' || download_task.id",
+            (POSTPROCESS_CANCELLED, INGESTED, POSTPROCESS_QUEUED, POSTPROCESS_RUNNING, *params))
+
+    def requeue_postprocess(self, task_id: int) -> bool:
+        """只重排仍处于失败或取消的任务；新的运行由入队事务重新关联。"""
+        detail = Said("labels.downloads.postprocessRequeued")
+        with self.database.write_transaction(notify=False) as connection:
+            return connection.execute(
+                "UPDATE download_task SET postprocess_state=?,postprocess_detail=?,"
+                "postprocess_detail_code=?,postprocess_detail_params=?,postprocess_retries=0,"
+                "postprocess_run_id=NULL,postprocessed_at=NULL,next_check_at=NULL "
+                "WHERE id=? AND state=? AND postprocess_state IN (?,?)",
+                (POSTPROCESS_PENDING, detail, *columns(detail), task_id, INGESTED,
+                 *POSTPROCESS_RETRYABLE)).rowcount > 0
 
     def postprocess(self, task_id: int, state: str, *, detail: str | None = None,
                     run_id: int | None = None, finished: str | None = None) -> None:
@@ -1069,18 +1111,13 @@ class DownloadService:
         return {"providers": [self._provider_state(key) for key in PROVIDER_LABELS], "problems": []}
 
     def retry_postprocess(self, task_id: int) -> DownloadTask:
-        task = self.store.get(int(task_id))
-        if task is None:
-            raise UserValueError("errors.downloads.taskNotFound")
-        if task.state != INGESTED or task.postprocess_state != POSTPROCESS_FAILED:
+        task_id = int(task_id)
+        if not self.store.requeue_postprocess(task_id):
+            if self.store.get(task_id) is None:
+                raise UserValueError("errors.downloads.taskNotFound")
             raise UserValueError("errors.downloads.nothingToRetry")
-        task.postprocess_retries = 0
-        self.store.save(task)
-        self.store.postprocess(task.id, POSTPROCESS_PENDING,
-                               detail=Said("labels.downloads.postprocessRequeued"))
-        task = self.store.get(task.id)
-        self._dispatch_postprocess(task)
-        return self.store.get(task.id)
+        self._dispatch_postprocess(self.store.get(task_id))
+        return self.store.get(task_id)
 
     def _provider_state(self, key: str) -> dict:
         credential = CLOUDDRIVE_CREDENTIAL if key == "115" else PIKPAK_CREDENTIAL
@@ -1095,17 +1132,20 @@ class DownloadService:
     def start(self) -> None:
         if not self.available or self._thread is not None:
             return
-        self._stop.clear()
-        self._thread = threading.Thread(target=in_background(self._loop), name="PeachDownloads", daemon=True)
-        self._thread.start()
+        pending = []
         if self.after_ingest is not None:
             try:
                 pending = self.store.pending_postprocess(self.clock())
+                with self.store.database.write_transaction(notify=False) as connection:
+                    self.store.settle_cancelled_postprocess(connection)
             except sqlite3.Error:
                 # 未配置实例的 lifespan 也会装配服务；账本尚不存在时没有待恢复任务。
-                pending = []
-            for task in pending:
-                self._dispatch_postprocess(task)
+                LOGGER.debug("Download post-processing state could not be restored", exc_info=True)
+        self._stop.clear()
+        self._thread = threading.Thread(target=in_background(self._loop), name="PeachDownloads", daemon=True)
+        self._thread.start()
+        for task in pending:
+            self._dispatch_postprocess(task)
 
     def stop(self) -> None:
         thread, self._thread = self._thread, None
