@@ -117,11 +117,11 @@ launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/io.github.longmeidao.pea
 
 ### Windows 应用内更新的发布签名
 
-Windows 独立包的应用内更新校验每个版本 `SHA256SUMS.txt` 的 Ed25519 签名，取舍见 [ADR-0137](adr/0137-release-sums-ed25519-signature.md)。`src/peach/release_signing.py` 的 `PUBLIC_KEYS` 为空时不校验；写入公钥后，这一版起的客户端只装签名验得过的版本。
+Windows 独立包使用内置公钥校验每个版本 `SHA256SUMS.txt` 的 Ed25519 签名。带公钥的客户端只安装签名校验通过的版本。首把公钥由 [v0.59.0 GitHub 发布作业](https://github.com/peach-mitao/peach/actions/runs/44229158206/job/134549781184) 输出，实际清单和签名已在 GitHub 与 R2 验过。取舍见 [ADR-0137](adr/0137-release-sums-ed25519-signature.md)。
 
 `release.yml` 的 `release` 作业生成 `SHA256SUMS.txt` 后，把 `release` environment 的 secret `PEACH_RELEASE_SIGNING_KEY` 经标准输入交给 `scripts/sign_release.py`，签名文件 `SHA256SUMS.txt.sig` 随 Release 上传。源码已有公钥而 secret 为空时作业失败，不发布未签名的版本。
 
-启用步骤由维护者完成，顺序不能颠倒：
+部署新的签名体系时，维护者按以下顺序启用：
 
 1. 在主检出运行 `scripts/sign_release.py --generate-key <私钥文件>`：私钥只写进该文件，已存在就拒绝覆盖，输出里只有公钥。私钥文件放进离线备份。
 2. 用 `gh secret set PEACH_RELEASE_SIGNING_KEY --env release` 从标准输入写入私钥。

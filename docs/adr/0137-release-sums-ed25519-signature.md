@@ -1,6 +1,6 @@
 # ADR-0137：Windows 应用内更新校验发布摘要的 Ed25519 签名
 
-- 状态：已采纳；代码已实施，公钥待维护者生成密钥后写入，写入前行为不变
+- 状态：已采纳，客户端公钥已写入。首把公钥由 v0.59.0 发布作业输出，同版 GitHub 与 R2 清单均通过验签。
 - 日期：2026-11-04
 - 关系：补充 [ADR-0012](0012-version-and-update-boundary.md) 的更新边界、[ADR-0120](0120-standalone-update-client-compatibility.md) 的旧客户端兼容门槛与 [ADR-0127](0127-verified-release-artifact-promotion.md) 的晋级发布；macOS 的 Sparkle 签名见 [ADR-0130](0130-macos-sparkle-in-app-update.md)，两者密钥分开
 - 参考：javm（MIT）提交 `db840dd` 与其 `docs/decisions/0035-auto-update.md`：发布清单 Ed25519 签名、公钥打进安装包、校验失败回退不升级。只借做法，不含其代码
@@ -46,7 +46,7 @@ Windows 独立包的应用内更新由 `standalone_update.prepare` 完成：`rel
 
 **六、过渡期。** 已装的 0.54.0 及更早版本、以及 `PUBLIC_KEYS` 为空时构建的版本不读 `.sig`，照旧按摘要升级；多出的两个 Release 资产不影响它们选包（`update_compat.py` 门槛照常运行）。第一个 `PUBLIC_KEYS` 非空的版本必须本身已签名，由第四条门槛保证。带公钥的客户端只会装比自己新的版本，它们都在门槛之后发布，所以不存在需要放行的未签名旧版本，客户端也不设「缺签名则放行」的分支，否则剥掉签名就能绕过。
 
-R2 目录目前没有 `.sig`：带公钥的客户端在 GitHub 不可达时，经 R2 的那条路会因签名缺失而停在当前版本。R2 的 `releases.json` 本已停在 0.50.0，恢复 R2 发布时须一并上传签名文件。
+R2 发布在同版本目录一并上传签名文件。签名缺失或未通过验签时，该来源不能提供可信摘要，客户端会尝试另一来源；两路都失败才停止更新。
 
 **七、防护边界。** 签名挡得住发布资产被替换、镜像被改写和传输途中的篡改，挡不住能在 `release` environment 里运行标签工作流的人：他拿得到私钥，签出的版本客户端照样认。仓库与 environment 的访问控制仍是信任根的一部分。
 
@@ -74,5 +74,4 @@ Ed25519 用已锁定的 `cryptography==50.0.2`。它原是 `smbprotocol` 的传�
 ## 未取得的证据
 
 - **独立包里的 `cryptography` 能否导入 Ed25519。** `release_signing` 的导入写在函数里，PyInstaller 的静态分析会收集；`smbprotocol` 本已带入 `cryptography`。本地没有构建 Windows 独立包验证：未取得。
-- **`release` 作业实跑签名。** 门槛逻辑由单元测试用临时密钥演练；GitHub 上带 secret 的实跑要等维护者配置后的第一次发版：未取得。
 - **`release` environment 的保护规则。** 运维文档写明只允许 `v*` 标签部署；是否另有需要人工批准的规则（会让标签作业等待）：未取得。
