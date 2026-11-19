@@ -611,7 +611,7 @@ def _health_payload(request, settings, resolver, browser_transport, *, details: 
             "mdns_backend": mdns.backend if mdns is not None else None,
             "ledger_sync": sync.status if sync is not None else "disabled",
             "ledger_read_only": read_only,
-            **_read_only_fields(sync, read_only),
+            **_read_only_fields(sync, read_only, details=details),
             "scheme": "https" if settings.tls_enabled else "http",
             # 采集用的浏览器窗口正等着人点验证的站，供排查时看一眼；窗口本身就是提醒，不另弹通知（ADR-0065）。
             **({
@@ -657,13 +657,14 @@ def _configure_capacity_guard(settings, contract, services):
         service.capacity_guard = guard
 
 
-def _read_only_fields(sync, read_only: bool) -> dict:
+def _read_only_fields(sync, read_only: bool, *, details: bool) -> dict:
     """健康检查里的只读说明：zh-CN 原文给旧页面，旁边是同一句的 code 与参数（ADR-0159），页面按界面语言显示。"""
     if not read_only:
         return {"ledger_read_only_message": None, "ledger_read_only_message_code": None,
                 "ledger_read_only_message_params": None}
-    phrase = sync.read_only_phrase
-    return {"ledger_read_only_message": sync.read_only_message, "ledger_read_only_message_code": phrase["code"],
+    phrase = sync.read_only_phrase if details else {"code": "labels.sync.readOnlyOtherMachine"}
+    message = sync.read_only_message if details else interface_text.text(f"server:{phrase['code']}")
+    return {"ledger_read_only_message": message, "ledger_read_only_message_code": phrase["code"],
             "ledger_read_only_message_params": phrase.get("params", {})}
 
 

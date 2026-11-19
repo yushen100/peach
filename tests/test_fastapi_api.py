@@ -663,6 +663,9 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
             # 同一句另带 code 与参数，页面按界面语言显示。
             self.assertEqual((health.json()["ledger_read_only_message_code"], health.json()["ledger_read_only_message_params"]),
                              ("labels.sync.readOnlyWriter", {"owner": "mac"}))
+            anonymous = (await client.get("/healthz")).json()
+            self.assertEqual(anonymous["ledger_read_only_message_code"], "labels.sync.readOnlyOtherMachine")
+            self.assertEqual(anonymous["ledger_read_only_message_params"], {})
             reviewed = await client.get("/api/review?t=secret")
             self.assertEqual(reviewed.status_code, 200)
             self.assertEqual(reviewed.json()["mirror"]["state"], "live")
