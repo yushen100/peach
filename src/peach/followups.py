@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import logging
+import sqlite3
 import threading
 import time
 from dataclasses import dataclass
@@ -26,13 +27,14 @@ from pathlib import Path
 from typing import Callable
 
 from .repository import in_background
+from .task_retry import transient_delay
 from .task_runs import TaskRunHandle, TaskRunStore, item_progress, run_error
 
 LOGGER = logging.getLogger(__name__)
 
 #: 写账本的后继共用的通道名。它不是任务种类，是「这条路上一次只许过一个」。
 LEDGER_LANE = "ledger"
-#: 闸门锁被别人拿着时，通道隔多久再领。
+#: 起跑闸门或账本写锁正忙时，通道隔多久再领。
 DEFER_POLL_SECONDS = 1.0
 #: 后继让路以后，本进程让出路时会叫醒通道（`deferrals_changed`）；路被别的进程
 #: （命令行）占着时没有通知，隔这么久看一眼。
@@ -303,8 +305,10 @@ class FollowupRunner:
         while not self._stopping:
             try:
                 run = self.store.claim_followup(keys, first=_ahead(keys))
-            except GateBusy:
-                # 闸门锁被别人拿着不是「队列空了」：退出线程就没人再叫醒这条通道。
+            except (GateBusy, sqlite3.OperationalError) as error:
+                if isinstance(error, sqlite3.OperationalError) and transient_delay(error) is None:
+                    raise
+                # 暂时拿不到锁时保留领取通道，等锁释放后继续处理队列。
                 time.sleep(DEFER_POLL_SECONDS)
                 continue
             if run is None:

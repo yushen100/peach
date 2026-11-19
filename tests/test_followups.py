@@ -411,6 +411,35 @@ class RunnerTests(LedgerTestCase):
             runner.stop(timeout=10)
         self.assertEqual(self.store.get(child).status, "succeeded")
 
+    def test_a_busy_ledger_keeps_the_lane_alive_and_retries_the_claim(self):
+        from peach.repository import LedgerWriteBusy
+        parent = self.parent()
+        claim = self.store.claim_followup
+        blocked = threading.Event()
+        release = threading.Event()
+
+        def claim_when_ready(keys, first=()):
+            if not release.is_set():
+                blocked.set()
+                raise LedgerWriteBusy(0.01)
+            return claim(keys, first=first)
+
+        with registered(echo_type("ledger-a")), \
+                mock.patch.object(followups_module, "DEFER_POLL_SECONDS", 0.01), \
+                mock.patch.object(self.store, "claim_followup", side_effect=claim_when_ready):
+            child = self.store.enqueue_followups(parent.id, [("ledger-a:1", "ledger-a", "甲")])["queued"][0]
+            runner = FollowupRunner(self.contract())
+            try:
+                runner.wake()
+                self.assertTrue(blocked.wait(5))
+                self.assertEqual(self.store.get(child).status, "pending")
+                release.set()
+                self.wait_until_settled(parent.id)
+            finally:
+                release.set()
+                runner.stop(timeout=10)
+        self.assertEqual(self.store.get(child).status, "succeeded")
+
     def test_draining_leaves_a_followup_that_steps_aside_in_the_queue(self):
         attempts = []
 
