@@ -455,6 +455,78 @@ class RemoteReportingTests(unittest.TestCase):
                   for call in submit.call_args_list]
         self.assertEqual(counts, [[3], [3]])
 
+    def test_rate_limited_count_logs_retry_with_the_original_day_and_separate_receipt(self):
+        from types import SimpleNamespace
+        from sentry_sdk.transport import HttpTransport
+        from peach import diagnostic_frequency as frequency
+
+        reporting.save({"usage": True, "errors": True})
+        start = datetime(2026, 10, 18, 22, tzinfo=timezone.utc)
+        deliveries = []
+
+        def deliver(transport, envelope):
+            if envelope.items[0].type != "log":
+                transport._handle_response(SimpleNamespace(status=200, headers={}), envelope)
+                return
+            [entry] = envelope.items[0].payload.json["items"]
+            attrs = entry["attributes"]
+            deliveries.append((attrs["occurrence_day"]["value"], attrs["occurrence_count"]["value"]))
+            status = 429 if len(deliveries) == 1 else 200
+            headers = {"x-sentry-rate-limits": "0:log_item"} if status == 429 else {}
+            transport._handle_response(SimpleNamespace(status=status, headers=headers), envelope)
+
+        with mock.patch.object(HttpTransport, "_send_envelope", autospec=True, side_effect=deliver), \
+                mock.patch.object(frequency, "_now", return_value=start) as clock:
+            reporting.send("errors", {"message": "fixture"})
+            reporting.flush_counts(force=True)
+            reporting._client.flush(timeout=3)
+            delivery = reporting.snapshot(self.config)["delivery"]
+            self.assertEqual(delivery["errors"]["status"], "accepted")
+            self.assertEqual((delivery["counts"]["status"], delivery["counts"]["status_code"]), ("failed", 429))
+
+            clock.return_value = start + timedelta(hours=2)
+            reporting.flush_counts(force=True)
+            reporting._client.flush(timeout=3)
+            self.assertEqual(deliveries, [("2026-10-18", 1)])
+
+            clock.return_value = start + timedelta(seconds=frequency.INTERVAL)
+            reporting.flush_counts(force=True)
+            reporting._client.flush(timeout=3)
+            reporting.flush_counts(force=True)
+            self.assertEqual(deliveries, [("2026-10-18", 1), ("2026-10-18", 1)])
+            self.assertEqual(reporting.snapshot(self.config)["delivery"]["counts"]["status"], "accepted")
+
+    def test_sdk_backoff_for_logs_records_a_rejection_before_sending(self):
+        from sentry_sdk.transport import HttpTransport
+        from peach import diagnostic_frequency as frequency
+
+        reporting.save({"usage": True, "errors": True})
+        reporting.send("errors", {"message": "fixture"}, count_only=True)
+        with mock.patch.object(HttpTransport, "_check_disabled", return_value=True), \
+                mock.patch.object(HttpTransport, "_send_envelope") as send:
+            reporting.flush_counts(force=True)
+            reporting._client.flush(timeout=3)
+        send.assert_not_called()
+        state = json.loads(frequency._path(self.config).read_text(encoding="utf-8"))
+        [pending] = state["count_retries"].values()
+        self.assertEqual(pending["tags"]["occurrence_count"], "1")
+        self.assertEqual(reporting.snapshot(self.config)["delivery"]["counts"]["reason"], "rate_limit")
+
+    def test_full_sdk_queue_leaves_count_logs_pending(self):
+        from sentry_sdk.worker import BackgroundWorker
+        from peach import diagnostic_frequency as frequency
+
+        reporting.save({"usage": True, "errors": True})
+        reporting.send("errors", {"message": "fixture"}, count_only=True)
+        with mock.patch.object(BackgroundWorker, "submit", return_value=False):
+            reporting.flush_counts(force=True)
+        state = json.loads(frequency._path(self.config).read_text(encoding="utf-8"))
+        [row] = state["records"].values()
+        self.assertEqual((row["total"], row["submitted"]), (1, 0))
+        delivery = reporting.snapshot(self.config)["delivery"]
+        self.assertEqual((delivery["counts"]["status"], delivery["counts"]["reason"]), ("failed", "queue_full"))
+        self.assertNotIn("errors", delivery)
+
     def test_frequency_shared_file_serializes_independent_processes(self):
         from peach import diagnostic_frequency as frequency
         from filelock import FileLock

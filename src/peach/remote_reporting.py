@@ -283,7 +283,7 @@ def _log_item(body, event, extra=None):
             "attributes": {key: _attribute(value) for key, value in attributes.items() if value != ""}}
 
 
-def _submit_telemetry(kind, items, config, current, target):
+def _submit_telemetry(kind, items, config, current, target, *, retry_on_limit=None):
     """日志与会话汇总组成一个信封交给同一传输；同意凭据只在信封头，闸门发送前移除。"""
     from sentry_sdk.envelope import Envelope, Item, PayloadRef
     from sentry_sdk.utils import format_timestamp
@@ -292,7 +292,10 @@ def _submit_telemetry(kind, items, config, current, target):
         from .reporting_delivery import record
         receipt = uuid.uuid4().hex
         permit = {**_permit(kind, config, current), "receipt": receipt}
+        if retry_on_limit is not None:
+            permit["diagnostic_counts"] = True
         envelope = Envelope(headers={"sent_at": format_timestamp(datetime.now(timezone.utc)), "peach_permit": permit})
+        envelope.peach_retry_on_limit = retry_on_limit
         logs = [item for item in items if "body" in item]
         if logs:
             envelope.add_item(Item(type="log", content_type="application/vnd.sentry.items.log+json",
@@ -304,8 +307,7 @@ def _submit_telemetry(kind, items, config, current, target):
         if client.transport is None:
             record(permit, receipt, {"status": "failed", "reason": "disabled"})
             return False
-        client.transport.capture_envelope(envelope)
-        return True
+        return client.transport.capture_envelope(envelope) is not False
 
 
 def _submit(kind, event, config, current, target):
@@ -383,6 +385,13 @@ def _code_location(values):
 
 def _count_logs(config, current, target):
     """计数日志带整数 `occurrence_count`，接收端可按诊断键、日期与版本直接求和，按代码位置对应到源码。"""
+    from . import diagnostic_frequency
+    revision = current["revision"]
+
+    def still_allowed():
+        choice = consent(config)
+        return not _disabled and choice["errors"] and choice["revision"] == revision
+
     def submit(counts):
         items = []
         for event in counts:
@@ -392,7 +401,12 @@ def _count_logs(config, current, target):
                      **({"exception_type": values[-1].get("type", "")} if values else {}),
                      **_code_location(values)}
             items.append(_log_item("Peach diagnostic count", event, extra))
-        return _submit_telemetry("errors", items, config, current, target)
+        def retry_on_limit():
+            due = diagnostic_frequency.retry_limited_counts(config, revision, counts, still_allowed)
+            if due is not None:
+                _schedule_frequency(config, due)
+
+        return _submit_telemetry("errors", items, config, current, target, retry_on_limit=retry_on_limit)
     return submit
 
 
@@ -673,9 +687,10 @@ def _shutdown():
         for config in configs:
             flush_counts(config, force=True)
         with _lock:
-            if _client is not None:
-                _client.flush(timeout=1)
-            close()
+            client = _client
+        if client is not None:
+            client.flush(timeout=1)
+        close()
     except Exception:
         pass
 

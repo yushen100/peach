@@ -30,6 +30,7 @@ def _record(permit, event_id, result):
     status = result.get("status")
     if status not in STATUSES:
         return
+    kind = "counts" if permit.get("diagnostic_counts") and permit["kind"] == "errors" else permit["kind"]
     state_path = path.with_name("remote-reporting-delivery.json")
     state_path.parent.mkdir(parents=True, exist_ok=True)
     with FileLock(str(state_path) + ".lock", timeout=.1):
@@ -39,8 +40,10 @@ def _record(permit, event_id, result):
         state = _read(state_path)
         if state.get("revision") != current["revision"]:
             state = {"revision": current["revision"]}
-        previous = state.get(permit["kind"], {})
+        previous = state.get(kind, {})
         previous = previous if isinstance(previous, dict) else {}
+        if kind == "errors" and previous.get("kind") != kind:
+            previous = {}
         if status != "queued" and previous.get("event_id") != event_id:
             return
         row = {"status": status, "event_id": event_id, "at": datetime.now(timezone.utc).isoformat()}
@@ -54,7 +57,8 @@ def _record(permit, event_id, result):
         code = result.get("status_code")
         if type(code) is int and 100 <= code <= 599:
             row["status_code"] = code
-        state[permit["kind"]] = row
+        row["kind"] = kind
+        state[kind] = row
         atomic_write_text(state_path, json.dumps(state))
 
 
@@ -64,9 +68,12 @@ def snapshot(config):
     if state.get("revision") != consent(config)["revision"]:
         return {}
     result = {}
-    for kind in ('usage', 'errors'):
+    for kind in ('usage', 'errors', 'counts'):
         row = state.get(kind)
         if not isinstance(row, dict):
+            continue
+        # 老版 errors 回执也可能来自计数日志，无法判定是哪类信封。
+        if kind == 'errors' and row.get('kind') != kind:
             continue
         result[kind] = {key: row[key] for key in ('status', 'reason', 'status_code', 'at') if key in row}
         last_sent = row.get('last_sent_at') or (row.get('at') if row.get('status') == 'accepted' else None)
