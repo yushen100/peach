@@ -38,6 +38,7 @@ import { interfaceLanguage, t } from '../i18n';
 export interface PlayerResume { time: number; autoplay: boolean }
 
 export interface DetailPlayerOptions {
+  released?: () => boolean;
   guidePreview?: boolean;
   playbackKey?: string;
   /** 给定片源（关注条目的 `/follow-stream`）；不给就按作品的来源解析。 */
@@ -94,9 +95,11 @@ export async function mountDetailPlayer(
   /* 拉不到就退回原生 video，和「页面里没有 videojs」是同一个兜底出口。 */
   let videojs;
   try { videojs = await ensureVideojs() } catch {
+    if (options.released?.()) return null;
     video.controls = true;
     if (options.guidePreview) return null;
     source().then((next) => {
+      if (options.released?.()) return;
       video.addEventListener('loadedmetadata', () => {
         if (resume && resume.time > 0) video.currentTime = Math.min(resume.time, realDuration(video.duration) || resume.time);
       }, { once: true });
@@ -104,6 +107,7 @@ export async function mountDetailPlayer(
     }).catch(() => {});
     return null;
   }
+  if (options.released?.()) return null;
   const player = videojs(video, {
     controls: true, preload: 'metadata', language: interfaceLanguage, responsive: true,
     /* 海报与作品当前封面偏好一致，交给原生视频显示。 */
@@ -396,11 +400,20 @@ export function mountPlayer(video: HTMLVideoElement, options: MountPlayerOptions
     detachChrome();
     if (player && handedOff?.(player)) return;
     stopPlaybackPosition(trackedVideo);
-    if (!player) { stopTelemetry(trackedVideo); return }
+    if (!player) {
+      stopTelemetry(trackedVideo);
+      if (trackedVideo.hasAttribute('src')) {
+        trackedVideo.pause();
+        trackedVideo.removeAttribute('src');
+        trackedVideo.load();
+      }
+      return;
+    }
     if (detailPlayer() === player) { setDetailPlayer(null); stopPlayerPanels() }
     disposePlayer(player);
   };
-  void mountDetailPlayer(item, video, guidePreview ? false : options.autoplay ?? host.settings().detailAutoplay, detail).then((mounted) => {
+  void mountDetailPlayer(item, video, guidePreview ? false : options.autoplay ?? host.settings().detailAutoplay,
+    { ...detail, released: () => released }).then((mounted) => {
     player = mounted;
     // 挂载还没回来媒体区就换了：这一个一出来就拆掉。
     if (released) { release(); return }

@@ -223,7 +223,7 @@ function VideoCard({ item, variant, layout, selected, selectMode, seekSeconds, h
     if (card.current && card.current !== el) releaseHover(card.current);
     card.current = el;
     if (el && (!current.medium || current.medium === 'video')) wireHover(el, current);
-  }, [item.id, item.location, item.has_thumb, item.medium]);
+  }, [item.id, item.location, item.cost, item.has_thumb, item.medium]);
 
   /* 按画幅筛的列表里，接口只算同画幅的卷与版本，组可能只剩一卷或一个版本：那张卡就是这一个
      文件自己，不叠纸边、不标卷数或版本数。 */

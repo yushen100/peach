@@ -67,6 +67,17 @@ describe('悬停放大设置', () => {
 });
 
 describe('远端源只扫接触印相', () => {
+  it('计费的本地或 SMB 来源也只用缓存预览帧', () => {
+    for (const location of ['local', 'smb']) {
+      const el = card();
+      wireHover(el, { id: 7, location, cost: 'metered', has_thumb: true });
+      enter(el);
+      expect(el.querySelector('video')).toBeNull();
+      expect(el.querySelector('img.ui-hvframes')?.getAttribute('src')).toBe('/poster?id=7&c=4');
+      leave(el);
+    }
+  });
+
   it('叠一层扫视图，不碰封面那张图；移开就撤掉', () => {
     const el = card();
     el.querySelector('[data-media-pic]')!.innerHTML = '<img class="poster cover" src="/cover?code=A">';

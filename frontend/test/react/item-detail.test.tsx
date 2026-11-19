@@ -409,13 +409,18 @@ describe('交给壳的', () => {
 
   it('没挂载与在线拦截不挂播放器；计费来源点了说明才挂，带 autoplay', async () => {
     serve();
-    const offline = await show(item(1), { helpers: helpers({ sourceOffline: () => true }) });
+    const offline = await show(item(1, { location: 'smb', root_id: 'archive-mount' }),
+      { helpers: helpers({ sourceOffline: () => true }) });
     expect(offline.host.querySelector('[data-item-gate="offline"]')?.textContent).toContain('盘没挂上');
     expect(offline.actions.mountPlayer).not.toHaveBeenCalled();
+    await click(offline.host.querySelector('#offlineRetry'));
+    expect(offline.actions.checkSource).toHaveBeenCalledWith('archive-mount');
     queryClient.clear();
     const metered = await show(item(2, { cost: 'metered' }));
     expect(metered.actions.mountPlayer).not.toHaveBeenCalled();
-    await click(metered.host.querySelector('[data-item-gate="metered"]'));
+    const gate = metered.host.querySelector<HTMLButtonElement>('button[data-item-gate="metered"]');
+    expect(gate?.type).toBe('button');
+    await click(gate);
     expect(metered.actions.mountPlayer).toHaveBeenCalledWith(metered.host.querySelector('[data-item-media="metered"]'), expect.objectContaining({ id: 2 }), null,
       { autoplay: true });
   });

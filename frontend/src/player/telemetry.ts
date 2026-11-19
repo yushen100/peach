@@ -76,10 +76,11 @@ export function wireTelemetry(item: PlayerItem, video: HTMLVideoElement | null, 
           document.dispatchEvent(new CustomEvent(PLAYBACK_PROGRESS_EVENT, { detail }));
         }
         const real = document.getElementById('realTxt');
-        if (real && result && result.real_ratio != null) {
+        const trace = real?.closest<HTMLElement>('[data-item-trace]');
+        if (real && trace?.dataset.itemTrace === String(item.id) && result && result.real_ratio != null) {
           const percent = Math.min(result.real_ratio, 1) * 100;
           real.textContent = `${percent.toFixed(0)}%`;
-          const bar = document.getElementById('realBar'); if (bar) bar.style.width = `${percent.toFixed(1)}%`;
+          const bar = trace.querySelector<HTMLElement>('#realBar'); if (bar) bar.style.width = `${percent.toFixed(1)}%`;
         }
       }).catch(() => {});
     acc = 0; seeks = 0;

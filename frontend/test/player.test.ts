@@ -72,6 +72,25 @@ it('播放器导览抑制片源与自动播放，结束后沿用已保存的播�
 });
 
 describe('片源判据', () => {
+  it('关闭详情后，迟到的原生兜底片源不会挂到视频', async () => {
+    configurePlayer(host());
+    vi.spyOn(videojsLoader, 'ensureVideojs').mockRejectedValueOnce(new Error('播放器未加载'));
+    let deliver!: (response: Response) => void;
+    const plan = new Promise<Response>((resolve) => { deliver = resolve });
+    const fetcher = vi.fn(() => plan);
+    vi.stubGlobal('fetch', fetcher);
+    const video = document.createElement('video');
+    const release = mountPlayer(video, { kind: 'item', item: { id: 3 }, chrome: false });
+    await flush(); await flush();
+    expect(fetcher).toHaveBeenCalledWith(expect.stringContaining('/api/stream-plan?id=3'), expect.anything());
+    release();
+    deliver(new Response(JSON.stringify({ src: '/stream?id=3', protocol: 'range' }), {
+      headers: { 'Content-Type': 'application/json' },
+    }));
+    await flush();
+    expect(video.hasAttribute('src')).toBe(false);
+  });
+
   it('保存过的在线作品走关注条目的代理，不问 stream-plan', async () => {
     const calls = stubFetch(() => null);
     const source = await playableStreamSource({ id: 7, location: 'online', follow_item_id: 42 }, 's1');
@@ -202,6 +221,22 @@ describe('片源判据', () => {
 
 describe('观看上报', () => {
   beforeEach(() => { vi.useFakeTimers(); });
+
+  it('上一部作品的观看回执不会覆盖当前详情的读数', async () => {
+    stubFetch(() => ({ real_ratio: .5, play_seconds: 50 }));
+    const trace = document.createElement('div');
+    trace.dataset.itemTrace = '9';
+    trace.innerHTML = '<span id="realTxt">0%</span><u id="realBar"></u>';
+    document.body.append(trace);
+    try {
+      const video = document.createElement('video');
+      wireTelemetry({ id: 9, duration: 100 }, video);
+      video.onended?.(new Event('ended'));
+      trace.dataset.itemTrace = '11';
+      await vi.advanceTimersByTimeAsync(0);
+      expect(trace.querySelector('#realTxt')?.textContent).toBe('0%');
+    } finally { trace.remove() }
+  });
 
   it('离开详情时既不 pause 也不 ended：emptied 收尾停表', async () => {
     const calls = stubFetch(() => ({ real_ratio: .5 }));
