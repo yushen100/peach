@@ -38,7 +38,7 @@ import { queryClient } from '../query';
 import {
   AXIS_LOCK_PX, DISLIKE_ADVANCE_MS, DOUBLE_TAP_MS, READY_TIMEOUT_MS, SLIDE_MS, SWIPE_PX, SYNTHETIC_CLICK_MS,
   TAP_SLOP_PX, WHEEL_GAP_MS, HOLD_MS, ensureDetail, extendList, fetchImmerseList, fitMode, immerseListKey, immerseQuery,
-  isWide, ownerOf, scrubRatio, swipeDelta, swipeSpan, tapSide, type ImmerseItem,
+  isWide, ownerOf, playable, scrubRatio, swipeDelta, swipeSpan, tapSide, type ImmerseItem,
 } from './immerse';
 import type { ImmerseApi, ImmerseHost } from './immerse-api';
 import { t } from '../../i18n';
@@ -152,7 +152,6 @@ function setLoading(label: string | null, item: ImmerseItem | null = null): void
   view = { ...view, loading: loadingText() };
   paint();
   ticker = window.setInterval(() => {
-    loadingItem = list[index] ?? null;
     view = { ...view, loading: loadingText() };
     paint();
   }, 500);
@@ -317,19 +316,19 @@ function showSeekPreview(ratio: number): void {
   seekPreview.show(ratio, total);
 }
 
-async function show(direction = 0): Promise<void> {
-  const item = list[index];
+async function show(position: number, direction = 0): Promise<void> {
+  const item = list[position];
   if (!item || switching) return;
   const mine = generation;
-  /* 当前这一条交给壳写进地址栏：竖划十条之后刷新页面，落回来的该是同一条片子，而不是重新抽一批。 */
-  immerseHost().route(item.id);
   switching = true;
   setLoading(direction ? t('catalog:immerse.switching') : t('catalog:immerse.loading'), item);
   let incoming: Slide | null = null;
   try {
-    // 这一条刚被删掉（详情回 `{error}`）照样放：作者与动作键只是没有可画的。
-    await ensureDetail(item.id).catch((error: unknown) => { if (!(error instanceof ItemGone)) throw error });
-    if (mine !== generation) return;
+    void ensureDetail(item.id).catch((error: unknown) => {
+      if (!(error instanceof ItemGone) && mine === generation && (view.shown?.item === item || loadingItem === item)) {
+        immerseHost().failure(t('catalog:immerse.detailFailed'), error);
+      }
+    });
     const old = current, sliding = !!(direction && old);
     if (!sliding) disposeSlide(old);
     const next = createSlide(sliding ? (direction > 0 ? 100 : -100) : 0);
@@ -353,13 +352,19 @@ async function show(direction = 0): Promise<void> {
     current = next;
     incoming = null;
     next.video.play()?.catch(() => {});
+    index = position;
+    immerseHost().route(item.id);
     view = { ...view, idle: false, shown: { item, index, length: list.length } };
     wireProgress(next.video, item);
     void apiSend('/api/play', { id: item.id }).catch(() => {});
     setLoading(null);
-  } catch {
+  } catch (error) {
     disposeSlide(incoming);
-    if (mine === generation) setLoading(null);
+    if (mine === generation) {
+      setLoading(null);
+      if (!current) close();
+      immerseHost().failure(t('catalog:immerse.videoFailed'), error);
+    }
   } finally {
     if (mine === generation) switching = false;
   }
@@ -381,21 +386,20 @@ function extendQueue(mine: number): Promise<void> {
 async function step(direction: number): Promise<void> {
   if (switching || !view.open) return;
   const mine = generation;
-  index += direction;
-  setLoading(t('catalog:immerse.switching'), list[index] ?? null);
+  const position = index + direction;
+  setLoading(t('catalog:immerse.switching'), list[position] ?? null);
   // 队列尾部在后台续取，只有目标条目尚未在队列里时才等待。
-  if (index >= list.length - 3) {
+  if (position >= list.length - 3) {
     const pending = extendQueue(mine);
-    if (!list[index]) {
+    if (!list[position]) {
       switching = true;
       await pending;
       if (mine !== generation) return;
       switching = false;
     }
   }
-  if (index >= list.length) index = 0;
-  if (index < 0) index = list.length - 1;
-  await show(direction);
+  const target = position >= list.length ? 0 : position < 0 ? list.length - 1 : position;
+  await show(target, direction);
 }
 
 async function open(startId: number | null): Promise<void> {
@@ -415,7 +419,9 @@ async function open(startId: number | null): Promise<void> {
         if (error instanceof ItemGone) return null;
         throw error;
       });
-      if (selected?.id) next = [selected as ImmerseItem, ...next.filter((item) => item.id !== startId)];
+      if (selected?.id && playable(selected as ImmerseItem, (source) => immerseHost().sourceOffline(source))) {
+        next = [selected as ImmerseItem, ...next];
+      }
     }
     if (mine !== generation) return;
     list = next;
@@ -424,12 +430,12 @@ async function open(startId: number | null): Promise<void> {
       immerseHost().warn(t('catalog:immerse.nothingPlayable'));
       return;
     }
-    index = Math.max(0, list.findIndex((item) => item.id === startId));
-    await show();
-  } catch {
+    await show(Math.max(0, list.findIndex((item) => item.id === startId)));
+  } catch (error) {
     if (mine !== generation) return;
     setLoading(null);
     close();
+    immerseHost().failure(t('catalog:immerse.videoFailed'), error);
   }
 }
 
@@ -699,7 +705,7 @@ const ACTIONS: { kind: FeedbackKind; glyph: string; label: string }[] = [
   { kind: 'o', glyph: 'heart', label: t('catalog:immerse.logClimax') },
 ];
 
-/** 当前出画那一条的详情：出画前已经取过（`ensureDetail`），这里只读缓存、跟着写回重画。 */
+/** 当前出画那一条的详情：复用播放开始时发出的请求和详情缓存。 */
 function useDetail(id: number | null) {
   return useQuery({
     queryKey: itemKey(id ?? 0),
@@ -719,7 +725,7 @@ function ImmerseAction({ kind, glyph, label, id }: { kind: FeedbackKind; glyph: 
   const full = useDetail(id);
   const mutation = useMutation({
     mutationFn: async (target: number) => {
-      const before = queryClient.getQueryData<DetailItem>(itemKey(target))?.feedback || null;
+      const before = (await ensureDetail(target)).feedback || null;
       return { result: await sendFeedback(target, kind), before };
     },
     onSuccess: ({ result, before }, target) => {

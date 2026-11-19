@@ -663,7 +663,7 @@ def _blocked(asset_id, path, error: OSError | None = None, *, code: str | None =
     return {**item, "reason": error.strerror or str(error)}
 
 
-def stage_purge(rows, *, missing_only: bool = False) -> dict:
+def stage_purge(rows, *, missing_only: bool = False, deferred_direct: list | None = None) -> dict:
     """在写事务外处理媒体文件：核对路径与来源、stat、同目录隔离。
 
     本地文件同目录隔离，账本事务失败时恢复。rclone FUSE 直接删除，避免远端改名
@@ -674,6 +674,7 @@ def stage_purge(rows, *, missing_only: bool = False) -> dict:
     计数、评分等所有写入都排在后面。这一步不碰账本，`commit_purge` 在事务里复核后再删行。
 
     ``missing_only`` 删的只是账本行：文件还在（或答不上在不在）的行进 ``blocked``。
+    提供 ``deferred_direct`` 时，调用方完成最终复核与备份后再处理必须直接删除的行。
     """
     if missing_only:
         return _stage_missing_rows(rows)
@@ -716,6 +717,9 @@ def stage_purge(rows, *, missing_only: bool = False) -> dict:
                     raise OSError("not a regular file")
                 if media_stat is not None:
                     if _is_rclone_mount(original):
+                        if deferred_direct is not None:
+                            deferred_direct.append(row)
+                            continue
                         # 删了就收不回来：过了期限才删成的，这一行留着，资源同步下次按已消失处理。
                         _changed_within_deadline(key, original.unlink, None)
                     else:

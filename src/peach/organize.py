@@ -16,6 +16,7 @@ import json
 import ntpath
 import os
 import sqlite3
+import stat
 import time
 from collections.abc import Callable, Iterable, Sequence
 from contextlib import contextmanager
@@ -24,6 +25,7 @@ from pathlib import Path, PureWindowsPath
 from . import interface_text
 from .catalog_rules import is_jav_code, is_uncensored_release, normalise_code_key, part_marker
 from .content_words import UNCENSORED_FILENAME_WORD
+from .file_identity import fingerprint
 from .jobs import ACTIVE_ASSET_SQL
 from .task_retry import transient_delay
 from .organize_templates import MAX_PATH, TemplateError, clean_filename, example_path, render, validate_template
@@ -504,6 +506,15 @@ def _landed(settled: str, previous: str, worker: media_io.MountWorker) -> bool:
     return is_file and (case_only or not still_there)
 
 
+def _file_identity(path: str, worker: media_io.MountWorker) -> tuple[bool, list | None]:
+    native = _media_path(path)
+    try:
+        info = worker.call('stat', str(native)) if isinstance(native, Path) else native.stat(with_identity=True)
+    except FileNotFoundError:
+        return False, None
+    return True, fingerprint(info) if stat.S_ISREG(info.st_mode) else None
+
+
 def _move_one(connection: sqlite3.Connection, asset_id: int,
               old_path: str, new_path: str, worker: media_io.MountWorker | None = None) -> str:
     """动一个文件并同步账本；返回 `ok` 或跳过／失败原因。
@@ -544,17 +555,55 @@ def _move_one(connection: sqlite3.Connection, asset_id: int,
 
 
 def _settle(connection: sqlite3.Connection, asset_id: int, ledger_path: str | None,
-            old_path: str, new_path: str, worker: media_io.MountWorker) -> str:
+            old_path: str, new_path: str, worker: media_io.MountWorker, *, pending: dict,
+            save: Callable[[], None]) -> str:
     """一条要从 `old_path` 改到 `new_path` 的结果：账本与文件都已在新位置就算做完
     （上一轮提交了账本、没来得及记日志），否则动一次。"""
-    if ledger_path == new_path:
-        try:
+    key = str(asset_id)
+    intent = pending.get(key)
+    try:
+        if ledger_path == new_path:
             if _landed(new_path, old_path, worker):
                 return 'ok'
-        except OSError as error:
-            return _failure("labels.organize.failure.renameFailed", {"error": str(error.strerror or error)},
-                            retry_after=transient_delay(error))
-    return _move_one(connection, asset_id, old_path, new_path, worker)
+        if ledger_path != old_path:
+            return _failure("errors.organize.rowChanged")
+        source_exists, identity = _file_identity(old_path, worker)
+        if intent is not None:
+            if intent['from'] != old_path or intent['to'] != new_path:
+                return _failure("labels.organize.failure.moveUnverified")
+            expected = intent['identity']
+            if not source_exists:
+                if expected is None or _file_identity(new_path, worker)[1] != expected:
+                    return _failure("labels.organize.failure.moveUnverified")
+                return _settle_moved(connection, asset_id, old_path, new_path)
+            if expected is not None and identity != expected:
+                return _failure("labels.organize.failure.moveUnverified")
+        elif source_exists:
+            pending[key] = {'from': old_path, 'to': new_path, 'identity': identity}
+            save()
+    except OSError as error:
+        return _failure("labels.organize.failure.renameFailed", {"error": str(error.strerror or error)},
+                        retry_after=transient_delay(error))
+    outcome = _move_one(connection, asset_id, old_path, new_path, worker)
+    if isinstance(outcome, MoveFailure) and outcome.code in {
+        SKIP_REASON_CODES[SKIP_CROSS_VOLUME], SKIP_REASON_CODES[SKIP_TARGET_EXISTS],
+        'labels.organize.failure.ledgerRolledBack',
+    }:
+        pending.pop(key, None)
+    return outcome
+
+
+def _settle_moved(connection, asset_id, old_path, new_path):
+    """上次已改名且文件身份吻合，只补账本；失败时保留意图供下次继续。"""
+    try:
+        if not _update_row(connection, asset_id, old_path, new_path):
+            raise OrganizeError("errors.organize.rowChanged")
+        connection.commit()
+    except Exception as error:
+        connection.rollback()
+        return _failure("labels.organize.failure.ledgerStuck", {"error": nested_message(error)},
+                        retry_after=transient_delay(error))
+    return "ok"
 
 
 def apply_plan(connection: sqlite3.Connection, rows: Sequence[dict], *,
@@ -576,11 +625,13 @@ def apply_plan(connection: sqlite3.Connection, rows: Sequence[dict], *,
     log_path.parent.mkdir(parents=True, exist_ok=True)
     previous = json.loads(log_path.read_text(encoding='utf-8')) if stamp and log_path.exists() else {}
     entries = list(previous.get('entries') or [])
+    pending = dict(previous.get('pending') or {})
     failures: list[dict] = []
     completed = {entry['asset_id'] for entry in entries}
     def save():
         atomic_write_text(log_path, json.dumps(
-            {'stamp': stamp or time.strftime('%Y%m%d-%H%M%S'), 'entries': entries, 'failures': failures},
+            {'stamp': stamp or time.strftime('%Y%m%d-%H%M%S'), 'entries': entries, 'failures': failures,
+             'pending': pending},
             ensure_ascii=False, indent=1))
     try:
         with media_io.MountWorker() as worker:
@@ -593,8 +644,10 @@ def apply_plan(connection: sqlite3.Connection, rows: Sequence[dict], *,
                 if current is None or current[1] is not None:
                     outcome = _failure('labels.organize.failure.assetGone')
                 else:
-                    outcome = _settle(connection, int(row["asset_id"]), current[0], old_path, new_path, worker)
+                    outcome = _settle(connection, int(row["asset_id"]), current[0], old_path, new_path, worker,
+                                      pending=pending, save=save)
                 if outcome == "ok":
+                    pending.pop(str(row["asset_id"]), None)
                     entries.append({"asset_id": int(row["asset_id"]),
                                     "old_path": old_path, "new_path": new_path})
                 else:
@@ -619,29 +672,33 @@ def rollback_batch(connection: sqlite3.Connection, log_path: Path | str, *,
     payload = json.loads(path.read_text(encoding="utf-8"))
     entries = list(payload.get("entries") or [])
     previous_restored = int(payload.get('restored_count') or 0)
+    pending = payload.setdefault('pending', {})
     refuse_unverified(path for entry in entries for path in (entry["new_path"], entry["old_path"]))
     restored: list[dict] = []
     failures: list[dict] = []
+    def save():
+        atomic_write_text(path, json.dumps(payload, ensure_ascii=False, indent=1))
     with media_io.MountWorker() as worker:
         for index, entry in enumerate(reversed(entries), 1):
             current = connection.execute('SELECT path FROM asset WHERE id=?', (int(entry['asset_id']),)).fetchone()
             outcome = _settle(connection, int(entry["asset_id"]), current[0] if current else None,
-                              str(entry["new_path"]), str(entry["old_path"]), worker)
+                              str(entry["new_path"]), str(entry["old_path"]), worker, pending=pending, save=save)
             if outcome == "ok":
+                pending.pop(str(entry["asset_id"]), None)
                 restored.append(entry)
             else:
                 failures.append({"asset_id": int(entry["asset_id"]),
                                  "path": str(entry["new_path"]), **_reason_fields(outcome)})
             payload['entries'] = [row for row in entries if row not in restored]
             payload['restored_count'] = previous_restored + len(restored)
-            atomic_write_text(path, json.dumps(payload, ensure_ascii=False, indent=1))
+            save()
             if progress:
                 progress(checked=previous_restored + index, total=previous_restored + len(entries))
     remaining = [entry for entry in entries
                  if entry not in restored]
-    if remaining:
+    if remaining or pending:
         payload["entries"] = remaining
-        atomic_write_text(path, json.dumps(payload, ensure_ascii=False, indent=1))
+        save()
     else:
         # 整批都退回去了，这个批次就不该再出现在「回滚上一批」里。
         path.unlink(missing_ok=True)

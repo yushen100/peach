@@ -538,8 +538,11 @@ def seen_keys(connection: sqlite3.Connection, source_id: int) -> set[str]:
         "SELECT item_key FROM feed_item WHERE source_id=?", (int(source_id),))}
 
 
-def in_library(connection: sqlite3.Connection, code: str) -> bool:
-    """这个番号已经入库了没有。
+_LIBRARY_VIDEOS = "FROM asset WHERE medium='video' AND code IS NOT NULL AND COALESCE(disposal,'')<>'vanished' "
+
+
+def _library_code_keys(connection: sqlite3.Connection, codes) -> set[str]:
+    """返回入库番号的归一键。
 
     比的是归一化之后的键：账本里写的是 `SSIS-950`，源里可能给 `ssis00950`，
     按原文比会把同一部片当成两部。`normalise_code_key` 由 `LedgerDatabase.connect`
@@ -547,14 +550,19 @@ def in_library(connection: sqlite3.Connection, code: str) -> bool:
     （ADR-0087）；回收站里的仍算，那是用户看过之后丢的。只算视频：番号目录里的封面图、
     广告图也带着番号，视频删掉后它们还在，不能让一张封面把这部片算成在库。
     """
+    keys = {key for code in codes if (key := normalise_code_key(code))}
+    if not keys:
+        return set()
+    marks = ','.join('?' for _ in keys)
+    return {row[0] for row in connection.execute(
+        f"SELECT DISTINCT normalise_code_key(code) {_LIBRARY_VIDEOS}"
+        f"AND normalise_code_key(code) IN ({marks})", tuple(keys))}
+
+
+def in_library(connection: sqlite3.Connection, code: str) -> bool:
     key = normalise_code_key(code)
-    if not key:
-        return False
-    row = connection.execute(
-        "SELECT 1 FROM asset WHERE medium='video' AND code IS NOT NULL AND COALESCE(disposal,'')<>'vanished' "
-        "AND normalise_code_key(code)=? LIMIT 1",
-        (key,)).fetchone()
-    return row is not None
+    return bool(key and connection.execute(
+        f"SELECT 1 {_LIBRARY_VIDEOS}AND normalise_code_key(code)=? LIMIT 1", (key,)).fetchone())
 
 
 def record_entry(connection: sqlite3.Connection, source_id: int, entry: FeedEntry,
@@ -576,13 +584,16 @@ def create_shell(connection: sqlite3.Connection, code: str, *, source_id: int | 
                  title: str | None = None, link: str | None = None,
                  release_date: str | None = None, performers: str | None = None,
                  studio: str | None = None,
-                 entity_id: int | None = None, now: str | None = None) -> int | None:
+                 entity_id: int | None = None, now: str | None = None,
+                 known_library_keys: set[str] | None = None) -> int | None:
     """给一个还没入库的番号建壳。已入库或已有壳时返回 None。
 
     两层去重里的第二层就在这三行：先查 `asset`，再靠 `code` 上的唯一约束兜住并发。
     来源列表里就带着出演与厂牌的（DMM 片单）先写上，取资料之前合集判据就有名单可看。
     """
-    if in_library(connection, code):
+    present = (in_library(connection, code) if known_library_keys is None
+               else normalise_code_key(code) in known_library_keys)
+    if present:
         return None
     moment = now or stamp()
     try:
@@ -652,6 +663,7 @@ def poll(connection: sqlite3.Connection, source: sqlite3.Row,
         codes.append((entry, code))
     created: list[tuple[int, str]] = []
     skipped = compilations = 0
+    candidates = []
     for entry, code in reversed(codes):
         if code is None:
             skipped += 1
@@ -660,11 +672,14 @@ def poll(connection: sqlite3.Connection, source: sqlite3.Row,
                 and compilation_kind(entry.title, entry.performers, entry.studio) in hidden):
             compilations += 1
             continue
+        candidates.append((entry, code))
+    known_library_keys = _library_code_keys(connection, (code for _, code in candidates))
+    for entry, code in candidates:
         shell = create_shell(connection, code, source_id=source_id,
                              title=entry.title or None, link=entry.link,
                              release_date=(entry.published_at or "")[:10] or None,
                              performers=entry.performers, studio=entry.studio,
-                             entity_id=entity_id, now=moment)
+                             entity_id=entity_id, now=moment, known_library_keys=known_library_keys)
         # 全部新番号先建壳；仅限制这一轮派出的后继。未派的壳由存量队列继续处理。
         if shell is not None and len(created) < MAX_NEW_PER_POLL:
             created.append((shell, code))

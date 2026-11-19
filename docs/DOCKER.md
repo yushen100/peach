@@ -2,7 +2,7 @@
 
 Peach 的 Docker 镜像用于单人 VPS 与 NAS，通过浏览器管理，镜像仓库为 [longmeidao/peach](https://hub.docker.com/r/longmeidao/peach)，同一镜像也发布到 [ghcr.io/peach-mitao/peach](https://github.com/peach-mitao/peach/pkgs/container/peach)，拉取受 Docker Hub 频率限制时可以改用后者；配置页的检查更新与 Watchtower 一键更新仍以 Docker Hub 为准。每次发布推送版本号标签，并把 `edge` 与 `latest` 更新为同一镜像；版本号标签对应发布提交。NAS 容器面板和不写标签的 `docker pull` 只认 `latest`，在 `.env` 写 `PEACH_VERSION=latest` 后面板能提示新版本，一键更新同样可用。镜像同时提供 `linux/amd64` 与 `linux/arm64`，Docker 按宿主机架构自动选择。2026-10-15 在 WSL 的独立 Docker Engine 中，用正式锁定依赖通过空数据卷初始化、非 root、鉴权、配置保存、合成视频扫描、HTTP Range、配置重载与重启持久化验收。
 
-Docker 不使用桌面托盘。在网页配置中添加媒体目录时，只需填写容器内实际目录，例如 `/media`；Peach 自动保存所需的路径配置。Windows 安装包、macOS 源码运行和 Docker 的入口分别见 [README](../README.md#下载与使用)。
+Docker 不使用桌面托盘。在网页配置中添加媒体目录时，只需填写容器内实际目录，例如 `/media`；Peach 自动保存所需的路径配置。Windows 安装包、macOS 源码运行和 Docker 的入口分别见 [下载与使用](../README.zh-CN.md#下载与使用)。
 
 ## NAS 快速开始
 

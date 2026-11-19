@@ -120,7 +120,7 @@ def registered_keys() -> set[str]:
     keys |= {f"repairCenter.items.{key}.{field}" for key, _, _ in repair_center.ITEMS for field in ("title", "summary")}
     keys |= {f"repairCenter.history.{prefix.rstrip('-')}" for prefix, _ in repair_center.RULES}
     keys |= {f"download.state.{key}" for key in downloads.STATES}
-    keys |= {f"download.postprocess.{key}" for key in downloads.POSTPROCESS_STATES}
+    keys |= {downloads.postprocess_label_key(key) for key in downloads.POSTPROCESS_STATES}
     keys |= {f"download.failure.{key}" for key in downloads.FAILURE_KINDS}
     keys |= {f"storage.category.{item.key}.{field}" for item in data_storage.CATEGORIES
              for field in ("label", "description", "note")}

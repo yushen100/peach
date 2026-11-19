@@ -29,7 +29,9 @@ import sqlite3
 import stat
 import threading
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass, field
+from weakref import WeakValueDictionary
 from datetime import datetime, timezone
 from pathlib import Path, PureWindowsPath
 from typing import Any, Callable, Mapping, Protocol
@@ -69,8 +71,10 @@ POSTPROCESS_QUEUED = "queued"
 POSTPROCESS_RUNNING = "running"
 POSTPROCESS_COMPLETE = "complete"
 POSTPROCESS_FAILED = "failed"
+POSTPROCESS_CANCELLED = "cancelled"
 POSTPROCESS_STATES = (POSTPROCESS_NOT_REQUESTED, POSTPROCESS_PENDING, POSTPROCESS_QUEUED, POSTPROCESS_RUNNING,
-                      POSTPROCESS_COMPLETE, POSTPROCESS_FAILED)
+                      POSTPROCESS_COMPLETE, POSTPROCESS_FAILED, POSTPROCESS_CANCELLED)
+POSTPROCESS_RETRYABLE = (POSTPROCESS_FAILED, POSTPROCESS_CANCELLED)
 STATES = (CANDIDATE, SELECTED, SUBMITTED, REMOTE_RUNNING, REMOTE_DONE, LANDED, INGESTED, FAILED, CANCELLED, STALLED,
           SUBMIT_PENDING)
 
@@ -80,8 +84,10 @@ def state_label(state: str) -> str:
     return interface_text.label(f"server:download.state.{state}", state)
 
 
-def postprocess_label(state: str) -> str:
-    return interface_text.label(f"server:download.postprocess.{state}", state)
+def postprocess_label_key(state: str) -> str:
+    if state == POSTPROCESS_CANCELLED:
+        return "download.state.cancelled"
+    return f"download.postprocess.{state}"
 #: 轮询要看的状态。远端完成与已落地还在等账本里出现那个文件；等待重新提交的还要再交一次。
 TRACKED_STATES = frozenset({SUBMIT_PENDING, SUBMITTED, REMOTE_RUNNING, REMOTE_DONE, LANDED})
 #: 可以再提交一次的状态。已入库的不必，在跑的接管就行。
@@ -418,7 +424,7 @@ class DownloadTask:
         if self.postprocess_state == POSTPROCESS_PENDING and self.next_check_at:
             return "labels.downloads.postprocessRetrying", {
                 "retries": self.postprocess_retries, "limit": len(RETRY_DELAYS)}
-        return f"download.postprocess.{self.postprocess_state}", {}
+        return postprocess_label_key(self.postprocess_state), {}
 
     @property
     def postprocess_label(self) -> str:
@@ -480,7 +486,7 @@ class DownloadTask:
             "postprocess_retry_at": self.next_check_at if self.postprocess_state == POSTPROCESS_PENDING else None,
             "postprocess_active": self.postprocess_state in {
                 POSTPROCESS_PENDING, POSTPROCESS_QUEUED, POSTPROCESS_RUNNING},
-            "postprocess_retryable": self.state == INGESTED and self.postprocess_state == POSTPROCESS_FAILED,
+            "postprocess_retryable": self.state == INGESTED and self.postprocess_state in POSTPROCESS_RETRYABLE,
             "cancellable": self.state in TRACKED_STATES,
             "resubmittable": self.state in RESUBMITTABLE_STATES and not self.blocked_at,
         }
@@ -679,6 +685,44 @@ class DownloadStore:
                 (INGESTED, POSTPROCESS_PENDING, iso(time.time() if now is None else now))).fetchall()
         return [DownloadTask.from_row(row) for row in rows]
 
+    @staticmethod
+    def link_postprocess(connection, task_id: int, run_id: int) -> None:
+        """在后继可领取前关联本轮；接管旧队列时也只接仍在排的那一轮。"""
+        detail = Said("labels.downloadPostprocess.waiting")
+        connection.execute(
+            "UPDATE download_task SET postprocess_state=?,postprocess_run_id=?,postprocess_detail=?,"
+            "postprocess_detail_code=?,postprocess_detail_params=?,next_check_at=NULL "
+            "WHERE id=? AND state=? AND postprocess_state=? "
+            "AND EXISTS (SELECT 1 FROM task_run WHERE id=? AND status='pending')",
+            (POSTPROCESS_QUEUED, run_id, detail, *columns(detail),
+             task_id, INGESTED, POSTPROCESS_PENDING, run_id))
+
+    @staticmethod
+    def settle_cancelled_postprocess(connection, run_id: int | None = None) -> None:
+        """只结算已确认取消的活跃后处理。启动时也补齐留下运行证据的旧记录。"""
+        predicate = "AND postprocess_run_id=?" if run_id is not None else ""
+        params = (run_id,) if run_id is not None else ()
+        connection.execute(
+            "UPDATE download_task SET postprocess_state=?,postprocess_detail=NULL,"
+            "postprocess_detail_code=NULL,postprocess_detail_params=NULL,next_check_at=NULL,"
+            "postprocessed_at=run.finished_at FROM task_run AS run "
+            f"WHERE state=? AND postprocess_state IN (?,?) {predicate} "
+            "AND run.id=download_task.postprocess_run_id AND run.status='cancelled' "
+            "AND run.task_key='download-postprocess' AND run.followup_key='download-postprocess:' || download_task.id",
+            (POSTPROCESS_CANCELLED, INGESTED, POSTPROCESS_QUEUED, POSTPROCESS_RUNNING, *params))
+
+    def requeue_postprocess(self, task_id: int) -> bool:
+        """只重排仍处于失败或取消的任务；新的运行由入队事务重新关联。"""
+        detail = Said("labels.downloads.postprocessRequeued")
+        with self.database.write_transaction(notify=False) as connection:
+            return connection.execute(
+                "UPDATE download_task SET postprocess_state=?,postprocess_detail=?,"
+                "postprocess_detail_code=?,postprocess_detail_params=?,postprocess_retries=0,"
+                "postprocess_run_id=NULL,postprocessed_at=NULL,next_check_at=NULL "
+                "WHERE id=? AND state=? AND postprocess_state IN (?,?)",
+                (POSTPROCESS_PENDING, detail, *columns(detail), task_id, INGESTED,
+                 *POSTPROCESS_RETRYABLE)).rowcount > 0
+
     def postprocess(self, task_id: int, state: str, *, detail: str | None = None,
                     run_id: int | None = None, finished: str | None = None) -> None:
         assignments = ["postprocess_state=?", "postprocess_detail=?", "postprocess_detail_code=?",
@@ -875,6 +919,8 @@ class DownloadService:
         #: 只放在内存里：重启后第一次提交自然会再试一次。
         self._channel_alerts: dict[str, dict] = {}
         self._submit_lock = threading.Lock()
+        self._task_locks = WeakValueDictionary()
+        self._task_locks_guard = threading.Lock()
         self._wake = threading.Event()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -895,7 +941,7 @@ class DownloadService:
         if provider.startswith("clouddrive:") and not (
                 folder == channel["target"] or folder.startswith(channel["target"].rstrip("/") + "/")):
             raise UserValueError("errors.downloads.targetOutsideLibrary")
-        with self._submit_lock:
+        with self._submit_lock, self._task_lock(magnet.info_hash):
             now = self.clock()
             if dedupe_code and code and (existing := self.store.active_by_code(code)) is not None:
                 self.store.record_submission(task=existing, outcome="adopted", now=now)
@@ -942,34 +988,26 @@ class DownloadService:
 
     def _retry_submit(self, task: DownloadTask, now: float) -> None:
         """再交一次提交时网盘没应答的磁力。远端收下后从这一刻起按新提交对账。"""
-        with self._submit_lock:
-            latest = self.store.get(task.id)
-            if latest is None or latest.state != SUBMIT_PENDING:
-                return  # 到期之后、拿到提交锁之前被取消或重新提交了。
-            task = latest
-            try:
-                status = self.providers(task.provider).submit(parse_magnet(task.source_uri), task.target)
-            except DownloadError as error:
-                self.note_channel(task.provider, error, now)
-                started = parse_iso(task.submitted_at) or now
-                if error.retryable and now - started < SUBMIT_RETRY_WINDOW:
-                    self._reschedule(task, now, error.detail)
-                    return
-                if error.retryable:
-                    error = DownloadError(error.failure, "errors.downloads.retriesExhausted",
-                                          {"detail": nested_message(error), "checks": task.checks})
-                self._fail(task, error, now)
-                self.store.record_submission(task=task, outcome="failed", now=now,
-                                             failure=error.failure, detail=error.detail)
+        try:
+            status = self.providers(task.provider).submit(parse_magnet(task.source_uri), task.target)
+        except DownloadError as error:
+            self.note_channel(task.provider, error, now)
+            started = parse_iso(task.submitted_at) or now
+            if error.retryable and now - started < SUBMIT_RETRY_WINDOW:
+                self._reschedule(task, now, error.detail)
                 return
-            latest = self.store.get(task.id)
-            if latest is None or latest.state != SUBMIT_PENDING:
-                return  # 再交的这段时间里任务被取消了。
-            task.submitted_at = iso(now)
-            self.note_channel(task.provider, None, now)
-            self._accepted(task, status, now)
-            self.store.record_submission(task=task, outcome="adopted_remote" if status.adopted else "submitted",
-                                         now=now)
+            if error.retryable:
+                error = DownloadError(error.failure, "errors.downloads.retriesExhausted",
+                                      {"detail": nested_message(error), "checks": task.checks})
+            self._fail(task, error, now)
+            self.store.record_submission(task=task, outcome="failed", now=now,
+                                         failure=error.failure, detail=error.detail)
+            return
+        task.submitted_at = iso(now)
+        self.note_channel(task.provider, None, now)
+        self._accepted(task, status, now)
+        self.store.record_submission(task=task, outcome="adopted_remote" if status.adopted else "submitted",
+                                     now=now)
 
     def _fresh(self, task, magnet: Magnet, provider, folder, code, title, origin, now) -> DownloadTask:
         """新任务，或把失败／取消／停滞的那一行重置成一次新的提交。"""
@@ -1000,6 +1038,21 @@ class DownloadService:
         if not self.available:
             raise UserValueError("errors.downloads.writerOnly")
         task = self.store.get(int(task_id))
+        if task is None:
+            raise UserValueError("errors.downloads.taskNotFound")
+        with self._task_lock(task.info_hash):
+            return self._cancel(task.id)
+
+    def _task_lock(self, info_hash: str):
+        with self._task_locks_guard:
+            lock = self._task_locks.get(info_hash)
+            if lock is None:
+                lock = threading.Lock()
+                self._task_locks[info_hash] = lock
+            return lock
+
+    def _cancel(self, task_id: int) -> DownloadTask:
+        task = self.store.get(task_id)
         if task is None:
             raise UserValueError("errors.downloads.taskNotFound")
         if task.state not in TRACKED_STATES:
@@ -1069,18 +1122,13 @@ class DownloadService:
         return {"providers": [self._provider_state(key) for key in PROVIDER_LABELS], "problems": []}
 
     def retry_postprocess(self, task_id: int) -> DownloadTask:
-        task = self.store.get(int(task_id))
-        if task is None:
-            raise UserValueError("errors.downloads.taskNotFound")
-        if task.state != INGESTED or task.postprocess_state != POSTPROCESS_FAILED:
+        task_id = int(task_id)
+        if not self.store.requeue_postprocess(task_id):
+            if self.store.get(task_id) is None:
+                raise UserValueError("errors.downloads.taskNotFound")
             raise UserValueError("errors.downloads.nothingToRetry")
-        task.postprocess_retries = 0
-        self.store.save(task)
-        self.store.postprocess(task.id, POSTPROCESS_PENDING,
-                               detail=Said("labels.downloads.postprocessRequeued"))
-        task = self.store.get(task.id)
-        self._dispatch_postprocess(task)
-        return self.store.get(task.id)
+        self._dispatch_postprocess(self.store.get(task_id))
+        return self.store.get(task_id)
 
     def _provider_state(self, key: str) -> dict:
         credential = CLOUDDRIVE_CREDENTIAL if key == "115" else PIKPAK_CREDENTIAL
@@ -1095,17 +1143,20 @@ class DownloadService:
     def start(self) -> None:
         if not self.available or self._thread is not None:
             return
-        self._stop.clear()
-        self._thread = threading.Thread(target=in_background(self._loop), name="PeachDownloads", daemon=True)
-        self._thread.start()
+        pending = []
         if self.after_ingest is not None:
             try:
                 pending = self.store.pending_postprocess(self.clock())
+                with self.store.database.write_transaction(notify=False) as connection:
+                    self.store.settle_cancelled_postprocess(connection)
             except sqlite3.Error:
                 # 未配置实例的 lifespan 也会装配服务；账本尚不存在时没有待恢复任务。
-                pending = []
-            for task in pending:
-                self._dispatch_postprocess(task)
+                LOGGER.debug("Download post-processing state could not be restored", exc_info=True)
+        self._stop.clear()
+        self._thread = threading.Thread(target=in_background(self._loop), name="PeachDownloads", daemon=True)
+        self._thread.start()
+        for task in pending:
+            self._dispatch_postprocess(task)
 
     def stop(self) -> None:
         thread, self._thread = self._thread, None
@@ -1134,15 +1185,25 @@ class DownloadService:
         """推进所有到期的任务，返回推进了几条。测试直接调它。"""
         due = self.store.due(self.clock())
         for task in due:
-            try:
-                self.advance(task)
-            except Exception:
-                LOGGER.exception("Reconciliation failed for cloud download task %s", task.id)
-                self._reschedule(task, self.clock(),
-                                 Said("labels.downloads.reconcileUnexpected"))
+            self.advance(task)
         return len(due)
 
     def advance(self, task: DownloadTask) -> None:
+        # 本实例只有一个写端。取消和同一任务的远端查询、入库按顺序执行。
+        submit_guard = self._submit_lock if task.state == SUBMIT_PENDING else nullcontext()
+        with submit_guard, self._task_lock(task.info_hash):
+            current = self.store.get(task.id)
+            if current != task:
+                return
+            try:
+                self._advance(current)
+            except Exception:
+                LOGGER.exception("Reconciliation failed for cloud download task %s", task.id)
+                saved = self.store.get(task.id)
+                if saved is not None:
+                    self._reschedule(saved, self.clock(), Said("labels.downloads.reconcileUnexpected"))
+
+    def _advance(self, task: DownloadTask) -> None:
         now = self.clock()
         if task.state == INGESTED and task.postprocess_state == POSTPROCESS_PENDING:
             self._dispatch_postprocess(task)

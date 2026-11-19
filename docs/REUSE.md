@@ -98,7 +98,7 @@ YuNet 与 SFace 沿用既有模型哈希校验，Python 读取模型字节后交
 
 依赖清单复用 Dependabot 的独立 PR 差集，版本与完整依赖图由当前清单和锁文件确定。相邻修改保留主线消费者并重算锁；npm vendor 与前端包使用项目入口重建，许可证和来源记录随资源分发。接管器分别识别应用与 amane 桥的清单，并以实际接管提交确认完成；普通 PR 引用不构成采用。
 
-前端构建与测试临时使用带回移补丁的 `picomatch` 4.0.7。以 npm 正式包为基线，将 [上游 PR #237](https://github.com/micromatch/picomatch/pull/237) 的解析器差异固定到提交 `1bf0d04563cb9ce568cf36efc5f6b7187d9911d5`。`frontend/vendor/` 保留该补丁和 npm 安装包，包内保留上游 MIT 许可证。清单的 `file:` 依赖和锁中的完整性摘要固定实际安装的字节；npm 审计仍按包名和 `4.0.7` 匹配公告。上游正式修复版可用时撤下本地包和补丁，重算锁并复核审计。
+`picomatch` 由前端锁文件固定为 npm 正式包。原回移补丁对应的 [GitHub 公告](https://github.com/advisories/GHSA-fc5q-39xc-vjpf) 已撤回，前端移除了临时直装依赖和补丁。审计脚本继续按 `scripts/npm-backports.json` 核对已登记的临时回移补丁。
 
 | 来源 PR | 固定来源提交 |
 | --- | --- |

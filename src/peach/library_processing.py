@@ -3589,8 +3589,11 @@ def _initial_processing_scope(db_path, selected_ids, retry_ids, incremental, res
     """区分待发现范围与首次预估范围；增量恢复沿用已冻结的影片集合。"""
     if incremental:
         from .library_new_assets import pending
-        previous = (resume_state or {}).get('incremental_ids')
-        return None, list(previous) if previous is not None else pending(db_path)
+        previous = resume_state or {}
+        earlier_ids = previous.get('incremental_ids') or []
+        if any(step['id'] == 'sources' and step['status'] == 'complete' for step in previous.get('steps', ())):
+            return None, earlier_ids
+        return None, sorted(set(earlier_ids) | set(pending(db_path)))
     if selected_ids is not None:
         return selected_ids, selected_ids
     if retry_ids is not None:

@@ -237,10 +237,10 @@ function MediaFrame({ item, gate, helpers, actions, autoplay, onEnded }: {
             <button className="chip" id="openSavedFollow" type="button" onClick={actions.openSavedFollow}>{t('catalog:detailGate.openSavedFollow')}</button>
           </div>
         ) : gate === 'metered' && !started ? (
-          <div id="gate" data-item-gate="metered" onClick={() => setStarted('clicked')}>
+          <button id="gate" type="button" data-item-gate="metered" onClick={() => setStarted('clicked')}>
             <Html html={badge} />
             <span>{t('catalog:detailGate.startStreaming', { size: sizeText(item.size) })}</span>
-          </div>
+          </button>
         ) : null}
     </div>
   );
@@ -251,9 +251,10 @@ function OfflineGate({ item, badge, helpers, actions }: {
 }) {
   const [checking, setChecking] = useState(false);
   const [still, setStill] = useState(false);
+  const source = String(item.root_id || item.location || '');
   const retry = async () => {
     setChecking(true);
-    const online = await actions.checkSource(item.location || '').catch(() => false);
+    const online = await actions.checkSource(source).catch(() => false);
     setChecking(false);
     if (online) actions.reopen();
     else setStill(true);
@@ -262,7 +263,7 @@ function OfflineGate({ item, badge, helpers, actions }: {
     <div id="offlineGate" role="status" data-item-gate="offline">
       <Html html={badge} />
       <b>{t('catalog:detailGate.directoryUnavailable')}</b>
-      <span>{helpers.offlineReason(String(item.root_id || item.location || ''))}</span>
+      <span>{helpers.offlineReason(source)}</span>
       <button className="chip" id="offlineRetry" type="button" disabled={checking} onClick={() => void retry()}>
         {still ? t('catalog:detailGate.stillUnavailable') : t('catalog:detailGate.refreshStatus')}
       </button>
@@ -646,7 +647,7 @@ function Tags({ item, helpers, actions }: { item: DetailItem; helpers: ItemDetai
 function Trace({ item }: { item: DetailItem }) {
   const real = realWatched(item);
   return (
-    <div data-item-trace="">
+    <div data-item-trace={item.id}>
       <div data-trace-metric="">
         <div data-trace-label=""><span>{t('catalog:detailTrace.leftOffAt')}</span><span id="ratioTxt">0%</span></div>
         <div data-trace-bar=""><u id="watched" /><b id="mark" /></div>

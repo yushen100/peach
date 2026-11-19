@@ -222,12 +222,13 @@ class SmbResource:
     def remote_parts(self):
         return (*address(self.uri)[2], *self.relative)
 
-    def stat(self):
+    def stat(self, *, with_identity: bool = False):
         transport = self._transport()
         try:
-            info = transport.stat(self.remote_parts)
+            info = transport.stat(self.remote_parts, with_identity=True) if with_identity else transport.stat(self.remote_parts)
             return SimpleNamespace(st_size=info.size, st_mtime=info.mtime, st_mtime_ns=info.mtime_ns,
-                                   st_mode=stat.S_IFDIR if info.is_dir else stat.S_IFREG, is_dir=info.is_dir)
+                                   st_mode=stat.S_IFDIR if info.is_dir else stat.S_IFREG, is_dir=info.is_dir,
+                                   st_ino=info.file_index if with_identity else 0, st_dev=self.uri)
         finally:
             transport.close()
 

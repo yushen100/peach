@@ -499,6 +499,7 @@
   "immerse": {
     "castMore": " ({{total, number}} in all)",
     "climaxCount": "Climaxes {{num}}",
+    "detailFailed": "Couldn't load video details",
     "dislike": "Dislike",
     "hostMissing": "Immersive mode isn't connected to a host (configureImmerse)",
     "loading": "Loading",
@@ -512,6 +513,7 @@
     "switching": "Switching",
     "untitled": "Untitled video",
     "updateFeedback": "Update feedback",
+    "videoFailed": "Couldn't open the video in immersive mode",
     "watched": "Watched"
   },
   "javBatch": {

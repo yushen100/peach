@@ -660,13 +660,15 @@ class SetupJsonContractTests(_SetupHttpCase):
                 self.assertEqual(self._get(path).status_code, 200)
 
     def test_the_setup_edit_preview_uses_the_shared_source_editor(self):
-        plain = self._get("/").text
-        editable = self._get("/?edit").text
+        local = {"Host": "127.0.0.1"}
+        plain = self._get("/", headers=local).text
+        editable = self._get("/?edit", headers=local).text
         self.assertNotIn('data-peach-copy-mode="source"', plain)
+        self.assertNotIn('data-peach-copy-mode="source"', self._get("/?edit").text)
         self.assertIn('data-peach-copy-mode="source"', editable)
         for path in ("/dev/copy-editor.js", "/dev/copy-editor-core.js"):
             self.assertIn(path, editable)
-            self.assertEqual(self._get(path).status_code, 200)
+            self.assertEqual(self._get(path, headers=local).status_code, 200)
 
     def test_invalid_values_are_reported_without_creating_anything(self):
         missing = self.root / "nope"

@@ -821,6 +821,8 @@
     },
     "auth": {
       "invalidRememberDays": "请选择有效的保持登录时间",
+      "loginFormInvalid": "登录表单字段过多",
+      "loginFormTooLarge": "登录表单过大",
       "sessionNotSaved": "登录设备未能记下，请检查数据目录能否写入后重试",
       "submitFromSettings": "请从 Peach 配置页提交",
       "tooManyAttempts": "尝试次数较多，请一分钟后重试",
@@ -1022,7 +1024,8 @@
       "coverProcessingFailed": "封面处理失败（{{errorType}}），未能完成比较；请查看服务日志。"
     },
     "resourceSync": {
-      "addMediaDirectory": "请先在配置页添加媒体目录"
+      "addMediaDirectory": "请先在配置页添加媒体目录",
+      "scanExpired": "清理确认已过期，请重新检查"
     },
     "organize": {
       "sourceMissing": "不认识的来源：(空)",
@@ -3474,6 +3477,7 @@
         "renameFailed": "改名失败：{{error}}",
         "ledgerRolledBack": "数据库写入失败，已改回原名：{{error}}",
         "ledgerStuck": "数据库写入失败且改不回原名，需要人工处理：{{error}}",
+        "moveUnverified": "移动中断后无法确认文件身份，请核对两个路径再重试",
         "assetGone": "资产已不在馆藏，未执行整理"
       }
     },

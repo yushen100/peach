@@ -21,7 +21,7 @@ export interface HoverPreviewConfig {
 }
 
 /** 卡片上那几个要用到的字段。 */
-export interface HoverItem { id: number; location?: string; has_thumb?: boolean }
+export interface HoverItem { id: number; location?: string; cost?: string; has_thumb?: boolean }
 
 type HoverCard = HTMLElement & { _stopHover?: () => void; _hoverEvents?: AbortController };
 type HoverVideo = HTMLVideoElement & { _hop?: ReturnType<typeof setInterval> };
@@ -71,14 +71,15 @@ export function wireHover(el: HTMLElement, it: HoverItem): void {
   card._hoverEvents?.abort(); card._stopHover?.(); delete card._stopHover;
   const pic = el.querySelector('[data-media-pic]'); if (!pic) return;
   const events = new AbortController(); card._hoverEvents = events;
-  el.dataset.hoverMode = it.location === 'local' ? 'video' : 'frames';
+  const previewVideo = it.location === 'local' && it.cost !== 'metered';
+  el.dataset.hoverMode = previewVideo ? 'video' : 'frames';
   let longTimer: ReturnType<typeof setTimeout> | undefined;
   const armLong = () => {
     clearTimeout(longTimer); if (!config.delaySeconds()) return; setHoverState(el, 'previewing', true);
     longTimer = setTimeout(() => { if (config.delaySeconds()) setHoverState(el, 'longhover', true); }, config.delaySeconds() * 1000);
   };
   const clearLong = () => { clearTimeout(longTimer); setHoverState(el, 'previewing', false); setHoverState(el, 'longhover', false); };
-  if (it.location !== 'local') {        // 远端源：只在接触印相的格子间扫视，零网络流量
+  if (!previewVideo) {        // 远端或计费来源只使用已有的接触印相。
     /* 扫视图是叠在画面之上新建的一层，不改任何已有 `<img>` 的 src。JAV 大图和小图
        版式里画面就是封面本身（`.poster.cover`），改它的 src 等于把封面当场换掉；
        按类名把封面排掉又等于这两种版式整个没有悬停预览，连 `data-longhover` 都不进，

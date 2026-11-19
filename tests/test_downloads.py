@@ -501,6 +501,16 @@ class PollingTests(_Deployment):
         with self.assertRaisesRegex(ValueError, "已经结束"):
             self.service.cancel(task_id)
 
+    def test_cancellation_wins_over_a_queued_reconciliation_snapshot(self):
+        task_id = self.submit()["task"]["id"]
+        due = self.service.store.get(task_id)
+        self.service.cancel(task_id)
+        with patch.object(self.provider, 'status') as status, patch.object(self.service.landing, 'ingest') as ingest:
+            self.service.advance(due)
+        status.assert_not_called()
+        ingest.assert_not_called()
+        self.assertEqual(self.service.store.get(task_id).state, dl.CANCELLED)
+
 
 class LandingTests(_Deployment):
     def test_metadata_subtrees_and_files_do_not_consume_the_landing_limit(self):

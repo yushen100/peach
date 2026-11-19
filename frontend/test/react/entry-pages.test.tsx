@@ -15,7 +15,7 @@ describe('登录页', () => {
     const host = await mount(<LoginPage data={{ next: '/stats?x=1' }} />);
     const form = host.querySelector('form')!;
     expect(form.getAttribute('method')).toBe('post');
-    expect(form.getAttribute('action')).toBe('/login');
+    expect(form.getAttribute('action')).toBe('/login?next=%2Fstats%3Fx%3D1');
     const input = tokenInput(host)!;
     expect(input.type).toBe('password');
     expect(input.required).toBe(true);
@@ -85,7 +85,7 @@ describe('登录页的模式', () => {
     expect(host.querySelector('[role="note"]')?.textContent).toBe(FIRST_ACCESS_DENIED);
     expect(label(host)).toContain('访问口令');
     expect(host.querySelector('code')?.textContent).toBe('docker compose exec peach peach token');
-    expect(host.querySelector('form')?.getAttribute('action')).toBe('/login');
+    expect(host.querySelector('form')?.getAttribute('action')).toBe('/login?next=%2F');
   });
 
   it('Docker 首次访问画访问设置，不画口令框', async () => {

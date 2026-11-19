@@ -93,6 +93,16 @@ describe('沉浸模式', () => {
       holds.get(wide.id)!.release();
       await settled(page);
       assert.deepEqual(await sample(page), { wide: true, shown: true, slides: [''] });
+      const bounds = await page.evaluate(() => {
+        const track = document.querySelector('[data-immerse-track]')!.getBoundingClientRect();
+        const actions = document.querySelector('[data-immerse-actions]')!.getBoundingClientRect();
+        return {
+          gap: actions.left - track.right,
+          centerDelta: Math.abs((actions.top + actions.bottom - track.top - track.bottom) / 2),
+          fits: actions.top >= 0 && actions.bottom <= innerHeight && actions.right <= innerWidth,
+        };
+      });
+      assert.ok(bounds.gap >= 8 && bounds.centerDelta <= 1 && bounds.fits, JSON.stringify(bounds));
       assert.deepEqual(planned, [wide.id]);
 
       await page.dispatchEvent('[data-immerse]', 'wheel', { deltaY: 100 });

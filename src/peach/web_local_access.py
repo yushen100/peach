@@ -6,7 +6,7 @@ import os
 
 from fastapi import Request
 
-from . import distribution, tunnel
+from . import distribution, listening, tunnel
 
 
 def managed_configuration() -> bool:
@@ -18,6 +18,20 @@ def managed_configuration() -> bool:
 def tunnel_forwarded(request: Request) -> bool:
     """隧道转发请求按公网来源处理。"""
     return tunnel.from_edge(getattr(request.app.state, "tunnel", None), request.headers)
+
+
+def loopback_client(request: Request) -> bool:
+    """只认直接连接本机回环地址的请求，不把代理连接算作本机操作。"""
+    if not request.client or tunnel_forwarded(request):
+        return False
+    if any(header.startswith("x-forwarded-") or header in {"forwarded", "cf-connecting-ip"}
+           for header in request.headers):
+        return False
+    try:
+        return (ipaddress.ip_address(request.client.host).is_loopback
+                and listening.is_loopback(request.url.hostname or ""))
+    except ValueError:
+        return False
 
 
 def local_client(request: Request) -> bool:

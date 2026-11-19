@@ -821,6 +821,8 @@
     },
     "auth": {
       "invalidRememberDays": "Choose a valid stay-signed-in duration.",
+      "loginFormInvalid": "The sign-in form has too many fields.",
+      "loginFormTooLarge": "The sign-in form is too large.",
       "sessionNotSaved": "Couldn't remember this device. Check that the data directory is writable, then try again.",
       "submitFromSettings": "Submit from the Settings page.",
       "tooManyAttempts": "Too many attempts. Try again in a minute.",
@@ -1022,7 +1024,8 @@
       "coverProcessingFailed": "Cover processing failed ({{errorType}}) and the comparison didn't finish. Check the server log."
     },
     "resourceSync": {
-      "addMediaDirectory": "Add a media directory on the Settings page first"
+      "addMediaDirectory": "Add a media directory on the Settings page first",
+      "scanExpired": "The cleanup confirmation has expired. Run the check again."
     },
     "organize": {
       "sourceMissing": "Unknown source: (empty)",
@@ -3474,6 +3477,7 @@
         "renameFailed": "Rename failed: {{error}}",
         "ledgerRolledBack": "Database write failed; the original name was restored: {{error}}",
         "ledgerStuck": "Database write failed and the original name could not be restored. Fix it manually: {{error}}",
+        "moveUnverified": "Couldn't verify the file after an interrupted move. Check both paths before retrying.",
         "assetGone": "No longer in the collection; not organized"
       }
     },

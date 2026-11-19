@@ -57,7 +57,11 @@ body[data-immerse-open]{overflow:hidden}
 [data-immerse]:has([data-immerse-bar] [data-player-seek-preview]:not([hidden])) [data-immerse-ui]{visibility:hidden}
 [data-immerse-actions]{position:absolute;left:calc(100% + 12px);bottom:8px;width:72px;
   display:flex;flex-direction:column;align-items:center;gap:16px}
-[data-immerse-stage][data-wide] [data-immerse-actions]{left:auto;right:12px;bottom:18px}
+/* 桌面横版的动作列留在画面右侧，按舞台垂直居中。 */
+@media (min-width:761px){
+  [data-immerse]:not(:fullscreen) [data-immerse-stage][data-wide] [data-immerse-actions]{
+    top:50%;bottom:auto;transform:translateY(-50%)}
+}
 [data-immerse-action]{display:flex;flex-direction:column;align-items:center;gap:6px;color:#f1f1f1}
 [data-immerse-actions] button{position:relative;transition:background .14s}
 [data-immerse-actions] button:focus-visible{outline:2px solid var(--tungsten);outline-offset:3px}
@@ -98,7 +102,6 @@ body[data-immerse-open]{overflow:hidden}
   [data-immerse-stage],[data-immerse-stage][data-wide]{inset:0;width:100%;height:100%;aspect-ratio:auto;transform:none}
   [data-immerse-track]{border-radius:0;box-shadow:none}
   [data-immerse-actions]{left:auto;right:max(8px,env(safe-area-inset-right));bottom:92px;width:56px;gap:14px}
-  [data-immerse-stage][data-wide] [data-immerse-actions]{left:auto;right:max(8px,env(safe-area-inset-right));bottom:92px}
   [data-immerse-ui]{left:14px;right:82px;bottom:28px;width:auto;padding:0 0 env(safe-area-inset-bottom)}
   [data-immerse][data-wide] [data-immerse-ui]{width:auto}
   [data-immerse-author]{margin-bottom:8px}[data-immerse-author]>span{display:none}[data-immerse-avatar]{width:36px;height:36px}
@@ -133,7 +136,7 @@ body[data-immerse-open]{overflow:hidden}
 /* 全屏：和窄屏同一套铺满排法。方向锁把屏幕转成横屏后窄屏那段媒体查询不再命中，所以按 `:fullscreen` 单列。 */
 [data-immerse]:fullscreen :is([data-immerse-stage],[data-immerse-stage][data-wide]){inset:0;width:100%;height:100%;aspect-ratio:auto;transform:none}
 [data-immerse]:fullscreen [data-immerse-track]{border-radius:0;box-shadow:none}
-[data-immerse]:fullscreen :is([data-immerse-actions],[data-immerse-stage][data-wide] [data-immerse-actions]){
+[data-immerse]:fullscreen [data-immerse-actions]{
   left:auto;right:max(8px,env(safe-area-inset-right));bottom:24px;width:56px;gap:14px}
 [data-immerse]:fullscreen [data-immerse-ui]{left:14px;right:82px;bottom:20px;width:auto;padding:0 0 env(safe-area-inset-bottom)}
 [data-immerse]:fullscreen[data-wide] [data-immerse-ui]{width:auto}

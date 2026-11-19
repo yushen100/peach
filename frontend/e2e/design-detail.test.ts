@@ -725,7 +725,7 @@ describe('设计决定：关注详情、作品详情、播放器与侧栏', () =
     bar: '[data-immerse-bar]', close: '[data-immerse-close]',
   };
 
-  it('沉浸模式桌面照 Shorts 三段：9:16 舞台居中、动作列贴舞台右侧 12px、作者标题在左下；横片换成 16:9，动作列收进框里；浅色主题下仍是深色层', { timeout: 90_000 }, async () => {
+  it('桌面沉浸的横竖舞台居中，右侧留 12px 给动作列，横片的动作列垂直居中，浅色主题下仍是深色层', { timeout: 90_000 }, async () => {
     const opened = await visit(browser, '/', DESKTOP);
     try {
       const { page } = opened;
@@ -807,7 +807,11 @@ describe('设计决定：关注详情、作品详情、播放器与侧栏', () =
       await settledClip(page);
       const landscape = await rectsOf(page, IMMERSE);
       assert.deepEqual(landscape.stage, { left: 230.4, top: 169.6, right: 1049.6, bottom: 630.4, width: 819.2, height: 460.8 });
-      assert.deepEqual([landscape.actions.right, landscape.actions.bottom], [1037.6, 612.4]);
+      assert.equal(landscape.actions.left - landscape.stage.right, 12);
+      assert.equal(landscape.actions.width, 72);
+      assert.ok(landscape.actions.right <= DESKTOP.width);
+      assert.ok(Math.abs(landscape.actions.top + landscape.actions.bottom
+        - landscape.stage.top - landscape.stage.bottom) < 0.2);
       assert.equal(landscape.ui.width, 404.8);
 
       await page.evaluate(() => { document.documentElement.dataset.theme = 'light' });

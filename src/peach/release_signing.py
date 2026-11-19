@@ -11,7 +11,7 @@ import re
 
 #: 受信任的发布签名公钥（base64，32 字节 Ed25519）。为空时更新器不要求签名；随某一版发出后，
 #: 这一版起的客户端只装签名验得过的版本，发布作业缺私钥即失败。轮换见 ADR-0137。
-PUBLIC_KEYS: tuple[str, ...] = ()
+PUBLIC_KEYS: tuple[str, ...] = ("xpyWoQnXok6/8msZPNCoaeO/zgmFAvoKbJCQg5w5dbc=",)
 SUMS = "SHA256SUMS.txt"
 SIGNATURE = SUMS + ".sig"
 #: 签名内容的前缀：同一把私钥签出的别的东西不会被当成发布摘要。

@@ -45,7 +45,8 @@ function LoginForm({ data }: { data: PageData }) {
   return (
     <AuthCard title="Peach">
       {data.mode === 'denied' ? <Note tone="warning">{FIRST_ACCESS_DENIED}</Note> : null}
-      <form method="post" action="/login" aria-labelledby="auth-card-title" className="flex flex-col gap-6">
+      <form method="post" action={`/login?${new URLSearchParams({ next: data.next || '/' })}`}
+        aria-labelledby="auth-card-title" className="flex flex-col gap-6">
         <Input id="login-token" label={token ? t('shell:login.accessToken') : t('shell:shared.accessPassword')} name="token" type="password" maxLength={256}
           autoComplete="current-password" autoFocus={data.mode !== 'denied'} isRequired
           isInvalid={reason ? true : undefined} onChange={() => setReason('')}

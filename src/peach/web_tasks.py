@@ -175,7 +175,6 @@ def _parent_counts(contract, rows) -> dict[str, dict[str, int]]:
 
 
 def q_task(contract, run_id):
-    payload = _payload_reader(contract)
     run = contract.task_runs.get(int(run_id))
     if run is None:
         # KeyError 在 API 层被翻成 404；ValueError 会变成 400，那是参数错，不是这里的事。
@@ -185,7 +184,12 @@ def q_task(contract, run_id):
     parent = (contract.task_runs.get(run.parent_run_id)
               if run.parent_run_id else None)
     # 卡片展开时每两秒取一次：一轮派出上千条后继时只给在跑的与最近派出的那些，计数按全部后继算。
-    followups = [payload(child) for child in contract.task_runs.children(run.id, limit=TASK_FOLLOWUP_LIMIT)]
+    children = contract.task_runs.children(run.id, limit=TASK_FOLLOWUP_LIMIT)
+    displayed = [run.id, *(child.id for child in children)]
+    if parent:
+        displayed.append(parent.id)
+    payload = _payload_reader(contract, run_ids=displayed)
+    followups = [payload(child) for child in children]
     counts = contract.task_runs.followup_counts([run.id]).get(run.id, {})
     return {"ok": True, "run": payload(run),
             "parent": payload(parent) if parent else None,
@@ -194,7 +198,7 @@ def q_task(contract, run_id):
             "followup_total": sum(counts.values())}
 
 
-def _payload_reader(contract):
+def _payload_reader(contract, *, run_ids=None):
     """同一轮的完成检查点可补充摘要，读取不回写任务记录。"""
     from .job_recovery import read
 
@@ -206,7 +210,7 @@ def _payload_reader(contract):
                 contract.task_resource_monitor = Monitor(contract.task_runs)
     # 控制状态与资源占用只对自己或后代还在排在跑的那几条有内容；其余的不逐条再问。
     # 族里谁还活着一条查询取齐：排着几千条后继时，逐条递归查询要好几秒。
-    families = contract.task_runs.active_families()
+    families = contract.task_runs.active_families(run_ids)
 
     def payload(row):
         result = row.payload()

@@ -8,11 +8,14 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from peach import download_postprocess as post
-from peach import ledger_backups
-from peach.downloads import DownloadStore, DownloadTask, INGESTED, POSTPROCESS_PENDING
+from peach import ledger_backups, task_control
+from peach.downloads import (DownloadStore, DownloadTask, INGESTED, POSTPROCESS_CANCELLED,
+                             POSTPROCESS_COMPLETE, POSTPROCESS_PENDING, POSTPROCESS_RUNNING)
+from peach.followups import FollowupRunner
 from peach.ingest_notices import IngestNotices
 from peach.jobs import JobDeferred
 from peach.repository import LedgerDatabase
+from peach.task_runs import TaskRunStore
 from support.ledger import fresh_ledger
 
 
@@ -66,6 +69,52 @@ class DownloadPostprocessTests(unittest.TestCase):
 
     def run_task(self):
         return post.run(self.contract, post.followup_key(self.task.id), self.handle)
+
+    def queued_run(self):
+        self.contract.task_runs = TaskRunStore(self.database)
+        self.contract.followups = FollowupRunner(self.contract)
+        with patch.object(self.contract.followups, "wake"):
+            return post.enqueue(self.contract, self.task)
+
+    def test_followup_cancelled_while_waiting_to_be_claimed_settles_the_download(self):
+        run_id = self.queued_run()
+        with patch.object(task_control, "requested", return_value="cancel"):
+            self.assertIsNone(self.contract.task_runs.claim_followup([post.TASK_KEY]))
+        self.assertEqual(self.contract.task_runs.get(run_id).status, "cancelled")
+        self.assertEqual(self.store.get(self.task.id).postprocess_state, POSTPROCESS_CANCELLED)
+
+    def test_running_postprocess_settles_when_it_reaches_the_cancellation_checkpoint(self):
+        run_id = self.queued_run()
+        run = self.contract.task_runs.claim_followup([post.TASK_KEY])
+        self.assertEqual(run.id, run_id)
+
+        def cancel_while_collecting(*_args):
+            task_control.request(self.contract.task_runs, run.id, "cancel")
+            self.assertEqual(self.store.get(self.task.id).postprocess_state, POSTPROCESS_RUNNING)
+            task_control.checkpoint()
+
+        with patch.object(post, "_collect", side_effect=cancel_while_collecting):
+            self.contract.followups._execute_one(run)
+        self.assertEqual(self.contract.task_runs.get(run_id).status, "cancelled")
+        task = self.store.get(self.task.id)
+        self.assertEqual((task.state, task.postprocess_state), (INGESTED, POSTPROCESS_CANCELLED))
+        self.assertIsNone(task.next_check_at)
+        self.assertTrue(self.source.is_file())
+
+    def test_late_cancellation_preserves_already_completed_postprocess(self):
+        run_id = self.queued_run()
+        run = self.contract.task_runs.claim_followup([post.TASK_KEY])
+
+        def cancel_after_finish(*_args):
+            task_control.request(self.contract.task_runs, run.id, "cancel")
+
+        with patch.object(post, "_discard_collect_state", side_effect=cancel_after_finish):
+            self.contract.followups._execute_one(run)
+        self.assertEqual(self.contract.task_runs.get(run_id).status, "cancelled")
+        task = self.store.get(self.task.id)
+        self.assertEqual(task.postprocess_state, POSTPROCESS_COMPLETE)
+        self.assertFalse(task.payload()["postprocess_retryable"])
+        self.assertTrue(self.target.is_file())
 
     def test_temporary_failure_is_scheduled_and_only_three_retries_are_allowed(self):
         from peach.downloads import parse_iso

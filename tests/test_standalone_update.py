@@ -121,7 +121,16 @@ class MediaToolInstallTests(unittest.TestCase):
 
     def install(self, **kwargs):
         from peach import media_tools
-        return media_tools.install(self.tools, 'untrunc', locate=kwargs.pop('locate', self.locate), fetch=self.fetch)
+        package = kwargs.pop('locate', self.locate)('untrunc')
+        digest = package['digest'].removeprefix('sha256:')
+        sums = f'{digest}  {self.package.name}\n'.encode()
+        private = base64.b64encode(Ed25519PrivateKey.generate().private_bytes(
+            Encoding.Raw, PrivateFormat.Raw, NoEncryption())).decode('ascii')
+        signature = release_signing.sign(sums, private).encode()
+        public = release_signing.public_key(private)
+        with patch.object(release_signing, 'PUBLIC_KEYS', (public,)), patch.object(
+                update, '_fetch_small', side_effect=lambda _client, url: signature if url.endswith('.sig') else sums):
+            return media_tools.install(self.tools, 'untrunc', locate=lambda _tool: package, fetch=self.fetch)
 
     def test_installs_the_verified_package_into_the_data_directory_and_reports_its_version(self):
         from peach import media_tools
@@ -177,6 +186,8 @@ class StandaloneUpdateTests(unittest.TestCase):
         self.state.mkdir()
         patcher = patch.object(update.settings_file, "load_config", return_value=self.config)
         patcher.start(); self.addCleanup(patcher.stop)
+        # 未签名夹具沿用升级过渡期的客户端；验签用例显式装入各自的测试公钥。
+        self.enterContext(patch.object(update.release_signing, "PUBLIC_KEYS", ()))
 
     def test_online_install_remembers_a_known_root_only_for_an_empty_default_location(self):
         settings_file.write(self.config)

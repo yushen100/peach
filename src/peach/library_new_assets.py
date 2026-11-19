@@ -69,11 +69,21 @@ def _lock(path):
 def pending(db):
     # `remember` 持锁原子替换；Windows 上替换瞬间的读取会撞上共享冲突，读也等同一把锁。
     path = _path(db)
-    if not path.parent.is_dir():
+    if not Path(db).is_file():
         return []
-    with _lock(path):
-        wanted = sorted(_read(db))
-    return _active_videos(db, wanted)
+    legacy = set()
+    if path.parent.is_dir():
+        with _lock(path):
+            legacy = _read(db)
+    queued = set()
+    with closing(sqlite3.connect(Path(db).resolve().as_uri()+'?mode=ro', uri=True)) as connection:
+        # 尚未升级的只读副本仍能显示旧版检查点。
+        if connection.execute("SELECT 1 FROM sqlite_schema WHERE name='scan_pending_asset'").fetchone():
+            queued = {row[0] for row in connection.execute(
+                "SELECT a.id FROM scan_pending_asset p JOIN asset a ON a.id=p.asset_id "
+                "WHERE a.medium='video' AND a.disposal IS NULL"
+            )}
+    return sorted(queued | set(_active_videos(db, sorted(legacy - queued))))
 
 
 def _active_videos(db, wanted):
@@ -88,11 +98,28 @@ def _active_videos(db, wanted):
     return result
 
 
+def enqueue(connection, ids):
+    if not ids:
+        return
+    connection.executemany(
+        "INSERT OR IGNORE INTO scan_pending_asset(asset_id) "
+        "SELECT id FROM asset WHERE id=? AND medium='video' AND disposal IS NULL",
+        ((asset_id,) for asset_id in ids),
+    )
+
+
 def remember(db, ids=(), *, completed=()):
+    ids, completed = set(ids), set(completed)
+    if not ids and not completed:
+        return
     path = _path(db)
     path.parent.mkdir(parents=True,exist_ok=True)
     with _lock(path):
         previous = _read(db)
-        updated = set(_active_videos(db, sorted(previous | set(ids)))) - set(completed)
-        if updated != previous or (updated and not path.exists()):
+        updated = previous - completed
+        if updated != previous:
             atomic_write_text(path,json.dumps(sorted(updated)))
+        with closing(sqlite3.connect(db, timeout=30)) as connection, connection:
+            enqueue(connection, ids - completed)
+            connection.executemany("DELETE FROM scan_pending_asset WHERE asset_id=?",
+                                   ((asset_id,) for asset_id in completed))
