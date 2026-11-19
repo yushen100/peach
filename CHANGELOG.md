@@ -20,6 +20,8 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Fixed / 修复
 
+- **Settings**: Retry explicitly rate-limited diagnostic counts and show their delivery separately from error events (#802). / **配置**：明确被限流的故障计数会退避后补传，计数与错误事件分别记录回执（#802）。
+- **Ledger**: Follow-up workers keep claiming tasks after temporary database lock contention (#802). / **账本**：数据库写锁释放后，后继任务继续领取待执行项目（#802）。
 - **Sourcing**: Preview generation can finish when a frame cannot be checked for QR codes (#794). / **采集**：个别画面无法识别二维码时，仍可完成预览生成（#794）。
 - **Sourcing**: Look up CDRP releases with two-digit serial numbers (#788). / **采集**：按两位序号查找 CDRP 作品（#788）。
 - **Sourcing**: Recognize S2MBD release codes during collection (#789). / **采集**：采集时可识别 S2MBD 番号（#789）。
