@@ -28,6 +28,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 router = APIRouter()
 _ATTEMPTS: OrderedDict[str, list[float]] = OrderedDict()
 _ATTEMPTS_LOCK = threading.Lock()
+_LOGIN_FORM_LIMIT = 8 * 1024
+_LOGIN_FORM_FIELDS = 16
 
 
 def _attempt_key(request: Request) -> str:
@@ -394,19 +396,18 @@ def login(request: Request, next: str = "/"):
 @router.post("/login")
 async def login_submit(request: Request):
     same_origin(request)
-    form = parse_qs(
-        (await request.body()).decode("utf-8", "replace"), keep_blank_values=True,
-    )
-    next_path = safe_next((form.get("next") or ["/"])[0])
-    mode = login_mode(request)
-    language = _page_language(request)
+    next_path = safe_next(request.query_params.get("next", "/"))
     try:
         _login_attempt(request)
+        form = await _login_form(request)
     except HTTPException as exc:
         if not _wants_page(request):
             raise
+        mode, language = login_mode(request), _page_language(request)
         return HTMLResponse(login_html(next_path, mode=mode, error=_page_error(exc.detail, language), language=language),
                             status_code=exc.status_code, headers=exc.headers)
+    next_path = safe_next((form.get("next") or [next_path])[0])
+    mode, language = login_mode(request), _page_language(request)
     token = request.app.state.settings.token
     supplied = (form.get("token") or [""])[0]
     policy = access.load(request.app.state.settings.access_path)
@@ -432,3 +433,17 @@ async def login_submit(request: Request):
                                 status_code=503)
         raise HTTPException(503, fields) from None
     return response
+
+
+async def _login_form(request: Request) -> dict[str, list[str]]:
+    """登录表单的大小和字段数独立于传输方式，在缓冲和解析时分别限制。"""
+    body = bytearray()
+    async for chunk in request.stream():
+        if len(body) + len(chunk) > _LOGIN_FORM_LIMIT:
+            raise HTTPException(413, message_fields("api.auth.loginFormTooLarge"))
+        body.extend(chunk)
+    try:
+        return parse_qs(body.decode("utf-8", "replace"), keep_blank_values=True,
+                        max_num_fields=_LOGIN_FORM_FIELDS)
+    except ValueError:
+        raise HTTPException(400, message_fields("api.auth.loginFormInvalid")) from None

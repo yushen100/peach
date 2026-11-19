@@ -2479,7 +2479,7 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
         for _ in range(10):
             wrong = await self.client.post("/login", content="token=wrong&next=%2Fstats", headers=form)
             self.assertEqual(wrong.status_code, 401)
-        limited = await self.client.post("/login", content="token=wrong&next=%2Fstats", headers=page)
+        limited = await self.client.post("/login?next=%2Fstats", content="token=wrong&next=%2Fstats", headers=page)
         self.assertEqual(limited.status_code, 429)
         self.assertEqual(limited.headers["retry-after"], "60")
         self.assertTrue(limited.headers["content-type"].startswith("text/html"))
@@ -2488,6 +2488,22 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
         limited = await self.client.post("/login", content="token=secret&next=%2Fstats", headers=form)
         self.assertEqual(limited.status_code, 429)
         self.assertEqual(limited.json(),{"error": "尝试次数较多，请一分钟后重试", "message_code": "api.auth.tooManyAttempts", "message_params": {}})
+
+    async def test_login_bounds_streaming_form_and_field_count(self):
+        routes_auth._ATTEMPTS.clear()
+        self.addCleanup(routes_auth._ATTEMPTS.clear)
+
+        async def chunks():
+            yield b"token=" + b"x" * (routes_auth._LOGIN_FORM_LIMIT - len(b"token="))
+            yield b"x"
+
+        form = {"Content-Type": "application/x-www-form-urlencoded"}
+        large = await self.client.post("/login", content=chunks(), headers=form)
+        self.assertEqual(large.status_code, 413)
+        self.assertEqual(large.json()["message_code"], "api.auth.loginFormTooLarge")
+        crowded = await self.client.post("/login", content="k=v&" * routes_auth._LOGIN_FORM_FIELDS + "k=v", headers=form)
+        self.assertEqual(crowded.status_code, 400)
+        self.assertEqual(crowded.json()["message_code"], "api.auth.loginFormInvalid")
 
     async def test_index_directory_urls_keep_query_and_use_canonical_path(self):
         await self.client.post('/login', content='token=secret&next=%2F',

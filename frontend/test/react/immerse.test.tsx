@@ -38,6 +38,7 @@ const player = vi.hoisted(() => ({
   sessions: 0,
   /** 每条片子的画面尺寸；没登记的按竖屏。 */
   dims: new Map<number, [number, number]>(),
+  load: new Map<number, Promise<unknown>>(),
 }));
 
 /** 一条假媒体：可读的时长、可写的播放位置，play／pause 改 `paused`。 */
@@ -66,7 +67,7 @@ vi.mock('../../src/player', async (importOriginal) => {
       fakeMedia(video, player.dims.get(options.item.id) ?? [1080, 1920]);
       const dispose = vi.fn();
       player.mounted.push({ video, item: options.item, session: options.session, dispose });
-      queueMicrotask(() => options.onLoaded?.());
+      void Promise.resolve(player.load.get(options.item.id)).then(() => options.onLoaded?.());
       return dispose;
     },
   };
@@ -272,7 +273,7 @@ afterEach(async () => {
 describe('片单与起播', () => {
   it('抽样去掉画幅、随机取 60 条且偏移恒为 0；续取按 id 去重接在后面', () => {
     const query = new URLSearchParams(immerseQuery({ q: '', orient: 'portrait', tag: '剧情', jav: null }));
-    expect(Object.fromEntries(query)).toEqual({ tag: '剧情', sort: 'rand', limit: '60', offset: '0', thumb: '' });
+    expect(Object.fromEntries(query)).toEqual({ tag: '剧情', sort: 'rand', limit: '60', offset: '0', count: '0', thumb: '' });
     expect(extendList([row(1), row(2)], [row(2), row(3)]).map((item) => item.id)).toEqual([1, 2, 3]);
   });
 
@@ -316,6 +317,26 @@ describe('片单与起播', () => {
     expect(meta()).toBe('· 1:00 · 竖屏 · 1/7');
     // 插进来时取的那一份就是出画时读的那一份，不再取第二次。
     expect(gets(fetcher, '/api/item?id=42')).toBe(1);
+  });
+
+  it('深链目标按流量计费时不会挂载该视频', async () => {
+    serve({ draws: [[row(1)]], details: { 42: { cost: 'metered' } } });
+    await open(42);
+    expect(player.mounted.map((entry) => entry.item.id)).toEqual([1]);
+    expect(routed()).toEqual([1]);
+  });
+
+  it('片单里已有视频时，详情仍在等待也能先挂载播放器', async () => {
+    let release!: () => void;
+    const hold = new Promise<void>((resolve) => { release = resolve });
+    serve({ draws: [[row(1)]], hold: new Map([[1, hold]]) });
+    try {
+      await open(1);
+      expect(current().item.id).toBe(1);
+      expect(routed()).toEqual([1]);
+    } finally {
+      await act(async () => { release() });
+    }
   });
 
   it('换条与切回都只取一次详情；每换一条交给壳写一次地址', async () => {
@@ -362,15 +383,17 @@ describe('片单与起播', () => {
 
   it('第一条出画前只露加载提示：舞台、作者标题与进度条藏着', async () => {
     const hold = pending<void>();
-    serve({ draws: [[row(1), row(2)]], hold: new Map([[1, hold.answer]]) });
+    serve({ draws: [[row(1), row(2)]] });
+    player.load.set(1, hold.answer);
     let opening!: Promise<void>;
     await act(async () => { opening = api.open(null) });
-    await until(() => !!q('[data-immerse-loader]') && !q('[data-immerse-loader]')!.hidden);
+    await until(() => player.mounted.length === 1 && !q('[data-immerse-loader]')!.hidden);
     expect(root().hasAttribute('data-idle')).toBe(true);
     expect(q('[data-immerse-loader]')!.textContent).toContain('加载中');
     expect(q('[data-immerse-loader]')!.textContent, '转圈已经在动，字不带省略号').not.toContain('…');
     expect(document.body.hasAttribute('data-immerse-open')).toBe(true);
     await hold.release();
+    player.load.delete(1);
     await act(async () => { await opening });
     expect(root().hasAttribute('data-idle')).toBe(false);
     expect(q('[data-immerse-loader]')!.hidden).toBe(true);
@@ -406,9 +429,9 @@ describe('关闭与流会话', () => {
 
   it('关掉之后在途的那一条不再挂播放器', async () => {
     const hold = pending<void>();
-    serve({ draws: [[row(1), row(2)]], hold: new Map([[1, hold.answer]]) });
+    serve({ draws: [[row(1), row(2)]], hold: new Map([[42, hold.answer]]) });
     let opening!: Promise<void>;
-    await act(async () => { opening = api.open(null) });
+    await act(async () => { opening = api.open(42) });
     await until(() => !!q('[data-immerse-loader]') && !q('[data-immerse-loader]')!.hidden);
     act(() => api.close());
     await hold.release();

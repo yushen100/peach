@@ -38,6 +38,7 @@ export function immerseQuery(filters: Record<string, string | number | null | un
   params.set('sort', 'rand');
   params.set('limit', '60');
   params.set('offset', '0');
+  params.set('count', '0');
   params.set('thumb', '');
   return params.toString();
 }

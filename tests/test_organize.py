@@ -391,6 +391,23 @@ class PlanTests(unittest.TestCase):
 class ApplyTests(unittest.TestCase):
     """执行与回滚都真的动文件：`translate_ledger_path` 指到临时目录，两个平台一致。"""
 
+    def test_resume_settles_a_rename_that_preceded_ledger_commit(self):
+        self._file('old/1.mp4')
+        old = r'R:\media\old\1.mp4'
+        new = r'R:\media\old\ABC-001.mp4'
+        _seed(self.db_path, [dict(id=1, path=old, name='1.mp4', code='ABC-001')])
+        plan = _plan(self.db_path, file_template='{number}')
+        with closing(sqlite3.connect(self.db_path)) as connection:
+            with mock.patch.object(organize, '_update_row', side_effect=KeyboardInterrupt), self.assertRaises(KeyboardInterrupt):
+                organize.apply_plan(connection, plan['rows'], generated_root=self.holder, stamp='resume')
+            self.assertEqual(connection.execute('SELECT path FROM asset WHERE id=1').fetchone()[0], old)
+            report = organize.apply_plan(connection, plan['rows'], generated_root=self.holder, stamp='resume')
+            self.assertEqual((report['moved'], report['failed']), (1, 0))
+            self.assertEqual(connection.execute('SELECT path FROM asset WHERE id=1').fetchone()[0], new)
+            restored = organize.rollback_batch(connection, Path(report['log_path']))
+            self.assertEqual((restored['restored'], restored['failed']), (1, 0))
+            self.assertEqual(connection.execute('SELECT path FROM asset WHERE id=1').fetchone()[0], old)
+
     def test_committed_moves_keep_one_journal_and_resume_without_renaming_twice(self):
         for index in (1, 2):
             self._file(f'old/{index}.mp4')

@@ -15,14 +15,14 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import smbclient
-from smbclient._io import _chunk_size, SMBFileTransaction, set_info
+from smbclient._io import _chunk_size, SMBFileTransaction, query_info, set_info
 from smbprotocol.connection import Connection
 from smbprotocol.exceptions import (
     NoMoreFiles, NoSuchFile, SMBAuthenticationError, SMBOSError, SMBResponseException,
 )
 from smbprotocol.file_info import (
     FileAttributes, FileInformationClass, FileRenameInformation,
-    FileDispositionInformation, FileEndOfFileInformation,
+    FileDispositionInformation, FileEndOfFileInformation, FileInternalInformation,
 )
 from smbprotocol.header import NtStatus
 from smbprotocol.open import (
@@ -70,6 +70,7 @@ class SmbStat:
     mtime_ns: int
     is_dir: bool
     name: str
+    file_index: int = field(default=0, kw_only=True)
 
     @property
     def st_size(self):
@@ -301,19 +302,32 @@ class SmbTransport:
                 self._close_fd(fd)
             raise
 
-    def stat(self, relative: tuple[str, ...] | str) -> SmbStat:
+    def stat(self, relative: tuple[str, ...] | str, *, with_identity: bool = False) -> SmbStat:
         parts = _parts(relative)
         parents = self._check_parents(parts)
         fd = None
         try:
             fd = self._open_fd(parts)
             mtime, ns = _timestamp(fd.last_write_time)
+            file_index = self._file_index(fd) if with_identity else 0
             return SmbStat(fd.end_of_file, mtime, ns,
                            bool(fd.file_attributes & FileAttributes.FILE_ATTRIBUTE_DIRECTORY),
-                           parts[-1] if parts else self.connection.share)
+                           parts[-1] if parts else self.connection.share, file_index=file_index)
         finally:
             for item in ([fd] if fd is not None else []) + list(reversed(parents)):
                 self._close_fd(item)
+
+    def _file_index(self, fd) -> int:
+        """查询共享卷的持久文件号，不能使用仅对当前打开句柄有效的 ID。"""
+        raw = SimpleNamespace(fd=fd, closed=False, name=fd.file_name)
+        try:
+            with SMBFileTransaction(raw) as transaction:
+                query_info(transaction, FileInternalInformation)
+            return transaction.results[0]["index_number"].get_value()
+        except SMBOSError as error:
+            if error.ntstatus not in (NtStatus.STATUS_INVALID_INFO_CLASS, NtStatus.STATUS_NOT_SUPPORTED):
+                raise _error(error) from None
+            return 0
 
     def scandir(self, relative: tuple[str, ...] | str) -> list[SmbEntry]:
         parts = _parts(relative)
