@@ -434,6 +434,19 @@ class PullRequestIntegrationTests(_WorktreeCase):
         self.assertEqual(_git(self.repo, "log", "-1", "--format=%B").stdout.strip(),
                          f"Merge branch '{self.branch}' (#12)")
 
+    def test_fork_pull_request_is_resolved_from_the_worker_tracking_configuration(self):
+        fork_pr = {**self.pr, "isCrossRepository": True}
+        with self.github() as query:
+            query.side_effect = [
+                subprocess.CompletedProcess(["gh"], 1, "", "no pull requests found for branch"),
+                subprocess.CompletedProcess(["gh"], 0, json.dumps(fork_pr), ""),
+            ]
+            result = integrate(self.repo, self.branch)
+        first, second = [call.args[0] for call in query.call_args_list]
+        self.assertEqual(first[:4], ["gh", "pr", "view", self.branch])
+        self.assertEqual(second[:4], ["gh", "pr", "view", "--json"])
+        self.assertEqual(result["pull_request"]["head"], self.head)
+
     def test_issue_link_lines_in_the_body_follow_into_the_merge_commit(self):
         body = ("排查记录里顺带提到 #3，不算关联。\n\nRefs #45\r\n"
                 "  Refs peach-mitao/peach-roadmap#7\n"

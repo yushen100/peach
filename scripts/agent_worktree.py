@@ -248,11 +248,12 @@ def require_pull_request(worker: Path, branch: str, target_branch: str, head: st
     """
     fields = ("url", "state", "headRefOid", "baseRefName")
     try:
-        result = subprocess.run(
-            ["gh", "pr", "view", branch, "--json", ",".join((*fields, "body", "isCrossRepository"))],
-            cwd=worker,
-            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60,
-        )
+        options = ["--json", ",".join((*fields, "body", "isCrossRepository"))]
+        kwargs = dict(cwd=worker, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+        result = subprocess.run(["gh", "pr", "view", branch, *options], **kwargs)
+        if result.returncode and "no pull requests found for branch" in result.stderr:
+            # 无显式分支名时，gh 会读取工作树的跟踪配置，识别来自 fork 的 PR。
+            result = subprocess.run(["gh", "pr", "view", *options], **kwargs)
     except (OSError, subprocess.TimeoutExpired) as error:
         raise WorkspaceError(t("agent_worktree.pullRequestUnavailable", error=error)) from error
     if result.returncode:
