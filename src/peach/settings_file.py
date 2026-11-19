@@ -105,15 +105,25 @@ def _bootstrap_data_root(
         return candidate, (candidate / SETTINGS_FILENAME).is_file()
     for parent in project_root.parents[:_SEARCH_DEPTH]:
         candidate = parent / DATA_ROOT_DIRNAME
-        if candidate.is_dir():
+        if candidate.is_dir() or relocation_record(candidate).is_file():
             return candidate, True
     return project_root.parent / DATA_ROOT_DIRNAME, False
+
+
+def relocation_record(root: Path) -> Path:
+    """迁移中断时，数据目录本身可能还没有建回来。恢复记录放在目录外。"""
+    root = root.resolve()
+    return root.with_name(f".{root.name}.peach-relocation.json") if root.name else root / ".peach-relocation.json"
 
 
 def _selected_data_root(root: Path) -> Path:
     """读取本机首次设置保存的位置；最多跟随八次，并拒绝循环与相对路径。"""
     visited = {root}
     for _ in range(9):
+        recovery = relocation_record(root)
+        if recovery.is_file():
+            from .data_storage import recover_relocation
+            root = recover_relocation(root, recovery)
         locator = root / "state" / DATA_ROOT_LOCATION
         try:
             text = locator.read_text(encoding="utf-8").strip()

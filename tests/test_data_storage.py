@@ -193,6 +193,71 @@ class DataStorageTests(unittest.TestCase):
         self.assertEqual(settings_file.discover_data_root(environ={settings_file.DATA_ROOT_ENV: str(self.data)}),
                          (bootstrap, True))
 
+    def test_cold_start_finds_a_default_data_root_renamed_before_the_locators_were_written(self):
+        snapshot = self.data / "generated" / "snapshots" / "preview.jpg"
+        make_ledger(self.data / "database" / "ledger.db", snapshot=str(snapshot))
+        write(snapshot)
+        target = self.base / "new" / "peach-data"
+        config = self.config()
+
+        def interrupt_after_rename(source, destination):
+            os.rename(source, destination)
+            raise KeyboardInterrupt
+
+        with patch.object(data_storage, "_rename", side_effect=interrupt_after_rename), \
+                self.assertRaises(KeyboardInterrupt):
+            data_storage.relocate(config, target, bootstrap=self.data)
+        self.assertFalse(self.data.exists())
+        self.assertTrue((target / "config.toml").is_file())
+
+        with patch.object(distribution, "standalone", return_value=False):
+            cold = settings_file.load_config(project_root=self.data.parent / "Peach", environ={})
+        self.assertEqual(cold.data_root, target)
+        self.assertEqual(self.config().data_root, target)
+        database = target / "database" / "ledger.db"
+        connection = sqlite3.connect(database)
+        try:
+            path = connection.execute("SELECT snapshot_path FROM asset WHERE id=1").fetchone()[0]
+        finally:
+            connection.close()
+        self.assertEqual(path, str(target / snapshot.relative_to(self.data)))
+        self.assertTrue(Path(path).is_file())
+        self.assertFalse(settings_file.relocation_record(self.data).exists())
+        self.assertFalse(settings_file.relocation_record(target).exists())
+
+    def test_locator_write_failure_restarts_from_the_new_root_and_recovers_on_cold_start(self):
+        make_ledger(self.data / "database" / "ledger.db")
+        bootstrap = self.base / "default" / "peach-data"
+        target = self.base / "new" / "peach-data"
+        request = self.request_file(target)
+        started = []
+        original_write = data_storage.atomic_write_text
+
+        def fail_default_locator(path, text, **kwargs):
+            if path == bootstrap / "state" / settings_file.DATA_ROOT_LOCATION:
+                raise PermissionError("locator write was refused")
+            return original_write(path, text, **kwargs)
+
+        with patch.object(data_storage, "atomic_write_text", side_effect=fail_default_locator), \
+                patch.object(data_storage, "_startup", return_value=None), \
+                patch.object(data_storage, "_bootstrap", return_value=bootstrap), \
+                self.assertLogs("peach.data_storage", "WARNING"):
+            code = data_storage.apply(request, None, environ={}, start=lambda _exe, env: started.append(env))
+        self.assertEqual(code, 0)
+        self.assertEqual(started[0][settings_file.DATA_ROOT_ENV], str(target))
+        self.assertFalse(self.data.exists())
+        self.assertTrue(settings_file.relocation_record(bootstrap).is_file())
+        self.assertTrue((target / "database" / "ledger.db").is_file())
+
+        with patch.object(distribution, "standalone", return_value=False):
+            cold = settings_file.load_config(project_root=bootstrap.parent / "Peach", environ={})
+        self.assertEqual(cold.data_root, target)
+        self.assertEqual(self.config().data_root, target)
+        self.assertEqual(data_storage.read_result(cold)["state"], "done")
+        self.assertEqual((bootstrap / "state" / settings_file.DATA_ROOT_LOCATION).read_text(encoding="utf-8"),
+                         str(target))
+        self.assertFalse(settings_file.relocation_record(bootstrap).exists())
+
     def test_incomplete_copy_is_discarded_and_the_source_stays_in_use(self):
         make_ledger(self.data / "database" / "ledger.db")
         write(self.data / "generated" / "covers" / "ABC-001.jpg")

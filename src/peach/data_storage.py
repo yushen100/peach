@@ -24,6 +24,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import timedelta
 import json
+import logging
 import os
 from pathlib import Path, PureWindowsPath
 import re
@@ -46,6 +47,9 @@ from .user_messages import (UserFacingError, UserInterruptedError, UserOSError, 
 USAGE_NAME = "storage-usage.json"
 REQUEST_NAME = "data-relocation-request.json"
 RESULT_NAME = "data-relocation.json"
+RELOCATION_PROOF = ".peach-relocation-id"
+PATHS_REWRITTEN = ":rewritten"
+LOGGER = logging.getLogger(__name__)
 #: 托盘拉起迁移助手用的参数，`scripts/build_app_entry.py` 按它分发。
 HELPER_FLAG = "--relocate-data"
 #: 请求写下后托盘要在这段时间里接手，过期的请求作废，避免几天后重启时突然搬家。
@@ -521,7 +525,9 @@ def _vacant(folder: Path) -> bool:
         return True
     if len(entries) != 1 or entries[0].name != "state" or not entries[0].is_dir():
         return False
-    return [path.name for path in entries[0].iterdir()] == [settings_file.DATA_ROOT_LOCATION]
+    if entries[0].is_symlink() or entries[0].is_junction():
+        return False
+    return all(path.name == settings_file.DATA_ROOT_LOCATION for path in entries[0].iterdir())
 
 
 def _existing_ancestor(path: Path) -> Path:
@@ -907,11 +913,142 @@ class MovedWithoutRewrite(UserFacingError, RuntimeError):
     """数据已经到了新位置并记下了位置，只是账本里的路径没改写成。迁移算完成，原因要告诉人。"""
 
 
+class MovedWithoutLocator(UserFacingError, RuntimeError):
+    """数据已迁移，位置暂由待恢复记录指向。"""
+
+
+@dataclass(frozen=True)
+class Relocation:
+    source: Path
+    target: Path
+    bootstrap: Path
+    database: Path
+    identity: str
+
+    def payload(self) -> dict:
+        return {"source": str(self.source), "target": str(self.target), "bootstrap": str(self.bootstrap),
+                "database": str(self.database), "identity": self.identity}
+
+    def records(self) -> tuple[Path, ...]:
+        return tuple(dict.fromkeys(settings_file.relocation_record(root)
+                                   for root in (self.source, self.target, self.bootstrap)))
+
+    def lock(self) -> FileLock:
+        return FileLock(self.records()[0].with_suffix(".lock"))
+
+
+def _read_relocation(record: Path) -> Relocation | None:
+    try:
+        saved = json.loads(record.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    try:
+        move = Relocation(*(Path(saved[name]) for name in ("source", "target", "bootstrap", "database")),
+                          uuid.UUID(saved["identity"]).hex)
+        roots = (move.source, move.target, move.bootstrap)
+        if (not all(root.is_absolute() for root in roots) or move.source.is_relative_to(move.target)
+                or move.target.is_relative_to(move.source) or move.database.is_absolute()
+                or ".." in move.database.parts or move.database.name != "ledger.db"
+                or record not in move.records()):
+            raise ValueError
+    except (KeyError, ValueError, TypeError, AttributeError):
+        raise settings_file.SettingsFileError("errors.settingsFile.locatorInvalid",
+                                              {"locator": str(record)}) from None
+    return move
+
+
+def _relocation_id(root: Path) -> str:
+    try:
+        return (root / RELOCATION_PROOF).read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return ""
+
+
+def _clear_relocation(move: Relocation, root: Path) -> None:
+    """先撤外部记录，最后撤随目录移动的标识；再中断时剩余入口仍能复核身份。"""
+    for record in move.records():
+        if _read_relocation(record) == move:
+            record.unlink()
+    (root / RELOCATION_PROOF).unlink(missing_ok=True)
+
+
+def _point_relocated(move: Relocation, *, record_rewrite: bool) -> None:
+    try:
+        if record_rewrite:
+            atomic_write_text(move.target / RELOCATION_PROOF, move.identity + PATHS_REWRITTEN)
+        _point(move.source, move.target, move.bootstrap)
+        _clear_relocation(move, move.target)
+    except OSError as exc:
+        raise MovedWithoutLocator("errors.settingsFile.locatorUnreadable", {
+            "locator": str(exc.filename or move.source / "state" / settings_file.DATA_ROOT_LOCATION),
+            "error": nested_message(exc),
+        }) from exc
+
+
+def recover_relocation(root: Path, record: Path) -> Path:
+    """启动时核对迁移标识，按同卷改名的实际结果接回已确认的目录。"""
+    root = root.resolve()
+    try:
+        move = _read_relocation(record)
+        if move is None:
+            return root
+        with move.lock():
+            if _read_relocation(record) != move:
+                return root
+            if (root == move.bootstrap and root not in (move.source, move.target)
+                    and root.is_dir() and not _vacant(root)):
+                return root
+            original = _relocation_id(move.source) == move.identity
+            target_id = _relocation_id(move.target)
+            rewritten = target_id == move.identity + PATHS_REWRITTEN
+            relocated = target_id == move.identity or rewritten
+            if original == relocated or (relocated and move.source.is_dir() and not _vacant(move.source)):
+                raise settings_file.SettingsFileError("errors.settingsFile.locatorInvalid", {"locator": str(record)})
+            if original:
+                _clear_relocation(move, move.source)
+                return move.source if root == move.target else root
+            database = (move.target / move.database).resolve()
+            if not database.is_relative_to(move.target):
+                raise settings_file.SettingsFileError("errors.settingsFile.locatorInvalid", {"locator": str(record)})
+            if not rewritten:
+                rewrite_ledger_paths(database, move.source, move.target)
+            try:
+                _point_relocated(move, record_rewrite=not rewritten)
+            except MovedWithoutLocator as exc:
+                LOGGER.warning("Data relocation locators could not be published: %s", exc)
+            return move.target
+    except (OSError, ValueError, sqlite3.Error, UserRuntimeError) as exc:
+        raise settings_file.SettingsFileError("errors.settingsFile.locatorUnreadable",
+                                              {"locator": str(record), "error": nested_message(exc)}) from exc
+
+
+def _relocate_same_volume(move: Relocation) -> None:
+    move.target.parent.mkdir(parents=True, exist_ok=True)
+    with move.lock():
+        atomic_write_text(move.source / RELOCATION_PROOF, move.identity)
+        encoded = json.dumps(move.payload(), ensure_ascii=False)
+        for record in move.records():
+            atomic_write_text(record, encoded)
+        _rename(move.source, move.target)
+        try:
+            rewrite_ledger_paths(move.target / move.database, move.source, move.target)
+        except Exception as exc:
+            try:
+                _rename(move.target, move.source)
+            except OSError:
+                # 改不回去时数据仍在新位置。保留旧行为，公布位置并说明路径改写结果。
+                _point_relocated(move, record_rewrite=False)
+                raise MovedWithoutRewrite("errors.dataStorage.pathsNotRewritten", {"error": nested_message(exc)}) from exc
+            _clear_relocation(move, move.source)
+            raise
+        _point_relocated(move, record_rewrite=True)
+
+
 def relocate(config, target: Path, *, bootstrap: Path,
              copy: Callable[[Path, Path], None] | None = None) -> bool:
     """把整个数据目录搬到 `target` 并改写账本路径、记下位置。返回原目录是否还要删除（跨卷复制）。
 
-    失败时抛出异常，原目录保持可用：同卷改名会改回去，跨卷复制会删掉新位置已复制的部分。
+    同卷在改名前保存恢复记录，跨卷复制失败时删掉新位置已复制的部分。
     """
     source = config.data_root.resolve()
     database = config.directory("database").resolve().relative_to(source) / "ledger.db"
@@ -923,19 +1060,11 @@ def relocate(config, target: Path, *, bootstrap: Path,
         if same_volume:
             target.rmdir()
     if same_volume:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        _rename(source, target)
-        try:
-            rewrite_ledger_paths(target / database, source, target)
-        except Exception as exc:
-            try:
-                _rename(target, source)
-            except OSError:
-                # 改不回去时数据已经整个在新位置：照样记下位置，否则下次启动会进首次设置页。
-                _point(source, target, bootstrap)
-                raise MovedWithoutRewrite("errors.dataStorage.pathsNotRewritten", {"error": nested_message(exc)}) from exc
-            raise
-        copied = False
+        bootstrap = bootstrap.resolve()
+        if bootstrap.is_dir() and not _vacant(bootstrap):
+            bootstrap = source
+        _relocate_same_volume(Relocation(source, target, bootstrap, database, uuid.uuid4().hex))
+        return False
     else:
         expected = count_files(source)
         # 请求时按上次统计查过一次余量；托盘退出、任务暂停之后这里按实际大小再查一次。
@@ -1038,7 +1167,7 @@ def apply(request_path: Path, wait_pid: int | None, *, environ: dict[str, str] |
         bootstrap = _bootstrap(environ)
         try:
             copied = relocate(old, target, bootstrap=bootstrap, copy=copy)
-        except MovedWithoutRewrite as exc:
+        except (MovedWithoutRewrite, MovedWithoutLocator) as exc:
             notes.append({"code": exc.code, "params": exc.params})
         final = target
     except Exception as exc:
