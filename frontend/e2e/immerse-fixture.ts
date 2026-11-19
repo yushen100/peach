@@ -43,3 +43,21 @@ export async function openImmerse(page: Page, id: number): Promise<void> {
 
 /** 当前出画那一格的 video。 */
 export const currentVideo = '[data-immerse-track] [data-immerse-slide] video.vjs-tech';
+
+/** 桌面横屏的动作列贴在画面外侧，并与画面垂直居中。 */
+export async function assertLandscapeActions(page: Page): Promise<void> {
+  const bounds = await page.evaluate(() => {
+    const track = document.querySelector('[data-immerse-track]')!.getBoundingClientRect();
+    const actions = document.querySelector('[data-immerse-actions]')!.getBoundingClientRect();
+    return {
+      gap: actions.left - track.right,
+      width: actions.width,
+      centerDelta: Math.abs((actions.top + actions.bottom - track.top - track.bottom) / 2),
+      fits: actions.left >= 0 && actions.top >= 0 && actions.right <= innerWidth && actions.bottom <= innerHeight,
+    };
+  });
+  assert.ok(Math.abs(bounds.gap - 12) <= 0.5, `动作列距画面右侧 12px，实际 ${bounds.gap}px`);
+  assert.equal(bounds.width, 72, '动作列宽 72px');
+  assert.ok(bounds.centerDelta <= 0.5, `动作列垂直居中，实际偏移 ${bounds.centerDelta}px`);
+  assert.ok(bounds.fits, '动作列完整落在窗口内');
+}

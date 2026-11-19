@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import type { Browser, Page } from 'playwright-core';
 import { DETAIL, openFollowFeed } from './follow-fixture.ts';
 import { settle, visit, VIEWPORTS, type Viewport, type Visit } from './harness.ts';
-import { muteVideos, openImmerse, pickClips, pinQueue, settledClip } from './immerse-fixture.ts';
+import { assertLandscapeActions, muteVideos, openImmerse, pickClips, pinQueue, settledClip } from './immerse-fixture.ts';
 import { ITEM, openItemPage } from './item-fixture.ts';
 import { DESKTOP, MOBILE, tokenColor, installDesignBrowser } from './design-fixture.ts';
 
@@ -807,11 +807,7 @@ describe('设计决定：关注详情、作品详情、播放器与侧栏', () =
       await settledClip(page);
       const landscape = await rectsOf(page, IMMERSE);
       assert.deepEqual(landscape.stage, { left: 230.4, top: 169.6, right: 1049.6, bottom: 630.4, width: 819.2, height: 460.8 });
-      assert.equal(landscape.actions.left - landscape.stage.right, 12);
-      assert.equal(landscape.actions.width, 72);
-      assert.ok(landscape.actions.right <= DESKTOP.width);
-      assert.ok(Math.abs(landscape.actions.top + landscape.actions.bottom
-        - landscape.stage.top - landscape.stage.bottom) < 0.2);
+      await assertLandscapeActions(page);
       assert.equal(landscape.ui.width, 404.8);
 
       await page.evaluate(() => { document.documentElement.dataset.theme = 'light' });

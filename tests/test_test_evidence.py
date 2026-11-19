@@ -44,8 +44,10 @@ class ParallelShardTests(unittest.TestCase):
             batches = runner.local_batches(names, 7)
         self.assertCountEqual([name for _, plan, _ in batches for shard in plan for name in shard], names)
         self.assertEqual(set(batches[0][1][0]), {'test_frontend_preflight.py', 'test_reference_updates.py'})
-        self.assertEqual(batches[1][2], 7)
-        for _, plan, jobs in batches[2:]:
+        self.assertEqual([stage for stage, _, _ in batches],
+                         ['快速门槛', 'test_frontend_build', 'test_web_e2e', '普通测试'])
+        self.assertEqual(batches[-1][2], 7)
+        for _, plan, jobs in batches[1:-1]:
             self.assertEqual((len(plan), len(plan[0]), jobs), (1, 1, 1))
 
     def test_failed_gate_stops_serial_and_parallel_behavior_tests(self):
