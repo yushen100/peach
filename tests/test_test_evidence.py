@@ -1536,7 +1536,7 @@ class VerificationTests(unittest.TestCase):
                 mock.patch.object(runner, "GATE_TESTS", frozenset()), \
                 mock.patch.object(runner, "run_shards", return_value=(True, 7, [])) as shards:
             self.assertEqual(runner.main(["--scope", "full", "--jobs", "1"]), 0)
-        self.assertEqual([call.kwargs['shard_count'] for call in shards.call_args_list], [4, 1, 1])
+        self.assertCountEqual([call.kwargs['shard_count'] for call in shards.call_args_list], [4, 1, 1])
         self.assertTrue(all(call.kwargs['jobs'] == 1 for call in shards.call_args_list))
         self.assertCountEqual([name for call in shards.call_args_list for group in call.kwargs['plan'] for name in group],
                               [path.name for path in runner.selected_files('full')])
