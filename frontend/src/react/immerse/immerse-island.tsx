@@ -152,7 +152,6 @@ function setLoading(label: string | null, item: ImmerseItem | null = null): void
   view = { ...view, loading: loadingText() };
   paint();
   ticker = window.setInterval(() => {
-    loadingItem = list[index] ?? null;
     view = { ...view, loading: loadingText() };
     paint();
   }, 500);
@@ -726,7 +725,7 @@ function ImmerseAction({ kind, glyph, label, id }: { kind: FeedbackKind; glyph: 
   const full = useDetail(id);
   const mutation = useMutation({
     mutationFn: async (target: number) => {
-      const before = queryClient.getQueryData<DetailItem>(itemKey(target))?.feedback || null;
+      const before = (await ensureDetail(target)).feedback || null;
       return { result: await sendFeedback(target, kind), before };
     },
     onSuccess: ({ result, before }, target) => {

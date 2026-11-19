@@ -214,13 +214,11 @@ const current = () => player.mounted.at(-1)!;
 
 /** 等一件事成立：换条要走两帧动画加 210ms 落位，都在 act 里等完。 */
 async function until(condition: () => boolean, ms = 2_000) {
-  await act(async () => {
-    const deadline = Date.now() + ms;
-    while (!condition()) {
-      if (Date.now() > deadline) throw new Error('等不到条件成立');
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
-  });
+  const deadline = Date.now() + ms;
+  while (!condition()) {
+    if (Date.now() > deadline) throw new Error('等不到条件成立');
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 10)) });
+  }
 }
 const wait = (ms: number) => act(async () => { await new Promise((resolve) => setTimeout(resolve, ms)) });
 
@@ -450,6 +448,7 @@ describe('动作键', () => {
     const fetcher = serve({ draws: [[row(1), row(2)]] });
     queryClient.setQueryData(catalogKey('q=', 0), { pages: [grid()], pageParams: [0] });
     await open();
+    await until(() => action('标为看过').hasAttribute('aria-pressed'));
     expect(action('标为看过').getAttribute('aria-pressed')).toBe('false');
     expect(action('记一次高潮').hasAttribute('aria-pressed')).toBe(false);
     await click(action('标为看过'));
@@ -465,6 +464,7 @@ describe('动作键', () => {
     serve({ draws: [[row(1), row(2)]] });
     queryClient.setQueryData(catalogKey('q=', 0), { pages: [grid()], pageParams: [0] });
     await open();
+    await until(() => action('记一次高潮').closest('[data-immerse-action]')!.textContent === '高潮 2');
     expect(action('记一次高潮').closest('[data-immerse-action]')!.textContent).toBe('高潮 2');
     await click(action('记一次高潮'));
     await until(() => action('记一次高潮').closest('[data-immerse-action]')!.textContent === '高潮 3');
@@ -505,6 +505,7 @@ describe('动作键', () => {
   it('写失败交给壳报错，按键不卡在忙态', async () => {
     serve({ draws: [[row(1), row(2)]] });
     await open();
+    await until(() => action('标为看过').hasAttribute('aria-pressed'));
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 500, json: async () => ({ error: '写不进去' }) })));
     await click(action('标为看过'));
     await until(() => host.failure.mock.calls.length === 1);
@@ -518,6 +519,7 @@ describe('作者与标题', () => {
     serve({ draws: [[row(1), row(2)]], details: { 1: { performers: ['甲', '乙', '丙', '丁'] } } });
     await open();
     const author = q<HTMLAnchorElement>('[data-immerse-author]>a')!;
+    await until(() => Boolean(author.textContent));
     expect(author.textContent).toBe('甲、乙、丙 等 4 人');
     expect(q('[data-immerse-avatar] .ini')!.textContent).toBe('甲');
     expect(q('[data-immerse-avatar] img')!.getAttribute('src')).toBe('/entity-image?kind=performer&id=91&thumb=1');
@@ -530,6 +532,7 @@ describe('作者与标题', () => {
     serve({ draws: [[row(1), row(2)]], details: { 1: { performers: [], creator: '', entity_refs: {} } } });
     await open();
     const author = q<HTMLAnchorElement>('[data-immerse-author]>a')!;
+    await until(() => Boolean(author.textContent));
     expect(author.textContent).toBe('未归属');
     await click(author);
     expect(host.closed).toHaveBeenCalledTimes(1);
@@ -859,10 +862,11 @@ describe('常驻组件', () => {
     expect(document.body.hasAttribute('data-immerse-open'), '卸组件不清 body 上的打开标记').toBe(true);
     expect(api.isOpen()).toBe(true);
 
-    /* 模块上的监听不随组件卸掉：方向键照旧换条（交给壳写地址），离开页面照旧按会话取消还开着的格。 */
+    /* 模块上的监听不随组件卸掉：方向键仍试切，失败后保留实际出画的地址。 */
     const first = current();
     await key('ArrowDown');
-    await until(() => routed().at(-1) === 2);
+    await until(() => host.failure.mock.calls.length === 1);
+    expect(routed()).toEqual([1]);
     await act(async () => { window.dispatchEvent(new Event('resize')) });
     await act(async () => { window.dispatchEvent(new Event('pagehide')) });
     expect(player.cancelled).toContain(first.session);
@@ -873,7 +877,7 @@ describe('常驻组件', () => {
     expect(host.closed).toHaveBeenCalledTimes(1);
     host.displayName.mockImplementation((item) => `片名 ${String(item.name)}`);
     await open();
-    expect(api.isOpen()).toBe(true);
+    expect(api.isOpen()).toBe(false);
     act(() => { expect(() => api.close()).not.toThrow() });
     expect(container.childNodes.length, '空到刷新为止，不自愈').toBe(0);
     expect(reported, '确定性抛错只报那一次').toHaveBeenCalledTimes(1);
