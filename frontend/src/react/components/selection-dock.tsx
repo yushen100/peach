@@ -21,6 +21,7 @@ export interface DockAction {
   host: BulkHost;
   /** 允许在数据表右键菜单中对一行执行同一个动作。 */
   rowAction?: Pick<WorkContextOperation, 'label' | 'icon'>;
+  variant?: 'primary';
   /** 选中的项都不适用时置灰。 */
   disabled?: boolean;
   /** 写完之后的收尾（清空选择、重读列表）；取消时不调。 */
@@ -55,7 +56,7 @@ function DockActionButton({ entry }: { entry: DockAction }) {
       setBusy(false);
     }
   };
-  return <Button size="small" variant={action.danger ? 'danger' : 'secondary'} data-bulk-action={action.key}
+  return <Button size="small" variant={action.danger ? 'danger' : (entry.variant ?? 'secondary')} data-bulk-action={action.key}
     disabled={disabled || !items.length} {...busyProps(busy)} onClick={() => void press()}>{action.label}</Button>;
 }
 

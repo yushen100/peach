@@ -273,11 +273,11 @@ _KIRARI_CODE = re.compile(rf"^{_KIRARI_BODY}$", re.I)
 #: （后三种本机账本里都有）。
 #: TMA 的 `T28`、`T38`：JavBus 片商页 `studio/54` 2026-11-14 全量翻过，这两段分别 282、65 部，
 #: 序号三位，TMA 别的字母段都是纯字母；r18.dev 给 `T28-612` 的 content_id 是 `55t2800612`。
-#: S Model 的 `S2M`（アンコール，序号三位）、`S2MCR`（Model Collection Remix，序号两位）与
+#: S Model 的 `S2M`（アンコール，序号三位）、`S2MBD`（BD 版，序号三位）、`S2MCR`（Model Collection Remix，序号两位）与
 #: キャットウォーク的 `CW3D2DBD`（序号两位）：#124 报告，2026-11-16 在 JavDB 搜索页核过
 #: `S2M-009`、`S2MCR-08`、`CW3D2DBD-14` 都按这个写法收录。两位序号的段在 `SERIAL_WIDTHS` 里登记位数。
 #: 交替按长度从长到短排：`S2MCR-08` 不能先被 `S2M` 吃掉一截。
-DIGIT_LABELS = ("CW3D2DBD", "S2MCR", "S2M", "T28", "T38")
+DIGIT_LABELS = ("CW3D2DBD", "S2MBD", "S2MCR", "S2M", "T28", "T38")
 DIGIT_LABEL_PATTERN = "(?:" + "|".join(sorted(DIGIT_LABELS, key=lambda label: (-len(label), label))) + ")"
 _DIGIT_LABEL_TEXT = re.compile(rf"^({DIGIT_LABEL_PATTERN})[-_. ]?(\d{{2,5}})$", re.I)
 _DIGIT_LABEL_CODE = re.compile(rf"^{DIGIT_LABEL_PATTERN}-\d{{2,5}}$")
@@ -668,7 +668,7 @@ SHORT_SERIAL_PREFIXES = frozenset({"MCDV"})
 
 #: 官方编号定宽、不足位数补零的字母段。`HEYZO`：官网与各来源都写四位（`HEYZO-0707`），
 #: 按三位收成 `HEYZO-707` 就查不到资料（#354）。
-SERIAL_WIDTHS = {"HEYZO": 4, "S2MCR": 2, "CW3D2DBD": 2}
+SERIAL_WIDTHS = {"HEYZO": 4, "S2MCR": 2, "CW3D2DBD": 2, "CDRP": 2}
 
 
 def _keeps_width(letters: str, digits: str) -> bool:

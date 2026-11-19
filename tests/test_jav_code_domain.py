@@ -460,6 +460,20 @@ class TokyoHotShapeTests(unittest.TestCase):
         self.assertFalse(same_release_code('S2M-008', 'S2MCR-08'))
         self.assertTrue(is_jav_code('CW3D2DBD-14'))
 
+    def test_catwalk_perfume_and_s_model_bd_codes_use_the_published_identity(self):
+        from peach.catalog_rules import code_query_variants, normalise_code_key
+
+        for value, code in (('cdrp-01', 'CDRP-01'), ('CDRP-001', 'CDRP-01'),
+                            ('cdrp-10', 'CDRP-10'), ('S2MBD-049', 'S2MBD-049'),
+                            ('s2mbd049', 'S2MBD-049'), ('S2MBD-49', 'S2MBD-049')):
+            with self.subTest(value=value):
+                self.assertEqual(normalise_code_key(value), code)
+                self.assertEqual(release_code_from_text(value), code)
+                self.assertEqual(code_query_variants(value)[0], code)
+                self.assertTrue(is_jav_code(code))
+        self.assertFalse(same_release_code('S2M-049', 'S2MBD-049'))
+        self.assertFalse(is_jav_code('S2MHD-049'))
+
     def test_registered_label_suffix_stays_in_the_code_while_edition_markers_are_stripped(self):
         """#124：`IBW-483z` 的 `z` 是番号的一部分；`C`、`U`、`UC` 这些版次标记照旧剥掉。"""
         for name in ('IBW-483z.mp4', 'IBW-483Z.mp4', 'ibw483z.mp4', 'IBW-483z-C.mp4',

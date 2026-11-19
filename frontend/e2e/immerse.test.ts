@@ -203,8 +203,12 @@ describe('沉浸模式', () => {
         return { time: video.currentTime, duration: video.duration, paused: video.paused };
       }, currentVideo);
 
+      // 首条的位置随抽样变化。向队列里已有的另一条划动，并保持补队列响应挂起。
+      const position = await page.locator('[data-immerse-author] > span').innerText();
+      assert.match(position, /[12]\/2$/);
       holdRefill = true;
-      await drag([195, 640], [195, 300]);
+      if (position.endsWith('1/2')) await drag([195, 640], [195, 300]);
+      else await drag([195, 300], [195, 640]);
       await page.waitForFunction((want) => location.search === `?id=${want}`, wide.id, { timeout: 10_000 });
       await settledClip(page);
       assert.ok(refillRequested, '补队列已发起时，队列里已有的下一条仍可出画');
