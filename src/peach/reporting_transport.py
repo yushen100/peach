@@ -31,7 +31,9 @@ def transport_class(gate, callback):
 
         def capture_envelope(self, envelope):
             self._context(envelope)
-            return super().capture_envelope(envelope)
+            self._delivery_context.queue_full = False
+            super().capture_envelope(envelope)
+            return not self._delivery_context.queue_full
 
         def _notify(self, status, reason=None, status_code=None):
             result = {"status": status}
@@ -63,7 +65,14 @@ def transport_class(gate, callback):
             if not gate(envelope):
                 self._notify("blocked", "consent")
                 return
+            retry = getattr(envelope, "peach_retry_on_limit", None)
+            # SDK 会静默跳过限流的 log 条目。计数信封只含日志，可以确认这一批完全未发出。
+            if retry is not None and all(self._check_disabled(item.data_category) for item in envelope.items):
+                self._notify("failed", "rate_limit")
+                retry()
+                return
             self._outcome = False
+            self._delivery_context.rate_limited = False
             try:
                 super()._send_envelope(envelope)
             except Exception:
@@ -72,6 +81,8 @@ def transport_class(gate, callback):
                 raise
             if not self._outcome:
                 self._notify("unknown", "unknown")
+            if self._delivery_context.rate_limited and retry is not None:
+                retry()
 
         def _handle_response(self, response, envelope):
             super()._handle_response(response, envelope)
@@ -82,6 +93,7 @@ def transport_class(gate, callback):
                 self._notify("unknown" if limited else "accepted", "rate_limit" if limited else None, status)
             else:
                 self._notify("failed", "rate_limit" if status == 429 else "http_status", status)
+                self._delivery_context.rate_limited = status == 429
 
         def _handle_request_error(self, envelope, loss_reason="network", record_reason="network_error"):
             super()._handle_request_error(envelope, loss_reason, record_reason)
@@ -94,6 +106,9 @@ def transport_class(gate, callback):
             if reason in {"full_queue", "self_rate_limits"}:
                 if reason == "self_rate_limits":
                     self._outcome = True
+                    self._delivery_context.rate_limited = True
+                else:
+                    self._delivery_context.queue_full = True
                 self._notify("failed", "queue_full" if reason == "full_queue" else "rate_limit")
 
     return ReportingTransport

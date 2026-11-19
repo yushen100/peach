@@ -85,7 +85,53 @@ def _load(path, revision, now):
         state['count_schema'] = 2
     if type(state.get("events")) is not int or state["events"] < 0:
         state["events"] = 0
+    retries = state.get("count_retries")
+    state["count_retries"] = {
+        key: entry for key, entry in retries.items()
+        if isinstance(entry, dict) and _retry_key(entry, cutoff, day) == key
+    } if isinstance(retries, dict) else {}
+    if type(state.get("count_retry_at")) not in (int, float):
+        state["count_retry_at"] = 0
     return state
+
+
+def _retry_key(entry, cutoff, day):
+    tags = entry.get("tags")
+    if not isinstance(tags, dict):
+        return None
+    key, occurrence, count = (tags.get(name) for name in ("diagnostic_key", "occurrence_day", "occurrence_count"))
+    if (isinstance(key, str) and len(key) == 64 and isinstance(occurrence, str) and cutoff <= occurrence <= day
+            and isinstance(count, str) and count.isascii() and count.isdecimal() and len(count) <= 20):
+        return f"{occurrence}:{key}"
+    return None
+
+
+def _remember_count_retries(state, counts, now):
+    day = now.date().isoformat()
+    cutoff = (now.date() - timedelta(days=RETENTION_DAYS - 1)).isoformat()
+    retries = state["count_retries"]
+    for entry in counts:
+        key = _retry_key(entry, cutoff, day)
+        if key is None:
+            continue
+        tags = entry["tags"]
+        previous = retries.get(key, {}).get("tags", {}).get("occurrence_count", "0")
+        retries[key] = {**entry, "tags": {**tags, "occurrence_count": str(int(previous) + int(tags["occurrence_count"]))}}
+    if retries and state["count_retry_at"] <= now.timestamp():
+        state["count_retry_at"] = now.timestamp() + INTERVAL
+
+
+def retry_limited_counts(config, revision, counts, still_allowed):
+    """仅保存明确被限流的整批计数，保持原发生日。"""
+    path = _path(config)
+    with FileLock(str(path) + ".lock", timeout=LOCK_TIMEOUT):
+        if not path.is_file() or not still_allowed():
+            return None
+        now = _now()
+        state = _load(path, revision, now)
+        _remember_count_retries(state, counts, now)
+        atomic_write_text(path, json.dumps(state))
+        return _next_due(state, now)
 
 
 def _tags(row, key, count):
@@ -133,7 +179,7 @@ def _plan_counts(rows, now, outbox, *, force=False, undo=True):
 
 
 def _roll(row, key, now, outbox):
-    """跨 UTC 日先提交前一天的次数，计数日志的统计日期是实际发生日；提交失败的旧次数不再保留。"""
+    """跨 UTC 日提交前一天的次数；重试保留原发生日。"""
     day = now.date().isoformat()
     if row["day"] == day:
         return
@@ -153,8 +199,11 @@ def _commit(path, state, outbox, emit, log):
             accepted = (emit if kind == "event" else log)(payload)
         except Exception:
             accepted = False
-        if not accepted and undo is not None:
-            undo()
+        if not accepted:
+            if undo is not None:
+                undo()
+            else:
+                _remember_count_retries(state, payload, _now())
             rejected = True
     if rejected:
         try:
@@ -239,6 +288,8 @@ def _next_due(state, now):
     for row in state["records"].values():
         if row["total"] > row["submitted"]:
             due = min(due, row["last_logged"] + INTERVAL)
+    if state["count_retries"]:
+        due = min(due, state["count_retry_at"])
     return due
 
 
@@ -260,6 +311,9 @@ def flush(config, revision, emit, log, *, force=False):
         _merge(state, path, revision, now, outbox)
         for key, row in state["records"].items():
             _plan_event(state, row, key, outbox)
+        if state["count_retries"] and now.timestamp() >= state["count_retry_at"]:
+            outbox.append(("counts", list(state["count_retries"].values()), None))
+            state["count_retries"].clear()
         _plan_counts(state["records"].items(), now, outbox, force=force)
         _commit(path, state, outbox, emit, log)
         return _next_due(state, now)
