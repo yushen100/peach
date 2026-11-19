@@ -244,6 +244,7 @@ export function ReviewPage(props: ReviewProps) {
     queueView === 'pending' ? decideMany('skipped', t('manage:reviewToolbar.laterSelected')) : decideMany('restore', t('manage:reviewToolbar.restoreSelected')),
     ...(queueView !== 'ignored' ? [decideMany('approved', t('manage:reviewToolbar.approveSelected'))] : []),
   ].map((action) => ({ action, items: selectedRows, host,
+    variant: action.key === 'approved' || (queueView === 'ignored' && action.key === 'restore') ? 'primary' as const : undefined,
     disabled: bulk.isPending || decide.isPending || (action.key === 'approved' && !approvable) }));
 
   /* 统一选择来源只动所选那几行的选中项，不替人按下「通过」：改的是要写什么，判断仍归人。 */
