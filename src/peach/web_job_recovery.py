@@ -14,7 +14,7 @@ from .web_follow import w_follow_check, w_follow_resolve
 from .web_feeds import w_feed_check
 from .web_wants import start_scrape, start_search
 from .web_links import w_links_check, w_links_prune
-from .web_resource_sync import w_resource_sync_scan, w_resource_sync_apply
+from .web_resource_sync import w_resource_sync_scan
 from .web_stats import w_taste_refresh
 from .web_media_repair import w_media_repair
 from .web_organize import w_organize_apply, w_organize_rollback
@@ -38,6 +38,13 @@ STOP_SECONDS = 10
 def restore(contract, track=lambda key, handler: handler, skip=()):
     from .jav_discovery_metadata import discovery_metadata
     from .job_recovery import read
+
+    def settle_resource_apply(_body):
+        from .user_messages import UserValueError
+        saved = read(contract.db_path, "resource-apply")
+        if not (saved.get("checkpoint") or {}).get("apply_receipt"):
+            raise UserValueError("api.resourceSync.scanExpired")
+
     handlers = {
         "library-processing": lambda body: w_library_processing(contract, body, resume=True),
         "timeline-thumbnails": lambda body: w_thumbnail_jobs(contract, body),
@@ -48,7 +55,7 @@ def restore(contract, track=lambda key, handler: handler, skip=()):
         "want-search": lambda _body: start_search(contract),
         "link-check": lambda body: w_links_check(contract, {**body, 'restart': True}),
         "resource-scan": lambda body: w_resource_sync_scan(contract, {**body, 'background': True}),
-        "resource-apply": lambda body: w_resource_sync_apply(contract, body),
+        "resource-apply": settle_resource_apply,
         "link-prune": lambda body: w_links_prune(contract, body),
         "follow-resolve": lambda body: w_follow_resolve(contract, body),
         "taste-refresh": lambda body: w_taste_refresh(contract, body),

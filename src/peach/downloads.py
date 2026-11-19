@@ -29,7 +29,9 @@ import sqlite3
 import stat
 import threading
 import time
+from contextlib import nullcontext
 from dataclasses import dataclass, field
+from weakref import WeakValueDictionary
 from datetime import datetime, timezone
 from pathlib import Path, PureWindowsPath
 from typing import Any, Callable, Mapping, Protocol
@@ -917,6 +919,8 @@ class DownloadService:
         #: 只放在内存里：重启后第一次提交自然会再试一次。
         self._channel_alerts: dict[str, dict] = {}
         self._submit_lock = threading.Lock()
+        self._task_locks = WeakValueDictionary()
+        self._task_locks_guard = threading.Lock()
         self._wake = threading.Event()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -937,7 +941,7 @@ class DownloadService:
         if provider.startswith("clouddrive:") and not (
                 folder == channel["target"] or folder.startswith(channel["target"].rstrip("/") + "/")):
             raise UserValueError("errors.downloads.targetOutsideLibrary")
-        with self._submit_lock:
+        with self._submit_lock, self._task_lock(magnet.info_hash):
             now = self.clock()
             if dedupe_code and code and (existing := self.store.active_by_code(code)) is not None:
                 self.store.record_submission(task=existing, outcome="adopted", now=now)
@@ -984,34 +988,26 @@ class DownloadService:
 
     def _retry_submit(self, task: DownloadTask, now: float) -> None:
         """再交一次提交时网盘没应答的磁力。远端收下后从这一刻起按新提交对账。"""
-        with self._submit_lock:
-            latest = self.store.get(task.id)
-            if latest is None or latest.state != SUBMIT_PENDING:
-                return  # 到期之后、拿到提交锁之前被取消或重新提交了。
-            task = latest
-            try:
-                status = self.providers(task.provider).submit(parse_magnet(task.source_uri), task.target)
-            except DownloadError as error:
-                self.note_channel(task.provider, error, now)
-                started = parse_iso(task.submitted_at) or now
-                if error.retryable and now - started < SUBMIT_RETRY_WINDOW:
-                    self._reschedule(task, now, error.detail)
-                    return
-                if error.retryable:
-                    error = DownloadError(error.failure, "errors.downloads.retriesExhausted",
-                                          {"detail": nested_message(error), "checks": task.checks})
-                self._fail(task, error, now)
-                self.store.record_submission(task=task, outcome="failed", now=now,
-                                             failure=error.failure, detail=error.detail)
+        try:
+            status = self.providers(task.provider).submit(parse_magnet(task.source_uri), task.target)
+        except DownloadError as error:
+            self.note_channel(task.provider, error, now)
+            started = parse_iso(task.submitted_at) or now
+            if error.retryable and now - started < SUBMIT_RETRY_WINDOW:
+                self._reschedule(task, now, error.detail)
                 return
-            latest = self.store.get(task.id)
-            if latest is None or latest.state != SUBMIT_PENDING:
-                return  # 再交的这段时间里任务被取消了。
-            task.submitted_at = iso(now)
-            self.note_channel(task.provider, None, now)
-            self._accepted(task, status, now)
-            self.store.record_submission(task=task, outcome="adopted_remote" if status.adopted else "submitted",
-                                         now=now)
+            if error.retryable:
+                error = DownloadError(error.failure, "errors.downloads.retriesExhausted",
+                                      {"detail": nested_message(error), "checks": task.checks})
+            self._fail(task, error, now)
+            self.store.record_submission(task=task, outcome="failed", now=now,
+                                         failure=error.failure, detail=error.detail)
+            return
+        task.submitted_at = iso(now)
+        self.note_channel(task.provider, None, now)
+        self._accepted(task, status, now)
+        self.store.record_submission(task=task, outcome="adopted_remote" if status.adopted else "submitted",
+                                     now=now)
 
     def _fresh(self, task, magnet: Magnet, provider, folder, code, title, origin, now) -> DownloadTask:
         """新任务，或把失败／取消／停滞的那一行重置成一次新的提交。"""
@@ -1042,6 +1038,21 @@ class DownloadService:
         if not self.available:
             raise UserValueError("errors.downloads.writerOnly")
         task = self.store.get(int(task_id))
+        if task is None:
+            raise UserValueError("errors.downloads.taskNotFound")
+        with self._task_lock(task.info_hash):
+            return self._cancel(task.id)
+
+    def _task_lock(self, info_hash: str):
+        with self._task_locks_guard:
+            lock = self._task_locks.get(info_hash)
+            if lock is None:
+                lock = threading.Lock()
+                self._task_locks[info_hash] = lock
+            return lock
+
+    def _cancel(self, task_id: int) -> DownloadTask:
+        task = self.store.get(task_id)
         if task is None:
             raise UserValueError("errors.downloads.taskNotFound")
         if task.state not in TRACKED_STATES:
@@ -1174,15 +1185,25 @@ class DownloadService:
         """推进所有到期的任务，返回推进了几条。测试直接调它。"""
         due = self.store.due(self.clock())
         for task in due:
-            try:
-                self.advance(task)
-            except Exception:
-                LOGGER.exception("Reconciliation failed for cloud download task %s", task.id)
-                self._reschedule(task, self.clock(),
-                                 Said("labels.downloads.reconcileUnexpected"))
+            self.advance(task)
         return len(due)
 
     def advance(self, task: DownloadTask) -> None:
+        # 本实例只有一个写端。取消和同一任务的远端查询、入库按顺序执行。
+        submit_guard = self._submit_lock if task.state == SUBMIT_PENDING else nullcontext()
+        with submit_guard, self._task_lock(task.info_hash):
+            current = self.store.get(task.id)
+            if current != task:
+                return
+            try:
+                self._advance(current)
+            except Exception:
+                LOGGER.exception("Reconciliation failed for cloud download task %s", task.id)
+                saved = self.store.get(task.id)
+                if saved is not None:
+                    self._reschedule(saved, self.clock(), Said("labels.downloads.reconcileUnexpected"))
+
+    def _advance(self, task: DownloadTask) -> None:
         now = self.clock()
         if task.state == INGESTED and task.postprocess_state == POSTPROCESS_PENDING:
             self._dispatch_postprocess(task)

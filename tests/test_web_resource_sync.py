@@ -597,9 +597,12 @@ class PurgeMissingTests(unittest.TestCase):
             (self.mount / "creator/P" / name).write_bytes(b"x")
         with mock.patch.object(rm_sync, "translate_ledger_path", self._translate), \
              mock.patch.object(rm_sync, "_missing_resource_ids",
-                               return_value=([1, 2, 3], 0)):
+                               return_value=([1, 2, 3], 0)), \
+             mock.patch.object(rm_sync, "source_is_online", return_value=True):
             rows = rm_sync.vanished_asset_rows(self.contract, "115")
+            directory = rm_sync.w_purge_missing(self.contract, {"id": 1})
         self.assertEqual(rows, [], "逐条问过一遍三个文件都在，一条都不该判失效")
+        self.assertEqual(directory['removed'], 0)
 
     def test_a_file_that_is_really_gone_survives_the_second_look(self):
         with mock.patch.object(rm_sync, "translate_ledger_path", self._translate):
@@ -1017,6 +1020,18 @@ class ResourceSyncCleanupTests(unittest.TestCase):
         self.assertEqual(sorted(path.name for path in removed), ["inner", "release", "solo"])
         self.assertTrue((self.mount / "creator").is_dir(), "装着别的文件的上级照旧留着")
         self.assertTrue(self.mount.is_dir(), "来源根绝不随空目录一起删")
+
+    def test_an_interrupted_cleanup_confirmation_expires_on_restart(self):
+        from peach import job_recovery, web_job_recovery
+
+        key = "resource-apply"
+        job_recovery.save(self.contract.db_path, key, "interrupted",
+                          {"confirm": True, "scan_id": "previous"}, waiting=True)
+        web_job_recovery.restore(self.contract)
+        state = job_recovery.read(self.contract.db_path, key)
+        self.assertEqual(state["status"], "blocked")
+        self.assertIn("重新检查", state["error"])
+        self.assertIsNone(self.contract.resource_apply_job.snapshot())
 
     def test_recovery_returns_while_a_resumed_scan_waits_on_a_directory(self):
         """接回一轮会卡住的检查不能拖住恢复服务：检查在后台线程里等，接回当场返回。"""

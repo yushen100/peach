@@ -179,6 +179,30 @@ class PosixShapeTests(_ScanCase):
             self._scan('R:\\media', **options)
             self.assertEqual(pending(self.db), [])
 
+    def test_committed_scan_batch_is_pending_when_the_next_checkpoint_is_interrupted(self):
+        from peach.file_identity import FileIdentityIndex
+        from peach.library_new_assets import pending
+        from peach.library_processing import _initial_processing_scope
+
+        options = dict(declared_roots={'local': ('R:\\media',)}, mounts={'local': (self.media,)}, windows=False)
+        original = FileIdentityIndex.save
+
+        def stop_after_video_commit(index):
+            if 'video' in self._paths().values():
+                raise SystemExit()
+            return original(index)
+
+        with patch.object(FileIdentityIndex, 'save', stop_after_video_commit), self.assertRaises(SystemExit):
+            self._scan('R:\\media', **options)
+        result, _ = self._scan('R:\\media', **options, new_only=True)
+        queued = pending(self.db)
+        self.assertEqual(len(queued), 1)
+        self.assertTrue(set(result.new_ids).isdisjoint(queued))
+        self.assertEqual(
+            _initial_processing_scope(self.db, None, None, True, {'incremental_ids': []}),
+            (None, queued),
+        )
+
     def test_windows_mount_mapping_has_the_same_ledger_path_contract(self):
         options = dict(declared_roots={'local': ('R:\\media',)}, mounts={'local': (self.media,)}, windows=True)
         self.assertEqual(scan.walk_root_for('local', 'R:\\media\\创作者', **options), self.media / '创作者')

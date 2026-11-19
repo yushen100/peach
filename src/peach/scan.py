@@ -471,14 +471,14 @@ def ingest_path(
         folder_rules.apply_new(connection, [asset_id] if new else [])
         if identities is not None:
             identities.observe(connection, location, stored_path, directory / name, stat)
+        from .library_new_assets import enqueue
+        enqueue(connection, inserted_ids)
         connection.commit()
         if identities is not None:
             identities.save()
     finally:
         connection.close()
     junk.isolate(db_path, asset_ids=[asset_id])
-    from .library_new_assets import remember
-    remember(db_path, inserted_ids)
     return IngestResult(location, str(ledger_path), True, stat.st_size, tracks,
                         asset_id=asset_id, new=new, reattached=reattached, acquired=acquired,
                         relocated=relocated)
@@ -750,16 +750,16 @@ def _scan_file_stat(connection, identities, registered, observations, location, 
     return stat
 
 
-def _commit_scan_records(connection, db, batch, registered, conflicts, identities, observations, registered_added):
+def _commit_scan_records(connection, batch, registered, conflicts, identities, observations, registered_added):
+    from .library_new_assets import enqueue
     inserted = _upsert_records(connection, batch, registered, conflicts, registered_added=registered_added)
     if identities is not None:
         for location, path, native, stat in observations:
             identities.observe(connection, location, registered.get(path.casefold(), path), native, stat)
+    enqueue(connection, inserted)
     connection.commit()
     if identities is not None:
         identities.save()
-    from .library_new_assets import remember
-    remember(db, inserted)
     batch.clear()
     observations.clear()
     return inserted
@@ -776,7 +776,7 @@ def _commit_reopening(connection, db_path, batch, registered, conflicts, identit
         pending = connection.in_transaction
         registered_added = []
         try:
-            return connection, _commit_scan_records(connection, db_path, batch, registered, conflicts,
+            return connection, _commit_scan_records(connection, batch, registered, conflicts,
                                                     identities, observations, registered_added)
         except sqlite3.OperationalError as error:
             if delay is None or pending or not _cannot_open(error):
@@ -830,7 +830,6 @@ def _scan_location(
     video_dirs = set(previous.get('video_dirs', []))
     pending = _pending_directories(previous, walk_root)
     batch: list[tuple] = []
-    from .library_new_assets import remember
     # 文件批次提交后保存文件名游标；同目录的配对资料随断点保留。
     def save_directory(directory=None, cursor=None, here=None):
         artwork_parents = {path_module.dirname(value) for value in [*pending, *([directory] if directory else [])]
@@ -908,14 +907,12 @@ def _scan_location(
                 connection, location, ledger_root.joinpath(*relative), here, conflicts, now)
             connection.commit()
             discovered.update(inserted_ids)
-            remember(db_path, inserted_ids)
             tracks += directory_tracks
             orphans += directory_orphans
             save_directory()
         connection, inserted_ids = _commit_reopening(connection, db_path, batch, registered, conflicts,
                                                      identities, observations, relocator)
         discovered.update(inserted_ids)
-        remember(db_path, inserted_ids)
         from .media_folders import path_predicate
         scope, parameters = path_predicate(location, root)
         new_ids = tuple(sorted(discovered))

@@ -1024,7 +1024,8 @@
       "coverProcessingFailed": "封面处理失败（{{errorType}}），未能完成比较；请查看服务日志。"
     },
     "resourceSync": {
-      "addMediaDirectory": "请先在配置页添加媒体目录"
+      "addMediaDirectory": "请先在配置页添加媒体目录",
+      "scanExpired": "清理确认已过期，请重新检查"
     },
     "organize": {
       "sourceMissing": "不认识的来源：(空)",

@@ -156,6 +156,7 @@ def delete_entities(connection, plan: dict) -> list[int]:
 def delete_profiles(contract, body: dict, ids: list[int]) -> dict:
     """备份后在一个事务里删除，提交失败时把暂存的头像恢复。"""
     from .web_batch import stage_purge, _restore_staged_media, _purge_receipt
+    from .personal_records import purging
     mode = body.get('mode', 'profile')
     if not isinstance(mode, str) or mode not in DELETE_MODES:
         raise UserValueError('api.entityBatch.operationInvalid')
@@ -163,21 +164,24 @@ def delete_profiles(contract, body: dict, ids: list[int]) -> dict:
         initial = deletion_plan(connection, ids)
         if body.get('token') != initial['token']:
             raise UserValueError('api.entityBatch.previewStale')
-    purge = stage_purge(initial['asset_rows']) if mode == 'purge' else None
-    try:
-        fields = _commit_delete(contract, body, ids, mode, purge)
-    except BaseException:
-        if purge is not None:
-            _restore_staged_media([*purge['_staged'], *purge.get('_returned', [])])
-        raise
+    assets = initial['asset_rows'] if mode == 'purge' else ()
+    deferred = []
+    with purging(row['id'] for row in assets):
+        purge = stage_purge(assets, deferred_direct=deferred) if mode == 'purge' else None
+        try:
+            fields = _commit_delete(contract, body, ids, mode, purge, deferred)
+        except BaseException:
+            if purge is not None:
+                _restore_staged_media([*purge['_staged'], *purge.get('_returned', [])])
+            raise
     contract.cache_bust()
     if purge is not None:
         return _purge_receipt(contract, purge, **fields)
     return {"ok": True, **fields, "purged": 0, "blocked": [], "cleanup_pending": [], "cache_blocked": []}
 
 
-def _commit_delete(contract, body, ids, mode, purge):
-    from .web_batch import commit_purge
+def _commit_delete(contract, body, ids, mode, purge, deferred):
+    from .web_batch import commit_purge, stage_purge
     from .web_entity_batch import _set_disposal
     with ExitStack() as locks, ExitStack() as rollback:
         with contract.write_transaction() as connection:
@@ -195,6 +199,10 @@ def _commit_delete(contract, body, ids, mode, purge):
             if mode == 'trash':
                 moved = _set_disposal(connection, [row['id'] for row in plan['asset_rows']], True)
             if purge is not None:
+                if deferred:
+                    direct = stage_purge(deferred)
+                    for key in ('_items', '_staged', 'blocked'):
+                        purge[key].extend(direct[key])
                 commit_purge(connection, purge)
                 deleted_assets = set(purge['_ids'])
                 retained = [entity_id for entity_id, assets in plan['scopes'].items()

@@ -181,6 +181,19 @@ class EntityBatchTests(unittest.TestCase):
         self.assertEqual([path.read_bytes() for path in paths.values()], [b'media-1', b'media-2'])
         self.assertEqual(len(self.disposal()), 5)
 
+    def test_direct_purge_has_no_file_effect_before_backup_succeeds(self):
+        paths = self.temporary_media([1, 2])
+        plan = self.delete_plan([1])
+        with mock.patch('peach.web_batch._is_rclone_mount', return_value=True):
+            with mock.patch('peach.web_entity_deletion.sqlite_backup', side_effect=OSError('backup failed')):
+                with self.assertRaisesRegex(OSError, 'backup failed'):
+                    self.run_batch('delete', mode='purge', entity_ids=[1], token=plan['token'])
+            self.assertTrue(all(path.is_file() for path in paths.values()))
+            self.assertEqual(len(self.disposal()), 5)
+            result = self.run_batch('delete', mode='purge', entity_ids=[1], token=plan['token'])
+        self.assertEqual(result['purged'], 2)
+        self.assertTrue(all(not path.exists() for path in paths.values()))
+
     def test_changed_media_or_shared_scope_requires_a_fresh_plan_before_staging(self):
         for change in ("UPDATE asset SET mutation_revision=mutation_revision+1 WHERE id=1",
                        "INSERT INTO asset_entity(asset_id,entity_id,role,source) VALUES(1,2,'performer','test')"):

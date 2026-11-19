@@ -47,7 +47,7 @@ from .media_libraries import LIBRARY_ICONS
 from .routes_auth import (FIRST_ACCESS_DENIED_CODE, origin_allowed, query_auth_redirect, require_asset_auth,
                           require_page_auth, set_auth_cookie)
 from .user_messages import UserValueError, error_detail, message_fields
-from .web_local_access import local_client
+from .web_local_access import local_client, loopback_client
 from .web_entry import field_errors, page_shell, runtime_fact_entries
 from .web_state import FAVICON
 
@@ -330,7 +330,7 @@ def index(request: Request, args: dict[str, str] = Depends(require_page_auth)):
     if not settings.configured:
         # 未配置不是错误状态：服务照常起，首页（和任何前端路由的深链）变成首次运行页。
         html = setup_shell(interface_text.request_language(request.headers.get("accept-language")))
-        if "edit" in request.query_params and _copy_editor_available():
+        if "edit" in request.query_params and _copy_editor_available() and loopback_client(request):
             html = _with_copy_editor(html)
         response = HTMLResponse(html)
         response.headers["Cache-Control"] = "no-store"
@@ -338,7 +338,7 @@ def index(request: Request, args: dict[str, str] = Depends(require_page_auth)):
     if not settings.page_path.is_file():
         return PlainTextResponse("Peach page missing", status_code=500)
     shape = getattr(request.state, "entity_shape", None)
-    editor = "edit" in request.query_params and _copy_editor_available()
+    editor = "edit" in request.query_params and _copy_editor_available() and loopback_client(request)
     from .client_updates import runtime_identity
     html = settings.page_path.read_text(encoding="utf-8")
     from .web_tutorial import q_tutorial_progress
@@ -374,34 +374,36 @@ def _with_copy_editor(html: str) -> str:
     return html.replace("</body>", '<script src="/dev/copy-editor-core.js" defer></script><script src="/dev/copy-editor.js" defer></script></body>')
 
 
-def _require_copy_editor():
+def _require_copy_editor(request: Request):
     if not _copy_editor_available():
         raise HTTPException(404, "missing")
+    if not loopback_client(request):
+        raise HTTPException(403, message_fields("api.configuration.openOnHost"))
 
 
 @router.get("/dev/copy-editor.js")
 def copy_editor_script(request: Request, args: dict[str, str] = Depends(require_asset_auth)):
-    _require_copy_editor()
+    _require_copy_editor(request)
     return asset_response(request, PROJECT_ROOT / "scripts/dev/copy-editor.js", "text/javascript")
 
 
 @router.get("/dev/copy-editor-core.js")
 def copy_editor_core(request: Request, args: dict[str, str] = Depends(require_asset_auth)):
-    _require_copy_editor()
+    _require_copy_editor(request)
     return asset_response(request, PROJECT_ROOT / "frontend/src/copy-editor-core.js", "text/javascript")
 
 
 @router.get("/dev/copy-edits")
-def copy_editor_edits(args: dict[str, str] = Depends(require_asset_auth)):
-    _require_copy_editor()
+def copy_editor_edits(request: Request, args: dict[str, str] = Depends(require_asset_auth)):
+    _require_copy_editor(request)
     path = PROJECT_ROOT / "build/copy-editor/edits.json"
     return JSONResponse(json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {},
                         headers={"Cache-Control": "no-store"})
 
 
 @router.get("/dev/copy-candidates")
-def copy_editor_candidates(text: str = "", args: dict[str, str] = Depends(require_asset_auth)):
-    _require_copy_editor()
+def copy_editor_candidates(request: Request, text: str = "", args: dict[str, str] = Depends(require_asset_auth)):
+    _require_copy_editor(request)
     from . import dev_copy
     try:
         return JSONResponse(dev_copy.candidates(PROJECT_ROOT, text), headers={"Cache-Control": "no-store"})
@@ -411,7 +413,7 @@ def copy_editor_candidates(text: str = "", args: dict[str, str] = Depends(requir
 
 @router.post("/dev/copy-save")
 async def copy_editor_save(request: Request, args: dict[str, str] = Depends(require_asset_auth)):
-    _require_copy_editor()
+    _require_copy_editor(request)
     if request.headers.get("origin") != str(request.base_url).rstrip("/"):
         raise HTTPException(403, "same origin required")
     if len(await request.body()) > 32768:
@@ -424,15 +426,15 @@ async def copy_editor_save(request: Request, args: dict[str, str] = Depends(requ
 
 
 @router.get('/dev/copy-apply')
-def copy_editor_apply_status(args: dict[str, str] = Depends(require_asset_auth)):
-    _require_copy_editor()
+def copy_editor_apply_status(request: Request, args: dict[str, str] = Depends(require_asset_auth)):
+    _require_copy_editor(request)
     from . import dev_copy_runtime
     return JSONResponse(dev_copy_runtime.status(PROJECT_ROOT), headers={'Cache-Control': 'no-store'})
 
 
 @router.post('/dev/copy-apply')
 async def copy_editor_apply_retry(request: Request, args: dict[str, str] = Depends(require_asset_auth)):
-    _require_copy_editor()
+    _require_copy_editor(request)
     if request.headers.get('origin') != str(request.base_url).rstrip('/'):
         raise HTTPException(403, 'same origin required')
     if len(await request.body()) > 32768:

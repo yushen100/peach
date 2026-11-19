@@ -1024,7 +1024,8 @@
       "coverProcessingFailed": "Cover processing failed ({{errorType}}) and the comparison didn't finish. Check the server log."
     },
     "resourceSync": {
-      "addMediaDirectory": "Add a media directory on the Settings page first"
+      "addMediaDirectory": "Add a media directory on the Settings page first",
+      "scanExpired": "The cleanup confirmation has expired. Run the check again."
     },
     "organize": {
       "sourceMissing": "Unknown source: (empty)",

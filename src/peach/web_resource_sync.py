@@ -856,19 +856,15 @@ def w_resource_sync_apply(contract: ResourceSyncContract, body, *, progress=None
     if body.get("confirm") is not True:
         raise ValueError("resource sync requires confirmation")
     scan_id = str(body.get("scan_id") or "")
-    from .job_recovery import current_job_id, read
-    recovering = (read(contract.db_path, 'resource-apply').get('checkpoint') or {}) if current_job_id.get() else {}
-    if not recovering.get('apply_receipt'):
-        _completed_scan(contract, scan_id)
     if body.get("background"):
+        _completed_scan(contract, scan_id)
         job = contract.resource_apply_job
         def work(job_id):
             result = w_resource_sync_apply(contract, {**body, "background": False},
                 progress=lambda **fields: job.update(job_id, **fields),
                 checkpoint=lambda **fields: job.checkpoint(job_id, **fields), resume_state=job.snapshot())
             job.update(job_id, **result, status="complete", completed_at=time.time())
-        return job.start(work, restart=True, initial=message_fields("jobMessage.webResourceSync.recheckingRecords"),
-                         recovery=body)
+        return job.start(work, restart=True, initial=message_fields("jobMessage.webResourceSync.recheckingRecords"))
     if (resume_state or {}).get('apply_receipt'):
         return resume_state['apply_receipt']
     state = _completed_scan(contract, scan_id)
@@ -929,9 +925,8 @@ def w_purge_missing(contract: ResourceSyncContract, body):
     一行都不碰。CloudDrive 掉线后挂载点目录仍然存在，`root_online` 因此判的是
     「能否列出一个条目」而不是「目录在不在」。
 
-    判缺失和全量扫描共用 `_missing_resource_ids`：整个目录一次列举出结果。逐条
-    `is_file()` 在云挂载上每条都是一次元数据往返——已删除的路径尤其贵，CloudDrive
-    对「不存在」没有负缓存；目录暂时读不了时保留账本行，不当成已删。
+    和全量扫描一样，先枚举目录缩小范围，再逐条核对疑似缺失的文件。
+    目录暂时读不了时保留账本行。
     """
     asset_id = int(body["id"])
     with contract.read_connection() as connection:
@@ -955,10 +950,12 @@ def w_purge_missing(contract: ResourceSyncContract, body):
 
     missing_ids, unreadable = _missing_resource_ids(rows)
     gone = set(missing_ids)
+    confirmed = _confirm_vanished([row for row in rows if int(row["id"]) in gone])
+    if confirmed and not source_is_online(location):
+        return {"ok": False, "error": "source offline", "location": location}
     missing = [
         {"id": row["id"], "name": row["name"]}
-        for row in rows
-        if int(row["id"]) in gone
+        for row in confirmed
     ]
     if not missing:
         return {"ok": True, **photo_set_heading(directory, "directory"),

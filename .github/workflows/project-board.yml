@@ -25,19 +25,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           ref: master
           fetch-depth: 0
           persist-credentials: false
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
           python-version: '3.14'
       # 组织 Project 不接受仓库的 GITHUB_TOKEN；用 Peach Board App 的安装令牌，看板上的操作记在
       # peach-board[bot] 名下，不记在维护者本人名下。令牌只覆盖应用仓库，作业结束即吊销。
       - name: 取得看板机器人令牌
         id: board-token
-        uses: actions/create-github-app-token@v3.3.0
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.PROJECT_BOARD_APP_CLIENT_ID }}
           private-key: ${{ secrets.PROJECT_BOARD_APP_KEY }}

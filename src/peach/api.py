@@ -73,7 +73,7 @@ from .previews import (
 from .follow_secrets import credential_store_for
 from .push_discovery import PushDiscoveryService
 from .web_downloads import build_download_service
-from .web_local_access import local_client
+from .web_local_access import local_client, loopback_client
 from .sample_images import SampleCache
 from .sample_images import cache_root as sample_cache_root
 from .providers import OpenCodeGoClient, default_registry
@@ -130,6 +130,8 @@ class ResponseHeadersMiddleware:
                 kind = headers.get('content-type','').split(';',1)[0].strip().lower()
                 if kind.startswith(('image/','video/','audio/')):
                     headers.update(MEDIA_SECURITY_HEADERS)
+                if kind == 'text/html' and 'content-security-policy' not in headers:
+                    headers['Content-Security-Policy'] = "frame-ancestors 'self'"
                 if (message['status']==200 and kind=='text/html' and scope['method']=='GET'
                         and Request(scope).cookies.get('peach_media_policy')!='1'):
                     headers['Clear-Site-Data']='"cache"'
@@ -579,14 +581,63 @@ class _LedgerActivation:
             await self.task
 
 
-def _readiness_response(app, settings):
+def _health_payload(request, settings, resolver, browser_transport, *, details: bool) -> dict:
+    app = request.app
+    sync = app.state.sync
+    mdns = app.state.mdns
+    # 不探测共享目录或迁移数据库；健康检查必须无副作用。启动迁移期间不碰账本。
+    ffmpeg = resolver.ffmpeg()
+    read_only = bool(sync is not None and sync.read_only)
+    tunnel_state = app.state.tunnel.snapshot()
+    from .diagnostics import health_components
+    migration = app.state.ledger_migration
+    mounts = app.state.mount_reachability.summary()
+    components = health_components(settings, mounts, migrating=migration.running)
+    return {"ok": True, "service": "peach-api", "version": __version__,
+            "checks": components if details else {
+                key: {"status": value["status"]} for key, value in components.items()
+            },
+            # 打包这份代码的提交。源码运行时是 null：跑的就是检出本身。
+            "build_commit": BUILD.commit if BUILD else None,
+            # 这台机器跑过 `peach init` 没有。未配置时服务照常起，只是没有数据。
+            "configured": settings.configured,
+            # 这次请求的发起方能不能改这台机器的配置（独立包、回环地址）。它随调用方
+            # 变化，只决定管理菜单里「配置」显不显示；拒绝写入的判定在端点自己那里。
+            "configurable": routes_configuration.configurable(request),
+            "db": _database_field(settings, migration),
+            "ledger_migration": migration.payload() if details else {"state": migration.state},
+            "ffmpeg": ffmpeg.source if ffmpeg else "unavailable",
+            "mdns": mdns.status if mdns is not None else "disabled",
+            "mdns_backend": mdns.backend if mdns is not None else None,
+            "ledger_sync": sync.status if sync is not None else "disabled",
+            "ledger_read_only": read_only,
+            **_read_only_fields(sync, read_only),
+            "scheme": "https" if settings.tls_enabled else "http",
+            # 采集用的浏览器窗口正等着人点验证的站，供排查时看一眼；窗口本身就是提醒，不另弹通知（ADR-0065）。
+            **({
+                "media_mounts": mounts,
+                "mdns_service": mdns.name if mdns is not None else None,
+                "mdns_service_host": mdns.hostname if mdns is not None else None,
+                "mdns_address": mdns.address if mdns is not None else None,
+                "mdns_ipv6_addresses": list(getattr(mdns, "ipv6_addresses", ())),
+                "ledger_writer_origin": settings.review_writer_origin if read_only else None,
+                "attention": browser_transport.attention(),
+            } if details else {}),
+            # 健康检查可能被公网探针访问，不能在这里回传随机 Tunnel URL。
+            "tunnel": {"enabled": settings.tunnel_enabled, "state": tunnel_state.state},
+    }
+
+
+def _readiness_response(app, settings, *, details: bool):
     """`/healthz?ready=1`：迁移进行中直接报未就绪，不碰账本；其余照 `health.readiness` 核对。"""
     from .health import readiness
     migration = app.state.ledger_migration
     deferred = getattr(app.state, 'ledger_background_deferred', False)
     result = readiness(settings, background_ready=None if deferred else getattr(app.state, "ledger_background_ready", None),
                        migrating=migration.running)
-    result.update(background_deferred=deferred, ledger_migration=migration.payload())
+    result["background_deferred"] = deferred
+    if details:
+        result["ledger_migration"] = migration.payload()
     return JSONResponse(result, status_code=200 if result["ready"] else 503, headers={"Cache-Control": "no-store"})
 
 
@@ -1011,44 +1062,10 @@ def create_app(
     # 都显式声明了 GET+HEAD，只有这个漏了，HEAD 会拿到 405。
     @app.api_route("/healthz", methods=["GET", "HEAD"])
     def healthz(request: Request, ready: bool = False):
+        details = loopback_client(request) or routes_auth.authenticated_client(request)
         if ready:
-            return _readiness_response(request.app, settings)
-        # 不探测共享目录或迁移数据库；健康检查必须无副作用。启动迁移期间不碰账本。
-        ffmpeg = resolver.ffmpeg()
-        read_only = bool(sync is not None and sync.read_only)
-        tunnel_state = tunnel_manager.snapshot()
-        from .diagnostics import health_components
-        migration = app.state.ledger_migration
-        components = health_components(settings, app.state.mount_reachability.summary(), migrating=migration.running)
-        return {"ok": True, "service": "peach-api", "version": __version__,
-                "checks": components,
-                # 打包这份代码的提交。源码运行时是 null：跑的就是检出本身。
-                "build_commit": BUILD.commit if BUILD else None,
-                # 这台机器跑过 `peach init` 没有。未配置时服务照常起，只是没有数据。
-                "configured": settings.configured,
-                # 这次请求的发起方能不能改这台机器的配置（独立包、回环地址）。它随调用方
-                # 变化，只决定管理菜单里「配置」显不显示；拒绝写入的判定在端点自己那里。
-                "configurable": routes_configuration.configurable(request),
-                "db": _database_field(settings, migration),
-                "ledger_migration": migration.payload(),
-                "ffmpeg": ffmpeg.source if ffmpeg else "unavailable",
-                "media_mounts": app.state.mount_reachability.summary(),
-                "mdns": mdns.status if mdns is not None else "disabled",
-                "mdns_backend": mdns.backend if mdns is not None else None,
-                "mdns_service": mdns.name if mdns is not None else None,
-                "mdns_service_host": mdns.hostname if mdns is not None else None,
-                "mdns_address": mdns.address if mdns is not None else None,
-                "mdns_ipv6_addresses": list(getattr(mdns, "ipv6_addresses", ())),
-                "ledger_sync": sync.status if sync is not None else "disabled",
-                "ledger_read_only": read_only,
-                **_read_only_fields(sync, read_only),
-                "ledger_writer_origin": settings.review_writer_origin if read_only else None,
-                "scheme": "https" if settings.tls_enabled else "http",
-                # 采集用的浏览器窗口正等着人点验证的站，供排查时看一眼；窗口本身就是提醒，不另弹通知（ADR-0065）。
-                "attention": browser_transport.attention(),
-                # 健康检查可能被公网探针访问，不能在这里回传随机 Tunnel URL。
-                "tunnel": {"enabled": settings.tunnel_enabled, "state": tunnel_state.state},
-        }
+            return _readiness_response(request.app, settings, details=details)
+        return _health_payload(request, settings, resolver, browser_transport, details=details)
 
     # 顺序即契约：catch-all 最后。`routes_media` 里有 `/api/stream-plan` 与
     # `/api/stream-cancel` 两条具名 API，所以它也要排在 `routes_api` 之前。

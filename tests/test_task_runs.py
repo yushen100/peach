@@ -94,6 +94,8 @@ class TaskRunStoreTests(unittest.TestCase):
         self.assertEqual(families[child], [(grandchild, "pending")])
         self.assertEqual(families[alone], [(alone, "pending")])
         self.assertNotIn(failed, families)
+        self.assertEqual(self.store.active_families([root, child, failed]),
+                         {root: families[root], child: families[child]})
         for run_id, family in families.items():
             run = self.store.get(run_id)
             expected = ([run_id] if run.active else []) + [

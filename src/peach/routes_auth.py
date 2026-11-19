@@ -277,16 +277,20 @@ def require_page_auth(request: Request) -> dict[str, str]:
     return args
 
 
+def authenticated_client(request: Request) -> bool:
+    """开放访问不代表设备已经登录。"""
+    policy = _policy(request)
+    if policy['mode'] not in {'password', 'legacy'} or not policy.get('key'):
+        return False
+    if policy['mode'] == 'legacy':
+        return _authorized(request, policy['key'], _first_query_values(request))
+    return valid_session(request, policy)
+
+
 def require_authenticated_client(request: Request) -> None:
     """错误上报须有有效登录凭据，开放访问模式不提供匿名上报。"""
     same_origin(request)
-    policy = _policy(request)
-    if policy['mode'] not in {'password', 'legacy'} or not policy.get('key'):
-        raise HTTPException(401, 'unauthorized')
-    authenticated = valid_session(request, policy)
-    if policy['mode'] == 'legacy':
-        authenticated = _authorized(request, policy['key'], _first_query_values(request))
-    if not authenticated:
+    if not authenticated_client(request):
         raise HTTPException(401, 'unauthorized')
 
 
@@ -374,9 +378,11 @@ def _page_error(detail: object, language: str) -> str:
     return str(detail)
 
 
-def safe_next(value: str) -> str:
-    """登录后去哪：只认站内路径，`//` 开头的协议相对地址会跳出本站。"""
-    return value if value.startswith("/") and not value.startswith("//") else "/"
+def safe_next(value: object) -> str:
+    """只接受浏览器会按站内路径解析的跳转目标。"""
+    if not isinstance(value, str) or not value.startswith("/") or value.startswith("//") or "\\" in value:
+        return "/"
+    return "/" if any(ord(character) < 32 or ord(character) == 127 for character in value) else value
 
 
 def _wants_page(request: Request) -> bool:
