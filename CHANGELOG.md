@@ -18,6 +18,13 @@ Entries are written for users to scan: one sentence each, saying where something
 
 - **Interface**: Right-click cards and table rows for item actions, use the Library action column, or delete from the icon group under a work's title (#773). / **界面**：卡片与表格行可右键操作，馆藏列表新增操作栏，作品详情的删除入口放在标题下方的按钮组（#773）。
 
+### Fixed / 修复
+
+- **Sourcing**: Preview generation can finish when a frame cannot be checked for QR codes (#794). / **采集**：个别画面无法识别二维码时，仍可完成预览生成（#794）。
+- **Sourcing**: Look up CDRP releases with two-digit serial numbers (#788). / **采集**：按两位序号查找 CDRP 作品（#788）。
+- **Sourcing**: Recognize S2MBD release codes during collection (#789). / **采集**：采集时可识别 S2MBD 番号（#789）。
+- **Review**: Approve selected is highlighted as the primary action in manual review (#797). / **复核**：「通过所选」在人工复核的批量操作中恢复主按钮高亮（#797）。
+
 ## [0.59.0] - 2026-11-18
 
 ### Added / 新增
