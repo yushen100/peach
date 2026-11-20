@@ -91,6 +91,31 @@ def ready(name: str, *, setup: bool = False) -> None:
     raise RuntimeError(t("smoke_docker.notReady", logs=docker("logs", name)))
 
 
+def scan_fixture(name: str) -> int:
+    """由运行中的 Peach 扫描合成视频，生成一条正常的账本记录。"""
+    exec_as(name, "1000:1000", "mkdir", "/data/smoke-media")
+    exec_as(name, "1000:1000", "ffmpeg", "-v", "error", "-f", "lavfi",
+            "-i", "color=c=black:s=64x64:r=1", "-t", "2", "-c:v", "libx264", "/data/smoke-media/fixture.mp4")
+    configuration = json.loads(request(name, "/api/configuration"))
+    assert configuration["media_sources"] == [], configuration["media_sources"]
+    saved = json.loads(request(name, "/api/configuration", body={
+        "revision": configuration["revision"], "port": configuration["port"], "scan_now": True,
+        "media_sources": [{"location": "local", "path": "/data/smoke-media"}],
+    }))
+    assert saved.get("saved"), saved
+    time.sleep(2)
+    ready(name)
+    deadline = time.monotonic() + 60
+    while time.monotonic() < deadline:
+        raw = exec_as(name, "1000:1000", "python", "-c",
+                      "import sqlite3; print(sqlite3.connect('/data/database/ledger.db').execute("
+                      "\"SELECT id FROM asset WHERE path LIKE '%fixture.mp4'\").fetchone())")
+        if raw != "None":
+            return int(raw.strip("(), "))
+        time.sleep(1)
+    raise AssertionError(t("smoke_docker.processingNotRegistered"))
+
+
 def published_images(image: str) -> dict[str, str]:
     """拉取实际发布渠道并固定已下载的镜像 ID，同一镜像只跑一次升级。"""
     platform = docker("image", "inspect", "--format", "{{.Os}}/{{.Architecture}}", image)
@@ -118,18 +143,13 @@ def published_upgrade_checks(name: str, previous: str, image: str) -> None:
             "access_password": "smoke-password", "access_confirm": "smoke-password",
         }))
         assert done.get("url") == "/?onboarding=1", done
+        time.sleep(2)
         ready(old)
-        previous_migrations = int(exec_as(old, "1000:1000", "python", "-c", r"""
-from contextlib import closing
-import sqlite3
-from peach.config import DATABASE_PATH
-
-with closing(sqlite3.connect(DATABASE_PATH)) as connection:
-    connection.execute("INSERT INTO asset(location,path,name,medium) VALUES(?,?,?,?)",
-                       ("local", r"B:\smoke\legacy.mp4", "legacy.mp4", "video"))
-    connection.commit()
-    print(connection.execute("SELECT count(*) FROM schema_migration").fetchone()[0])
-"""))
+        asset = scan_fixture(old)
+        previous_migrations = int(exec_as(old, "1000:1000", "python", "-c",
+                                          "import sqlite3; from peach.config import DATABASE_PATH; "
+                                          "print(sqlite3.connect(DATABASE_PATH).execute("
+                                          "\"SELECT count(*) FROM schema_migration\").fetchone()[0])"))
         docker("stop", "--time", "75", old)
         docker("run", "-d", "--name", candidate, "--hostname", name, "--network", "none", "--mount", mount, image)
         ready(candidate)
@@ -152,10 +172,10 @@ if previous_count < len(migrations):
     assert len(plan(backups[0], MIGRATIONS_DIR)[1]) == len(migrations) - previous_count
     paths.append(backups[0])
 for path in paths:
-    with closing(sqlite3.connect(path)) as connection:
+    with closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)) as connection:
         assert connection.execute("PRAGMA quick_check").fetchone()[0] == "ok"
-        assert connection.execute("SELECT name FROM asset").fetchall() == [("legacy.mp4",)]
-""", str(previous_migrations))
+        assert connection.execute("SELECT name FROM asset WHERE id=?", (int(sys.argv[2]),)).fetchone() == ("fixture.mp4",)
+""", str(previous_migrations), str(asset))
     finally:
         docker("rm", "--force", candidate, check=False)
         docker("rm", "--force", old, check=False)
@@ -315,30 +335,7 @@ def main() -> None:
         assert 0 not in process_groups(name)
         assert json.loads(request(name, "/api/items")) is not None
         assert json.loads(request(name, "/api/items", authenticated=False)) == {"status": 401}
-        exec_as(name, "1000:1000", "mkdir", "/data/smoke-media")
-        exec_as(name, "1000:1000", "ffmpeg", "-v", "error", "-f", "lavfi",
-                "-i", "color=c=black:s=64x64:r=1",
-                "-t", "2", "-c:v", "libx264", "/data/smoke-media/fixture.mp4")
-        configuration = json.loads(request(name, "/api/configuration"))
-        assert configuration['media_sources'] == [], configuration['media_sources']
-        saved = json.loads(request(name, "/api/configuration", body={
-            "revision": configuration["revision"], "port": configuration["port"], "scan_now": True,
-            "media_sources": [{"location": "local", "path": "/data/smoke-media"}],
-        }))
-        assert saved.get("saved"), saved
-        time.sleep(2)
-        ready(name)
-        deadline = time.monotonic() + 60
-        asset = None
-        while time.monotonic() < deadline:
-            raw = exec_as(name, "1000:1000", "python", "-c",
-                          "import sqlite3; print(sqlite3.connect('/data/database/ledger.db').execute("
-                          "\"SELECT id FROM asset WHERE path LIKE '%fixture.mp4'\").fetchone())")
-            if raw != "None":
-                asset = int(raw.strip("(), "))
-                break
-            time.sleep(1)
-        assert asset is not None, t("smoke_docker.processingNotRegistered")
+        asset = scan_fixture(name)
         media = json.loads(request(name, f"/stream?id={asset}", headers={"Range": "bytes=0-63"}))
         assert media == {"status": 206, "size": 64}, media
         transcode_checks(name)
