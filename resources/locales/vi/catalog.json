@@ -1,11 +1,11 @@
 {
   "seedName": {
     "chinese": "Tên tiếng Trung",
-    "nameRequired": "Nhập tên tiếng Trung",
+    "nameRequired": "Nhập tên tiếng Trung.",
     "nameInvalid": "Nhập tên tiếng Trung bằng Hán tự.",
-    "traditional": "Đây là tiếng Trung giản thể",
-    "loading": "Đọc hiểu về bản sắc người biểu diễn…",
-    "title": "Người đóng góp"
+    "traditional": "Đây là cách viết tiếng Trung phồn thể",
+    "loading": "Đang đọc thông tin định danh của diễn viên…",
+    "title": "Đóng góp tên tiếng Trung"
   },
   "javDetail": {
     "performers": "Diễn viên"
