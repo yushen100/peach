@@ -35,7 +35,8 @@ def q_resource_search(contract, args, *, edition_preferences: tuple[str, ...] = 
             "SELECT info_hash FROM download_task WHERE blocked_at IS NOT NULL")]
     # 浏览器添加换磁力时传入已失败的 infohash：它们和违规拦截一样不再作为候选，
     # 而且不能在 manko.fun 那一步短路——被跳过的往往正是那条高清结果，短路会让其他来源一条都不查。
-    skip = [str(value) for value in args.get("skip") or () if isinstance(args.get("skip"), (list, tuple))]
+    raw_skip = args.get("skip")
+    skip = list(map(str, raw_skip)) if isinstance(raw_skip, (list, tuple)) else []
     excluded = set(blocked) | set(skip)
     code = str(args.get("code") or "")
     with public_cache_scope(contract.cover_root.parent / 'jav-public'):
