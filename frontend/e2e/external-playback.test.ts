@@ -4,6 +4,8 @@ import type { Browser } from 'playwright-core';
 import { launch, layout, VIEWPORTS } from './harness.ts';
 import { ITEM, openItemPage } from './item-fixture.ts';
 
+const PLAYER_SELECT = '[data-local-playback] button[aria-haspopup="listbox"]';
+
 describe('外部播放器', () => {
   let browser: Browser;
   before(async () => { browser = await launch() });
@@ -24,7 +26,7 @@ describe('外部播放器', () => {
           return route.fulfill({ json: { opened: true } });
         });
         await page.reload();
-        const chooser = page.getByRole('button', { name: /^外部播放器/ });
+        const chooser = page.locator(PLAYER_SELECT);
         await chooser.waitFor();
         assert.equal(await page.locator('#stage details[open]').count(), 0);
         assert.equal(await page.getByText('外部播放器 / VR', { exact: true }).count(), 0);
@@ -40,6 +42,7 @@ describe('外部播放器', () => {
         await page.keyboard.press('Escape');
         await waitForChevron(false);
         assert.equal(await chooser.evaluate(button => button === document.activeElement), true);
+        assert.match(await chooser.ariaSnapshot(), /外部播放器/);
 
         await page.keyboard.press('Enter');
         await waitForChevron(true);
@@ -83,7 +86,7 @@ describe('外部播放器', () => {
           return route.fulfill({ json: { url: `/external-stream/${ITEM.plain}?ticket=${'a'.repeat(90)}`,
             playlist: `/external-playlist/${ITEM.plain}.m3u?ticket=${'a'.repeat(90)}` } });
         });
-        await page.getByRole('button', { name: /^外部播放器/ }).click();
+        await page.locator(PLAYER_SELECT).click();
         await page.getByRole('option', { name: '网络播放地址 / VR', exact: true }).click();
         assert.equal(requested, 0);
         await page.getByRole('button', { name: '使用外部播放器打开', exact: true }).click();
