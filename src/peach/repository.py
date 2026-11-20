@@ -162,8 +162,8 @@ class LedgerDatabase:
             raise LedgerWriteBusy(wait)
         self._holder = (threading.current_thread().name, time.monotonic())
         try:
-            with self._track_integrity(), closing(self.connect(
-                    write=True, timeout=30 if timeout is None else timeout)) as connection:
+            options = {} if timeout is None else {"timeout": timeout}
+            with self._track_integrity(), closing(self.connect(write=True, **options)) as connection:
                 with connection:
                     yield connection
                     if self.corrupted:
