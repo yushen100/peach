@@ -14,6 +14,8 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ## [Unreleased]
 
+## [0.60.0] - 2026-11-20
+
 ### Added / 新增
 
 - **Interface**: Right-click cards and table rows for item actions, use the Library action column, or delete from the icon group under a work's title (#773). / **界面**：卡片与表格行可右键操作，馆藏列表新增操作栏，作品详情的删除入口放在标题下方的按钮组（#773）。
@@ -1275,7 +1277,8 @@ First Windows standalone test package. Earlier development (from 2026-08-14, inc
 - **Desktop**: The standalone package writes startup logs in UTF-8. / **桌面**：独立包使用 UTF-8 启动日志。
 - **Settings**: The redirect after first-time setup uses a freshly read mDNS name. / **配置**：首次设置后的跳转目标取新鲜读到的 mDNS 名。
 
-[Unreleased]: https://github.com/peach-mitao/peach/compare/v0.59.0...HEAD
+[Unreleased]: https://github.com/peach-mitao/peach/compare/v0.60.0...HEAD
+[0.60.0]: https://github.com/peach-mitao/peach/compare/v0.59.0...v0.60.0
 [0.59.0]: https://github.com/peach-mitao/peach/compare/v0.58.0...v0.59.0
 [0.58.0]: https://github.com/peach-mitao/peach/compare/v0.57.0...v0.58.0
 [0.57.0]: https://github.com/peach-mitao/peach/compare/v0.56.0...v0.57.0
