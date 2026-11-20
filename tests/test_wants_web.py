@@ -72,6 +72,21 @@ class MagnetLookupTests(unittest.TestCase):
         expired.query('OLD-001', released='2020-01-01')
         self.assertEqual(fetcher.call_count, 1)
 
+    def test_wants_refreshes_old_rankings_when_preferences_change(self):
+        from peach.wants_magnets import MagnetSearch
+        fetcher = Mock(return_value={"items": self.items})
+        order = ("uncensored-crack",)
+        MagnetSearch(self.root, fetcher=fetcher).query("DEMO-001")
+        search = MagnetSearch(self.root, fetcher=fetcher, sleeper=lambda delay: None)
+
+        search.query("DEMO-001", edition_preferences=order)
+        fetcher.assert_called_with(self.root, "DEMO-001", edition_preferences=order)
+        search.query("DEMO-001", edition_preferences=order)
+        self.assertEqual(fetcher.call_count, 2)
+        search.query("DEMO-001", edition_preferences=())
+        fetcher.assert_called_with(self.root, "DEMO-001")
+        self.assertEqual(fetcher.call_count, 3)
+
     def test_recent_titles_expire_after_one_day_across_restart(self):
         from peach.wants_magnets import MagnetSearch
         from unittest.mock import Mock
@@ -250,9 +265,11 @@ class WantWebFixture(unittest.TestCase):
                 return {'state': 'ready', 'items': []}
             factory.return_value.query.side_effect = resource_result
             self.get('/api/wants/magnets', id=str(row['id']))
-            factory.return_value.query.assert_called_once_with('DEMO-001', refresh=False, released=None)
+            factory.return_value.query.assert_called_once_with('DEMO-001', refresh=False, released=None,
+                                                              edition_preferences=())
             self.get('/api/wants/magnets', id=str(row['id']), refresh='1')
-            factory.return_value.query.assert_called_with('DEMO-001', refresh=True, released=None)
+            factory.return_value.query.assert_called_with('DEMO-001', refresh=True, released=None,
+                                                         edition_preferences=())
             with self.contract.database.write_transaction() as connection:
                 connection.execute("UPDATE want_item SET release_date='2999-01-01' WHERE id=?", (row['id'],))
             self.assertEqual(self.get('/api/wants/magnets', id=str(row['id']))['state'], 'unavailable')
@@ -428,7 +445,7 @@ class ScheduledSearchTests(WantWebFixture):
         # 查询换成按番号回答的假查询；只在本类的用例里换，基类继承来的资源查询用例照常走真的。
         self.results: dict[str, dict] = {}
         factory = self.enterContext(patch('peach.wants_magnets.search_for'))
-        factory.return_value.query.side_effect = lambda code, refresh=False, released=None: self.results[code]
+        factory.return_value.query.side_effect = lambda code, **kwargs: self.results[code]
         factory.return_value.known_candidate.return_value = None
         with self.contract.database.write_transaction() as connection:
             return [wants.add_code(connection, code)['id'] for code in codes]

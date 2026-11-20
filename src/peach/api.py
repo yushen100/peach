@@ -795,9 +795,9 @@ def create_app(
         after_ingest=lambda task: enqueue_download_postprocess(contract, task))
     contract.downloads = downloads
     from .jav_browser import JavBrowser
-    from .web_resource_search import q_resource_search
+    from .web_resource_search import auto_resource_search
     from .jav_editions import EditionProbe
-    jav_browser = JavBrowser(contract, search=q_resource_search,
+    jav_browser = JavBrowser(contract, search=auto_resource_search,
                              edition_probe=EditionProbe(contract.follow_secrets_root))
     contract.follow_scheduler = follow_scheduler
     # 订阅源拉取（ADR-0042）用同一个调度实现，只换 job id、状态文件与默认间隔。

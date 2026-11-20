@@ -15,6 +15,7 @@ button[data-navigation-menu] svg{width:16px;height:16px;flex:none}
 [data-order-step]:disabled{opacity:.3;cursor:default}
 [data-order-step]:focus-visible{outline:2px solid var(--tungsten);outline-offset:-2px}
 [data-navigation-order]{position:relative;--sidebar-reorder-ms:250;overflow-y:hidden}
+[data-navigation-order][data-navigation-rows]{overflow:clip}
 [data-navigation-order]>[data-tab]{--navigation-nudge-x:var(--sidebar-nudge,0px)}
 [data-navigation-order][data-navigation-axis=y]>[data-tab]{--navigation-nudge-x:0px;--navigation-nudge-y:var(--sidebar-nudge,0px)}
 [data-navigation-order][data-reordering]>[data-tab][data-dragging]{position:fixed;left:var(--navigation-picked-left);top:var(--navigation-picked-top);width:var(--navigation-picked-width)}

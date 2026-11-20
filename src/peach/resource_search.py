@@ -143,7 +143,8 @@ def qualities(title: str, tags: list[str], code: str) -> dict:
     # 来源给的中字属性（JavDB 磁链的 `cnsub`）是 id，不在标签判据里，单独认。
     chinese = CHINESE_SUBTITLES in editions or RESOURCE_CHINESE_SUBTITLES in tags
     return {"resolution": resolution, "codec": codec, "chinese": chinese,
-            "uncensored": any(label in UNCENSORED_EDITIONS for label in editions)}
+            "uncensored": any(label in UNCENSORED_EDITIONS for label in editions),
+            "edition_badges": editions}
 
 
 def torrent_info_hash(data: bytes) -> str:
@@ -263,7 +264,8 @@ class Search:
         self.lock = threading.Lock()
         self.cache: OrderedDict[tuple, tuple[float, dict]] = OrderedDict()
 
-    def run(self, indexers: list[dict], code: str, filters: Filters, blocked=()) -> dict:
+    def run(self, indexers: list[dict], code: str, filters: Filters, blocked=(), *,
+            priority: Callable[[dict], int] | None = None) -> dict:
         code = normalise_code_key(code)
         if not code or len(code) > 80 or not same_release_code(release_code_from_product(code), code):
             raise UserValueError("errors.resourceSearch.invalidCode")
@@ -288,8 +290,10 @@ class Search:
                 while len(self.cache) > 128:
                     self.cache.popitem(last=False)
             excluded = set(blocked)
-            return {**result, "items": [row for row in result["items"]
-                                        if row["info_hash"] not in excluded][:MAX_RESULTS]}
+            items = [row for row in result["items"] if row["info_hash"] not in excluded]
+            if priority is not None:
+                items.sort(key=priority)
+            return {**result, "items": items[:MAX_RESULTS]}
         finally:
             self.lock.release()
 

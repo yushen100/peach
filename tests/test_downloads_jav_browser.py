@@ -180,6 +180,29 @@ class BrowserTests(unittest.TestCase):
                          ("115", "/115/Movies", "ABC-123", "browser:" + PAGE))
         self.assertEqual(self.downloads.store.submissions(task.id)[0]["outcome"], "submitted")
 
+    def test_one_click_download_uses_the_configured_edition_before_quality(self):
+        from peach.magnet_chain import Fetcher, _normalise, CHAIN
+        from peach.web_resource_search import auto_resource_search
+
+        preferred_hash = "e" * 40
+        old = _normalise({"uri": MAGNET, "name": "ABC-123 2160p"}, CHAIN[0], "ABC-123")
+        preferred = _normalise({
+            "uri": f"magnet:?xt=urn:btih:{preferred_hash}", "name": "ABC-123-LTX 720p",
+        }, CHAIN[1], "ABC-123")
+        self.downloads.save_settings({
+            **self.downloads.config.payload(), "edition_preferences": ["uncensored-crack"],
+        }, {})
+        self.service.search = auto_resource_search
+        self.add()
+        with patch.object(Fetcher, "__init__", return_value=None), patch.object(Fetcher, "close"), \
+                patch.object(Fetcher, "manko", return_value=[old]), \
+                patch.object(Fetcher, "javdb", return_value=[preferred]), \
+                patch.object(Fetcher, "sukebei", return_value=[]), patch.object(Fetcher, "javbus", return_value=[]):
+            self.assertTrue(self.service.process_one())
+        result = self.status().json()
+        self.assertEqual(result["state"], "submitted")
+        self.assertEqual(self.downloads.store.get(result["task_id"]).info_hash, preferred_hash)
+
     def test_manual_number_queues_without_sending_the_source_page(self):
         response = self.client.post('/api/jav-browser', headers=self.script_headers,
                                     json={'code': 'ABC-123', 'manual': True})

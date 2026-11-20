@@ -59,6 +59,25 @@ const field = (host: HTMLElement, label: string) =>
   [...host.querySelectorAll('label')].find((node) => node.textContent?.trim() === label)
     ?.closest('[data-input-size]')?.querySelector('input') ?? null;
 
+it('五种下载版本默认显示为馆藏徽章，保存顺序后可以恢复默认排序', async () => {
+  const order = ['chinese-subtitles', 'uncensored', 'uncensored-crack', 'uncensored-leak', 'censored'];
+  const fetcher = fetchMock(200, state({ config: { ...state().config, edition_preferences: order } }));
+  vi.stubGlobal('fetch', fetcher);
+  const host = await mount(<DownloadSettings initial={state()} receipt={vi.fn()} />);
+  const versions = host.querySelector('[aria-label="优先下载的版本"]')!;
+  expect([...versions.querySelectorAll('.javedition')].map((badge) => badge.textContent))
+    .toEqual(['中字', '无码', '无码流出', '无码破解', '有码']);
+  expect(versions.querySelector('.javedition.cracked')?.textContent).toBe('无码破解');
+  await click(versions.querySelector('button[aria-label="上移 无码破解"]'));
+  await submit(section(host, '云下载'));
+  await settle();
+  expect(sentBody(fetcher).edition_preferences).toEqual(order);
+  await click(buttonNamed('恢复默认排序', versions));
+  await submit(section(host, '云下载'));
+  await settle();
+  expect(sentBody(fetcher, 1).edition_preferences).toEqual([]);
+});
+
 it('空检查报告不保留分隔区，只有错误时直接显示原因', async () => {
   const fetcher = fetchMock(200, report());
   vi.stubGlobal('fetch', fetcher);

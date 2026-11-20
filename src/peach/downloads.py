@@ -37,6 +37,7 @@ from pathlib import Path, PureWindowsPath
 from typing import Any, Callable, Mapping, Protocol
 from urllib.parse import parse_qs, unquote, urlsplit
 
+from .catalog_vocabulary import EDITION_ORDER
 from .content_words import (CLOUD_BLOCKED, CLOUD_DUPLICATE_WORDS, CLOUD_INVALID_LINK_WORDS, CLOUD_QUOTA_WORDS,
                             CLOUD_STORAGE_FULL, PROMO_NAME)
 from .follow_secrets import CredentialStore
@@ -803,10 +804,14 @@ class DownloadConfig:
     wait_hours: int = DEFAULT_WAIT_HOURS
     problems: tuple[str, ...] = ()
     legacy_cloud_targets: frozenset[str] = frozenset()
+    edition_preferences: tuple[str, ...] = ()
 
     def payload(self) -> dict:
-        return {"clouddrive_address": self.clouddrive_address, "targets": dict(self.targets),
-                "pikpak_root": self.pikpak_root, "wait_hours": self.wait_hours}
+        result = {"clouddrive_address": self.clouddrive_address, "targets": dict(self.targets),
+                  "pikpak_root": self.pikpak_root, "wait_hours": self.wait_hours}
+        if self.edition_preferences:
+            result["edition_preferences"] = list(self.edition_preferences)
+        return result
 
 
 def clean_address(raw) -> str:
@@ -888,7 +893,12 @@ class DownloadSettings:
                 raise
             address = str(body.get("clouddrive_address") or "").strip()
             problems = (Problem.of(error) if isinstance(error, UserFacingError) else str(error),)
-        return DownloadConfig(address, targets, root, hours, problems)
+        raw_order = body.get("edition_preferences", [])
+        order = tuple(dict.fromkeys(key for key in raw_order if key in EDITION_ORDER)) \
+            if isinstance(raw_order, list) else ()
+        if not saved and (not isinstance(raw_order, list) or len(order) != len(raw_order)):
+            raise UserValueError("errors.downloads.invalidEditionPreferences")
+        return DownloadConfig(address, targets, root, hours, problems, edition_preferences=order)
 
     def save(self, body: dict, declared_roots, previous: DownloadConfig | None = None) -> DownloadConfig:
         if not isinstance(body, dict):
@@ -898,7 +908,9 @@ class DownloadSettings:
             previous = self.load()
         pending = frozenset(key for key in previous.legacy_cloud_targets
                             if config.targets.get(key) == previous.targets[key])
-        config = replace(config, legacy_cloud_targets=pending)
+        config = replace(config, legacy_cloud_targets=pending,
+                         edition_preferences=config.edition_preferences if "edition_preferences" in body
+                         else previous.edition_preferences)
         self._write(config)
         return config
 
