@@ -13,7 +13,7 @@ export function SelectField({ id, label, options, value, disabled, busy, hidden,
     <div id={id} data-choice-field="" className="peach-react" hidden={hidden} aria-busy={busy || undefined}>
       {!hidden ? <Select key={epoch} aria-label={label} aria-describedby={describedBy}
         selectedKey={selected} isDisabled={disabled} renderValue={renderValue}
-        className="min-w-0" triggerClassName="h-[var(--control-h)]"
+        className="min-w-0" triggerClassName="h-(--control-h)"
         onSelectionChange={(key) => { if (key !== null) onPick(String(key)) }}>
         {options.map(([key, text, mark]) =>
           <SelectItem key={key} id={key} textValue={text} data-select-option={key}>

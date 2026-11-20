@@ -64,7 +64,8 @@
 
 @source "./";
 
-[aria-expanded="true"] .peach-menu-chevron { rotate: 180deg; }
+[data-menu-chevron] { transition: rotate .2s ease; }
+[aria-expanded="true"] [data-menu-chevron] { rotate: 180deg; }
 
 @utility async-text-skeleton {
   height: .65em;

@@ -70,7 +70,8 @@ export function SidebarOrder({ host }: { host: SettingsPanelHost }) {
       </div>
       <VisuallyHidden role="status" aria-live="polite">{reorder.announcement}</VisuallyHidden>
       <div data-sidebar-add-row="">
-        <Select aria-label={t('settings:sidebarOrder.pickPage')} className="peach-react min-w-0" triggerClassName="h-[var(--control-h)]"
+        <div className="peach-react min-w-0">
+        <Select aria-label={t('settings:sidebarOrder.pickPage')} triggerClassName="h-(--control-h)"
           selectedKey={chosen ? optionKey(chosen[0]) : null} isDisabled={!chosen}
           renderValue={chosen ? undefined : t('settings:sidebarOrder.allShown')}
           onSelectionChange={(key) => setPicked(key === null ? null : String(key))}>
@@ -80,6 +81,7 @@ export function SidebarOrder({ host }: { host: SettingsPanelHost }) {
             </SelectItem>
           ))}
         </Select>
+        </div>
         <button type="button" className="geist-button primary" data-sidebar-add="" disabled={!chosen}
           onClick={() => { if (chosen && !order.includes(chosen[0])) commit([...order, chosen[0]]) }}>{t('settings:shared.add')}</button>
       </div>
