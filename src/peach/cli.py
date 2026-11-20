@@ -8,7 +8,6 @@ from datetime import datetime
 from pathlib import Path
 
 from . import auth, distribution, listening, onboarding, scan, settings_file
-from .api import create_app
 from .config import (
     CONFIGURED,
     DATABASE_PATH,
@@ -80,6 +79,8 @@ def _serve(args: argparse.Namespace) -> int:
     for path in (args.ssl_certfile, args.ssl_keyfile):
         if path is not None and not path.is_file():
             raise SystemExit(f"TLS file not found: {path}")
+    from .api import create_app
+
     tls_enabled = args.ssl_certfile is not None
     # 绑在回环上就不能发布 mDNS：广播出去的是本机的局域网地址，而那个地址上没有
     # 任何东西在监听，`peach.local` 于是变成一个必然连不上的名字。更糟的是开发机

@@ -14,6 +14,11 @@ if str(Path(__file__).resolve().parents[1] / "src") not in sys.path:
 from peach.interface_text import dev as t  # noqa: E402
 
 
+PUBLISHED_IMAGES = ("longmeidao/peach:latest", "longmeidao/peach:edge")
+# v0.57.0 之后直接发布 v0.59.0。旧镜像只提供 amd64，保留这个实际跳版的固定夹具。
+V057_AMD64_IMAGE = "longmeidao/peach@sha256:0a4b3aef4acceb97546116469401053cb6f3483c78b3e56e55e3dacb9c57e3c1"
+
+
 def docker(*arguments: str, check: bool = True) -> str:
     result = subprocess.run(["docker", *arguments], capture_output=True, text=True,
                             encoding="utf-8", check=check, timeout=180)
@@ -84,6 +89,77 @@ def ready(name: str, *, setup: bool = False) -> None:
                 raise RuntimeError(docker("logs", name)) from None
             time.sleep(1)
     raise RuntimeError(t("smoke_docker.notReady", logs=docker("logs", name)))
+
+
+def published_images(image: str) -> dict[str, str]:
+    """拉取实际发布渠道并固定已下载的镜像 ID，同一镜像只跑一次升级。"""
+    platform = docker("image", "inspect", "--format", "{{.Os}}/{{.Architecture}}", image)
+    references = PUBLISHED_IMAGES + ((V057_AMD64_IMAGE,) if platform == "linux/amd64" else ())
+    images = {}
+    for reference in references:
+        docker("pull", "--quiet", "--platform", platform, reference)
+        identity = docker("image", "inspect", "--format", "{{.Id}}", reference)
+        digests = docker("image", "inspect", "--format", "{{json .RepoDigests}}", reference)
+        print(f"Published upgrade source {reference}: {digests}", flush=True)
+        images.setdefault(identity, reference)
+    return images
+
+
+def published_upgrade_checks(name: str, previous: str, image: str) -> None:
+    """用已发布镜像建立存量卷，再用待验收镜像打开同一份数据。"""
+    volume, old, candidate = f"{name}-data", f"{name}-old", f"{name}-candidate"
+    mount = f"type=volume,source={volume},target=/data"
+    docker("volume", "create", volume)
+    try:
+        docker("run", "-d", "--name", old, "--hostname", name, "--network", "none", "--mount", mount, previous)
+        ready(old, setup=True)
+        done = json.loads(request(old, "/api/setup", authenticated=False, body={
+            "media_dir": [], "skip_media": True, "scan_now": False, "access_enabled": True,
+            "access_password": "smoke-password", "access_confirm": "smoke-password",
+        }))
+        assert done.get("url") == "/?onboarding=1", done
+        ready(old)
+        previous_migrations = int(exec_as(old, "1000:1000", "python", "-c", r"""
+from contextlib import closing
+import sqlite3
+from peach.config import DATABASE_PATH
+
+with closing(sqlite3.connect(DATABASE_PATH)) as connection:
+    connection.execute("INSERT INTO asset(location,path,name,medium) VALUES(?,?,?,?)",
+                       ("local", r"B:\smoke\legacy.mp4", "legacy.mp4", "video"))
+    connection.commit()
+    print(connection.execute("SELECT count(*) FROM schema_migration").fetchone()[0])
+"""))
+        docker("stop", "--time", "75", old)
+        docker("run", "-d", "--name", candidate, "--hostname", name, "--network", "none", "--mount", mount, image)
+        ready(candidate)
+        assert json.loads(request(candidate, "/api/items", authenticated=False)) == {"status": 401}
+        assert json.loads(request(candidate, "/api/items")) is not None
+        exec_as(candidate, "1000:1000", "python", "-c", """
+from contextlib import closing
+import sqlite3
+import sys
+from peach.config import DATABASE_PATH, MIGRATIONS_DIR
+from peach.migrations import plan
+
+migrations, pending = plan(DATABASE_PATH, MIGRATIONS_DIR)
+assert not pending
+paths = [DATABASE_PATH]
+previous_count = int(sys.argv[1])
+if previous_count < len(migrations):
+    backups = list(DATABASE_PATH.parent.glob("ledger.pre-migrate-*.db"))
+    assert len(backups) == 1
+    assert len(plan(backups[0], MIGRATIONS_DIR)[1]) == len(migrations) - previous_count
+    paths.append(backups[0])
+for path in paths:
+    with closing(sqlite3.connect(path)) as connection:
+        assert connection.execute("PRAGMA quick_check").fetchone()[0] == "ok"
+        assert connection.execute("SELECT name FROM asset").fetchall() == [("legacy.mp4",)]
+""", str(previous_migrations))
+    finally:
+        docker("rm", "--force", candidate, check=False)
+        docker("rm", "--force", old, check=False)
+        docker("volume", "rm", volume, check=False)
 
 
 def transcode_checks(name: str, identity: str = "1000:1000") -> None:
@@ -288,11 +364,15 @@ def main() -> None:
         assert docker("exec", name, "stat", "-c", "%u:%g", "/data") == "1000:1000"
 
         identity_checks(name, volume, args.image, extra_containers)
+        for index, (previous, reference) in enumerate(published_images(args.image).items()):
+            print(f"Checking published Docker upgrade: {reference} -> {args.image}", flush=True)
+            published_upgrade_checks(f"{name}-upgrade-{index}", previous, args.image)
 
         print(json.dumps({"image": args.image, "checks": ["first-setup", "non-root", "ready", "auth", "configuration",
                                                          "scan", "range", "vaapi-stack", "transcode-fallback",
                                                          "amane-prerequisites", "visual-ocr", "reload", "restart", "persistence",
-                                                         "uid-gid-migration", "group-add", "readonly-data",
+                                                         "uid-gid-migration", "published-image-upgrade",
+                                                         "group-add", "readonly-data",
                                                          "invalid-identity"]}))
     finally:
         for container in reversed(extra_containers):

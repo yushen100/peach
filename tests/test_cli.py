@@ -9,16 +9,19 @@ import argparse
 import importlib.util
 import io
 import os
+import shutil
 import sqlite3
+import subprocess
+import sys
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import closing, redirect_stdout
 from dataclasses import replace
 from pathlib import Path, PureWindowsPath
 from unittest import mock
 
 from peach import cli, onboarding, settings_file
-from peach.migrations import plan
+from peach.migrations import plan, upgrade
 from support.ledger import fresh_ledger
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,6 +40,52 @@ def load_script(name: str):
 
 
 class StatusCommandTests(unittest.TestCase):
+    def test_migrate_upgrades_an_existing_ledger_without_loading_transcodes(self):
+        root = self.root / "legacy-data"
+        config = settings_file.load_config(environ={"PEACH_DATA_ROOT": str(root)})
+        settings_file.write(config)
+        database = config.directory("database") / "ledger.db"
+        database.parent.mkdir()
+        legacy = self.root / "v057-migrations"
+        legacy.mkdir()
+        for script in MIGRATIONS.glob("[0-9][0-9][0-9][0-9]_*.sql"):
+            if script.name[:4] <= "0054":
+                shutil.copyfile(script, legacy / script.name)
+        upgrade(database, legacy)
+        with closing(sqlite3.connect(database)) as connection:
+            connection.execute(
+                "INSERT INTO asset(location,path,name,medium) VALUES('local',?,?,'video')",
+                (r"B:\smoke\fixture.mp4", "fixture.mp4"),
+            )
+            connection.commit()
+        probe = """
+import importlib.abc
+import runpy
+import sys
+
+class UnavailableTranscodes(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == "peach.transcodes":
+            raise ImportError("cannot import name 'parse_decode' from 'peach.transcodes'")
+
+sys.meta_path.insert(0, UnavailableTranscodes())
+sys.argv = ["peach", *sys.argv[1:]]
+runpy.run_module("peach", run_name="__main__")
+"""
+        result = subprocess.run(
+            [sys.executable, "-X", "utf8", "-c", probe, "migrate", "upgrade", "--yes", "--db", str(database)],
+            cwd=ROOT, env=dict(os.environ, PEACH_DATA_ROOT=str(root), PEACH_HEADLESS_MANAGED="1"),
+            capture_output=True, text=True, encoding="utf-8", timeout=60,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertFalse(plan(database, MIGRATIONS)[1])
+        backups = list(database.parent.glob("ledger.pre-migrate-*.db"))
+        self.assertEqual(len(backups), 1)
+        self.assertFalse(plan(backups[0], legacy)[1])
+        for path in (database, backups[0]):
+            with closing(sqlite3.connect(path)) as connection:
+                self.assertEqual(connection.execute("SELECT name FROM asset").fetchall(), [("fixture.mp4",)])
+
     def test_configured_reader_can_inspect_pending_schema_but_cannot_migrate(self):
         config = settings_file.load_config(environ={'PEACH_DATA_ROOT': str(self.root)})
         database = config.directory('database') / 'ledger.db'
