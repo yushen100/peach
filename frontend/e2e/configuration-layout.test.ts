@@ -66,7 +66,7 @@ describe('配置表单与行间距', () => {
         await settle(page);
         assert.equal(await form.locator('dl').count(), 0);
         assert.equal(await form.locator('.border-t').count(), 1);
-        const empty = await form.locator('div').evaluateAll(nodes => nodes.filter(node =>
+        const empty = await form.locator('div:not([aria-live])').evaluateAll(nodes => nodes.filter(node =>
           !node.childNodes.length && node.getBoundingClientRect().height > 0).map(node => node.className));
         assert.deepEqual(empty, []);
         assert.ok((await layout(page)).scrollWidth <= viewport.width + 1);

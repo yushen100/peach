@@ -26,7 +26,8 @@ from torznab.exceptions import TorznabAPIError
 from torznab.parser import parse_capabilities, parse_torznab
 
 from .catalog_rules import (
-    UNCENSORED_EDITIONS, jav_edition_badges, normalise_code_key, release_code_from_product, same_release_code,
+    UNCENSORED_EDITIONS, jav_edition_badges, normalise_code_key, release_code_from_filename,
+    release_code_from_product, same_release_code,
 )
 from .coded_text import Said, coded, parallel
 from .catalog_vocabulary import CHINESE_SUBTITLES, RESOURCE_CHINESE_SUBTITLES
@@ -147,6 +148,16 @@ def qualities(title: str, tags: list[str], code: str) -> dict:
             "edition_badges": editions}
 
 
+def matches_resource_code(title: str, code: str) -> bool:
+    """核对资源番号，并识别带版本后缀的资源名。"""
+    ordinary = scan_code(title)
+    product = scan_code(title, product=True)
+    if same_release_code(ordinary, code) or same_release_code(product, code):
+        return True
+    return (not ordinary and not product and bool(jav_edition_badges(title, code))
+            and same_release_code(release_code_from_filename(title), code))
+
+
 def torrent_info_hash(data: bytes) -> str:
     """种子文件的 v1 infohash：info 字典编码后的 SHA-1。
 
@@ -176,7 +187,7 @@ def candidate(item, indexer: dict, code: str, filters: Filters,
             rejected[reason] += 1
 
     title = str(item.title or "")[:500]
-    if not (same_release_code(scan_code(title), code) or same_release_code(scan_code(title, product=True), code)):
+    if not matches_resource_code(title, code):
         return reject("code")
     if item.size is None or not filters.min_size <= item.size <= filters.max_size:
         return reject("size")

@@ -29,8 +29,8 @@ from .downloads import (
 )
 from .task_retry import RETRY_DELAYS, RetryableTaskError, retry_delay
 from .follow_secrets import CredentialError
-from .feeds import scan_code
 from .fsutil import atomic_write_text
+from .resource_search import matches_resource_code
 from .sources.dmm import code_from_cid, guessed_cid
 from .jav_editions import bonus_cid
 from .user_messages import UserFacingError, UserValueError
@@ -273,9 +273,7 @@ def _download_candidate(items, code, skip=frozenset(), edition=""):
         source_matches = (item.get("source") == "JavBus" and origin.scheme == "https"
                           and origin.hostname in {"javbus.com", "www.javbus.com"}
                           and same_release_code(origin.path.strip('/'), code))
-        matches = (same_release_code(scan_code(name), code)
-                   or same_release_code(scan_code(name, product=True), code)
-                   or bool(bonus and bonus.search(name)) or source_matches)
+        matches = matches_resource_code(name, code) or bool(bonus and bonus.search(name)) or source_matches
         if not matches or re.search(TRAILER_NAME, name):
             continue
         try:

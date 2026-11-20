@@ -457,7 +457,8 @@ it('用浏览器登录拉起窗口后轮询，登好就显示登录方式并停�
   await settle();
   expect(fetcher.mock.calls[0]?.[0]).toBe(BROWSER_URL);
   expect(fetcher.mock.calls[0]?.[1]?.method).toBe('POST');
-  expect(host.querySelector('[role="status"]')?.textContent).toContain('浏览器窗口已打开，在里面登录 PikPak');
+  expect(section(host, 'PikPak 账号')?.querySelector('[role="status"]')?.textContent)
+    .toContain('浏览器窗口已打开，在里面登录 PikPak');
   expect(buttonNamed('用浏览器登录', host)).toBeNull();
   expect(buttonNamed('登录', host)?.disabled).toBe(true);
   await tick(2000);
@@ -480,7 +481,8 @@ it('刷新页面时登录窗口还开着就接着轮询，点取消回到可以�
   const fetcher = replies(browserAt('cancelled', '已取消浏览器登录'));
   vi.stubGlobal('fetch', fetcher);
   const host = await mount(<DownloadSettings initial={browserAt('waiting')} receipt={vi.fn()} />);
-  expect(host.querySelector('[role="status"]')?.textContent).toContain('等你在浏览器窗口里登录 PikPak');
+  expect(section(host, 'PikPak 账号')?.querySelector('[role="status"]')?.textContent)
+    .toContain('等你在浏览器窗口里登录 PikPak');
   expect(actionOrder(buttonNamed('取消', host)?.parentElement)).toEqual(['取消', '登录']);
   await click(buttonNamed('取消', host));
   await settle();

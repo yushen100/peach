@@ -14,7 +14,7 @@ HASH_B = "d9e15763f722f23e98a29decdfae341b98d53056"
 
 def item(info_hash, **fields):
     return {
-        "id": info_hash, "info_hash": info_hash,
+        "id": info_hash, "info_hash": info_hash, "protocol": "magnet",
         "uri": f"magnet:?xt=urn:btih:{info_hash}&dn=ABC-123",
         "name": "ABC-123", "size": 0, "size_text": "", "files": "",
         "file_count": 0, "file_list": [], "promo_files": 0,
