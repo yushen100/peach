@@ -57,6 +57,13 @@ ICON_MEANINGS = {
 GENERIC_ICONS = frozenset({"sparkle"})
 
 NOTICES: dict[str, dict] = {
+    "0.60.0": {
+        "level": "notice",
+        "features": [
+            {"id": "download-edition-order", "refs": ["#800"], "icon": "reorder",
+             "route": "/settings/downloads"},
+        ],
+    },
     "0.59.0": {
         "level": "notice",
         "features": [
