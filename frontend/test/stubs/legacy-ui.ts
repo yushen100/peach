@@ -41,7 +41,6 @@ export const MEDIA_SOURCE_ICONS: Record<string,string> = {local:'hard-drive','11
 export const selectOptionIconHtml = (mark?: string): string => mark ? `<i data-source-icon="${mark}"></i>` : '';
 
 // 设置面板的选项、change 与持久化回归使用正式下拉控件。
-export {selectFieldHtml, wireSelectField} from '../../src/ui-kit';
 export const wireCollapse = (_root: ParentNode, _selector: string, _idPrefix: string): void => {};
 /* 只落位，不动画：jsdom 没有布局，量出来处处是零，那段弹簧也就没有什么可跑的。
    动作本身由 `frontend/e2e/design-*.test.ts` 在浏览器中验证。 */

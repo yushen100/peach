@@ -164,7 +164,7 @@ Peach 使用 Board 的视觉与组件语义，保留 Vite、FastAPI 和现有媒
 | Button / Icon Button | Button / Icon Button | 主动作蓝色，危险操作沿用危险色；纯图标按钮清除默认内边距 |
 | Input / Input 前后缀 | Input adornment | 单位在框内尾部，分隔背景；独立数字输入保持可访问名称 |
 | 数值范围说明 | Invalid + HintText | 合法范围验证；错误时显示锚定字段的小提示，修正后消失 |
-| Select | Select | 保留已实现的列表键盘、焦点与菜单定位，使用 Board 尺寸与表面 |
+| Select | Select | 解码方式、外部播放器、偏好设置和自定义来源共用 BoardUI 的触发器、列表、开合箭头和键盘行为 |
 | Checkbox / Radio | Checkbox / Radio | 保留原生状态与选择范围；共享颜色与焦点 |
 | Tabs / 页面导航 | Tabs | 管理导航下划线，配置与设置按内容分区 |
 | Fieldset | 卡片正文与操作区组合 | 标题在框内，操作区用相邻色阶，不增加框中框 |

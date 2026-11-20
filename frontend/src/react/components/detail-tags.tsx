@@ -2,7 +2,7 @@
    标签本身的改名、合并在标签管理页。 */
 import { useCallback, useLayoutEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { RiArrowDownSLine, RiArrowUpSLine } from '@remixicon/react';
+import { MenuChevron } from './menu-chevron';
 import { spinnerHtml, wireAnchoredMenu } from '@peach/legacy/ui';
 import { Button } from '@/components/base/buttons/button';
 import { foldName, icon } from '@peach/legacy/core';
@@ -53,7 +53,7 @@ export function DetailTags({ tags, candidates, scope = 'local', id, adding, edit
           {...busyAttrs?.(tag.k)} onClick={() => onRemove?.(tag)}><Glyph name="x" /></button> : null}
       </span>)}
       {long ? <Button variant="secondary" size="small" data-tags-more="" aria-expanded={open}
-        trailingIcon={open ? RiArrowUpSLine : RiArrowDownSLine} onClick={() => setOpen(!open)}>
+        trailingIcon={MenuChevron} onClick={() => setOpen(!open)}>
         {open ? t('shell:shared.collapse') : t('shell:detailTags.moreCount', { count: tags.length - shown.length })}</Button> : null}
       {editable ? <TagPicker tags={tags} candidates={options} label={label} onAdd={add} adding={adding} scope={scope}
         onOpen={() => setAsked(true)} loading={inventory.isFetching} /> : null}

@@ -1,6 +1,7 @@
 import { fmtSize } from '@peach/legacy/core';
 import { useId, useState } from 'react';
-import { RiArrowDownSLine, RiArrowUpSLine, RiGlobalLine, RiHardDrive3Line } from '@remixicon/react';
+import { RiGlobalLine, RiHardDrive3Line } from '@remixicon/react';
+import { MenuChevron } from '../components/menu-chevron';
 import { Button } from '@/components/base/buttons/button';
 import type { ProcessingTraffic } from './library-processing';
 import { cx } from '@/utils/cx';
@@ -72,7 +73,7 @@ export function TrafficProgress({ traffic, initial = false, compact = false, det
       </section> : null}
     </div>
     <Button variant="secondary" size="small" className="self-start" aria-expanded={open} aria-controls={detailsId}
-      trailingIcon={open ? RiArrowUpSLine : RiArrowDownSLine} onClick={() => {
+      trailingIcon={MenuChevron} onClick={() => {
         setExpanded(!open);
         onDetailsChange?.(!open);
       }}>{open ? t('manage:processingTraffic.hideBreakdown') : t('manage:processingTraffic.showBreakdown')}</Button>

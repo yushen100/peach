@@ -39,16 +39,12 @@
 
    危险按钮静止态就是 --drop 实底加白字，配方在 `01-base.css` 的 `button.danger`，
    全站一份。次级不描边，与 `.geist-button` 同一条：它自己是一块比操作条亮一档的面。 */
-/* 排除下拉触发器要用 `:where(:not(…))`，不能直接写 `:not(…)`。采集来源那张卡的下拉触发器
-   正好是 `.cleanupfieldset` 里的一个 button，这条不排除它就把 `.gselectfield` 那圈线也去了
-   ——按钮不描边，输入类控件仍旧描边。而裸 `:not()` 会把这条抬到 0,2,1，反过来压过
-   `.geist-button.primary`（0,2,0），同一张卡上的主动作于是丢掉实底变成一行字；
-   `:where()` 权重恒为零，排除生效、层级不动。 */
-.cleanupfieldset button:where(:not(.gselectfield)){box-sizing:border-box;flex:none;min-height:32px;padding:0 12px;border:0;border-radius:var(--control-radius);box-shadow:0 0 0 1px var(--line-soft);
+/* 输入类触发器使用自己的描边。用 :where 保持普通按钮规则的特指度。 */
+.cleanupfieldset button:where(:not([aria-haspopup=listbox])){box-sizing:border-box;flex:none;min-height:32px;padding:0 12px;border:0;border-radius:var(--control-radius);box-shadow:0 0 0 1px var(--line-soft);
   background:var(--ground);color:var(--ink-2);display:inline-flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;
   transition:color .15s ease-in-out,background-color .15s ease-in-out}
-.cleanupfieldset button:where(:not(.gselectfield)):hover{background:color-mix(in srgb,var(--ink) 8%,var(--ground));color:var(--ink)}
-.cleanupfieldset button:where(:not(.gselectfield)) svg{width:var(--icon-inline);height:var(--icon-inline);stroke:currentColor;fill:none}
+.cleanupfieldset button:where(:not([aria-haspopup=listbox])):hover{background:color-mix(in srgb,var(--ink) 8%,var(--ground));color:var(--ink)}
+.cleanupfieldset button:where(:not([aria-haspopup=listbox])) svg{width:var(--icon-inline);height:var(--icon-inline);stroke:currentColor;fill:none}
 .stats h2{margin:0 0 4px;font-size:var(--fs-2xl)}
 .stats .sub{color:var(--muted);margin:0}
 /* 来源和凭证页的正文归 React 子树（ADR-0031）。这两条只服务遗留骨架：那一句静态说明

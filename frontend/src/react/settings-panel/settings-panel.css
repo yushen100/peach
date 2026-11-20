@@ -39,14 +39,14 @@
 [data-settings-panel] [data-setting-row] b{display:block;font-size:var(--fs-md)}
 [data-settings-panel] [data-setting-row] small{display:block;color:var(--muted);margin-top:8px;line-height:1.45;overflow-wrap:anywhere}
 [data-settings-panel] [data-setting-row]:has(#performerNameLanguageSetting,#interfaceLanguageSetting){align-items:start}
-[data-settings-panel] [data-setting-row] [class~=ui-gselect]{min-width:148px}
+[data-settings-panel] [data-setting-row] [data-choice-field]{min-width:148px}
 [data-settings-panel] [data-setting-row][data-setting-related]{border-top:0}
 [data-settings-panel] [data-setting-group] [data-setting-row][data-setting-sort]{grid-template-columns:minmax(0,1fr);gap:12px;padding-block:14px 16px}
 [data-settings-panel] [data-setting-sort-controls]{display:flex;gap:8px;min-width:0}
 [data-settings-panel] [data-setting-sort-controls]>div{flex:1;min-width:0}
 [data-settings-panel] [data-setting-sort-controls]>[hidden]{display:none}
 [data-settings-panel] [data-setting-shortcut]{display:flex;align-items:center;gap:8px}
-[data-settings-panel] [data-setting-sort-controls] [class~=ui-gselect]{min-width:0;width:100%}
+[data-settings-panel] [data-setting-sort-controls] [data-choice-field]{min-width:0;width:100%}
 [data-settings-panel] [data-setting-group]{margin:16px 0 0;border:1px solid var(--field-ring);border-radius:var(--floating-radius);background:var(--ground);padding:0 16px 12px}
 [data-settings-panel] [data-setting-group]>h3{margin:0;padding:14px 0 10px;font-size:var(--fs-lg);font-weight:600;color:var(--ink)}
 [data-settings-panel] [data-setting-group] [data-setting-row]{margin:0;padding-left:0;padding-right:0}
@@ -173,27 +173,16 @@
 [data-settings-panel] [data-sidebar-grip]{display:grid;place-items:center;width:24px;color:var(--muted)}
 [data-settings-panel] [data-sidebar-grip] svg{width:20px;height:20px}
 [data-settings-panel] [data-sidebar-actions]{flex:none}
-[data-settings-panel] [data-sidebar-row] button,[data-settings-panel] [data-sidebar-add-menu] button{display:grid;place-items:center;min-width:var(--control-h-compact);height:var(--control-h-compact);border:0;border-radius:var(--control-radius);background:transparent;color:var(--muted);cursor:pointer}
-[data-settings-panel] [data-sidebar-row] button:hover:not(:disabled),[data-settings-panel] [data-sidebar-add-menu] button:hover:not(:disabled){background:var(--hover);color:var(--ink)}
-[data-settings-panel] [data-sidebar-row] button:disabled,[data-settings-panel] [data-sidebar-add-menu] button:disabled{opacity:.25;cursor:not-allowed}
+[data-settings-panel] [data-sidebar-row] button{display:grid;place-items:center;min-width:var(--control-h-compact);height:var(--control-h-compact);border:0;border-radius:var(--control-radius);background:transparent;color:var(--muted);cursor:pointer}
+[data-settings-panel] [data-sidebar-row] button:hover:not(:disabled){background:var(--hover);color:var(--ink)}
+[data-settings-panel] [data-sidebar-row] button:disabled{opacity:.25;cursor:not-allowed}
 [data-settings-panel] [data-sidebar-add-row]{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-top:5px}
-[data-settings-panel] [data-sidebar-add-picker]{position:relative;min-width:0}
-/* 它是 listbox 触发器，不是按钮：穿输入框那身盒子，右边的实心档才是这一屏的主动作。 */
-[data-settings-panel] [data-sidebar-add-row] [data-sidebar-add-trigger]{display:grid;grid-template-columns:auto minmax(0,1fr) auto;width:100%;height:var(--control-h);box-sizing:border-box;align-items:center;justify-items:start;gap:9px;padding:0 11px;border:1px solid var(--field-ring);border-radius:var(--control-radius);background:var(--ground);color:var(--ink);text-align:left;font:inherit;cursor:pointer}
-[data-settings-panel] [data-sidebar-add-row] [data-sidebar-add-trigger]:hover:not(:disabled){border-color:var(--field-ring-hover)}
-[data-settings-panel] [data-sidebar-add-row] [data-sidebar-add-trigger]:disabled{color:var(--muted);cursor:not-allowed}
-[data-settings-panel] [data-sidebar-add-trigger] svg:last-child{justify-self:end;color:var(--muted)}
-/* 盒子、2px 行距和投影都来自共用的 .popmenu，这里只接管定位：它贴着触发器往上开，不是 fixed。
-   行距不能省——相邻两项一个悬停一个选中时，两块填充会连成一整条，看不出是两行。 */
-[data-settings-panel] [data-sidebar-add-menu]{position:absolute;z-index:4;left:0;right:0;bottom:calc(100% + 6px);max-height:min(312px,48vh)}
-[data-settings-panel] [data-sidebar-add-row] [data-sidebar-add-menu] button{grid-template-columns:auto minmax(0,1fr);width:100%;height:var(--control-h);border:0;text-align:left}
-[data-settings-panel] [data-sidebar-add-menu] button[aria-selected="true"]{background:var(--hover);color:var(--ink)}
-[data-settings-panel] [data-sidebar-add-row] svg{width:var(--icon-inline);height:var(--icon-inline);stroke:currentColor;fill:none}
+[data-settings-panel] [data-sidebar-picker-icon] svg{width:var(--icon-inline);height:var(--icon-inline);stroke:currentColor;fill:none}
+[data-settings-panel]>[data-react-overlays]{display:contents}
 @media (max-width:600px){[data-settings-panel] [data-settings-scroll]{padding:0 17px 17px}}
 @media (max-width:600px){[data-settings-panel] [data-settings-head]{padding:17px 17px 14px}}
-@media (max-width:600px){[data-settings-panel] [data-setting-row] [class~=ui-gselect]{width:100%;min-width:0}}
+@media (max-width:600px){[data-settings-panel] [data-setting-row] [data-choice-field]{width:100%;min-width:0}}
 @media (max-width:600px){[data-settings-panel] [data-setting-row] [class~=ui-pcheck]{justify-self:start}}
-[data-settings-panel] [data-sidebar-add-row] [data-sidebar-add-menu] button{justify-items:start}
 
 [data-settings-panel] [data-number-control]:has([aria-invalid="true"]){animation:field-shake var(--board-motion)}
 
@@ -256,7 +245,7 @@
 [data-settings-panel] [data-settings-card] [data-settings-scroll] [data-setting-row]+[data-sidebar-setting]{border-top:0}
 [data-settings-panel] [data-settings-card] [data-settings-scroll] [data-setting-row] b{font-size:14px;line-height:20px;font-weight:400}
 [data-settings-panel] [data-settings-card] [data-settings-scroll] [data-setting-row] small{font-size:12px;line-height:18px;margin-top:2px;max-width:none}
-[data-settings-panel] [data-settings-card] [data-settings-scroll] [class~=ui-gselect]{min-width:90px;min-height:32px;height:32px;padding:0;font-size:13px;border-radius:8px}
+[data-settings-panel] [data-settings-card] [data-settings-scroll] [data-choice-field]{min-width:90px}
 [data-settings-panel] [data-settings-card] [data-number-control]{gap:5px;font-size:12px}
 [data-settings-panel] [data-settings-card] [data-number-control] input{width:64px;height:32px;padding:6px;border-radius:8px;font-size:13px}
 [data-settings-panel] [data-settings-card] [data-number-control] button{min-height:32px;padding:4px 8px;font-size:12px}
@@ -311,8 +300,8 @@ html[data-theme-snapshot] [data-settings-panel] :is([data-settings-glide],[data-
 [data-settings-panel] [data-settings-card] [data-settings-scroll] [data-setting-row][data-setting-sort]{grid-template-columns:minmax(0,1fr) auto;gap:16px;align-items:center;padding-block:12px}
 [data-settings-panel] [data-settings-card] [data-settings-scroll] [data-setting-sort-controls]{display:flex;gap:8px;justify-content:end}
 [data-settings-panel] [data-settings-card] [data-settings-scroll] [data-setting-sort-controls]>div{flex:0 1 112px;min-width:0}
-[data-settings-panel] [data-settings-card] [data-settings-scroll] [data-setting-sort-controls] [class~=ui-gselect]{width:112px;min-width:0;padding:0}
-[data-settings-panel] [data-settings-card] [data-settings-scroll] [class~=gselectfield]{height:32px;padding:0 8px;border-radius:8px;font-size:13px;gap:6px}
+[data-settings-panel] [data-settings-card] [data-settings-scroll] [data-setting-sort-controls] [data-choice-field]{width:112px;min-width:0}
+[data-settings-panel] [data-setting-sort-controls] [data-sort-direction-icon] svg{width:16px;height:16px;stroke:currentColor;fill:none}
 [data-settings-panel] [data-settings-card] [data-settings-scroll] [data-number-help]{display:none}
 [data-settings-panel] [data-number-fields]{position:relative}
 [data-settings-panel] [data-settings-card] [data-number-control]{display:flex;gap:0;height:32px;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden;align-items:stretch}
@@ -346,7 +335,7 @@ html[data-theme-snapshot] [data-settings-panel] :is([data-settings-glide],[data-
   /* 说明折成几行时整块变高，控件居中会落到标题下面；对齐到顶部，和标题同一行。 */
   [data-settings-panel] [data-settings-card] [data-settings-scroll] [data-setting-row]:has(>span>small)>:last-child{align-self:flex-start}
   [data-settings-panel] [data-settings-card] [data-settings-scroll] [data-setting-row]>:last-child{flex:0 0 auto;margin-left:auto;max-width:100%}
-  [data-settings-panel] [data-settings-card] [data-settings-scroll] [data-setting-sort-controls] [class~=ui-gselect]{max-width:100%}
+  [data-settings-panel] [data-settings-card] [data-settings-scroll] [data-setting-sort-controls] [data-choice-field]{max-width:100%}
 }
 @media (max-width:760px){[data-settings-panel] [data-settings-card]>[data-settings-nav]{min-width:0;max-width:100%}}
 /* 纯图标按钮不继承浏览器按钮的水平内边距。 */
@@ -384,10 +373,8 @@ html[class~=board-high-contrast] [data-settings-panel] [data-settings-card][data
 @media (max-width:760px){[data-settings-panel] [data-settings-card] [data-number-control] input{font-size:16px}}
 @media (max-width:760px){[data-settings-panel] [data-settings-card] [data-number-control]{height:40px}}
 @media (max-width:760px){[data-settings-panel] [data-settings-card] [data-number-control] input{height:38px}}
-@media (max-width:760px){[data-settings-panel] [data-settings-card] [data-settings-scroll] [class~=ui-gselect],[data-settings-panel] [data-settings-card] [data-settings-scroll] [class~=gselectfield]{height:40px;font-size:14px}}
 @media (max-width:760px){[data-settings-panel] [data-settings-card] [data-settings-scroll] [data-number-control]>span{font-size:14px}}
 @media (prefers-reduced-motion:reduce){[data-settings-panel] [data-settings-card] [data-settings-head]{transition:none}}
-[data-settings-panel] [data-sidebar-add-menu][data-sidebar-add-menu]{transform-origin:bottom left}
 [data-settings-panel] [data-settings-card] [data-settings-head] h2{font:var(--board-heading);letter-spacing:0}
 [data-settings-panel] [data-setting-row] b{font:var(--board-body)}
 [data-settings-panel] [data-setting-row] small{font:var(--board-compact)}

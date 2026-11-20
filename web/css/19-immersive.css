@@ -64,7 +64,6 @@
   .entityfoot{padding:10px 16px}
   /* 标题行是 flex，`text-align:center` 管不到它，得自己居中。 */
   .entitytitle{justify-content:center}
-  .popmenu.gselectmenu button{min-height:44px}
   .entityhero .alias{margin-bottom:10px}
   /* 骨架那一行外链占位跟着单列卡居中，上下的让位与资料卡岛窄屏的横滚层一致，换真卡时不跳。 */
   .entityhero .entitylinks{justify-content:center;margin-top:9px;margin-bottom:-4px;padding-block:4px}

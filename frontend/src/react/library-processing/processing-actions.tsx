@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { RiArrowDownSLine, RiArrowRightLine } from '@remixicon/react';
+import { RiArrowRightLine } from '@remixicon/react';
+import { MenuChevron } from '../components/menu-chevron';
 import { Dialog, Popover } from 'react-aria-components';
 import { Button } from '@/components/base/buttons/button';
 import { LinkButton } from '@/components/base/buttons/link-button';
@@ -174,7 +175,7 @@ export function ProcessingActions({ busy, occupied = false, scan = false, metada
       }}>{t('manage:syncMenu.manageLibraries')}</LinkButton>, promptView.footer) : null}
     <span data-button-group data-split-button data-variant="primary">
       <Button {...blockedProps} onClick={() => run(primary.command)}>{primary.label}</Button>
-      <Button ref={trigger} iconOnly leadingIcon={RiArrowDownSLine} aria-label={t('manage:syncMenu.moreOptions')}
+      <Button ref={trigger} iconOnly leadingIcon={MenuChevron} aria-label={t('manage:syncMenu.moreOptions')}
         aria-haspopup="dialog" aria-expanded={open} {...blockedProps} onClick={() => {
           if (busy) return;
           if (occupied) onOccupied?.(); else setOpen(!open);

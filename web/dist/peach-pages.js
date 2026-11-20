@@ -2,7 +2,7 @@
 (function() {
 	try {
 		var e = typeof globalThis < "u" ? globalThis : typeof window < "u" ? window : typeof global < "u" ? global : typeof self < "u" ? self : {}, t = new e.Error().stack;
-		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "5d7e7615-07e3-4cc7-9d7a-78ca2101a420", e._sentryDebugIdIdentifier = "sentry-dbid-5d7e7615-07e3-4cc7-9d7a-78ca2101a420");
+		t && (e._sentryDebugIds = e._sentryDebugIds || {}, e._sentryDebugIds[t] = "259e7473-9d01-4867-a0f9-c1c2089d726b", e._sentryDebugIdIdentifier = "sentry-dbid-259e7473-9d01-4867-a0f9-c1c2089d726b");
 	} catch {}
 })();
 var e = Object.create, t = Object.defineProperty, n = Object.getOwnPropertyDescriptor, r = Object.getOwnPropertyNames, i = Object.getPrototypeOf, a = Object.prototype.hasOwnProperty, o = (e, t) => () => (t || (e((t = { exports: {} }).exports, t, t.exports), e = null), t.exports), s = (e, i, o, s) => {
@@ -38792,7 +38792,7 @@ function vb(e) {
 	return n.className = "peach-react", n.dataset.reactOverlays = "", e.append(n), n;
 }
 function yb(e) {
-	let t = e?.ownerDocument ?? globalThis.document, n = e?.closest("dialog[open]");
+	let t = e?.ownerDocument ?? globalThis.document, n = e?.closest("dialog[open], [data-settings-panel]:not([hidden])");
 	return vb(n ?? t.body);
 }
 F("settings:libraryPolicy.summary"), F("settings:libraryPolicy.auto"), F("settings:libraryPolicy.localOnly"), F("settings:shared.custom"), F("settings:libraryPolicy.stepReadLocal"), F("settings:libraryPolicy.stepProbeAndSheet"), F("settings:shared.optional"), F("settings:libraryPolicy.stepMetadata"), F("settings:shared.optional"), F("settings:libraryPolicy.stepCovers"), F("settings:shared.optional"), F("settings:libraryPolicy.stepAvatars"), F("settings:shared.optional"), F("settings:libraryPolicy.coverNote"), F("settings:libraryPolicy.directoryHelp");
@@ -39969,4 +39969,4 @@ Nt();
 var Jb = document.getElementById("peach-page"), Yb = Jb ? qb[Jb.dataset.page ?? ""] : void 0;
 Jb && Yb && (0, Ht.createRoot)(Jb).render(/* @__PURE__ */ (0, V.jsx)(Kb, { children: /* @__PURE__ */ (0, V.jsx)(Yb, { data: { ...Jb.dataset } }) }));
 
-//# debugId=5d7e7615-07e3-4cc7-9d7a-78ca2101a420
+//# debugId=259e7473-9d01-4867-a0f9-c1c2089d726b

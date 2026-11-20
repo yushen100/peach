@@ -176,7 +176,6 @@ class WebUiPolicyTests(unittest.TestCase):
         ".brandpill",       # 顶栏厂牌胶囊，全站一颗
         ".playerstatsbtn",  # 播放器覆盖层，悬停走 ::after 另一层
         ".fb .like",        # 这一排彩色反馈按钮的既有约定就是悬停预览按下后的颜色
-        ".popmenu.gselectmenu button",  # 同上；2026-09-04 实测 vercel.com 后台的菜单行，悬停与选中共用同一枚 5% 填充
     )
 
     STATE_TOKENS = ('[aria-pressed="true"]', '[aria-selected="true"]',
@@ -184,7 +183,6 @@ class WebUiPolicyTests(unittest.TestCase):
 
     SELECTED_ON_GROUND = (
         '.chip[aria-pressed="true"]',                     # 产地选择站在对话框的 --ground 上
-        '.popmenu.gselectmenu button[aria-selected="true"]',  # 浮层菜单填 --ground
         '.ib[aria-pressed="true"]',                       # 顶栏填 --ground
     )
 

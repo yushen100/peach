@@ -7,8 +7,7 @@
  * 壳递进来的那一份 `appSettings`（`host.store`），改完一项用 `host.changed(effect)` 告诉壳跟着做什么；跟数据库走的
  * 那几项经 `/api/settings` 写（`settings-data.ts`）。
  *
- * 宿主不在 `.peach-react` 里：行、开关、下拉、拉条与色块都是全站共用的遗留控件，外观由
- * `settings-panel.css` 与遗留样式表给。
+ * 下拉使用 BoardUI Select。行、开关、拉条与色块的外观由 `settings-panel.css` 和共用样式表提供。
  *
  * 每次打开时共用控件重画、数值框回到当前值，并重取共享设置。
  * 焦点先交给关闭钮，Tab 在面板里转圈，关掉后还给打开前那一枚。 */
@@ -19,10 +18,11 @@ import {
 import { flushSync } from 'react-dom';
 import { useQuery } from '@tanstack/react-query';
 import { VisuallyHidden } from 'react-aria-components';
+import { UNSAFE_PortalProvider } from 'react-aria';
 import { ButtonLink } from '@/components/base/buttons/button';
 import {
-  attachOverlayScrollbar, closeAnchoredMenu, iconSwapHtml, moveGlidePane, revealTexts,
-  setActionBusy, setIconSwap, wireHorizontalScroller,
+  attachOverlayScrollbar, closeAnchoredMenu, moveGlidePane, revealTexts,
+  setActionBusy, wireHorizontalScroller,
 } from '@peach/legacy/ui';
 
 import { AFTER_PLAYBACK_CHOICES, allowedSetting } from '@peach/appearance';
@@ -35,7 +35,9 @@ import { NAME_LANGUAGES, type NameLanguage } from '../../core/entity-names';
 import { normalizeGestures } from '../../player/gesture-settings';
 import { GlowSettings } from './glow-settings';
 import { Icon, RemixIcon } from './icon';
-import { IconSwitch, SelectField } from './legacy-controls';
+import { IconSwitch } from './legacy-controls';
+import { SelectField } from '../components/select-field';
+import { overlayHost } from '../components/overlay-host';
 import { NumberSetting } from './number-setting';
 import type { Choice, PanelSettings, SettingsPanelApi, SettingsPanelHost } from './settings-panel-api';
 import { fetchSettings, refreshPanelData, SETTINGS_KEY, useSaveSettings } from './settings-data';
@@ -378,6 +380,7 @@ function SettingsPanel({ host: current, view: shown }: { host: SettingsPanelHost
     <section data-settings-panel="" id="settingsPanel" hidden={!shown.open} aria-modal="true" role="dialog"
       aria-labelledby="settingsTitle" data-closing={shown.closing ? '' : undefined} ref={panel} onKeyDown={trapTab}
       onClick={(event) => { if (event.target === event.currentTarget) close() }}>
+      <UNSAFE_PortalProvider getContainer={() => overlayHost(panel.current)}>
       <div data-settings-card="" ref={card}>
         <div data-settings-head="" ref={head}>
           <h2 id="settingsTitle">{SECTIONS[shown.tab].title}</h2>
@@ -440,25 +443,12 @@ function SettingsPanel({ host: current, view: shown }: { host: SettingsPanelHost
           </Group>
         </div>
       </div>
+      </UNSAFE_PortalProvider>
     </section>
   );
 }
 
 interface GroupProps { host: SettingsPanelHost; tab: number; epoch: number }
-
-/* 排序方向那一格叠着两枚箭头，换的只是方向这一件事：整格重写会把旧字形连同它的动画一起丢掉，
-   读出来是一次硬切，所以只在这一格还没建起来时写一次。 */
-function decorateDirection(field: HTMLElement, ascending: boolean): void {
-  const mark = field.querySelector('[data-select-label]');
-  if (!mark) return;
-  if (!mark.querySelector('[data-icon-swap]')) {
-    mark.innerHTML = iconSwapHtml('arrow-up', 'arrow-down', 'a', { className: 'gselectmark', iconClass: 'gselectmark' })
-      + '<span data-sort-direction-label></span>';
-  }
-  setIconSwap(mark, ascending ? 'a' : 'b');
-  const label = mark.querySelector('[data-sort-direction-label]');
-  if (label) label.textContent = ascending ? t('settings:shared.ascending') : t('settings:shared.descending');
-}
 
 /* 「浏览与播放」分两段：作品列表（网格、排序、卡片与悬停）在前，播放在后。转码方式写的是运行 Peach
    那台电脑的配置，在 Peach 配置「应用与维护 → 视频播放」，不在这里（ADR-0103）。 */
@@ -483,7 +473,12 @@ function BrowseGroup({ host: current, tab, epoch }: GroupProps) {
           <SelectField id="defaultSortDirectionSetting" label={t('settings:preferencesPanel.defaultSortDirection')} options={DIRECTION_OPTIONS}
             value={ascending ? 'asc' : 'desc'} hidden={random} disabled={random} epoch={epoch}
             onPick={(value) => { settings.defaultSortDirection = value; save(); current.changed('sortDirection') }}
-            decorate={(field) => decorateDirection(field, ascending)} />
+            renderValue={<>
+              <span data-sort-direction-icon="" className={`inline-flex shrink-0 transition-transform duration-200 ${ascending ? 'rotate-180' : ''}`}>
+                <Icon name="arrow-down" />
+              </span>
+              <span data-sort-direction-label="">{ascending ? t('settings:shared.ascending') : t('settings:shared.descending')}</span>
+            </>} />
         </div>
       </Row>
       <Row title={t('settings:preferencesPanel.videoCardSize')}>
