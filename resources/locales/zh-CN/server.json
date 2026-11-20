@@ -1473,6 +1473,7 @@
       "addressPortInvalid": "CloudDrive2 地址的端口必须是 1–65535 的整数",
       "notPikpakRoot": "{{root}} 不是已声明的 PikPak 媒体根；已知：{{known}}",
       "notPikpakRootNoneDeclared": "{{root}} 不是已声明的 PikPak 媒体根；已知：（设置文件里没有 pikpak 来源）",
+      "invalidEditionPreferences": "下载版本顺序有重复或包含不支持的版本",
       "waitHoursNotNumber": "等待上限要写成小时数",
       "waitHoursOutOfRange": "等待上限在 1 到 {{max}} 小时之间",
       "writerOnly": "云下载只在允许修改数据库的设备上可用",

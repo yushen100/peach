@@ -610,8 +610,10 @@ class ResourceIndexerRoutes(_App):
         hd = {"source": "manko.fun", "resolution": 1080, "info_hash": failed, "name": "ABC-123"}
         fallback = {"source": "sukebei", "resolution": 1080, "info_hash": other, "name": "ABC-123 FHD"}
         with mock.patch("peach.web_resource_search.direct_search", return_value={
-                "items": [hd, fallback], "warnings": [], "trace": [], "next_sources": [], "reference_only": []}) as direct,              mock.patch("peach.web_resource_search._SEARCH.run", return_value={
-                "ok": True, "state": "ready", "items": [], "warnings": [], "error": ""}) as search,              mock.patch("peach.web_resource_search.rank_candidates", side_effect=lambda rows, goal: rows):
+                "items": [hd, fallback], "warnings": [], "trace": [], "next_sources": [], "reference_only": []}) as direct, \
+             mock.patch("peach.web_resource_search._SEARCH.run", return_value={
+                "ok": True, "state": "ready", "items": [], "warnings": [], "error": ""}) as search, \
+             mock.patch("peach.web_resource_search.rank_candidates", side_effect=lambda rows, goal, **kwargs: rows):
             result = q_resource_search(self.app.state.web_contract, {"code": "ABC-123", "skip": [failed]})
             self.assertFalse(direct.call_args.kwargs["stop_on_preferred"])
             self.assertIn(failed, search.call_args.args[3])

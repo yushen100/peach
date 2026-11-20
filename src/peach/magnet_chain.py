@@ -17,7 +17,8 @@ from pathlib import Path
 
 from bs4 import BeautifulSoup
 
-from .catalog_rules import normalise_code_key, release_code_from_text, same_release_code
+from .catalog_rules import UNCENSORED_EDITIONS, jav_edition_badges, normalise_code_key, release_code_from_text, same_release_code
+from .catalog_vocabulary import CENSORED, CHINESE_SUBTITLES
 from .coded_text import Said, coded, parallel
 from .content_words import PROMO_NAME, TRAILER_NAME
 from .downloads import parse_magnet
@@ -149,16 +150,44 @@ def _normalise(item: dict, source: Source, code: str) -> dict | None:
     }
 
 
-def rank_candidates(items: list[dict], goal: str = "quality") -> list[dict]:
+def _candidate_editions(item: dict, code: str) -> list[str]:
+    attributes = item.get("attributes") or []
+    uri = str(item.get("uri") or "")
+    names = urllib.parse.parse_qs(urllib.parse.urlsplit(uri).query).get("dn", []) if uri.startswith("magnet:") else []
+    names.extend(str(name) for name in item.get("file_list") or ())
+    editions = jav_edition_badges(item.get("name"), code, attributes, names)
+    if CHINESE_SUBTITLES not in editions and (item.get("chinese") or CHINESE_SUBTITLES in attributes):
+        editions.append(CHINESE_SUBTITLES)
+    return list(dict.fromkeys([*item.get("edition_badges", ()), *editions]))
+
+
+def edition_rank(item: dict, code: str, preferences: tuple[str, ...]) -> int:
+    """在配置中第一条命中的版次。无匹配时排在已配置的版次之后。"""
+    editions = item.get("edition_badges")
+    if editions is None:
+        editions = _candidate_editions(item, code)
+    elif item.get("chinese") or CHINESE_SUBTITLES in (item.get("attributes") or ()):
+        editions = [*editions, CHINESE_SUBTITLES]
+    if not any(edition in editions for edition in UNCENSORED_EDITIONS):
+        editions = [*editions, CENSORED]
+    return next((index for index, edition in enumerate(preferences) if edition in editions), len(preferences))
+
+
+def rank_candidates(items: list[dict], goal: str = "quality", *, code: str = "",
+                    edition_preferences: tuple[str, ...] = ()) -> list[dict]:
     """先画质、再做种、最后正片体积；附属文件只轻微降序，不作硬门槛。"""
     unique: dict[str, dict] = {}
     for item in items:
+        if edition_preferences:
+            item = {**item, "edition_badges": _candidate_editions(item, code)}
         prior = unique.get(item["info_hash"])
         if prior is None:
             unique[item["info_hash"]] = item
             continue
         prior["origins"] = list(dict.fromkeys(prior["origins"] + item["origins"]))
         prior["seeders"] = max(prior["seeders"], item["seeders"])
+        if edition_preferences:
+            prior["edition_badges"] = list(dict.fromkeys(prior["edition_badges"] + item["edition_badges"]))
         if not prior["file_list"] and item["file_list"]:
             prior["file_list"] = item["file_list"]
             prior["file_count"] = item["file_count"]
@@ -166,7 +195,9 @@ def rank_candidates(items: list[dict], goal: str = "quality") -> list[dict]:
     def rank(row):
         trailer = bool(re.search(TRAILER_NAME, row["name"]))
         preferred = bool(row.get(goal)) if goal in {"chinese", "uncensored"} else False
-        return (trailer, -int(preferred), -row["resolution"], -row["seeders"], row["promo_files"],
+        priority = edition_rank(row, code, edition_preferences) if edition_preferences else 0
+        return (trailer, priority, -int(preferred),
+                -row["resolution"], -row["seeders"], row["promo_files"],
                 -row["size"], row["info_hash"])
     return sorted(unique.values(), key=rank)[:MAX_RESULTS]
 
@@ -366,7 +397,7 @@ def _source_pages(fetcher, found):
 
 def search(root: Path, code: str, *, transport=None, min_size: int = 0,
            max_size: int = 1024 ** 4, goal: str = "quality", stop_on_preferred: bool = True,
-           skip_javdb_after_preferred: bool = False) -> dict:
+           skip_javdb_after_preferred: bool = False, edition_preferences: tuple[str, ...] = ()) -> dict:
     """有界查询四个可直连来源（manko.fun、JavDB、sukebei、JavBus），结果按 infohash 去重合并。
 
     直接添加允许在 manko 高清命中时结束；`skip_javdb_after_preferred`（想要定时查找）在 manko 已有高清时
@@ -379,7 +410,7 @@ def search(root: Path, code: str, *, transport=None, min_size: int = 0,
     try:
         for source, collect in ((CHAIN[0], fetcher.manko), (CHAIN[1], fetcher.javdb),
                                 (CHAIN[2], fetcher.sukebei), (CHAIN[3], fetcher.javbus)):
-            if (skip_javdb_after_preferred and source.key == "javdb"
+            if (skip_javdb_after_preferred and not edition_preferences and source.key == "javdb"
                     and any(item["resolution"] >= HIGH_QUALITY for item in found)):
                 trace.append(f"{source.label}: skipped, manko.fun already had 1080p/2160p")
                 continue
@@ -404,7 +435,8 @@ def search(root: Path, code: str, *, transport=None, min_size: int = 0,
                     retry_delays.append(delay)
             items = [item for item in items if min_size <= item["size"] <= max_size]
             found.extend(items)
-            if stop_on_preferred and source.key == "manko" and any(item["resolution"] >= HIGH_QUALITY for item in items):
+            if (stop_on_preferred and not edition_preferences and source.key == "manko"
+                    and any(item["resolution"] >= HIGH_QUALITY for item in items)):
                 trace.append(f"{source.label}: 1080p/2160p found, stopped early")
                 break
             trace.append(f"{source.label}: {len(items)} found" if items else f"{source.label}: no results")
@@ -414,7 +446,8 @@ def search(root: Path, code: str, *, transport=None, min_size: int = 0,
     status = _search_status(root, linked, warnings=warnings, warning_sources=warning_sources,
                             unfetched=unfetched, retry_delays=retry_delays,
                             available=found or (not stop_on_preferred and linked.get('items')))
-    result = {"items": rank_candidates(found, goal), "trace": trace, **status,
+    result = {"items": rank_candidates(found, goal, code=code, edition_preferences=edition_preferences),
+              "trace": trace, **status,
               'source_pages': _source_pages(fetcher, found),
             "next_sources": [source.label for source in CHAIN[4:]],
             "reference_only": list(REFERENCE_ONLY)}

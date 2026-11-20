@@ -14,7 +14,7 @@ HASH_B = "d9e15763f722f23e98a29decdfae341b98d53056"
 
 def item(info_hash, **fields):
     return {
-        "id": info_hash, "info_hash": info_hash,
+        "id": info_hash, "info_hash": info_hash, "protocol": "magnet",
         "uri": f"magnet:?xt=urn:btih:{info_hash}&dn=ABC-123",
         "name": "ABC-123", "size": 0, "size_text": "", "files": "",
         "file_count": 0, "file_list": [], "promo_files": 0,
@@ -26,6 +26,27 @@ def item(info_hash, **fields):
 
 
 class MagnetChainTests(unittest.TestCase):
+    def test_edition_preference_finds_a_later_source_and_keeps_quality_within_the_same_tier(self):
+        from peach.magnet_chain import Fetcher, search
+        from peach.wants_magnets import fetch
+
+        code = "ABC-123"
+        high = item(HASH_A, source="manko.fun", resolution=2160, attributes=[])
+        preferred = item(HASH_B, name=f"{code}-LTX", source="JavDB", resolution=720, attributes=[])
+        better = item("1" * 40, name=f"{code}-UMR", source="JavDB", resolution=1080, attributes=[])
+        order = ("uncensored-crack", "uncensored-leak")
+        with patch.object(Fetcher, "__init__", return_value=None), patch.object(Fetcher, "close"), \
+                patch.object(Fetcher, "manko", return_value=[high]), \
+                patch.object(Fetcher, "javdb", return_value=[preferred, better]), \
+                patch.object(Fetcher, "sukebei", return_value=[]), patch.object(Fetcher, "javbus", return_value=[]):
+            self.assertEqual(search(Path("."), code)["items"], [high])
+            direct = search(Path("."), code, edition_preferences=order)
+            self.assertEqual([row["info_hash"] for row in direct["items"]], ["1" * 40, HASH_B, HASH_A])
+            wants = fetch(Path("."), code, quick=True, edition_preferences=order)
+            self.assertEqual([row["info_hash"] for row in wants["items"]], ["1" * 40, HASH_B, HASH_A])
+            unmatched = search(Path("."), code, edition_preferences=("uncensored-leak",))
+            self.assertEqual(unmatched["items"][0]["info_hash"], HASH_A)
+
     def test_wishlist_preserves_comment_links_and_more_than_eight_source_versions(self):
         from peach.wants_magnets import fetch
         links = [dict(id=f'magnet:{index:040x}', protocol='magnet', info_hash=f'{index:040x}',

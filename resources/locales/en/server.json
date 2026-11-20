@@ -1473,6 +1473,7 @@
       "addressPortInvalid": "The CloudDrive2 port must be an integer from 1 to 65535",
       "notPikpakRoot": "{{root}} is not a declared PikPak root; known roots: {{known}}",
       "notPikpakRootNoneDeclared": "{{root}} is not a declared PikPak root; the settings file has no pikpak storage",
+      "invalidEditionPreferences": "Choose distinct editions in priority order",
       "waitHoursNotNumber": "Enter the wait limit in hours",
       "waitHoursOutOfRange": "The wait limit must be between 1 and {{max}} hours",
       "writerOnly": "Cloud download is only available on a device that can modify the database",

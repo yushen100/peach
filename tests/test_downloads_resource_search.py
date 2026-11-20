@@ -56,7 +56,7 @@ class SearchTests(unittest.TestCase):
         self.assertEqual(qualities("ABC-123 UHD", [], "ABC-123")["resolution"], 2160)
         self.assertEqual(qualities("[HD Uncensored] ABC-123", [], "ABC-123")["resolution"], 0)
 
-    def search(self, content, *, rows=None, code="ABC-123", filters=None, blocked=()):
+    def search(self, content, *, rows=None, code="ABC-123", filters=None, blocked=(), priority=None):
         self.requests = []
 
         def respond(request):
@@ -66,7 +66,17 @@ class SearchTests(unittest.TestCase):
             return httpx.Response(200, text=CAPS if request.url.params["t"] == "caps" else content)
 
         search = Search(transport=httpx.MockTransport(respond))
-        return search.run(rows or [ROW], code, filters or Filters(), blocked)
+        return search.run(rows or [ROW], code, filters or Filters(), blocked, priority=priority)
+
+    def test_priority_keeps_a_matching_version_beyond_the_usual_limit(self):
+        from peach.magnet_chain import edition_rank
+
+        preferred = "c" * 40
+        content = feed(*(item(title="ABC-123 4K", info_hash=f"{index:040x}") for index in range(1, 7)),
+                       item(title="ABC-123-LTX 720p", info_hash=preferred))
+        self.assertNotIn(preferred, [row["info_hash"] for row in self.search(content)["items"]])
+        selected = self.search(content, priority=lambda row: edition_rank(row, "ABC-123", ("uncensored-crack",)))
+        self.assertEqual(selected["items"][0]["info_hash"], preferred)
 
     def test_caps_then_search_and_private_tracker_is_not_returned(self):
         result = self.search(feed(item()))

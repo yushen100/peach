@@ -26,7 +26,8 @@ from torznab.exceptions import TorznabAPIError
 from torznab.parser import parse_capabilities, parse_torznab
 
 from .catalog_rules import (
-    UNCENSORED_EDITIONS, jav_edition_badges, normalise_code_key, release_code_from_product, same_release_code,
+    UNCENSORED_EDITIONS, jav_edition_badges, normalise_code_key, release_code_from_filename,
+    release_code_from_product, same_release_code,
 )
 from .coded_text import Said, coded, parallel
 from .catalog_vocabulary import CHINESE_SUBTITLES, RESOURCE_CHINESE_SUBTITLES
@@ -143,7 +144,18 @@ def qualities(title: str, tags: list[str], code: str) -> dict:
     # 来源给的中字属性（JavDB 磁链的 `cnsub`）是 id，不在标签判据里，单独认。
     chinese = CHINESE_SUBTITLES in editions or RESOURCE_CHINESE_SUBTITLES in tags
     return {"resolution": resolution, "codec": codec, "chinese": chinese,
-            "uncensored": any(label in UNCENSORED_EDITIONS for label in editions)}
+            "uncensored": any(label in UNCENSORED_EDITIONS for label in editions),
+            "edition_badges": editions}
+
+
+def matches_resource_code(title: str, code: str) -> bool:
+    """核对资源番号，并识别带版本后缀的资源名。"""
+    ordinary = scan_code(title)
+    product = scan_code(title, product=True)
+    if same_release_code(ordinary, code) or same_release_code(product, code):
+        return True
+    return (not ordinary and not product and bool(jav_edition_badges(title, code))
+            and same_release_code(release_code_from_filename(title), code))
 
 
 def torrent_info_hash(data: bytes) -> str:
@@ -175,7 +187,7 @@ def candidate(item, indexer: dict, code: str, filters: Filters,
             rejected[reason] += 1
 
     title = str(item.title or "")[:500]
-    if not (same_release_code(scan_code(title), code) or same_release_code(scan_code(title, product=True), code)):
+    if not matches_resource_code(title, code):
         return reject("code")
     if item.size is None or not filters.min_size <= item.size <= filters.max_size:
         return reject("size")
@@ -263,7 +275,8 @@ class Search:
         self.lock = threading.Lock()
         self.cache: OrderedDict[tuple, tuple[float, dict]] = OrderedDict()
 
-    def run(self, indexers: list[dict], code: str, filters: Filters, blocked=()) -> dict:
+    def run(self, indexers: list[dict], code: str, filters: Filters, blocked=(), *,
+            priority: Callable[[dict], int] | None = None) -> dict:
         code = normalise_code_key(code)
         if not code or len(code) > 80 or not same_release_code(release_code_from_product(code), code):
             raise UserValueError("errors.resourceSearch.invalidCode")
@@ -288,8 +301,10 @@ class Search:
                 while len(self.cache) > 128:
                     self.cache.popitem(last=False)
             excluded = set(blocked)
-            return {**result, "items": [row for row in result["items"]
-                                        if row["info_hash"] not in excluded][:MAX_RESULTS]}
+            items = [row for row in result["items"] if row["info_hash"] not in excluded]
+            if priority is not None:
+                items.sort(key=priority)
+            return {**result, "items": items[:MAX_RESULTS]}
         finally:
             self.lock.release()
 

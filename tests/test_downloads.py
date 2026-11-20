@@ -770,6 +770,25 @@ class SettingsTests(_Deployment):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
                 self.service.save_settings({"clouddrive_address": bad}, self.declared)
 
+    def test_edition_preferences_preserve_legacy_settings_and_legacy_saves(self):
+        path = self.service.settings.path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        previous = {"targets": {"115": "/115/Movies"}, "wait_hours": 36}
+        path.write_text(json.dumps(previous), encoding="utf-8")
+        self.assertEqual(self.service.settings.load().edition_preferences, ())
+
+        order = ["uncensored-crack", "chinese-subtitles"]
+        self.service.settings.save({**previous, "edition_preferences": order}, self.declared)
+        updated = self.service.settings.save({**previous, "wait_hours": 48}, self.declared)
+        self.assertEqual(updated.payload()["edition_preferences"], order)
+        self.assertEqual((updated.wait_hours, updated.targets), (48, previous["targets"]))
+        for invalid in ("uncensored", ["uncensored", "uncensored"], ["unknown"], [None]):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                self.service.settings.save({**previous, "edition_preferences": invalid}, self.declared)
+        self.assertEqual(self.service.settings.load(), updated)
+        cleared = self.service.settings.save({**previous, "edition_preferences": []}, self.declared)
+        self.assertEqual(cleared.edition_preferences, ())
+
     def test_the_snapshot_reports_which_providers_are_ready(self):
         self.service.save_settings({"clouddrive_address": "127.0.0.1"}, self.declared)
         self.credentials.save(dl.CLOUDDRIVE_CREDENTIAL, {"token": "t"})

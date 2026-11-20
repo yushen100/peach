@@ -177,6 +177,11 @@ def _searched_at(result: dict) -> float:
         return 0.0
 
 
+def _edition_preferences(contract) -> tuple[str, ...]:
+    downloads = getattr(contract, "downloads", None)
+    return downloads.config.edition_preferences if downloads is not None else ()
+
+
 def _search_one(contract, code: str, release_date: str | None,
                 sleep=time.sleep) -> tuple[str, str, float | None] | None:
     """查一部，返回 (结果, 说明, 来源让等的秒数)；清单页一直占着查询锁就返回 None，这一部留给下一轮。
@@ -190,11 +195,13 @@ def _search_one(contract, code: str, release_date: str | None,
     from .wants_magnets import search_for
 
     searcher = search_for(contract.follow_secrets_root)
+    preferences = _edition_preferences(contract)
     with public_cache_scope(contract.cover_root.parent / 'jav-public'):
         for _attempt in range(_BUSY_TRIES):
-            result = searcher.query(code, released=release_date)
+            result = searcher.query(code, released=release_date, edition_preferences=preferences)
             if result.get("state") != "busy" and _searched_at(result) < time.time() - SEARCH_REUSE.total_seconds():
-                result = searcher.query(code, refresh=True, released=release_date, quick=True)
+                result = searcher.query(code, refresh=True, released=release_date, quick=True,
+                                       edition_preferences=preferences)
             if result.get("state") != "busy":
                 break
             sleep(_BUSY_WAIT)
@@ -251,12 +258,13 @@ def reconcile_resources(contract, ids=None) -> int:
     """按已经取得的正片磁链结算想要，恢复旧版误判为未命中的条目。"""
     from .wants_magnets import search_for
     searcher = search_for(contract.follow_secrets_root)
+    preferences = _edition_preferences(contract)
     with contract.database.read_connection() as connection:
         rows = [row for row in wants.list_rows(connection)
                 if row['code'] and row['state'] in {wants.WANTED, wants.GIVEN_UP}
                 and (ids is None or row['id'] in ids)
                 and (row['state'] == wants.GIVEN_UP or row['last_search_outcome'] != 'found' or row['search_count'])]
-    found = [row for row in rows if searcher.known_candidate(row['code']) is not None]
+    found = [row for row in rows if searcher.known_candidate(row['code'], preferences) is not None]
     if not found:
         return 0
     changed = 0
@@ -267,7 +275,7 @@ def reconcile_resources(contract, ids=None) -> int:
                 continue
             if current['state'] == wants.WANTED and current['last_search_outcome'] == 'found' and not current['search_count']:
                 continue
-            candidate = searcher.known_candidate(current['code'])
+            candidate = searcher.known_candidate(current['code'], preferences)
             if candidate is not None:
                 wants.record_search(connection, current['id'], 'found', note=str(candidate.get('name') or ''))
                 changed += 1
@@ -379,7 +387,8 @@ def q_want_magnets(contract, args) -> dict:
     # JavDB 匿名资料与详情页共用快照目录。
     with public_cache_scope(contract.cover_root.parent / 'jav-public'):
         return search_for(contract.follow_secrets_root).query(
-            row["code"], refresh=str(args.get('refresh') or '') == '1', released=row['release_date'])
+            row["code"], refresh=str(args.get('refresh') or '') == '1', released=row['release_date'],
+            edition_preferences=_edition_preferences(contract))
 
 
 def _add(connection, body) -> dict:

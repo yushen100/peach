@@ -25,6 +25,7 @@ import type {
   ConfigurationPanel, DownloadCheckReport, DownloadConfig, DownloadSaveResult, DownloadSettingsState, PikPakLoginResult,
 } from '../bundle';
 import { ActivityStatus } from '../components/activity-motion';
+import { NavigationOrderRows } from '../components/navigation-order';
 import { Note } from '../components/note';
 import { SourceLabel, providerIcon } from '../components/source-label';
 import { groupRoot } from './configuration-panel';
@@ -34,6 +35,7 @@ import {
 import { busyProps, useAction } from './use-action';
 import { JavBrowserSettings } from './jav-browser-settings';
 import { CLOUD_LOCATIONS } from '../../core/media-sources';
+import { EDITION_TONE, editionName } from '../../core/jav-title';
 import { jobText, serverLabel } from '../../core/server-text';
 import { pollUntil } from '../../polling';
 import { t } from '../../i18n';
@@ -242,6 +244,8 @@ function DownloadForm({ state, settle, receipt, pikpakAccount }: CardProps & { p
         <Input label={t('settings:cloudDownload.maxWait')} type="number" inputMode="numeric" autoComplete="off"
           hint={t('settings:cloudDownload.waitHint', { max: state.max_wait_hours })}
           value={hours} isDisabled={!state.available} onChange={setHours} />
+        <EditionPreferences values={config.edition_preferences ?? []} disabled={!state.available}
+          onChange={(values) => setConfig((current) => ({ ...current, edition_preferences: values }))} />
       </Stack>
       {action.busy === 'auto' ? <Stack divided><ActivityStatus kind="radar" label={t('settings:cloudDownload.checking')} /></Stack> : null}
       {report ? (
@@ -254,6 +258,32 @@ function DownloadForm({ state, settle, receipt, pikpakAccount }: CardProps & { p
         <Button type="submit" disabled={!state.available} {...busyProps(action.busy === 'save')}>{t('settings:shared.saveSettings')}</Button>
       </Footer>
     </Section>
+  );
+}
+
+const DEFAULT_EDITION_ORDER = Object.keys(EDITION_TONE);
+
+function EditionPreferences({ values, disabled, onChange }: {
+  values: string[];
+  disabled: boolean;
+  onChange(values: string[]): void;
+}) {
+  const title = t('settings:cloudDownload.editionPreferences');
+  const keys = [...values, ...DEFAULT_EDITION_ORDER.filter((id) => !values.includes(id))];
+  const labels = Object.fromEntries(DEFAULT_EDITION_ORDER.map((id) => [id, editionName(id)]));
+  const order = { label: title, keys, defaults: DEFAULT_EDITION_ORDER, commit: onChange };
+
+  return (
+    <div className="flex flex-col gap-2" role="group" aria-label={title}>
+      <div className="flex flex-col gap-1">
+        <FieldLabel>{title}</FieldLabel>
+        <Help>{t(values.length ? 'settings:cloudDownload.editionPreferencesHelp' : 'settings:cloudDownload.editionPreferencesDefault')}</Help>
+      </div>
+      <NavigationOrderRows order={order} labels={labels} fixed={disabled ? keys : []} reset={false}
+        render={(key) => <small className={`javedition ${EDITION_TONE[key]}`}>{labels[key]}</small>} />
+      {values.length ? <Button type="button" variant="secondary" size="small" className="self-start"
+        disabled={disabled} onClick={() => onChange([])}>{t('settings:cloudDownload.resetEditionPreferences')}</Button> : null}
+    </div>
   );
 }
 
