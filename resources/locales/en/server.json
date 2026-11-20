@@ -1241,7 +1241,8 @@
       "invalidEvidence": "Use a public HTTPS link and remove any account or tracking parameters."
     },
     "ledger": {
-      "writeBusy": "The local database is busy: this write waited more than {{seconds}} s and was not saved. Try again later."
+      "writeBusy": "The local database is busy: this write waited more than {{seconds}} s and was not saved. Try again later.",
+      "writeCorrupt": "The local database is damaged. Restore a verified copy in Settings → App & Maintenance → Database backups."
     },
     "hardwareTranscode": {
       "backendInvalid": "PEACH_TRANSCODE_BACKEND must be one of {{backends}}"

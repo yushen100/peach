@@ -338,6 +338,7 @@ class TaskGate:
     stale: tuple[ActiveRun, ...] = ()
     error: str | None = None
     note: str = ""
+    corrupted: bool = False
 
     @property
     def refused(self) -> bool:
@@ -376,7 +377,8 @@ def task_gate(db: Path, *, host: str, alive: Callable[[int], bool]) -> TaskGate:
             return TaskGate(note=_text("tray.prepare.noTaskTable", {"error": exc}))
         return TaskGate(error=str(exc))
     except sqlite3.Error as exc:
-        return TaskGate(error=str(exc))
+        from .repository import is_ledger_corruption
+        return TaskGate(error=str(exc), corrupted=is_ledger_corruption(exc))
     blocking: list[ActiveRun] = []
     resumable: list[ActiveRun] = []
     stale: list[ActiveRun] = []

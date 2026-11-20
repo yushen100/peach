@@ -14,7 +14,9 @@ from __future__ import annotations
 
 import atexit
 import shutil
+import sqlite3
 import tempfile
+from contextlib import closing
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -46,3 +48,16 @@ def fresh_ledger(directory: Path | str, name: str = "ledger.db") -> Path:
     destination = Path(directory).resolve() / name
     shutil.copyfile(_ledger_template(), destination)
     return destination
+
+
+def damage_task_pages(database: Path) -> None:
+    """破坏临时账本的任务表和索引首页，保留其他表可读。"""
+    with closing(sqlite3.connect(database)) as connection:
+        page_size = connection.execute("PRAGMA page_size").fetchone()[0]
+        pages = connection.execute(
+            "SELECT rootpage FROM sqlite_schema WHERE tbl_name='task_run' AND rootpage>0").fetchall()
+    assert pages
+    with database.open("r+b") as stream:
+        for (page,) in pages:
+            stream.seek((page - 1) * page_size)
+            stream.write(b'\0')

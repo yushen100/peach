@@ -23,6 +23,7 @@
 """
 import asyncio
 import logging
+import sqlite3
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
@@ -372,7 +373,7 @@ def _start_ledger_services(settings: PeachSettings, contract, services, migratio
         ledger_backups.recover(settings.db_path)
     except Exception:
         LOGGER.exception('Could not process the ledger restore marker')
-    status = inspect_database(settings.db_path)
+    status = inspect_database(settings.db_path, known_corruption=contract.database.corrupted)
     repairs = getattr(contract, 'upgrade_repairs', None)
     if status['schema'] == 'pending' and repairs is not None and repairs.available:
         from .config import MIGRATIONS_DIR
@@ -404,10 +405,16 @@ def _start_ledger_services(settings: PeachSettings, contract, services, migratio
             repairs.error = str(exc)
             LOGGER.exception('Upgrade repairs did not finish; background tasks stay stopped')
             return False
-    _restore_task_center(contract)
     from .web_job_recovery import restore
-    if contract.task_runs.enabled:
-        restore(contract)
+    try:
+        _restore_task_center(contract)
+        if contract.task_runs.enabled:
+            restore(contract)
+    except sqlite3.DatabaseError:
+        if not contract.database.corrupted:
+            raise
+        LOGGER.warning("Database damaged; background tasks stay stopped until the ledger is restored")
+        return False
     for service in services:
         service.start()
     return True
@@ -592,7 +599,8 @@ def _health_payload(request, settings, resolver, browser_transport, *, details: 
     from .diagnostics import health_components
     migration = app.state.ledger_migration
     mounts = app.state.mount_reachability.summary()
-    components = health_components(settings, mounts, migrating=migration.running)
+    corrupted = app.state.database.corrupted
+    components = health_components(settings, mounts, migrating=migration.running, known_corruption=corrupted)
     return {"ok": True, "service": "peach-api", "version": __version__,
             "checks": components if details else {
                 key: {"status": value["status"]} for key, value in components.items()
@@ -604,7 +612,7 @@ def _health_payload(request, settings, resolver, browser_transport, *, details: 
             # 这次请求的发起方能不能改这台机器的配置（独立包、回环地址）。它随调用方
             # 变化，只决定管理菜单里「配置」显不显示；拒绝写入的判定在端点自己那里。
             "configurable": routes_configuration.configurable(request),
-            "db": _database_field(settings, migration),
+            "db": _database_field(settings, migration, corrupted),
             "ledger_migration": migration.payload() if details else {"state": migration.state},
             "ffmpeg": ffmpeg.source if ffmpeg else "unavailable",
             "mdns": mdns.status if mdns is not None else "disabled",
@@ -634,16 +642,18 @@ def _readiness_response(app, settings, *, details: bool):
     migration = app.state.ledger_migration
     deferred = getattr(app.state, 'ledger_background_deferred', False)
     result = readiness(settings, background_ready=None if deferred else getattr(app.state, "ledger_background_ready", None),
-                       migrating=migration.running)
+                       migrating=migration.running, known_corruption=app.state.database.corrupted)
     result["background_deferred"] = deferred
     if details:
         result["ledger_migration"] = migration.payload()
     return JSONResponse(result, status_code=200 if result["ready"] else 503, headers={"Cache-Control": "no-store"})
 
 
-def _database_field(settings, migration: LedgerMigration) -> str:
+def _database_field(settings, migration: LedgerMigration, corrupted: bool) -> str:
     from .health import database_status
-    return "migrating" if migration.running else database_status(settings.db_path)
+    if migration.running:
+        return "migrating"
+    return "corrupt" if corrupted else database_status(settings.db_path)
 
 
 def _configure_capacity_guard(settings, contract, services):
