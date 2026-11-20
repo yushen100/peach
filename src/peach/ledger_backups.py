@@ -629,6 +629,7 @@ class LedgerBackups:
         self.organize = organize_dir(config.directory("generated"))
         self.migrations_dir = migrations_dir
         self.after_restore = after_restore
+        self.database = runs.database if runs is not None else None
         self.backup_job = BackgroundJob("PeachLedgerBackup", task_key="ledger-backup", runs=runs)
         self.restore_job = BackgroundJob("PeachLedgerRestore", task_key="ledger-restore", runs=runs)
         self.offline_restore = BackgroundJob("PeachLedgerRestore", task_key="ledger-restore")
@@ -676,21 +677,26 @@ class LedgerBackups:
         return self.snapshot()
 
     def start_restore(self, ident: object) -> dict:
+        import socket
         from .health import inspect_database
-        from .runtime_prepare import configured_ledger_writer
+        from .jobs import process_alive
+        from .runtime_prepare import configured_ledger_writer, task_gate
         from . import update_tasks
         writer, reason = configured_ledger_writer(self.config, language=None)
         if not writer:
             raise BackupRejected("errors.ledgerBackups.writerOnly", {"reason": reason})
         backup = resolve(self.live, self.organize, ident)
-        readable = bool(inspect_database(self.live, self.migrations_dir)["readable"])
+        task_rows = bool(inspect_database(self.live, self.migrations_dir)["readable"])
+        if task_rows:
+            task_rows = not task_gate(self.live, host=socket.gethostname(), alive=process_alive).corrupted
+        damaged = self.database is not None and self.database.corrupted
         with self.lock:
             if self._busy():
                 raise BackupRejected("errors.ledgerBackups.busy")
-            busy = update_tasks.running(self.live, task_rows=readable)
+            busy = update_tasks.running(self.live, task_rows=task_rows)
             if busy:
                 raise BackupRejected("errors.ledgerBackups.tasksRunning", {"tasks": list(busy)})
-            job = self.restore_job if readable else self.offline_restore
+            job = self.offline_restore if damaged or not task_rows else self.restore_job
             self._restoring = job
             migrations_dir = self.migrations_dir
 
@@ -700,20 +706,22 @@ class LedgerBackups:
                 try:
                     own_files, own_runs = job.registration(identity)
                     late = update_tasks.running(self.live, own_files=own_files, own_runs=own_runs,
-                                                task_rows=readable)
+                                                task_rows=task_rows)
                     if late:
                         raise BackupRejected("errors.ledgerBackups.tasksRunningNotRestored",
                                              {"tasks": list(late)})
                     outcome = restore(self.live, backup, migrations_dir=migrations_dir or MIGRATIONS_DIR,
                                       progress=lambda **values: job.update(identity, **values),
                                       keep_recent=self.keep_recent())
+                    if self.database is not None:
+                        self.database.record_restored()
+                    if self.after_restore is not None:
+                        try:
+                            self.after_restore()
+                        except Exception:
+                            log.warning("Failed to clear caches after restore", exc_info=True)
                 finally:
                     update_tasks.release(self.live, token)
-                if self.after_restore is not None:
-                    try:
-                        self.after_restore()
-                    except Exception:
-                        log.warning("Failed to clear caches after restore", exc_info=True)
                 job.update(identity, status="complete", **stage_fields('backup.restoreDone'), backup=backup.name,
                            saved=outcome.saved.name if outcome.saved else "",
                            migrated=len(outcome.migrated))

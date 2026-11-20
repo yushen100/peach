@@ -15,7 +15,7 @@ from unittest.mock import patch
 
 from peach import ledger_backups, migrations, retention_settings, settings_file, update_tasks, web_organize
 from peach.task_runs import TaskRunStore
-from support.ledger import MIGRATIONS_DIR, fresh_ledger
+from support.ledger import MIGRATIONS_DIR, damage_task_pages, fresh_ledger
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -662,6 +662,38 @@ class LedgerBackupManagerTests(unittest.TestCase):
             with self.assertRaisesRegex(ledger_backups.BackupRejected, "扫描与采集"):
                 self.manager.start_restore(f"database/{backup.name}")
         self.assertEqual(self.manager.snapshot()["restore"], {"status": "idle"})
+
+    def test_partially_damaged_task_table_can_be_restored_offline(self):
+        from peach.health import inspect_database
+        from peach.repository import LedgerWriteCorrupt
+
+        backup = ledger_backups.create(self.live)
+        damage_task_pages(self.live)
+        damaged = self.live.read_bytes()
+        self.assertTrue(inspect_database(self.live)["readable"])
+        with self.assertRaises(sqlite3.DatabaseError), self.runs.database.read_connection() as connection:
+            connection.execute("SELECT id FROM task_run").fetchall()
+        with self.assertRaises(LedgerWriteCorrupt), self.runs.database.write_transaction():
+            self.fail("损坏账本不应开始写事务")
+
+        self.manager.start_restore(f"database/{backup.name}")
+        state = self.finish(self.manager.offline_restore)
+        self.assertEqual(state["status"], "complete", state)
+        self.assertEqual(ledger_backups.integrity(self.live), "ok")
+        self.assertEqual(notes(self.live), ["before"])
+        self.assertEqual((self.live.parent / state["saved"]).read_bytes(), damaged)
+        with self.runs.database.write_transaction() as connection:
+            connection.execute("SELECT id FROM task_run").fetchall()
+
+    def test_restore_preflight_detects_task_table_damage_before_a_normal_query(self):
+        backup = ledger_backups.create(self.live)
+        damage_task_pages(self.live)
+        self.assertFalse(self.runs.database.corrupted)
+
+        self.manager.start_restore(f"database/{backup.name}")
+        state = self.finish(self.manager.offline_restore)
+        self.assertEqual(state["status"], "complete", state)
+        self.assertEqual(ledger_backups.integrity(self.live), "ok")
 
     def test_restore_is_refused_on_a_reading_device(self):
         backup = ledger_backups.create(self.live)

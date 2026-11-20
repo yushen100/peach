@@ -1241,7 +1241,8 @@
       "invalidEvidence": "请使用公开的 HTTPS 链接，移除账号或跟踪参数后再提交。"
     },
     "ledger": {
-      "writeBusy": "本地数据库正忙：这次写入排队超过 {{seconds}} 秒，没有保存，请稍后重试。"
+      "writeBusy": "本地数据库正忙：这次写入排队超过 {{seconds}} 秒，没有保存，请稍后重试。",
+      "writeCorrupt": "本地数据库已损坏。请在「设置 → 应用与维护 → 账本备份」恢复经过校验的备份。"
     },
     "hardwareTranscode": {
       "backendInvalid": "PEACH_TRANSCODE_BACKEND 必须为 {{backends}}"

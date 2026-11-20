@@ -47,7 +47,7 @@ class DiagnosticsTests(unittest.TestCase):
         sqlite3.connect(self.db).close()
         self.assertEqual(health.inspect_database(self.db)["database"], "empty")
         self.db.write_bytes(b"invalid database")
-        self.assertEqual(health.inspect_database(self.db)["database"], "unavailable")
+        self.assertEqual(health.inspect_database(self.db)["database"], "corrupt")
 
     def test_schema_checks_pending_checksum_and_unknown_versions_without_migration(self):
         upgrade(self.db, ROOT / "migrations")

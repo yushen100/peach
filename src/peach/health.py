@@ -6,6 +6,7 @@ from contextlib import closing
 from . import distribution
 from .config import MIGRATIONS_DIR, PeachSettings
 from .migrations import applied, discover
+from .repository import is_ledger_corruption
 
 
 def inspect_schema(installed, directory) -> dict:
@@ -31,10 +32,12 @@ def inspect_schema(installed, directory) -> dict:
     return result
 
 
-def inspect_database(path, directory=None) -> dict:
+def inspect_database(path, directory=None, *, known_corruption=False) -> dict:
     """读取账本与迁移校验结果；错误只输出状态，不携带路径或 SQL。"""
     result = {"database": "missing", "readable": False, "schema": "unavailable",
               "version": None, "pending": [], "mismatched": [], "unknown_versions": 0}
+    if known_corruption:
+        return {**result, "database": "corrupt"}
     directory = MIGRATIONS_DIR if directory is None else directory
     if not path.is_file():
         return result
@@ -45,12 +48,14 @@ def inspect_database(path, directory=None) -> dict:
             installed = applied(connection)
             result["database"] = "available" if installed else "empty"
             result.update(inspect_schema(installed, directory))
-            try:
-                connection.execute("SELECT id FROM asset LIMIT 1").fetchone()
-                result["readable"] = True
-            except sqlite3.Error:
-                pass
-    except (sqlite3.Error, OSError):
+            connection.execute("SELECT id FROM asset LIMIT 1").fetchone()
+            result["readable"] = True
+    except sqlite3.Error as error:
+        if is_ledger_corruption(error):
+            result.update(database="corrupt", readable=False, schema="unavailable")
+        elif result["database"] == "missing":
+            result["database"] = "unavailable"
+    except OSError:
         result.update(database="unavailable", readable=False, schema="unavailable")
     return result
 
@@ -69,7 +74,8 @@ def _web_ready(settings: PeachSettings) -> bool:
     return settings.page_path.is_file()
 
 
-def readiness(settings: PeachSettings, *, background_ready: bool | None = None, migrating: bool = False) -> dict:
+def readiness(settings: PeachSettings, *, background_ready: bool | None = None, migrating: bool = False,
+              known_corruption=False) -> dict:
     """服务能不能用：已配置、页面在、账本可读且结构是最新的，后台任务按需也算进去。
 
     `migrating`：服务启动时正在迁移账本，这时不打开账本，数据库与结构两项直接记为未就绪。
@@ -83,7 +89,7 @@ def readiness(settings: PeachSettings, *, background_ready: bool | None = None, 
     checks = {"configured": bool(settings.configured),
               "web": _web_ready(settings), "database": False, "schema": False}
     if not migrating:
-        inspected = inspect_database(settings.db_path)
+        inspected = inspect_database(settings.db_path, known_corruption=known_corruption)
         checks.update(database=inspected["readable"], schema=inspected["schema"] == "current")
     if background_ready is not None:
         checks["background"] = background_ready

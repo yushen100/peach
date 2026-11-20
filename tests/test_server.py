@@ -51,7 +51,7 @@ class ServerTests(unittest.TestCase):
         with patch.object(cli, "_require_readable_settings"), \
                 patch.object(cli, "_serve_token", return_value="test"), \
                 patch.object(cli, "_build_sync", return_value=None), \
-                patch.object(cli, "create_app"), patch.object(cli, "TUNNEL_ENABLED", False), \
+                patch("peach.api.create_app"), patch.object(cli, "TUNNEL_ENABLED", False), \
                 patch("peach.mdns.lan_ipv4", side_effect=OSError("no route")) as route, \
                 patch("peach.listening.bind", return_value=(MagicMock(), True)), \
                 patch("peach.listening.serve"):
@@ -71,7 +71,7 @@ class ServerTests(unittest.TestCase):
                     patch.object(cli, "_require_readable_settings"), \
                     patch.object(cli, "_serve_token", return_value="test"), \
                     patch.object(cli, "_build_sync", return_value=None), \
-                    patch.object(cli, "create_app"), patch.object(cli, "TUNNEL_ENABLED", False), \
+                    patch("peach.api.create_app"), patch.object(cli, "TUNNEL_ENABLED", False), \
                     patch("peach.listening.bind", return_value=(sock, True)), \
                     patch("uvicorn.Config") as config, patch("uvicorn.Server") as uvicorn_server:
                 config.return_value.get_loop_factory.return_value = None
@@ -92,7 +92,7 @@ class ServerTests(unittest.TestCase):
             with self.subTest(ipv6=ipv6), patch.object(cli, "_require_readable_settings"), \
                     patch.object(cli, "_serve_token", return_value="test"), \
                     patch.object(cli, "_build_sync", return_value=None), \
-                    patch.object(cli, "create_app") as create_app, \
+                    patch("peach.api.create_app") as create_app, \
                     patch.object(cli, "TUNNEL_ENABLED", False), \
                     patch("peach.listening.bind", return_value=(MagicMock(), ipv6)) as bind, \
                     patch("peach.listening.serve"):

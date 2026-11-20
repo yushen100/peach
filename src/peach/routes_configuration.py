@@ -67,13 +67,19 @@ def local_only(request: Request) -> None:
         raise HTTPException(403, message_fields("api.configuration.openOnHost"))
 
 
+def _diagnostics_report(request: Request):
+    from . import diagnostics
+    state = request.app.state
+    return diagnostics.report(state.settings, state.mount_reachability.summary(),
+                              known_corruption=state.database.corrupted)
+
+
 @router.get("/api/diagnostics")
 def system_diagnostics(request: Request, args: dict[str, str] = Depends(require_auth)):
     """本机诊断与 doctor JSON 共用报告；媒体来源只读后台快照。"""
-    from . import diagnostics
     if not local_client(request):
         raise HTTPException(403, message_fields("api.configuration.openDiagnosticsOnHost"))
-    return diagnostics.report(request.app.state.settings, request.app.state.mount_reachability.summary())
+    return _diagnostics_report(request)
 
 
 @router.get("/api/diagnostics/library")
@@ -91,10 +97,10 @@ def library_diagnostic_rows(request: Request, args: dict[str, str] = Depends(req
 
 @router.get("/api/diagnostics/bundle")
 def diagnostic_bundle(request: Request, args: dict[str, str] = Depends(require_auth)):
-    from . import diagnostic_context, diagnostics, support_bundle
+    from . import diagnostic_context, support_bundle
     local_only(request)
     try:
-        report = diagnostics.report(request.app.state.settings, request.app.state.mount_reachability.summary())
+        report = _diagnostics_report(request)
     except Exception as error:
         from .error_reporting import event
         event("diagnostics-report", error)
@@ -117,7 +123,7 @@ def diagnostic_export_status(request: Request, _args=Depends(require_auth)):
 
 @router.post('/api/diagnostics/exports')
 def diagnostic_export_start(request: Request, body: dict = Body(default_factory=dict), _args=Depends(require_auth)):
-    from . import diagnostic_context, diagnostic_exports, diagnostics
+    from . import diagnostic_context, diagnostic_exports
     local_only(request)
     same_origin(request)
     kind, codes = body.get('kind'), body.get('codes', '')
@@ -127,7 +133,7 @@ def diagnostic_export_start(request: Request, body: dict = Body(default_factory=
                                                  user_agent=request.headers.get('user-agent', ''))
     try:
         return diagnostic_exports.manager(request).start(kind, codes, browser=browser,
-            report=lambda: diagnostics.report(request.app.state.settings, request.app.state.mount_reachability.summary()))
+            report=lambda: _diagnostics_report(request))
     except ValueError as error:
         raise HTTPException(400, error_detail(error)) from error
 

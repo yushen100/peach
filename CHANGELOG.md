@@ -20,6 +20,10 @@ Entries are written for users to scan: one sentence each, saying where something
 
 ### Fixed / 修复
 
+- **Ledger**: Start Docker ledger upgrades without loading media playback modules into the migration process (#805). / **账本**：Docker 的账本升级不再因提前加载媒体播放模块而中断（#805）。
+- **Ledger**: Detect SQLite damage in use, halt writes, and keep backup restore available if the task table is damaged (#806). / **账本**：发现 SQLite 损坏后停止写入，任务表损坏时仍可从备份恢复（#806）。
+- **Desktop**: Run the bundled Windows OCR helper with its own PowerShell process policy (#807). / **桌面**：随包的 Windows OCR 助手使用独立的 PowerShell 进程执行策略（#807）。
+
 - **Settings**: Retry explicitly rate-limited diagnostic counts and show their delivery separately from error events (#802). / **配置**：明确被限流的故障计数会退避后补传，计数与错误事件分别记录回执（#802）。
 - **Ledger**: Follow-up workers keep claiming tasks after temporary database lock contention (#802). / **账本**：数据库写锁释放后，后继任务继续领取待执行项目（#802）。
 - **Sourcing**: Preview generation can finish when a frame cannot be checked for QR codes (#794). / **采集**：个别画面无法识别二维码时，仍可完成预览生成（#794）。

@@ -442,6 +442,24 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
                                                                   "reason_parts"} for check in checks.values()))
         self.assertNotIn(str(self.media_root), json.dumps(checks))
 
+    async def test_health_reports_ledger_corruption_found_during_normal_queries(self):
+        from support.ledger import damage_task_pages
+
+        database = fresh_ledger(self.root, "damaged.db")
+        app = create_app(replace(self.settings, db_path=database))
+        damage_task_pages(database)
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://127.0.0.1") as client:
+            self.assertEqual((await client.get('/healthz?ready=1')).status_code, 200)
+            with self.assertRaises(sqlite3.DatabaseError), app.state.database.read_connection() as connection:
+                connection.execute("SELECT id FROM task_run").fetchall()
+            probe = await client.get('/healthz')
+            self.assertEqual(probe.status_code, 200)
+            self.assertEqual(probe.json()['db'], 'corrupt')
+            self.assertEqual(probe.json()['checks']['database']['status'], 'failed')
+            ready = await client.get('/healthz?ready=1')
+            self.assertEqual(ready.status_code, 503)
+            self.assertFalse(ready.json()['checks']['database'])
+
     async def test_client_update_snapshot_is_authenticated_and_never_fetches_releases(self):
         before = self.db.read_bytes()
         with patch('peach.release_updates.check', side_effect=AssertionError('读取不得联网')):
@@ -547,7 +565,8 @@ class FastApiContractTests(unittest.IsolatedAsyncioTestCase):
             accepted = await self.client.get("/api/diagnostics?t=secret")
             self.assertEqual(accepted.status_code, 200)
             self.assertEqual(accepted.json(), report)
-            shared.assert_called_once_with(self.settings, self.app.state.mount_reachability.summary())
+            shared.assert_called_once_with(self.settings, self.app.state.mount_reachability.summary(),
+                                           known_corruption=False)
             async with httpx.AsyncClient(transport=httpx.ASGITransport(app=self.app, client=("192.0.2.10", 1234)),
                                          base_url="http://test") as remote:
                 denied = await remote.get("/api/diagnostics?t=secret")

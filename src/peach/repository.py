@@ -4,7 +4,7 @@ import logging
 import sqlite3
 import threading
 import time
-from contextlib import contextmanager, nullcontext
+from contextlib import closing, contextmanager, nullcontext
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -36,6 +36,20 @@ class LedgerWriteBusy(UserFacingError, sqlite3.OperationalError):
         self.sqlite_errorname = "SQLITE_BUSY"
 
 
+class LedgerWriteCorrupt(UserFacingError, sqlite3.DatabaseError):
+    """已确认损坏的账本需要先从备份恢复。"""
+
+    status_code = 503
+
+    def __init__(self):
+        super().__init__("errors.ledger.writeCorrupt")
+
+
+def is_ledger_corruption(error: sqlite3.Error) -> bool:
+    code = getattr(error, "sqlite_errorcode", 0) & 0xff
+    return code in (sqlite3.SQLITE_CORRUPT, sqlite3.SQLITE_NOTADB)
+
+
 def in_background(target):
     """把线程入口包成后台写入者：它提交的写入只让页面缓存「过期」，读者可以先拿旧值（ADR-0146）。
 
@@ -58,6 +72,9 @@ class LedgerDatabase:
         self.db_path = Path(db_path)
         self.media_roots = tuple(media_roots)
         self.write_lock = threading.Lock()
+        self.corrupted = False
+        self._integrity_lock = threading.Lock()
+        self._restore_generation = 0
         self._holder = ("", time.monotonic())
         self.after_commit = lambda: None
         self._sql_rules = (
@@ -68,6 +85,8 @@ class LedgerDatabase:
         )
 
     def connect(self, *, write: bool = False, timeout: float = 30) -> sqlite3.Connection:
+        if write and self.corrupted:
+            raise LedgerWriteCorrupt()
         target = (
             str(self.db_path)
             if write
@@ -89,13 +108,29 @@ class LedgerDatabase:
             connection.create_function(name, arity, function, deterministic=True)
         return connection
 
+    def record_restored(self) -> None:
+        """经校验的恢复完成后重新允许写入。"""
+        with self._integrity_lock:
+            self._restore_generation += 1
+            self.corrupted = False
+
+    @contextmanager
+    def _track_integrity(self):
+        generation = self._restore_generation
+        try:
+            yield
+        except sqlite3.DatabaseError as error:
+            if is_ledger_corruption(error):
+                with self._integrity_lock:
+                    # 恢复前打开的读连接可能仍读到旧文件。
+                    if generation == self._restore_generation:
+                        self.corrupted = True
+            raise
+
     @contextmanager
     def read_connection(self):
-        connection = self.connect()
-        try:
+        with self._track_integrity(), closing(self.connect()) as connection:
             yield connection
-        finally:
-            connection.close()
 
     @contextmanager
     def write_transaction(self, *, notify: bool = True, timeout: float | None = None):
@@ -127,19 +162,14 @@ class LedgerDatabase:
             raise LedgerWriteBusy(wait)
         self._holder = (threading.current_thread().name, time.monotonic())
         try:
-            connection = (self.connect(write=True) if timeout is None
-                          else self.connect(write=True, timeout=timeout))
-            try:
-                yield connection
-            except BaseException:
-                connection.rollback()
-                raise
-            else:
-                connection.commit()
+            options = {} if timeout is None else {"timeout": timeout}
+            with self._track_integrity(), closing(self.connect(write=True, **options)) as connection:
+                with connection:
+                    yield connection
+                    if self.corrupted:
+                        raise LedgerWriteCorrupt()
                 if notify:
                     self.after_commit()
-            finally:
-                connection.close()
         finally:
             self.write_lock.release()
 
