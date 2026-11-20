@@ -4,7 +4,7 @@ import { Popover, Pressable } from 'react-aria-components';
 import { Checkbox } from '@/components/base/checkbox/checkbox';
 import { Button } from '@/components/base/buttons/button';
 import { LinkButton } from '@/components/base/buttons/link-button';
-import { ChevronDownSmall } from '@/components/foundations/icons/chevrons';
+import { MenuChevron } from './menu-chevron';
 import { MENU_ITEM, MENU_ITEM_ACTIVE, MENU_ITEM_INTERACTIVE, MENU_ITEMS_CONTAINER, MENU_POPOVER_SURFACE } from '@/components/base/dropdown/menu-styles';
 import { cx } from '@/utils/cx';
 import { errorMessage } from '../../api';
@@ -40,7 +40,7 @@ export function ColumnFilterPopover({ id, label, active, shouldCloseOnInteractOu
   const [open, setOpen] = useState(false);
   return <>
     <Pressable onPress={() => setOpen(true)}>
-    <LinkButton ref={trigger} variant={active ? 'primary' : 'secondary'} size="xs" trailingIcon={ChevronDownSmall}
+    <LinkButton ref={trigger} variant={active ? 'primary' : 'secondary'} size="xs" trailingIcon={MenuChevron}
       data-table-column-filter={id} data-filter-active={active ? '' : undefined}
       className="min-w-0 max-w-full justify-start [&>span]:min-w-0"
       aria-label={t('catalog:columnFilter.label', { column: label })} aria-haspopup="dialog" aria-expanded={open}

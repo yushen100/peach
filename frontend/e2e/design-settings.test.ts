@@ -527,7 +527,7 @@ describe('设计决定：设置、口味、统计与筛选玻璃', () => {
         const want = getComputedStyle(primary);
         const expected = [want.backgroundColor, want.backgroundImage, want.color];
         primary.remove();
-        const trigger = node.querySelector('[data-sidebar-add-trigger]')!, add = node.querySelector('[data-sidebar-add]')!;
+        const trigger = node.querySelector('button[aria-haspopup="listbox"]')!, add = node.querySelector('[data-sidebar-add]')!;
         const face = getComputedStyle(add);
         return {
           height, trigger: getComputedStyle(trigger).height, add: face.height,
@@ -541,7 +541,7 @@ describe('设计决定：设置、口味、统计与筛选玻璃', () => {
       assert.equal(shown.cursor, 'pointer');
 
       /* 一项一项加回去，直到清单里没有可加的入口。 */
-      const add = row.locator('[data-sidebar-add]'), trigger = row.locator('[data-sidebar-add-trigger]');
+      const add = row.locator('[data-sidebar-add]'), trigger = row.locator('button[aria-haspopup="listbox"]');
       for (let left = 30; left > 0 && await add.isEnabled(); left -= 1) await add.click();
       assert.equal(await trigger.isDisabled(), true, '全部入口都加回侧栏之后触发器还能点');
       assert.ok((server.settings.sidebarOrder as string[]).length > ORDER.length, '加回的入口没有写进数据库');

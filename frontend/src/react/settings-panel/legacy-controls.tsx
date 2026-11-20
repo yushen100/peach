@@ -1,5 +1,4 @@
-/* 面板里沿用的三样共用控件：Geist Switch（`iconSwitchHtml`）、Geist Select（`selectFieldHtml`）与
- * 自绘拉条（`dialSliderHtml`）。
+/* 面板沿用的分段控件（`iconSwitchHtml`）与拉条（`dialSliderHtml`）。
  *
  * 它们的模板、键盘与动效在 `src/ui-kit/` 一份，首页筛选条、卡片版式和配置页用的是
  * 同一套；这里只给每一枚一个容器，由助手把 HTML 写进去再接线。分段滑块由 `board-controls.ts`
@@ -9,7 +8,7 @@
 import { useLayoutEffect, useRef } from 'react';
 
 import {
-  dialSliderHtml, iconSwitchHtml, selectFieldHtml, setActionBusy, wireDialSlider, wireIconSwitch, wireSelectField,
+  dialSliderHtml, iconSwitchHtml, wireDialSlider, wireIconSwitch,
 } from '@peach/legacy/ui';
 
 import type { Choice } from './settings-panel-api';
@@ -39,36 +38,6 @@ export function IconSwitch({ id, name, legend, options, value, attr, variant, te
     painted.current = { value, epoch };
   });
   return <div id={id} ref={mount} />;
-}
-
-/** 一个下拉。触发器上那一格的内容可由 `decorate` 改写（排序方向那一格叠着两枚箭头）。 */
-export function SelectField({ id, label, options, value, disabled = false, busy = false, hidden, describedBy, epoch, onPick, decorate }: {
-  id: string; label: string; options: readonly Choice[]; value: string; disabled?: boolean; busy?: boolean;
-  hidden?: boolean; describedBy?: string; epoch: number; onPick(value: string): void;
-  decorate?(field: HTMLElement): void;
-}) {
-  const mount = useRef<HTMLDivElement | null>(null);
-  const field = useRef<(HTMLElement & { value: string; disabled: boolean }) | null>(null);
-  const built = useRef(-1);
-  const pick = useRef(onPick);
-  pick.current = onPick;
-  useLayoutEffect(() => {
-    const node = mount.current;
-    if (!node) return;
-    if (built.current !== epoch || !field.current) {
-      node.innerHTML = selectFieldHtml(rows(options), value, { label });
-      const root = wireSelectField(node.firstElementChild as HTMLElement);
-      root.addEventListener('change', () => pick.current(root.value));
-      field.current = root;
-      built.current = epoch;
-    }
-    const root = field.current;
-    if (root.value !== value) root.value = value;
-    if (root.disabled !== disabled) root.disabled = disabled;
-    if ((root.getAttribute('aria-busy') === 'true') !== busy) setActionBusy(root, busy);
-    decorate?.(root);
-  });
-  return <div id={id} ref={mount} hidden={hidden} aria-describedby={describedBy} />;
 }
 
 /** 一行「标签 + 0–max 拉条」。拉条由助手接在标签后面，和标签同为这一行的直接子节点；React 只管

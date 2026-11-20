@@ -27,8 +27,8 @@ async function posted(page: Page, server: Server, path: string, key: string): Pr
 const stored = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('peach.settings.v1') || '{}'));
 
 async function pick(page: Page, field: string, value: string): Promise<void> {
-  await page.locator(`${field} [data-select-trigger]`).click();
-  await page.locator(`${field} [data-select-option="${value}"]`).click();
+  await page.locator(`${field} button[aria-haspopup="listbox"]`).click();
+  await page.getByRole('listbox').locator(`[data-select-option="${value}"]`).click();
 }
 
 /** 自建一份上下文：起始设置只在本地还没有时写一次，刷新之后不会被冲掉。 */

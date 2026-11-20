@@ -16,8 +16,6 @@
 /* 读数占位是行内的一截：它坐在最终那枚 `b`、`strong`、说明行里，行高仍由那枚元素自己给，
    数字一到这一行不长不缩。它和 `.skeleton` 挂在同一个元素上、同一档特指度，靠排在后面压住。 */
 .skeleton-text{display:inline-block;vertical-align:middle;height:1em;width:12em;max-width:70%}
-/* 整理卡的来源下拉按「本地」那一档的宽度画。它挂在 `.gselectfield` 上、同一档特指度，
-   靠排在 01-base.css 后面压住那条 `width:100%`。 */
 .skeletoncard{display:grid;gap:10px;min-width:0}
 .skeletoncard i,.skeletoncard b,.skeletoncard em{display:block;
   border-radius:var(--control-radius);background:var(--hover)}

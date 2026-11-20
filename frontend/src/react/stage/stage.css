@@ -215,8 +215,6 @@ body[data-detail-open] [class~=glowlayer]::before{animation-play-state:paused,pa
 [data-local-playback]{display:flex;flex-direction:column;gap:8px;margin:0 0 12px;flex:none}
 [data-local-playback-row]{display:flex;align-items:center;gap:8px;min-width:0}
 [data-local-playback-row]>div{flex:1;min-width:0}
-[data-local-playback-row] .ui-gselect{display:block;width:100%}
-[data-local-playback-row] [data-select-trigger]{width:100%;height:var(--control-h)}
 [data-local-playback-row]>button{flex:none;height:var(--control-h);white-space:nowrap}
 [data-stage-tags]{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin:0 0 18px}
 [data-stage-actions]{display:flex;align-items:center;gap:0;margin:0 0 12px;padding:0;border:1px solid var(--border-10);border-radius:var(--control-radius);background:var(--overlay-5);width:max-content;overflow:hidden;flex:none}

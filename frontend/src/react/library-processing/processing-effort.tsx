@@ -1,7 +1,7 @@
 /* Effort 公开演示的三档领域适配；视觉参数与证据登记在 HANDOFF。 */
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Label, Popover, Slider, SliderThumb, SliderTrack } from 'react-aria-components';
-import { RiArrowDownSLine } from '@remixicon/react';
+import { MenuChevron } from '../components/menu-chevron';
 import { Button } from '@/components/base/buttons/button';
 import { MENU_POPOVER_SURFACE } from '@/components/base/dropdown/menu-styles';
 import { MenuDialog } from '../components/menu-dialog';
@@ -84,7 +84,7 @@ export function ProcessingMode({ value, busy, onChange, animate = true }: {
       <Button ref={trigger} size="small" variant="secondary"
         aria-label={t('manage:processingSpeed.buttonLabel', { mode: LABELS[index] })}
         aria-haspopup="dialog" aria-expanded={open} aria-disabled={busy}
-        leadingIcon={SPEED_ICONS[index]} trailingIcon={RiArrowDownSLine}
+        leadingIcon={SPEED_ICONS[index]} trailingIcon={MenuChevron}
         onClick={() => { if (!busy) setOpen(!open) }}>{LABELS[index]}</Button>
     </span>
     <Popover triggerRef={trigger} isOpen={open} onOpenChange={setOpen} placement="top start" offset={8} className={MENU_POPOVER_SURFACE}>

@@ -4,7 +4,6 @@
 export { attachOverlayScrollbar } from './overlay-scrollbar';
 export { growCollapse, setCollapseOpen, setCollapseRegionOpen, wireCollapse } from './collapse';
 export { closeAnchoredMenu, dismissMenu, presentMenu, scrollMovesAnchor, wireAnchoredMenu } from './anchored-menu';
-export { selectFieldHtml, selectOptionIconHtml, wireSelectField } from './select-field';
 export { MEDIA_SOURCE_ICONS } from './media-source-icons';
 export {
   badgeHtml, boardTabsHtml, checkboxHtml, collectionHeaderHtml, emptyStateHtml, LOAD_MORE_STATUS, noteHtml,

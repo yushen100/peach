@@ -404,7 +404,7 @@ body>.board-filter-frame{margin-inline:16px}
 .srctools button{border-radius:8px;background:var(--surface)}
 .configfieldset,.cleanupfieldset,.resourcesyncbox{border-color:var(--line);border-radius:var(--surface-radius);background:var(--ground);overflow:clip}
 .geist-fieldset-footer,.configfieldset>.geist-fieldset-footer{background:var(--surface);border-top:1px solid var(--line-soft)}
-.geist-input,.gselectfield{background:var(--surface);border-color:var(--line);border-radius:10px}
+.geist-input{background:var(--surface);border-color:var(--line);border-radius:10px}
 .iconswitch{padding:3px;background:var(--surface);border:1px solid var(--line-soft);border-radius:10px}
 .iconswitch label{border-radius:8px}
 .iconswitch label:has(input:checked){background:var(--ground);box-shadow:0 1px 3px light-dark(#0002,#0009)}
@@ -675,14 +675,14 @@ body .vjs-peach-speed-range::-moz-range-thumb{width:18px;height:18px;border:1px 
 body .vjs-peach-speed-range::-webkit-slider-runnable-track{height:6px;border-radius:999px;background:linear-gradient(90deg,var(--color-accent-400) var(--board-range-value,var(--peach-speed-percent,0%)),var(--color-background-tertiary-default) 0);box-shadow:inset 0 1px 1px #0000000f}
 body .vjs-peach-speed-range::-webkit-slider-thumb{margin-top:-7px}
 body .vjs-peach-speed-range::-moz-range-track{height:6px;border-radius:999px;background:linear-gradient(90deg,var(--color-accent-400) var(--board-range-value,var(--peach-speed-percent,0%)),var(--color-background-tertiary-default) 0)}
-body :is(.popmenu,.gselectmenu){box-sizing:border-box;padding:10px;border:1px solid var(--color-border-button-default);border-radius:16px;background:var(--color-background-primary-default);color:var(--color-text-primary);box-shadow:var(--elevation-dropdown)}
+body .popmenu{box-sizing:border-box;padding:10px;border:1px solid var(--color-border-button-default);border-radius:16px;background:var(--color-background-primary-default);color:var(--color-text-primary);box-shadow:var(--elevation-dropdown)}
 /* 每一项都在这里定死成「左起一行」，位置和形状写在同一条里。浮层看着浮在页面上方，
    DOM 却长在触发它的那张卡里，于是页面分区给自家 button 写的本地外观照样命中它：整理卡
    的 `.cleanupfieldset button` 带 `justify-content:center`，来源下拉每一项的站标就被推到
    行正中，和触发器里那一枚不在同一列。这里只写形状不写位置的话，那个属性在菜单这一侧
    无人竞争，页面那条就成了唯一声明者。 */
-body :is(.popmenu,.gselectmenu)>:is(button,[role=option],[role=menuitem]){display:flex;align-items:center;justify-content:flex-start;width:100%;min-height:36px;padding:8px;gap:8px;border:0;border-radius:10px;background:transparent;color:var(--color-text-secondary);font:var(--board-body);text-align:left;box-shadow:none}
-body :is(.popmenu,.gselectmenu)>:is(button,[role=option],[role=menuitem]):is(:hover,:focus-visible,[aria-selected=true]){background:var(--color-background-primary-hover);color:var(--color-text-primary)}
+body .popmenu>:is(button,[role=option],[role=menuitem]){display:flex;align-items:center;justify-content:flex-start;width:100%;min-height:36px;padding:8px;gap:8px;border:0;border-radius:10px;background:transparent;color:var(--color-text-secondary);font:var(--board-body);text-align:left;box-shadow:none}
+body .popmenu>:is(button,[role=option],[role=menuitem]):is(:hover,:focus-visible,[aria-selected=true]){background:var(--color-background-primary-hover);color:var(--color-text-primary)}
 /* 这一条只管「一句话就是一个链接」的那种外链：一行蓝字，没有边、没有底、不占按钮的位置。
    资料页那排外链不在此列——它是一圈药丸，边、底和 4px 内边距都是它自己的，被这里的
    `padding:0` 和 `border:0` 抹平之后那一排就只剩十个光秃秃的图标。
@@ -699,7 +699,7 @@ body a[target=_blank]:not(:has([data-link-icon])):not(.cardlink):where(:not([dat
 [data-button-group]>button:focus-visible{position:relative;z-index:1;outline:2px solid var(--color-border-focus-ring);outline-offset:-2px}
 @media(max-width:1000px){.resourcesyncbox[data-cleanup-task]{grid-template-columns:1fr}}
 .metricstrip>button[aria-selected=true]{background:var(--color-background-primary-default);box-shadow:none}.metricstrip>button[aria-selected=true]::after{box-sizing:border-box}
-body .gselectmenu [role=option][aria-selected=true],body .popmenu [aria-checked=true]{background:color-mix(in srgb,var(--color-text-primary) 10%,var(--color-background-primary-default));color:var(--color-text-primary)}
+body .popmenu [aria-checked=true]{background:color-mix(in srgb,var(--color-text-primary) 10%,var(--color-background-primary-default));color:var(--color-text-primary)}
 .insightswitch{display:inline-flex;align-items:center;gap:2px;padding:3px;border:1px solid var(--line);border-radius:10px;background:var(--color-background-primary-default);box-shadow:var(--elevation-xs)}.insightswitch label>span{display:flex;align-items:center;min-height:28px;padding:4px 10px;border-radius:7px;color:var(--color-text-secondary);font:var(--board-body-medium)}.insightswitch label:has(input:checked)>span{background:var(--color-background-primary-hover);color:var(--color-text-primary);box-shadow:var(--elevation-xs)}
 [data-board-tabs]{position:relative!important}
 /* Split Button 照 Geist 实测（`vercel-geist-split-button.md`「悬停」）：两半各是一颗

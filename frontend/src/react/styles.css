@@ -48,7 +48,6 @@
 @import "../ui-kit/markup.css";
 @import "../ui-kit/activity-motion.css";
 @import "../ui-kit/controls.css";
-@import "../ui-kit/select-field.css";
 @import "../ui-kit/scroll.css";
 @import "../ui-kit/overlay-scrollbar.css";
 @import "../ui-kit/modal.css";
@@ -64,6 +63,9 @@
 @import "../pagination.css";
 
 @source "./";
+
+[data-menu-chevron] { transition: rotate .2s ease; }
+[aria-expanded="true"] [data-menu-chevron] { rotate: 180deg; }
 
 @utility async-text-skeleton {
   height: .65em;

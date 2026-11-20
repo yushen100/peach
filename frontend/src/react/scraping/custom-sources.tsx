@@ -12,7 +12,7 @@ import { CodeBlock } from '../components/code-block';
 import { ErrorText, FieldLabel, Footer, Help, Section, Stack } from '../settings/section';
 import { busyProps, useAction } from '../settings/use-action';
 import { composingKey } from '../components/ime';
-import { SelectField } from '../settings-panel/legacy-controls';
+import { SelectField } from '../components/select-field';
 import { CUSTOM_SOURCES_URL as URL, CUSTOM_SOURCES_KEY as KEY, fetchCustomSources,
   type CustomSource as Source } from './custom-source-data';
 import { t } from '../../i18n';

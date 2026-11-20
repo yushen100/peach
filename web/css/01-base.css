@@ -438,31 +438,6 @@ body.settings-open>.ovtrack.page,body.photolight-open>.ovtrack.page{display:none
    margin:auto 的居中盒，菜单会被拉宽并落在屏幕正中，而定位算的是 left/top。 */
 .popmenu[popover]{inset:auto;margin:0}
 
-/* Geist Select：触发器穿输入框那身盒子，面板就是上面那个锚定菜单。为什么不用原生
-   下拉、几何取自哪里，见 frontend/src/ui-kit/select-field.ts 的头注释。 */
-.gselectfield{box-sizing:border-box;display:inline-flex;align-items:center;justify-content:space-between;
-  gap:8px;width:100%;min-width:0;height:var(--control-h);padding:0 10px 0 12px;
-  border:1px solid var(--field-ring);border-radius:var(--control-radius);
-  background:var(--ground);color:var(--ink);font:inherit;font-size:var(--fs-md);line-height:20px;
-  text-align:left;cursor:pointer;transition:border-color .12s ease,background-color .12s ease,box-shadow .12s ease}
-.gselectfield>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.gselectmenu [data-select-content]{display:flex;align-items:center;gap:8px;min-width:0}
-.gselectfield .gselectmark{vertical-align:-3px;margin-inline-end:8px}
-.gselectmark{width:var(--icon-inline);height:var(--icon-inline);flex:none;object-fit:contain;stroke:currentColor;fill:none;stroke-width:2}
-.gselectfield>svg{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;color:var(--muted)}
-.gselectfield:hover:not(:disabled){border-color:var(--field-ring-hover)}
-/* 展开时按住焦点态：菜单开着而触发器看起来没被点中，读起来像两个控件。 */
-.gselectfield[aria-expanded="true"]{box-shadow:inset 0 0 0 2px var(--color-border-button-active)}
-.gselectfield:disabled{background:var(--surface);color:var(--muted);cursor:not-allowed}
-.gselectfield:focus-visible{outline:2px solid var(--tungsten);outline-offset:2px}
-/* 行首是站标，不是勾：选中态只有填充，行里也就没有一枚勾要占位。几何以 board.css 那条
-   浮层菜单项为准，这里是遗留层自己的基线，两边的内边距写同一个值。 */
-.popmenu.gselectmenu button{display:flex;align-items:center;justify-content:flex-start;gap:8px;width:100%;min-height:var(--control-h);
-  padding:0 8px;border:0;border-radius:var(--control-radius);background:transparent;color:var(--ink-2);
-  font:inherit;font-size:var(--fs-md);text-align:left;cursor:pointer}
-.popmenu.gselectmenu button:hover{background:var(--hover);color:var(--ink)}
-.popmenu.gselectmenu button[aria-selected="true"]{background:var(--hover);color:var(--ink)}
-
 /* Geist Modal 的操作条；弹层本身、正文与表单的几何在 frontend/src/ui-kit/modal.css。 */
 .geist-modal-footer{position:sticky;bottom:0;display:flex;justify-content:space-between;gap:16px;
   padding:12px;background:var(--surface)}

@@ -19,7 +19,10 @@ import { createSettingsStore } from '../../src/settings-store';
 import { DEFAULT_SFW_SHORTCUT, parseShortcut, type Shortcut } from '../../src/keyboard-shortcut';
 import { FOLLOW_INITIAL_RANGE_OPTIONS } from '../../src/application/initial-follow-ranges';
 
-import { click, pending, settle } from './render';
+import { choose, click, pending, settle } from './render';
+
+const selectButton = (panel: ParentNode, id: string) =>
+  panel.querySelector<HTMLButtonElement>(`#${id} button[aria-haspopup="listbox"]`);
 
 notifyManager.setScheduler((notify) => notify());
 
@@ -195,9 +198,9 @@ describe('设置面板与壳的接缝', () => {
       }
     };
     const panel = await open(current, 'JAV 与新作');
-    const field = panel.querySelector<HTMLElement & { value: string }>('#performerNameLanguageSetting > div')!;
-    expect(field.value).toBe('zh-CN');
-    await act(async () => { field.value = 'ja'; field.dispatchEvent(new Event('change', { bubbles: true })) });
+    const field = () => selectButton(panel, 'performerNameLanguageSetting');
+    expect(field()?.textContent).toBe('中文化（译名）');
+    await choose(field(), '日语原文');
     expect(writes).toEqual([{ performerNameLanguage: 'ja' }]);
     expect(names.nameLanguage()).toBe('zh-CN');
     expect(current.value.performerNameLanguage).toBe('zh-CN');
@@ -206,7 +209,7 @@ describe('设置面板与壳的接缝', () => {
     await settle();
     expect(names.nameLanguage()).toBe(success ? 'ja' : 'zh-CN');
     expect(current.value.performerNameLanguage).toBe(success ? 'ja' : 'zh-CN');
-    expect(field.value).toBe(success ? 'ja' : 'zh-CN');
+    expect(field()?.textContent).toBe(success ? '日语原文' : '中文化（译名）');
     expect(failure).toHaveBeenCalledTimes(success ? 0 : 1);
   });
   it.each([true, false])('界面语言存进数据库，保存成功=%s 时才交壳对账', async (success) => {
@@ -222,10 +225,10 @@ describe('设置面板与壳的接缝', () => {
     const failure = vi.fn();
     current.host.failure = failure;
     const panel = await open(current, '外观与导航');
-    const field = panel.querySelector<HTMLElement & { value: string }>('#interfaceLanguageSetting > div')!;
-    expect(field.value).toBe('zh-CN');
+    const field = selectButton(panel, 'interfaceLanguageSetting');
+    expect(field?.textContent).toBe('简体中文');
     synced.length = 0; // 打开面板时的那一次对账不算
-    await act(async () => { field.value = 'en'; field.dispatchEvent(new Event('change', { bubbles: true })) });
+    await choose(field, 'English');
     expect(writes).toEqual([{ interfaceLanguage: 'en' }]);
     expect(synced).toEqual([]);
     await answer.release({ ok: success, status: success ? 200 : 500,
@@ -348,9 +351,9 @@ describe('设置面板与壳的接缝', () => {
   it('画面手势：长按倍速、拖动幅度与双击区落进偏好；关掉手势后两项数值收起，长按倍速留着', async () => {
     const current = await setup();
     const panel = await open(current, '浏览与播放');
-    const rate = panel.querySelector<HTMLElement & { value: string }>('#holdRateSetting > div')!;
-    expect(rate.value).toBe('2');
-    await act(async () => { rate.value = '3'; rate.dispatchEvent(new Event('change', { bubbles: true })) });
+    const rate = selectButton(panel, 'holdRateSetting');
+    expect(rate?.textContent).toBe('2×');
+    await choose(rate, '3×');
     const swipe = panel.querySelector<HTMLInputElement>('#swipeMinutesSetting input[type=number]')!;
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(swipe, '10');
@@ -371,11 +374,11 @@ describe('设置面板与壳的接缝', () => {
   it('播完之后与接近片尾从头播：只落盘，不报效果；关掉片尾从头播就是 0', async () => {
     const current = await setup();
     const panel = await open(current, '浏览与播放');
-    const field = panel.querySelector<HTMLElement & { value: string }>('#afterPlaybackSetting > div')!;
-    expect(field.value).toBe('next');
+    const field = selectButton(panel, 'afterPlaybackSetting');
+    expect(field?.textContent).toBe('顺序播放');
     current.changed.mockClear();
     current.save.mockClear();
-    await act(async () => { field.value = 'shuffle'; field.dispatchEvent(new Event('change', { bubbles: true })) });
+    await choose(field, '随机播放');
     expect([current.value.afterPlayback, current.save.mock.calls.length, effects(current.changed)]).toEqual(['shuffle', 1, []]);
 
     const input = panel.querySelector<HTMLInputElement>('#resumeRestartSetting input[type=number]')!;

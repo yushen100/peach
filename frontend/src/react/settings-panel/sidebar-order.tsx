@@ -2,10 +2,8 @@
  *
  * 写入与侧栏那一列的拖动共用 `sidebar/sidebar-order.ts`：先落本地那份（侧栏按 store 的通知当场
  * 重排），再写 `/api/settings`。 */
-import { useRef, useState, type CSSProperties, type KeyboardEvent } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
 import { VisuallyHidden } from 'react-aria-components';
-
-import { dismissMenu, presentMenu } from '@peach/legacy/ui';
 
 import { useCommitNavigationOrder } from '../sidebar/sidebar-order';
 import { useSidebarReorder } from '../sidebar/use-sidebar-reorder';
@@ -14,6 +12,7 @@ import type { SettingsPanelHost } from './settings-panel-api';
 import { Button } from '@/components/base/buttons/button';
 import { resetSidebarOrder } from '../../sidebar';
 import { NavigationDropLine, restoreNavigationOrder } from '../components/navigation-order';
+import { Select, SelectItem } from '../components/select';
 import { t } from '../../i18n';
 
 /* 首页那一项的键是空串；空串写进属性和 dataTransfer 都等于没写，给它一个占位。 */
@@ -28,11 +27,8 @@ export function SidebarOrder({ host }: { host: SettingsPanelHost }) {
   const available = host.navCatalog.filter(([key]) => !order.includes(key));
   const defaults = resetSidebarOrder(order);
   const [picked, setPicked] = useState<string | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
   const list = useRef<HTMLDivElement>(null);
   const reorder = useSidebarReorder(list, order, commit, () => {}, 'y', 'tab');
-  const trigger = useRef<HTMLButtonElement | null>(null);
-  const menu = useRef<HTMLDivElement | null>(null);
 
   const step = (key: string, delta: number) => {
     const from = order.indexOf(key), to = from + delta;
@@ -44,27 +40,6 @@ export function SidebarOrder({ host }: { host: SettingsPanelHost }) {
 
   /* 清单里当前挑中的那一项；挑中的那一项被加进侧栏之后退回清单第一项。 */
   const chosen = available.find(([key]) => optionKey(key) === picked) ?? available[0];
-  const closeMenu = () => {
-    if (menu.current) dismissMenu(menu.current);
-    setMenuOpen(false);
-  };
-  const toggleMenu = () => {
-    const node = menu.current;
-    if (!node) return;
-    const opening = !menuOpen;
-    if (opening) presentMenu(node); else dismissMenu(node);
-    setMenuOpen(opening);
-    if (opening) node.querySelector<HTMLElement>('[aria-selected="true"]')?.focus();
-  };
-  const optionKeys = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (event.key === 'Escape') { event.preventDefault(); closeMenu(); trigger.current?.focus(); return }
-    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return;
-    event.preventDefault();
-    const all = [...(menu.current?.querySelectorAll<HTMLElement>('[role="option"]') ?? [])];
-    const at = all.indexOf(event.currentTarget);
-    all[(at + (event.key === 'ArrowDown' ? 1 : -1) + all.length) % all.length]?.focus();
-  };
-
   return (
     <div data-sidebar-order="" id="sidebarOrderSetting">
       <div ref={list} data-navigation-order="sidebar-settings" data-navigation-axis="y" data-navigation-rows=""
@@ -95,25 +70,17 @@ export function SidebarOrder({ host }: { host: SettingsPanelHost }) {
       </div>
       <VisuallyHidden role="status" aria-live="polite">{reorder.announcement}</VisuallyHidden>
       <div data-sidebar-add-row="">
-        <div data-sidebar-add-picker=""
-          onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) closeMenu() }}>
-          <button type="button" data-sidebar-add-trigger="" aria-haspopup="listbox" aria-expanded={menuOpen}
-            disabled={!chosen} ref={trigger} onClick={toggleMenu}>
-            {chosen
-              ? <><Icon name={chosen[2] ?? ''} /><span data-sidebar-add-label="">{chosen[1]}</span><Icon name="chevron-down" /></>
-              : <><Icon name="check" /><span>{t('settings:sidebarOrder.allShown')}</span></>}
-          </button>
-          {available.length
-            ? <div className="popmenu" data-sidebar-add-menu="" role="listbox" aria-label={t('settings:sidebarOrder.pickPage')} hidden ref={menu}>
-                {available.map(([key, label, glyph]) => (
-                  <button type="button" role="option" key={optionKey(key)} data-sidebar-add-option={optionKey(key)}
-                    aria-selected={chosen?.[0] === key} tabIndex={chosen?.[0] === key ? 0 : -1} onKeyDown={optionKeys}
-                    onClick={() => { setPicked(optionKey(key)); closeMenu(); trigger.current?.focus() }}>
-                    <Icon name={glyph ?? ''} /><span>{label}</span>
-                  </button>
-                ))}
-              </div>
-            : null}
+        <div className="peach-react min-w-0">
+        <Select aria-label={t('settings:sidebarOrder.pickPage')} triggerClassName="h-(--control-h)"
+          selectedKey={chosen ? optionKey(chosen[0]) : null} isDisabled={!chosen}
+          renderValue={chosen ? undefined : t('settings:sidebarOrder.allShown')}
+          onSelectionChange={(key) => setPicked(key === null ? null : String(key))}>
+          {available.map(([key, label, glyph]) => (
+            <SelectItem key={optionKey(key)} id={optionKey(key)} textValue={label}>
+              <span data-sidebar-picker-icon="" className="inline-flex shrink-0"><Icon name={glyph ?? ''} /></span><span>{label}</span>
+            </SelectItem>
+          ))}
+        </Select>
         </div>
         <button type="button" className="geist-button primary" data-sidebar-add="" disabled={!chosen}
           onClick={() => { if (chosen && !order.includes(chosen[0])) commit([...order, chosen[0]]) }}>{t('settings:shared.add')}</button>

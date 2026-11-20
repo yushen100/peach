@@ -20,10 +20,10 @@ function hostIn(parent: HTMLElement): HTMLElement {
   return host;
 }
 
-/** `node` 所在的那一层该用的弹层容器。 */
+/** 弹层挂到最近的详情浮窗或偏好设置面板，页面级弹层挂到 body。 */
 export function overlayHost(node: Element | null | undefined): HTMLElement {
   const document = node?.ownerDocument ?? globalThis.document;
-  const modal = node?.closest('dialog[open]');
+  const modal = node?.closest('dialog[open], [data-settings-panel]:not([hidden])');
   return hostIn((modal as HTMLElement | null) ?? document.body);
 }
 
