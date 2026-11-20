@@ -656,12 +656,13 @@ def _identity_unused(name):
     return name.casefold().endswith('.nfo') or system_file(name)
 
 
-def _local_directory(path, value):
+def _local_directory(path, value, *, identity_stat=None):
     """逐条读取本机目录。
 
     Windows 的目录快照没有文件 ID，`os.stat` 是身份的唯一来源，身份请求时逐个补读；
     网络盘上每次补读都是一趟往返，扫描用不上身份的条目不补读。
     """
+    identity_stat = os.stat if identity_stat is None else identity_stat
     with os.scandir(path) as entries:
         for entry in entries:
             item = dict(name=entry.name, path=entry.path, directory=False, symlink=False,
@@ -671,7 +672,7 @@ def _local_directory(path, value):
                 if not item['directory']:
                     info = entry.stat()
                     if value == 'identity' and not info.st_ino and not _identity_unused(entry.name):
-                        info = os.stat(entry.path)
+                        info = identity_stat(entry.path)
                     item['attributes'] = _attributes(info)
             except OSError as error:
                 item['error'] = str(error)
@@ -750,6 +751,11 @@ class MountWorker:
 
     def __exit__(self, *_exc):
         self.close()
+
+    def scan_directory(self, path, *, file_identity, timings):
+        items, measured = self.call('scan_directory', os.fspath(path), file_identity, interruptible=True)
+        timings.merge(measured)
+        return [DirectoryEntry(item) for item in items]
 
     def _start(self):
         if self._process is None:
@@ -839,6 +845,22 @@ class MountWorker:
             pass
 
 
+def _scan_directory(path, file_identity, *, progress):
+    """持续报告读盘进展，保留文件身份查询在目录读取中的耗时。"""
+    from .scan_timings import ScanTimings
+    timings = ScanTimings()
+    entries = []
+    next_progress = time.monotonic() + .25
+    for entry in _local_directory(path, 'identity' if file_identity else '',
+                                  identity_stat=lambda name: timings.call('file_identity', os.stat, name)):
+        entries.append(entry)
+        now = time.monotonic()
+        if now >= next_progress:
+            progress(len(entries))
+            next_progress = now + .25
+    return entries, timings.totals()
+
+
 def stat_of(path):
     """`file_stat` 的同一份字段，给 `MountWorker` 用：一批文件逐个 stat 不必每个起一个进程。"""
     return SimpleNamespace(**_attributes(os.stat(path)))
@@ -876,6 +898,7 @@ def move(source, target, case_only=False, rename=True):
 #: `MountWorker` 能执行的操作：名字 → (模块, 函数)，在子进程里用到时才导入。
 #: 带 `progress` 参数的操作中途报进度，父进程据此重新计时。
 SERVED = {
+    'scan_directory': ('peach.media_io', '_scan_directory'),
     'stat': ('peach.media_io', 'stat_of'),
     'probe': ('peach.media_io', 'probe'),
     'move': ('peach.media_io', 'move'),

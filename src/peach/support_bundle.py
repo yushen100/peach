@@ -91,7 +91,8 @@ def _structured_json(stream):
             primary = ('job_id', 'run_id', 'status', 'stage', 'requested_stage', 'checked', 'total',
                        'issue_count', 'current_action', 'error', 'started_at', 'last_progress_at', 'completed_at')
             fields = sorted(value, key=lambda key: (key not in primary,
-                            isinstance(value[key], (dict, list)), key not in ('steps', 'issue_preview', 'notes')))
+                            isinstance(value[key], (dict, list)),
+                            key not in ('steps', 'issue_preview', 'notes', 'scan_checkpoints')))
             projected, omitted = {}, 0
             for key in fields:
                 for limit in (20, 10, 5, 1):
