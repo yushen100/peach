@@ -1,14 +1,6 @@
-# 代码知识库导航
+# 代码导航
 
-面向 Codex 与其他开发者的按需检索入口。核验日期：2026-11-19。
-内容依据当前源码、测试登记与专题文档；路径用于定位，行为以实现及对应测试为准。
-
-## 先定位任务
-
-1. 在下表选择能力，先读对应源码入口和专题文档的相关章节。
-2. 沿具体端点、符号或查询键搜索调用方，再定位测试；查询示例见[开发检索指南](CODE_SEARCH.md)。
-3. 执行边界查 [AGENTS.md](../AGENTS.md) 的任务技能；设计理由查 [ADR](adr/0015-agent-context-layering.md)。
-4. 选测以[测试登记](../scripts/scope_registry.toml)和[正式测试入口](TESTING.md)为准。下表只列起点，不是完整覆盖清单。
+按能力查源码入口和对应测试，再用[开发检索指南](CODE_SEARCH.md)里的示例追踪调用方。任务约束见 [AGENTS.md](../AGENTS.md)，正式测试范围以[测试登记](../scripts/scope_registry.toml)和[测试入口](TESTING.md)为准。
 
 ## 能力与源码
 
@@ -16,7 +8,8 @@
 
 | 能力与常见检索词 | 源码起点 | 测试起点 | 参考 |
 | --- | --- | --- | --- |
-| 服务启动、依赖装配、认证、健康检查 | [api.py](../src/peach/api.py)、[routes_auth.py](../src/peach/routes_auth.py)、[health.py](../src/peach/health.py) | `test_fastapi_api.py` | [架构](ARCHITECTURE.md)、[安全](../SECURITY.md) |
+| 命令行、服务启动、升级前迁移 | [cli.py](../src/peach/cli.py)、[server.py](../src/peach/server.py)、[runtime_prepare.py](../src/peach/runtime_prepare.py) | `test_cli.py`、`test_server.py` | [运行配置](OPERATIONS.md) |
+| Web 服务装配、认证、健康检查 | [api.py](../src/peach/api.py)、[routes_auth.py](../src/peach/routes_auth.py)、[health.py](../src/peach/health.py) | `test_fastapi_api.py` | [架构](ARCHITECTURE.md)、[安全](../SECURITY.md) |
 | JSON 端点、只读端、写入冲突 | [routes_api.py](../src/peach/routes_api.py)、[web_router.py](../src/peach/web_router.py)、[web_state.py](../src/peach/web_state.py) | `test_fastapi_api.py`、`test_field_owners.py` | [路由](ROUTES.md) |
 | 目录、筛选、搜索、影片详情 | [web_catalog.py](../src/peach/web_catalog.py)、[web_search.py](../src/peach/web_search.py)、[catalog_rules.py](../src/peach/catalog_rules.py) | 搜索 `q_items`、`q_facets`、`q_item` | [目录浏览](DIRECTORY_BROWSING.md) |
 | 扫描、入库、文件身份、路径映射 | [scan.py](../src/peach/scan.py)、[file_identity.py](../src/peach/file_identity.py)、[platform.py](../src/peach/platform.py)、[media_libraries.py](../src/peach/media_libraries.py) | `test_scan.py`、`test_platform.py` | [架构](ARCHITECTURE.md)、[运行配置](OPERATIONS.md) |
@@ -70,11 +63,4 @@ Web 处理器持有的 `WebContract.write_transaction` 委托给 `LedgerDatabase
 规则标识与版本位于 `upgrade_rules.py`，执行与回执判断位于 `upgrade_repairs.py`。
 修复旧结果时同时查生成者、缓存和补修回执，不能只验证新输入。
 
-## 知识归属与维护
-
-- 架构事实保存在 [ARCHITECTURE.md](ARCHITECTURE.md)，设计理由保存在 ADR；本页只维护导航关系。
-- 测试域与路径映射保存在 `scripts/scope_registry.toml`；安装、选测和证明协议保存在 `docs/TESTING.md`。
-- 移动源码或改变入口时同步核对对应导航行；链接、预算与仓库卫生使用现有正式检查。
-- 新增能力先检索 [REUSE.md](REUSE.md)、当前实现与必要历史，具体流程见 `peach-reuse-first`。
-- 私有运行状态、媒体清单和会话记录按 [ADR-0015](adr/0015-agent-context-layering.md) 存在仓库外。
-- 本页是 Markdown 检索入口，无需生成索引或外部服务。静态检查不证明实际检索耗时改善。
+移动源码或改变入口时，核对对应导航行。架构和设计理由分别维护在 [ARCHITECTURE.md](ARCHITECTURE.md) 与 ADR 中。查找现有实现时可先看[复用清单](REUSE.md)。
