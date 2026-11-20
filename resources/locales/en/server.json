@@ -280,6 +280,15 @@
         }
       }
     },
+    "v0-60-0": {
+      "headline": "Choose which editions come first",
+      "items": {
+        "download-edition-order": {
+          "body": "Drag editions into order in download settings, then save to prioritize matching results in one-click adding and Wants",
+          "title": "Preferred download editions"
+        }
+      }
+    },
     "v0-59-0": {
       "headline": "Filter your library and edit work details",
       "items": {
