@@ -40,7 +40,7 @@ import re
 import sqlite3
 import time
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from functools import partial
 from itertools import chain
 from pathlib import Path, PureWindowsPath
@@ -49,6 +49,7 @@ from filelock import FileLock
 from . import folder_rules, interface_text, junk, record_rehome, subtitles, wants
 from .platform import is_windows_path, is_unmapped, resolve_location, resolve_root
 from .processing_control import checkpoint
+from .scan_timings import ScanTimings
 from .fsutil import atomic_write_text
 from .user_messages import UserFacingError
 from .discovery_rules import system_directory, system_path
@@ -509,6 +510,7 @@ class ScanResult:
     path_conflicts: int = 0
     #: 登记前按番号改指到新文件的旧行（`record_rehome.CodeRelocator`）；不在 `new_ids` 里，增量探测要并进来。
     relocated_ids: tuple[int, ...] = ()
+    timings: dict = field(default_factory=dict)
 
     def summary(self) -> str:
         """命令行打印的一行摘要，跟本机语言（`labels.scan.summary`）。"""
@@ -520,7 +522,8 @@ class ScanResult:
             "conflicts": f"{self.path_conflicts:,}"}, interface_text.local_language())
 
 
-def _walk(top: Path, pending: list[str] | None = None, *, onerror=lambda error: None, read_directory=None):
+def _walk(top: Path, pending: list[str] | None = None, *, onerror=lambda error: None, read_directory=None,
+          timings=None):
     """自顶向下遍历，每个目录给出它里面的非目录条目（`os.DirEntry`）。
 
     与 `os.walk` 的差别只在一处：条目的大小与时间从 `DirEntry.stat()` 拿。Windows 的目录
@@ -530,9 +533,10 @@ def _walk(top: Path, pending: list[str] | None = None, *, onerror=lambda error: 
     """
     if system_path(str(top)):
         return
+    timings = ScanTimings() if timings is None else timings
     from .smb_media import SmbResource
     if isinstance(top, SmbResource):
-        yield from _walk_smb(top, pending, onerror)
+        yield from _walk_smb(top, pending, onerror, timings)
         return
     stack = pending if pending is not None else [os.fspath(top)]
     while stack:
@@ -541,11 +545,12 @@ def _walk(top: Path, pending: list[str] | None = None, *, onerror=lambda error: 
         if system_path(directory):
             continue
         try:
-            if read_directory is not None:
-                entries = read_directory(directory)
-            else:
-                with os.scandir(directory) as scanner:
-                    entries = list(scanner)
+            with timings.measure('directory_read'):
+                if read_directory is not None:
+                    entries = read_directory(directory)
+                else:
+                    with os.scandir(directory) as scanner:
+                        entries = list(scanner)
         except OSError as error:
             if directory == os.fspath(top):
                 raise ScanRootUnreadable(directory, error) from error
@@ -578,7 +583,7 @@ def _relative_directory(directory, top):
             if isinstance(top, SmbResource) else Path(directory).relative_to(top).parts)
 
 
-def _walk_smb(top, pending, onerror):
+def _walk_smb(top, pending, onerror, timings):
     """SMB 版 `_walk`：整趟遍历共用一条连接。
 
     逐目录新建连接时，TCP 握手、会话认证与挂载共享的开销远大于列目录本身。
@@ -597,13 +602,13 @@ def _walk_smb(top, pending, onerror):
             resource = top.joinpath(*_relative_directory(directory, top))
             try:
                 try:
-                    entries = resource.scandir(transport)
+                    entries = timings.call('directory_read', resource.scandir, transport)
                 except OSError as error:
                     if error.errno in PATH_ERRNOS:
                         raise
                     transport.close()
                     transport = top._transport()
-                    entries = resource.scandir(transport)
+                    entries = timings.call('directory_read', resource.scandir, transport)
             except OSError as error:
                 if directory == str(top):
                     raise ScanRootUnreadable(directory, error) from error
@@ -647,6 +652,7 @@ def scan_location(db_path, location, root, **kwargs) -> ScanResult:
         kwargs.get('progress', lambda files, total: None)(0, 0)
         kwargs.get('report', print)(result.summary())
         return result
+    kwargs.setdefault('timings', ScanTimings())
     if 'save_checkpoint' in kwargs or 'resume_state' in kwargs:
         return _scan_location(db_path, location, root, **kwargs)
     from .update_tasks import state_for
@@ -800,7 +806,7 @@ def _scan_location(
     progress: Callable[[int, int], None] = lambda files, total_bytes: None,
     resume_state: dict | None = None,
     save_checkpoint: Callable[[dict], None] = lambda state: None,
-    read_directory=None, onerror=lambda error: None, new_only=False,
+    read_directory=None, onerror=lambda error: None, new_only=False, timings,
 ) -> ScanResult:
     """遍历 `root`（数据库中的路径格式）对应的本机目录，把文件元数据 upsert 进 `asset`。
 
@@ -835,15 +841,16 @@ def _scan_location(
         artwork_parents = {path_module.dirname(value) for value in [*pending, *([directory] if directory else [])]
                            if path_module.basename(value).casefold() in ARTWORK_DIRS}
         video_dirs.intersection_update(artwork_parents)
-        save_checkpoint(dict(mapping=mapping, scan_time=now, pending=list(pending), files=files,
-                             total_bytes=total, sidecars=skipped, subtitles=tracks,
-                             orphan_subtitles=orphans, new_ids=sorted(discovered), relocated_ids=sorted(relocator.moved),
-                             video_dirs=sorted(video_dirs),
-                             current_directory=directory, cursor=cursor, here=dict(here or {})))
+        timings.call('checkpoint_write', save_checkpoint, dict(
+            mapping=mapping, scan_time=now, timings=timings.snapshot(), pending=list(pending), files=files,
+            total_bytes=total, sidecars=skipped, subtitles=tracks,
+            orphan_subtitles=orphans, new_ids=sorted(discovered), relocated_ids=sorted(relocator.moved),
+            video_dirs=sorted(video_dirs),
+            current_directory=directory, cursor=cursor, here=dict(here or {})))
     # 写事务只在每批 upsert 到 commit 之间打开，遍历与 stat 都在两次 commit 之间，不持锁。
     connection = _open_ledger(db_path)
     try:
-        registered, conflicts = _registered_paths(connection, location, root)
+        registered, conflicts = timings.call('ledger_index', _registered_paths, connection, location, root)
         from .file_identity import FileIdentityIndex
         identities = FileIdentityIndex(db_path) if location == 'local' and not remote else None
         relocator = record_rehome.CodeRelocator(connection, location, root, walk_root,
@@ -852,7 +859,8 @@ def _scan_location(
         for conflict in conflicts.values():
             onerror(conflict)
             report(str(conflict))
-        for directory, entries in _walk(walk_root, pending, read_directory=read_directory, onerror=onerror):
+        for directory, entries in _walk(walk_root, pending, read_directory=read_directory, onerror=onerror,
+                                        timings=timings):
             checkpoint('scan')
             relative = _relative_directory(directory, walk_root)
             continuing = directory == previous.get('current_directory')
@@ -880,9 +888,10 @@ def _scan_location(
                 _follow_case_rename(connection, registered, conflicts, location, ledger_root, walk_root,
                                     ledger_path, Path(directory) / name, direct=read_directory is None)
                 try:
-                    stat = _scan_file_stat(connection, identities, registered, observations, location,
-                                           ledger_path, directory, entry, direct=read_directory is None,
-                                           relocate=partial(relocator.relocate, video_names=partial(_video_names, entries)))
+                    stat = timings.call(
+                        'file_registration', _scan_file_stat, connection, identities, registered, observations,
+                        location, ledger_path, directory, entry, direct=read_directory is None,
+                        relocate=partial(relocator.relocate, video_names=partial(_video_names, entries)))
                 except OSError as error:
                     onerror(error)
                     continue
@@ -892,43 +901,51 @@ def _scan_location(
                               stat.st_size, mtime, now, now))
                 files += 1
                 total += stat.st_size
-                progress(files, total)
+                timings.call('progress_update', progress, files, total)
                 if len(batch) >= BATCH_SIZE:
-                    connection, inserted_ids = _commit_reopening(connection, db_path, batch, registered, conflicts,
-                                                                 identities, observations, relocator)
+                    connection, inserted_ids = timings.call(
+                        'ledger_write', _commit_reopening, connection, db_path, batch, registered, conflicts,
+                        identities, observations, relocator)
                     discovered.update(inserted_ids)
                     save_directory(directory, name, here)
                     report(interface_text.text("server:labels.scan.progress", {
                         "seconds": f"{time.time() - started:5.0f}", "files": f"{files:,}",
                         "size": f"{total / 1024 ** 4:.2f}"}, interface_text.local_language()))
+            writing = time.monotonic()
             connection, inserted_ids = _commit_reopening(connection, db_path, batch, registered, conflicts,
                                                          identities, observations, relocator)
             directory_tracks, directory_orphans = _record_directory_subtitles(
                 connection, location, ledger_root.joinpath(*relative), here, conflicts, now)
             connection.commit()
+            timings.record('ledger_write', writing)
             discovered.update(inserted_ids)
             tracks += directory_tracks
             orphans += directory_orphans
             save_directory()
-        connection, inserted_ids = _commit_reopening(connection, db_path, batch, registered, conflicts,
-                                                     identities, observations, relocator)
+        connection, inserted_ids = timings.call(
+            'ledger_write', _commit_reopening, connection, db_path, batch, registered, conflicts,
+            identities, observations, relocator)
         discovered.update(inserted_ids)
         from .media_folders import path_predicate
         scope, parameters = path_predicate(location, root)
         new_ids = tuple(sorted(discovered))
+        writing = time.monotonic()
         reattached = len(record_rehome.reattach(connection, new_ids, now=now))
         acquired = len(wants.reconcile(connection, new_ids))
         folder_rules.apply_new(connection, new_ids)
         connection.commit()
+        timings.record('ledger_finalize', writing)
         gone = 0 if new_only else connection.execute(
             "SELECT COUNT(*) FROM asset a WHERE " + scope + " AND a.last_seen<?",
             (*parameters, now)).fetchone()[0]
     finally:
         connection.close()
-    checked = junk.isolate(db_path, roots=[(location, root)], asset_ids=list(new_ids) if new_only else None)
+    checked = timings.call('junk_check', junk.isolate, db_path, roots=[(location, root)],
+                           asset_ids=list(new_ids) if new_only else None)
     result = ScanResult(location, root, files, total, time.time() - started, gone,
                         tracks, orphans, skipped, new_ids, reattached, acquired,
-                        checked['isolated'], checked['review'], len(conflicts), tuple(sorted(relocator.moved)))
+                        checked['isolated'], checked['review'], len(conflicts), tuple(sorted(relocator.moved)),
+                        timings=timings.snapshot())
     save_checkpoint({'mapping': mapping, 'result': asdict(result)})
     progress(files, total, force=True)
     report(result.summary())

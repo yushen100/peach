@@ -344,6 +344,8 @@ class ErrorReportingTests(unittest.TestCase):
         path = state / 'library-processing.json'
         payload = {'local_metadata': {str(index): r'D:\private\movie.mp4' for index in range(10000)},
                    'job_id': 'task-23', 'status': 'running', 'stage': 'previews', 'checked': 423,
+                   'scan_checkpoints': {'local:D:\\private': {'result': {'timings': {
+                       'directory_read': {'count': 40, 'seconds': 20.0, 'max_seconds': 3.0}}}}},
                    'issue_count': 1, 'issue_preview': [{'asset_id': 23, 'title': 'private-movie',
                        'diagnostics': {'reason': 'timeout', 'stderr': 'token=private-token'}}]}
         path.write_text(json.dumps(payload, indent=2), encoding='utf-8')
@@ -356,6 +358,8 @@ class ErrorReportingTests(unittest.TestCase):
         self.assertEqual((exported['job_id'], exported['status'], exported['stage'], exported['checked']),
                          ('task-23', 'running', 'previews', 423))
         self.assertEqual(exported['issue_preview'][0]['diagnostics']['reason'], 'timeout')
+        self.assertEqual(exported['scan_checkpoints']['local:<path>']['result']['timings']['directory_read'],
+                         {'count': 40, 'seconds': 20.0, 'max_seconds': 3.0})
         self.assertNotIn(b'private-', content)
         entry = next(row for row in report['logs'] if row['name'] == path.name)
         self.assertEqual(entry['status'], 'included')

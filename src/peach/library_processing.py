@@ -33,7 +33,8 @@ from .images import measure_image_file
 from .jav_cover_fetch import MIN_WIDTH, DeadlineExceeded, NotFound
 from .sources.base import SourceFailure
 from .library_nfo import NFO_PARSER_VERSION, sidecars, SidecarIndex
-from .media_io import directory_files, read_nfo, local_art, root_online, directory_entries, file_stat
+from .media_io import MountWorker, directory_files, read_nfo, local_art, root_online, file_stat
+from .scan_timings import ScanTimings
 from .genre_decisions import load_genre_decisions
 from .metadata import (candidate_text_is_valid, source_text_is_valid,
                        extract_catalog_evidence, extract_peach_fields, relay_args,
@@ -2554,16 +2555,20 @@ def _scan_sources(config, db_path, *, locations, asset_ids, stage, guard, update
                     scan_checkpoints[key] = value
                     save_checkpoint()
                 try:
-                    registered = scan_location(db_path, source, root, declared_roots=config.locations,
-                                               mounts=mounts, report=lambda line: None,
-                                               read_directory=partial(directory_entries, file_identity=source == 'local'),
-                                               onerror=lambda error: issue(None, said_of(error), action='scanning_files'),
-                                               resume_state=scan_checkpoints.get(key), save_checkpoint=remember,
-                                               new_only=incremental,
-                                               progress=lambda files, size: update(
-                                                   **stage_fields('library.scanFiles'), scanned=result.scanned + files,
-                                                   scanned_bytes=result.scanned_bytes + size,
-                                                   checked=0, total=0, current_action='scanning_files'))
+                    timings = ScanTimings()
+                    with MountWorker() as reader:
+                        registered = scan_location(
+                            db_path, source, root, declared_roots=config.locations,
+                            mounts=mounts, report=lambda line: None,
+                            read_directory=partial(reader.scan_directory, file_identity=source == 'local',
+                                                   timings=timings),
+                            onerror=lambda error: issue(None, said_of(error), action='scanning_files'),
+                            resume_state=scan_checkpoints.get(key), save_checkpoint=remember,
+                            new_only=incremental, timings=timings,
+                            progress=lambda files, size: update(
+                                **stage_fields('library.scanFiles'), scanned=result.scanned + files,
+                                scanned_bytes=result.scanned_bytes + size,
+                                checked=0, total=0, current_action='scanning_files'))
                 except ScanRootUnreadable as error:
                     # 在线探测之后根目录又列不出来：记成这个来源的问题，别的来源照常扫。
                     issue(None, said_of(error), action='reading_local')

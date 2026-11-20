@@ -165,6 +165,21 @@ class MediaIoTests(unittest.TestCase):
             process = worker._process
         self.assertIsNotNone(process.poll())
 
+    def test_scan_directory_timeout_restarts_the_worker_for_the_next_directory(self):
+        from peach.scan_timings import ScanTimings
+
+        stuck = self.root / 'stuck'
+        stuck.mkdir()
+        timings = ScanTimings()
+        with hung_mount([stuck], 'os.scandir') as children, media_io.MountWorker() as worker:
+            with self.assertRaises(TimeoutError):
+                worker.scan_directory(stuck, file_identity=True, timings=timings)
+            self.assertIsNotNone(children[0].poll())
+            entries = worker.scan_directory(self.root, file_identity=True, timings=timings)
+            self.assertEqual([(entry.name, entry.is_dir()) for entry in entries], [('stuck', True)])
+        self.assertEqual(len(children), 2)
+        self.assertIsNotNone(children[1].poll())
+
     def test_a_cancel_during_an_interruptible_call_ends_the_worker_at_once(self):
         from peach.task_control import Cancelled
         stuck = self.root / 'stuck.mp4'

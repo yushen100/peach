@@ -13,10 +13,12 @@ import io
 import json
 import os
 import sqlite3
+import subprocess
 import tempfile
 import unittest
 from contextlib import closing, redirect_stdout
 from pathlib import Path, PureWindowsPath
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from peach import catalog_rules, scan
@@ -53,6 +55,30 @@ class _ScanCase(unittest.TestCase):
 @unittest.skipUnless(os.name == "nt", "本用例需要真实存在的 Windows 盘符目录")
 class WindowsShapeTests(_ScanCase):
     """Windows：配置的路径前缀就是真实目录，路径原样保存到数据库。"""
+
+    def test_library_scan_reuses_the_reader_and_saves_operation_timings(self):
+        from peach import library_processing, media_io
+
+        locations = {'local': (str(self.media),)}
+        config = SimpleNamespace(locations=locations, mounts={})
+        checkpoints = {}
+        with patch.object(media_io.subprocess, 'Popen', wraps=subprocess.Popen) as popen:
+            result = library_processing._scan_sources(
+                config, self.db, locations=locations, asset_ids=None, stage=library_processing.ALL_STAGES,
+                guard=SimpleNamespace(check=lambda: None), update=lambda **_values: None,
+                issue=lambda *_args, **_kwargs: self.fail('unexpected scan issue'),
+                scan_checkpoints=checkpoints, incremental=True)
+
+        readers = [call.args[0] for call in popen.call_args_list if call.args[0][-2:] == ['serve', '-']]
+        self.assertEqual(len(readers), 1)
+        self.assertEqual(result.scanned, 3)
+        checkpoint = next(iter(checkpoints.values()))['result']
+        timings = checkpoint['timings']
+        self.assertEqual(timings['directory_read']['count'], 3)
+        self.assertEqual(timings['file_identity']['count'], 3)
+        self.assertEqual(timings['checkpoint_write']['count'], 3)
+        self.assertGreaterEqual(timings['directory_read']['seconds'], timings['file_identity']['seconds'])
+        self.assertNotIn(str(self.media), json.dumps(timings))
 
     def test_rows_are_written_under_the_declared_root(self):
         declared = {"local": (str(self.media),)}
