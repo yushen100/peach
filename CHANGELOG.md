@@ -26,6 +26,7 @@ Entries are written for users to scan: one sentence each, saying where something
 - **Sourcing**: Look up CDRP releases with two-digit serial numbers (#788). / **采集**：按两位序号查找 CDRP 作品（#788）。
 - **Sourcing**: Recognize S2MBD release codes during collection (#789). / **采集**：采集时可识别 S2MBD 番号（#789）。
 - **Review**: Approve selected is highlighted as the primary action in manual review (#797). / **复核**：「通过所选」在人工复核的批量操作中恢复主按钮高亮（#797）。
+- **Settings**: Upgrades convert verified CloudDrive2 download paths for folder-scoped tokens and resume matching remote tasks without resubmitting (#211). / **配置**：升级会自动转换已核实的 CloudDrive2 受限令牌下载路径，并续接匹配的远端任务，避免重复提交（#211）。
 
 ## [0.59.0] - 2026-11-18
 
