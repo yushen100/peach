@@ -12,6 +12,7 @@ describe('配置表单与行间距', () => {
       const opened = await visit(browser, '/settings/downloads', viewport);
       const { page } = opened;
       try {
+        await page.emulateMedia({ reducedMotion: 'no-preference' });
         await page.route('**/api/configuration', async route => {
           const data = await (await route.fetch()).json();
           await route.fulfill({ json: { ...data, downloads: {
@@ -38,6 +39,7 @@ describe('配置表单与行间距', () => {
         try {
           await page.mouse.move(start.x + 18 + Math.min(120, start.width / 3), target.y + target.height * 0.8);
           assert.equal(await order.locator('[data-dragging]').count(), 1);
+          assert.ok(await order.evaluate(element => element.scrollWidth > element.clientWidth));
           assert.equal(await horizontalScroll(), 0);
         } finally { await page.mouse.up() }
         assert.equal(await horizontalScroll(), 0);
