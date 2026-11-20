@@ -56,6 +56,11 @@ export function wireSelectField(root: HTMLElement): SelectField {
   });
   const anchored=wireAnchoredMenu(root,trigger,menu);
   trigger.addEventListener('click',()=>{if(anchored.isOpen())current()?.focus()});
+  root.addEventListener('focusout',event=>{
+    if(anchored.isOpen()&&event.relatedTarget instanceof Node&&!root.contains(event.relatedTarget)){
+      anchored.setOpen(false);
+    }
+  });
   const choose=(value:string|undefined)=>{
     const picked=options().find(option=>option.dataset.selectOption===String(value));
     if(!picked)return;

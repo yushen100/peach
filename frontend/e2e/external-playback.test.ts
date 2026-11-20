@@ -29,8 +29,28 @@ describe('外部播放器', () => {
         assert.equal(await page.locator('#stage details[open]').count(), 0);
         assert.equal(await page.getByText('外部播放器 / VR', { exact: true }).count(), 0);
         assert.equal(await page.getByRole('button', { name: '使用外部播放器打开', exact: true }).count(), 1);
+        const waitForChevron = (expanded: boolean) => page.waitForFunction(expanded => {
+          const icon = document.querySelector('[data-local-playback] [data-select-trigger]:not(:disabled) > svg');
+          return icon && icon.parentElement?.getAttribute('aria-expanded') === String(expanded)
+            && getComputedStyle(icon).rotate === (expanded ? '180deg' : '0deg');
+        }, expanded);
+        await waitForChevron(false);
+        await chooser.click();
+        await waitForChevron(true);
+        await page.keyboard.press('Escape');
+        await waitForChevron(false);
+        assert.equal(await chooser.evaluate(button => button === document.activeElement), true);
+
+        await page.keyboard.press('Enter');
+        await waitForChevron(true);
+        await page.keyboard.press('Tab');
+        await waitForChevron(false);
+        assert.equal(await page.getByRole('button', { name: '使用外部播放器打开', exact: true })
+          .evaluate(button => button === document.activeElement), true);
+
         await chooser.click();
         await page.getByRole('option', { name: 'PotPlayer', exact: true }).click();
+        await waitForChevron(false);
         await page.getByRole('button', { name: '使用外部播放器打开', exact: true }).click();
         await page.waitForFunction(() => document.body.textContent?.includes('已请求打开本地播放器'));
         assert.equal(selected, 'potplayer');

@@ -449,7 +449,9 @@ body.settings-open>.ovtrack.page,body.photolight-open>.ovtrack.page{display:none
 .gselectmenu [data-select-content]{display:flex;align-items:center;gap:8px;min-width:0}
 .gselectfield .gselectmark{vertical-align:-3px;margin-inline-end:8px}
 .gselectmark{width:var(--icon-inline);height:var(--icon-inline);flex:none;object-fit:contain;stroke:currentColor;fill:none;stroke-width:2}
-.gselectfield>svg{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;color:var(--muted)}
+.gselectfield>svg{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;color:var(--muted);rotate:0deg}
+.gselectfield[aria-expanded="true"]>svg{rotate:180deg}
+@media (prefers-reduced-motion:no-preference){.gselectfield>svg{transition:rotate .2s ease}}
 .gselectfield:hover:not(:disabled){border-color:var(--field-ring-hover)}
 /* 展开时按住焦点态：菜单开着而触发器看起来没被点中，读起来像两个控件。 */
 .gselectfield[aria-expanded="true"]{box-shadow:inset 0 0 0 2px var(--color-border-button-active)}
