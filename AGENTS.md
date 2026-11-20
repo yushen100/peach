@@ -28,6 +28,7 @@
 ## 按任务读取
 
 部署读 `docs/OPERATIONS.md`，复用读 `docs/REUSE.md`，采集读 `docs/SOURCING.md`，架构取舍读相关 ADR。只展开本任务需要的章节。
+源码入口和对应测试见 [代码导航](docs/CODEBASE_MAP.md)。
 
 | 触发条件 | 技能 |
 | --- | --- |
