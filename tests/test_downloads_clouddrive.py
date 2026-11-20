@@ -7,9 +7,14 @@
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import socket
+import tempfile
 import unittest
 from concurrent import futures
+from pathlib import Path
+from types import SimpleNamespace
 
 import grpc
 
@@ -17,7 +22,11 @@ from peach import downloads as dl
 from peach import interface_text
 from peach import downloads_clouddrive as cd
 from peach import downloads_clouddrive_pb2 as pb
+from peach.downloads_channels import LibraryChannels
+from peach.follow_secrets import CredentialStore
 from peach.push_discovery import CloudPrefix
+from peach.repository import LedgerDatabase
+from support.ledger import fresh_ledger
 
 HASH = "c9e15763f722f23e98a29decdfae341b98d53056"
 MAGNET = dl.parse_magnet(f"magnet:?xt=urn:btih:{HASH}&dn=ABC-123")
@@ -93,7 +102,7 @@ class FakeCloudDrive:
         if full in self.folders:
             root = max((root for root in self.clouds if full == root or full.startswith(root + "/")),
                        key=len, default="/115")
-            return pb.CloudDriveFile(name=request.path, fullPathName=full, isDirectory=True,
+            return pb.CloudDriveFile(id=full, name=request.path, fullPathName=full, isDirectory=True,
                                      isCloudRoot=full == root, canOfflineDownload=self.folders[full],
                                      supportOfflineDownloadManagement=self.can_manage,
                                      CloudAPI=pb.CloudAPI(name=self.clouds.get(root, "115open"),
@@ -505,6 +514,124 @@ class RestrictedRootTests(_Server):
                              ("config", "errors.downloadsClouddrive.outsideTokenRoot"))
             self.assertIn(self.ROOT, caught.exception.detail)
         self.assertEqual(self.sent("AddOfflineFiles") + self.sent("CreateFolder"), [])
+
+    def legacy_service(self, target: str, prefix: str) -> dl.DownloadService:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name).resolve()
+        state = root / "state"
+        state.mkdir()
+        settings = state / dl.SETTINGS_FILENAME
+        settings.write_text(json.dumps({
+            "clouddrive_address": self.address, "targets": {"115": target, "pikpak": "/Movies"},
+            "pikpak_root": "P:\\", "wait_hours": 48,
+        }), encoding="utf-8")
+        credentials = CredentialStore(root / "secrets")
+        credentials.save(dl.CLOUDDRIVE_CREDENTIAL, {"token": TOKEN})
+        push = SimpleNamespace(config=SimpleNamespace(prefixes=(CloudPrefix(prefix, "B:\\"),)))
+        service = dl.DownloadService(database=LedgerDatabase(fresh_ledger(root)), state_root=state,
+                                     credentials=credentials, providers=lambda _: self.provider,
+                                     landing=dl.Landing(push, declared_roots={"115": ("B:\\",)}))
+        service.channel_catalog = LibraryChannels(service, lambda: {})
+        service.landing.channel_catalog = service.channel_snapshot
+        return service
+
+    def test_legacy_settings_and_existing_tasks_are_upgraded_on_the_normal_poll(self):
+        service = self.legacy_service("/云下载", "/115")
+        before = service.settings.path.read_bytes()
+        task = service.store.save(dl.DownloadTask(
+            0, HASH, "115", MAGNET.uri, "ABC-123", "/云下载", dl.REMOTE_RUNNING, remote_id="r1",
+            submitted_at=dl.iso(service.clock())))
+        self.fake.offline.append(pb.OfflineFile(infoHash=HASH, fileId="r1", name="ABC-123",
+                                                status=pb.OFFLINE_DOWNLOADING))
+        self.assertEqual(service.poll_once(), 1)
+        updated = service.settings.load()
+        full_path = f"{self.ROOT}/云下载"
+        self.assertEqual(updated.targets, {"115": full_path, "pikpak": "/Movies"})
+        self.assertEqual(updated.wait_hours, 48)
+        self.assertEqual(updated.pikpak_root, "P:\\")
+        self.assertEqual(updated.legacy_cloud_targets, frozenset())
+        saved = service.store.get(task.id)
+        self.assertEqual((saved.target, saved.state, saved.remote_id), (full_path, dl.REMOTE_RUNNING, "r1"))
+        self.assertEqual(service.landing.ledger_path(saved, updated), ("115", "B:\\Peach\\云下载\\ABC-123"))
+        backup = service.settings.path.with_name("downloads.before-cloud-path-upgrade.json")
+        self.assertEqual(backup.read_bytes(), before)
+        after = service.settings.path.read_bytes()
+        service.config = service.settings.load()
+        self.assertEqual(service.poll_once(), 0)
+        self.assertEqual(service.settings.path.read_bytes(), after)
+        self.assertEqual(backup.read_bytes(), before)
+        self.assertEqual(self.sent("AddOfflineFiles") + self.sent("CreateFolder"), [])
+
+    def test_relative_library_mapping_with_an_already_qualified_target(self):
+        service = self.legacy_service(f"{self.ROOT}/云下载", "/云下载")
+        rows = service.channel_snapshot()["providers"]
+        self.assertEqual([(row["key"], row["target"], row["cloud_root"]) for row in rows],
+                         [("115", f"{self.ROOT}/云下载", f"{self.ROOT}/云下载")])
+        self.assertEqual(service.config.targets["115"], f"{self.ROOT}/云下载")
+        digest = hashlib.sha256("/云下载\0b:".encode()).hexdigest()[:16]
+        old_provider = f"clouddrive:115:{digest}"
+        task = dl.DownloadTask(1, HASH, old_provider, MAGNET.uri, "ABC-123", f"{self.ROOT}/云下载", dl.REMOTE_DONE)
+        self.assertEqual(service.landing.ledger_path(task, service.config), ("115", "B:\\ABC-123"))
+
+    def test_unverified_legacy_directory_is_kept_and_a_new_outside_path_is_not_reinterpreted(self):
+        service = self.legacy_service("/云下载", "/115")
+        before = service.settings.path.read_bytes()
+        del self.fake.folders[f"{self.ROOT}/云下载"]
+        self.assertEqual(service.channel_snapshot()["providers"], [])
+        self.assertEqual(service.settings.path.read_bytes(), before)
+        self.fake.folders[f"{self.ROOT}/新配置"] = True
+        service.save_settings({**service.config.payload(), "targets": {"115": "/新配置"}}, {"pikpak": ("P:\\",)})
+        self.assertEqual(service.config.legacy_cloud_targets, frozenset())
+        self.fake.calls.clear()
+        self.assertNotIn(f"{self.ROOT}/新配置",
+                         [row["target"] for row in service.channel_snapshot()["providers"]])
+        self.assertNotIn("新配置", [request.path for request in self.sent("FindFileByPath")])
+
+    def test_a_failed_upgrade_can_recover_the_remote_task_without_resubmitting(self):
+        service = self.legacy_service(f"{self.ROOT}/云下载", "/115")
+        failure = dl.DownloadError("config", dl.CD2_OUTSIDE_TOKEN_ROOT,
+                                   {"path": "/云下载", "root": self.ROOT})
+        task = service.store.save(dl.DownloadTask(
+            0, HASH, "115", MAGNET.uri, "ABC-123", "/云下载", dl.FAILED,
+            failure=failure.failure, failure_detail=failure.detail,
+            finished_at=dl.iso(service.clock() - dl.STALL_RECHECK_HORIZON - 86400)))
+        service.store.record_submission(task=task, outcome="submitted", now=service.clock() - 2)
+        self.fake.offline.append(pb.OfflineFile(infoHash=HASH, fileId="r1", name="ABC-123",
+                                                status=pb.OFFLINE_FINISHED))
+        self.assertEqual(service.poll_once(), 1)
+        saved = service.store.get(task.id)
+        self.assertEqual((saved.target, saved.state, saved.failure_detail, saved.finished_at),
+                         (f"{self.ROOT}/云下载", dl.REMOTE_DONE, None, None))
+        self.assertEqual(self.sent("AddOfflineFiles"), [])
+
+    def test_a_new_rejected_path_stays_rejected_even_if_the_hash_exists_in_another_folder(self):
+        service = self.legacy_service(f"{self.ROOT}/云下载", "/115")
+        self.fake.offline.append(pb.OfflineFile(infoHash=HASH, fileId="other-id"))
+        failed = service.submit(source=MAGNET.uri, provider="115", target="/云下载")
+        self.assertEqual(failed.outcome, "failed")
+        self.assertEqual(service.poll_once(), 0)
+        self.assertEqual(service.store.get(failed.task.id).target, "/云下载")
+        self.assertEqual(self.sent("AddOfflineFiles") + self.sent("ListOfflineFilesByPath"), [])
+
+    def test_retry_and_cancel_do_not_guess_for_an_unconfirmed_legacy_task(self):
+        task = dl.DownloadTask(1, HASH, "115", MAGNET.uri, "ABC-123", "/云下载", dl.SUBMIT_PENDING, remote_id="r1")
+        self.fake.offline.append(pb.OfflineFile(infoHash=HASH, fileId="other-id"))
+        for action in (lambda: self.provider.retry_submit(task, MAGNET), lambda: self.provider.cancel(task)):
+            with self.assertRaises(dl.DownloadError) as caught:
+                action()
+            self.assertEqual(caught.exception.code, dl.CD2_OUTSIDE_TOKEN_ROOT)
+            self.assertEqual(task.target, "/云下载")
+        self.assertEqual(self.sent("AddOfflineFiles") + self.sent("RemoveOfflineFiles"), [])
+        self.fake.offline[0].fileId = "r1"
+        self.fake.offline[0].parentId = f"{self.ROOT}/别的目录"
+        self.assertIsNone(self.provider.recover_legacy_target(task))
+        self.assertEqual(task.target, "/云下载")
+        self.fake.offline[0].parentId = f"{self.ROOT}/云下载"
+        self.assertTrue(self.provider.retry_submit(task, MAGNET).adopted)
+        self.provider.cancel(task)
+        self.assertEqual(self.sent("AddOfflineFiles"), [])
+        self.assertEqual([request.path for request in self.sent("RemoveOfflineFiles")], ["/云下载"])
 
     def test_the_check_suggests_the_token_root_under_a_115_prefix(self):
         report = cd.check(self.address, TOKEN, "", hints=cd.Hints((CloudPrefix("/115", "B:\\"),), {"115": ("B:\\",)}))

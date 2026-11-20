@@ -30,7 +30,7 @@ import stat
 import threading
 import time
 from contextlib import nullcontext
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from weakref import WeakValueDictionary
 from datetime import datetime, timezone
 from pathlib import Path, PureWindowsPath
@@ -92,6 +92,7 @@ def postprocess_label_key(state: str) -> str:
 TRACKED_STATES = frozenset({SUBMIT_PENDING, SUBMITTED, REMOTE_RUNNING, REMOTE_DONE, LANDED})
 #: 可以再提交一次的状态。已入库的不必，在跑的接管就行。
 RESUBMITTABLE_STATES = frozenset({FAILED, CANCELLED, STALLED})
+CD2_OUTSIDE_TOKEN_ROOT = "errors.downloadsClouddrive.outsideTokenRoot"
 
 
 @dataclass(frozen=True)
@@ -502,6 +503,13 @@ _TASK_COLUMNS = (
 )
 #: 只有一列原句的说明字段；旁边的 `<列>_code`、`<列>_params` 存 code 与参数（迁移 0056）。
 _CODED_COLUMNS = ("failure_detail", "postprocess_detail")
+#: 只复查已被远端接收的旧任务。新提交填了令牌外路径时，保留原有拒绝结果。
+_CD2_PATH_RECOVERY = (
+    "state=? AND failure_detail_code=? AND (remote_id IS NOT NULL OR progress IS NOT NULL OR "
+    "(SELECT outcome FROM download_submission WHERE task_id=download_task.id "
+    "AND outcome IN ('submitted','adopted_remote','deferred','failed') ORDER BY id DESC LIMIT 1) "
+    "IN ('submitted','adopted_remote'))"
+)
 
 
 def _task_values(task: "DownloadTask") -> tuple[tuple[str, ...], list]:
@@ -592,8 +600,11 @@ class DownloadStore:
                 "AND (next_check_at IS NULL OR next_check_at<=?)) "
                 "OR (state=? AND next_check_at IS NOT NULL AND next_check_at<=?) "
                 "OR (state=? AND next_check_at IS NULL AND finished_at>=?) "
+                f"OR ({_CD2_PATH_RECOVERY} "
+                "AND (next_check_at IS NULL OR (finished_at>=? AND next_check_at<=?))) "
                 "OR (state=? AND postprocess_state=? AND next_check_at<=?) ORDER BY next_check_at, id",
                 (*states, iso(now), STALLED, iso(now), STALLED, iso(_stall_cutoff(now)),
+                 FAILED, CD2_OUTSIDE_TOKEN_ROOT, iso(_stall_cutoff(now)), iso(now),
                  INGESTED, POSTPROCESS_PENDING, iso(now))).fetchall()
         return [DownloadTask.from_row(row) for row in rows]
 
@@ -605,11 +616,19 @@ class DownloadStore:
                 f"SELECT min(coalesce(next_check_at,'')) FROM download_task WHERE state IN ({marks}) "
                 "OR (state=? AND next_check_at IS NOT NULL) "
                 "OR (state=? AND next_check_at IS NULL AND finished_at>=?) "
+                f"OR ({_CD2_PATH_RECOVERY} AND (next_check_at IS NULL OR finished_at>=?)) "
                 "OR (state=? AND postprocess_state=? AND next_check_at IS NOT NULL)",
-                (*states, STALLED, STALLED, iso(_stall_cutoff(now)), INGESTED, POSTPROCESS_PENDING)).fetchone()
+                (*states, STALLED, STALLED, iso(_stall_cutoff(now)), FAILED, CD2_OUTSIDE_TOKEN_ROOT,
+                 iso(_stall_cutoff(now)), INGESTED, POSTPROCESS_PENDING)).fetchone()
         if row is None or row[0] is None:
             return None
         return parse_iso(row[0]) or 0.0
+
+    def can_recover_cloud_path(self, task_id: int) -> bool:
+        with self.database.read_connection() as connection:
+            return connection.execute(
+                f"SELECT 1 FROM download_task WHERE id=? AND ({_CD2_PATH_RECOVERY})",
+                (task_id, FAILED, CD2_OUTSIDE_TOKEN_ROOT)).fetchone() is not None
 
     def save(self, task: DownloadTask) -> DownloadTask:
         names, values = _task_values(task)
@@ -783,6 +802,7 @@ class DownloadConfig:
     pikpak_root: str = ""
     wait_hours: int = DEFAULT_WAIT_HOURS
     problems: tuple[str, ...] = ()
+    legacy_cloud_targets: frozenset[str] = frozenset()
 
     def payload(self) -> dict:
         return {"clouddrive_address": self.clouddrive_address, "targets": dict(self.targets),
@@ -828,7 +848,11 @@ class DownloadSettings:
         if not isinstance(payload, dict):
             return DownloadConfig(problems=(Problem("labels.downloads.settingsMalformed"),))
         try:
-            return self._parse(payload, declared_roots=None, saved=True)
+            config = self._parse(payload, declared_roots=None, saved=True)
+            pending = payload.get("legacy_cloud_targets")
+            keys = pending if isinstance(pending, list) else config.targets
+            return replace(config, legacy_cloud_targets=frozenset(
+                key for key in config.targets if key != "pikpak" and key in keys))
         except ValueError:
             LOGGER.warning("Cloud download settings contain invalid values, using defaults: %s", self.path)
             return DownloadConfig(problems=(Problem("labels.downloads.settingsInvalid"),))
@@ -866,12 +890,30 @@ class DownloadSettings:
             problems = (Problem.of(error) if isinstance(error, UserFacingError) else str(error),)
         return DownloadConfig(address, targets, root, hours, problems)
 
-    def save(self, body: dict, declared_roots) -> DownloadConfig:
+    def save(self, body: dict, declared_roots, previous: DownloadConfig | None = None) -> DownloadConfig:
         if not isinstance(body, dict):
             raise ValueError("settings must be an object")
         config = self._parse(body, declared_roots=declared_roots)
-        atomic_write_text(self.path, json.dumps(config.payload(), ensure_ascii=False, indent=2) + "\n")
+        if previous is None:
+            previous = self.load()
+        pending = frozenset(key for key in previous.legacy_cloud_targets
+                            if config.targets.get(key) == previous.targets[key])
+        config = replace(config, legacy_cloud_targets=pending)
+        self._write(config)
         return config
+
+    def _write(self, config: DownloadConfig) -> None:
+        payload = {**config.payload(), "legacy_cloud_targets": sorted(config.legacy_cloud_targets)}
+        atomic_write_text(self.path, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+
+    def upgrade_cloud_targets(self, config: DownloadConfig, targets: dict[str, str]) -> DownloadConfig:
+        backup = self.path.with_name("downloads.before-cloud-path-upgrade.json")
+        if any(config.targets[key] != target for key, target in targets.items()) and not backup.exists():
+            atomic_write_text(backup, self.path.read_text(encoding="utf-8"))
+        updated = replace(config, targets={**config.targets, **targets},
+                          legacy_cloud_targets=config.legacy_cloud_targets.difference(targets))
+        self._write(updated)
+        return updated
 
 
 # ---------------------------------------------------------------- 服务
@@ -889,6 +931,10 @@ class SubmitResult:
 #: 提交结果的几种说法。`adopted` 是本机已有同一 infohash 的任务；`adopted_remote` 是远端
 #: 目录里已有同一个离线任务，接过来跟踪、没有调提交接口，也就没有扣配额。
 SUBMIT_OUTCOMES = ("submitted", "adopted", "adopted_remote", "deferred", "refused", "failed")
+
+
+def _channel_by_key(channels: list[dict], key: str) -> dict | None:
+    return next((row for row in channels if key in (row["key"], row.get("legacy_key"))), None)
 
 
 class DownloadService:
@@ -915,6 +961,7 @@ class DownloadService:
         self.after_ingest = after_ingest
         self.channel_catalog = channel_catalog
         self.config = self.settings.load()
+        self._settings_lock = threading.Lock()
         #: 按 provider 记最近一次渠道级失败（`CHANNEL_FAILURES`），这个渠道下一次提交成功时撤掉。
         #: 只放在内存里：重启后第一次提交自然会再试一次。
         self._channel_alerts: dict[str, dict] = {}
@@ -934,7 +981,7 @@ class DownloadService:
             raise UserValueError("errors.downloads.writerOnly")
         magnet = parse_magnet(source)
         channels = self.channel_snapshot()["providers"]
-        channel = next((row for row in channels if row["key"] == provider), None)
+        channel = _channel_by_key(channels, provider)
         if channel is None or (self.channel_catalog is not None and not channel["configured"]):
             raise UserValueError("errors.downloads.channelUnavailable")
         folder = normalise_target(target or channel["target"])
@@ -989,7 +1036,11 @@ class DownloadService:
     def _retry_submit(self, task: DownloadTask, now: float) -> None:
         """再交一次提交时网盘没应答的磁力。远端收下后从这一刻起按新提交对账。"""
         try:
-            status = self.providers(task.provider).submit(parse_magnet(task.source_uri), task.target)
+            provider = self.providers(task.provider)
+            magnet = parse_magnet(task.source_uri)
+            from .downloads_clouddrive import CloudDriveProvider
+            status = (provider.retry_submit(task, magnet) if isinstance(provider, CloudDriveProvider)
+                      else provider.submit(magnet, task.target))
         except DownloadError as error:
             self.note_channel(task.provider, error, now)
             started = parse_iso(task.submitted_at) or now
@@ -1183,6 +1234,8 @@ class DownloadService:
 
     def poll_once(self) -> int:
         """推进所有到期的任务，返回推进了几条。测试直接调它。"""
+        if self.config.legacy_cloud_targets and self.channel_catalog is not None:
+            self.channel_snapshot()
         due = self.store.due(self.clock())
         for task in due:
             self.advance(task)
@@ -1205,6 +1258,10 @@ class DownloadService:
 
     def _advance(self, task: DownloadTask) -> None:
         now = self.clock()
+        if task.state == FAILED:
+            if self.store.can_recover_cloud_path(task.id):
+                self._recover_cloud_path_failure(task, now)
+            return
         if task.state == INGESTED and task.postprocess_state == POSTPROCESS_PENDING:
             self._dispatch_postprocess(task)
             return
@@ -1229,6 +1286,27 @@ class DownloadService:
             self._fail(task, DownloadError(
                 "no_source", "errors.downloads.noSeeders", {"hours": self.config.wait_hours}),
                 now, state=STALLED)
+
+    def _recover_cloud_path_failure(self, task: DownloadTask, now: float) -> None:
+        """重新接管因令牌路径升级而失败、仍能在远端确认的原任务。"""
+        from .downloads_clouddrive import CloudDriveProvider
+        try:
+            provider = self.providers(task.provider)
+            status = provider.recover_legacy_target(task) if isinstance(provider, CloudDriveProvider) else None
+        except DownloadError:
+            status = None
+        if status is None:
+            task.next_check_at = iso(now + STALL_RECHECK)
+            self.store.save(task)
+            return
+        if status.state == ERROR:
+            self._fail(task, status.failure(), now)
+            return
+        task.finished_at = task.failure = None
+        if status.state == DONE:
+            self._remote_done(task, status, now)
+        else:
+            self._accepted(task, status, now)
 
     def _recheck_stalled(self, task: DownloadTask, now: float) -> None:
         """停滞任务的低频复查：远端完成就回到落地流程，否则排下一次，超出期限就不再查。
@@ -1305,6 +1383,11 @@ class DownloadService:
 
     def _settle_landing(self, task: DownloadTask, now: float) -> None:
         mapped = self.landing.ledger_path(task, self.config)
+        if mapped is None and (task.provider == "115" or task.provider.startswith("clouddrive:")):
+            from .downloads_clouddrive import CloudDriveProvider
+            provider = self.providers(task.provider)
+            if isinstance(provider, CloudDriveProvider) and provider.recover_legacy_target(task) is not None:
+                mapped = self.landing.ledger_path(task, self.config)
         if mapped is None:
             raise DownloadError("not_landed", "errors.downloads.targetNotMapped")
         location, ledger_path = mapped
@@ -1351,8 +1434,15 @@ class DownloadService:
     # -- 设置
 
     def save_settings(self, body: dict, declared_roots) -> DownloadConfig:
-        self.config = self.settings.save(body, declared_roots)
-        return self.config
+        with self._settings_lock:
+            self.config = self.settings.save(body, declared_roots, self.config)
+            return self.config
+
+    def upgrade_cloud_targets(self, expected: DownloadConfig, targets: dict[str, str]) -> None:
+        with self._settings_lock:
+            # 读取远端能力期间可能有人保存设置，只升级刚才探测的那份。
+            if self.available and self.config is expected:
+                self.config = self.settings.upgrade_cloud_targets(expected, targets)
 
 
 def _short(value) -> str | None:
@@ -1395,7 +1485,7 @@ class Landing:
         else:
             prefixes = tuple(self.push_discovery.config.prefixes)
             if self.channel_catalog:
-                channel = next((row for row in self.channel_catalog()["providers"] if row["key"] == task.provider), None)
+                channel = _channel_by_key(self.channel_catalog()["providers"], task.provider)
                 if channel and channel.get("cloud_root"):
                     prefixes = (CloudPrefix(channel["cloud_root"], channel["root"]),)
         try:
