@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import locale
 import os
 from pathlib import Path
 import shutil
@@ -89,11 +90,13 @@ class ImageReader:
         if executable is None:
             raise OcrUnavailable('Windows PowerShell unavailable')
         helper = PROJECT_ROOT / 'resources/ocr/windows.ps1'
-        return self._process([executable, '-NoProfile', '-NonInteractive', '-File', str(helper)],
-                             paths, {'language': 'zh-Hans-CN'})
+        # 执行策略只对运行随包助手的这一个 PowerShell 进程生效。
+        return self._process([executable, '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+                              '-File', str(helper)], paths, {'language': 'zh-Hans-CN'},
+                             stderr_encoding=locale.getencoding())
 
     @staticmethod
-    def _process(command, paths, parameters):
+    def _process(command, paths, parameters, *, stderr_encoding='utf-8'):
         from .task_control import run
         result = run(command,
                      input=json.dumps({'paths': [str(path) for path in paths],
@@ -101,7 +104,12 @@ class ImageReader:
                      capture_output=True, timeout=120,
                      creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
         if result.returncode:
-            raise OcrUnavailable(result.stderr.decode('utf-8', 'replace').strip())
+            # PowerShell 可能在助手把输出切到 UTF-8 之前就拒绝加载脚本。
+            try:
+                reason = result.stderr.decode('utf-8-sig')
+            except UnicodeDecodeError:
+                reason = result.stderr.decode(stderr_encoding, 'replace')
+            raise OcrUnavailable(reason.strip())
         try:
             entries = json.loads(result.stdout.decode('utf-8-sig'))
         except (ValueError, UnicodeError) as error:

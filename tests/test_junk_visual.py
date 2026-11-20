@@ -311,6 +311,16 @@ class ImageReaderTests(TestCase):
             self.assertEqual(ImageReader(Path('.'), platform='win32').read(paths), [PROMO] * 2)
         request = json.loads(run.call_args.kwargs['input'])
         self.assertEqual(request['paths'], [str(path) for path in paths])
+        command = run.call_args.args[0]
+        self.assertEqual(command[command.index('-ExecutionPolicy') + 1], 'Bypass')
+
+    def test_windows_shell_rejection_stays_readable_before_the_script_sets_utf8(self):
+        response = subprocess.CompletedProcess([], 1, b'', '禁止运行脚本'.encode('cp936'))
+        with patch('peach.image_ocr.shutil.which', return_value='powershell.exe'), \
+                patch('peach.image_ocr.locale.getencoding', return_value='cp936'), \
+                patch('peach.task_control.run', return_value=response):
+            with self.assertRaisesRegex(OcrUnavailable, '禁止运行脚本'):
+                ImageReader(Path('.'), platform='win32').read([Path('first.png').resolve()])
 
     def test_windows_engine_error_and_incomplete_responses_are_failures(self):
         path = Path('first.png').resolve()
